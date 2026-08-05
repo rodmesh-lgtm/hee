@@ -3,12 +3,12 @@
 import { motion } from "framer-motion";
 import {
   Clock3,
+  GalleryHorizontalEnd,
   Globe2,
-  Image,
   Link2,
-  MessagesSquare,
   MapPin,
   MessageCircle,
+  MessagesSquare,
   QrCode,
   ShieldCheck,
   ShoppingBag,
@@ -24,10 +24,28 @@ type PhoneFrameProps = {
   className?: string;
 };
 
+type PhonePointProps = {
+  label: string;
+  icon: ReactNode;
+  children: ReactNode;
+};
+
 const products = ["شاورما", "مشاوي", "حلويات", "مشروبات"];
 const offers = ["خصم 15%", "توصيل مجاني", "جلسة عائلية"];
 const gallery = ["سفرة", "أجواء", "منتجات", "مطبخ"];
 const socialLinks = ["Instagram", "TikTok", "Website"];
+
+function PhonePoint({ label, icon, children }: PhonePointProps) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+      <div className="flex items-center gap-1 text-[11px] text-slate-300">
+        {icon}
+        <span>{label}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export function PhoneFrame({ children, className }: PhoneFrameProps) {
   return (
@@ -35,6 +53,8 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
       initial={{ opacity: 0, scale: 0.96, y: 16 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
+      aria-label="معلومات نشاط تجاري داخل هاتف محاكاة"
+      role="img"
       className={cn(
         "relative mx-auto w-full max-w-[360px] rounded-[42px] border border-slate-200/80 bg-slate-950 p-3 shadow-[0_30px_90px_-35px_rgba(15,23,42,0.95)] dark:border-slate-700",
         className,
@@ -56,16 +76,16 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
                 <p className="text-xs text-slate-400">مطعم • متجر • توصيل</p>
               </div>
             </div>
-            <div className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-300">
+            <a
+              aria-label="تواصل عبر واتساب"
+              href="#"
+              className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-300"
+            >
               WhatsApp
-            </div>
+            </a>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold text-slate-300">المنتجات</span>
-              <ShoppingBag className="h-4 w-4 text-indigo-300" />
-            </div>
+          <PhonePoint label="المنتجات" icon={<ShoppingBag className="h-4 w-4 text-indigo-300" />}>
             <div className="mt-3 flex flex-wrap gap-2">
               {products.map((product) => (
                 <span key={product} className="rounded-full bg-slate-800/80 px-3 py-1 text-[11px] font-semibold text-slate-100">
@@ -73,12 +93,12 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
                 </span>
               ))}
             </div>
-          </div>
+          </PhonePoint>
 
           <div className="mt-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 backdrop-blur">
             <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-200">
               <WandSparkles className="h-4 w-4" />
-              العروض
+              <span>العروض</span>
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {offers.map((offer) => (
@@ -90,11 +110,7 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
-              <div className="flex items-center gap-1 text-[11px] text-slate-300">
-                <Image className="h-4 w-4" />
-                المعرض
-              </div>
+            <PhonePoint label="المعرض" icon={<GalleryHorizontalEnd className="h-4 w-4" />}>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {gallery.map((item) => (
                   <div key={item} className="rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 p-2 text-center text-[10px] text-slate-100">
@@ -102,43 +118,31 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
                   </div>
                 ))}
               </div>
-            </div>
+            </PhonePoint>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
-              <div className="flex items-center gap-1 text-[11px] text-slate-300">
-                <MapPin className="h-4 w-4" />
-                الموقع
-              </div>
+            <PhonePoint label="الموقع" icon={<MapPin className="h-4 w-4" />}>
               <p className="mt-2 text-sm font-semibold text-white">الرياض • حي النخيل</p>
-            </div>
+            </PhonePoint>
           </div>
 
           <div className="mt-3 grid grid-cols-[0.9fr_1.1fr] gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
-              <div className="flex items-center gap-1 text-[11px] text-slate-300">
-                <QrCode className="h-4 w-4" />
-                QR
-              </div>
+            <PhonePoint label="QR" icon={<QrCode className="h-4 w-4" />}>
               <div className="mt-2 h-20 rounded-xl bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(99,102,241,0.45))]" aria-hidden="true" />
-            </div>
+            </PhonePoint>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
-              <div className="flex items-center gap-1 text-[11px] text-slate-300">
-                <Clock3 className="h-4 w-4" />
-                أوقات العمل
-              </div>
+            <PhonePoint label="أوقات العمل" icon={<Clock3 className="h-4 w-4" />}>
               <p className="mt-2 text-sm font-semibold text-white">من 12:00 إلى 01:00</p>
               <p className="mt-1 text-[11px] text-slate-300">السبت - الخميس</p>
-            </div>
+            </PhonePoint>
           </div>
 
           <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1 text-[11px] text-slate-300">
                 <Link2 className="h-4 w-4" />
-                الروابط
+                <span>الروابط</span>
               </div>
-              <div className="flex items-center gap-2 text-slate-300">
+              <div className="flex items-center gap-2 text-slate-300" aria-hidden="true">
                 <Globe2 className="h-4 w-4" />
                 <MessagesSquare className="h-4 w-4" />
                 <MessageCircle className="h-4 w-4" />
@@ -156,18 +160,22 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
           <div className="mt-3 flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-800/70 px-4 py-3">
             <div className="flex items-center gap-2 text-xs text-slate-300">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
-              موثّق
+              <span>موثّق</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-300">
               <Store className="h-4 w-4" />
-              متجر
+              <span>متجر</span>
             </div>
           </div>
 
-          <div className="mt-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-3 text-center shadow-lg shadow-indigo-500/25">
+          <a
+            aria-label="ابدأ الطلب عبر واتساب"
+            href="#"
+            className="mt-3 block rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-3 text-center shadow-lg shadow-indigo-500/25"
+          >
             <div className="text-[11px] font-bold text-indigo-50">ابدأ الطلب الآن</div>
             <div className="mt-1 text-sm font-black text-white">الطلب عبر WhatsApp</div>
-          </div>
+          </a>
         </div>
 
         {children ? <div className="mt-4">{children}</div> : null}
