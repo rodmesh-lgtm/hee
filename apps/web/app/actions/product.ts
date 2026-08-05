@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
-import { getCurrentUser } from "../lib/auth";
+import { getCurrentUser, getCurrentUserForWrites } from "../lib/auth";
 import { productSchema } from "../lib/validation";
 
 export type ActionState = {
@@ -17,18 +17,22 @@ const limits = {
 } as const;
 
 export async function addProductAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await getCurrentUser();
+  const user = await getCurrentUserForWrites();
   if (!user) {
-    redirect("/login");
+    return { error: "وضع المعاينة QA للقراءة فقط" };
   }
 
-  const business = await db.business.findFirst({ where: { ownerId: user.id } });
+  const business = await db.business.findFirst({
+    where: { ownerId: user.id },
+    include: { plan: true },
+  });
   if (!business) {
     return { error: "يرجى إنشاء نشاط أولاً" };
   }
 
   const count = await db.product.count({ where: { businessId: business.id } });
-  const limit = limits[business.plan as keyof typeof limits] ?? limits.FREE;
+  const planCode = business.plan?.code?.toUpperCase();
+  const limit = planCode && planCode in limits ? limits[planCode as keyof typeof limits] : limits.FREE;
   if (count >= limit) {
     return { error: `وصلت إلى الحد المسموح به (${limit} منتجات)` };
   }
@@ -36,7 +40,9 @@ export async function addProductAction(_prevState: ActionState, formData: FormDa
   const payload = {
     name: String(formData.get("name") ?? ""),
     description: String(formData.get("description") ?? ""),
+    unit: String(formData.get("unit") ?? ""),
     price: String(formData.get("price") ?? ""),
+    oldPrice: String(formData.get("oldPrice") ?? ""),
     imageUrl: String(formData.get("imageUrl") ?? ""),
     isActive: String(formData.get("isActive") ?? "on") === "on",
   };
@@ -60,9 +66,9 @@ export async function addProductAction(_prevState: ActionState, formData: FormDa
 }
 
 export async function updateProductAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await getCurrentUser();
+  const user = await getCurrentUserForWrites();
   if (!user) {
-    redirect("/login");
+    return { error: "وضع المعاينة QA للقراءة فقط" };
   }
 
   const id = String(formData.get("productId") ?? "");
@@ -82,7 +88,9 @@ export async function updateProductAction(_prevState: ActionState, formData: For
   const payload = {
     name: String(formData.get("name") ?? ""),
     description: String(formData.get("description") ?? ""),
+    unit: String(formData.get("unit") ?? ""),
     price: String(formData.get("price") ?? ""),
+    oldPrice: String(formData.get("oldPrice") ?? ""),
     imageUrl: String(formData.get("imageUrl") ?? ""),
     isActive: String(formData.get("isActive") ?? "off") === "on",
   };
@@ -103,9 +111,9 @@ export async function updateProductAction(_prevState: ActionState, formData: For
 }
 
 export async function deleteProductAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await getCurrentUser();
+  const user = await getCurrentUserForWrites();
   if (!user) {
-    redirect("/login");
+    return { error: "وضع المعاينة QA للقراءة فقط" };
   }
 
   const id = String(formData.get("productId") ?? "");

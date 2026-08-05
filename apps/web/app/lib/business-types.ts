@@ -1,12 +1,3 @@
-export const businessTypes = [
-  "Cafe",
-  "Restaurant",
-  "Store",
-  "Workshop",
-  "Clinic",
-  "Salon",
-  "Company",
-  "Services",
-  "Real Estate",
-  "Other",
-] as const;
+import { activitySelectorOptions } from "./activity-engine";
+
+export const businessTypes = activitySelectorOptions().map((item) => item.label);

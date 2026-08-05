@@ -84,7 +84,9 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
             </div>
             <a
               aria-label="تواصل عبر واتساب"
-              href="#"
+              href="https://wa.me/966550000000?text=%D8%A7%D9%84%D8%B3%D9%84%D8%A7%D9%85%20%D8%B9%D9%84%D9%8A%D9%83%D9%85%D8%8C%20%D8%A3%D8%B1%D8%BA%D8%A8%20%D9%81%D9%8A%20%D8%A7%D9%84%D8%AA%D9%88%D8%A7%D8%B5%D9%84"
+              target="_blank"
+              rel="noreferrer"
               className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold text-emerald-300"
             >
               WhatsApp
@@ -176,7 +178,9 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
 
           <a
             aria-label="ابدأ الطلب عبر واتساب"
-            href="#"
+            href="https://wa.me/966550000000?text=%D8%A7%D9%84%D8%B3%D9%84%D8%A7%D9%85%20%D8%B9%D9%84%D9%8A%D9%83%D9%85%D8%8C%20%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%B7%D9%84%D8%A8%D8%A7%D9%8B%20%D8%AC%D8%AF%D9%8A%D8%AF%D8%A7%D9%8B"
+            target="_blank"
+            rel="noreferrer"
             className="mt-3 block rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-3 text-center shadow-lg shadow-indigo-500/25"
           >
             <div className="text-[11px] font-bold text-indigo-50">ابدأ الطلب الآن</div>

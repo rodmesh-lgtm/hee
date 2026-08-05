@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { compare, hash } from "bcryptjs";
 import { db } from "./db";
+import { clearQaAuditSession, getQaAuditSessionUser, isQaAuditModeUser } from "./qa-audit";
 
 export async function hashPassword(password: string) {
   return hash(password, 10);
@@ -37,22 +39,34 @@ export async function getCurrentUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get("hee_session")?.value;
 
-  if (!token) {
+  if (token) {
+    const session = await db.session.findUnique({
+      where: { token },
+      include: {
+        user: true,
+      },
+    });
+
+    if (session && session.expiresAt >= new Date()) {
+      return session.user;
+    }
+  }
+
+  return getQaAuditSessionUser();
+}
+
+export async function getCurrentUserForWrites() {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const isQaAudit = await isQaAuditModeUser(user.id);
+  if (isQaAudit) {
     return null;
   }
 
-  const session = await db.session.findUnique({
-    where: { token },
-    include: {
-      user: true,
-    },
-  });
-
-  if (!session || session.expiresAt < new Date()) {
-    return null;
-  }
-
-  return session.user;
+  return user;
 }
 
 export async function logoutSession() {
@@ -66,4 +80,5 @@ export async function logoutSession() {
   }
 
   cookieStore.delete("hee_session");
+  await clearQaAuditSession();
 }

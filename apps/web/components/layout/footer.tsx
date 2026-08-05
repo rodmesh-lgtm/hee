@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ArrowUpRight, Globe2, MapPin, MessageCircle, Phone, Send } from "lucide-react";
 import { Container } from "../shared/container";
 
@@ -15,9 +16,9 @@ export function Footer() {
         <div>
           <h3 className="text-sm font-black text-slate-950 dark:text-white">روابط سريعة</h3>
           <ul className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-            <li><a href="#features" className="hover:text-indigo-700">المزايا</a></li>
-            <li><a href="#business-types" className="hover:text-indigo-700">الأنواع</a></li>
-            <li><a href="#pricing" className="hover:text-indigo-700">الأسعار</a></li>
+            <li><Link href="/#features" className="hover:text-indigo-700">المزايا</Link></li>
+            <li><Link href="/#business-types" className="hover:text-indigo-700">الأنواع</Link></li>
+            <li><Link href="/#pricing" className="hover:text-indigo-700">الأسعار</Link></li>
           </ul>
         </div>
 
@@ -25,9 +26,9 @@ export function Footer() {
           <h3 className="text-sm font-black text-slate-950 dark:text-white">تواصل</h3>
           <div className="mt-3 space-y-3 text-sm text-slate-600 dark:text-slate-300">
             <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> الرياض، السعودية</div>
-            <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> +966 55 000 0000</div>
-            <div className="flex items-center gap-2"><MessageCircle className="h-4 w-4" /> support@hee.sa</div>
-            <div className="flex items-center gap-2"><Globe2 className="h-4 w-4" /> hee.sa</div>
+            <a className="flex items-center gap-2 hover:text-indigo-700" href="tel:+966550000000"><Phone className="h-4 w-4" /> +966 55 000 0000</a>
+            <a className="flex items-center gap-2 hover:text-indigo-700" href="mailto:support@hee.sa"><MessageCircle className="h-4 w-4" /> support@hee.sa</a>
+            <a className="flex items-center gap-2 hover:text-indigo-700" href="https://hee.sa" target="_blank" rel="noreferrer"><Globe2 className="h-4 w-4" /> hee.sa</a>
           </div>
         </div>
       </Container>

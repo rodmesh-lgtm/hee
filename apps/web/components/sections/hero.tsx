@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { Badge } from "../ui/badge";
@@ -61,12 +62,16 @@ export function HeroSection() {
             transition={{ duration: 0.45, delay: 0.12, ease: "easeOut" }}
             className="mt-8 flex flex-wrap justify-end gap-3"
           >
-            <Button size="lg" icon={<Sparkles className="h-4 w-4" />}>
-              إنشاء نشاط
-            </Button>
-            <Button variant="secondary" size="lg" icon={<ArrowRight className="h-4 w-4" />}>
-              مشاهدة المثال
-            </Button>
+            <Link href="/register">
+              <Button size="lg" icon={<Sparkles className="h-4 w-4" />}>
+                إنشاء نشاط
+              </Button>
+            </Link>
+            <Link href="/demo">
+              <Button variant="secondary" size="lg" icon={<ArrowRight className="h-4 w-4" />}>
+                مشاهدة المثال
+              </Button>
+            </Link>
           </motion.div>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-3">

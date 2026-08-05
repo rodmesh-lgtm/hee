@@ -16,7 +16,7 @@ const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
 export const metadata: Metadata = {
   metadataBase: new URL("https://hee.sa"),
   title: {
-    default: "HEE | المنصة الرقمية للأعمال",
+    default: "HEE",
     template: "%s | HEE",
   },
   description:

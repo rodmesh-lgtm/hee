@@ -1,14 +1,5 @@
-import { getCurrentUser } from "../../lib/auth";
-import { db } from "../../lib/db";
-import { BusinessEditor } from "../../../components/shared/business-editor";
+import { redirect } from "next/navigation";
 
-export default async function DashboardBusinessPage() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return null;
-  }
-
-  const business = await db.business.findFirst({ where: { ownerId: user.id } });
-
-  return <BusinessEditor business={business} />;
+export default function DashboardBusinessPage() {
+  redirect("/dashboard/my-page");
 }

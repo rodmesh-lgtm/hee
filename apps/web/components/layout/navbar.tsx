@@ -1,12 +1,13 @@
+import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "../ui/button";
 import { Container } from "../shared/container";
 
 const navLinks = [
-  { label: "الرئيسية", href: "#home" },
-  { label: "المزايا", href: "#features" },
-  { label: "الأنواع", href: "#business-types" },
-  { label: "الأسعار", href: "#pricing" },
+  { label: "الرئيسية", href: "/#home" },
+  { label: "المزايا", href: "/#features" },
+  { label: "الأنواع", href: "/#business-types" },
+  { label: "الأسعار", href: "/#pricing" },
 ];
 
 export function Navbar() {
@@ -25,16 +26,18 @@ export function Navbar() {
 
         <nav className="hidden items-center gap-6 lg:flex">
           {navLinks.map((item) => (
-            <a key={item.href} href={item.href} className="text-sm font-semibold text-slate-600 transition hover:text-indigo-700 dark:text-slate-200 dark:hover:text-indigo-300">
+            <Link key={item.href} href={item.href} className="text-sm font-semibold text-slate-600 transition hover:text-indigo-700 dark:text-slate-200 dark:hover:text-indigo-300">
               {item.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
-        <Button variant="secondary" size="sm" icon={<Sparkles className="h-4 w-4" />}>
-          ابدأ الآن
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+        <Link href="/register">
+          <Button variant="secondary" size="sm" icon={<Sparkles className="h-4 w-4" />}>
+            ابدأ الآن
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Link>
       </Container>
     </header>
   );

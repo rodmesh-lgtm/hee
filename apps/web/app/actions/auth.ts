@@ -3,13 +3,20 @@
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { createSession, getCurrentUser, hashPassword, logoutSession, verifyPassword } from "../lib/auth";
+import { clearQaAuditSession } from "../lib/qa-audit";
 import { loginSchema, registerSchema } from "../lib/validation";
+import { resolveOnboardingRedirect } from "../lib/onboarding";
 
 export type ActionState = {
   error?: string;
 };
 
 export async function registerAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const agreed = String(formData.get("agreed") ?? "off") === "on";
+  if (!agreed) {
+    return { error: "يجب الموافقة على الشروط والأحكام أولاً" };
+  }
+
   const payload = {
     name: String(formData.get("name") ?? ""),
     email: String(formData.get("email") ?? ""),
@@ -38,6 +45,7 @@ export async function registerAction(_prevState: ActionState, formData: FormData
     },
   });
 
+  await clearQaAuditSession();
   await createSession(user.id);
   redirect("/onboarding");
 }
@@ -65,6 +73,16 @@ export async function loginAction(_prevState: ActionState, formData: FormData): 
   }
 
   await createSession(user.id);
+
+  const business = await db.business.findFirst({
+    where: { ownerId: user.id },
+    select: { id: true, onboardingCompleted: true, onboardingStep: true, isPublished: true },
+  });
+
+  if (!business || business.onboardingCompleted === false || business.isPublished === false) {
+    redirect(resolveOnboardingRedirect(business?.onboardingStep, business?.isPublished));
+  }
+
   redirect("/dashboard");
 }
 

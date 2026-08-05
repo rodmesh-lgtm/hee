@@ -13,7 +13,9 @@ type ProductRecord = {
   id: string;
   name: string;
   description: string | null;
+  unit: string | null;
   price: string;
+  oldPrice: string | null;
   imageUrl: string | null;
   isActive: boolean;
 };
@@ -47,8 +49,16 @@ export function ProductsBoard({ business, products }: ProductsBoardProps) {
             <input name="name" className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" required />
           </label>
           <label className="grid gap-2 text-sm">
+            <span>الوحدة (اختياري)</span>
+            <input name="unit" className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" placeholder="كيلو / حبة / كرتون" />
+          </label>
+          <label className="grid gap-2 text-sm">
             <span>السعر</span>
             <input name="price" className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" required />
+          </label>
+          <label className="grid gap-2 text-sm">
+            <span>السعر قبل الخصم (اختياري)</span>
+            <input name="oldPrice" className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" />
           </label>
         </div>
         <label className="grid gap-2 text-sm">
@@ -80,14 +90,19 @@ export function ProductsBoard({ business, products }: ProductsBoardProps) {
                   <h2 className="text-xl font-black">{product.name}</h2>
                   <p className="mt-1 text-sm text-slate-400">{product.description}</p>
                 </div>
-                <div className="text-lg font-black">{product.price}</div>
+                <div className="text-left">
+                  {product.oldPrice ? <p className="text-sm text-slate-500 line-through">{product.oldPrice}</p> : null}
+                  <p className="text-lg font-black">{product.price}</p>
+                </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
                 <form action={updateAction} className="flex gap-2">
                   <input type="hidden" name="productId" value={product.id} />
                   <input type="hidden" name="name" value={product.name} />
                   <input type="hidden" name="description" value={product.description ?? ""} />
+                  <input type="hidden" name="unit" value={product.unit ?? ""} />
                   <input type="hidden" name="price" value={product.price} />
+                  <input type="hidden" name="oldPrice" value={product.oldPrice ?? ""} />
                   <input type="hidden" name="imageUrl" value={product.imageUrl ?? ""} />
                   <input type="hidden" name="isActive" value={product.isActive ? "on" : "off"} />
                   <button disabled={updatePending} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm">تحديث</button>
