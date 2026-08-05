@@ -56,11 +56,17 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
       aria-label="معلومات نشاط تجاري داخل هاتف محاكاة"
       role="img"
       className={cn(
-        "relative mx-auto w-full max-w-[360px] rounded-[42px] border border-slate-200/80 bg-slate-950 p-3 shadow-[0_30px_90px_-35px_rgba(15,23,42,0.95)] dark:border-slate-700",
+        "relative mx-auto w-full max-w-[360px] rounded-[42px] border border-slate-300/80 bg-slate-950 p-2.5 shadow-[0_30px_120px_-45px_rgba(15,23,42,0.95)] ring-1 ring-white/10 dark:border-slate-700",
         className,
       )}
     >
-      <div className="rounded-[34px] bg-gradient-to-b from-slate-950 to-slate-900 p-4 text-white">
+      <div className="absolute right-3 top-3 h-10 w-1 rounded-full bg-slate-800" />
+      <div className="absolute left-3 top-14 h-16 w-1 rounded-full bg-slate-800" />
+      <div className="absolute left-3 top-28 h-12 w-1 rounded-full bg-slate-800" />
+      <div className="absolute left-1/2 top-3 z-20 h-7 w-32 -translate-x-1/2 rounded-full bg-slate-950 shadow-[inset_0_1px_1px_rgba(255,255,255,0.14)]" />
+      <div className="absolute left-1/2 top-4 z-20 h-3 w-20 -translate-x-1/2 rounded-full bg-slate-900" />
+
+      <div className="rounded-[34px] bg-[linear-gradient(180deg,#0f172a_0%,#020617_52%,#020617_100%)] p-4 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div className="mx-auto mb-4 h-1.5 w-20 rounded-full bg-slate-700" />
         <div className="rounded-[24px] bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(3,7,18,0.98))] p-4">
           <div className="flex items-start justify-between gap-3">
