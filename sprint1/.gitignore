@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+node_modules/
+vendor/
+.next/
+dist/
+build/
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.pem
+*.key
+storage/
+uploads/
