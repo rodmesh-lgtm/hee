@@ -1,7 +1,20 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { MapPin, MessageCircle, QrCode, ShieldCheck, ShoppingCart, Store, WandSparkles } from "lucide-react";
+import {
+  Clock3,
+  Globe2,
+  Image,
+  Link2,
+  MessagesSquare,
+  MapPin,
+  MessageCircle,
+  QrCode,
+  ShieldCheck,
+  ShoppingBag,
+  Store,
+  WandSparkles,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { VerifiedBadge } from "../ui/verified-badge";
@@ -11,6 +24,11 @@ type PhoneFrameProps = {
   className?: string;
 };
 
+const products = ["شاورما", "مشاوي", "حلويات", "مشروبات"];
+const offers = ["خصم 15%", "توصيل مجاني", "جلسة عائلية"];
+const gallery = ["سفرة", "أجواء", "منتجات", "مطبخ"];
+const socialLinks = ["Instagram", "TikTok", "Website"];
+
 export function PhoneFrame({ children, className }: PhoneFrameProps) {
   return (
     <motion.div
@@ -18,16 +36,16 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
       className={cn(
-        "relative mx-auto w-full max-w-[360px] rounded-[40px] border border-slate-200 bg-slate-950 p-3 shadow-[0_25px_80px_-35px_rgba(15,23,42,0.85)] dark:border-slate-700",
+        "relative mx-auto w-full max-w-[360px] rounded-[42px] border border-slate-200/80 bg-slate-950 p-3 shadow-[0_30px_90px_-35px_rgba(15,23,42,0.95)] dark:border-slate-700",
         className,
       )}
     >
-      <div className="rounded-[32px] bg-gradient-to-b from-slate-950 to-slate-900 p-4 text-white">
+      <div className="rounded-[34px] bg-gradient-to-b from-slate-950 to-slate-900 p-4 text-white">
         <div className="mx-auto mb-4 h-1.5 w-20 rounded-full bg-slate-700" />
-        <div className="rounded-[24px] bg-slate-900 p-4">
-          <div className="flex items-center justify-between">
+        <div className="rounded-[24px] bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(3,7,18,0.98))] p-4">
+          <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg font-black">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg font-black shadow-lg shadow-indigo-500/30">
                 H
               </div>
               <div>
@@ -43,42 +61,112 @@ export function PhoneFrame({ children, className }: PhoneFrameProps) {
             </div>
           </div>
 
-          <div className="mt-4 space-y-3">
-            <div className="rounded-2xl bg-slate-800/80 p-3">
-              <div className="flex items-center gap-2 text-[11px] text-slate-300"><MessageCircle className="h-4 w-4" /> رسائل العملاء</div>
-              <div className="mt-2 text-sm font-semibold">13 رسالة جديدة اليوم</div>
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-slate-300">المنتجات</span>
+              <ShoppingBag className="h-4 w-4 text-indigo-300" />
             </div>
-            <div className="rounded-2xl bg-slate-800/80 p-3">
-              <div className="flex items-center gap-2 text-[11px] text-slate-300"><ShoppingCart className="h-4 w-4" /> آخر الطلبات</div>
-              <div className="mt-2 space-y-2 text-sm">
-                <div className="flex items-center justify-between"><span>شاورما لحم</span><span className="text-indigo-300">SAR 48</span></div>
-                <div className="flex items-center justify-between"><span>كباب مشوي</span><span className="text-indigo-300">SAR 64</span></div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {products.map((product) => (
+                <span key={product} className="rounded-full bg-slate-800/80 px-3 py-1 text-[11px] font-semibold text-slate-100">
+                  {product}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-3 backdrop-blur">
+            <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-200">
+              <WandSparkles className="h-4 w-4" />
+              العروض
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {offers.map((offer) => (
+                <span key={offer} className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-emerald-100">
+                  {offer}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+              <div className="flex items-center gap-1 text-[11px] text-slate-300">
+                <Image className="h-4 w-4" />
+                المعرض
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {gallery.map((item) => (
+                  <div key={item} className="rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 p-2 text-center text-[10px] text-slate-100">
+                    {item}
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-slate-800/80 p-3 text-xs text-slate-300">
-              <div className="flex items-center gap-1"><MapPin className="h-4 w-4" /> الموقع</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+              <div className="flex items-center gap-1 text-[11px] text-slate-300">
+                <MapPin className="h-4 w-4" />
+                الموقع
+              </div>
               <p className="mt-2 text-sm font-semibold text-white">الرياض • حي النخيل</p>
             </div>
-            <div className="rounded-2xl bg-slate-800/80 p-3 text-xs text-slate-300">
-              <div className="flex items-center gap-1"><QrCode className="h-4 w-4" /> QR</div>
-              <div className="mt-2 h-12 rounded-xl bg-white/10" />
+          </div>
+
+          <div className="mt-3 grid grid-cols-[0.9fr_1.1fr] gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+              <div className="flex items-center gap-1 text-[11px] text-slate-300">
+                <QrCode className="h-4 w-4" />
+                QR
+              </div>
+              <div className="mt-2 h-20 rounded-xl bg-[linear-gradient(135deg,rgba(255,255,255,0.9),rgba(99,102,241,0.45))]" aria-hidden="true" />
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+              <div className="flex items-center gap-1 text-[11px] text-slate-300">
+                <Clock3 className="h-4 w-4" />
+                أوقات العمل
+              </div>
+              <p className="mt-2 text-sm font-semibold text-white">من 12:00 إلى 01:00</p>
+              <p className="mt-1 text-[11px] text-slate-300">السبت - الخميس</p>
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl bg-slate-800/80 p-3">
-            <div className="flex items-center gap-2 text-[11px] text-slate-300"><WandSparkles className="h-4 w-4" /> العروض</div>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-emerald-300">خصم 15%</span>
-              <span className="rounded-full bg-indigo-500/15 px-3 py-1 text-indigo-300">توصيل مجاني</span>
+          <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1 text-[11px] text-slate-300">
+                <Link2 className="h-4 w-4" />
+                الروابط
+              </div>
+              <div className="flex items-center gap-2 text-slate-300">
+                <Globe2 className="h-4 w-4" />
+                <MessagesSquare className="h-4 w-4" />
+                <MessageCircle className="h-4 w-4" />
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {socialLinks.map((link) => (
+                <span key={link} className="rounded-full bg-slate-800/80 px-3 py-1 text-[11px] font-semibold text-slate-100">
+                  {link}
+                </span>
+              ))}
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-800/60 px-4 py-3">
-            <div className="flex items-center gap-2 text-xs text-slate-300"><ShieldCheck className="h-4 w-4" /> موثّق</div>
-            <div className="flex items-center gap-2 text-xs text-slate-300"><Store className="h-4 w-4" /> متجر</div>
+          <div className="mt-3 flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-800/70 px-4 py-3">
+            <div className="flex items-center gap-2 text-xs text-slate-300">
+              <ShieldCheck className="h-4 w-4 text-emerald-300" />
+              موثّق
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-300">
+              <Store className="h-4 w-4" />
+              متجر
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 p-3 text-center shadow-lg shadow-indigo-500/25">
+            <div className="text-[11px] font-bold text-indigo-50">ابدأ الطلب الآن</div>
+            <div className="mt-1 text-sm font-black text-white">الطلب عبر WhatsApp</div>
           </div>
         </div>
 
