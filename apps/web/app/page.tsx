@@ -1,73 +1,22 @@
 import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { BusinessTypesSection } from "../components/sections/business-types";
 import { FeatureGrid } from "../components/sections/feature-grid";
-import { PhoneFrame } from "../components/sections/phone-frame";
+import { HeroSection } from "../components/sections/hero";
 import { PricingSection } from "../components/sections/pricing";
 import { BusinessCard } from "../components/shared/business-card";
 import { Container } from "../components/shared/container";
-import { FloatingCard } from "../components/shared/floating-card";
 import { GradientBackground } from "../components/shared/gradient-background";
-import { StatCard } from "../components/shared/stat-card";
 import { Footer } from "../components/layout/footer";
 import { Navbar } from "../components/layout/navbar";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-
-const stats = [
-  { value: "24/7", label: "تواصل دائم" },
-  { value: "3x", label: "سرعة التنفيذ" },
-  { value: "100%", label: "مرونة للإدارة" },
-];
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
       <Navbar />
 
-      <section id="home" className="py-10 md:py-16">
-        <Container className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="text-right">
-            <Badge>
-              <Sparkles className="h-3.5 w-3.5" />
-              منصة الأعمال الذكية في السعودية 🇸🇦
-            </Badge>
-
-            <h1 className="mt-6 text-4xl font-black leading-[1.5] text-slate-950 dark:text-white md:text-5xl lg:text-6xl">
-              الهوية الرقمية
-              <br />
-              <span className="text-indigo-600 dark:text-indigo-300">لنشاطك التجاري</span>
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-lg leading-9 text-slate-600 dark:text-slate-300 md:text-xl">
-              أنشئ صفحة أعمال احترافية، اعرض منتجاتك، استقبل الطلبات، وادِر حملاتك التسويقية من واجهة واحدة سهلة وسريعة.
-            </p>
-
-            <div className="mt-8 flex flex-wrap justify-end gap-4">
-              <Button size="lg" icon={<Sparkles className="h-4 w-4" />}>إنشاء نشاط</Button>
-              <Button variant="secondary" size="lg">مشاهدة المثال</Button>
-            </div>
-
-            <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              {stats.map((stat) => (
-                <StatCard key={stat.label} value={stat.value} label={stat.label} />
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-center">
-            <GradientBackground className="w-full max-w-[430px] p-5">
-              <PhoneFrame>
-                <FloatingCard className="mx-auto w-[88%] -mt-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-300">اكتمل الدفع</span>
-                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">online</span>
-                  </div>
-                </FloatingCard>
-              </PhoneFrame>
-            </GradientBackground>
-          </div>
-        </Container>
-      </section>
+      <HeroSection />
 
       <FeatureGrid />
 
