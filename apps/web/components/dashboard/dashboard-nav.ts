@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Pencil,
   Settings2,
   Sparkles,
   UserRound,
@@ -15,6 +16,7 @@ export type DashboardNavItem = {
 
 export const dashboardNavItems: DashboardNavItem[] = [
   { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound },
+  { label: "البناء الكامل", href: "/dashboard/page-builder", icon: Pencil },
   { label: "الأداء", href: "/dashboard/analytics", icon: BarChart3 },
   { label: "أدوات HEE", href: "/dashboard/tools", icon: Sparkles },
   { label: "حسابي", href: "/dashboard/settings", icon: Settings2 },

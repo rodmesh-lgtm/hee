@@ -118,6 +118,43 @@ async function requireOwnedBusiness() {
   return { user, business, blocked: false };
 }
 
+async function ensureBusinessPlan(code: "FREE" | "BUSINESS" | "PRO") {
+  const planNameMap: Record<typeof code, string> = {
+    FREE: "Free",
+    BUSINESS: "Business",
+    PRO: "Pro",
+  };
+
+  const monthlyPriceMap: Record<typeof code, number> = {
+    FREE: 0,
+    BUSINESS: 199,
+    PRO: 399,
+  };
+
+  const productLimitMap: Record<typeof code, number> = {
+    FREE: 3,
+    BUSINESS: 10,
+    PRO: 30,
+  };
+
+  const existing = await db.businessPlan.findUnique({ where: { code } });
+  if (existing) {
+    return existing;
+  }
+
+  return db.businessPlan.create({
+    data: {
+      code,
+      name: planNameMap[code],
+      monthlyPrice: monthlyPriceMap[code],
+      productLimit: productLimitMap[code],
+      aiEnabled: code !== "FREE",
+      onlinePay: code !== "FREE",
+      isActive: true,
+    },
+  });
+}
+
 async function ensureBusinessForOwner(input: {
   name: string;
   businessType: string;
@@ -143,6 +180,8 @@ async function ensureBusinessForOwner(input: {
     slugCandidate = `${baseSlug}-${suffix}`;
   }
 
+  const freePlan = await ensureBusinessPlan("FREE");
+
   return db.business.create({
     data: {
       ownerId: user.id,
@@ -153,6 +192,7 @@ async function ensureBusinessForOwner(input: {
       shortDescription: input.shortDescription,
       description: input.description,
       country: "السعودية",
+      planId: freePlan.id,
       isPublished: false,
       acceptOnlineOrders: false,
       bookingAvailable: false,

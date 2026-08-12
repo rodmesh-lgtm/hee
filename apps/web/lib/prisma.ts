@@ -12,8 +12,23 @@ type GlobalPrisma = {
 const globalForPrisma = globalThis as unknown as GlobalPrisma;
 
 function getDatabaseUrl() {
-  const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? "postgresql://postgres:postgres@127.0.0.1:5432/hee";
-  return url;
+  const fallbackUrl = "postgresql://hee:hee123@127.0.0.1:5432/hee?schema=public";
+  const rawUrl = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.PRISMA_DATABASE_URL ?? fallbackUrl;
+
+  if (!rawUrl || rawUrl.trim() === "" || rawUrl === "base") {
+    return fallbackUrl;
+  }
+
+  try {
+    const parsed = new URL(rawUrl);
+    const hostname = parsed.hostname.toLowerCase();
+    if (!hostname || hostname === "base") {
+      return fallbackUrl;
+    }
+    return rawUrl;
+  } catch {
+    return fallbackUrl;
+  }
 }
 
 function getPool() {

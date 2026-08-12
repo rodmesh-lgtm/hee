@@ -172,15 +172,15 @@ function baseModuleConfig(id: PageModuleId): PageModuleConfig {
 
 const ACTIVITY_PRESETS: Record<ActivityId, Partial<Record<PageModuleId, boolean>>> = {
   CLINIC: { services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, products: false },
-  SALON: { services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, products: false, contactTeam: true, portfolio: true, companyProfile: false },
-  WORKSHOP: { services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, products: false, contactTeam: true, portfolio: true, companyProfile: false },
-  SERVICES: { services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, products: false, contactTeam: true, portfolio: true, companyProfile: false },
+  SALON: { services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, products: false, contactTeam: true, portfolio: true, companyProfile: true },
+  WORKSHOP: { services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, products: false, contactTeam: true, portfolio: true, companyProfile: true },
+  SERVICES: { services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, products: false, contactTeam: true, portfolio: true, companyProfile: true },
   RESTAURANT: { products: true, services: false, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: false, externalStore: false, companyProfile: false },
   GROCERY: { products: true, services: false, request: false, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: false, externalStore: true, companyProfile: false },
   RETAIL: { products: true, services: false, request: false, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: false, externalStore: true, companyProfile: false },
   REAL_ESTATE: { products: false, services: false, request: true, inquiry: true, location: true, hours: false, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: false },
-  TRAINING: { products: false, services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: false },
-  GENERAL: { products: false, services: false, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: false },
+  TRAINING: { products: false, services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: true },
+  GENERAL: { products: false, services: false, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: true },
 };
 
 function moduleEnabledByPreset(activityId: ActivityId, moduleId: PageModuleId) {
@@ -275,7 +275,7 @@ function normalizeConfig(id: PageModuleId, raw: unknown) {
       : {}),
     ...(Array.isArray(source.salesTeam)
       ? {
-          salesTeam: source.salesTeam.slice(0, 3).map((member, index) => {
+          salesTeam: source.salesTeam.map((member, index) => {
             const item = member as Record<string, unknown>;
             return {
               id: String(item.id ?? crypto.randomUUID()),
@@ -293,7 +293,7 @@ function normalizeConfig(id: PageModuleId, raw: unknown) {
       : {}),
     ...(Array.isArray(source.customerServiceTeam)
       ? {
-          customerServiceTeam: source.customerServiceTeam.slice(0, 3).map((member, index) => {
+          customerServiceTeam: source.customerServiceTeam.map((member, index) => {
             const item = member as Record<string, unknown>;
             return {
               id: String(item.id ?? crypto.randomUUID()),
@@ -311,7 +311,7 @@ function normalizeConfig(id: PageModuleId, raw: unknown) {
       : {}),
     ...(Array.isArray(source.portfolioItems)
       ? {
-          portfolioItems: source.portfolioItems.slice(0, 6).map((entry, index) => {
+          portfolioItems: source.portfolioItems.map((entry, index) => {
             const item = entry as Record<string, unknown>;
             return {
               id: String(item.id ?? crypto.randomUUID()),
@@ -381,9 +381,10 @@ export function normalizePageModulesInput(raw: unknown, businessType: string | n
 
   return PAGE_MODULE_IDS.map((id, index) => {
     const existing = byId.get(id) as Partial<PageModuleState> | undefined;
+    const isLegacyMissingCompanyProfile = id === "companyProfile" && !existing;
     return {
       id,
-      enabled: typeof existing?.enabled === "boolean" ? existing.enabled : defaults[index]?.enabled ?? true,
+      enabled: typeof existing?.enabled === "boolean" ? existing.enabled : isLegacyMissingCompanyProfile ? true : defaults[index]?.enabled ?? true,
       sortOrder: typeof existing?.sortOrder === "number" ? existing.sortOrder : index,
       config: normalizeConfig(id, existing?.config),
     };

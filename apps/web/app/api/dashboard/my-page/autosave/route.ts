@@ -57,7 +57,7 @@ const moduleConfigSchema = z.object({
       visible: z.boolean().optional(),
       sortOrder: z.number().int().min(0).optional(),
     }),
-  ).max(3).optional(),
+  ).optional(),
   customerServiceTeam: z.array(
     z.object({
       id: z.string().trim().min(1),
@@ -70,7 +70,7 @@ const moduleConfigSchema = z.object({
       visible: z.boolean().optional(),
       sortOrder: z.number().int().min(0).optional(),
     }),
-  ).max(3).optional(),
+  ).optional(),
   portfolioItems: z.array(
     z.object({
       id: z.string().trim().min(1),
@@ -82,7 +82,7 @@ const moduleConfigSchema = z.object({
       visible: z.boolean().optional(),
       sortOrder: z.number().int().min(0).optional(),
     }),
-  ).max(6).optional(),
+  ).optional(),
   companyProfile: z.object({
     title: z.string().trim().max(80).optional(),
     description: z.string().trim().max(260).optional(),

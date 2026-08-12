@@ -557,10 +557,10 @@ export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBus
     <main dir="rtl" style={{ "--hee-accent": accentColor } as React.CSSProperties} className={`min-h-screen pb-28 md:pb-8 ${shellClass}`}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
 
-      <div id="top" className="mx-auto w-full max-w-[1240px] px-3 py-3 sm:px-5 sm:py-5 lg:px-8">
+      <div id="top" className="mx-auto w-full max-w-[1240px] px-2.5 py-2.5 sm:px-5 sm:py-5 lg:px-8">
         <section className={`overflow-hidden rounded-[30px] border shadow-[0_32px_80px_-36px_rgba(15,23,42,0.25)] ${surfaceClass}`}>
           <div className="relative isolate overflow-hidden">
-            <div className="relative h-[132px] sm:h-[170px] lg:h-[214px]">
+            <div className="relative h-[102px] sm:h-[164px] lg:h-[214px]">
               {mappedBusiness.coverUrl ? (
                 <Image
                   src={mappedBusiness.coverUrl}
@@ -576,7 +576,7 @@ export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBus
               )}
               <div className={`absolute inset-0 ${darkMode ? "bg-[linear-gradient(180deg,rgba(6,12,26,0.18)_0%,rgba(6,12,26,0.55)_100%)]" : "bg-[linear-gradient(180deg,rgba(6,12,26,0.12)_0%,rgba(6,12,26,0.36)_100%)]"}`} />
 
-              <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between p-2.5 sm:p-4">
+              <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between p-2 sm:p-4">
                 <div className="flex items-center gap-2">
                   <PublicFavoriteButton
                     businessId={mappedBusiness.id}
@@ -596,27 +596,27 @@ export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBus
               </div>
             </div>
 
-            <div className="relative z-20 px-3 pb-3 sm:px-4 sm:pb-4 lg:px-5 lg:pb-5">
-              <div className={`-mt-8 rounded-[24px] border p-4 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:-mt-10 sm:p-5 lg:-mt-12 lg:p-6 ${darkMode ? "border-white/10 bg-slate-950/78" : "border-[#ebeffc] bg-white/92"}`}>
+            <div className="relative z-20 px-2.5 pb-2.5 sm:px-4 sm:pb-4 lg:px-5 lg:pb-5">
+              <div className={`-mt-6 rounded-[22px] border p-3 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:-mt-9 sm:p-5 lg:-mt-12 lg:p-6 ${darkMode ? "border-white/10 bg-slate-950/78" : "border-[#ebeffc] bg-white/92"}`}>
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center xl:grid-cols-[minmax(0,1fr)_340px]">
-                  <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-                    <div className={`mt-[-22px] flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[20px] border text-2xl font-black shadow-[0_18px_36px_-22px_rgba(24,30,84,0.45)] sm:mt-[-26px] sm:h-20 sm:w-20 ${darkMode ? "border-white/15 bg-[#0f1930] text-white" : "border-white bg-white text-[#1f2552]"}`}>
+                  <div className="flex min-w-0 items-start gap-2.5 sm:gap-4">
+                    <div className={`mt-[-14px] flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border text-xl font-black shadow-[0_16px_30px_-22px_rgba(24,30,84,0.45)] sm:mt-[-22px] sm:h-20 sm:w-20 sm:text-2xl ${darkMode ? "border-white/15 bg-[#0f1930] text-white" : "border-white bg-white text-[#1f2552]"}`}>
                       {mappedBusiness.logoUrl ? <Image src={mappedBusiness.logoUrl} alt={mappedBusiness.name} width={160} height={160} className="h-full w-full object-cover" /> : mappedBusiness.name.charAt(0)}
                     </div>
 
-                    <div id="request-section" className="min-w-0 flex-1 space-y-2.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h1 className={`text-lg font-black tracking-tight sm:text-2xl lg:text-[30px] ${darkMode ? "text-white" : "text-[#1f2552]"}`}>{mappedBusiness.name}</h1>
+                    <div id="request-section" className="min-w-0 flex-1 space-y-1.5 sm:space-y-2.5">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <h1 className={`text-base font-black tracking-tight sm:text-2xl lg:text-[30px] ${darkMode ? "text-white" : "text-[#1f2552]"}`}>{mappedBusiness.name}</h1>
                         {mappedBusiness.isVerified ? <PublicVerifiedBadge size={18} /> : null}
                       </div>
 
-                      {mappedBusiness.businessType ? <p className={`text-sm font-semibold ${darkMode ? "text-slate-200" : "text-slate-600"}`}>{mappedBusiness.businessType}</p> : null}
-                      {mappedBusiness.description ? <p className={`max-w-[68ch] line-clamp-3 text-sm leading-6 ${darkMode ? "text-slate-300" : "text-slate-600"}`}>{mappedBusiness.description}</p> : null}
+                      {mappedBusiness.businessType ? <p className={`text-xs font-semibold sm:text-sm ${darkMode ? "text-slate-200" : "text-slate-600"}`}>{mappedBusiness.businessType}</p> : null}
+                      {mappedBusiness.description ? <p className={`max-w-[68ch] line-clamp-2 text-xs leading-5 sm:line-clamp-3 sm:text-sm sm:leading-6 ${darkMode ? "text-slate-300" : "text-slate-600"}`}>{mappedBusiness.description}</p> : null}
 
                       {heroMeta.length > 0 ? (
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] sm:gap-2 sm:text-xs">
                           {heroMeta.map((item, index) => (
-                            <span key={`${item}-${index}`} className={`rounded-full px-2.5 py-1 ${darkMode ? "border border-white/10 bg-white/5 text-slate-200" : "border border-[#e6eaf8] bg-[#f8faff] text-slate-600"}`}>
+                            <span key={`${item}-${index}`} className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 ${darkMode ? "border border-white/10 bg-white/5 text-slate-200" : "border border-[#e6eaf8] bg-[#f8faff] text-slate-600"}`}>
                               {item}
                             </span>
                           ))}
@@ -625,13 +625,13 @@ export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBus
                     </div>
                   </div>
 
-                  <div className="w-full space-y-2.5 lg:flex-none">
+                  <div className="w-full space-y-2 lg:flex-none">
                     {businessKind === "store" ? (
                       <a
                         href={externalStoreUrl ?? "#products-section"}
                         target={externalStoreUrl ? "_blank" : undefined}
                         rel={externalStoreUrl ? "noreferrer noopener" : undefined}
-                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black text-white shadow-[0_16px_30px_-18px_rgba(0,0,0,0.4)] sm:h-12"
+                        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white shadow-[0_16px_30px_-18px_rgba(0,0,0,0.4)] sm:h-12 sm:rounded-2xl"
                         style={{ backgroundColor: accentColor }}
                         id="external-store-link"
                       >
@@ -646,14 +646,14 @@ export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBus
                         phone={mappedBusiness.phone}
                         mode="request"
                         buttonLabel={primaryCtaLabel}
-                        buttonClassName="flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black text-white shadow-[0_16px_30px_-18px_rgba(0,0,0,0.4)] sm:h-12"
+                        buttonClassName="flex h-10 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white shadow-[0_16px_30px_-18px_rgba(0,0,0,0.4)] sm:h-12 sm:rounded-2xl"
                         buttonStyle={{ backgroundColor: accentColor }}
                         sheetTitle={businessKind === "restaurant" ? "طلب / حجز" : "طلب خدمة"}
                         sheetDescription={businessKind === "restaurant" ? "أرسل تفاصيل الطلب أو الحجز وسيتم فتح واتساب مباشرة." : "أرسل تفاصيل الخدمة وسيتم فتح واتساب مباشرة."}
                       />
                     )}
 
-                    <div className={`rounded-2xl border p-2 ${darkMode ? "border-white/10 bg-slate-900/50" : "border-[#edf2ff] bg-[#f9fbff]"}`}>
+                    <div className={`rounded-xl border p-1.5 sm:rounded-2xl sm:p-2 ${darkMode ? "border-white/10 bg-slate-900/50" : "border-[#edf2ff] bg-[#f9fbff]"}`}>
                       <PublicBusinessActions items={actions} darkMode={darkMode} maxDesktopColumns={3} />
                     </div>
                   </div>

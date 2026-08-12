@@ -770,7 +770,7 @@ export function MyPageEditor({
               const updateTeam = (kind: "salesTeam" | "customerServiceTeam", next: ContactTeamMember[]) => {
                 patchModuleConfig("contactTeam", (config) => ({
                   ...config,
-                  [kind]: next.slice(0, 3).map((member, index) => ({
+                  [kind]: next.map((member, index) => ({
                     ...member,
                     sortOrder: index,
                   })),
@@ -848,7 +848,7 @@ export function MyPageEditor({
               const updateItems = (next: PortfolioItem[]) => {
                 patchModuleConfig("portfolio", (config) => ({
                   ...config,
-                  portfolioItems: next.slice(0, 6).map((item, index) => ({
+                  portfolioItems: next.map((item, index) => ({
                     ...item,
                     sortOrder: index,
                   })),

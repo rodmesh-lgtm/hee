@@ -19,6 +19,7 @@ type DashboardShellProps = {
 
 const pageTitles: Record<string, string> = {
   "/dashboard/my-page": "صفحتي",
+  "/dashboard/page-builder": "البناء الكامل",
   "/dashboard/analytics": "الأداء",
   "/dashboard/tools": "أدوات HEE",
   "/dashboard/settings": "حسابي",

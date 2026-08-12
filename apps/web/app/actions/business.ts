@@ -13,6 +13,43 @@ export type ActionState = {
   success?: string;
 };
 
+async function ensureBusinessPlan(code: "FREE" | "BUSINESS" | "PRO") {
+  const planNameMap: Record<typeof code, string> = {
+    FREE: "Free",
+    BUSINESS: "Business",
+    PRO: "Pro",
+  };
+
+  const monthlyPriceMap: Record<typeof code, number> = {
+    FREE: 0,
+    BUSINESS: 199,
+    PRO: 399,
+  };
+
+  const productLimitMap: Record<typeof code, number> = {
+    FREE: 3,
+    BUSINESS: 10,
+    PRO: 30,
+  };
+
+  const existing = await db.businessPlan.findUnique({ where: { code } });
+  if (existing) {
+    return existing;
+  }
+
+  return db.businessPlan.create({
+    data: {
+      code,
+      name: planNameMap[code],
+      monthlyPrice: monthlyPriceMap[code],
+      productLimit: productLimitMap[code],
+      aiEnabled: code !== "FREE",
+      onlinePay: code !== "FREE",
+      isActive: true,
+    },
+  });
+}
+
 function getFormString(formData: FormData, key: string, fallback = "") {
   const values = formData
     .getAll(key)
@@ -72,6 +109,7 @@ export async function createBusinessFromOnboarding(_prevState: ActionState, form
   }
 
   const existingBusiness = await db.business.findFirst({ where: { ownerId: user.id } });
+  const freePlan = await ensureBusinessPlan("FREE");
 
   const pageModules = serializePageModules(normalizePageModulesForPersistence(undefined, parsed.data.businessType));
 
@@ -91,6 +129,7 @@ export async function createBusinessFromOnboarding(_prevState: ActionState, form
         ownerId: user.id,
         ...parsed.data,
         pageModules,
+        planId: freePlan.id,
         isVerified: false,
         isPublished: false,
       },
@@ -209,6 +248,7 @@ export async function saveBusinessProfileAction(_prevState: ActionState, formDat
   }
 
   let slugTaken = null;
+  const freePlan = await ensureBusinessPlan("FREE");
 
   try {
     slugTaken = await db.business.findFirst({
@@ -236,6 +276,7 @@ export async function saveBusinessProfileAction(_prevState: ActionState, formDat
         data: {
           ownerId: user.id,
           ...parsed.data,
+          planId: freePlan.id,
           pageModules: serializePageModules(normalizePageModulesForPersistence(undefined, parsed.data.businessType)),
           isVerified: false,
         },

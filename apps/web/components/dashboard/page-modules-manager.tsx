@@ -128,6 +128,7 @@ function ModuleRow({
 }) {
   const dragControls = useDragControls();
   const ModuleIcon = moduleIcons[module.id] ?? Store;
+  const companyProfileFileName = module.id === "companyProfile" ? String(module.config.companyProfile?.pdfFileName ?? "").trim() : "";
 
   return (
     <Reorder.Item
@@ -174,6 +175,11 @@ function ModuleRow({
             <div className="min-w-0">
               <span className="block truncate text-sm font-black text-[#242b5e]">{blockTitle(module)}</span>
               <span className={`text-[11px] font-bold ${module.enabled ? "text-emerald-700" : "text-slate-500"}`}>{module.enabled ? "ظاهر" : "مخفي"}</span>
+              {companyProfileFileName ? (
+                <span className="mt-0.5 block truncate text-[10px] font-medium text-[#5a4fd5]" dir="ltr">
+                  {companyProfileFileName}
+                </span>
+              ) : null}
             </div>
           </button>
 
