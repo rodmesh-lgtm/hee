@@ -291,14 +291,17 @@ export function MyPageEditor({
   };
 
   const updateField = <K extends keyof AutosaveFields>(key: K, value: AutosaveFields[K]) => {
-    setFields((current) => ({
-      ...current,
+    const nextFields = {
+      ...fieldsRef.current,
       [key]: value,
-    }));
+    };
+    fieldsRef.current = nextFields;
+    setFields(nextFields);
     scheduleAutosave();
   };
 
   const updateModules = (nextModules: PageModuleState[]) => {
+    modulesRef.current = nextModules;
     setModules(nextModules);
     scheduleAutosave(350);
   };

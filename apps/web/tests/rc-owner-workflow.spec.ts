@@ -100,7 +100,7 @@ function makeModules() {
     sortOrder: index,
   }));
 
-  const modules = getDefaultPageModules("خدمات منزلية").map((module) => {
+  const modules: PageModuleState[] = getDefaultPageModules("خدمات منزلية").map((module): PageModuleState => {
     if (module.id === "services") {
       return {
         ...module,
