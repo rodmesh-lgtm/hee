@@ -409,10 +409,23 @@ test.describe.serial("RC owner workflow", () => {
     test.slow();
     test.setTimeout(180000);
 
-    const seeded = await seedBusiness();
+    const stage = async <T>(label: string, task: () => Promise<T>) => {
+      const started = Date.now();
+      console.log(`[RC-STAGE] START ${label} at ${new Date(started).toISOString()}`);
+      try {
+        const result = await task();
+        console.log(`[RC-STAGE] DONE ${label} in ${Date.now() - started}ms`);
+        return result;
+      } catch (error) {
+        console.error(`[RC-STAGE] ERROR ${label} after ${Date.now() - started}ms`, error);
+        throw error;
+      }
+    };
+
+    const seeded = await stage("seedBusiness", () => seedBusiness());
 
     try {
-      const before = await readSnapshot(seeded.businessId);
+      const before = await stage("readSnapshot-before", async () => readSnapshot(seeded.businessId));
       expect(before.services).toHaveLength(seeded.snapshot.serviceCount);
       expect(before.openingHours).toHaveLength(seeded.snapshot.openingHoursCount);
       expect(before.socialLinks).toHaveLength(seeded.snapshot.socialLinkCount);
@@ -420,87 +433,99 @@ test.describe.serial("RC owner workflow", () => {
       expect((before.pageModules.find((module) => module.id === "contactTeam")?.config.customerServiceTeam as Array<unknown> | undefined) ?? []).toHaveLength(seeded.snapshot.contactTeamSupportCount);
       expect((before.pageModules.find((module) => module.id === "portfolio")?.config.portfolioItems as Array<unknown> | undefined) ?? []).toHaveLength(seeded.snapshot.portfolioCount);
 
-      const desktopPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const desktopPage = await stage("browser.newPage", async () => browser.newPage({ viewport: { width: 1440, height: 900 } }));
       await setSessionCookie(desktopPage, seeded.sessionToken);
 
-      const editorErrors = await openWithConsoleGuard(desktopPage, `${baseUrl}/dashboard/page-builder`);
+      const editorErrors = await stage("open page-builder", async () => openWithConsoleGuard(desktopPage, `${baseUrl}/dashboard/page-builder`));
       await expect(desktopPage.getByRole("heading", { name: "هوية النشاط" })).toBeVisible();
       await expect(desktopPage.getByRole("button", { name: "1. هوية النشاط" })).toBeVisible();
 
-      await desktopPage.getByRole("button", { name: "1. هوية النشاط" }).click();
-      await desktopPage.getByLabel("اسم النشاط").fill("خدمات الخزامى التنفيذية - RC");
-      await desktopPage.getByLabel("وصف مختصر").fill("خدمات منزلية احترافية مع معاينة ونشر مباشر");
-      await desktopPage.getByLabel("وصف كامل").fill("خدمات منزلية احترافية مع معاينة ونشر مباشر، مع فريق دعم، ساعات عمل واضحة، ومحتوى منشور جاهز لاستقبال العملاء عبر الصفحات والطلبات.");
-      await desktopPage.locator('input[name="logoFile"]').setInputFiles({ name: "rc-logo.png", mimeType: "image/png", buffer: png1x1 });
-      await desktopPage.locator('input[name="coverFile"]').setInputFiles({ name: "rc-cover.png", mimeType: "image/png", buffer: png1x1 });
+      await stage("identity-form", async () => {
+        await desktopPage.getByRole("button", { name: "1. هوية النشاط" }).click();
+        await desktopPage.getByLabel("اسم النشاط").fill("خدمات الخزامى التنفيذية - RC");
+        await desktopPage.getByLabel("وصف مختصر").fill("خدمات منزلية احترافية مع معاينة ونشر مباشر");
+        await desktopPage.getByLabel("وصف كامل").fill("خدمات منزلية احترافية مع معاينة ونشر مباشر، مع فريق دعم، ساعات عمل واضحة، ومحتوى منشور جاهز لاستقبال العملاء عبر الصفحات والطلبات.");
+        await desktopPage.locator('input[name="logoFile"]').setInputFiles({ name: "rc-logo.png", mimeType: "image/png", buffer: png1x1 });
+        await desktopPage.locator('input[name="coverFile"]').setInputFiles({ name: "rc-cover.png", mimeType: "image/png", buffer: png1x1 });
 
-      const saveIdentityRequest = desktopPage.waitForResponse(
-        (response) => response.request().method() === "POST" && response.url().includes("/dashboard/page-builder") && response.status() >= 200,
-        { timeout: 30000 },
-      );
+        const saveIdentityRequest = desktopPage.waitForResponse(
+          (response) => response.request().method() === "POST" && response.url().includes("/dashboard/page-builder") && response.status() >= 200,
+          { timeout: 30000 },
+        );
 
-      await desktopPage.getByRole("button", { name: "حفظ الهوية" }).click();
-      await saveIdentityRequest;
-      await expect.poll(async () => (await readSnapshot(seeded.businessId)).name, { timeout: 15000 }).toBe("خدمات الخزامى التنفيذية - RC");
-      await expect(desktopPage.getByLabel("اسم النشاط")).toHaveValue("خدمات الخزامى التنفيذية - RC", { timeout: 15000 });
+        await desktopPage.getByRole("button", { name: "حفظ الهوية" }).click();
+        await saveIdentityRequest;
+        await expect.poll(async () => (await readSnapshot(seeded.businessId)).name, { timeout: 15000 }).toBe("خدمات الخزامى التنفيذية - RC");
+        await expect(desktopPage.getByLabel("اسم النشاط")).toHaveValue("خدمات الخزامى التنفيذية - RC", { timeout: 15000 });
+      });
 
-      await desktopPage.reload({ waitUntil: "domcontentloaded" });
-      await expect(desktopPage.getByLabel("اسم النشاط")).toHaveValue("خدمات الخزامى التنفيذية - RC", { timeout: 15000 });
+      await stage("identity-reload", async () => {
+        await desktopPage.reload({ waitUntil: "domcontentloaded" });
+        await expect(desktopPage.getByLabel("اسم النشاط")).toHaveValue("خدمات الخزامى التنفيذية - RC", { timeout: 15000 });
+      });
 
-      await desktopPage.getByRole("button", { name: "10. الهوية البصرية" }).click();
-      await desktopPage.getByLabel("اللون الأساسي").fill("#0EA5E9");
-      await desktopPage.getByLabel("نمط الأزرار").selectOption("pill");
-      await desktopPage.getByLabel("نمط البطاقات").selectOption("elevated");
+      await stage("branding-save", async () => {
+        await desktopPage.getByRole("button", { name: "10. الهوية البصرية" }).click();
+        await desktopPage.getByLabel("اللون الأساسي").fill("#0EA5E9");
+        await desktopPage.getByLabel("نمط الأزرار").selectOption("pill");
+        await desktopPage.getByLabel("نمط البطاقات").selectOption("elevated");
 
-      const saveBrandingRequest = desktopPage.waitForResponse(
-        (response) => response.request().method() === "POST" && response.url().includes("/dashboard/page-builder") && response.status() >= 200,
-        { timeout: 30000 },
-      );
+        const saveBrandingRequest = desktopPage.waitForResponse(
+          (response) => response.request().method() === "POST" && response.url().includes("/dashboard/page-builder") && response.status() >= 200,
+          { timeout: 30000 },
+        );
 
-      await desktopPage.getByRole("button", { name: "حفظ الهوية البصرية" }).click();
-      await saveBrandingRequest;
-      await expect.poll(async () => (await readSnapshot(seeded.businessId)).primaryColor.toLowerCase(), { timeout: 15000 }).toBe("#0ea5e9");
-      await expect(desktopPage.getByRole("button", { name: "حفظ الهوية البصرية" })).toBeVisible();
+        await desktopPage.getByRole("button", { name: "حفظ الهوية البصرية" }).click();
+        await saveBrandingRequest;
+        await expect.poll(async () => (await readSnapshot(seeded.businessId)).primaryColor.toLowerCase(), { timeout: 15000 }).toBe("#0ea5e9");
+        await expect(desktopPage.getByRole("button", { name: "حفظ الهوية البصرية" })).toBeVisible();
+      });
 
-      await desktopPage.reload({ waitUntil: "domcontentloaded" });
-      await desktopPage.getByRole("button", { name: "11. المراجعة" }).click();
+      await stage("review-publish", async () => {
+        await desktopPage.reload({ waitUntil: "domcontentloaded" });
+        await desktopPage.getByRole("button", { name: "11. المراجعة" }).click();
 
-      await expect(desktopPage.getByRole("button", { name: "نشر الصفحة" })).toBeVisible({ timeout: 15000 });
-      await desktopPage.getByRole("button", { name: "نشر الصفحة" }).click({ force: true });
+        await expect(desktopPage.getByRole("button", { name: "نشر الصفحة" })).toBeVisible({ timeout: 15000 });
+        await desktopPage.getByRole("button", { name: "نشر الصفحة" }).click({ force: true });
 
-      await expect(desktopPage.locator("body")).toContainText(/مبروك.*استقبال العملاء|تم حفظ التعديلات|تم حفظ.*منشورة|جاري النشر/i, { timeout: 30000 });
+        await expect(desktopPage.locator("body")).toContainText(/مبروك.*استقبال العملاء|تم حفظ التعديلات|تم حفظ.*منشورة|جاري النشر/i, { timeout: 30000 });
+      });
 
-      await desktopPage.goto(`${baseUrl}/dashboard/my-page?edit=1`, { waitUntil: "domcontentloaded" });
-      await expect(desktopPage.getByText("محتوى صفحتك")).toBeVisible();
+      await stage("my-page-company-profile", async () => {
+        await desktopPage.goto(`${baseUrl}/dashboard/my-page?edit=1`, { waitUntil: "domcontentloaded" });
+        await expect(desktopPage.getByText("محتوى صفحتك")).toBeVisible();
 
-      await desktopPage.getByText("الملف التعريفي", { exact: true }).click();
-      const pdfInput = desktopPage.locator('input[type="file"][accept="application/pdf,.pdf"]');
-      await pdfInput.setInputFiles({ name: "rc-profile.pdf", mimeType: "application/pdf", buffer: pdfBuffer });
+        await desktopPage.getByText("الملف التعريفي", { exact: true }).click();
+        const pdfInput = desktopPage.locator('input[type="file"][accept="application/pdf,.pdf"]');
+        await pdfInput.setInputFiles({ name: "rc-profile.pdf", mimeType: "application/pdf", buffer: pdfBuffer });
 
-      await expect.poll(async () => {
-        const snapshot = await readSnapshot(seeded.businessId);
-        const companyProfile = snapshot.pageModules.find((module) => module.id === "companyProfile")?.config.companyProfile as { pdfFileName?: string; pdfUrl?: string } | undefined;
-        return Boolean(companyProfile?.pdfFileName && /rc-profile\.pdf/i.test(companyProfile.pdfFileName));
-      }, { timeout: 20000 }).toBe(true);
+        await expect.poll(async () => {
+          const snapshot = await readSnapshot(seeded.businessId);
+          const companyProfile = snapshot.pageModules.find((module) => module.id === "companyProfile")?.config.companyProfile as { pdfFileName?: string; pdfUrl?: string } | undefined;
+          return Boolean(companyProfile?.pdfFileName && /rc-profile\.pdf/i.test(companyProfile.pdfFileName));
+        }, { timeout: 20000 }).toBe(true);
 
-      await expect(desktopPage.getByText(/rc-profile\.pdf/i).first()).toBeVisible({ timeout: 15000 });
+        await expect(desktopPage.getByText(/rc-profile\.pdf/i).first()).toBeVisible({ timeout: 15000 });
+      });
 
-      const moduleMenuButtons = desktopPage.locator('button[aria-label="إجراءات القسم"]');
-      const menuCount = await moduleMenuButtons.count();
-      await moduleMenuButtons.nth(menuCount - 2).click();
-      await desktopPage.getByRole("button", { name: "تحريك لأعلى" }).click();
-      await expect(desktopPage.locator("body")).toContainText(/تم حفظ التعديلات|تم الحفظ|جاري الحفظ|جارٍ الحفظ/i, { timeout: 15000 });
+      await stage("module-reorder", async () => {
+        const moduleMenuButtons = desktopPage.locator('button[aria-label="إجراءات القسم"]');
+        const menuCount = await moduleMenuButtons.count();
+        await moduleMenuButtons.nth(menuCount - 2).click();
+        await desktopPage.getByRole("button", { name: "تحريك لأعلى" }).click();
+        await expect(desktopPage.locator("body")).toContainText(/تم حفظ التعديلات|تم الحفظ|جاري الحفظ|جارٍ الحفظ/i, { timeout: 15000 });
 
-      await desktopPage.reload({ waitUntil: "domcontentloaded" });
-      await expect.poll(async () => {
-        const snapshot = await readSnapshot(seeded.businessId);
-        const companyProfile = snapshot.pageModules.find((module) => module.id === "companyProfile")?.config.companyProfile as { pdfFileName?: string; pdfUrl?: string } | undefined;
-        return Boolean(companyProfile?.pdfFileName && /rc-profile\.pdf/i.test(companyProfile.pdfFileName) && companyProfile.pdfUrl?.startsWith("/api/storage/"));
-      }, { timeout: 20000 }).toBe(true);
-      await expect(desktopPage.getByText(/rc-profile\.pdf/i).first()).toBeVisible({ timeout: 15000 });
-      await expect(desktopPage.getByRole("heading", { name: "خدمات الخزامى التنفيذية - RC" })).toBeVisible();
+        await desktopPage.reload({ waitUntil: "domcontentloaded" });
+        await expect.poll(async () => {
+          const snapshot = await readSnapshot(seeded.businessId);
+          const companyProfile = snapshot.pageModules.find((module) => module.id === "companyProfile")?.config.companyProfile as { pdfFileName?: string; pdfUrl?: string } | undefined;
+          return Boolean(companyProfile?.pdfFileName && /rc-profile\.pdf/i.test(companyProfile.pdfFileName) && companyProfile.pdfUrl?.startsWith("/api/storage/"));
+        }, { timeout: 20000 }).toBe(true);
+        await expect(desktopPage.getByText(/rc-profile\.pdf/i).first()).toBeVisible({ timeout: 15000 });
+        await expect(desktopPage.getByRole("heading", { name: "خدمات الخزامى التنفيذية - RC" })).toBeVisible();
+      });
 
-      const after = await readSnapshot(seeded.businessId);
+      const after = await stage("readSnapshot-after", async () => readSnapshot(seeded.businessId));
       expect(after.services).toHaveLength(before.services.length);
       expect(after.openingHours).toHaveLength(before.openingHours.length);
       expect(after.socialLinks).toHaveLength(before.socialLinks.length);
@@ -512,51 +537,55 @@ test.describe.serial("RC owner workflow", () => {
       expect(after.primaryColor.toLowerCase()).toBe("#0ea5e9");
       expect(after.isPublished).toBe(true);
 
-      await desktopPage.goto(seeded.publicUrl, { waitUntil: "domcontentloaded" });
-      await desktopPage.locator("body").waitFor({ state: "visible" });
+      await stage("public-page", async () => {
+        await desktopPage.goto(seeded.publicUrl, { waitUntil: "domcontentloaded" });
+        await desktopPage.locator("body").waitFor({ state: "visible" });
 
-      await expect(desktopPage.getByRole("heading", { name: /خدمات الخزامى التنفيذية - RC/i })).toBeVisible();
-      await expect(desktopPage.getByRole("heading", { name: /فريق التواصل|معلومات التواصل/i })).toBeVisible();
-      await expect(desktopPage.getByRole("heading", { name: /أعمالنا|معرض الأعمال/i })).toBeVisible();
-      await expect(desktopPage.getByRole("heading", { name: /الملف التعريفي|ملف تعريفي/i })).toBeVisible();
-      await expect(desktopPage.locator('a[href*="/api/storage/"]')).toBeVisible();
-      await expect(desktopPage.locator('img[alt="غلاف النشاط"]')).toBeVisible();
-      await expect(desktopPage.locator(`img[alt="خدمات الخزامى التنفيذية - RC"]`)).toBeVisible();
+        await expect(desktopPage.getByRole("heading", { name: /خدمات الخزامى التنفيذية - RC/i })).toBeVisible();
+        await expect(desktopPage.getByRole("heading", { name: /فريق التواصل|معلومات التواصل/i })).toBeVisible();
+        await expect(desktopPage.getByRole("heading", { name: /أعمالنا|معرض الأعمال/i })).toBeVisible();
+        await expect(desktopPage.getByRole("heading", { name: /الملف التعريفي|ملف تعريفي/i })).toBeVisible();
+        await expect(desktopPage.locator('a[href*="/api/storage/"]')).toBeVisible();
+        await expect(desktopPage.locator('img[alt="غلاف النشاط"]')).toBeVisible();
+        await expect(desktopPage.locator(`img[alt="خدمات الخزامى التنفيذية - RC"]`)).toBeVisible();
 
-      const accentColor = await desktopPage.locator("main").evaluate((element) => getComputedStyle(element).getPropertyValue("--hee-accent").trim());
-      expect(accentColor.toLowerCase()).toBe("#0ea5e9");
+        const accentColor = await desktopPage.locator("main").evaluate((element) => getComputedStyle(element).getPropertyValue("--hee-accent").trim());
+        expect(accentColor.toLowerCase()).toBe("#0ea5e9");
 
-      const contactTeamBox = await desktopPage.locator("#contact-team-section").boundingBox();
-      const portfolioBox = await desktopPage.locator("#portfolio-section").boundingBox();
-      const companyProfileBox = await desktopPage.locator("#company-profile-section").boundingBox();
-      expect(contactTeamBox).not.toBeNull();
-      expect(portfolioBox).not.toBeNull();
-      expect(companyProfileBox).not.toBeNull();
-      if (contactTeamBox && portfolioBox && companyProfileBox) {
-        expect(companyProfileBox.y).toBeLessThan(portfolioBox.y);
-        expect(portfolioBox.y).toBeLessThan(contactTeamBox.y);
-      }
-
-      const responsiveTargets = [...mobileViewports, ...desktopViewports];
-      for (const viewport of responsiveTargets) {
-        const publicPage = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
-        await setSessionCookie(publicPage, seeded.sessionToken);
-
-        const publicErrors = await openWithConsoleGuard(publicPage, seeded.publicUrl);
-        await expect(publicPage.getByRole("heading", { name: /خدمات الخزامى التنفيذية - RC/i })).toBeVisible();
-        await expect(publicPage.getByRole("heading", { name: /فريق التواصل|معلومات التواصل/i })).toBeVisible();
-        expect(publicErrors).toEqual([]);
-
-        await publicPage.goto(`${baseUrl}/dashboard/my-page?edit=1`, { waitUntil: "domcontentloaded" });
-        await expect(publicPage.getByText("محتوى صفحتك")).toBeVisible();
-        if (viewport.width < 1024) {
-          await expect(publicPage.getByRole("button", { name: "معاينة صفحتي" })).toBeVisible();
-        } else {
-          await expect(publicPage.getByText("معاينة صفحتك")).toBeVisible();
+        const contactTeamBox = await desktopPage.locator("#contact-team-section").boundingBox();
+        const portfolioBox = await desktopPage.locator("#portfolio-section").boundingBox();
+        const companyProfileBox = await desktopPage.locator("#company-profile-section").boundingBox();
+        expect(contactTeamBox).not.toBeNull();
+        expect(portfolioBox).not.toBeNull();
+        expect(companyProfileBox).not.toBeNull();
+        if (contactTeamBox && portfolioBox && companyProfileBox) {
+          expect(companyProfileBox.y).toBeLessThan(portfolioBox.y);
+          expect(portfolioBox.y).toBeLessThan(contactTeamBox.y);
         }
+      });
 
-        await publicPage.close();
-      }
+      await stage("responsive-public", async () => {
+        const responsiveTargets = [...mobileViewports, ...desktopViewports];
+        for (const viewport of responsiveTargets) {
+          const publicPage = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
+          await setSessionCookie(publicPage, seeded.sessionToken);
+
+          const publicErrors = await openWithConsoleGuard(publicPage, seeded.publicUrl);
+          await expect(publicPage.getByRole("heading", { name: /خدمات الخزامى التنفيذية - RC/i })).toBeVisible();
+          await expect(publicPage.getByRole("heading", { name: /فريق التواصل|معلومات التواصل/i })).toBeVisible();
+          expect(publicErrors).toEqual([]);
+
+          await publicPage.goto(`${baseUrl}/dashboard/my-page?edit=1`, { waitUntil: "domcontentloaded" });
+          await expect(publicPage.getByText("محتوى صفحتك")).toBeVisible();
+          if (viewport.width < 1024) {
+            await expect(publicPage.getByRole("button", { name: "معاينة صفحتي" })).toBeVisible();
+          } else {
+            await expect(publicPage.getByText("معاينة صفحتك")).toBeVisible();
+          }
+
+          await publicPage.close();
+        }
+      });
 
       expect(editorErrors).toEqual([]);
       await desktopPage.close();
