@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getBusinessPublic } from "../actions/business";
-import { PublicBusinessPage } from "../../components/public-business-page";
+import { PublicBusinessPageV3 } from "../../components/public-business-page-v3";
 import { getPublicBusinessUrlFromRequest, isValidPublicSlug, normalizePublicSlug } from "../lib/public-url";
 import { isPreviewQaEnvironment } from "../lib/qa-audit";
 
@@ -19,13 +19,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   return {
-    title: {
-      absolute: business.metaTitle || `${business.name} | HEE`,
-    },
+    title: { absolute: business.metaTitle || `${business.name} | HEE` },
     description: business.metaDescription || business.description || `صفحة ${business.name}`,
-    alternates: {
-      canonical: `https://hee.sa/${business.slug}`,
-    },
+    alternates: { canonical: `https://hee.sa/${business.slug}` },
     openGraph: {
       title: business.metaTitle || business.name,
       description: business.metaDescription || business.description || `صفحة ${business.name}`,
@@ -39,14 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description: business.metaDescription || business.description || `صفحة ${business.name}`,
       images: business.coverUrl ? [business.coverUrl] : business.logoUrl ? [business.logoUrl] : undefined,
     },
-    ...(isPreviewQaEnvironment()
-      ? {
-          robots: {
-            index: false,
-            follow: false,
-          },
-        }
-      : {}),
+    ...(isPreviewQaEnvironment() ? { robots: { index: false, follow: false } } : {}),
   };
 }
 
@@ -54,17 +43,13 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
   const { slug } = await params;
   const normalizedSlug = normalizePublicSlug(slug);
 
-  if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) {
-    notFound();
-  }
+  if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) notFound();
 
   const business = await getBusinessPublic(normalizedSlug);
-  if (!business || !business.isPublished) {
-    notFound();
-  }
+  if (!business || !business.isPublished) notFound();
 
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
   const qrDataUrl = makeQrUrl(publicUrl);
 
-  return <PublicBusinessPage business={business} qrDataUrl={qrDataUrl} publicUrl={publicUrl} />;
+  return <PublicBusinessPageV3 business={business} qrDataUrl={qrDataUrl} publicUrl={publicUrl} />;
 }
