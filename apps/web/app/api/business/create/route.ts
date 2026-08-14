@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../../../lib/db";
 import { getCurrentUser } from "../../../lib/auth";
 import { businessSchema } from "../../../lib/validation";
+import { isReservedPublicSlug, normalizePublicSlug } from "../../../lib/public-url";
 
 async function ensureBusinessPlan(code: "FREE" | "BUSINESS" | "PRO") {
   const planNameMap: Record<typeof code, string> = {
@@ -90,7 +91,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  const slugTaken = await db.business.findUnique({ where: { slug: parsed.data.slug } });
+  const normalizedSlug = normalizePublicSlug(parsed.data.slug);
+  if (normalizedSlug.length < 4 || isReservedPublicSlug(normalizedSlug)) {
+    return NextResponse.json({ error: "الرابط العام غير متاح" }, { status: 409 });
+  }
+
+  const slugTaken = await db.business.findUnique({ where: { slug: normalizedSlug } });
   if (slugTaken) {
     return NextResponse.json({ error: "اسم الرابط مستخدم مسبقاً" }, { status: 409 });
   }
@@ -101,6 +107,7 @@ export async function POST(request: Request) {
     data: {
       ownerId: user.id,
       ...parsed.data,
+      slug: normalizedSlug,
       isVerified: false,
       isPublished: true,
       planId: freePlan.id,
@@ -109,5 +116,5 @@ export async function POST(request: Request) {
 
   revalidatePath("/dashboard");
 
-  return NextResponse.json({ redirectTo: `/b/${business.slug}` }, { status: 201 });
+  return NextResponse.json({ redirectTo: `/${business.slug}` }, { status: 201 });
 }

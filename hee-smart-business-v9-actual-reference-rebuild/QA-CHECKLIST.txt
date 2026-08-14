@@ -1,0 +1,11 @@
+V9 ACTUAL REBUILD QA
+[PASS] Cover/hero removed.
+[PASS] Header rebuilt as compact identity card.
+[PASS] CTA/actions rebuilt as a separate compact block.
+[PASS] Mobile target remains 390px without shrinking the entire desktop UI.
+[PASS] Desktop width reduced and density rebalanced.
+[PASS] Services and portfolio rebuilt as compact four-card rows.
+[PASS] Profile/about pairing rebuilt.
+[PASS] Branches moved to their own compact row.
+[PASS] Team section rebuilt without desktop dead space.
+[PASS] Existing DB-derived services, portfolio, team, WhatsApp, phone, map, QR/share and sticky-nav wiring retained.

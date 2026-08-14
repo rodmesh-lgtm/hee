@@ -1143,11 +1143,11 @@ export function MyPageEditor({
             {previewMode === "phone" ? (
               <div className="mx-auto w-[326px] py-3">
                 <div className="overflow-hidden rounded-[34px] border-[6px] border-[#111827] bg-white shadow-[0_20px_50px_-28px_rgba(15,23,42,0.55)]">
-                  <iframe key={`${previewVersion}-phone`} src={`/b/${business.slug}?preview=${previewVersion}`} title="معاينة الصفحة" className="h-[640px] w-full" />
+                  <iframe key={`${previewVersion}-phone`} src={`/${business.slug}?preview=${previewVersion}`} title="معاينة الصفحة" className="h-[640px] w-full" />
                 </div>
               </div>
             ) : (
-              <iframe key={`${previewVersion}-desktop`} src={`/b/${business.slug}?preview=${previewVersion}&surface=desktop`} title="معاينة الصفحة" className="h-[668px] w-full" />
+              <iframe key={`${previewVersion}-desktop`} src={`/${business.slug}?preview=${previewVersion}&surface=desktop`} title="معاينة الصفحة" className="h-[668px] w-full" />
             )}
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -1184,7 +1184,7 @@ export function MyPageEditor({
                 إغلاق
               </Button>
             </div>
-            <iframe key={`mobile-${previewVersion}`} src={`/b/${business.slug}?preview=${previewVersion}`} title="معاينة الصفحة" className="min-h-0 flex-1 border-0" />
+            <iframe key={`mobile-${previewVersion}`} src={`/${business.slug}?preview=${previewVersion}`} title="معاينة الصفحة" className="min-h-0 flex-1 border-0" />
           </div>
         </div>
       ) : null}

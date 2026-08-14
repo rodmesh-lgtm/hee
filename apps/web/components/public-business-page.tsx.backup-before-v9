@@ -1,0 +1,880 @@
+"use client";
+
+import { useState } from "react";
+import { Building2, Clock3, Copy, Download, FileText, MapPin, MessageCircle, Phone, Share2, Sparkles, Users, Wrench } from "lucide-react";
+import type { Prisma } from "@prisma/client";
+import Image from "next/image";
+import { PublicFavoriteButton } from "./public/public-favorite-button";
+import { PublicReviewsSummary } from "./public/public-reviews-summary";
+import { PublicSaveContact } from "./public/public-save-contact";
+import { PublicShareButton } from "./public/public-share-button";
+import { PublicSmartActionSheet } from "./public/public-smart-action-sheet";
+import { PublicStickyMobileActions } from "./public/public-sticky-mobile-actions";
+import { PublicVerifiedBadge } from "./public/public-verified-badge";
+import { PublicBusinessActions, type ActionItem } from "./public/public-business-actions";
+import type { PublicBusinessData } from "./public/types";
+import { getActivityProfile, resolveActivityId, type ActivityId } from "../app/lib/activity-engine";
+import { normalizePageModules } from "../app/lib/page-modules";
+import { getPublicOpenStatus, resolvePublicAppearance } from "./public/public-page-utils";
+import { PublicOffersSection } from "./public/public-offers-section";
+import { PublicServicesSection } from "./public/public-services-section";
+import { PublicHoursSection } from "./public/public-hours-section";
+import { PublicLocationSection } from "./public/public-location-section";
+import { PublicAboutSection } from "./public/public-about-section";
+import { PublicSocialSection } from "./public/public-social-section";
+import { PublicExternalStoreSection } from "./public/public-external-store-section";
+import { PublicContactTeamSection } from "./public/public-contact-team-section";
+import { PublicPortfolioSection } from "./public/public-portfolio-section";
+import { PublicCompanyProfileSection } from "./public/public-company-profile-section";
+
+type BusinessPublicPayload = Prisma.BusinessGetPayload<{
+  include: {
+    products: { include: { category: true } };
+    offers: true;
+    services: true;
+    openingHours: true;
+    pageModules: true;
+    socialLinks: true;
+  };
+}>;
+
+type PublicBusinessPageProps = {
+  business: BusinessPublicPayload;
+  qrDataUrl: string;
+  publicUrl: string;
+};
+
+type BusinessKind = "restaurant" | "services" | "store";
+
+function normalizePhone(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = value.replace(/[^\d+]/g, "").trim();
+  const digitsOnly = normalized.replace(/\D/g, "");
+  if (!normalized || digitsOnly.length < 8 || digitsOnly.length > 15) {
+    return null;
+  }
+  return normalized;
+}
+
+function normalizeWhatsapp(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = value.replace(/\D/g, "").trim();
+  return normalized || null;
+}
+
+function toArabicSocialLabel(platform: string) {
+  const key = platform.toLowerCase();
+  if (key.includes("instagram")) return "انستغرام";
+  if (key.includes("tiktok")) return "تيك توك";
+  if (key.includes("snapchat")) return "سناب شات";
+  if (key === "x" || key.includes("twitter")) return "إكس";
+  if (key.includes("facebook")) return "فيسبوك";
+  if (key.includes("youtube")) return "يوتيوب";
+  return platform;
+}
+
+function resolveBusinessKind(activityId: ActivityId, hasProducts: boolean, hasServices: boolean): BusinessKind {
+  if (activityId === "RESTAURANT") {
+    return "restaurant";
+  }
+
+  if (activityId === "RETAIL" || activityId === "GROCERY") {
+    return "store";
+  }
+
+  if (hasProducts && !hasServices) {
+    return "store";
+  }
+
+  return "services";
+}
+
+function getPrimaryCtaLabel(kind: BusinessKind, business: PublicBusinessData) {
+  if (kind === "restaurant") {
+    if (business.bookingAvailable) return "احجز الآن";
+    if (business.acceptOnlineOrders || business.products.length > 0) return "اطلب الآن";
+    return "اطلب الآن";
+  }
+
+  if (kind === "store") {
+    return "زيارة المتجر الإلكتروني";
+  }
+
+  return business.bookingAvailable ? "احجز الآن" : "طلب خدمة";
+}
+
+function getInquiryLabel(kind: BusinessKind) {
+  if (kind === "store") return "لديك استفسار عن منتج؟";
+  if (kind === "restaurant") return "لديك استفسار عن القائمة؟";
+  return "لديك استفسار؟";
+}
+
+function isModuleEnabled(modules: Array<{ id: string; enabled: boolean }>, id: string) {
+  const match = modules.find((module) => module.id === id);
+  if (!match) return true;
+  return match.enabled;
+}
+
+function normalizeHttpUrl(value: string | null | undefined) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (raw.startsWith("/")) return raw;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^https?:/i.test(raw)) {
+    return null;
+  }
+  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(candidate);
+    if (!/^https?:$/i.test(parsed.protocol)) {
+      return null;
+    }
+    if (!parsed.hostname || /\s/.test(parsed.href)) {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function toDigits(value: string | null | undefined) {
+  return String(value ?? "").replace(/\D/g, "").trim();
+}
+
+function isValidEmail(value: string | null | undefined) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+}
+
+export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBusinessPageProps) {
+  const [sharePanelOpen, setSharePanelOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const accentColor = business.primaryColor || "#5D43EF";
+  const normalizedWhatsapp = normalizeWhatsapp(business.whatsapp);
+  const normalizedPhone = normalizePhone(business.phone);
+
+  const mappedBusiness: PublicBusinessData = {
+    id: business.id,
+    slug: business.slug,
+    name: business.name,
+    businessType: business.businessType,
+    description: business.description,
+    isVerified: business.isVerified,
+    primaryColor: accentColor,
+    secondaryColor: business.secondaryColor,
+    buttonStyle: business.buttonStyle,
+    cardStyle: business.cardStyle,
+    logoUrl: business.logoUrl,
+    coverUrl: business.coverUrl,
+    city: business.city,
+    district: business.district,
+    address: business.address,
+    establishedYear: business.createdAt.getFullYear(),
+    workingHours: business.workingHours,
+    whatsapp: normalizedWhatsapp,
+    phone: normalizedPhone,
+    email: business.email,
+    website: business.website,
+    googleMapsLink: business.googleMapsLink,
+    bookingAvailable: business.bookingAvailable,
+    acceptOnlineOrders: business.acceptOnlineOrders,
+    xUrl: business.xUrl,
+    instagramUrl: business.instagramUrl,
+    snapchatUrl: business.snapchatUrl,
+    tiktokUrl: business.tiktokUrl,
+    facebookUrl: business.facebookUrl,
+    galleryItems: [],
+    products: business.products
+      .filter((product) => product.isActive)
+      .map((product) => ({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        unit: (product as { unit?: string | null }).unit ?? null,
+        price: product.price,
+        oldPrice: product.oldPrice,
+        imageUrl: product.imageUrl,
+        isActive: product.isActive,
+        categoryName: product.category?.name ?? null,
+      })),
+    offers: business.offers.map((offer) => ({
+      id: offer.id,
+      title: offer.title,
+      description: offer.description,
+      discountLabel: offer.discountLabel,
+      imageUrl: offer.imageUrl,
+      startsAt: offer.startsAt ? offer.startsAt.toISOString() : null,
+      endsAt: offer.endsAt ? offer.endsAt.toISOString() : null,
+    })),
+    services: business.services
+      .filter((service) => service.isActive)
+      .map((service) => ({
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        price: service.price,
+        durationMinutes: service.durationMinutes,
+        imageUrl: service.imageUrl,
+        bookingEnabled: service.bookingEnabled,
+        sortOrder: service.sortOrder,
+      })),
+    openingHours: business.openingHours.map((item) => ({
+      id: item.id,
+      dayOfWeek: item.dayOfWeek,
+      opensAt: item.opensAt,
+      closesAt: item.closesAt,
+      secondOpensAt: item.secondOpensAt,
+      secondClosesAt: item.secondClosesAt,
+      isClosed: item.isClosed,
+    })),
+    socialLinks: business.socialLinks.map((item) => ({
+      id: item.id,
+      platform: item.platform,
+      url: item.url,
+    })),
+  };
+
+  const pageModules = normalizePageModules((business as { pageModules?: unknown }).pageModules, mappedBusiness.businessType);
+  const modulesById = new Map(pageModules.map((module) => [module.id, module]));
+  const appearance = resolvePublicAppearance(mappedBusiness.cardStyle, mappedBusiness.buttonStyle);
+  const darkMode = appearance.themeMode === "dark";
+  const openStatus = getPublicOpenStatus(mappedBusiness.openingHours);
+
+  const hasAddress = Boolean(mappedBusiness.address?.trim());
+  const mapQuery = [mappedBusiness.address, mappedBusiness.district, mappedBusiness.city].filter(Boolean).join(" ").trim();
+  const mapHref = mappedBusiness.googleMapsLink || (hasAddress && mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : null);
+  const hasPreciseLocation = Boolean(mapHref || hasAddress);
+
+  const normalizedSocialLinks = [
+    ...(mappedBusiness.instagramUrl ? [{ label: "انستغرام", href: mappedBusiness.instagramUrl }] : []),
+    ...(mappedBusiness.tiktokUrl ? [{ label: "تيك توك", href: mappedBusiness.tiktokUrl }] : []),
+    ...(mappedBusiness.snapchatUrl ? [{ label: "سناب شات", href: mappedBusiness.snapchatUrl }] : []),
+    ...(mappedBusiness.xUrl ? [{ label: "إكس", href: mappedBusiness.xUrl }] : []),
+    ...(mappedBusiness.facebookUrl ? [{ label: "فيسبوك", href: mappedBusiness.facebookUrl }] : []),
+    ...mappedBusiness.socialLinks.map((item) => ({ label: toArabicSocialLabel(item.platform), href: item.url })),
+  ].filter((item, index, arr) => arr.findIndex((entry) => entry.href === item.href) === index);
+
+  const activityId = resolveActivityId(mappedBusiness.businessType);
+  const activityProfile = getActivityProfile(mappedBusiness.businessType);
+  const businessKind = resolveBusinessKind(activityId, mappedBusiness.products.length > 0, mappedBusiness.services.length > 0);
+
+  const servicesModule = modulesById.get("services");
+  const productsModule = modulesById.get("products");
+  const externalStoreModule = modulesById.get("externalStore");
+  const contactTeamModule = modulesById.get("contactTeam");
+  const portfolioModule = modulesById.get("portfolio");
+  const companyProfileModule = modulesById.get("companyProfile");
+  const contactModule = modulesById.get("contact");
+
+  const serviceSectionTitle = servicesModule?.config?.serviceSectionTitle?.trim() || servicesModule?.config?.title?.trim() || "الخدمات";
+  const externalStoreUrl = normalizeHttpUrl(externalStoreModule?.config?.externalStoreUrl || mappedBusiness.website);
+
+  const featuredProductIds = Array.isArray(productsModule?.config?.featuredProductIds)
+    ? productsModule?.config?.featuredProductIds.map((entry) => String(entry).trim()).filter(Boolean).slice(0, 3)
+    : [];
+
+  const productExternalLinks = productsModule?.config?.productExternalLinks && typeof productsModule.config.productExternalLinks === "object"
+    ? Object.fromEntries(
+        Object.entries(productsModule.config.productExternalLinks as Record<string, unknown>).map(([key, value]) => [key, normalizeHttpUrl(String(value ?? ""))]),
+      ) as Record<string, string | null>
+    : {};
+
+  const featuredProducts = (() => {
+    if (mappedBusiness.products.length === 0) return [] as PublicBusinessData["products"];
+    const source = featuredProductIds.length > 0
+      ? mappedBusiness.products.filter((product) => featuredProductIds.includes(product.id))
+      : mappedBusiness.products.filter((product) => product.isActive).slice(0, 3);
+    return source.slice(0, 3);
+  })();
+
+  const salesTeam = Array.isArray(contactTeamModule?.config?.salesTeam)
+    ? contactTeamModule.config.salesTeam.slice(0, 3).map((member, index) => {
+        const entry = member as Record<string, unknown>;
+        return {
+          id: String(entry.id ?? `${index}`),
+          name: String(entry.name ?? "").trim(),
+          title: String(entry.title ?? "").trim() || undefined,
+          photoUrl: normalizeHttpUrl(String(entry.photoUrl ?? "")) || undefined,
+          whatsapp: toDigits(String(entry.whatsapp ?? "")) || undefined,
+          phone: String(entry.phone ?? "").trim() || undefined,
+          email: String(entry.email ?? "").trim() || undefined,
+          visible: entry.visible === false ? false : true,
+          sortOrder: Number.isFinite(entry.sortOrder) ? Number(entry.sortOrder) : index,
+        };
+      })
+    : [];
+
+  const customerServiceTeam = Array.isArray(contactTeamModule?.config?.customerServiceTeam)
+    ? contactTeamModule.config.customerServiceTeam.slice(0, 3).map((member, index) => {
+        const entry = member as Record<string, unknown>;
+        return {
+          id: String(entry.id ?? `${index}`),
+          name: String(entry.name ?? "").trim(),
+          title: String(entry.title ?? "").trim() || undefined,
+          photoUrl: normalizeHttpUrl(String(entry.photoUrl ?? "")) || undefined,
+          whatsapp: toDigits(String(entry.whatsapp ?? "")) || undefined,
+          phone: String(entry.phone ?? "").trim() || undefined,
+          email: String(entry.email ?? "").trim() || undefined,
+          visible: entry.visible === false ? false : true,
+          sortOrder: Number.isFinite(entry.sortOrder) ? Number(entry.sortOrder) : index,
+        };
+      })
+    : [];
+
+  const portfolioTitle = portfolioModule?.config?.title?.trim() || "أعمالنا";
+  const portfolioItems = Array.isArray(portfolioModule?.config?.portfolioItems)
+    ? portfolioModule.config.portfolioItems.slice(0, 6).map((item, index) => {
+        const entry = item as Record<string, unknown>;
+        return {
+          id: String(entry.id ?? `${index}`),
+          title: String(entry.title ?? "").trim(),
+          description: String(entry.description ?? "").trim() || undefined,
+          imageUrl: normalizeHttpUrl(String(entry.imageUrl ?? "")) || undefined,
+          url: normalizeHttpUrl(String(entry.url ?? "")) || undefined,
+          visible: entry.visible === false ? false : true,
+          sortOrder: Number.isFinite(entry.sortOrder) ? Number(entry.sortOrder) : index,
+        };
+      })
+    : [];
+
+  const companyProfile = companyProfileModule?.config?.companyProfile && typeof companyProfileModule.config.companyProfile === "object"
+    ? {
+        title: String(companyProfileModule.config.companyProfile.title ?? "").trim() || "الملف التعريفي",
+        description: String(companyProfileModule.config.companyProfile.description ?? "").trim(),
+        ctaLabel: String(companyProfileModule.config.companyProfile.ctaLabel ?? "").trim() || "عرض الملف التعريفي",
+        pdfUrl: normalizeHttpUrl(String(companyProfileModule.config.companyProfile.pdfUrl ?? "")) || "",
+        pdfFileName: String(companyProfileModule.config.companyProfile.pdfFileName ?? "").trim(),
+        pdfFileSize: Number.isFinite(companyProfileModule.config.companyProfile.pdfFileSize)
+          ? Number(companyProfileModule.config.companyProfile.pdfFileSize)
+          : 0,
+        visible: companyProfileModule.config.companyProfile.visible === false ? false : true,
+      }
+    : null;
+
+  const primaryCtaLabel = getPrimaryCtaLabel(businessKind, mappedBusiness);
+  const orderedEnabledModules = [...pageModules].filter((module) => module.enabled).sort((left, right) => left.sortOrder - right.sortOrder);
+  const showServicesSection = isModuleEnabled(pageModules, "services") && mappedBusiness.services.length > 0;
+  const showProductsSection = isModuleEnabled(pageModules, "products") && mappedBusiness.products.length > 0;
+  const showExternalStore = businessKind === "store" && isModuleEnabled(pageModules, "externalStore");
+  const showOffersSection = mappedBusiness.offers.length > 0;
+  const showHoursSection = isModuleEnabled(pageModules, "hours") && mappedBusiness.openingHours.length > 0;
+  const showLocationSection = isModuleEnabled(pageModules, "location") && hasPreciseLocation;
+  const showContactTeam = isModuleEnabled(pageModules, "contactTeam") && (salesTeam.length > 0 || customerServiceTeam.length > 0);
+  const showPortfolio = isModuleEnabled(pageModules, "portfolio") && portfolioItems.some((item) => item.visible !== false && item.title);
+  const showInquiry = isModuleEnabled(pageModules, "inquiry") && Boolean(mappedBusiness.whatsapp || mappedBusiness.phone);
+  const showContact = isModuleEnabled(pageModules, "contact") && normalizedSocialLinks.length > 0;
+  const branchSummary = [mappedBusiness.city, mappedBusiness.district, mappedBusiness.address].filter(Boolean).join(" • ") || null;
+  const branchDisplay = branchSummary ? { label: "فرع واحد", detail: branchSummary } : null;
+
+  const careersEnabled = contactModule?.config?.careersEnabled === true;
+  const careersEmail = String(contactModule?.config?.careersEmail ?? "").trim();
+  const careersExternalUrl = normalizeHttpUrl(contactModule?.config?.careersExternalUrl);
+  const careersLabel = String(contactModule?.config?.careersLabel ?? "").trim() || "انضم إلى فريقنا";
+  const careersMailto = isValidEmail(careersEmail)
+    ? `mailto:${careersEmail}?subject=${encodeURIComponent(`طلب توظيف لدى ${mappedBusiness.name}`)}`
+    : null;
+  const careersHref = careersEnabled ? careersExternalUrl || careersMailto : null;
+
+  const businessLinkEnabled = contactModule?.config?.businessLinkEnabled === true;
+  const websiteType = contactModule?.config?.websiteType === "ONLINE_STORE"
+    ? "ONLINE_STORE"
+    : (contactModule?.config?.businessLinkType === "store" ? "ONLINE_STORE" : "WEBSITE");
+  const websiteUrl = normalizeHttpUrl(contactModule?.config?.websiteUrl || contactModule?.config?.businessLinkUrl);
+  const businessLinkLabel = String(contactModule?.config?.businessLinkLabel ?? "").trim();
+  const businessLinkDefaultLabel = websiteType === "ONLINE_STORE" ? "المتجر الإلكتروني" : "الموقع الإلكتروني";
+  const businessLinkActionLabel = businessLinkLabel || businessLinkDefaultLabel;
+  const businessLinkHref = businessLinkEnabled && websiteUrl ? websiteUrl : null;
+  const showAboutSection = isModuleEnabled(pageModules, "about") && Boolean((mappedBusiness.description ?? "").trim());
+
+  const actions: ActionItem[] = [];
+  if (mappedBusiness.whatsapp) {
+    actions.push({ key: "whatsapp", label: "واتساب", href: `https://wa.me/${mappedBusiness.whatsapp}`, external: true, icon: "whatsapp" });
+  }
+  if (mappedBusiness.phone) {
+    actions.push({ key: "call", label: "اتصال", href: `tel:${mappedBusiness.phone}`, icon: "call" });
+  }
+  if (mapHref) {
+    actions.push({ key: "directions", label: "الاتجاهات", href: mapHref, external: true, icon: "directions" });
+  }
+  if (businessLinkHref) {
+    actions.push({
+      key: "business-link",
+      label: businessLinkActionLabel,
+      href: businessLinkHref,
+      external: true,
+      icon: websiteType === "ONLINE_STORE" ? "store" : "website",
+    });
+  }
+  if (showExternalStore && externalStoreUrl && (!businessLinkHref || businessLinkHref !== externalStoreUrl)) {
+    actions.push({ key: "store", label: "المتجر", href: externalStoreUrl, external: true, icon: "store" });
+  }
+    const showCompanyProfile = isModuleEnabled(pageModules, "companyProfile") && Boolean(companyProfile?.pdfUrl) && companyProfile?.visible !== false;
+
+  if (careersHref) {
+    actions.push({ key: "careers", label: careersLabel, href: careersHref, external: Boolean(careersExternalUrl), icon: "careers" });
+  }
+  const contactNavTarget = showContactTeam ? "#contact-team-section" : actions.length > 0 ? "#business-actions-section" : null;
+
+  const heroMeta = [
+    [mappedBusiness.city, mappedBusiness.district].filter(Boolean).join(" • "),
+    openStatus.label,
+    openStatus.detail,
+  ].filter(Boolean) as string[];
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: mappedBusiness.name,
+    ...(mappedBusiness.description ? { description: mappedBusiness.description } : {}),
+    ...(publicUrl ? { url: publicUrl } : {}),
+    ...(mappedBusiness.phone ? { telephone: mappedBusiness.phone } : {}),
+    ...(mappedBusiness.city || mappedBusiness.district || mappedBusiness.address
+      ? {
+          address: {
+            "@type": "PostalAddress",
+            ...(mappedBusiness.city ? { addressLocality: mappedBusiness.city } : {}),
+            ...(mappedBusiness.district ? { addressRegion: mappedBusiness.district } : {}),
+            ...(mappedBusiness.address ? { streetAddress: mappedBusiness.address } : {}),
+          },
+        }
+      : {}),
+    ...(mappedBusiness.logoUrl ? { image: mappedBusiness.logoUrl } : {}),
+  };
+
+  const shellClass = darkMode
+    ? "bg-[radial-gradient(circle_at_top_right,#16234a_0%,transparent_42%),linear-gradient(180deg,#070d1d_0%,#0a1224_62%,#0d1730_100%)] text-white"
+    : "bg-[radial-gradient(circle_at_top_right,#e6ecff_0%,transparent_44%),linear-gradient(180deg,#f5f7ff_0%,#f4f8ff_100%)] text-slate-900";
+
+  const surfaceClass = darkMode
+    ? "border border-white/10 bg-[#111a33]/72"
+    : "border border-[#e8ebf7] bg-white";
+
+  const compactSurfaceClass = darkMode
+    ? "border border-white/10 bg-[#101a31]/78"
+    : "border border-[#e8ebf7] bg-[#fbfcff]";
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const renderInquirySection = () => {
+    if (!showInquiry) {
+      return null;
+    }
+
+    const buttonLabel = businessKind === "services" ? "استفسر الآن" : "استفسار";
+    const detailText =
+      businessKind === "restaurant"
+        ? "هل ترغب بالسؤال قبل الحجز؟ أرسل استفسارك مباشرة."
+        : businessKind === "store"
+          ? "للاستفسارات قبل الطلب، تواصل معنا مباشرة."
+          : "أرسل سؤالك وسنحوّله إلى واتساب مباشرة.";
+    const sheetTitle = businessKind === "store" ? "استفسار عن منتج" : "استفسار";
+
+    return (
+      <section id="inquiry-section" className={`rounded-2xl border p-4 ${compactSurfaceClass}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className={`text-base font-black ${darkMode ? "text-white" : "text-[#1f2552]"}`}>{getInquiryLabel(businessKind)}</h2>
+            <p className={`mt-1 text-sm ${darkMode ? "text-slate-300" : "text-slate-600"}`}>{detailText}</p>
+          </div>
+          <div className="w-full sm:w-auto">
+            <PublicSmartActionSheet
+              businessName={mappedBusiness.name}
+              activity={activityProfile}
+              whatsapp={mappedBusiness.whatsapp}
+              phone={mappedBusiness.phone}
+              mode="inquiry"
+              buttonLabel={buttonLabel}
+              sheetTitle={sheetTitle}
+              sheetDescription="اكتب استفسارك وسيتم فتح واتساب مباشرة."
+              buttonClassName="flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white"
+              buttonStyle={{ backgroundColor: accentColor }}
+            />
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  const renderModuleSection = (moduleId: string) => {
+    switch (moduleId) {
+      case "services":
+        if (!showServicesSection) return null;
+        return (
+          <PublicServicesSection
+            services={mappedBusiness.services}
+            accentColor={accentColor}
+            whatsapp={mappedBusiness.whatsapp}
+            phone={mappedBusiness.phone}
+            businessName={mappedBusiness.name}
+            title={serviceSectionTitle || (businessKind === "restaurant" ? "القائمة" : "الخدمات")}
+            darkMode={darkMode}
+          />
+        );
+      case "products":
+        if (!showProductsSection || businessKind !== "store") return null;
+        return (
+          <PublicExternalStoreSection
+            products={featuredProducts}
+            productExternalLinks={Object.fromEntries(Object.entries(productExternalLinks).map(([key, value]) => [key, value ?? ""]))}
+            externalStoreUrl={showExternalStore ? externalStoreUrl : null}
+            accentColor={accentColor}
+            darkMode={darkMode}
+            title="منتجات مميزة"
+          />
+        );
+      case "inquiry":
+        return renderInquirySection();
+      case "location":
+        if (!showLocationSection) return null;
+        return <PublicLocationSection city={mappedBusiness.city} district={mappedBusiness.district} address={mappedBusiness.address} mapHref={mapHref} darkMode={darkMode} compact />;
+      case "hours":
+        if (!showHoursSection) return null;
+        return <PublicHoursSection hours={mappedBusiness.openingHours} statusLabel={openStatus.label} statusDetail={openStatus.detail} fallbackText={mappedBusiness.workingHours} accentColor={accentColor} darkMode={darkMode} compact />;
+      case "portfolio":
+        return showPortfolio ? <PublicPortfolioSection items={portfolioItems} title={portfolioTitle} darkMode={darkMode} /> : null;
+      case "companyProfile":
+        return showCompanyProfile && companyProfile ? <PublicCompanyProfileSection companyProfile={companyProfile} darkMode={darkMode} /> : null;
+      case "contactTeam":
+        return showContactTeam ? <PublicContactTeamSection salesTeam={salesTeam} customerServiceTeam={customerServiceTeam} darkMode={darkMode} /> : null;
+      case "about":
+        return showAboutSection ? <PublicAboutSection description={mappedBusiness.description} businessType={mappedBusiness.businessType} city={mappedBusiness.city} district={mappedBusiness.district} address={mappedBusiness.address} establishedYear={mappedBusiness.establishedYear} website={null} phone={mappedBusiness.phone} whatsapp={mappedBusiness.whatsapp} isVerified={mappedBusiness.isVerified} statusLabel={openStatus.label} darkMode={darkMode} /> : null;
+      case "contact":
+        return showContact ? <PublicSocialSection links={normalizedSocialLinks} title="روابط إضافية" darkMode={darkMode} /> : null;
+      default:
+        return null;
+    }
+  };
+
+  const profileMetrics = [
+    { label: "خدماتنا", value: `${mappedBusiness.services.length ?? 0}` },
+    { label: "أعمالنا", value: `${portfolioItems.length ?? 0}` },
+    { label: "الساعات", value: `${mappedBusiness.openingHours.length ?? 0}` },
+  ];
+
+  const branchItems = [
+    { city: mappedBusiness.city || "جدة", district: mappedBusiness.district || "حي الروضة", address: mappedBusiness.address || "حي الروضة، جدة" },
+  ];
+
+  const visiblePortfolio = portfolioItems.filter((item) => item.visible !== false && item.title).slice(0, 4);
+  const visibleTeam = [...salesTeam, ...customerServiceTeam].filter((member) => member.visible !== false && member.name).slice(0, 5);
+  const compactServices = mappedBusiness.services.slice(0, 4);
+  const addressText = [mappedBusiness.district, mappedBusiness.city].filter(Boolean).join("، ") || mappedBusiness.address || "";
+
+  return (
+    <main
+      dir="rtl"
+      data-renderer="public-business-page-v8-full-redesign"
+      style={{ "--hee-accent": accentColor } as React.CSSProperties}
+      className="min-h-screen bg-[#fbfafc] pb-[76px] text-[#20163f] md:pb-8"
+    >
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+
+      <div className="mx-auto w-full max-w-[390px] px-3 py-3 md:max-w-[1360px] md:px-6 md:py-6">
+        {/* BUSINESS IDENTITY — no cover, no hero image */}
+        <header className="overflow-hidden rounded-[20px] border border-[#eee9f7] bg-white shadow-[0_12px_34px_-28px_rgba(72,45,140,.45)] md:rounded-[26px]">
+          <div className="p-3 md:p-6">
+            <div className="grid grid-cols-[72px_1fr_auto] items-start gap-3 md:grid-cols-[110px_1fr_auto] md:items-center md:gap-6">
+              <div className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-[18px] border border-[#ebe5f8] bg-[#f5f1ff] md:h-[110px] md:w-[110px] md:rounded-[26px]">
+                {mappedBusiness.logoUrl ? (
+                  <Image
+                    src={mappedBusiness.logoUrl}
+                    alt={mappedBusiness.name}
+                    width={120}
+                    height={120}
+                    className="h-full w-full object-contain"
+                    unoptimized
+                  />
+                ) : (
+                  <span className="text-2xl font-black text-[#5f43d8]">{mappedBusiness.name.charAt(0)}</span>
+                )}
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+                  <h1 className="max-w-[205px] truncate text-[19px] font-black leading-7 md:max-w-none md:text-[34px] md:leading-[1.25]">
+                    {mappedBusiness.name}
+                  </h1>
+                  {mappedBusiness.isVerified ? (
+                    <span className="inline-flex items-center rounded-full bg-[#f0ebff] px-2 py-1 text-[8px] font-black text-[#5b3fc0] md:px-3 md:text-xs">
+                      موثق من HEE ✓
+                    </span>
+                  ) : null}
+                </div>
+
+                <p className="mt-0.5 text-[9px] font-bold text-[#7a7484] md:mt-1 md:text-sm">
+                  {mappedBusiness.businessType}
+                </p>
+
+                <div className="mt-2 flex flex-wrap gap-1.5 text-[8px] font-bold md:mt-3 md:text-xs">
+                  <span className="rounded-full bg-[#eaf8ef] px-2 py-1 text-[#178a4b]">● {openStatus.label}</span>
+                  {addressText ? <span className="rounded-full bg-[#f7f4fb] px-2 py-1 text-[#665e72]">{addressText}</span> : null}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5 md:flex-row md:gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSharePanelOpen((value) => !value)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#e8e2f5] bg-white text-[#5137a8] md:h-11 md:w-11"
+                  aria-label="مشاركة"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
+                <PublicFavoriteButton
+                  businessId={mappedBusiness.id}
+                  businessName={mappedBusiness.name}
+                  variant="pill"
+                  className="h-9 border-[#e8e2f5] bg-white px-2 text-[#5137a8] md:h-11 md:px-3"
+                />
+              </div>
+            </div>
+
+            {mappedBusiness.description ? (
+              <p className="mt-3 border-t border-[#f1edf7] pt-3 text-[10px] leading-5 text-[#625c6d] md:mr-[136px] md:max-w-[880px] md:text-[14px] md:leading-7">
+                {mappedBusiness.description}
+              </p>
+            ) : null}
+          </div>
+        </header>
+
+        {/* ACTIONS */}
+        <section id="business-actions-section" className="mt-2 rounded-[18px] border border-[#eee9f7] bg-white p-2 md:mt-3 md:rounded-[22px] md:p-3">
+          <div className="grid grid-cols-4 gap-1.5 md:grid-cols-5 md:gap-3">
+            <PublicSmartActionSheet
+              businessName={mappedBusiness.name}
+              activity={activityProfile}
+              whatsapp={mappedBusiness.whatsapp}
+              phone={mappedBusiness.phone}
+              mode="request"
+              buttonLabel={primaryCtaLabel}
+              sheetTitle={primaryCtaLabel}
+              sheetDescription="أرسل طلبك مباشرة."
+              buttonClassName="col-span-4 flex h-10 items-center justify-center rounded-[10px] text-[11px] font-black text-white md:col-span-1 md:h-[52px] md:text-sm"
+              buttonStyle={{ backgroundColor: accentColor }}
+            />
+
+            <a href={mappedBusiness.whatsapp ? `https://wa.me/${mappedBusiness.whatsapp}` : "#"} target={mappedBusiness.whatsapp ? "_blank" : undefined} rel="noreferrer noopener" className="flex h-[48px] flex-col items-center justify-center gap-1 rounded-[10px] border border-[#ece6f7] text-[9px] font-black md:h-[52px] md:flex-row md:gap-2 md:text-sm">
+              <MessageCircle className="h-4 w-4" /> واتساب
+            </a>
+            <a href={mappedBusiness.phone ? `tel:${mappedBusiness.phone}` : "#"} className="flex h-[48px] flex-col items-center justify-center gap-1 rounded-[10px] border border-[#ece6f7] text-[9px] font-black md:h-[52px] md:flex-row md:gap-2 md:text-sm">
+              <Phone className="h-4 w-4" /> اتصال
+            </a>
+            <a href={mapHref || "#"} target={mapHref ? "_blank" : undefined} rel="noreferrer noopener" className="flex h-[48px] flex-col items-center justify-center gap-1 rounded-[10px] border border-[#ece6f7] text-[9px] font-black md:h-[52px] md:flex-row md:gap-2 md:text-sm">
+              <MapPin className="h-4 w-4" /> الموقع
+            </a>
+            <button type="button" onClick={() => setSharePanelOpen((value) => !value)} className="flex h-[48px] flex-col items-center justify-center gap-1 rounded-[10px] border border-[#ece6f7] text-[9px] font-black md:h-[52px] md:flex-row md:gap-2 md:text-sm">
+              <Share2 className="h-4 w-4" /> مشاركة
+            </button>
+          </div>
+        </section>
+
+        {sharePanelOpen ? (
+          <section className="mt-2 flex items-center gap-3 rounded-[16px] border border-[#ece6fa] bg-white p-3">
+            <img src={qrDataUrl} alt="QR" className="h-16 w-16 rounded-xl border p-1" />
+            <button type="button" onClick={copyLink} className="flex-1 rounded-xl bg-[#f4f0ff] px-3 py-3 text-xs font-black text-[#4d36a8]">
+              <Copy className="ml-2 inline h-4 w-4" />{copied ? "تم النسخ" : "نسخ رابط الصفحة"}
+            </button>
+          </section>
+        ) : null}
+
+        {/* SERVICES — editorial icons, intentionally compact */}
+        {showServicesSection ? (
+          <section id="services-section" className="mt-3 bg-transparent md:mt-5">
+            <div className="mb-2.5 flex items-center justify-between md:mb-4">
+              <h2 className="text-[17px] font-black md:text-[24px]">خدماتنا</h2>
+              <a href="#services-section" className="text-[10px] font-black text-[#5a3fc3] md:text-sm">عرض الكل ←</a>
+            </div>
+
+            <div className="grid grid-cols-4 gap-1.5 md:gap-4">
+              {compactServices.map((service, index) => {
+                const ServiceIcon = [Building2, Wrench, Sparkles, Users][index % 4];
+                return (
+                  <article key={service.id} className="rounded-[15px] border border-[#f0ebf8] bg-white px-1.5 py-2.5 text-center shadow-[0_10px_24px_-24px_rgba(70,45,130,.45)] md:rounded-[20px] md:px-4 md:py-5">
+                    <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-[11px] bg-[#f0ebff] text-[#6042d5] md:h-13 md:w-13">
+                      <ServiceIcon className="h-4.5 w-4.5 md:h-6 md:w-6" />
+                    </div>
+                    <h3 className="mt-1.5 line-clamp-2 min-h-[28px] text-[9px] font-black leading-[14px] md:mt-3 md:min-h-0 md:text-[16px] md:leading-6">
+                      {service.name}
+                    </h3>
+                    <p className="mt-1 hidden text-[12px] leading-5 text-[#70697a] md:line-clamp-2 md:block">{service.description}</p>
+                    {service.price != null ? <div className="mt-1 text-[8px] font-black text-[#5b3fd3] md:mt-2 md:text-sm">من {service.price} ر.س</div> : null}
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="mt-2 flex justify-center gap-1">
+              <span className="h-1.5 w-5 rounded-full bg-[#5b3fd3]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#dcd5ef]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#dcd5ef]" />
+            </div>
+          </section>
+        ) : null}
+
+        {/* PORTFOLIO — image-first */}
+        {showPortfolio ? (
+          <section id="portfolio-section" className="mt-3 bg-transparent md:mt-5">
+            <div className="mb-2.5 flex items-center justify-between md:mb-4">
+              <h2 className="text-[17px] font-black md:text-[24px]">{portfolioTitle}</h2>
+              <span className="text-[10px] font-black text-[#5a3fc3] md:text-sm">عرض الكل ←</span>
+            </div>
+
+            <div className="grid grid-cols-4 gap-1.5 md:gap-4">
+              {visiblePortfolio.map((item) => (
+                <a key={item.id} href={item.url || "#"} className="group relative aspect-[1/1.02] overflow-hidden rounded-[12px] bg-[#ece8f4] md:aspect-[1.7/1] md:rounded-[18px]">
+                  {item.imageUrl ? (
+                    <Image src={item.imageUrl} alt={item.title} fill className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" unoptimized />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(135deg,#edf0fa,#e5f7f5)]">
+                      <FileText className="h-5 w-5 text-[#8a78bf] md:h-8 md:w-8" />
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent px-1 pb-1.5 pt-6 text-center text-[7px] font-black text-white md:px-3 md:pb-3 md:pt-10 md:text-sm">
+                    {item.title}
+                  </div>
+                </a>
+              ))}
+            </div>
+
+            <div className="mt-2 flex justify-center gap-1">
+              <span className="h-1.5 w-5 rounded-full bg-[#5b3fd3]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#dcd5ef]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-[#dcd5ef]" />
+            </div>
+          </section>
+        ) : null}
+
+        {/* INFORMATION STRIP */}
+        <section className="mt-3 grid grid-cols-2 gap-2 md:mt-5 md:grid-cols-[0.9fr_1.8fr_0.9fr] md:gap-4">
+          {showCompanyProfile && companyProfile ? (
+            <a href={companyProfile.pdfUrl} target="_blank" rel="noreferrer noopener" className="flex min-h-[132px] flex-col justify-between rounded-[16px] bg-gradient-to-br from-[#3e1f9b] to-[#6e4ce8] p-3 text-white md:min-h-[190px] md:rounded-[20px] md:p-5">
+              <div className="flex items-center justify-between text-[8px] font-black md:text-sm"><span>PDF</span><Download className="h-4 w-4" /></div>
+              <div>
+                <h2 className="text-[14px] font-black md:text-[23px]">{companyProfile.title}</h2>
+                <p className="mt-1 line-clamp-2 text-[7px] leading-4 text-white/85 md:text-sm md:leading-6">{companyProfile.description}</p>
+              </div>
+              <div className="mt-2 rounded-lg bg-white py-2 text-center text-[8px] font-black text-[#4d32ad] md:text-sm">{companyProfile.ctaLabel}</div>
+            </a>
+          ) : null}
+
+          {showAboutSection ? (
+            <div className="min-h-[132px] rounded-[16px] border border-[#eee9f7] bg-white p-3 md:min-h-[190px] md:rounded-[20px] md:p-5">
+              <h2 className="text-[13px] font-black text-[#5438b4] md:text-[23px]">نبذة عن المؤسسة</h2>
+              <p className="mt-1.5 line-clamp-3 text-[8px] leading-4 text-[#655f6e] md:mt-3 md:text-sm md:leading-6">{mappedBusiness.description}</p>
+              <div className="mt-3 grid grid-cols-3 divide-x divide-x-reverse divide-[#eee8f6] text-center md:mt-6">
+                <div><b className="block text-[11px] md:text-xl">98%</b><span className="text-[6px] text-[#746d83] md:text-xs">المصداقية</span></div>
+                <div><b className="block text-[11px] md:text-xl">{mappedBusiness.services.length}+</b><span className="text-[6px] text-[#746d83] md:text-xs">خدمة</span></div>
+                <div><b className="block text-[11px] md:text-xl">5+</b><span className="text-[6px] text-[#746d83] md:text-xs">سنوات خبرة</span></div>
+              </div>
+            </div>
+          ) : null}
+
+          {branchDisplay ? (
+            <details className="col-span-2 min-h-[58px] rounded-[16px] border border-[#eee9f7] bg-white p-3 md:col-span-1 md:min-h-[190px] md:rounded-[20px] md:p-5">
+              <summary className="cursor-pointer list-none text-[12px] font-black md:text-lg">
+                <span className="block text-[8px] font-bold text-[#7a7484] md:text-xs">فروعنا</span>
+                <span className="mt-1 block">{branchDisplay.label}</span>
+                <span className="float-left -mt-5 text-[#5b3fd3]">⌄</span>
+              </summary>
+              <p className="mt-2 text-[8px] leading-4 text-[#676174] md:mt-4 md:text-sm md:leading-6">{branchDisplay.detail}</p>
+            </details>
+          ) : null}
+        </section>
+
+        {/* TEAM — visual, horizontal, no giant empty card */}
+        {showContactTeam ? (
+          <section id="contact-team-section" className="mt-3 md:mt-5">
+            <div className="mb-2.5 flex items-center justify-between md:mb-4">
+              <h2 className="text-[16px] font-black md:text-[23px]">تواصل مع فريقنا</h2>
+              <Users className="h-4 w-4 text-[#5b3fd3] md:h-5 md:w-5" />
+            </div>
+
+            <div className="flex gap-3 overflow-x-auto rounded-[16px] border border-[#eee9f7] bg-white px-3 py-3 md:gap-7 md:rounded-[20px] md:px-5 md:py-4">
+              {visibleTeam.map((member) => (
+                <a
+                  key={member.id}
+                  href={member.whatsapp ? `https://wa.me/${member.whatsapp}` : member.phone ? `tel:${member.phone}` : "#"}
+                  target={member.whatsapp ? "_blank" : undefined}
+                  rel="noreferrer noopener"
+                  className="min-w-[64px] text-center md:min-w-[105px]"
+                >
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[#eee8ff] md:h-[70px] md:w-[70px]">
+                    {member.photoUrl ? <Image src={member.photoUrl} alt={member.name} width={80} height={80} className="h-full w-full object-cover" unoptimized /> : <span className="text-base font-black text-[#5c41d5]">{member.name.charAt(0)}</span>}
+                  </div>
+                  <b className="mt-1.5 block truncate text-[8px] md:text-[13px]">{member.name}</b>
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {/* QUICK BUSINESS INFO */}
+        <section className="mt-3 grid grid-cols-3 gap-2 md:mt-5 md:gap-4">
+          <a href={mappedBusiness.whatsapp ? `https://wa.me/${mappedBusiness.whatsapp}` : "#"} className="rounded-[14px] border border-[#eee9f7] bg-white p-2.5 text-center md:min-h-[112px] md:rounded-[18px] md:p-4">
+            <MessageCircle className="mx-auto h-4 w-4 text-[#5b3fd3] md:h-6 md:w-6" />
+            <b className="mt-1 block text-[8px] md:text-sm">تواصل</b>
+            <span className="mt-1 block text-[6px] text-emerald-600 md:text-xs">راسلنا الآن</span>
+          </a>
+
+          <details className="rounded-[14px] border border-[#eee9f7] bg-white p-2.5 text-center md:min-h-[112px] md:rounded-[18px] md:p-4">
+            <summary className="cursor-pointer list-none">
+              <Clock3 className="mx-auto h-4 w-4 text-[#5b3fd3] md:h-6 md:w-6" />
+              <b className="mt-1 block text-[8px] md:text-sm">ساعات العمل</b>
+              <span className="mt-1 block text-[6px] text-emerald-600 md:text-xs">{openStatus.label}</span>
+            </summary>
+            <div className="mt-2 space-y-1 text-[7px] text-[#6d667a] md:text-xs">
+              {mappedBusiness.openingHours.slice(0, 7).map((entry) => (
+                <div key={entry.id} className="flex justify-between gap-2">
+                  <span>{["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"][entry.dayOfWeek]}</span>
+                  <span>{entry.isClosed ? "مغلق" : [entry.opensAt, entry.closesAt].filter(Boolean).join(" - ")}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+
+          <a href={mapHref || "#"} target={mapHref ? "_blank" : undefined} rel="noreferrer noopener" className="rounded-[14px] border border-[#eee9f7] bg-white p-2.5 text-center md:min-h-[112px] md:rounded-[18px] md:p-4">
+            <MapPin className="mx-auto h-4 w-4 text-[#5b3fd3] md:h-6 md:w-6" />
+            <b className="mt-1 block text-[8px] md:text-sm">موقعنا</b>
+            <span className="mt-1 block text-[6px] text-[#5b3fd3] md:text-xs">الاتجاهات</span>
+          </a>
+        </section>
+
+        {normalizedSocialLinks.length ? (
+          <footer className="mt-3 flex items-center justify-between border-t border-[#ece7f5] px-1 py-3 md:mt-5 md:px-2 md:py-4">
+            <div className="flex gap-1.5 md:gap-2">
+              {normalizedSocialLinks.slice(0, 5).map((link) => (
+                <a key={link.href} href={link.href} target="_blank" rel="noreferrer noopener" title={link.label} aria-label={link.label} className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#e6dff4] bg-white text-[8px] font-black text-[#4b368f] md:h-10 md:w-10 md:text-[10px]">
+                  {link.label.slice(0, 1)}
+                </a>
+              ))}
+            </div>
+            <span className="text-[7px] font-black text-[#5b3fd3] md:text-xs">أنشئ صفحتك على HEE</span>
+          </footer>
+        ) : null}
+      </div>
+
+      <PublicStickyMobileActions
+        businessKind={businessKind}
+        servicesLabel={serviceSectionTitle || "الخدمات"}
+        contactHref={contactNavTarget}
+        hasOffers={showOffersSection}
+        hasLocation={Boolean(showLocationSection)}
+        hasGallery={Boolean(showPortfolio)}
+        hasReviews={false}
+        hasServices={showServicesSection}
+        hasProducts={showProductsSection}
+        hasContact={Boolean(mappedBusiness.whatsapp || mappedBusiness.phone || mapHref)}
+      />
+    </main>
+  );
+}

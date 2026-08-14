@@ -112,12 +112,14 @@ export async function createBusinessFromOnboarding(_prevState: ActionState, form
   const freePlan = await ensureBusinessPlan("FREE");
 
   const pageModules = serializePageModules(normalizePageModulesForPersistence(undefined, parsed.data.businessType));
+  const { slug, ...businessFields } = parsed.data;
 
   if (existingBusiness) {
     await db.business.update({
       where: { id: existingBusiness.id },
       data: {
-        ...parsed.data,
+        ...businessFields,
+        slug,
         pageModules,
         isVerified: false,
         isPublished: existingBusiness.isPublished,
@@ -127,7 +129,8 @@ export async function createBusinessFromOnboarding(_prevState: ActionState, form
     await db.business.create({
       data: {
         ownerId: user.id,
-        ...parsed.data,
+        ...businessFields,
+        slug,
         pageModules,
         planId: freePlan.id,
         isVerified: false,
@@ -265,17 +268,23 @@ export async function saveBusinessProfileAction(_prevState: ActionState, formDat
     return { error: "الرابط العام مستخدم من نشاط آخر" };
   }
 
+  const { slug, ...profileFields } = parsed.data;
+
   try {
     if (existingBusiness) {
       await db.business.update({
         where: { id: existingBusiness.id },
-        data: parsed.data,
+        data: {
+          ...profileFields,
+          slug,
+        },
       });
     } else {
       await db.business.create({
         data: {
           ownerId: user.id,
-          ...parsed.data,
+          ...profileFields,
+          slug,
           planId: freePlan.id,
           pageModules: serializePageModules(normalizePageModulesForPersistence(undefined, parsed.data.businessType)),
           isVerified: false,
@@ -288,7 +297,7 @@ export async function saveBusinessProfileAction(_prevState: ActionState, formDat
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/business");
-  revalidatePath(`/b/${parsed.data.slug}`);
+  revalidatePath(`/${parsed.data.slug}`);
 
   return { success: "تم حفظ ملف النشاط بنجاح" };
 }
@@ -333,7 +342,7 @@ export async function updateBusinessBrandingImagesAction(_prevState: ActionState
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/business");
   revalidatePath("/dashboard/branding");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
 
   return { success: "تم تحديث الهوية والصور بنجاح" };
 }
@@ -386,25 +395,54 @@ export async function getBusinessPublic(slug: string) {
         openingHours: { orderBy: { dayOfWeek: "asc" } },
         galleryItems: { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] },
         socialLinks: { where: { isActive: true }, orderBy: { sortOrder: "asc" } },
+
+        // HEE V3 — Smart Business Profile
+        branches: {
+          where: { isActive: true },
+          orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }],
+        },
+        departments: {
+          where: { isActive: true },
+          orderBy: { sortOrder: "asc" },
+          include: {
+            contacts: {
+              where: { isActive: true },
+              orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+              include: {
+                branch: true,
+              },
+            },
+          },
+        },
       },
     });
   } catch (error) {
     const err = error as { name?: string; message?: string; code?: string; clientVersion?: string };
     console.error("[public-business:getBusinessPublic] query_failed", {
       slug,
-      provider: "sqlite",
+      provider: "postgresql",
       hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
       nodeEnv: process.env.NODE_ENV,
       errorName: err?.name,
       errorCode: err?.code,
       prismaClientVersion: err?.clientVersion,
       errorMessage: err?.message,
+      error: error instanceof Error ? error.stack : String(error),
     });
     throw error;
   }
 }
 
 export async function isSlugAvailable(slug: string) {
-  const business = await db.business.findUnique({ where: { slug } });
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized || normalized.length < 4 || /[^a-z0-9-]/.test(normalized)) {
+    return false;
+  }
+
+  if (normalized === "dashboard" || normalized === "login" || normalized === "signup" || normalized === "register" || normalized === "contact" || normalized === "privacy" || normalized === "terms" || normalized === "api" || normalized === "b") {
+    return false;
+  }
+
+  const business = await db.business.findUnique({ where: { slug: normalized } });
   return !business;
 }

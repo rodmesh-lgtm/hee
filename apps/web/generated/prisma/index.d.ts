@@ -103,6 +103,21 @@ export type AnalyticsEvent = $Result.DefaultSelection<Prisma.$AnalyticsEventPayl
  * 
  */
 export type StoredObject = $Result.DefaultSelection<Prisma.$StoredObjectPayload>
+/**
+ * Model Branch
+ * 
+ */
+export type Branch = $Result.DefaultSelection<Prisma.$BranchPayload>
+/**
+ * Model Department
+ * 
+ */
+export type Department = $Result.DefaultSelection<Prisma.$DepartmentPayload>
+/**
+ * Model ContactPerson
+ * 
+ */
+export type ContactPerson = $Result.DefaultSelection<Prisma.$ContactPersonPayload>
 
 /**
  * ##  Prisma Client ʲˢ
@@ -406,6 +421,36 @@ export class PrismaClient<
     * ```
     */
   get storedObject(): Prisma.StoredObjectDelegate<ExtArgs>;
+
+  /**
+   * `prisma.branch`: Exposes CRUD operations for the **Branch** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Branches
+    * const branches = await prisma.branch.findMany()
+    * ```
+    */
+  get branch(): Prisma.BranchDelegate<ExtArgs>;
+
+  /**
+   * `prisma.department`: Exposes CRUD operations for the **Department** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Departments
+    * const departments = await prisma.department.findMany()
+    * ```
+    */
+  get department(): Prisma.DepartmentDelegate<ExtArgs>;
+
+  /**
+   * `prisma.contactPerson`: Exposes CRUD operations for the **ContactPerson** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more ContactPeople
+    * const contactPeople = await prisma.contactPerson.findMany()
+    * ```
+    */
+  get contactPerson(): Prisma.ContactPersonDelegate<ExtArgs>;
 }
 
 export namespace Prisma {
@@ -864,7 +909,10 @@ export namespace Prisma {
     SocialLink: 'SocialLink',
     Subscription: 'Subscription',
     AnalyticsEvent: 'AnalyticsEvent',
-    StoredObject: 'StoredObject'
+    StoredObject: 'StoredObject',
+    Branch: 'Branch',
+    Department: 'Department',
+    ContactPerson: 'ContactPerson'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -880,7 +928,7 @@ export namespace Prisma {
 
   export type TypeMap<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, ClientOptions = {}> = {
     meta: {
-      modelProps: "user" | "session" | "businessPlan" | "business" | "category" | "product" | "customer" | "order" | "orderItem" | "offer" | "service" | "booking" | "workingHours" | "galleryItem" | "socialLink" | "subscription" | "analyticsEvent" | "storedObject"
+      modelProps: "user" | "session" | "businessPlan" | "business" | "category" | "product" | "customer" | "order" | "orderItem" | "offer" | "service" | "booking" | "workingHours" | "galleryItem" | "socialLink" | "subscription" | "analyticsEvent" | "storedObject" | "branch" | "department" | "contactPerson"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -2144,6 +2192,216 @@ export namespace Prisma {
           }
         }
       }
+      Branch: {
+        payload: Prisma.$BranchPayload<ExtArgs>
+        fields: Prisma.BranchFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.BranchFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$BranchPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.BranchFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$BranchPayload>
+          }
+          findFirst: {
+            args: Prisma.BranchFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$BranchPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.BranchFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$BranchPayload>
+          }
+          findMany: {
+            args: Prisma.BranchFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$BranchPayload>[]
+          }
+          create: {
+            args: Prisma.BranchCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$BranchPayload>
+          }
+          createMany: {
+            args: Prisma.BranchCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.BranchCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$BranchPayload>[]
+          }
+          delete: {
+            args: Prisma.BranchDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$BranchPayload>
+          }
+          update: {
+            args: Prisma.BranchUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$BranchPayload>
+          }
+          deleteMany: {
+            args: Prisma.BranchDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.BranchUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          upsert: {
+            args: Prisma.BranchUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$BranchPayload>
+          }
+          aggregate: {
+            args: Prisma.BranchAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateBranch>
+          }
+          groupBy: {
+            args: Prisma.BranchGroupByArgs<ExtArgs>
+            result: $Utils.Optional<BranchGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.BranchCountArgs<ExtArgs>
+            result: $Utils.Optional<BranchCountAggregateOutputType> | number
+          }
+        }
+      }
+      Department: {
+        payload: Prisma.$DepartmentPayload<ExtArgs>
+        fields: Prisma.DepartmentFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.DepartmentFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DepartmentPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.DepartmentFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DepartmentPayload>
+          }
+          findFirst: {
+            args: Prisma.DepartmentFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DepartmentPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.DepartmentFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DepartmentPayload>
+          }
+          findMany: {
+            args: Prisma.DepartmentFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DepartmentPayload>[]
+          }
+          create: {
+            args: Prisma.DepartmentCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DepartmentPayload>
+          }
+          createMany: {
+            args: Prisma.DepartmentCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.DepartmentCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DepartmentPayload>[]
+          }
+          delete: {
+            args: Prisma.DepartmentDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DepartmentPayload>
+          }
+          update: {
+            args: Prisma.DepartmentUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DepartmentPayload>
+          }
+          deleteMany: {
+            args: Prisma.DepartmentDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.DepartmentUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          upsert: {
+            args: Prisma.DepartmentUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$DepartmentPayload>
+          }
+          aggregate: {
+            args: Prisma.DepartmentAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateDepartment>
+          }
+          groupBy: {
+            args: Prisma.DepartmentGroupByArgs<ExtArgs>
+            result: $Utils.Optional<DepartmentGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.DepartmentCountArgs<ExtArgs>
+            result: $Utils.Optional<DepartmentCountAggregateOutputType> | number
+          }
+        }
+      }
+      ContactPerson: {
+        payload: Prisma.$ContactPersonPayload<ExtArgs>
+        fields: Prisma.ContactPersonFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.ContactPersonFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ContactPersonPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.ContactPersonFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ContactPersonPayload>
+          }
+          findFirst: {
+            args: Prisma.ContactPersonFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ContactPersonPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.ContactPersonFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ContactPersonPayload>
+          }
+          findMany: {
+            args: Prisma.ContactPersonFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ContactPersonPayload>[]
+          }
+          create: {
+            args: Prisma.ContactPersonCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ContactPersonPayload>
+          }
+          createMany: {
+            args: Prisma.ContactPersonCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.ContactPersonCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ContactPersonPayload>[]
+          }
+          delete: {
+            args: Prisma.ContactPersonDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ContactPersonPayload>
+          }
+          update: {
+            args: Prisma.ContactPersonUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ContactPersonPayload>
+          }
+          deleteMany: {
+            args: Prisma.ContactPersonDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.ContactPersonUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          upsert: {
+            args: Prisma.ContactPersonUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$ContactPersonPayload>
+          }
+          aggregate: {
+            args: Prisma.ContactPersonAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateContactPerson>
+          }
+          groupBy: {
+            args: Prisma.ContactPersonGroupByArgs<ExtArgs>
+            result: $Utils.Optional<ContactPersonGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.ContactPersonCountArgs<ExtArgs>
+            result: $Utils.Optional<ContactPersonCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -2401,6 +2659,9 @@ export namespace Prisma {
     galleryItems: number
     subscriptions: number
     analytics: number
+    branches: number
+    departments: number
+    contactPersons: number
   }
 
   export type BusinessCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -2416,6 +2677,9 @@ export namespace Prisma {
     galleryItems?: boolean | BusinessCountOutputTypeCountGalleryItemsArgs
     subscriptions?: boolean | BusinessCountOutputTypeCountSubscriptionsArgs
     analytics?: boolean | BusinessCountOutputTypeCountAnalyticsArgs
+    branches?: boolean | BusinessCountOutputTypeCountBranchesArgs
+    departments?: boolean | BusinessCountOutputTypeCountDepartmentsArgs
+    contactPersons?: boolean | BusinessCountOutputTypeCountContactPersonsArgs
   }
 
   // Custom InputTypes
@@ -2511,6 +2775,27 @@ export namespace Prisma {
    */
   export type BusinessCountOutputTypeCountAnalyticsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: AnalyticsEventWhereInput
+  }
+
+  /**
+   * BusinessCountOutputType without action
+   */
+  export type BusinessCountOutputTypeCountBranchesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: BranchWhereInput
+  }
+
+  /**
+   * BusinessCountOutputType without action
+   */
+  export type BusinessCountOutputTypeCountDepartmentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: DepartmentWhereInput
+  }
+
+  /**
+   * BusinessCountOutputType without action
+   */
+  export type BusinessCountOutputTypeCountContactPersonsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ContactPersonWhereInput
   }
 
 
@@ -2675,6 +2960,68 @@ export namespace Prisma {
    */
   export type ServiceCountOutputTypeCountBookingsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: BookingWhereInput
+  }
+
+
+  /**
+   * Count Type BranchCountOutputType
+   */
+
+  export type BranchCountOutputType = {
+    contacts: number
+  }
+
+  export type BranchCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    contacts?: boolean | BranchCountOutputTypeCountContactsArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * BranchCountOutputType without action
+   */
+  export type BranchCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the BranchCountOutputType
+     */
+    select?: BranchCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * BranchCountOutputType without action
+   */
+  export type BranchCountOutputTypeCountContactsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ContactPersonWhereInput
+  }
+
+
+  /**
+   * Count Type DepartmentCountOutputType
+   */
+
+  export type DepartmentCountOutputType = {
+    contacts: number
+  }
+
+  export type DepartmentCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    contacts?: boolean | DepartmentCountOutputTypeCountContactsArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * DepartmentCountOutputType without action
+   */
+  export type DepartmentCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the DepartmentCountOutputType
+     */
+    select?: DepartmentCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * DepartmentCountOutputType without action
+   */
+  export type DepartmentCountOutputTypeCountContactsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ContactPersonWhereInput
   }
 
 
@@ -5738,6 +6085,10 @@ export namespace Prisma {
     createdAt: Date | null
     updatedAt: Date | null
     deletedAt: Date | null
+    digitalDestinationType: string | null
+    companyProfileUrl: string | null
+    companyProfileTitle: string | null
+    licenseNumber: string | null
   }
 
   export type BusinessMaxAggregateOutputType = {
@@ -5787,6 +6138,10 @@ export namespace Prisma {
     createdAt: Date | null
     updatedAt: Date | null
     deletedAt: Date | null
+    digitalDestinationType: string | null
+    companyProfileUrl: string | null
+    companyProfileTitle: string | null
+    licenseNumber: string | null
   }
 
   export type BusinessCountAggregateOutputType = {
@@ -5837,6 +6192,10 @@ export namespace Prisma {
     createdAt: number
     updatedAt: number
     deletedAt: number
+    digitalDestinationType: number
+    companyProfileUrl: number
+    companyProfileTitle: number
+    licenseNumber: number
     _all: number
   }
 
@@ -5888,6 +6247,10 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     deletedAt?: true
+    digitalDestinationType?: true
+    companyProfileUrl?: true
+    companyProfileTitle?: true
+    licenseNumber?: true
   }
 
   export type BusinessMaxAggregateInputType = {
@@ -5937,6 +6300,10 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     deletedAt?: true
+    digitalDestinationType?: true
+    companyProfileUrl?: true
+    companyProfileTitle?: true
+    licenseNumber?: true
   }
 
   export type BusinessCountAggregateInputType = {
@@ -5987,6 +6354,10 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     deletedAt?: true
+    digitalDestinationType?: true
+    companyProfileUrl?: true
+    companyProfileTitle?: true
+    licenseNumber?: true
     _all?: true
   }
 
@@ -6110,6 +6481,10 @@ export namespace Prisma {
     createdAt: Date
     updatedAt: Date
     deletedAt: Date | null
+    digitalDestinationType: string | null
+    companyProfileUrl: string | null
+    companyProfileTitle: string | null
+    licenseNumber: string | null
     _count: BusinessCountAggregateOutputType | null
     _min: BusinessMinAggregateOutputType | null
     _max: BusinessMaxAggregateOutputType | null
@@ -6177,6 +6552,10 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     deletedAt?: boolean
+    digitalDestinationType?: boolean
+    companyProfileUrl?: boolean
+    companyProfileTitle?: boolean
+    licenseNumber?: boolean
     owner?: boolean | UserDefaultArgs<ExtArgs>
     plan?: boolean | Business$planArgs<ExtArgs>
     products?: boolean | Business$productsArgs<ExtArgs>
@@ -6191,6 +6570,9 @@ export namespace Prisma {
     galleryItems?: boolean | Business$galleryItemsArgs<ExtArgs>
     subscriptions?: boolean | Business$subscriptionsArgs<ExtArgs>
     analytics?: boolean | Business$analyticsArgs<ExtArgs>
+    branches?: boolean | Business$branchesArgs<ExtArgs>
+    departments?: boolean | Business$departmentsArgs<ExtArgs>
+    contactPersons?: boolean | Business$contactPersonsArgs<ExtArgs>
     _count?: boolean | BusinessCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["business"]>
 
@@ -6242,6 +6624,10 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     deletedAt?: boolean
+    digitalDestinationType?: boolean
+    companyProfileUrl?: boolean
+    companyProfileTitle?: boolean
+    licenseNumber?: boolean
     owner?: boolean | UserDefaultArgs<ExtArgs>
     plan?: boolean | Business$planArgs<ExtArgs>
   }, ExtArgs["result"]["business"]>
@@ -6294,6 +6680,10 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     deletedAt?: boolean
+    digitalDestinationType?: boolean
+    companyProfileUrl?: boolean
+    companyProfileTitle?: boolean
+    licenseNumber?: boolean
   }
 
   export type BusinessInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -6311,6 +6701,9 @@ export namespace Prisma {
     galleryItems?: boolean | Business$galleryItemsArgs<ExtArgs>
     subscriptions?: boolean | Business$subscriptionsArgs<ExtArgs>
     analytics?: boolean | Business$analyticsArgs<ExtArgs>
+    branches?: boolean | Business$branchesArgs<ExtArgs>
+    departments?: boolean | Business$departmentsArgs<ExtArgs>
+    contactPersons?: boolean | Business$contactPersonsArgs<ExtArgs>
     _count?: boolean | BusinessCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type BusinessIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -6335,6 +6728,9 @@ export namespace Prisma {
       galleryItems: Prisma.$GalleryItemPayload<ExtArgs>[]
       subscriptions: Prisma.$SubscriptionPayload<ExtArgs>[]
       analytics: Prisma.$AnalyticsEventPayload<ExtArgs>[]
+      branches: Prisma.$BranchPayload<ExtArgs>[]
+      departments: Prisma.$DepartmentPayload<ExtArgs>[]
+      contactPersons: Prisma.$ContactPersonPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -6384,6 +6780,10 @@ export namespace Prisma {
       createdAt: Date
       updatedAt: Date
       deletedAt: Date | null
+      digitalDestinationType: string | null
+      companyProfileUrl: string | null
+      companyProfileTitle: string | null
+      licenseNumber: string | null
     }, ExtArgs["result"]["business"]>
     composites: {}
   }
@@ -6762,6 +7162,9 @@ export namespace Prisma {
     galleryItems<T extends Business$galleryItemsArgs<ExtArgs> = {}>(args?: Subset<T, Business$galleryItemsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$GalleryItemPayload<ExtArgs>, T, "findMany"> | Null>
     subscriptions<T extends Business$subscriptionsArgs<ExtArgs> = {}>(args?: Subset<T, Business$subscriptionsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SubscriptionPayload<ExtArgs>, T, "findMany"> | Null>
     analytics<T extends Business$analyticsArgs<ExtArgs> = {}>(args?: Subset<T, Business$analyticsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AnalyticsEventPayload<ExtArgs>, T, "findMany"> | Null>
+    branches<T extends Business$branchesArgs<ExtArgs> = {}>(args?: Subset<T, Business$branchesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "findMany"> | Null>
+    departments<T extends Business$departmentsArgs<ExtArgs> = {}>(args?: Subset<T, Business$departmentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "findMany"> | Null>
+    contactPersons<T extends Business$contactPersonsArgs<ExtArgs> = {}>(args?: Subset<T, Business$contactPersonsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "findMany"> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -6838,6 +7241,10 @@ export namespace Prisma {
     readonly createdAt: FieldRef<"Business", 'DateTime'>
     readonly updatedAt: FieldRef<"Business", 'DateTime'>
     readonly deletedAt: FieldRef<"Business", 'DateTime'>
+    readonly digitalDestinationType: FieldRef<"Business", 'String'>
+    readonly companyProfileUrl: FieldRef<"Business", 'String'>
+    readonly companyProfileTitle: FieldRef<"Business", 'String'>
+    readonly licenseNumber: FieldRef<"Business", 'String'>
   }
     
 
@@ -7408,6 +7815,66 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: AnalyticsEventScalarFieldEnum | AnalyticsEventScalarFieldEnum[]
+  }
+
+  /**
+   * Business.branches
+   */
+  export type Business$branchesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    where?: BranchWhereInput
+    orderBy?: BranchOrderByWithRelationInput | BranchOrderByWithRelationInput[]
+    cursor?: BranchWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: BranchScalarFieldEnum | BranchScalarFieldEnum[]
+  }
+
+  /**
+   * Business.departments
+   */
+  export type Business$departmentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    where?: DepartmentWhereInput
+    orderBy?: DepartmentOrderByWithRelationInput | DepartmentOrderByWithRelationInput[]
+    cursor?: DepartmentWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: DepartmentScalarFieldEnum | DepartmentScalarFieldEnum[]
+  }
+
+  /**
+   * Business.contactPersons
+   */
+  export type Business$contactPersonsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    where?: ContactPersonWhereInput
+    orderBy?: ContactPersonOrderByWithRelationInput | ContactPersonOrderByWithRelationInput[]
+    cursor?: ContactPersonWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: ContactPersonScalarFieldEnum | ContactPersonScalarFieldEnum[]
   }
 
   /**
@@ -21848,6 +22315,3277 @@ export namespace Prisma {
 
 
   /**
+   * Model Branch
+   */
+
+  export type AggregateBranch = {
+    _count: BranchCountAggregateOutputType | null
+    _avg: BranchAvgAggregateOutputType | null
+    _sum: BranchSumAggregateOutputType | null
+    _min: BranchMinAggregateOutputType | null
+    _max: BranchMaxAggregateOutputType | null
+  }
+
+  export type BranchAvgAggregateOutputType = {
+    sortOrder: number | null
+  }
+
+  export type BranchSumAggregateOutputType = {
+    sortOrder: number | null
+  }
+
+  export type BranchMinAggregateOutputType = {
+    id: string | null
+    businessId: string | null
+    name: string | null
+    city: string | null
+    district: string | null
+    address: string | null
+    phone: string | null
+    whatsapp: string | null
+    googleMapsLink: string | null
+    isMain: boolean | null
+    isActive: boolean | null
+    sortOrder: number | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type BranchMaxAggregateOutputType = {
+    id: string | null
+    businessId: string | null
+    name: string | null
+    city: string | null
+    district: string | null
+    address: string | null
+    phone: string | null
+    whatsapp: string | null
+    googleMapsLink: string | null
+    isMain: boolean | null
+    isActive: boolean | null
+    sortOrder: number | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type BranchCountAggregateOutputType = {
+    id: number
+    businessId: number
+    name: number
+    city: number
+    district: number
+    address: number
+    phone: number
+    whatsapp: number
+    googleMapsLink: number
+    isMain: number
+    isActive: number
+    sortOrder: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type BranchAvgAggregateInputType = {
+    sortOrder?: true
+  }
+
+  export type BranchSumAggregateInputType = {
+    sortOrder?: true
+  }
+
+  export type BranchMinAggregateInputType = {
+    id?: true
+    businessId?: true
+    name?: true
+    city?: true
+    district?: true
+    address?: true
+    phone?: true
+    whatsapp?: true
+    googleMapsLink?: true
+    isMain?: true
+    isActive?: true
+    sortOrder?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type BranchMaxAggregateInputType = {
+    id?: true
+    businessId?: true
+    name?: true
+    city?: true
+    district?: true
+    address?: true
+    phone?: true
+    whatsapp?: true
+    googleMapsLink?: true
+    isMain?: true
+    isActive?: true
+    sortOrder?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type BranchCountAggregateInputType = {
+    id?: true
+    businessId?: true
+    name?: true
+    city?: true
+    district?: true
+    address?: true
+    phone?: true
+    whatsapp?: true
+    googleMapsLink?: true
+    isMain?: true
+    isActive?: true
+    sortOrder?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type BranchAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which Branch to aggregate.
+     */
+    where?: BranchWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Branches to fetch.
+     */
+    orderBy?: BranchOrderByWithRelationInput | BranchOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: BranchWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Branches from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Branches.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned Branches
+    **/
+    _count?: true | BranchCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: BranchAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: BranchSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: BranchMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: BranchMaxAggregateInputType
+  }
+
+  export type GetBranchAggregateType<T extends BranchAggregateArgs> = {
+        [P in keyof T & keyof AggregateBranch]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateBranch[P]>
+      : GetScalarType<T[P], AggregateBranch[P]>
+  }
+
+
+
+
+  export type BranchGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: BranchWhereInput
+    orderBy?: BranchOrderByWithAggregationInput | BranchOrderByWithAggregationInput[]
+    by: BranchScalarFieldEnum[] | BranchScalarFieldEnum
+    having?: BranchScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: BranchCountAggregateInputType | true
+    _avg?: BranchAvgAggregateInputType
+    _sum?: BranchSumAggregateInputType
+    _min?: BranchMinAggregateInputType
+    _max?: BranchMaxAggregateInputType
+  }
+
+  export type BranchGroupByOutputType = {
+    id: string
+    businessId: string
+    name: string
+    city: string | null
+    district: string | null
+    address: string | null
+    phone: string | null
+    whatsapp: string | null
+    googleMapsLink: string | null
+    isMain: boolean
+    isActive: boolean
+    sortOrder: number
+    createdAt: Date
+    updatedAt: Date
+    _count: BranchCountAggregateOutputType | null
+    _avg: BranchAvgAggregateOutputType | null
+    _sum: BranchSumAggregateOutputType | null
+    _min: BranchMinAggregateOutputType | null
+    _max: BranchMaxAggregateOutputType | null
+  }
+
+  type GetBranchGroupByPayload<T extends BranchGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<BranchGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof BranchGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], BranchGroupByOutputType[P]>
+            : GetScalarType<T[P], BranchGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type BranchSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    businessId?: boolean
+    name?: boolean
+    city?: boolean
+    district?: boolean
+    address?: boolean
+    phone?: boolean
+    whatsapp?: boolean
+    googleMapsLink?: boolean
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+    contacts?: boolean | Branch$contactsArgs<ExtArgs>
+    _count?: boolean | BranchCountOutputTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["branch"]>
+
+  export type BranchSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    businessId?: boolean
+    name?: boolean
+    city?: boolean
+    district?: boolean
+    address?: boolean
+    phone?: boolean
+    whatsapp?: boolean
+    googleMapsLink?: boolean
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["branch"]>
+
+  export type BranchSelectScalar = {
+    id?: boolean
+    businessId?: boolean
+    name?: boolean
+    city?: boolean
+    district?: boolean
+    address?: boolean
+    phone?: boolean
+    whatsapp?: boolean
+    googleMapsLink?: boolean
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type BranchInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+    contacts?: boolean | Branch$contactsArgs<ExtArgs>
+    _count?: boolean | BranchCountOutputTypeDefaultArgs<ExtArgs>
+  }
+  export type BranchIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+  }
+
+  export type $BranchPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "Branch"
+    objects: {
+      business: Prisma.$BusinessPayload<ExtArgs>
+      contacts: Prisma.$ContactPersonPayload<ExtArgs>[]
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      businessId: string
+      name: string
+      city: string | null
+      district: string | null
+      address: string | null
+      phone: string | null
+      whatsapp: string | null
+      googleMapsLink: string | null
+      isMain: boolean
+      isActive: boolean
+      sortOrder: number
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["branch"]>
+    composites: {}
+  }
+
+  type BranchGetPayload<S extends boolean | null | undefined | BranchDefaultArgs> = $Result.GetResult<Prisma.$BranchPayload, S>
+
+  type BranchCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = 
+    Omit<BranchFindManyArgs, 'select' | 'include' | 'distinct'> & {
+      select?: BranchCountAggregateInputType | true
+    }
+
+  export interface BranchDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['Branch'], meta: { name: 'Branch' } }
+    /**
+     * Find zero or one Branch that matches the filter.
+     * @param {BranchFindUniqueArgs} args - Arguments to find a Branch
+     * @example
+     * // Get one Branch
+     * const branch = await prisma.branch.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends BranchFindUniqueArgs>(args: SelectSubset<T, BranchFindUniqueArgs<ExtArgs>>): Prisma__BranchClient<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "findUnique"> | null, null, ExtArgs>
+
+    /**
+     * Find one Branch that matches the filter or throw an error with `error.code='P2025'` 
+     * if no matches were found.
+     * @param {BranchFindUniqueOrThrowArgs} args - Arguments to find a Branch
+     * @example
+     * // Get one Branch
+     * const branch = await prisma.branch.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends BranchFindUniqueOrThrowArgs>(args: SelectSubset<T, BranchFindUniqueOrThrowArgs<ExtArgs>>): Prisma__BranchClient<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "findUniqueOrThrow">, never, ExtArgs>
+
+    /**
+     * Find the first Branch that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BranchFindFirstArgs} args - Arguments to find a Branch
+     * @example
+     * // Get one Branch
+     * const branch = await prisma.branch.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends BranchFindFirstArgs>(args?: SelectSubset<T, BranchFindFirstArgs<ExtArgs>>): Prisma__BranchClient<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "findFirst"> | null, null, ExtArgs>
+
+    /**
+     * Find the first Branch that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BranchFindFirstOrThrowArgs} args - Arguments to find a Branch
+     * @example
+     * // Get one Branch
+     * const branch = await prisma.branch.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends BranchFindFirstOrThrowArgs>(args?: SelectSubset<T, BranchFindFirstOrThrowArgs<ExtArgs>>): Prisma__BranchClient<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "findFirstOrThrow">, never, ExtArgs>
+
+    /**
+     * Find zero or more Branches that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BranchFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all Branches
+     * const branches = await prisma.branch.findMany()
+     * 
+     * // Get first 10 Branches
+     * const branches = await prisma.branch.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const branchWithIdOnly = await prisma.branch.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends BranchFindManyArgs>(args?: SelectSubset<T, BranchFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "findMany">>
+
+    /**
+     * Create a Branch.
+     * @param {BranchCreateArgs} args - Arguments to create a Branch.
+     * @example
+     * // Create one Branch
+     * const Branch = await prisma.branch.create({
+     *   data: {
+     *     // ... data to create a Branch
+     *   }
+     * })
+     * 
+     */
+    create<T extends BranchCreateArgs>(args: SelectSubset<T, BranchCreateArgs<ExtArgs>>): Prisma__BranchClient<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "create">, never, ExtArgs>
+
+    /**
+     * Create many Branches.
+     * @param {BranchCreateManyArgs} args - Arguments to create many Branches.
+     * @example
+     * // Create many Branches
+     * const branch = await prisma.branch.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends BranchCreateManyArgs>(args?: SelectSubset<T, BranchCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many Branches and returns the data saved in the database.
+     * @param {BranchCreateManyAndReturnArgs} args - Arguments to create many Branches.
+     * @example
+     * // Create many Branches
+     * const branch = await prisma.branch.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many Branches and only return the `id`
+     * const branchWithIdOnly = await prisma.branch.createManyAndReturn({ 
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends BranchCreateManyAndReturnArgs>(args?: SelectSubset<T, BranchCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "createManyAndReturn">>
+
+    /**
+     * Delete a Branch.
+     * @param {BranchDeleteArgs} args - Arguments to delete one Branch.
+     * @example
+     * // Delete one Branch
+     * const Branch = await prisma.branch.delete({
+     *   where: {
+     *     // ... filter to delete one Branch
+     *   }
+     * })
+     * 
+     */
+    delete<T extends BranchDeleteArgs>(args: SelectSubset<T, BranchDeleteArgs<ExtArgs>>): Prisma__BranchClient<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "delete">, never, ExtArgs>
+
+    /**
+     * Update one Branch.
+     * @param {BranchUpdateArgs} args - Arguments to update one Branch.
+     * @example
+     * // Update one Branch
+     * const branch = await prisma.branch.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends BranchUpdateArgs>(args: SelectSubset<T, BranchUpdateArgs<ExtArgs>>): Prisma__BranchClient<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "update">, never, ExtArgs>
+
+    /**
+     * Delete zero or more Branches.
+     * @param {BranchDeleteManyArgs} args - Arguments to filter Branches to delete.
+     * @example
+     * // Delete a few Branches
+     * const { count } = await prisma.branch.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends BranchDeleteManyArgs>(args?: SelectSubset<T, BranchDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Branches.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BranchUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many Branches
+     * const branch = await prisma.branch.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends BranchUpdateManyArgs>(args: SelectSubset<T, BranchUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create or update one Branch.
+     * @param {BranchUpsertArgs} args - Arguments to update or create a Branch.
+     * @example
+     * // Update or create a Branch
+     * const branch = await prisma.branch.upsert({
+     *   create: {
+     *     // ... data to create a Branch
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the Branch we want to update
+     *   }
+     * })
+     */
+    upsert<T extends BranchUpsertArgs>(args: SelectSubset<T, BranchUpsertArgs<ExtArgs>>): Prisma__BranchClient<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "upsert">, never, ExtArgs>
+
+
+    /**
+     * Count the number of Branches.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BranchCountArgs} args - Arguments to filter Branches to count.
+     * @example
+     * // Count the number of Branches
+     * const count = await prisma.branch.count({
+     *   where: {
+     *     // ... the filter for the Branches we want to count
+     *   }
+     * })
+    **/
+    count<T extends BranchCountArgs>(
+      args?: Subset<T, BranchCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], BranchCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a Branch.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BranchAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends BranchAggregateArgs>(args: Subset<T, BranchAggregateArgs>): Prisma.PrismaPromise<GetBranchAggregateType<T>>
+
+    /**
+     * Group by Branch.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {BranchGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends BranchGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: BranchGroupByArgs['orderBy'] }
+        : { orderBy?: BranchGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, BranchGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetBranchGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the Branch model
+   */
+  readonly fields: BranchFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for Branch.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__BranchClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    business<T extends BusinessDefaultArgs<ExtArgs> = {}>(args?: Subset<T, BusinessDefaultArgs<ExtArgs>>): Prisma__BusinessClient<$Result.GetResult<Prisma.$BusinessPayload<ExtArgs>, T, "findUniqueOrThrow"> | Null, Null, ExtArgs>
+    contacts<T extends Branch$contactsArgs<ExtArgs> = {}>(args?: Subset<T, Branch$contactsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "findMany"> | Null>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the Branch model
+   */ 
+  interface BranchFieldRefs {
+    readonly id: FieldRef<"Branch", 'String'>
+    readonly businessId: FieldRef<"Branch", 'String'>
+    readonly name: FieldRef<"Branch", 'String'>
+    readonly city: FieldRef<"Branch", 'String'>
+    readonly district: FieldRef<"Branch", 'String'>
+    readonly address: FieldRef<"Branch", 'String'>
+    readonly phone: FieldRef<"Branch", 'String'>
+    readonly whatsapp: FieldRef<"Branch", 'String'>
+    readonly googleMapsLink: FieldRef<"Branch", 'String'>
+    readonly isMain: FieldRef<"Branch", 'Boolean'>
+    readonly isActive: FieldRef<"Branch", 'Boolean'>
+    readonly sortOrder: FieldRef<"Branch", 'Int'>
+    readonly createdAt: FieldRef<"Branch", 'DateTime'>
+    readonly updatedAt: FieldRef<"Branch", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * Branch findUnique
+   */
+  export type BranchFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    /**
+     * Filter, which Branch to fetch.
+     */
+    where: BranchWhereUniqueInput
+  }
+
+  /**
+   * Branch findUniqueOrThrow
+   */
+  export type BranchFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    /**
+     * Filter, which Branch to fetch.
+     */
+    where: BranchWhereUniqueInput
+  }
+
+  /**
+   * Branch findFirst
+   */
+  export type BranchFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    /**
+     * Filter, which Branch to fetch.
+     */
+    where?: BranchWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Branches to fetch.
+     */
+    orderBy?: BranchOrderByWithRelationInput | BranchOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for Branches.
+     */
+    cursor?: BranchWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Branches from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Branches.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Branches.
+     */
+    distinct?: BranchScalarFieldEnum | BranchScalarFieldEnum[]
+  }
+
+  /**
+   * Branch findFirstOrThrow
+   */
+  export type BranchFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    /**
+     * Filter, which Branch to fetch.
+     */
+    where?: BranchWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Branches to fetch.
+     */
+    orderBy?: BranchOrderByWithRelationInput | BranchOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for Branches.
+     */
+    cursor?: BranchWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Branches from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Branches.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Branches.
+     */
+    distinct?: BranchScalarFieldEnum | BranchScalarFieldEnum[]
+  }
+
+  /**
+   * Branch findMany
+   */
+  export type BranchFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    /**
+     * Filter, which Branches to fetch.
+     */
+    where?: BranchWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Branches to fetch.
+     */
+    orderBy?: BranchOrderByWithRelationInput | BranchOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing Branches.
+     */
+    cursor?: BranchWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Branches from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Branches.
+     */
+    skip?: number
+    distinct?: BranchScalarFieldEnum | BranchScalarFieldEnum[]
+  }
+
+  /**
+   * Branch create
+   */
+  export type BranchCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    /**
+     * The data needed to create a Branch.
+     */
+    data: XOR<BranchCreateInput, BranchUncheckedCreateInput>
+  }
+
+  /**
+   * Branch createMany
+   */
+  export type BranchCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many Branches.
+     */
+    data: BranchCreateManyInput | BranchCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * Branch createManyAndReturn
+   */
+  export type BranchCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * The data used to create many Branches.
+     */
+    data: BranchCreateManyInput | BranchCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * Branch update
+   */
+  export type BranchUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    /**
+     * The data needed to update a Branch.
+     */
+    data: XOR<BranchUpdateInput, BranchUncheckedUpdateInput>
+    /**
+     * Choose, which Branch to update.
+     */
+    where: BranchWhereUniqueInput
+  }
+
+  /**
+   * Branch updateMany
+   */
+  export type BranchUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update Branches.
+     */
+    data: XOR<BranchUpdateManyMutationInput, BranchUncheckedUpdateManyInput>
+    /**
+     * Filter which Branches to update
+     */
+    where?: BranchWhereInput
+  }
+
+  /**
+   * Branch upsert
+   */
+  export type BranchUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    /**
+     * The filter to search for the Branch to update in case it exists.
+     */
+    where: BranchWhereUniqueInput
+    /**
+     * In case the Branch found by the `where` argument doesn't exist, create a new Branch with this data.
+     */
+    create: XOR<BranchCreateInput, BranchUncheckedCreateInput>
+    /**
+     * In case the Branch was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<BranchUpdateInput, BranchUncheckedUpdateInput>
+  }
+
+  /**
+   * Branch delete
+   */
+  export type BranchDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    /**
+     * Filter which Branch to delete.
+     */
+    where: BranchWhereUniqueInput
+  }
+
+  /**
+   * Branch deleteMany
+   */
+  export type BranchDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which Branches to delete
+     */
+    where?: BranchWhereInput
+  }
+
+  /**
+   * Branch.contacts
+   */
+  export type Branch$contactsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    where?: ContactPersonWhereInput
+    orderBy?: ContactPersonOrderByWithRelationInput | ContactPersonOrderByWithRelationInput[]
+    cursor?: ContactPersonWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: ContactPersonScalarFieldEnum | ContactPersonScalarFieldEnum[]
+  }
+
+  /**
+   * Branch without action
+   */
+  export type BranchDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model Department
+   */
+
+  export type AggregateDepartment = {
+    _count: DepartmentCountAggregateOutputType | null
+    _avg: DepartmentAvgAggregateOutputType | null
+    _sum: DepartmentSumAggregateOutputType | null
+    _min: DepartmentMinAggregateOutputType | null
+    _max: DepartmentMaxAggregateOutputType | null
+  }
+
+  export type DepartmentAvgAggregateOutputType = {
+    sortOrder: number | null
+  }
+
+  export type DepartmentSumAggregateOutputType = {
+    sortOrder: number | null
+  }
+
+  export type DepartmentMinAggregateOutputType = {
+    id: string | null
+    businessId: string | null
+    name: string | null
+    description: string | null
+    icon: string | null
+    isActive: boolean | null
+    sortOrder: number | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type DepartmentMaxAggregateOutputType = {
+    id: string | null
+    businessId: string | null
+    name: string | null
+    description: string | null
+    icon: string | null
+    isActive: boolean | null
+    sortOrder: number | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type DepartmentCountAggregateOutputType = {
+    id: number
+    businessId: number
+    name: number
+    description: number
+    icon: number
+    isActive: number
+    sortOrder: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type DepartmentAvgAggregateInputType = {
+    sortOrder?: true
+  }
+
+  export type DepartmentSumAggregateInputType = {
+    sortOrder?: true
+  }
+
+  export type DepartmentMinAggregateInputType = {
+    id?: true
+    businessId?: true
+    name?: true
+    description?: true
+    icon?: true
+    isActive?: true
+    sortOrder?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type DepartmentMaxAggregateInputType = {
+    id?: true
+    businessId?: true
+    name?: true
+    description?: true
+    icon?: true
+    isActive?: true
+    sortOrder?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type DepartmentCountAggregateInputType = {
+    id?: true
+    businessId?: true
+    name?: true
+    description?: true
+    icon?: true
+    isActive?: true
+    sortOrder?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type DepartmentAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which Department to aggregate.
+     */
+    where?: DepartmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Departments to fetch.
+     */
+    orderBy?: DepartmentOrderByWithRelationInput | DepartmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: DepartmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Departments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Departments.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned Departments
+    **/
+    _count?: true | DepartmentCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: DepartmentAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: DepartmentSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: DepartmentMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: DepartmentMaxAggregateInputType
+  }
+
+  export type GetDepartmentAggregateType<T extends DepartmentAggregateArgs> = {
+        [P in keyof T & keyof AggregateDepartment]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateDepartment[P]>
+      : GetScalarType<T[P], AggregateDepartment[P]>
+  }
+
+
+
+
+  export type DepartmentGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: DepartmentWhereInput
+    orderBy?: DepartmentOrderByWithAggregationInput | DepartmentOrderByWithAggregationInput[]
+    by: DepartmentScalarFieldEnum[] | DepartmentScalarFieldEnum
+    having?: DepartmentScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: DepartmentCountAggregateInputType | true
+    _avg?: DepartmentAvgAggregateInputType
+    _sum?: DepartmentSumAggregateInputType
+    _min?: DepartmentMinAggregateInputType
+    _max?: DepartmentMaxAggregateInputType
+  }
+
+  export type DepartmentGroupByOutputType = {
+    id: string
+    businessId: string
+    name: string
+    description: string | null
+    icon: string | null
+    isActive: boolean
+    sortOrder: number
+    createdAt: Date
+    updatedAt: Date
+    _count: DepartmentCountAggregateOutputType | null
+    _avg: DepartmentAvgAggregateOutputType | null
+    _sum: DepartmentSumAggregateOutputType | null
+    _min: DepartmentMinAggregateOutputType | null
+    _max: DepartmentMaxAggregateOutputType | null
+  }
+
+  type GetDepartmentGroupByPayload<T extends DepartmentGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<DepartmentGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof DepartmentGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], DepartmentGroupByOutputType[P]>
+            : GetScalarType<T[P], DepartmentGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type DepartmentSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    businessId?: boolean
+    name?: boolean
+    description?: boolean
+    icon?: boolean
+    isActive?: boolean
+    sortOrder?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+    contacts?: boolean | Department$contactsArgs<ExtArgs>
+    _count?: boolean | DepartmentCountOutputTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["department"]>
+
+  export type DepartmentSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    businessId?: boolean
+    name?: boolean
+    description?: boolean
+    icon?: boolean
+    isActive?: boolean
+    sortOrder?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["department"]>
+
+  export type DepartmentSelectScalar = {
+    id?: boolean
+    businessId?: boolean
+    name?: boolean
+    description?: boolean
+    icon?: boolean
+    isActive?: boolean
+    sortOrder?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type DepartmentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+    contacts?: boolean | Department$contactsArgs<ExtArgs>
+    _count?: boolean | DepartmentCountOutputTypeDefaultArgs<ExtArgs>
+  }
+  export type DepartmentIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+  }
+
+  export type $DepartmentPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "Department"
+    objects: {
+      business: Prisma.$BusinessPayload<ExtArgs>
+      contacts: Prisma.$ContactPersonPayload<ExtArgs>[]
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      businessId: string
+      name: string
+      description: string | null
+      icon: string | null
+      isActive: boolean
+      sortOrder: number
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["department"]>
+    composites: {}
+  }
+
+  type DepartmentGetPayload<S extends boolean | null | undefined | DepartmentDefaultArgs> = $Result.GetResult<Prisma.$DepartmentPayload, S>
+
+  type DepartmentCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = 
+    Omit<DepartmentFindManyArgs, 'select' | 'include' | 'distinct'> & {
+      select?: DepartmentCountAggregateInputType | true
+    }
+
+  export interface DepartmentDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['Department'], meta: { name: 'Department' } }
+    /**
+     * Find zero or one Department that matches the filter.
+     * @param {DepartmentFindUniqueArgs} args - Arguments to find a Department
+     * @example
+     * // Get one Department
+     * const department = await prisma.department.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends DepartmentFindUniqueArgs>(args: SelectSubset<T, DepartmentFindUniqueArgs<ExtArgs>>): Prisma__DepartmentClient<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "findUnique"> | null, null, ExtArgs>
+
+    /**
+     * Find one Department that matches the filter or throw an error with `error.code='P2025'` 
+     * if no matches were found.
+     * @param {DepartmentFindUniqueOrThrowArgs} args - Arguments to find a Department
+     * @example
+     * // Get one Department
+     * const department = await prisma.department.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends DepartmentFindUniqueOrThrowArgs>(args: SelectSubset<T, DepartmentFindUniqueOrThrowArgs<ExtArgs>>): Prisma__DepartmentClient<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "findUniqueOrThrow">, never, ExtArgs>
+
+    /**
+     * Find the first Department that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DepartmentFindFirstArgs} args - Arguments to find a Department
+     * @example
+     * // Get one Department
+     * const department = await prisma.department.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends DepartmentFindFirstArgs>(args?: SelectSubset<T, DepartmentFindFirstArgs<ExtArgs>>): Prisma__DepartmentClient<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "findFirst"> | null, null, ExtArgs>
+
+    /**
+     * Find the first Department that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DepartmentFindFirstOrThrowArgs} args - Arguments to find a Department
+     * @example
+     * // Get one Department
+     * const department = await prisma.department.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends DepartmentFindFirstOrThrowArgs>(args?: SelectSubset<T, DepartmentFindFirstOrThrowArgs<ExtArgs>>): Prisma__DepartmentClient<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "findFirstOrThrow">, never, ExtArgs>
+
+    /**
+     * Find zero or more Departments that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DepartmentFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all Departments
+     * const departments = await prisma.department.findMany()
+     * 
+     * // Get first 10 Departments
+     * const departments = await prisma.department.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const departmentWithIdOnly = await prisma.department.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends DepartmentFindManyArgs>(args?: SelectSubset<T, DepartmentFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "findMany">>
+
+    /**
+     * Create a Department.
+     * @param {DepartmentCreateArgs} args - Arguments to create a Department.
+     * @example
+     * // Create one Department
+     * const Department = await prisma.department.create({
+     *   data: {
+     *     // ... data to create a Department
+     *   }
+     * })
+     * 
+     */
+    create<T extends DepartmentCreateArgs>(args: SelectSubset<T, DepartmentCreateArgs<ExtArgs>>): Prisma__DepartmentClient<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "create">, never, ExtArgs>
+
+    /**
+     * Create many Departments.
+     * @param {DepartmentCreateManyArgs} args - Arguments to create many Departments.
+     * @example
+     * // Create many Departments
+     * const department = await prisma.department.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends DepartmentCreateManyArgs>(args?: SelectSubset<T, DepartmentCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many Departments and returns the data saved in the database.
+     * @param {DepartmentCreateManyAndReturnArgs} args - Arguments to create many Departments.
+     * @example
+     * // Create many Departments
+     * const department = await prisma.department.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many Departments and only return the `id`
+     * const departmentWithIdOnly = await prisma.department.createManyAndReturn({ 
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends DepartmentCreateManyAndReturnArgs>(args?: SelectSubset<T, DepartmentCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "createManyAndReturn">>
+
+    /**
+     * Delete a Department.
+     * @param {DepartmentDeleteArgs} args - Arguments to delete one Department.
+     * @example
+     * // Delete one Department
+     * const Department = await prisma.department.delete({
+     *   where: {
+     *     // ... filter to delete one Department
+     *   }
+     * })
+     * 
+     */
+    delete<T extends DepartmentDeleteArgs>(args: SelectSubset<T, DepartmentDeleteArgs<ExtArgs>>): Prisma__DepartmentClient<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "delete">, never, ExtArgs>
+
+    /**
+     * Update one Department.
+     * @param {DepartmentUpdateArgs} args - Arguments to update one Department.
+     * @example
+     * // Update one Department
+     * const department = await prisma.department.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends DepartmentUpdateArgs>(args: SelectSubset<T, DepartmentUpdateArgs<ExtArgs>>): Prisma__DepartmentClient<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "update">, never, ExtArgs>
+
+    /**
+     * Delete zero or more Departments.
+     * @param {DepartmentDeleteManyArgs} args - Arguments to filter Departments to delete.
+     * @example
+     * // Delete a few Departments
+     * const { count } = await prisma.department.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends DepartmentDeleteManyArgs>(args?: SelectSubset<T, DepartmentDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Departments.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DepartmentUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many Departments
+     * const department = await prisma.department.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends DepartmentUpdateManyArgs>(args: SelectSubset<T, DepartmentUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create or update one Department.
+     * @param {DepartmentUpsertArgs} args - Arguments to update or create a Department.
+     * @example
+     * // Update or create a Department
+     * const department = await prisma.department.upsert({
+     *   create: {
+     *     // ... data to create a Department
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the Department we want to update
+     *   }
+     * })
+     */
+    upsert<T extends DepartmentUpsertArgs>(args: SelectSubset<T, DepartmentUpsertArgs<ExtArgs>>): Prisma__DepartmentClient<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "upsert">, never, ExtArgs>
+
+
+    /**
+     * Count the number of Departments.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DepartmentCountArgs} args - Arguments to filter Departments to count.
+     * @example
+     * // Count the number of Departments
+     * const count = await prisma.department.count({
+     *   where: {
+     *     // ... the filter for the Departments we want to count
+     *   }
+     * })
+    **/
+    count<T extends DepartmentCountArgs>(
+      args?: Subset<T, DepartmentCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], DepartmentCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a Department.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DepartmentAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends DepartmentAggregateArgs>(args: Subset<T, DepartmentAggregateArgs>): Prisma.PrismaPromise<GetDepartmentAggregateType<T>>
+
+    /**
+     * Group by Department.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {DepartmentGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends DepartmentGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: DepartmentGroupByArgs['orderBy'] }
+        : { orderBy?: DepartmentGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, DepartmentGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetDepartmentGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the Department model
+   */
+  readonly fields: DepartmentFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for Department.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__DepartmentClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    business<T extends BusinessDefaultArgs<ExtArgs> = {}>(args?: Subset<T, BusinessDefaultArgs<ExtArgs>>): Prisma__BusinessClient<$Result.GetResult<Prisma.$BusinessPayload<ExtArgs>, T, "findUniqueOrThrow"> | Null, Null, ExtArgs>
+    contacts<T extends Department$contactsArgs<ExtArgs> = {}>(args?: Subset<T, Department$contactsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "findMany"> | Null>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the Department model
+   */ 
+  interface DepartmentFieldRefs {
+    readonly id: FieldRef<"Department", 'String'>
+    readonly businessId: FieldRef<"Department", 'String'>
+    readonly name: FieldRef<"Department", 'String'>
+    readonly description: FieldRef<"Department", 'String'>
+    readonly icon: FieldRef<"Department", 'String'>
+    readonly isActive: FieldRef<"Department", 'Boolean'>
+    readonly sortOrder: FieldRef<"Department", 'Int'>
+    readonly createdAt: FieldRef<"Department", 'DateTime'>
+    readonly updatedAt: FieldRef<"Department", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * Department findUnique
+   */
+  export type DepartmentFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    /**
+     * Filter, which Department to fetch.
+     */
+    where: DepartmentWhereUniqueInput
+  }
+
+  /**
+   * Department findUniqueOrThrow
+   */
+  export type DepartmentFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    /**
+     * Filter, which Department to fetch.
+     */
+    where: DepartmentWhereUniqueInput
+  }
+
+  /**
+   * Department findFirst
+   */
+  export type DepartmentFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    /**
+     * Filter, which Department to fetch.
+     */
+    where?: DepartmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Departments to fetch.
+     */
+    orderBy?: DepartmentOrderByWithRelationInput | DepartmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for Departments.
+     */
+    cursor?: DepartmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Departments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Departments.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Departments.
+     */
+    distinct?: DepartmentScalarFieldEnum | DepartmentScalarFieldEnum[]
+  }
+
+  /**
+   * Department findFirstOrThrow
+   */
+  export type DepartmentFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    /**
+     * Filter, which Department to fetch.
+     */
+    where?: DepartmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Departments to fetch.
+     */
+    orderBy?: DepartmentOrderByWithRelationInput | DepartmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for Departments.
+     */
+    cursor?: DepartmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Departments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Departments.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Departments.
+     */
+    distinct?: DepartmentScalarFieldEnum | DepartmentScalarFieldEnum[]
+  }
+
+  /**
+   * Department findMany
+   */
+  export type DepartmentFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    /**
+     * Filter, which Departments to fetch.
+     */
+    where?: DepartmentWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Departments to fetch.
+     */
+    orderBy?: DepartmentOrderByWithRelationInput | DepartmentOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing Departments.
+     */
+    cursor?: DepartmentWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Departments from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Departments.
+     */
+    skip?: number
+    distinct?: DepartmentScalarFieldEnum | DepartmentScalarFieldEnum[]
+  }
+
+  /**
+   * Department create
+   */
+  export type DepartmentCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    /**
+     * The data needed to create a Department.
+     */
+    data: XOR<DepartmentCreateInput, DepartmentUncheckedCreateInput>
+  }
+
+  /**
+   * Department createMany
+   */
+  export type DepartmentCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many Departments.
+     */
+    data: DepartmentCreateManyInput | DepartmentCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * Department createManyAndReturn
+   */
+  export type DepartmentCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * The data used to create many Departments.
+     */
+    data: DepartmentCreateManyInput | DepartmentCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * Department update
+   */
+  export type DepartmentUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    /**
+     * The data needed to update a Department.
+     */
+    data: XOR<DepartmentUpdateInput, DepartmentUncheckedUpdateInput>
+    /**
+     * Choose, which Department to update.
+     */
+    where: DepartmentWhereUniqueInput
+  }
+
+  /**
+   * Department updateMany
+   */
+  export type DepartmentUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update Departments.
+     */
+    data: XOR<DepartmentUpdateManyMutationInput, DepartmentUncheckedUpdateManyInput>
+    /**
+     * Filter which Departments to update
+     */
+    where?: DepartmentWhereInput
+  }
+
+  /**
+   * Department upsert
+   */
+  export type DepartmentUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    /**
+     * The filter to search for the Department to update in case it exists.
+     */
+    where: DepartmentWhereUniqueInput
+    /**
+     * In case the Department found by the `where` argument doesn't exist, create a new Department with this data.
+     */
+    create: XOR<DepartmentCreateInput, DepartmentUncheckedCreateInput>
+    /**
+     * In case the Department was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<DepartmentUpdateInput, DepartmentUncheckedUpdateInput>
+  }
+
+  /**
+   * Department delete
+   */
+  export type DepartmentDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    /**
+     * Filter which Department to delete.
+     */
+    where: DepartmentWhereUniqueInput
+  }
+
+  /**
+   * Department deleteMany
+   */
+  export type DepartmentDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which Departments to delete
+     */
+    where?: DepartmentWhereInput
+  }
+
+  /**
+   * Department.contacts
+   */
+  export type Department$contactsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    where?: ContactPersonWhereInput
+    orderBy?: ContactPersonOrderByWithRelationInput | ContactPersonOrderByWithRelationInput[]
+    cursor?: ContactPersonWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: ContactPersonScalarFieldEnum | ContactPersonScalarFieldEnum[]
+  }
+
+  /**
+   * Department without action
+   */
+  export type DepartmentDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model ContactPerson
+   */
+
+  export type AggregateContactPerson = {
+    _count: ContactPersonCountAggregateOutputType | null
+    _avg: ContactPersonAvgAggregateOutputType | null
+    _sum: ContactPersonSumAggregateOutputType | null
+    _min: ContactPersonMinAggregateOutputType | null
+    _max: ContactPersonMaxAggregateOutputType | null
+  }
+
+  export type ContactPersonAvgAggregateOutputType = {
+    sortOrder: number | null
+  }
+
+  export type ContactPersonSumAggregateOutputType = {
+    sortOrder: number | null
+  }
+
+  export type ContactPersonMinAggregateOutputType = {
+    id: string | null
+    businessId: string | null
+    departmentId: string | null
+    branchId: string | null
+    name: string | null
+    jobTitle: string | null
+    phone: string | null
+    whatsapp: string | null
+    email: string | null
+    imageUrl: string | null
+    isPrimary: boolean | null
+    isActive: boolean | null
+    sortOrder: number | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ContactPersonMaxAggregateOutputType = {
+    id: string | null
+    businessId: string | null
+    departmentId: string | null
+    branchId: string | null
+    name: string | null
+    jobTitle: string | null
+    phone: string | null
+    whatsapp: string | null
+    email: string | null
+    imageUrl: string | null
+    isPrimary: boolean | null
+    isActive: boolean | null
+    sortOrder: number | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type ContactPersonCountAggregateOutputType = {
+    id: number
+    businessId: number
+    departmentId: number
+    branchId: number
+    name: number
+    jobTitle: number
+    phone: number
+    whatsapp: number
+    email: number
+    imageUrl: number
+    isPrimary: number
+    isActive: number
+    sortOrder: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type ContactPersonAvgAggregateInputType = {
+    sortOrder?: true
+  }
+
+  export type ContactPersonSumAggregateInputType = {
+    sortOrder?: true
+  }
+
+  export type ContactPersonMinAggregateInputType = {
+    id?: true
+    businessId?: true
+    departmentId?: true
+    branchId?: true
+    name?: true
+    jobTitle?: true
+    phone?: true
+    whatsapp?: true
+    email?: true
+    imageUrl?: true
+    isPrimary?: true
+    isActive?: true
+    sortOrder?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ContactPersonMaxAggregateInputType = {
+    id?: true
+    businessId?: true
+    departmentId?: true
+    branchId?: true
+    name?: true
+    jobTitle?: true
+    phone?: true
+    whatsapp?: true
+    email?: true
+    imageUrl?: true
+    isPrimary?: true
+    isActive?: true
+    sortOrder?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type ContactPersonCountAggregateInputType = {
+    id?: true
+    businessId?: true
+    departmentId?: true
+    branchId?: true
+    name?: true
+    jobTitle?: true
+    phone?: true
+    whatsapp?: true
+    email?: true
+    imageUrl?: true
+    isPrimary?: true
+    isActive?: true
+    sortOrder?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type ContactPersonAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ContactPerson to aggregate.
+     */
+    where?: ContactPersonWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ContactPeople to fetch.
+     */
+    orderBy?: ContactPersonOrderByWithRelationInput | ContactPersonOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: ContactPersonWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ContactPeople from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ContactPeople.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned ContactPeople
+    **/
+    _count?: true | ContactPersonCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: ContactPersonAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: ContactPersonSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: ContactPersonMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: ContactPersonMaxAggregateInputType
+  }
+
+  export type GetContactPersonAggregateType<T extends ContactPersonAggregateArgs> = {
+        [P in keyof T & keyof AggregateContactPerson]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateContactPerson[P]>
+      : GetScalarType<T[P], AggregateContactPerson[P]>
+  }
+
+
+
+
+  export type ContactPersonGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: ContactPersonWhereInput
+    orderBy?: ContactPersonOrderByWithAggregationInput | ContactPersonOrderByWithAggregationInput[]
+    by: ContactPersonScalarFieldEnum[] | ContactPersonScalarFieldEnum
+    having?: ContactPersonScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: ContactPersonCountAggregateInputType | true
+    _avg?: ContactPersonAvgAggregateInputType
+    _sum?: ContactPersonSumAggregateInputType
+    _min?: ContactPersonMinAggregateInputType
+    _max?: ContactPersonMaxAggregateInputType
+  }
+
+  export type ContactPersonGroupByOutputType = {
+    id: string
+    businessId: string
+    departmentId: string | null
+    branchId: string | null
+    name: string
+    jobTitle: string | null
+    phone: string | null
+    whatsapp: string | null
+    email: string | null
+    imageUrl: string | null
+    isPrimary: boolean
+    isActive: boolean
+    sortOrder: number
+    createdAt: Date
+    updatedAt: Date
+    _count: ContactPersonCountAggregateOutputType | null
+    _avg: ContactPersonAvgAggregateOutputType | null
+    _sum: ContactPersonSumAggregateOutputType | null
+    _min: ContactPersonMinAggregateOutputType | null
+    _max: ContactPersonMaxAggregateOutputType | null
+  }
+
+  type GetContactPersonGroupByPayload<T extends ContactPersonGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<ContactPersonGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof ContactPersonGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], ContactPersonGroupByOutputType[P]>
+            : GetScalarType<T[P], ContactPersonGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type ContactPersonSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    businessId?: boolean
+    departmentId?: boolean
+    branchId?: boolean
+    name?: boolean
+    jobTitle?: boolean
+    phone?: boolean
+    whatsapp?: boolean
+    email?: boolean
+    imageUrl?: boolean
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+    department?: boolean | ContactPerson$departmentArgs<ExtArgs>
+    branch?: boolean | ContactPerson$branchArgs<ExtArgs>
+  }, ExtArgs["result"]["contactPerson"]>
+
+  export type ContactPersonSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    businessId?: boolean
+    departmentId?: boolean
+    branchId?: boolean
+    name?: boolean
+    jobTitle?: boolean
+    phone?: boolean
+    whatsapp?: boolean
+    email?: boolean
+    imageUrl?: boolean
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+    department?: boolean | ContactPerson$departmentArgs<ExtArgs>
+    branch?: boolean | ContactPerson$branchArgs<ExtArgs>
+  }, ExtArgs["result"]["contactPerson"]>
+
+  export type ContactPersonSelectScalar = {
+    id?: boolean
+    businessId?: boolean
+    departmentId?: boolean
+    branchId?: boolean
+    name?: boolean
+    jobTitle?: boolean
+    phone?: boolean
+    whatsapp?: boolean
+    email?: boolean
+    imageUrl?: boolean
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type ContactPersonInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+    department?: boolean | ContactPerson$departmentArgs<ExtArgs>
+    branch?: boolean | ContactPerson$branchArgs<ExtArgs>
+  }
+  export type ContactPersonIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    business?: boolean | BusinessDefaultArgs<ExtArgs>
+    department?: boolean | ContactPerson$departmentArgs<ExtArgs>
+    branch?: boolean | ContactPerson$branchArgs<ExtArgs>
+  }
+
+  export type $ContactPersonPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "ContactPerson"
+    objects: {
+      business: Prisma.$BusinessPayload<ExtArgs>
+      department: Prisma.$DepartmentPayload<ExtArgs> | null
+      branch: Prisma.$BranchPayload<ExtArgs> | null
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      businessId: string
+      departmentId: string | null
+      branchId: string | null
+      name: string
+      jobTitle: string | null
+      phone: string | null
+      whatsapp: string | null
+      email: string | null
+      imageUrl: string | null
+      isPrimary: boolean
+      isActive: boolean
+      sortOrder: number
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["contactPerson"]>
+    composites: {}
+  }
+
+  type ContactPersonGetPayload<S extends boolean | null | undefined | ContactPersonDefaultArgs> = $Result.GetResult<Prisma.$ContactPersonPayload, S>
+
+  type ContactPersonCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = 
+    Omit<ContactPersonFindManyArgs, 'select' | 'include' | 'distinct'> & {
+      select?: ContactPersonCountAggregateInputType | true
+    }
+
+  export interface ContactPersonDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['ContactPerson'], meta: { name: 'ContactPerson' } }
+    /**
+     * Find zero or one ContactPerson that matches the filter.
+     * @param {ContactPersonFindUniqueArgs} args - Arguments to find a ContactPerson
+     * @example
+     * // Get one ContactPerson
+     * const contactPerson = await prisma.contactPerson.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends ContactPersonFindUniqueArgs>(args: SelectSubset<T, ContactPersonFindUniqueArgs<ExtArgs>>): Prisma__ContactPersonClient<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "findUnique"> | null, null, ExtArgs>
+
+    /**
+     * Find one ContactPerson that matches the filter or throw an error with `error.code='P2025'` 
+     * if no matches were found.
+     * @param {ContactPersonFindUniqueOrThrowArgs} args - Arguments to find a ContactPerson
+     * @example
+     * // Get one ContactPerson
+     * const contactPerson = await prisma.contactPerson.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends ContactPersonFindUniqueOrThrowArgs>(args: SelectSubset<T, ContactPersonFindUniqueOrThrowArgs<ExtArgs>>): Prisma__ContactPersonClient<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "findUniqueOrThrow">, never, ExtArgs>
+
+    /**
+     * Find the first ContactPerson that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ContactPersonFindFirstArgs} args - Arguments to find a ContactPerson
+     * @example
+     * // Get one ContactPerson
+     * const contactPerson = await prisma.contactPerson.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends ContactPersonFindFirstArgs>(args?: SelectSubset<T, ContactPersonFindFirstArgs<ExtArgs>>): Prisma__ContactPersonClient<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "findFirst"> | null, null, ExtArgs>
+
+    /**
+     * Find the first ContactPerson that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ContactPersonFindFirstOrThrowArgs} args - Arguments to find a ContactPerson
+     * @example
+     * // Get one ContactPerson
+     * const contactPerson = await prisma.contactPerson.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends ContactPersonFindFirstOrThrowArgs>(args?: SelectSubset<T, ContactPersonFindFirstOrThrowArgs<ExtArgs>>): Prisma__ContactPersonClient<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "findFirstOrThrow">, never, ExtArgs>
+
+    /**
+     * Find zero or more ContactPeople that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ContactPersonFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all ContactPeople
+     * const contactPeople = await prisma.contactPerson.findMany()
+     * 
+     * // Get first 10 ContactPeople
+     * const contactPeople = await prisma.contactPerson.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const contactPersonWithIdOnly = await prisma.contactPerson.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends ContactPersonFindManyArgs>(args?: SelectSubset<T, ContactPersonFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "findMany">>
+
+    /**
+     * Create a ContactPerson.
+     * @param {ContactPersonCreateArgs} args - Arguments to create a ContactPerson.
+     * @example
+     * // Create one ContactPerson
+     * const ContactPerson = await prisma.contactPerson.create({
+     *   data: {
+     *     // ... data to create a ContactPerson
+     *   }
+     * })
+     * 
+     */
+    create<T extends ContactPersonCreateArgs>(args: SelectSubset<T, ContactPersonCreateArgs<ExtArgs>>): Prisma__ContactPersonClient<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "create">, never, ExtArgs>
+
+    /**
+     * Create many ContactPeople.
+     * @param {ContactPersonCreateManyArgs} args - Arguments to create many ContactPeople.
+     * @example
+     * // Create many ContactPeople
+     * const contactPerson = await prisma.contactPerson.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends ContactPersonCreateManyArgs>(args?: SelectSubset<T, ContactPersonCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many ContactPeople and returns the data saved in the database.
+     * @param {ContactPersonCreateManyAndReturnArgs} args - Arguments to create many ContactPeople.
+     * @example
+     * // Create many ContactPeople
+     * const contactPerson = await prisma.contactPerson.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many ContactPeople and only return the `id`
+     * const contactPersonWithIdOnly = await prisma.contactPerson.createManyAndReturn({ 
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends ContactPersonCreateManyAndReturnArgs>(args?: SelectSubset<T, ContactPersonCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "createManyAndReturn">>
+
+    /**
+     * Delete a ContactPerson.
+     * @param {ContactPersonDeleteArgs} args - Arguments to delete one ContactPerson.
+     * @example
+     * // Delete one ContactPerson
+     * const ContactPerson = await prisma.contactPerson.delete({
+     *   where: {
+     *     // ... filter to delete one ContactPerson
+     *   }
+     * })
+     * 
+     */
+    delete<T extends ContactPersonDeleteArgs>(args: SelectSubset<T, ContactPersonDeleteArgs<ExtArgs>>): Prisma__ContactPersonClient<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "delete">, never, ExtArgs>
+
+    /**
+     * Update one ContactPerson.
+     * @param {ContactPersonUpdateArgs} args - Arguments to update one ContactPerson.
+     * @example
+     * // Update one ContactPerson
+     * const contactPerson = await prisma.contactPerson.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends ContactPersonUpdateArgs>(args: SelectSubset<T, ContactPersonUpdateArgs<ExtArgs>>): Prisma__ContactPersonClient<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "update">, never, ExtArgs>
+
+    /**
+     * Delete zero or more ContactPeople.
+     * @param {ContactPersonDeleteManyArgs} args - Arguments to filter ContactPeople to delete.
+     * @example
+     * // Delete a few ContactPeople
+     * const { count } = await prisma.contactPerson.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends ContactPersonDeleteManyArgs>(args?: SelectSubset<T, ContactPersonDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more ContactPeople.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ContactPersonUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many ContactPeople
+     * const contactPerson = await prisma.contactPerson.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends ContactPersonUpdateManyArgs>(args: SelectSubset<T, ContactPersonUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create or update one ContactPerson.
+     * @param {ContactPersonUpsertArgs} args - Arguments to update or create a ContactPerson.
+     * @example
+     * // Update or create a ContactPerson
+     * const contactPerson = await prisma.contactPerson.upsert({
+     *   create: {
+     *     // ... data to create a ContactPerson
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the ContactPerson we want to update
+     *   }
+     * })
+     */
+    upsert<T extends ContactPersonUpsertArgs>(args: SelectSubset<T, ContactPersonUpsertArgs<ExtArgs>>): Prisma__ContactPersonClient<$Result.GetResult<Prisma.$ContactPersonPayload<ExtArgs>, T, "upsert">, never, ExtArgs>
+
+
+    /**
+     * Count the number of ContactPeople.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ContactPersonCountArgs} args - Arguments to filter ContactPeople to count.
+     * @example
+     * // Count the number of ContactPeople
+     * const count = await prisma.contactPerson.count({
+     *   where: {
+     *     // ... the filter for the ContactPeople we want to count
+     *   }
+     * })
+    **/
+    count<T extends ContactPersonCountArgs>(
+      args?: Subset<T, ContactPersonCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], ContactPersonCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a ContactPerson.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ContactPersonAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends ContactPersonAggregateArgs>(args: Subset<T, ContactPersonAggregateArgs>): Prisma.PrismaPromise<GetContactPersonAggregateType<T>>
+
+    /**
+     * Group by ContactPerson.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {ContactPersonGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends ContactPersonGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: ContactPersonGroupByArgs['orderBy'] }
+        : { orderBy?: ContactPersonGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, ContactPersonGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetContactPersonGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the ContactPerson model
+   */
+  readonly fields: ContactPersonFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for ContactPerson.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__ContactPersonClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    business<T extends BusinessDefaultArgs<ExtArgs> = {}>(args?: Subset<T, BusinessDefaultArgs<ExtArgs>>): Prisma__BusinessClient<$Result.GetResult<Prisma.$BusinessPayload<ExtArgs>, T, "findUniqueOrThrow"> | Null, Null, ExtArgs>
+    department<T extends ContactPerson$departmentArgs<ExtArgs> = {}>(args?: Subset<T, ContactPerson$departmentArgs<ExtArgs>>): Prisma__DepartmentClient<$Result.GetResult<Prisma.$DepartmentPayload<ExtArgs>, T, "findUniqueOrThrow"> | null, null, ExtArgs>
+    branch<T extends ContactPerson$branchArgs<ExtArgs> = {}>(args?: Subset<T, ContactPerson$branchArgs<ExtArgs>>): Prisma__BranchClient<$Result.GetResult<Prisma.$BranchPayload<ExtArgs>, T, "findUniqueOrThrow"> | null, null, ExtArgs>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the ContactPerson model
+   */ 
+  interface ContactPersonFieldRefs {
+    readonly id: FieldRef<"ContactPerson", 'String'>
+    readonly businessId: FieldRef<"ContactPerson", 'String'>
+    readonly departmentId: FieldRef<"ContactPerson", 'String'>
+    readonly branchId: FieldRef<"ContactPerson", 'String'>
+    readonly name: FieldRef<"ContactPerson", 'String'>
+    readonly jobTitle: FieldRef<"ContactPerson", 'String'>
+    readonly phone: FieldRef<"ContactPerson", 'String'>
+    readonly whatsapp: FieldRef<"ContactPerson", 'String'>
+    readonly email: FieldRef<"ContactPerson", 'String'>
+    readonly imageUrl: FieldRef<"ContactPerson", 'String'>
+    readonly isPrimary: FieldRef<"ContactPerson", 'Boolean'>
+    readonly isActive: FieldRef<"ContactPerson", 'Boolean'>
+    readonly sortOrder: FieldRef<"ContactPerson", 'Int'>
+    readonly createdAt: FieldRef<"ContactPerson", 'DateTime'>
+    readonly updatedAt: FieldRef<"ContactPerson", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * ContactPerson findUnique
+   */
+  export type ContactPersonFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    /**
+     * Filter, which ContactPerson to fetch.
+     */
+    where: ContactPersonWhereUniqueInput
+  }
+
+  /**
+   * ContactPerson findUniqueOrThrow
+   */
+  export type ContactPersonFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    /**
+     * Filter, which ContactPerson to fetch.
+     */
+    where: ContactPersonWhereUniqueInput
+  }
+
+  /**
+   * ContactPerson findFirst
+   */
+  export type ContactPersonFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    /**
+     * Filter, which ContactPerson to fetch.
+     */
+    where?: ContactPersonWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ContactPeople to fetch.
+     */
+    orderBy?: ContactPersonOrderByWithRelationInput | ContactPersonOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ContactPeople.
+     */
+    cursor?: ContactPersonWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ContactPeople from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ContactPeople.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ContactPeople.
+     */
+    distinct?: ContactPersonScalarFieldEnum | ContactPersonScalarFieldEnum[]
+  }
+
+  /**
+   * ContactPerson findFirstOrThrow
+   */
+  export type ContactPersonFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    /**
+     * Filter, which ContactPerson to fetch.
+     */
+    where?: ContactPersonWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ContactPeople to fetch.
+     */
+    orderBy?: ContactPersonOrderByWithRelationInput | ContactPersonOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for ContactPeople.
+     */
+    cursor?: ContactPersonWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ContactPeople from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ContactPeople.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of ContactPeople.
+     */
+    distinct?: ContactPersonScalarFieldEnum | ContactPersonScalarFieldEnum[]
+  }
+
+  /**
+   * ContactPerson findMany
+   */
+  export type ContactPersonFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    /**
+     * Filter, which ContactPeople to fetch.
+     */
+    where?: ContactPersonWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of ContactPeople to fetch.
+     */
+    orderBy?: ContactPersonOrderByWithRelationInput | ContactPersonOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing ContactPeople.
+     */
+    cursor?: ContactPersonWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` ContactPeople from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` ContactPeople.
+     */
+    skip?: number
+    distinct?: ContactPersonScalarFieldEnum | ContactPersonScalarFieldEnum[]
+  }
+
+  /**
+   * ContactPerson create
+   */
+  export type ContactPersonCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    /**
+     * The data needed to create a ContactPerson.
+     */
+    data: XOR<ContactPersonCreateInput, ContactPersonUncheckedCreateInput>
+  }
+
+  /**
+   * ContactPerson createMany
+   */
+  export type ContactPersonCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many ContactPeople.
+     */
+    data: ContactPersonCreateManyInput | ContactPersonCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * ContactPerson createManyAndReturn
+   */
+  export type ContactPersonCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * The data used to create many ContactPeople.
+     */
+    data: ContactPersonCreateManyInput | ContactPersonCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * ContactPerson update
+   */
+  export type ContactPersonUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    /**
+     * The data needed to update a ContactPerson.
+     */
+    data: XOR<ContactPersonUpdateInput, ContactPersonUncheckedUpdateInput>
+    /**
+     * Choose, which ContactPerson to update.
+     */
+    where: ContactPersonWhereUniqueInput
+  }
+
+  /**
+   * ContactPerson updateMany
+   */
+  export type ContactPersonUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update ContactPeople.
+     */
+    data: XOR<ContactPersonUpdateManyMutationInput, ContactPersonUncheckedUpdateManyInput>
+    /**
+     * Filter which ContactPeople to update
+     */
+    where?: ContactPersonWhereInput
+  }
+
+  /**
+   * ContactPerson upsert
+   */
+  export type ContactPersonUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    /**
+     * The filter to search for the ContactPerson to update in case it exists.
+     */
+    where: ContactPersonWhereUniqueInput
+    /**
+     * In case the ContactPerson found by the `where` argument doesn't exist, create a new ContactPerson with this data.
+     */
+    create: XOR<ContactPersonCreateInput, ContactPersonUncheckedCreateInput>
+    /**
+     * In case the ContactPerson was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<ContactPersonUpdateInput, ContactPersonUncheckedUpdateInput>
+  }
+
+  /**
+   * ContactPerson delete
+   */
+  export type ContactPersonDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+    /**
+     * Filter which ContactPerson to delete.
+     */
+    where: ContactPersonWhereUniqueInput
+  }
+
+  /**
+   * ContactPerson deleteMany
+   */
+  export type ContactPersonDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which ContactPeople to delete
+     */
+    where?: ContactPersonWhereInput
+  }
+
+  /**
+   * ContactPerson.department
+   */
+  export type ContactPerson$departmentArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Department
+     */
+    select?: DepartmentSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: DepartmentInclude<ExtArgs> | null
+    where?: DepartmentWhereInput
+  }
+
+  /**
+   * ContactPerson.branch
+   */
+  export type ContactPerson$branchArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Branch
+     */
+    select?: BranchSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BranchInclude<ExtArgs> | null
+    where?: BranchWhereInput
+  }
+
+  /**
+   * ContactPerson without action
+   */
+  export type ContactPersonDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the ContactPerson
+     */
+    select?: ContactPersonSelect<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ContactPersonInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -21948,7 +25686,11 @@ export namespace Prisma {
     publishedAt: 'publishedAt',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
-    deletedAt: 'deletedAt'
+    deletedAt: 'deletedAt',
+    digitalDestinationType: 'digitalDestinationType',
+    companyProfileUrl: 'companyProfileUrl',
+    companyProfileTitle: 'companyProfileTitle',
+    licenseNumber: 'licenseNumber'
   };
 
   export type BusinessScalarFieldEnum = (typeof BusinessScalarFieldEnum)[keyof typeof BusinessScalarFieldEnum]
@@ -22174,6 +25916,62 @@ export namespace Prisma {
   };
 
   export type StoredObjectScalarFieldEnum = (typeof StoredObjectScalarFieldEnum)[keyof typeof StoredObjectScalarFieldEnum]
+
+
+  export const BranchScalarFieldEnum: {
+    id: 'id',
+    businessId: 'businessId',
+    name: 'name',
+    city: 'city',
+    district: 'district',
+    address: 'address',
+    phone: 'phone',
+    whatsapp: 'whatsapp',
+    googleMapsLink: 'googleMapsLink',
+    isMain: 'isMain',
+    isActive: 'isActive',
+    sortOrder: 'sortOrder',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type BranchScalarFieldEnum = (typeof BranchScalarFieldEnum)[keyof typeof BranchScalarFieldEnum]
+
+
+  export const DepartmentScalarFieldEnum: {
+    id: 'id',
+    businessId: 'businessId',
+    name: 'name',
+    description: 'description',
+    icon: 'icon',
+    isActive: 'isActive',
+    sortOrder: 'sortOrder',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type DepartmentScalarFieldEnum = (typeof DepartmentScalarFieldEnum)[keyof typeof DepartmentScalarFieldEnum]
+
+
+  export const ContactPersonScalarFieldEnum: {
+    id: 'id',
+    businessId: 'businessId',
+    departmentId: 'departmentId',
+    branchId: 'branchId',
+    name: 'name',
+    jobTitle: 'jobTitle',
+    phone: 'phone',
+    whatsapp: 'whatsapp',
+    email: 'email',
+    imageUrl: 'imageUrl',
+    isPrimary: 'isPrimary',
+    isActive: 'isActive',
+    sortOrder: 'sortOrder',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type ContactPersonScalarFieldEnum = (typeof ContactPersonScalarFieldEnum)[keyof typeof ContactPersonScalarFieldEnum]
 
 
   export const SortOrder: {
@@ -22568,6 +26366,10 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Business"> | Date | string
     updatedAt?: DateTimeFilter<"Business"> | Date | string
     deletedAt?: DateTimeNullableFilter<"Business"> | Date | string | null
+    digitalDestinationType?: StringNullableFilter<"Business"> | string | null
+    companyProfileUrl?: StringNullableFilter<"Business"> | string | null
+    companyProfileTitle?: StringNullableFilter<"Business"> | string | null
+    licenseNumber?: StringNullableFilter<"Business"> | string | null
     owner?: XOR<UserRelationFilter, UserWhereInput>
     plan?: XOR<BusinessPlanNullableRelationFilter, BusinessPlanWhereInput> | null
     products?: ProductListRelationFilter
@@ -22582,6 +26384,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemListRelationFilter
     subscriptions?: SubscriptionListRelationFilter
     analytics?: AnalyticsEventListRelationFilter
+    branches?: BranchListRelationFilter
+    departments?: DepartmentListRelationFilter
+    contactPersons?: ContactPersonListRelationFilter
   }
 
   export type BusinessOrderByWithRelationInput = {
@@ -22632,6 +26437,10 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     deletedAt?: SortOrderInput | SortOrder
+    digitalDestinationType?: SortOrderInput | SortOrder
+    companyProfileUrl?: SortOrderInput | SortOrder
+    companyProfileTitle?: SortOrderInput | SortOrder
+    licenseNumber?: SortOrderInput | SortOrder
     owner?: UserOrderByWithRelationInput
     plan?: BusinessPlanOrderByWithRelationInput
     products?: ProductOrderByRelationAggregateInput
@@ -22646,6 +26455,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemOrderByRelationAggregateInput
     subscriptions?: SubscriptionOrderByRelationAggregateInput
     analytics?: AnalyticsEventOrderByRelationAggregateInput
+    branches?: BranchOrderByRelationAggregateInput
+    departments?: DepartmentOrderByRelationAggregateInput
+    contactPersons?: ContactPersonOrderByRelationAggregateInput
   }
 
   export type BusinessWhereUniqueInput = Prisma.AtLeast<{
@@ -22699,6 +26511,10 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Business"> | Date | string
     updatedAt?: DateTimeFilter<"Business"> | Date | string
     deletedAt?: DateTimeNullableFilter<"Business"> | Date | string | null
+    digitalDestinationType?: StringNullableFilter<"Business"> | string | null
+    companyProfileUrl?: StringNullableFilter<"Business"> | string | null
+    companyProfileTitle?: StringNullableFilter<"Business"> | string | null
+    licenseNumber?: StringNullableFilter<"Business"> | string | null
     owner?: XOR<UserRelationFilter, UserWhereInput>
     plan?: XOR<BusinessPlanNullableRelationFilter, BusinessPlanWhereInput> | null
     products?: ProductListRelationFilter
@@ -22713,6 +26529,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemListRelationFilter
     subscriptions?: SubscriptionListRelationFilter
     analytics?: AnalyticsEventListRelationFilter
+    branches?: BranchListRelationFilter
+    departments?: DepartmentListRelationFilter
+    contactPersons?: ContactPersonListRelationFilter
   }, "id" | "slug">
 
   export type BusinessOrderByWithAggregationInput = {
@@ -22763,6 +26582,10 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     deletedAt?: SortOrderInput | SortOrder
+    digitalDestinationType?: SortOrderInput | SortOrder
+    companyProfileUrl?: SortOrderInput | SortOrder
+    companyProfileTitle?: SortOrderInput | SortOrder
+    licenseNumber?: SortOrderInput | SortOrder
     _count?: BusinessCountOrderByAggregateInput
     _max?: BusinessMaxOrderByAggregateInput
     _min?: BusinessMinOrderByAggregateInput
@@ -22819,6 +26642,10 @@ export namespace Prisma {
     createdAt?: DateTimeWithAggregatesFilter<"Business"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Business"> | Date | string
     deletedAt?: DateTimeNullableWithAggregatesFilter<"Business"> | Date | string | null
+    digitalDestinationType?: StringNullableWithAggregatesFilter<"Business"> | string | null
+    companyProfileUrl?: StringNullableWithAggregatesFilter<"Business"> | string | null
+    companyProfileTitle?: StringNullableWithAggregatesFilter<"Business"> | string | null
+    licenseNumber?: StringNullableWithAggregatesFilter<"Business"> | string | null
   }
 
   export type CategoryWhereInput = {
@@ -23987,6 +27814,304 @@ export namespace Prisma {
     createdAt?: DateTimeWithAggregatesFilter<"StoredObject"> | Date | string
   }
 
+  export type BranchWhereInput = {
+    AND?: BranchWhereInput | BranchWhereInput[]
+    OR?: BranchWhereInput[]
+    NOT?: BranchWhereInput | BranchWhereInput[]
+    id?: StringFilter<"Branch"> | string
+    businessId?: StringFilter<"Branch"> | string
+    name?: StringFilter<"Branch"> | string
+    city?: StringNullableFilter<"Branch"> | string | null
+    district?: StringNullableFilter<"Branch"> | string | null
+    address?: StringNullableFilter<"Branch"> | string | null
+    phone?: StringNullableFilter<"Branch"> | string | null
+    whatsapp?: StringNullableFilter<"Branch"> | string | null
+    googleMapsLink?: StringNullableFilter<"Branch"> | string | null
+    isMain?: BoolFilter<"Branch"> | boolean
+    isActive?: BoolFilter<"Branch"> | boolean
+    sortOrder?: IntFilter<"Branch"> | number
+    createdAt?: DateTimeFilter<"Branch"> | Date | string
+    updatedAt?: DateTimeFilter<"Branch"> | Date | string
+    business?: XOR<BusinessRelationFilter, BusinessWhereInput>
+    contacts?: ContactPersonListRelationFilter
+  }
+
+  export type BranchOrderByWithRelationInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    name?: SortOrder
+    city?: SortOrderInput | SortOrder
+    district?: SortOrderInput | SortOrder
+    address?: SortOrderInput | SortOrder
+    phone?: SortOrderInput | SortOrder
+    whatsapp?: SortOrderInput | SortOrder
+    googleMapsLink?: SortOrderInput | SortOrder
+    isMain?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    business?: BusinessOrderByWithRelationInput
+    contacts?: ContactPersonOrderByRelationAggregateInput
+  }
+
+  export type BranchWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: BranchWhereInput | BranchWhereInput[]
+    OR?: BranchWhereInput[]
+    NOT?: BranchWhereInput | BranchWhereInput[]
+    businessId?: StringFilter<"Branch"> | string
+    name?: StringFilter<"Branch"> | string
+    city?: StringNullableFilter<"Branch"> | string | null
+    district?: StringNullableFilter<"Branch"> | string | null
+    address?: StringNullableFilter<"Branch"> | string | null
+    phone?: StringNullableFilter<"Branch"> | string | null
+    whatsapp?: StringNullableFilter<"Branch"> | string | null
+    googleMapsLink?: StringNullableFilter<"Branch"> | string | null
+    isMain?: BoolFilter<"Branch"> | boolean
+    isActive?: BoolFilter<"Branch"> | boolean
+    sortOrder?: IntFilter<"Branch"> | number
+    createdAt?: DateTimeFilter<"Branch"> | Date | string
+    updatedAt?: DateTimeFilter<"Branch"> | Date | string
+    business?: XOR<BusinessRelationFilter, BusinessWhereInput>
+    contacts?: ContactPersonListRelationFilter
+  }, "id">
+
+  export type BranchOrderByWithAggregationInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    name?: SortOrder
+    city?: SortOrderInput | SortOrder
+    district?: SortOrderInput | SortOrder
+    address?: SortOrderInput | SortOrder
+    phone?: SortOrderInput | SortOrder
+    whatsapp?: SortOrderInput | SortOrder
+    googleMapsLink?: SortOrderInput | SortOrder
+    isMain?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: BranchCountOrderByAggregateInput
+    _avg?: BranchAvgOrderByAggregateInput
+    _max?: BranchMaxOrderByAggregateInput
+    _min?: BranchMinOrderByAggregateInput
+    _sum?: BranchSumOrderByAggregateInput
+  }
+
+  export type BranchScalarWhereWithAggregatesInput = {
+    AND?: BranchScalarWhereWithAggregatesInput | BranchScalarWhereWithAggregatesInput[]
+    OR?: BranchScalarWhereWithAggregatesInput[]
+    NOT?: BranchScalarWhereWithAggregatesInput | BranchScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"Branch"> | string
+    businessId?: StringWithAggregatesFilter<"Branch"> | string
+    name?: StringWithAggregatesFilter<"Branch"> | string
+    city?: StringNullableWithAggregatesFilter<"Branch"> | string | null
+    district?: StringNullableWithAggregatesFilter<"Branch"> | string | null
+    address?: StringNullableWithAggregatesFilter<"Branch"> | string | null
+    phone?: StringNullableWithAggregatesFilter<"Branch"> | string | null
+    whatsapp?: StringNullableWithAggregatesFilter<"Branch"> | string | null
+    googleMapsLink?: StringNullableWithAggregatesFilter<"Branch"> | string | null
+    isMain?: BoolWithAggregatesFilter<"Branch"> | boolean
+    isActive?: BoolWithAggregatesFilter<"Branch"> | boolean
+    sortOrder?: IntWithAggregatesFilter<"Branch"> | number
+    createdAt?: DateTimeWithAggregatesFilter<"Branch"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"Branch"> | Date | string
+  }
+
+  export type DepartmentWhereInput = {
+    AND?: DepartmentWhereInput | DepartmentWhereInput[]
+    OR?: DepartmentWhereInput[]
+    NOT?: DepartmentWhereInput | DepartmentWhereInput[]
+    id?: StringFilter<"Department"> | string
+    businessId?: StringFilter<"Department"> | string
+    name?: StringFilter<"Department"> | string
+    description?: StringNullableFilter<"Department"> | string | null
+    icon?: StringNullableFilter<"Department"> | string | null
+    isActive?: BoolFilter<"Department"> | boolean
+    sortOrder?: IntFilter<"Department"> | number
+    createdAt?: DateTimeFilter<"Department"> | Date | string
+    updatedAt?: DateTimeFilter<"Department"> | Date | string
+    business?: XOR<BusinessRelationFilter, BusinessWhereInput>
+    contacts?: ContactPersonListRelationFilter
+  }
+
+  export type DepartmentOrderByWithRelationInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    name?: SortOrder
+    description?: SortOrderInput | SortOrder
+    icon?: SortOrderInput | SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    business?: BusinessOrderByWithRelationInput
+    contacts?: ContactPersonOrderByRelationAggregateInput
+  }
+
+  export type DepartmentWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: DepartmentWhereInput | DepartmentWhereInput[]
+    OR?: DepartmentWhereInput[]
+    NOT?: DepartmentWhereInput | DepartmentWhereInput[]
+    businessId?: StringFilter<"Department"> | string
+    name?: StringFilter<"Department"> | string
+    description?: StringNullableFilter<"Department"> | string | null
+    icon?: StringNullableFilter<"Department"> | string | null
+    isActive?: BoolFilter<"Department"> | boolean
+    sortOrder?: IntFilter<"Department"> | number
+    createdAt?: DateTimeFilter<"Department"> | Date | string
+    updatedAt?: DateTimeFilter<"Department"> | Date | string
+    business?: XOR<BusinessRelationFilter, BusinessWhereInput>
+    contacts?: ContactPersonListRelationFilter
+  }, "id">
+
+  export type DepartmentOrderByWithAggregationInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    name?: SortOrder
+    description?: SortOrderInput | SortOrder
+    icon?: SortOrderInput | SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: DepartmentCountOrderByAggregateInput
+    _avg?: DepartmentAvgOrderByAggregateInput
+    _max?: DepartmentMaxOrderByAggregateInput
+    _min?: DepartmentMinOrderByAggregateInput
+    _sum?: DepartmentSumOrderByAggregateInput
+  }
+
+  export type DepartmentScalarWhereWithAggregatesInput = {
+    AND?: DepartmentScalarWhereWithAggregatesInput | DepartmentScalarWhereWithAggregatesInput[]
+    OR?: DepartmentScalarWhereWithAggregatesInput[]
+    NOT?: DepartmentScalarWhereWithAggregatesInput | DepartmentScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"Department"> | string
+    businessId?: StringWithAggregatesFilter<"Department"> | string
+    name?: StringWithAggregatesFilter<"Department"> | string
+    description?: StringNullableWithAggregatesFilter<"Department"> | string | null
+    icon?: StringNullableWithAggregatesFilter<"Department"> | string | null
+    isActive?: BoolWithAggregatesFilter<"Department"> | boolean
+    sortOrder?: IntWithAggregatesFilter<"Department"> | number
+    createdAt?: DateTimeWithAggregatesFilter<"Department"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"Department"> | Date | string
+  }
+
+  export type ContactPersonWhereInput = {
+    AND?: ContactPersonWhereInput | ContactPersonWhereInput[]
+    OR?: ContactPersonWhereInput[]
+    NOT?: ContactPersonWhereInput | ContactPersonWhereInput[]
+    id?: StringFilter<"ContactPerson"> | string
+    businessId?: StringFilter<"ContactPerson"> | string
+    departmentId?: StringNullableFilter<"ContactPerson"> | string | null
+    branchId?: StringNullableFilter<"ContactPerson"> | string | null
+    name?: StringFilter<"ContactPerson"> | string
+    jobTitle?: StringNullableFilter<"ContactPerson"> | string | null
+    phone?: StringNullableFilter<"ContactPerson"> | string | null
+    whatsapp?: StringNullableFilter<"ContactPerson"> | string | null
+    email?: StringNullableFilter<"ContactPerson"> | string | null
+    imageUrl?: StringNullableFilter<"ContactPerson"> | string | null
+    isPrimary?: BoolFilter<"ContactPerson"> | boolean
+    isActive?: BoolFilter<"ContactPerson"> | boolean
+    sortOrder?: IntFilter<"ContactPerson"> | number
+    createdAt?: DateTimeFilter<"ContactPerson"> | Date | string
+    updatedAt?: DateTimeFilter<"ContactPerson"> | Date | string
+    business?: XOR<BusinessRelationFilter, BusinessWhereInput>
+    department?: XOR<DepartmentNullableRelationFilter, DepartmentWhereInput> | null
+    branch?: XOR<BranchNullableRelationFilter, BranchWhereInput> | null
+  }
+
+  export type ContactPersonOrderByWithRelationInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    departmentId?: SortOrderInput | SortOrder
+    branchId?: SortOrderInput | SortOrder
+    name?: SortOrder
+    jobTitle?: SortOrderInput | SortOrder
+    phone?: SortOrderInput | SortOrder
+    whatsapp?: SortOrderInput | SortOrder
+    email?: SortOrderInput | SortOrder
+    imageUrl?: SortOrderInput | SortOrder
+    isPrimary?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    business?: BusinessOrderByWithRelationInput
+    department?: DepartmentOrderByWithRelationInput
+    branch?: BranchOrderByWithRelationInput
+  }
+
+  export type ContactPersonWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: ContactPersonWhereInput | ContactPersonWhereInput[]
+    OR?: ContactPersonWhereInput[]
+    NOT?: ContactPersonWhereInput | ContactPersonWhereInput[]
+    businessId?: StringFilter<"ContactPerson"> | string
+    departmentId?: StringNullableFilter<"ContactPerson"> | string | null
+    branchId?: StringNullableFilter<"ContactPerson"> | string | null
+    name?: StringFilter<"ContactPerson"> | string
+    jobTitle?: StringNullableFilter<"ContactPerson"> | string | null
+    phone?: StringNullableFilter<"ContactPerson"> | string | null
+    whatsapp?: StringNullableFilter<"ContactPerson"> | string | null
+    email?: StringNullableFilter<"ContactPerson"> | string | null
+    imageUrl?: StringNullableFilter<"ContactPerson"> | string | null
+    isPrimary?: BoolFilter<"ContactPerson"> | boolean
+    isActive?: BoolFilter<"ContactPerson"> | boolean
+    sortOrder?: IntFilter<"ContactPerson"> | number
+    createdAt?: DateTimeFilter<"ContactPerson"> | Date | string
+    updatedAt?: DateTimeFilter<"ContactPerson"> | Date | string
+    business?: XOR<BusinessRelationFilter, BusinessWhereInput>
+    department?: XOR<DepartmentNullableRelationFilter, DepartmentWhereInput> | null
+    branch?: XOR<BranchNullableRelationFilter, BranchWhereInput> | null
+  }, "id">
+
+  export type ContactPersonOrderByWithAggregationInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    departmentId?: SortOrderInput | SortOrder
+    branchId?: SortOrderInput | SortOrder
+    name?: SortOrder
+    jobTitle?: SortOrderInput | SortOrder
+    phone?: SortOrderInput | SortOrder
+    whatsapp?: SortOrderInput | SortOrder
+    email?: SortOrderInput | SortOrder
+    imageUrl?: SortOrderInput | SortOrder
+    isPrimary?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: ContactPersonCountOrderByAggregateInput
+    _avg?: ContactPersonAvgOrderByAggregateInput
+    _max?: ContactPersonMaxOrderByAggregateInput
+    _min?: ContactPersonMinOrderByAggregateInput
+    _sum?: ContactPersonSumOrderByAggregateInput
+  }
+
+  export type ContactPersonScalarWhereWithAggregatesInput = {
+    AND?: ContactPersonScalarWhereWithAggregatesInput | ContactPersonScalarWhereWithAggregatesInput[]
+    OR?: ContactPersonScalarWhereWithAggregatesInput[]
+    NOT?: ContactPersonScalarWhereWithAggregatesInput | ContactPersonScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"ContactPerson"> | string
+    businessId?: StringWithAggregatesFilter<"ContactPerson"> | string
+    departmentId?: StringNullableWithAggregatesFilter<"ContactPerson"> | string | null
+    branchId?: StringNullableWithAggregatesFilter<"ContactPerson"> | string | null
+    name?: StringWithAggregatesFilter<"ContactPerson"> | string
+    jobTitle?: StringNullableWithAggregatesFilter<"ContactPerson"> | string | null
+    phone?: StringNullableWithAggregatesFilter<"ContactPerson"> | string | null
+    whatsapp?: StringNullableWithAggregatesFilter<"ContactPerson"> | string | null
+    email?: StringNullableWithAggregatesFilter<"ContactPerson"> | string | null
+    imageUrl?: StringNullableWithAggregatesFilter<"ContactPerson"> | string | null
+    isPrimary?: BoolWithAggregatesFilter<"ContactPerson"> | boolean
+    isActive?: BoolWithAggregatesFilter<"ContactPerson"> | boolean
+    sortOrder?: IntWithAggregatesFilter<"ContactPerson"> | number
+    createdAt?: DateTimeWithAggregatesFilter<"ContactPerson"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"ContactPerson"> | Date | string
+  }
+
   export type UserCreateInput = {
     id?: string
     name: string
@@ -24265,6 +28390,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -24279,6 +28408,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateInput = {
@@ -24329,6 +28461,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -24341,6 +28477,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUpdateInput = {
@@ -24389,6 +28528,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -24403,6 +28546,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateInput = {
@@ -24453,6 +28599,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -24465,6 +28615,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessCreateManyInput = {
@@ -24515,6 +28668,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
   }
 
   export type BusinessUpdateManyMutationInput = {
@@ -24563,6 +28720,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type BusinessUncheckedUpdateManyInput = {
@@ -24613,6 +28774,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type CategoryCreateInput = {
@@ -25880,6 +30045,338 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type BranchCreateInput = {
+    id?: string
+    name: string
+    city?: string | null
+    district?: string | null
+    address?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    googleMapsLink?: string | null
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    business: BusinessCreateNestedOneWithoutBranchesInput
+    contacts?: ContactPersonCreateNestedManyWithoutBranchInput
+  }
+
+  export type BranchUncheckedCreateInput = {
+    id?: string
+    businessId: string
+    name: string
+    city?: string | null
+    district?: string | null
+    address?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    googleMapsLink?: string | null
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contacts?: ContactPersonUncheckedCreateNestedManyWithoutBranchInput
+  }
+
+  export type BranchUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    isMain?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    business?: BusinessUpdateOneRequiredWithoutBranchesNestedInput
+    contacts?: ContactPersonUpdateManyWithoutBranchNestedInput
+  }
+
+  export type BranchUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    isMain?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contacts?: ContactPersonUncheckedUpdateManyWithoutBranchNestedInput
+  }
+
+  export type BranchCreateManyInput = {
+    id?: string
+    businessId: string
+    name: string
+    city?: string | null
+    district?: string | null
+    address?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    googleMapsLink?: string | null
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type BranchUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    isMain?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type BranchUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    isMain?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DepartmentCreateInput = {
+    id?: string
+    name: string
+    description?: string | null
+    icon?: string | null
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    business: BusinessCreateNestedOneWithoutDepartmentsInput
+    contacts?: ContactPersonCreateNestedManyWithoutDepartmentInput
+  }
+
+  export type DepartmentUncheckedCreateInput = {
+    id?: string
+    businessId: string
+    name: string
+    description?: string | null
+    icon?: string | null
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contacts?: ContactPersonUncheckedCreateNestedManyWithoutDepartmentInput
+  }
+
+  export type DepartmentUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    icon?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    business?: BusinessUpdateOneRequiredWithoutDepartmentsNestedInput
+    contacts?: ContactPersonUpdateManyWithoutDepartmentNestedInput
+  }
+
+  export type DepartmentUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    icon?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contacts?: ContactPersonUncheckedUpdateManyWithoutDepartmentNestedInput
+  }
+
+  export type DepartmentCreateManyInput = {
+    id?: string
+    businessId: string
+    name: string
+    description?: string | null
+    icon?: string | null
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type DepartmentUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    icon?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DepartmentUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    icon?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ContactPersonCreateInput = {
+    id?: string
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    business: BusinessCreateNestedOneWithoutContactPersonsInput
+    department?: DepartmentCreateNestedOneWithoutContactsInput
+    branch?: BranchCreateNestedOneWithoutContactsInput
+  }
+
+  export type ContactPersonUncheckedCreateInput = {
+    id?: string
+    businessId: string
+    departmentId?: string | null
+    branchId?: string | null
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ContactPersonUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    business?: BusinessUpdateOneRequiredWithoutContactPersonsNestedInput
+    department?: DepartmentUpdateOneWithoutContactsNestedInput
+    branch?: BranchUpdateOneWithoutContactsNestedInput
+  }
+
+  export type ContactPersonUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    departmentId?: NullableStringFieldUpdateOperationsInput | string | null
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ContactPersonCreateManyInput = {
+    id?: string
+    businessId: string
+    departmentId?: string | null
+    branchId?: string | null
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ContactPersonUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ContactPersonUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    departmentId?: NullableStringFieldUpdateOperationsInput | string | null
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -26254,6 +30751,24 @@ export namespace Prisma {
     none?: AnalyticsEventWhereInput
   }
 
+  export type BranchListRelationFilter = {
+    every?: BranchWhereInput
+    some?: BranchWhereInput
+    none?: BranchWhereInput
+  }
+
+  export type DepartmentListRelationFilter = {
+    every?: DepartmentWhereInput
+    some?: DepartmentWhereInput
+    none?: DepartmentWhereInput
+  }
+
+  export type ContactPersonListRelationFilter = {
+    every?: ContactPersonWhereInput
+    some?: ContactPersonWhereInput
+    none?: ContactPersonWhereInput
+  }
+
   export type ProductOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
@@ -26295,6 +30810,18 @@ export namespace Prisma {
   }
 
   export type AnalyticsEventOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type BranchOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type DepartmentOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type ContactPersonOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -26346,6 +30873,10 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     deletedAt?: SortOrder
+    digitalDestinationType?: SortOrder
+    companyProfileUrl?: SortOrder
+    companyProfileTitle?: SortOrder
+    licenseNumber?: SortOrder
   }
 
   export type BusinessMaxOrderByAggregateInput = {
@@ -26395,6 +30926,10 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     deletedAt?: SortOrder
+    digitalDestinationType?: SortOrder
+    companyProfileUrl?: SortOrder
+    companyProfileTitle?: SortOrder
+    licenseNumber?: SortOrder
   }
 
   export type BusinessMinOrderByAggregateInput = {
@@ -26444,6 +30979,10 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     deletedAt?: SortOrder
+    digitalDestinationType?: SortOrder
+    companyProfileUrl?: SortOrder
+    companyProfileTitle?: SortOrder
+    licenseNumber?: SortOrder
   }
 
   export type StringNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -27225,6 +31764,181 @@ export namespace Prisma {
     _max?: NestedBytesFilter<$PrismaModel>
   }
 
+  export type BranchCountOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    name?: SortOrder
+    city?: SortOrder
+    district?: SortOrder
+    address?: SortOrder
+    phone?: SortOrder
+    whatsapp?: SortOrder
+    googleMapsLink?: SortOrder
+    isMain?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type BranchAvgOrderByAggregateInput = {
+    sortOrder?: SortOrder
+  }
+
+  export type BranchMaxOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    name?: SortOrder
+    city?: SortOrder
+    district?: SortOrder
+    address?: SortOrder
+    phone?: SortOrder
+    whatsapp?: SortOrder
+    googleMapsLink?: SortOrder
+    isMain?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type BranchMinOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    name?: SortOrder
+    city?: SortOrder
+    district?: SortOrder
+    address?: SortOrder
+    phone?: SortOrder
+    whatsapp?: SortOrder
+    googleMapsLink?: SortOrder
+    isMain?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type BranchSumOrderByAggregateInput = {
+    sortOrder?: SortOrder
+  }
+
+  export type DepartmentCountOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    name?: SortOrder
+    description?: SortOrder
+    icon?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type DepartmentAvgOrderByAggregateInput = {
+    sortOrder?: SortOrder
+  }
+
+  export type DepartmentMaxOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    name?: SortOrder
+    description?: SortOrder
+    icon?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type DepartmentMinOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    name?: SortOrder
+    description?: SortOrder
+    icon?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type DepartmentSumOrderByAggregateInput = {
+    sortOrder?: SortOrder
+  }
+
+  export type DepartmentNullableRelationFilter = {
+    is?: DepartmentWhereInput | null
+    isNot?: DepartmentWhereInput | null
+  }
+
+  export type BranchNullableRelationFilter = {
+    is?: BranchWhereInput | null
+    isNot?: BranchWhereInput | null
+  }
+
+  export type ContactPersonCountOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    departmentId?: SortOrder
+    branchId?: SortOrder
+    name?: SortOrder
+    jobTitle?: SortOrder
+    phone?: SortOrder
+    whatsapp?: SortOrder
+    email?: SortOrder
+    imageUrl?: SortOrder
+    isPrimary?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ContactPersonAvgOrderByAggregateInput = {
+    sortOrder?: SortOrder
+  }
+
+  export type ContactPersonMaxOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    departmentId?: SortOrder
+    branchId?: SortOrder
+    name?: SortOrder
+    jobTitle?: SortOrder
+    phone?: SortOrder
+    whatsapp?: SortOrder
+    email?: SortOrder
+    imageUrl?: SortOrder
+    isPrimary?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ContactPersonMinOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    departmentId?: SortOrder
+    branchId?: SortOrder
+    name?: SortOrder
+    jobTitle?: SortOrder
+    phone?: SortOrder
+    whatsapp?: SortOrder
+    email?: SortOrder
+    imageUrl?: SortOrder
+    isPrimary?: SortOrder
+    isActive?: SortOrder
+    sortOrder?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type ContactPersonSumOrderByAggregateInput = {
+    sortOrder?: SortOrder
+  }
+
   export type SessionCreateNestedManyWithoutUserInput = {
     create?: XOR<SessionCreateWithoutUserInput, SessionUncheckedCreateWithoutUserInput> | SessionCreateWithoutUserInput[] | SessionUncheckedCreateWithoutUserInput[]
     connectOrCreate?: SessionCreateOrConnectWithoutUserInput | SessionCreateOrConnectWithoutUserInput[]
@@ -27527,6 +32241,27 @@ export namespace Prisma {
     connect?: AnalyticsEventWhereUniqueInput | AnalyticsEventWhereUniqueInput[]
   }
 
+  export type BranchCreateNestedManyWithoutBusinessInput = {
+    create?: XOR<BranchCreateWithoutBusinessInput, BranchUncheckedCreateWithoutBusinessInput> | BranchCreateWithoutBusinessInput[] | BranchUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: BranchCreateOrConnectWithoutBusinessInput | BranchCreateOrConnectWithoutBusinessInput[]
+    createMany?: BranchCreateManyBusinessInputEnvelope
+    connect?: BranchWhereUniqueInput | BranchWhereUniqueInput[]
+  }
+
+  export type DepartmentCreateNestedManyWithoutBusinessInput = {
+    create?: XOR<DepartmentCreateWithoutBusinessInput, DepartmentUncheckedCreateWithoutBusinessInput> | DepartmentCreateWithoutBusinessInput[] | DepartmentUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: DepartmentCreateOrConnectWithoutBusinessInput | DepartmentCreateOrConnectWithoutBusinessInput[]
+    createMany?: DepartmentCreateManyBusinessInputEnvelope
+    connect?: DepartmentWhereUniqueInput | DepartmentWhereUniqueInput[]
+  }
+
+  export type ContactPersonCreateNestedManyWithoutBusinessInput = {
+    create?: XOR<ContactPersonCreateWithoutBusinessInput, ContactPersonUncheckedCreateWithoutBusinessInput> | ContactPersonCreateWithoutBusinessInput[] | ContactPersonUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutBusinessInput | ContactPersonCreateOrConnectWithoutBusinessInput[]
+    createMany?: ContactPersonCreateManyBusinessInputEnvelope
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+  }
+
   export type ProductUncheckedCreateNestedManyWithoutBusinessInput = {
     create?: XOR<ProductCreateWithoutBusinessInput, ProductUncheckedCreateWithoutBusinessInput> | ProductCreateWithoutBusinessInput[] | ProductUncheckedCreateWithoutBusinessInput[]
     connectOrCreate?: ProductCreateOrConnectWithoutBusinessInput | ProductCreateOrConnectWithoutBusinessInput[]
@@ -27609,6 +32344,27 @@ export namespace Prisma {
     connectOrCreate?: AnalyticsEventCreateOrConnectWithoutBusinessInput | AnalyticsEventCreateOrConnectWithoutBusinessInput[]
     createMany?: AnalyticsEventCreateManyBusinessInputEnvelope
     connect?: AnalyticsEventWhereUniqueInput | AnalyticsEventWhereUniqueInput[]
+  }
+
+  export type BranchUncheckedCreateNestedManyWithoutBusinessInput = {
+    create?: XOR<BranchCreateWithoutBusinessInput, BranchUncheckedCreateWithoutBusinessInput> | BranchCreateWithoutBusinessInput[] | BranchUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: BranchCreateOrConnectWithoutBusinessInput | BranchCreateOrConnectWithoutBusinessInput[]
+    createMany?: BranchCreateManyBusinessInputEnvelope
+    connect?: BranchWhereUniqueInput | BranchWhereUniqueInput[]
+  }
+
+  export type DepartmentUncheckedCreateNestedManyWithoutBusinessInput = {
+    create?: XOR<DepartmentCreateWithoutBusinessInput, DepartmentUncheckedCreateWithoutBusinessInput> | DepartmentCreateWithoutBusinessInput[] | DepartmentUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: DepartmentCreateOrConnectWithoutBusinessInput | DepartmentCreateOrConnectWithoutBusinessInput[]
+    createMany?: DepartmentCreateManyBusinessInputEnvelope
+    connect?: DepartmentWhereUniqueInput | DepartmentWhereUniqueInput[]
+  }
+
+  export type ContactPersonUncheckedCreateNestedManyWithoutBusinessInput = {
+    create?: XOR<ContactPersonCreateWithoutBusinessInput, ContactPersonUncheckedCreateWithoutBusinessInput> | ContactPersonCreateWithoutBusinessInput[] | ContactPersonUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutBusinessInput | ContactPersonCreateOrConnectWithoutBusinessInput[]
+    createMany?: ContactPersonCreateManyBusinessInputEnvelope
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
   }
 
   export type NullableStringFieldUpdateOperationsInput = {
@@ -27801,6 +32557,48 @@ export namespace Prisma {
     deleteMany?: AnalyticsEventScalarWhereInput | AnalyticsEventScalarWhereInput[]
   }
 
+  export type BranchUpdateManyWithoutBusinessNestedInput = {
+    create?: XOR<BranchCreateWithoutBusinessInput, BranchUncheckedCreateWithoutBusinessInput> | BranchCreateWithoutBusinessInput[] | BranchUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: BranchCreateOrConnectWithoutBusinessInput | BranchCreateOrConnectWithoutBusinessInput[]
+    upsert?: BranchUpsertWithWhereUniqueWithoutBusinessInput | BranchUpsertWithWhereUniqueWithoutBusinessInput[]
+    createMany?: BranchCreateManyBusinessInputEnvelope
+    set?: BranchWhereUniqueInput | BranchWhereUniqueInput[]
+    disconnect?: BranchWhereUniqueInput | BranchWhereUniqueInput[]
+    delete?: BranchWhereUniqueInput | BranchWhereUniqueInput[]
+    connect?: BranchWhereUniqueInput | BranchWhereUniqueInput[]
+    update?: BranchUpdateWithWhereUniqueWithoutBusinessInput | BranchUpdateWithWhereUniqueWithoutBusinessInput[]
+    updateMany?: BranchUpdateManyWithWhereWithoutBusinessInput | BranchUpdateManyWithWhereWithoutBusinessInput[]
+    deleteMany?: BranchScalarWhereInput | BranchScalarWhereInput[]
+  }
+
+  export type DepartmentUpdateManyWithoutBusinessNestedInput = {
+    create?: XOR<DepartmentCreateWithoutBusinessInput, DepartmentUncheckedCreateWithoutBusinessInput> | DepartmentCreateWithoutBusinessInput[] | DepartmentUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: DepartmentCreateOrConnectWithoutBusinessInput | DepartmentCreateOrConnectWithoutBusinessInput[]
+    upsert?: DepartmentUpsertWithWhereUniqueWithoutBusinessInput | DepartmentUpsertWithWhereUniqueWithoutBusinessInput[]
+    createMany?: DepartmentCreateManyBusinessInputEnvelope
+    set?: DepartmentWhereUniqueInput | DepartmentWhereUniqueInput[]
+    disconnect?: DepartmentWhereUniqueInput | DepartmentWhereUniqueInput[]
+    delete?: DepartmentWhereUniqueInput | DepartmentWhereUniqueInput[]
+    connect?: DepartmentWhereUniqueInput | DepartmentWhereUniqueInput[]
+    update?: DepartmentUpdateWithWhereUniqueWithoutBusinessInput | DepartmentUpdateWithWhereUniqueWithoutBusinessInput[]
+    updateMany?: DepartmentUpdateManyWithWhereWithoutBusinessInput | DepartmentUpdateManyWithWhereWithoutBusinessInput[]
+    deleteMany?: DepartmentScalarWhereInput | DepartmentScalarWhereInput[]
+  }
+
+  export type ContactPersonUpdateManyWithoutBusinessNestedInput = {
+    create?: XOR<ContactPersonCreateWithoutBusinessInput, ContactPersonUncheckedCreateWithoutBusinessInput> | ContactPersonCreateWithoutBusinessInput[] | ContactPersonUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutBusinessInput | ContactPersonCreateOrConnectWithoutBusinessInput[]
+    upsert?: ContactPersonUpsertWithWhereUniqueWithoutBusinessInput | ContactPersonUpsertWithWhereUniqueWithoutBusinessInput[]
+    createMany?: ContactPersonCreateManyBusinessInputEnvelope
+    set?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    disconnect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    delete?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    update?: ContactPersonUpdateWithWhereUniqueWithoutBusinessInput | ContactPersonUpdateWithWhereUniqueWithoutBusinessInput[]
+    updateMany?: ContactPersonUpdateManyWithWhereWithoutBusinessInput | ContactPersonUpdateManyWithWhereWithoutBusinessInput[]
+    deleteMany?: ContactPersonScalarWhereInput | ContactPersonScalarWhereInput[]
+  }
+
   export type ProductUncheckedUpdateManyWithoutBusinessNestedInput = {
     create?: XOR<ProductCreateWithoutBusinessInput, ProductUncheckedCreateWithoutBusinessInput> | ProductCreateWithoutBusinessInput[] | ProductUncheckedCreateWithoutBusinessInput[]
     connectOrCreate?: ProductCreateOrConnectWithoutBusinessInput | ProductCreateOrConnectWithoutBusinessInput[]
@@ -27967,6 +32765,48 @@ export namespace Prisma {
     update?: AnalyticsEventUpdateWithWhereUniqueWithoutBusinessInput | AnalyticsEventUpdateWithWhereUniqueWithoutBusinessInput[]
     updateMany?: AnalyticsEventUpdateManyWithWhereWithoutBusinessInput | AnalyticsEventUpdateManyWithWhereWithoutBusinessInput[]
     deleteMany?: AnalyticsEventScalarWhereInput | AnalyticsEventScalarWhereInput[]
+  }
+
+  export type BranchUncheckedUpdateManyWithoutBusinessNestedInput = {
+    create?: XOR<BranchCreateWithoutBusinessInput, BranchUncheckedCreateWithoutBusinessInput> | BranchCreateWithoutBusinessInput[] | BranchUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: BranchCreateOrConnectWithoutBusinessInput | BranchCreateOrConnectWithoutBusinessInput[]
+    upsert?: BranchUpsertWithWhereUniqueWithoutBusinessInput | BranchUpsertWithWhereUniqueWithoutBusinessInput[]
+    createMany?: BranchCreateManyBusinessInputEnvelope
+    set?: BranchWhereUniqueInput | BranchWhereUniqueInput[]
+    disconnect?: BranchWhereUniqueInput | BranchWhereUniqueInput[]
+    delete?: BranchWhereUniqueInput | BranchWhereUniqueInput[]
+    connect?: BranchWhereUniqueInput | BranchWhereUniqueInput[]
+    update?: BranchUpdateWithWhereUniqueWithoutBusinessInput | BranchUpdateWithWhereUniqueWithoutBusinessInput[]
+    updateMany?: BranchUpdateManyWithWhereWithoutBusinessInput | BranchUpdateManyWithWhereWithoutBusinessInput[]
+    deleteMany?: BranchScalarWhereInput | BranchScalarWhereInput[]
+  }
+
+  export type DepartmentUncheckedUpdateManyWithoutBusinessNestedInput = {
+    create?: XOR<DepartmentCreateWithoutBusinessInput, DepartmentUncheckedCreateWithoutBusinessInput> | DepartmentCreateWithoutBusinessInput[] | DepartmentUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: DepartmentCreateOrConnectWithoutBusinessInput | DepartmentCreateOrConnectWithoutBusinessInput[]
+    upsert?: DepartmentUpsertWithWhereUniqueWithoutBusinessInput | DepartmentUpsertWithWhereUniqueWithoutBusinessInput[]
+    createMany?: DepartmentCreateManyBusinessInputEnvelope
+    set?: DepartmentWhereUniqueInput | DepartmentWhereUniqueInput[]
+    disconnect?: DepartmentWhereUniqueInput | DepartmentWhereUniqueInput[]
+    delete?: DepartmentWhereUniqueInput | DepartmentWhereUniqueInput[]
+    connect?: DepartmentWhereUniqueInput | DepartmentWhereUniqueInput[]
+    update?: DepartmentUpdateWithWhereUniqueWithoutBusinessInput | DepartmentUpdateWithWhereUniqueWithoutBusinessInput[]
+    updateMany?: DepartmentUpdateManyWithWhereWithoutBusinessInput | DepartmentUpdateManyWithWhereWithoutBusinessInput[]
+    deleteMany?: DepartmentScalarWhereInput | DepartmentScalarWhereInput[]
+  }
+
+  export type ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput = {
+    create?: XOR<ContactPersonCreateWithoutBusinessInput, ContactPersonUncheckedCreateWithoutBusinessInput> | ContactPersonCreateWithoutBusinessInput[] | ContactPersonUncheckedCreateWithoutBusinessInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutBusinessInput | ContactPersonCreateOrConnectWithoutBusinessInput[]
+    upsert?: ContactPersonUpsertWithWhereUniqueWithoutBusinessInput | ContactPersonUpsertWithWhereUniqueWithoutBusinessInput[]
+    createMany?: ContactPersonCreateManyBusinessInputEnvelope
+    set?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    disconnect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    delete?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    update?: ContactPersonUpdateWithWhereUniqueWithoutBusinessInput | ContactPersonUpdateWithWhereUniqueWithoutBusinessInput[]
+    updateMany?: ContactPersonUpdateManyWithWhereWithoutBusinessInput | ContactPersonUpdateManyWithWhereWithoutBusinessInput[]
+    deleteMany?: ContactPersonScalarWhereInput | ContactPersonScalarWhereInput[]
   }
 
   export type BusinessCreateNestedOneWithoutCategoriesInput = {
@@ -28505,6 +33345,164 @@ export namespace Prisma {
     set?: Buffer
   }
 
+  export type BusinessCreateNestedOneWithoutBranchesInput = {
+    create?: XOR<BusinessCreateWithoutBranchesInput, BusinessUncheckedCreateWithoutBranchesInput>
+    connectOrCreate?: BusinessCreateOrConnectWithoutBranchesInput
+    connect?: BusinessWhereUniqueInput
+  }
+
+  export type ContactPersonCreateNestedManyWithoutBranchInput = {
+    create?: XOR<ContactPersonCreateWithoutBranchInput, ContactPersonUncheckedCreateWithoutBranchInput> | ContactPersonCreateWithoutBranchInput[] | ContactPersonUncheckedCreateWithoutBranchInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutBranchInput | ContactPersonCreateOrConnectWithoutBranchInput[]
+    createMany?: ContactPersonCreateManyBranchInputEnvelope
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+  }
+
+  export type ContactPersonUncheckedCreateNestedManyWithoutBranchInput = {
+    create?: XOR<ContactPersonCreateWithoutBranchInput, ContactPersonUncheckedCreateWithoutBranchInput> | ContactPersonCreateWithoutBranchInput[] | ContactPersonUncheckedCreateWithoutBranchInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutBranchInput | ContactPersonCreateOrConnectWithoutBranchInput[]
+    createMany?: ContactPersonCreateManyBranchInputEnvelope
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+  }
+
+  export type BusinessUpdateOneRequiredWithoutBranchesNestedInput = {
+    create?: XOR<BusinessCreateWithoutBranchesInput, BusinessUncheckedCreateWithoutBranchesInput>
+    connectOrCreate?: BusinessCreateOrConnectWithoutBranchesInput
+    upsert?: BusinessUpsertWithoutBranchesInput
+    connect?: BusinessWhereUniqueInput
+    update?: XOR<XOR<BusinessUpdateToOneWithWhereWithoutBranchesInput, BusinessUpdateWithoutBranchesInput>, BusinessUncheckedUpdateWithoutBranchesInput>
+  }
+
+  export type ContactPersonUpdateManyWithoutBranchNestedInput = {
+    create?: XOR<ContactPersonCreateWithoutBranchInput, ContactPersonUncheckedCreateWithoutBranchInput> | ContactPersonCreateWithoutBranchInput[] | ContactPersonUncheckedCreateWithoutBranchInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutBranchInput | ContactPersonCreateOrConnectWithoutBranchInput[]
+    upsert?: ContactPersonUpsertWithWhereUniqueWithoutBranchInput | ContactPersonUpsertWithWhereUniqueWithoutBranchInput[]
+    createMany?: ContactPersonCreateManyBranchInputEnvelope
+    set?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    disconnect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    delete?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    update?: ContactPersonUpdateWithWhereUniqueWithoutBranchInput | ContactPersonUpdateWithWhereUniqueWithoutBranchInput[]
+    updateMany?: ContactPersonUpdateManyWithWhereWithoutBranchInput | ContactPersonUpdateManyWithWhereWithoutBranchInput[]
+    deleteMany?: ContactPersonScalarWhereInput | ContactPersonScalarWhereInput[]
+  }
+
+  export type ContactPersonUncheckedUpdateManyWithoutBranchNestedInput = {
+    create?: XOR<ContactPersonCreateWithoutBranchInput, ContactPersonUncheckedCreateWithoutBranchInput> | ContactPersonCreateWithoutBranchInput[] | ContactPersonUncheckedCreateWithoutBranchInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutBranchInput | ContactPersonCreateOrConnectWithoutBranchInput[]
+    upsert?: ContactPersonUpsertWithWhereUniqueWithoutBranchInput | ContactPersonUpsertWithWhereUniqueWithoutBranchInput[]
+    createMany?: ContactPersonCreateManyBranchInputEnvelope
+    set?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    disconnect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    delete?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    update?: ContactPersonUpdateWithWhereUniqueWithoutBranchInput | ContactPersonUpdateWithWhereUniqueWithoutBranchInput[]
+    updateMany?: ContactPersonUpdateManyWithWhereWithoutBranchInput | ContactPersonUpdateManyWithWhereWithoutBranchInput[]
+    deleteMany?: ContactPersonScalarWhereInput | ContactPersonScalarWhereInput[]
+  }
+
+  export type BusinessCreateNestedOneWithoutDepartmentsInput = {
+    create?: XOR<BusinessCreateWithoutDepartmentsInput, BusinessUncheckedCreateWithoutDepartmentsInput>
+    connectOrCreate?: BusinessCreateOrConnectWithoutDepartmentsInput
+    connect?: BusinessWhereUniqueInput
+  }
+
+  export type ContactPersonCreateNestedManyWithoutDepartmentInput = {
+    create?: XOR<ContactPersonCreateWithoutDepartmentInput, ContactPersonUncheckedCreateWithoutDepartmentInput> | ContactPersonCreateWithoutDepartmentInput[] | ContactPersonUncheckedCreateWithoutDepartmentInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutDepartmentInput | ContactPersonCreateOrConnectWithoutDepartmentInput[]
+    createMany?: ContactPersonCreateManyDepartmentInputEnvelope
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+  }
+
+  export type ContactPersonUncheckedCreateNestedManyWithoutDepartmentInput = {
+    create?: XOR<ContactPersonCreateWithoutDepartmentInput, ContactPersonUncheckedCreateWithoutDepartmentInput> | ContactPersonCreateWithoutDepartmentInput[] | ContactPersonUncheckedCreateWithoutDepartmentInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutDepartmentInput | ContactPersonCreateOrConnectWithoutDepartmentInput[]
+    createMany?: ContactPersonCreateManyDepartmentInputEnvelope
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+  }
+
+  export type BusinessUpdateOneRequiredWithoutDepartmentsNestedInput = {
+    create?: XOR<BusinessCreateWithoutDepartmentsInput, BusinessUncheckedCreateWithoutDepartmentsInput>
+    connectOrCreate?: BusinessCreateOrConnectWithoutDepartmentsInput
+    upsert?: BusinessUpsertWithoutDepartmentsInput
+    connect?: BusinessWhereUniqueInput
+    update?: XOR<XOR<BusinessUpdateToOneWithWhereWithoutDepartmentsInput, BusinessUpdateWithoutDepartmentsInput>, BusinessUncheckedUpdateWithoutDepartmentsInput>
+  }
+
+  export type ContactPersonUpdateManyWithoutDepartmentNestedInput = {
+    create?: XOR<ContactPersonCreateWithoutDepartmentInput, ContactPersonUncheckedCreateWithoutDepartmentInput> | ContactPersonCreateWithoutDepartmentInput[] | ContactPersonUncheckedCreateWithoutDepartmentInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutDepartmentInput | ContactPersonCreateOrConnectWithoutDepartmentInput[]
+    upsert?: ContactPersonUpsertWithWhereUniqueWithoutDepartmentInput | ContactPersonUpsertWithWhereUniqueWithoutDepartmentInput[]
+    createMany?: ContactPersonCreateManyDepartmentInputEnvelope
+    set?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    disconnect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    delete?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    update?: ContactPersonUpdateWithWhereUniqueWithoutDepartmentInput | ContactPersonUpdateWithWhereUniqueWithoutDepartmentInput[]
+    updateMany?: ContactPersonUpdateManyWithWhereWithoutDepartmentInput | ContactPersonUpdateManyWithWhereWithoutDepartmentInput[]
+    deleteMany?: ContactPersonScalarWhereInput | ContactPersonScalarWhereInput[]
+  }
+
+  export type ContactPersonUncheckedUpdateManyWithoutDepartmentNestedInput = {
+    create?: XOR<ContactPersonCreateWithoutDepartmentInput, ContactPersonUncheckedCreateWithoutDepartmentInput> | ContactPersonCreateWithoutDepartmentInput[] | ContactPersonUncheckedCreateWithoutDepartmentInput[]
+    connectOrCreate?: ContactPersonCreateOrConnectWithoutDepartmentInput | ContactPersonCreateOrConnectWithoutDepartmentInput[]
+    upsert?: ContactPersonUpsertWithWhereUniqueWithoutDepartmentInput | ContactPersonUpsertWithWhereUniqueWithoutDepartmentInput[]
+    createMany?: ContactPersonCreateManyDepartmentInputEnvelope
+    set?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    disconnect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    delete?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    connect?: ContactPersonWhereUniqueInput | ContactPersonWhereUniqueInput[]
+    update?: ContactPersonUpdateWithWhereUniqueWithoutDepartmentInput | ContactPersonUpdateWithWhereUniqueWithoutDepartmentInput[]
+    updateMany?: ContactPersonUpdateManyWithWhereWithoutDepartmentInput | ContactPersonUpdateManyWithWhereWithoutDepartmentInput[]
+    deleteMany?: ContactPersonScalarWhereInput | ContactPersonScalarWhereInput[]
+  }
+
+  export type BusinessCreateNestedOneWithoutContactPersonsInput = {
+    create?: XOR<BusinessCreateWithoutContactPersonsInput, BusinessUncheckedCreateWithoutContactPersonsInput>
+    connectOrCreate?: BusinessCreateOrConnectWithoutContactPersonsInput
+    connect?: BusinessWhereUniqueInput
+  }
+
+  export type DepartmentCreateNestedOneWithoutContactsInput = {
+    create?: XOR<DepartmentCreateWithoutContactsInput, DepartmentUncheckedCreateWithoutContactsInput>
+    connectOrCreate?: DepartmentCreateOrConnectWithoutContactsInput
+    connect?: DepartmentWhereUniqueInput
+  }
+
+  export type BranchCreateNestedOneWithoutContactsInput = {
+    create?: XOR<BranchCreateWithoutContactsInput, BranchUncheckedCreateWithoutContactsInput>
+    connectOrCreate?: BranchCreateOrConnectWithoutContactsInput
+    connect?: BranchWhereUniqueInput
+  }
+
+  export type BusinessUpdateOneRequiredWithoutContactPersonsNestedInput = {
+    create?: XOR<BusinessCreateWithoutContactPersonsInput, BusinessUncheckedCreateWithoutContactPersonsInput>
+    connectOrCreate?: BusinessCreateOrConnectWithoutContactPersonsInput
+    upsert?: BusinessUpsertWithoutContactPersonsInput
+    connect?: BusinessWhereUniqueInput
+    update?: XOR<XOR<BusinessUpdateToOneWithWhereWithoutContactPersonsInput, BusinessUpdateWithoutContactPersonsInput>, BusinessUncheckedUpdateWithoutContactPersonsInput>
+  }
+
+  export type DepartmentUpdateOneWithoutContactsNestedInput = {
+    create?: XOR<DepartmentCreateWithoutContactsInput, DepartmentUncheckedCreateWithoutContactsInput>
+    connectOrCreate?: DepartmentCreateOrConnectWithoutContactsInput
+    upsert?: DepartmentUpsertWithoutContactsInput
+    disconnect?: DepartmentWhereInput | boolean
+    delete?: DepartmentWhereInput | boolean
+    connect?: DepartmentWhereUniqueInput
+    update?: XOR<XOR<DepartmentUpdateToOneWithWhereWithoutContactsInput, DepartmentUpdateWithoutContactsInput>, DepartmentUncheckedUpdateWithoutContactsInput>
+  }
+
+  export type BranchUpdateOneWithoutContactsNestedInput = {
+    create?: XOR<BranchCreateWithoutContactsInput, BranchUncheckedCreateWithoutContactsInput>
+    connectOrCreate?: BranchCreateOrConnectWithoutContactsInput
+    upsert?: BranchUpsertWithoutContactsInput
+    disconnect?: BranchWhereInput | boolean
+    delete?: BranchWhereInput | boolean
+    connect?: BranchWhereUniqueInput
+    update?: XOR<XOR<BranchUpdateToOneWithWhereWithoutContactsInput, BranchUpdateWithoutContactsInput>, BranchUncheckedUpdateWithoutContactsInput>
+  }
+
   export type NestedStringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -28815,6 +33813,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
     categories?: CategoryCreateNestedManyWithoutBusinessInput
@@ -28828,6 +33830,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutOwnerInput = {
@@ -28877,6 +33882,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -28889,6 +33898,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutOwnerInput = {
@@ -28995,6 +34007,10 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Business"> | Date | string
     updatedAt?: DateTimeFilter<"Business"> | Date | string
     deletedAt?: DateTimeNullableFilter<"Business"> | Date | string | null
+    digitalDestinationType?: StringNullableFilter<"Business"> | string | null
+    companyProfileUrl?: StringNullableFilter<"Business"> | string | null
+    companyProfileTitle?: StringNullableFilter<"Business"> | string | null
+    licenseNumber?: StringNullableFilter<"Business"> | string | null
   }
 
   export type UserCreateWithoutSessionsInput = {
@@ -29103,6 +34119,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
     categories?: CategoryCreateNestedManyWithoutBusinessInput
@@ -29116,6 +34136,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutPlanInput = {
@@ -29165,6 +34188,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -29177,6 +34204,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutPlanInput = {
@@ -29758,6 +34788,128 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type BranchCreateWithoutBusinessInput = {
+    id?: string
+    name: string
+    city?: string | null
+    district?: string | null
+    address?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    googleMapsLink?: string | null
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contacts?: ContactPersonCreateNestedManyWithoutBranchInput
+  }
+
+  export type BranchUncheckedCreateWithoutBusinessInput = {
+    id?: string
+    name: string
+    city?: string | null
+    district?: string | null
+    address?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    googleMapsLink?: string | null
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contacts?: ContactPersonUncheckedCreateNestedManyWithoutBranchInput
+  }
+
+  export type BranchCreateOrConnectWithoutBusinessInput = {
+    where: BranchWhereUniqueInput
+    create: XOR<BranchCreateWithoutBusinessInput, BranchUncheckedCreateWithoutBusinessInput>
+  }
+
+  export type BranchCreateManyBusinessInputEnvelope = {
+    data: BranchCreateManyBusinessInput | BranchCreateManyBusinessInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type DepartmentCreateWithoutBusinessInput = {
+    id?: string
+    name: string
+    description?: string | null
+    icon?: string | null
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contacts?: ContactPersonCreateNestedManyWithoutDepartmentInput
+  }
+
+  export type DepartmentUncheckedCreateWithoutBusinessInput = {
+    id?: string
+    name: string
+    description?: string | null
+    icon?: string | null
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contacts?: ContactPersonUncheckedCreateNestedManyWithoutDepartmentInput
+  }
+
+  export type DepartmentCreateOrConnectWithoutBusinessInput = {
+    where: DepartmentWhereUniqueInput
+    create: XOR<DepartmentCreateWithoutBusinessInput, DepartmentUncheckedCreateWithoutBusinessInput>
+  }
+
+  export type DepartmentCreateManyBusinessInputEnvelope = {
+    data: DepartmentCreateManyBusinessInput | DepartmentCreateManyBusinessInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type ContactPersonCreateWithoutBusinessInput = {
+    id?: string
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    department?: DepartmentCreateNestedOneWithoutContactsInput
+    branch?: BranchCreateNestedOneWithoutContactsInput
+  }
+
+  export type ContactPersonUncheckedCreateWithoutBusinessInput = {
+    id?: string
+    departmentId?: string | null
+    branchId?: string | null
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ContactPersonCreateOrConnectWithoutBusinessInput = {
+    where: ContactPersonWhereUniqueInput
+    create: XOR<ContactPersonCreateWithoutBusinessInput, ContactPersonUncheckedCreateWithoutBusinessInput>
+  }
+
+  export type ContactPersonCreateManyBusinessInputEnvelope = {
+    data: ContactPersonCreateManyBusinessInput | ContactPersonCreateManyBusinessInput[]
+    skipDuplicates?: boolean
+  }
+
   export type UserUpsertWithoutBusinessesInput = {
     update: XOR<UserUpdateWithoutBusinessesInput, UserUncheckedUpdateWithoutBusinessesInput>
     create: XOR<UserCreateWithoutBusinessesInput, UserUncheckedCreateWithoutBusinessesInput>
@@ -30199,6 +35351,110 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"AnalyticsEvent"> | Date | string
   }
 
+  export type BranchUpsertWithWhereUniqueWithoutBusinessInput = {
+    where: BranchWhereUniqueInput
+    update: XOR<BranchUpdateWithoutBusinessInput, BranchUncheckedUpdateWithoutBusinessInput>
+    create: XOR<BranchCreateWithoutBusinessInput, BranchUncheckedCreateWithoutBusinessInput>
+  }
+
+  export type BranchUpdateWithWhereUniqueWithoutBusinessInput = {
+    where: BranchWhereUniqueInput
+    data: XOR<BranchUpdateWithoutBusinessInput, BranchUncheckedUpdateWithoutBusinessInput>
+  }
+
+  export type BranchUpdateManyWithWhereWithoutBusinessInput = {
+    where: BranchScalarWhereInput
+    data: XOR<BranchUpdateManyMutationInput, BranchUncheckedUpdateManyWithoutBusinessInput>
+  }
+
+  export type BranchScalarWhereInput = {
+    AND?: BranchScalarWhereInput | BranchScalarWhereInput[]
+    OR?: BranchScalarWhereInput[]
+    NOT?: BranchScalarWhereInput | BranchScalarWhereInput[]
+    id?: StringFilter<"Branch"> | string
+    businessId?: StringFilter<"Branch"> | string
+    name?: StringFilter<"Branch"> | string
+    city?: StringNullableFilter<"Branch"> | string | null
+    district?: StringNullableFilter<"Branch"> | string | null
+    address?: StringNullableFilter<"Branch"> | string | null
+    phone?: StringNullableFilter<"Branch"> | string | null
+    whatsapp?: StringNullableFilter<"Branch"> | string | null
+    googleMapsLink?: StringNullableFilter<"Branch"> | string | null
+    isMain?: BoolFilter<"Branch"> | boolean
+    isActive?: BoolFilter<"Branch"> | boolean
+    sortOrder?: IntFilter<"Branch"> | number
+    createdAt?: DateTimeFilter<"Branch"> | Date | string
+    updatedAt?: DateTimeFilter<"Branch"> | Date | string
+  }
+
+  export type DepartmentUpsertWithWhereUniqueWithoutBusinessInput = {
+    where: DepartmentWhereUniqueInput
+    update: XOR<DepartmentUpdateWithoutBusinessInput, DepartmentUncheckedUpdateWithoutBusinessInput>
+    create: XOR<DepartmentCreateWithoutBusinessInput, DepartmentUncheckedCreateWithoutBusinessInput>
+  }
+
+  export type DepartmentUpdateWithWhereUniqueWithoutBusinessInput = {
+    where: DepartmentWhereUniqueInput
+    data: XOR<DepartmentUpdateWithoutBusinessInput, DepartmentUncheckedUpdateWithoutBusinessInput>
+  }
+
+  export type DepartmentUpdateManyWithWhereWithoutBusinessInput = {
+    where: DepartmentScalarWhereInput
+    data: XOR<DepartmentUpdateManyMutationInput, DepartmentUncheckedUpdateManyWithoutBusinessInput>
+  }
+
+  export type DepartmentScalarWhereInput = {
+    AND?: DepartmentScalarWhereInput | DepartmentScalarWhereInput[]
+    OR?: DepartmentScalarWhereInput[]
+    NOT?: DepartmentScalarWhereInput | DepartmentScalarWhereInput[]
+    id?: StringFilter<"Department"> | string
+    businessId?: StringFilter<"Department"> | string
+    name?: StringFilter<"Department"> | string
+    description?: StringNullableFilter<"Department"> | string | null
+    icon?: StringNullableFilter<"Department"> | string | null
+    isActive?: BoolFilter<"Department"> | boolean
+    sortOrder?: IntFilter<"Department"> | number
+    createdAt?: DateTimeFilter<"Department"> | Date | string
+    updatedAt?: DateTimeFilter<"Department"> | Date | string
+  }
+
+  export type ContactPersonUpsertWithWhereUniqueWithoutBusinessInput = {
+    where: ContactPersonWhereUniqueInput
+    update: XOR<ContactPersonUpdateWithoutBusinessInput, ContactPersonUncheckedUpdateWithoutBusinessInput>
+    create: XOR<ContactPersonCreateWithoutBusinessInput, ContactPersonUncheckedCreateWithoutBusinessInput>
+  }
+
+  export type ContactPersonUpdateWithWhereUniqueWithoutBusinessInput = {
+    where: ContactPersonWhereUniqueInput
+    data: XOR<ContactPersonUpdateWithoutBusinessInput, ContactPersonUncheckedUpdateWithoutBusinessInput>
+  }
+
+  export type ContactPersonUpdateManyWithWhereWithoutBusinessInput = {
+    where: ContactPersonScalarWhereInput
+    data: XOR<ContactPersonUpdateManyMutationInput, ContactPersonUncheckedUpdateManyWithoutBusinessInput>
+  }
+
+  export type ContactPersonScalarWhereInput = {
+    AND?: ContactPersonScalarWhereInput | ContactPersonScalarWhereInput[]
+    OR?: ContactPersonScalarWhereInput[]
+    NOT?: ContactPersonScalarWhereInput | ContactPersonScalarWhereInput[]
+    id?: StringFilter<"ContactPerson"> | string
+    businessId?: StringFilter<"ContactPerson"> | string
+    departmentId?: StringNullableFilter<"ContactPerson"> | string | null
+    branchId?: StringNullableFilter<"ContactPerson"> | string | null
+    name?: StringFilter<"ContactPerson"> | string
+    jobTitle?: StringNullableFilter<"ContactPerson"> | string | null
+    phone?: StringNullableFilter<"ContactPerson"> | string | null
+    whatsapp?: StringNullableFilter<"ContactPerson"> | string | null
+    email?: StringNullableFilter<"ContactPerson"> | string | null
+    imageUrl?: StringNullableFilter<"ContactPerson"> | string | null
+    isPrimary?: BoolFilter<"ContactPerson"> | boolean
+    isActive?: BoolFilter<"ContactPerson"> | boolean
+    sortOrder?: IntFilter<"ContactPerson"> | number
+    createdAt?: DateTimeFilter<"ContactPerson"> | Date | string
+    updatedAt?: DateTimeFilter<"ContactPerson"> | Date | string
+  }
+
   export type BusinessCreateWithoutCategoriesInput = {
     id?: string
     name: string
@@ -30245,6 +35501,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -30258,6 +35518,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutCategoriesInput = {
@@ -30308,6 +35571,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
     services?: ServiceUncheckedCreateNestedManyWithoutBusinessInput
@@ -30319,6 +35586,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutCategoriesInput = {
@@ -30429,6 +35699,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -30442,6 +35716,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutCategoriesInput = {
@@ -30492,6 +35769,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
     services?: ServiceUncheckedUpdateManyWithoutBusinessNestedInput
@@ -30503,6 +35784,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type ProductUpsertWithWhereUniqueWithoutCategoryInput = {
@@ -30567,6 +35851,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     categories?: CategoryCreateNestedManyWithoutBusinessInput
@@ -30580,6 +35868,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutProductsInput = {
@@ -30630,6 +35921,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
     services?: ServiceUncheckedCreateNestedManyWithoutBusinessInput
@@ -30641,6 +35936,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutProductsInput = {
@@ -30762,6 +36060,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     categories?: CategoryUpdateManyWithoutBusinessNestedInput
@@ -30775,6 +36077,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutProductsInput = {
@@ -30825,6 +36130,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
     services?: ServiceUncheckedUpdateManyWithoutBusinessNestedInput
@@ -30836,6 +36145,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type CategoryUpsertWithoutProductsInput = {
@@ -30947,6 +36259,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -30960,6 +36276,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutCustomersInput = {
@@ -31010,6 +36329,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -31021,6 +36344,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutCustomersInput = {
@@ -31153,6 +36479,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -31166,6 +36496,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutCustomersInput = {
@@ -31216,6 +36549,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -31227,6 +36564,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type OrderUpsertWithWhereUniqueWithoutCustomerInput = {
@@ -31307,6 +36647,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -31320,6 +36664,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutOrdersInput = {
@@ -31370,6 +36717,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -31381,6 +36732,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutOrdersInput = {
@@ -31502,6 +36856,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -31515,6 +36873,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutOrdersInput = {
@@ -31565,6 +36926,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -31576,6 +36941,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type CustomerUpsertWithoutOrdersInput = {
@@ -31825,6 +37193,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -31838,6 +37210,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutOffersInput = {
@@ -31888,6 +37263,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     services?: ServiceUncheckedCreateNestedManyWithoutBusinessInput
@@ -31899,6 +37278,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutOffersInput = {
@@ -31963,6 +37345,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -31976,6 +37362,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutOffersInput = {
@@ -32026,6 +37415,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     services?: ServiceUncheckedUpdateManyWithoutBusinessNestedInput
@@ -32037,6 +37430,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessCreateWithoutServicesInput = {
@@ -32085,6 +37481,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -32098,6 +37498,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutServicesInput = {
@@ -32148,6 +37551,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -32159,6 +37566,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutServicesInput = {
@@ -32257,6 +37667,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -32270,6 +37684,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutServicesInput = {
@@ -32320,6 +37737,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -32331,6 +37752,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type BookingUpsertWithWhereUniqueWithoutServiceInput = {
@@ -32395,6 +37819,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -32408,6 +37836,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutBookingsInput = {
@@ -32458,6 +37889,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -32469,6 +37904,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutBookingsInput = {
@@ -32597,6 +38035,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -32610,6 +38052,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutBookingsInput = {
@@ -32660,6 +38105,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -32671,6 +38120,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type CustomerUpsertWithoutBookingsInput = {
@@ -32795,6 +38247,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -32808,6 +38264,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutOpeningHoursInput = {
@@ -32858,6 +38317,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -32869,6 +38332,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutOpeningHoursInput = {
@@ -32933,6 +38399,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -32946,6 +38416,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutOpeningHoursInput = {
@@ -32996,6 +38469,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -33007,6 +38484,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessCreateWithoutGalleryItemsInput = {
@@ -33055,6 +38535,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -33068,6 +38552,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutGalleryItemsInput = {
@@ -33118,6 +38605,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -33129,6 +38620,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutGalleryItemsInput = {
@@ -33193,6 +38687,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -33206,6 +38704,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutGalleryItemsInput = {
@@ -33256,6 +38757,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -33267,6 +38772,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessCreateWithoutSocialLinksInput = {
@@ -33315,6 +38823,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -33328,6 +38840,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutSocialLinksInput = {
@@ -33378,6 +38893,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -33389,6 +38908,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutSocialLinksInput = {
@@ -33453,6 +38975,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -33466,6 +38992,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutSocialLinksInput = {
@@ -33516,6 +39045,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -33527,6 +39060,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessCreateWithoutSubscriptionsInput = {
@@ -33575,6 +39111,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -33588,6 +39128,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkCreateNestedManyWithoutBusinessInput
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutSubscriptionsInput = {
@@ -33638,6 +39181,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -33649,6 +39196,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkUncheckedCreateNestedManyWithoutBusinessInput
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutSubscriptionsInput = {
@@ -33746,6 +39296,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -33759,6 +39313,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkUpdateManyWithoutBusinessNestedInput
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutSubscriptionsInput = {
@@ -33809,6 +39366,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -33820,6 +39381,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkUncheckedUpdateManyWithoutBusinessNestedInput
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessPlanUpsertWithoutSubscriptionsInput = {
@@ -33907,6 +39471,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     owner: UserCreateNestedOneWithoutBusinessesInput
     plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
     products?: ProductCreateNestedManyWithoutBusinessInput
@@ -33920,6 +39488,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkCreateNestedManyWithoutBusinessInput
     galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessUncheckedCreateWithoutAnalyticsInput = {
@@ -33970,6 +39541,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
     products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
     categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
     offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
@@ -33981,6 +39556,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkUncheckedCreateNestedManyWithoutBusinessInput
     galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
   }
 
   export type BusinessCreateOrConnectWithoutAnalyticsInput = {
@@ -34045,6 +39623,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
@@ -34058,6 +39640,9 @@ export namespace Prisma {
     socialLinks?: SocialLinkUpdateManyWithoutBusinessNestedInput
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutAnalyticsInput = {
@@ -34108,6 +39693,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -34119,6 +39708,1141 @@ export namespace Prisma {
     socialLinks?: SocialLinkUncheckedUpdateManyWithoutBusinessNestedInput
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
+  }
+
+  export type BusinessCreateWithoutBranchesInput = {
+    id?: string
+    name: string
+    nameEn?: string | null
+    slug: string
+    businessType: string
+    description?: string | null
+    shortDescription?: string | null
+    entityType?: string | null
+    businessCategory?: string | null
+    onboardingCompleted?: boolean
+    onboardingStep?: string | null
+    email?: string | null
+    website?: string | null
+    country?: string | null
+    city?: string | null
+    district?: string | null
+    googleMapsLink?: string | null
+    whatsapp?: string | null
+    phone?: string | null
+    address?: string | null
+    logoUrl?: string | null
+    coverUrl?: string | null
+    primaryColor?: string
+    secondaryColor?: string | null
+    buttonColor?: string | null
+    buttonStyle?: string | null
+    cardStyle?: string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: string | null
+    deliveryAvailable?: boolean
+    bookingAvailable?: boolean
+    acceptOnlineOrders?: boolean
+    xUrl?: string | null
+    instagramUrl?: string | null
+    snapchatUrl?: string | null
+    tiktokUrl?: string | null
+    facebookUrl?: string | null
+    metaTitle?: string | null
+    metaDescription?: string | null
+    isVerified?: boolean
+    isPublished?: boolean
+    publishedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
+    owner: UserCreateNestedOneWithoutBusinessesInput
+    plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
+    products?: ProductCreateNestedManyWithoutBusinessInput
+    categories?: CategoryCreateNestedManyWithoutBusinessInput
+    offers?: OfferCreateNestedManyWithoutBusinessInput
+    services?: ServiceCreateNestedManyWithoutBusinessInput
+    customers?: CustomerCreateNestedManyWithoutBusinessInput
+    orders?: OrderCreateNestedManyWithoutBusinessInput
+    bookings?: BookingCreateNestedManyWithoutBusinessInput
+    openingHours?: WorkingHoursCreateNestedManyWithoutBusinessInput
+    socialLinks?: SocialLinkCreateNestedManyWithoutBusinessInput
+    galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
+    subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
+    analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
+  }
+
+  export type BusinessUncheckedCreateWithoutBranchesInput = {
+    id?: string
+    ownerId: string
+    planId?: string | null
+    name: string
+    nameEn?: string | null
+    slug: string
+    businessType: string
+    description?: string | null
+    shortDescription?: string | null
+    entityType?: string | null
+    businessCategory?: string | null
+    onboardingCompleted?: boolean
+    onboardingStep?: string | null
+    email?: string | null
+    website?: string | null
+    country?: string | null
+    city?: string | null
+    district?: string | null
+    googleMapsLink?: string | null
+    whatsapp?: string | null
+    phone?: string | null
+    address?: string | null
+    logoUrl?: string | null
+    coverUrl?: string | null
+    primaryColor?: string
+    secondaryColor?: string | null
+    buttonColor?: string | null
+    buttonStyle?: string | null
+    cardStyle?: string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: string | null
+    deliveryAvailable?: boolean
+    bookingAvailable?: boolean
+    acceptOnlineOrders?: boolean
+    xUrl?: string | null
+    instagramUrl?: string | null
+    snapchatUrl?: string | null
+    tiktokUrl?: string | null
+    facebookUrl?: string | null
+    metaTitle?: string | null
+    metaDescription?: string | null
+    isVerified?: boolean
+    isPublished?: boolean
+    publishedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
+    products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
+    categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
+    offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
+    services?: ServiceUncheckedCreateNestedManyWithoutBusinessInput
+    customers?: CustomerUncheckedCreateNestedManyWithoutBusinessInput
+    orders?: OrderUncheckedCreateNestedManyWithoutBusinessInput
+    bookings?: BookingUncheckedCreateNestedManyWithoutBusinessInput
+    openingHours?: WorkingHoursUncheckedCreateNestedManyWithoutBusinessInput
+    socialLinks?: SocialLinkUncheckedCreateNestedManyWithoutBusinessInput
+    galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
+    subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
+    analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
+  }
+
+  export type BusinessCreateOrConnectWithoutBranchesInput = {
+    where: BusinessWhereUniqueInput
+    create: XOR<BusinessCreateWithoutBranchesInput, BusinessUncheckedCreateWithoutBranchesInput>
+  }
+
+  export type ContactPersonCreateWithoutBranchInput = {
+    id?: string
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    business: BusinessCreateNestedOneWithoutContactPersonsInput
+    department?: DepartmentCreateNestedOneWithoutContactsInput
+  }
+
+  export type ContactPersonUncheckedCreateWithoutBranchInput = {
+    id?: string
+    businessId: string
+    departmentId?: string | null
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ContactPersonCreateOrConnectWithoutBranchInput = {
+    where: ContactPersonWhereUniqueInput
+    create: XOR<ContactPersonCreateWithoutBranchInput, ContactPersonUncheckedCreateWithoutBranchInput>
+  }
+
+  export type ContactPersonCreateManyBranchInputEnvelope = {
+    data: ContactPersonCreateManyBranchInput | ContactPersonCreateManyBranchInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type BusinessUpsertWithoutBranchesInput = {
+    update: XOR<BusinessUpdateWithoutBranchesInput, BusinessUncheckedUpdateWithoutBranchesInput>
+    create: XOR<BusinessCreateWithoutBranchesInput, BusinessUncheckedCreateWithoutBranchesInput>
+    where?: BusinessWhereInput
+  }
+
+  export type BusinessUpdateToOneWithWhereWithoutBranchesInput = {
+    where?: BusinessWhereInput
+    data: XOR<BusinessUpdateWithoutBranchesInput, BusinessUncheckedUpdateWithoutBranchesInput>
+  }
+
+  export type BusinessUpdateWithoutBranchesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    nameEn?: NullableStringFieldUpdateOperationsInput | string | null
+    slug?: StringFieldUpdateOperationsInput | string
+    businessType?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    entityType?: NullableStringFieldUpdateOperationsInput | string | null
+    businessCategory?: NullableStringFieldUpdateOperationsInput | string | null
+    onboardingCompleted?: BoolFieldUpdateOperationsInput | boolean
+    onboardingStep?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    website?: NullableStringFieldUpdateOperationsInput | string | null
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    coverUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    primaryColor?: StringFieldUpdateOperationsInput | string
+    secondaryColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    cardStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: NullableStringFieldUpdateOperationsInput | string | null
+    deliveryAvailable?: BoolFieldUpdateOperationsInput | boolean
+    bookingAvailable?: BoolFieldUpdateOperationsInput | boolean
+    acceptOnlineOrders?: BoolFieldUpdateOperationsInput | boolean
+    xUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    instagramUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    snapchatUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tiktokUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    facebookUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    metaTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    metaDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    isVerified?: BoolFieldUpdateOperationsInput | boolean
+    isPublished?: BoolFieldUpdateOperationsInput | boolean
+    publishedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
+    plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
+    products?: ProductUpdateManyWithoutBusinessNestedInput
+    categories?: CategoryUpdateManyWithoutBusinessNestedInput
+    offers?: OfferUpdateManyWithoutBusinessNestedInput
+    services?: ServiceUpdateManyWithoutBusinessNestedInput
+    customers?: CustomerUpdateManyWithoutBusinessNestedInput
+    orders?: OrderUpdateManyWithoutBusinessNestedInput
+    bookings?: BookingUpdateManyWithoutBusinessNestedInput
+    openingHours?: WorkingHoursUpdateManyWithoutBusinessNestedInput
+    socialLinks?: SocialLinkUpdateManyWithoutBusinessNestedInput
+    galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
+    subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
+    analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
+  }
+
+  export type BusinessUncheckedUpdateWithoutBranchesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    ownerId?: StringFieldUpdateOperationsInput | string
+    planId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    nameEn?: NullableStringFieldUpdateOperationsInput | string | null
+    slug?: StringFieldUpdateOperationsInput | string
+    businessType?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    entityType?: NullableStringFieldUpdateOperationsInput | string | null
+    businessCategory?: NullableStringFieldUpdateOperationsInput | string | null
+    onboardingCompleted?: BoolFieldUpdateOperationsInput | boolean
+    onboardingStep?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    website?: NullableStringFieldUpdateOperationsInput | string | null
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    coverUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    primaryColor?: StringFieldUpdateOperationsInput | string
+    secondaryColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    cardStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: NullableStringFieldUpdateOperationsInput | string | null
+    deliveryAvailable?: BoolFieldUpdateOperationsInput | boolean
+    bookingAvailable?: BoolFieldUpdateOperationsInput | boolean
+    acceptOnlineOrders?: BoolFieldUpdateOperationsInput | boolean
+    xUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    instagramUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    snapchatUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tiktokUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    facebookUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    metaTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    metaDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    isVerified?: BoolFieldUpdateOperationsInput | boolean
+    isPublished?: BoolFieldUpdateOperationsInput | boolean
+    publishedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
+    products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
+    categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
+    offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
+    services?: ServiceUncheckedUpdateManyWithoutBusinessNestedInput
+    customers?: CustomerUncheckedUpdateManyWithoutBusinessNestedInput
+    orders?: OrderUncheckedUpdateManyWithoutBusinessNestedInput
+    bookings?: BookingUncheckedUpdateManyWithoutBusinessNestedInput
+    openingHours?: WorkingHoursUncheckedUpdateManyWithoutBusinessNestedInput
+    socialLinks?: SocialLinkUncheckedUpdateManyWithoutBusinessNestedInput
+    galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
+    subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
+    analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
+  }
+
+  export type ContactPersonUpsertWithWhereUniqueWithoutBranchInput = {
+    where: ContactPersonWhereUniqueInput
+    update: XOR<ContactPersonUpdateWithoutBranchInput, ContactPersonUncheckedUpdateWithoutBranchInput>
+    create: XOR<ContactPersonCreateWithoutBranchInput, ContactPersonUncheckedCreateWithoutBranchInput>
+  }
+
+  export type ContactPersonUpdateWithWhereUniqueWithoutBranchInput = {
+    where: ContactPersonWhereUniqueInput
+    data: XOR<ContactPersonUpdateWithoutBranchInput, ContactPersonUncheckedUpdateWithoutBranchInput>
+  }
+
+  export type ContactPersonUpdateManyWithWhereWithoutBranchInput = {
+    where: ContactPersonScalarWhereInput
+    data: XOR<ContactPersonUpdateManyMutationInput, ContactPersonUncheckedUpdateManyWithoutBranchInput>
+  }
+
+  export type BusinessCreateWithoutDepartmentsInput = {
+    id?: string
+    name: string
+    nameEn?: string | null
+    slug: string
+    businessType: string
+    description?: string | null
+    shortDescription?: string | null
+    entityType?: string | null
+    businessCategory?: string | null
+    onboardingCompleted?: boolean
+    onboardingStep?: string | null
+    email?: string | null
+    website?: string | null
+    country?: string | null
+    city?: string | null
+    district?: string | null
+    googleMapsLink?: string | null
+    whatsapp?: string | null
+    phone?: string | null
+    address?: string | null
+    logoUrl?: string | null
+    coverUrl?: string | null
+    primaryColor?: string
+    secondaryColor?: string | null
+    buttonColor?: string | null
+    buttonStyle?: string | null
+    cardStyle?: string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: string | null
+    deliveryAvailable?: boolean
+    bookingAvailable?: boolean
+    acceptOnlineOrders?: boolean
+    xUrl?: string | null
+    instagramUrl?: string | null
+    snapchatUrl?: string | null
+    tiktokUrl?: string | null
+    facebookUrl?: string | null
+    metaTitle?: string | null
+    metaDescription?: string | null
+    isVerified?: boolean
+    isPublished?: boolean
+    publishedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
+    owner: UserCreateNestedOneWithoutBusinessesInput
+    plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
+    products?: ProductCreateNestedManyWithoutBusinessInput
+    categories?: CategoryCreateNestedManyWithoutBusinessInput
+    offers?: OfferCreateNestedManyWithoutBusinessInput
+    services?: ServiceCreateNestedManyWithoutBusinessInput
+    customers?: CustomerCreateNestedManyWithoutBusinessInput
+    orders?: OrderCreateNestedManyWithoutBusinessInput
+    bookings?: BookingCreateNestedManyWithoutBusinessInput
+    openingHours?: WorkingHoursCreateNestedManyWithoutBusinessInput
+    socialLinks?: SocialLinkCreateNestedManyWithoutBusinessInput
+    galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
+    subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
+    analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonCreateNestedManyWithoutBusinessInput
+  }
+
+  export type BusinessUncheckedCreateWithoutDepartmentsInput = {
+    id?: string
+    ownerId: string
+    planId?: string | null
+    name: string
+    nameEn?: string | null
+    slug: string
+    businessType: string
+    description?: string | null
+    shortDescription?: string | null
+    entityType?: string | null
+    businessCategory?: string | null
+    onboardingCompleted?: boolean
+    onboardingStep?: string | null
+    email?: string | null
+    website?: string | null
+    country?: string | null
+    city?: string | null
+    district?: string | null
+    googleMapsLink?: string | null
+    whatsapp?: string | null
+    phone?: string | null
+    address?: string | null
+    logoUrl?: string | null
+    coverUrl?: string | null
+    primaryColor?: string
+    secondaryColor?: string | null
+    buttonColor?: string | null
+    buttonStyle?: string | null
+    cardStyle?: string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: string | null
+    deliveryAvailable?: boolean
+    bookingAvailable?: boolean
+    acceptOnlineOrders?: boolean
+    xUrl?: string | null
+    instagramUrl?: string | null
+    snapchatUrl?: string | null
+    tiktokUrl?: string | null
+    facebookUrl?: string | null
+    metaTitle?: string | null
+    metaDescription?: string | null
+    isVerified?: boolean
+    isPublished?: boolean
+    publishedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
+    products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
+    categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
+    offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
+    services?: ServiceUncheckedCreateNestedManyWithoutBusinessInput
+    customers?: CustomerUncheckedCreateNestedManyWithoutBusinessInput
+    orders?: OrderUncheckedCreateNestedManyWithoutBusinessInput
+    bookings?: BookingUncheckedCreateNestedManyWithoutBusinessInput
+    openingHours?: WorkingHoursUncheckedCreateNestedManyWithoutBusinessInput
+    socialLinks?: SocialLinkUncheckedCreateNestedManyWithoutBusinessInput
+    galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
+    subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
+    analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    contactPersons?: ContactPersonUncheckedCreateNestedManyWithoutBusinessInput
+  }
+
+  export type BusinessCreateOrConnectWithoutDepartmentsInput = {
+    where: BusinessWhereUniqueInput
+    create: XOR<BusinessCreateWithoutDepartmentsInput, BusinessUncheckedCreateWithoutDepartmentsInput>
+  }
+
+  export type ContactPersonCreateWithoutDepartmentInput = {
+    id?: string
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    business: BusinessCreateNestedOneWithoutContactPersonsInput
+    branch?: BranchCreateNestedOneWithoutContactsInput
+  }
+
+  export type ContactPersonUncheckedCreateWithoutDepartmentInput = {
+    id?: string
+    businessId: string
+    branchId?: string | null
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ContactPersonCreateOrConnectWithoutDepartmentInput = {
+    where: ContactPersonWhereUniqueInput
+    create: XOR<ContactPersonCreateWithoutDepartmentInput, ContactPersonUncheckedCreateWithoutDepartmentInput>
+  }
+
+  export type ContactPersonCreateManyDepartmentInputEnvelope = {
+    data: ContactPersonCreateManyDepartmentInput | ContactPersonCreateManyDepartmentInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type BusinessUpsertWithoutDepartmentsInput = {
+    update: XOR<BusinessUpdateWithoutDepartmentsInput, BusinessUncheckedUpdateWithoutDepartmentsInput>
+    create: XOR<BusinessCreateWithoutDepartmentsInput, BusinessUncheckedCreateWithoutDepartmentsInput>
+    where?: BusinessWhereInput
+  }
+
+  export type BusinessUpdateToOneWithWhereWithoutDepartmentsInput = {
+    where?: BusinessWhereInput
+    data: XOR<BusinessUpdateWithoutDepartmentsInput, BusinessUncheckedUpdateWithoutDepartmentsInput>
+  }
+
+  export type BusinessUpdateWithoutDepartmentsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    nameEn?: NullableStringFieldUpdateOperationsInput | string | null
+    slug?: StringFieldUpdateOperationsInput | string
+    businessType?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    entityType?: NullableStringFieldUpdateOperationsInput | string | null
+    businessCategory?: NullableStringFieldUpdateOperationsInput | string | null
+    onboardingCompleted?: BoolFieldUpdateOperationsInput | boolean
+    onboardingStep?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    website?: NullableStringFieldUpdateOperationsInput | string | null
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    coverUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    primaryColor?: StringFieldUpdateOperationsInput | string
+    secondaryColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    cardStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: NullableStringFieldUpdateOperationsInput | string | null
+    deliveryAvailable?: BoolFieldUpdateOperationsInput | boolean
+    bookingAvailable?: BoolFieldUpdateOperationsInput | boolean
+    acceptOnlineOrders?: BoolFieldUpdateOperationsInput | boolean
+    xUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    instagramUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    snapchatUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tiktokUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    facebookUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    metaTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    metaDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    isVerified?: BoolFieldUpdateOperationsInput | boolean
+    isPublished?: BoolFieldUpdateOperationsInput | boolean
+    publishedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
+    plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
+    products?: ProductUpdateManyWithoutBusinessNestedInput
+    categories?: CategoryUpdateManyWithoutBusinessNestedInput
+    offers?: OfferUpdateManyWithoutBusinessNestedInput
+    services?: ServiceUpdateManyWithoutBusinessNestedInput
+    customers?: CustomerUpdateManyWithoutBusinessNestedInput
+    orders?: OrderUpdateManyWithoutBusinessNestedInput
+    bookings?: BookingUpdateManyWithoutBusinessNestedInput
+    openingHours?: WorkingHoursUpdateManyWithoutBusinessNestedInput
+    socialLinks?: SocialLinkUpdateManyWithoutBusinessNestedInput
+    galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
+    subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
+    analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
+  }
+
+  export type BusinessUncheckedUpdateWithoutDepartmentsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    ownerId?: StringFieldUpdateOperationsInput | string
+    planId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    nameEn?: NullableStringFieldUpdateOperationsInput | string | null
+    slug?: StringFieldUpdateOperationsInput | string
+    businessType?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    entityType?: NullableStringFieldUpdateOperationsInput | string | null
+    businessCategory?: NullableStringFieldUpdateOperationsInput | string | null
+    onboardingCompleted?: BoolFieldUpdateOperationsInput | boolean
+    onboardingStep?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    website?: NullableStringFieldUpdateOperationsInput | string | null
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    coverUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    primaryColor?: StringFieldUpdateOperationsInput | string
+    secondaryColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    cardStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: NullableStringFieldUpdateOperationsInput | string | null
+    deliveryAvailable?: BoolFieldUpdateOperationsInput | boolean
+    bookingAvailable?: BoolFieldUpdateOperationsInput | boolean
+    acceptOnlineOrders?: BoolFieldUpdateOperationsInput | boolean
+    xUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    instagramUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    snapchatUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tiktokUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    facebookUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    metaTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    metaDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    isVerified?: BoolFieldUpdateOperationsInput | boolean
+    isPublished?: BoolFieldUpdateOperationsInput | boolean
+    publishedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
+    products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
+    categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
+    offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
+    services?: ServiceUncheckedUpdateManyWithoutBusinessNestedInput
+    customers?: CustomerUncheckedUpdateManyWithoutBusinessNestedInput
+    orders?: OrderUncheckedUpdateManyWithoutBusinessNestedInput
+    bookings?: BookingUncheckedUpdateManyWithoutBusinessNestedInput
+    openingHours?: WorkingHoursUncheckedUpdateManyWithoutBusinessNestedInput
+    socialLinks?: SocialLinkUncheckedUpdateManyWithoutBusinessNestedInput
+    galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
+    subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
+    analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
+  }
+
+  export type ContactPersonUpsertWithWhereUniqueWithoutDepartmentInput = {
+    where: ContactPersonWhereUniqueInput
+    update: XOR<ContactPersonUpdateWithoutDepartmentInput, ContactPersonUncheckedUpdateWithoutDepartmentInput>
+    create: XOR<ContactPersonCreateWithoutDepartmentInput, ContactPersonUncheckedCreateWithoutDepartmentInput>
+  }
+
+  export type ContactPersonUpdateWithWhereUniqueWithoutDepartmentInput = {
+    where: ContactPersonWhereUniqueInput
+    data: XOR<ContactPersonUpdateWithoutDepartmentInput, ContactPersonUncheckedUpdateWithoutDepartmentInput>
+  }
+
+  export type ContactPersonUpdateManyWithWhereWithoutDepartmentInput = {
+    where: ContactPersonScalarWhereInput
+    data: XOR<ContactPersonUpdateManyMutationInput, ContactPersonUncheckedUpdateManyWithoutDepartmentInput>
+  }
+
+  export type BusinessCreateWithoutContactPersonsInput = {
+    id?: string
+    name: string
+    nameEn?: string | null
+    slug: string
+    businessType: string
+    description?: string | null
+    shortDescription?: string | null
+    entityType?: string | null
+    businessCategory?: string | null
+    onboardingCompleted?: boolean
+    onboardingStep?: string | null
+    email?: string | null
+    website?: string | null
+    country?: string | null
+    city?: string | null
+    district?: string | null
+    googleMapsLink?: string | null
+    whatsapp?: string | null
+    phone?: string | null
+    address?: string | null
+    logoUrl?: string | null
+    coverUrl?: string | null
+    primaryColor?: string
+    secondaryColor?: string | null
+    buttonColor?: string | null
+    buttonStyle?: string | null
+    cardStyle?: string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: string | null
+    deliveryAvailable?: boolean
+    bookingAvailable?: boolean
+    acceptOnlineOrders?: boolean
+    xUrl?: string | null
+    instagramUrl?: string | null
+    snapchatUrl?: string | null
+    tiktokUrl?: string | null
+    facebookUrl?: string | null
+    metaTitle?: string | null
+    metaDescription?: string | null
+    isVerified?: boolean
+    isPublished?: boolean
+    publishedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
+    owner: UserCreateNestedOneWithoutBusinessesInput
+    plan?: BusinessPlanCreateNestedOneWithoutBusinessesInput
+    products?: ProductCreateNestedManyWithoutBusinessInput
+    categories?: CategoryCreateNestedManyWithoutBusinessInput
+    offers?: OfferCreateNestedManyWithoutBusinessInput
+    services?: ServiceCreateNestedManyWithoutBusinessInput
+    customers?: CustomerCreateNestedManyWithoutBusinessInput
+    orders?: OrderCreateNestedManyWithoutBusinessInput
+    bookings?: BookingCreateNestedManyWithoutBusinessInput
+    openingHours?: WorkingHoursCreateNestedManyWithoutBusinessInput
+    socialLinks?: SocialLinkCreateNestedManyWithoutBusinessInput
+    galleryItems?: GalleryItemCreateNestedManyWithoutBusinessInput
+    subscriptions?: SubscriptionCreateNestedManyWithoutBusinessInput
+    analytics?: AnalyticsEventCreateNestedManyWithoutBusinessInput
+    branches?: BranchCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentCreateNestedManyWithoutBusinessInput
+  }
+
+  export type BusinessUncheckedCreateWithoutContactPersonsInput = {
+    id?: string
+    ownerId: string
+    planId?: string | null
+    name: string
+    nameEn?: string | null
+    slug: string
+    businessType: string
+    description?: string | null
+    shortDescription?: string | null
+    entityType?: string | null
+    businessCategory?: string | null
+    onboardingCompleted?: boolean
+    onboardingStep?: string | null
+    email?: string | null
+    website?: string | null
+    country?: string | null
+    city?: string | null
+    district?: string | null
+    googleMapsLink?: string | null
+    whatsapp?: string | null
+    phone?: string | null
+    address?: string | null
+    logoUrl?: string | null
+    coverUrl?: string | null
+    primaryColor?: string
+    secondaryColor?: string | null
+    buttonColor?: string | null
+    buttonStyle?: string | null
+    cardStyle?: string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: string | null
+    deliveryAvailable?: boolean
+    bookingAvailable?: boolean
+    acceptOnlineOrders?: boolean
+    xUrl?: string | null
+    instagramUrl?: string | null
+    snapchatUrl?: string | null
+    tiktokUrl?: string | null
+    facebookUrl?: string | null
+    metaTitle?: string | null
+    metaDescription?: string | null
+    isVerified?: boolean
+    isPublished?: boolean
+    publishedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
+    products?: ProductUncheckedCreateNestedManyWithoutBusinessInput
+    categories?: CategoryUncheckedCreateNestedManyWithoutBusinessInput
+    offers?: OfferUncheckedCreateNestedManyWithoutBusinessInput
+    services?: ServiceUncheckedCreateNestedManyWithoutBusinessInput
+    customers?: CustomerUncheckedCreateNestedManyWithoutBusinessInput
+    orders?: OrderUncheckedCreateNestedManyWithoutBusinessInput
+    bookings?: BookingUncheckedCreateNestedManyWithoutBusinessInput
+    openingHours?: WorkingHoursUncheckedCreateNestedManyWithoutBusinessInput
+    socialLinks?: SocialLinkUncheckedCreateNestedManyWithoutBusinessInput
+    galleryItems?: GalleryItemUncheckedCreateNestedManyWithoutBusinessInput
+    subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutBusinessInput
+    analytics?: AnalyticsEventUncheckedCreateNestedManyWithoutBusinessInput
+    branches?: BranchUncheckedCreateNestedManyWithoutBusinessInput
+    departments?: DepartmentUncheckedCreateNestedManyWithoutBusinessInput
+  }
+
+  export type BusinessCreateOrConnectWithoutContactPersonsInput = {
+    where: BusinessWhereUniqueInput
+    create: XOR<BusinessCreateWithoutContactPersonsInput, BusinessUncheckedCreateWithoutContactPersonsInput>
+  }
+
+  export type DepartmentCreateWithoutContactsInput = {
+    id?: string
+    name: string
+    description?: string | null
+    icon?: string | null
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    business: BusinessCreateNestedOneWithoutDepartmentsInput
+  }
+
+  export type DepartmentUncheckedCreateWithoutContactsInput = {
+    id?: string
+    businessId: string
+    name: string
+    description?: string | null
+    icon?: string | null
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type DepartmentCreateOrConnectWithoutContactsInput = {
+    where: DepartmentWhereUniqueInput
+    create: XOR<DepartmentCreateWithoutContactsInput, DepartmentUncheckedCreateWithoutContactsInput>
+  }
+
+  export type BranchCreateWithoutContactsInput = {
+    id?: string
+    name: string
+    city?: string | null
+    district?: string | null
+    address?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    googleMapsLink?: string | null
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    business: BusinessCreateNestedOneWithoutBranchesInput
+  }
+
+  export type BranchUncheckedCreateWithoutContactsInput = {
+    id?: string
+    businessId: string
+    name: string
+    city?: string | null
+    district?: string | null
+    address?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    googleMapsLink?: string | null
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type BranchCreateOrConnectWithoutContactsInput = {
+    where: BranchWhereUniqueInput
+    create: XOR<BranchCreateWithoutContactsInput, BranchUncheckedCreateWithoutContactsInput>
+  }
+
+  export type BusinessUpsertWithoutContactPersonsInput = {
+    update: XOR<BusinessUpdateWithoutContactPersonsInput, BusinessUncheckedUpdateWithoutContactPersonsInput>
+    create: XOR<BusinessCreateWithoutContactPersonsInput, BusinessUncheckedCreateWithoutContactPersonsInput>
+    where?: BusinessWhereInput
+  }
+
+  export type BusinessUpdateToOneWithWhereWithoutContactPersonsInput = {
+    where?: BusinessWhereInput
+    data: XOR<BusinessUpdateWithoutContactPersonsInput, BusinessUncheckedUpdateWithoutContactPersonsInput>
+  }
+
+  export type BusinessUpdateWithoutContactPersonsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    nameEn?: NullableStringFieldUpdateOperationsInput | string | null
+    slug?: StringFieldUpdateOperationsInput | string
+    businessType?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    entityType?: NullableStringFieldUpdateOperationsInput | string | null
+    businessCategory?: NullableStringFieldUpdateOperationsInput | string | null
+    onboardingCompleted?: BoolFieldUpdateOperationsInput | boolean
+    onboardingStep?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    website?: NullableStringFieldUpdateOperationsInput | string | null
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    coverUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    primaryColor?: StringFieldUpdateOperationsInput | string
+    secondaryColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    cardStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: NullableStringFieldUpdateOperationsInput | string | null
+    deliveryAvailable?: BoolFieldUpdateOperationsInput | boolean
+    bookingAvailable?: BoolFieldUpdateOperationsInput | boolean
+    acceptOnlineOrders?: BoolFieldUpdateOperationsInput | boolean
+    xUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    instagramUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    snapchatUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tiktokUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    facebookUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    metaTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    metaDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    isVerified?: BoolFieldUpdateOperationsInput | boolean
+    isPublished?: BoolFieldUpdateOperationsInput | boolean
+    publishedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
+    owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
+    plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
+    products?: ProductUpdateManyWithoutBusinessNestedInput
+    categories?: CategoryUpdateManyWithoutBusinessNestedInput
+    offers?: OfferUpdateManyWithoutBusinessNestedInput
+    services?: ServiceUpdateManyWithoutBusinessNestedInput
+    customers?: CustomerUpdateManyWithoutBusinessNestedInput
+    orders?: OrderUpdateManyWithoutBusinessNestedInput
+    bookings?: BookingUpdateManyWithoutBusinessNestedInput
+    openingHours?: WorkingHoursUpdateManyWithoutBusinessNestedInput
+    socialLinks?: SocialLinkUpdateManyWithoutBusinessNestedInput
+    galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
+    subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
+    analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+  }
+
+  export type BusinessUncheckedUpdateWithoutContactPersonsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    ownerId?: StringFieldUpdateOperationsInput | string
+    planId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    nameEn?: NullableStringFieldUpdateOperationsInput | string | null
+    slug?: StringFieldUpdateOperationsInput | string
+    businessType?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    shortDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    entityType?: NullableStringFieldUpdateOperationsInput | string | null
+    businessCategory?: NullableStringFieldUpdateOperationsInput | string | null
+    onboardingCompleted?: BoolFieldUpdateOperationsInput | boolean
+    onboardingStep?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    website?: NullableStringFieldUpdateOperationsInput | string | null
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    coverUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    primaryColor?: StringFieldUpdateOperationsInput | string
+    secondaryColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonColor?: NullableStringFieldUpdateOperationsInput | string | null
+    buttonStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    cardStyle?: NullableStringFieldUpdateOperationsInput | string | null
+    pageModules?: NullableJsonNullValueInput | InputJsonValue
+    workingHours?: NullableStringFieldUpdateOperationsInput | string | null
+    deliveryAvailable?: BoolFieldUpdateOperationsInput | boolean
+    bookingAvailable?: BoolFieldUpdateOperationsInput | boolean
+    acceptOnlineOrders?: BoolFieldUpdateOperationsInput | boolean
+    xUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    instagramUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    snapchatUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    tiktokUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    facebookUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    metaTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    metaDescription?: NullableStringFieldUpdateOperationsInput | string | null
+    isVerified?: BoolFieldUpdateOperationsInput | boolean
+    isPublished?: BoolFieldUpdateOperationsInput | boolean
+    publishedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
+    products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
+    categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
+    offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
+    services?: ServiceUncheckedUpdateManyWithoutBusinessNestedInput
+    customers?: CustomerUncheckedUpdateManyWithoutBusinessNestedInput
+    orders?: OrderUncheckedUpdateManyWithoutBusinessNestedInput
+    bookings?: BookingUncheckedUpdateManyWithoutBusinessNestedInput
+    openingHours?: WorkingHoursUncheckedUpdateManyWithoutBusinessNestedInput
+    socialLinks?: SocialLinkUncheckedUpdateManyWithoutBusinessNestedInput
+    galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
+    subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
+    analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+  }
+
+  export type DepartmentUpsertWithoutContactsInput = {
+    update: XOR<DepartmentUpdateWithoutContactsInput, DepartmentUncheckedUpdateWithoutContactsInput>
+    create: XOR<DepartmentCreateWithoutContactsInput, DepartmentUncheckedCreateWithoutContactsInput>
+    where?: DepartmentWhereInput
+  }
+
+  export type DepartmentUpdateToOneWithWhereWithoutContactsInput = {
+    where?: DepartmentWhereInput
+    data: XOR<DepartmentUpdateWithoutContactsInput, DepartmentUncheckedUpdateWithoutContactsInput>
+  }
+
+  export type DepartmentUpdateWithoutContactsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    icon?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    business?: BusinessUpdateOneRequiredWithoutDepartmentsNestedInput
+  }
+
+  export type DepartmentUncheckedUpdateWithoutContactsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    icon?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type BranchUpsertWithoutContactsInput = {
+    update: XOR<BranchUpdateWithoutContactsInput, BranchUncheckedUpdateWithoutContactsInput>
+    create: XOR<BranchCreateWithoutContactsInput, BranchUncheckedCreateWithoutContactsInput>
+    where?: BranchWhereInput
+  }
+
+  export type BranchUpdateToOneWithWhereWithoutContactsInput = {
+    where?: BranchWhereInput
+    data: XOR<BranchUpdateWithoutContactsInput, BranchUncheckedUpdateWithoutContactsInput>
+  }
+
+  export type BranchUpdateWithoutContactsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    isMain?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    business?: BusinessUpdateOneRequiredWithoutBranchesNestedInput
+  }
+
+  export type BranchUncheckedUpdateWithoutContactsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    isMain?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type SessionCreateManyUserInput = {
@@ -34175,6 +40899,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
   }
 
   export type SessionUpdateWithoutUserInput = {
@@ -34244,6 +40972,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     plan?: BusinessPlanUpdateOneWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUpdateManyWithoutBusinessNestedInput
@@ -34257,6 +40989,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutOwnerInput = {
@@ -34306,6 +41041,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -34318,6 +41057,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateManyWithoutOwnerInput = {
@@ -34367,6 +41109,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type BusinessCreateManyPlanInput = {
@@ -34416,6 +41162,10 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     deletedAt?: Date | string | null
+    digitalDestinationType?: string | null
+    companyProfileUrl?: string | null
+    companyProfileTitle?: string | null
+    licenseNumber?: string | null
   }
 
   export type SubscriptionCreateManyPlanInput = {
@@ -34477,6 +41227,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     owner?: UserUpdateOneRequiredWithoutBusinessesNestedInput
     products?: ProductUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUpdateManyWithoutBusinessNestedInput
@@ -34490,6 +41244,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateWithoutPlanInput = {
@@ -34539,6 +41296,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
     products?: ProductUncheckedUpdateManyWithoutBusinessNestedInput
     categories?: CategoryUncheckedUpdateManyWithoutBusinessNestedInput
     offers?: OfferUncheckedUpdateManyWithoutBusinessNestedInput
@@ -34551,6 +41312,9 @@ export namespace Prisma {
     galleryItems?: GalleryItemUncheckedUpdateManyWithoutBusinessNestedInput
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutBusinessNestedInput
     analytics?: AnalyticsEventUncheckedUpdateManyWithoutBusinessNestedInput
+    branches?: BranchUncheckedUpdateManyWithoutBusinessNestedInput
+    departments?: DepartmentUncheckedUpdateManyWithoutBusinessNestedInput
+    contactPersons?: ContactPersonUncheckedUpdateManyWithoutBusinessNestedInput
   }
 
   export type BusinessUncheckedUpdateManyWithoutPlanInput = {
@@ -34600,6 +41364,10 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     deletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    digitalDestinationType?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    companyProfileTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    licenseNumber?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type SubscriptionUpdateWithoutPlanInput = {
@@ -34785,6 +41553,50 @@ export namespace Prisma {
     city?: string | null
     metadata?: string | null
     createdAt?: Date | string
+  }
+
+  export type BranchCreateManyBusinessInput = {
+    id?: string
+    name: string
+    city?: string | null
+    district?: string | null
+    address?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    googleMapsLink?: string | null
+    isMain?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type DepartmentCreateManyBusinessInput = {
+    id?: string
+    name: string
+    description?: string | null
+    icon?: string | null
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ContactPersonCreateManyBusinessInput = {
+    id?: string
+    departmentId?: string | null
+    branchId?: string | null
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
   }
 
   export type ProductUpdateWithoutBusinessInput = {
@@ -35237,6 +42049,142 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type BranchUpdateWithoutBusinessInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    isMain?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contacts?: ContactPersonUpdateManyWithoutBranchNestedInput
+  }
+
+  export type BranchUncheckedUpdateWithoutBusinessInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    isMain?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contacts?: ContactPersonUncheckedUpdateManyWithoutBranchNestedInput
+  }
+
+  export type BranchUncheckedUpdateManyWithoutBusinessInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    district?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    googleMapsLink?: NullableStringFieldUpdateOperationsInput | string | null
+    isMain?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type DepartmentUpdateWithoutBusinessInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    icon?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contacts?: ContactPersonUpdateManyWithoutDepartmentNestedInput
+  }
+
+  export type DepartmentUncheckedUpdateWithoutBusinessInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    icon?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contacts?: ContactPersonUncheckedUpdateManyWithoutDepartmentNestedInput
+  }
+
+  export type DepartmentUncheckedUpdateManyWithoutBusinessInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    icon?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ContactPersonUpdateWithoutBusinessInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    department?: DepartmentUpdateOneWithoutContactsNestedInput
+    branch?: BranchUpdateOneWithoutContactsNestedInput
+  }
+
+  export type ContactPersonUncheckedUpdateWithoutBusinessInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    departmentId?: NullableStringFieldUpdateOperationsInput | string | null
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ContactPersonUncheckedUpdateManyWithoutBusinessInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    departmentId?: NullableStringFieldUpdateOperationsInput | string | null
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type ProductCreateManyCategoryInput = {
     id?: string
     businessId: string
@@ -35529,6 +42477,142 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type ContactPersonCreateManyBranchInput = {
+    id?: string
+    businessId: string
+    departmentId?: string | null
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ContactPersonUpdateWithoutBranchInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    business?: BusinessUpdateOneRequiredWithoutContactPersonsNestedInput
+    department?: DepartmentUpdateOneWithoutContactsNestedInput
+  }
+
+  export type ContactPersonUncheckedUpdateWithoutBranchInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    departmentId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ContactPersonUncheckedUpdateManyWithoutBranchInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    departmentId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ContactPersonCreateManyDepartmentInput = {
+    id?: string
+    businessId: string
+    branchId?: string | null
+    name: string
+    jobTitle?: string | null
+    phone?: string | null
+    whatsapp?: string | null
+    email?: string | null
+    imageUrl?: string | null
+    isPrimary?: boolean
+    isActive?: boolean
+    sortOrder?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type ContactPersonUpdateWithoutDepartmentInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    business?: BusinessUpdateOneRequiredWithoutContactPersonsNestedInput
+    branch?: BranchUpdateOneWithoutContactsNestedInput
+  }
+
+  export type ContactPersonUncheckedUpdateWithoutDepartmentInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type ContactPersonUncheckedUpdateManyWithoutDepartmentInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    branchId?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    jobTitle?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    whatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    isPrimary?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    sortOrder?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
 
 
   /**
@@ -35566,6 +42650,14 @@ export namespace Prisma {
      * @deprecated Use ServiceCountOutputTypeDefaultArgs instead
      */
     export type ServiceCountOutputTypeArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = ServiceCountOutputTypeDefaultArgs<ExtArgs>
+    /**
+     * @deprecated Use BranchCountOutputTypeDefaultArgs instead
+     */
+    export type BranchCountOutputTypeArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = BranchCountOutputTypeDefaultArgs<ExtArgs>
+    /**
+     * @deprecated Use DepartmentCountOutputTypeDefaultArgs instead
+     */
+    export type DepartmentCountOutputTypeArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = DepartmentCountOutputTypeDefaultArgs<ExtArgs>
     /**
      * @deprecated Use UserDefaultArgs instead
      */
@@ -35638,6 +42730,18 @@ export namespace Prisma {
      * @deprecated Use StoredObjectDefaultArgs instead
      */
     export type StoredObjectArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = StoredObjectDefaultArgs<ExtArgs>
+    /**
+     * @deprecated Use BranchDefaultArgs instead
+     */
+    export type BranchArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = BranchDefaultArgs<ExtArgs>
+    /**
+     * @deprecated Use DepartmentDefaultArgs instead
+     */
+    export type DepartmentArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = DepartmentDefaultArgs<ExtArgs>
+    /**
+     * @deprecated Use ContactPersonDefaultArgs instead
+     */
+    export type ContactPersonArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = ContactPersonDefaultArgs<ExtArgs>
 
   /**
    * Batch Payload for updateMany & deleteMany & createMany

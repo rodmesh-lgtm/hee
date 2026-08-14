@@ -35,11 +35,11 @@ function fixturesModules(
 }
 
 function fakeCover(label: string) {
-  return `https://dummyimage.com/1400x620/e8eeff/1e2b52&text=${encodeURIComponent(label)}`;
+  return "/demo/restaurant-cover.jpg";
 }
 
 function fakeLogo(label: string) {
-  return `https://dummyimage.com/320x320/d7e2ff/243361&text=${encodeURIComponent(label)}`;
+  return "/demo/restaurant-logo.jpg";
 }
 
 async function ensureFixtureOwner() {
@@ -259,9 +259,9 @@ async function upsertServices(ownerId: string): Promise<FixtureResult> {
   ];
 
   const portfolioItems = [
-    { id: "sp-1", title: "تنظيف فيلا كاملة", description: "تنفيذ خلال يوم واحد", imageUrl: "https://dummyimage.com/900x600/eaf4ff/1f2552&text=Portfolio+1", url: "https://example.com/portfolio/cleaning-1", visible: true, sortOrder: 0 },
-    { id: "sp-2", title: "صيانة شقة", description: "كهرباء وسباكة", imageUrl: "https://dummyimage.com/900x600/e6fff4/1f2552&text=Portfolio+2", url: "https://example.com/portfolio/maintenance-2", visible: true, sortOrder: 1 },
-    { id: "sp-3", title: "تركيب أثاث مكتبي", description: "مكتب كامل", imageUrl: "https://dummyimage.com/900x600/fff7e6/1f2552&text=Portfolio+3", url: "https://example.com/portfolio/furniture-3", visible: true, sortOrder: 2 },
+    { id: "sp-1", title: "تنظيف فيلا كاملة", description: "تنفيذ خلال يوم واحد", imageUrl: "/demo/restaurant-cover.jpg", url: "https://example.com/portfolio/cleaning-1", visible: true, sortOrder: 0 },
+    { id: "sp-2", title: "صيانة شقة", description: "كهرباء وسباكة", imageUrl: "/demo/restaurant-cover.jpg", url: "https://example.com/portfolio/maintenance-2", visible: true, sortOrder: 1 },
+    { id: "sp-3", title: "تركيب أثاث مكتبي", description: "مكتب كامل", imageUrl: "/demo/restaurant-cover.jpg", url: "https://example.com/portfolio/furniture-3", visible: true, sortOrder: 2 },
   ];
 
   const business = await db.business.upsert({
@@ -637,7 +637,7 @@ async function upsertLongContent(ownerId: string): Promise<FixtureResult> {
 
   const portfolioItems = [
     { id: "lp-1", title: "مشروع التحول الرقمي المتكامل لقطاع الضيافة - Digital Transformation Program", description: "تنفيذ برنامج تحوّل كامل يتضمن الأتمتة والتحليلات ورفع تجربة العميل.", imageUrl: "", url: "https://example.com/very/long/path/for/portfolio/item/one?ref=qa-v5-long-content", visible: true, sortOrder: 0 },
-    { id: "lp-2", title: "إعادة هندسة العمليات التشغيلية للمبيعات الميدانية في المنطقة الشرقية", description: "تحسين الأداء وتقليل زمن الاستجابة بنسبة ملحوظة.", imageUrl: "https://dummyimage.com/900x600/eef6ff/1f2552&text=Long+Portfolio+2", url: "", visible: true, sortOrder: 1 },
+    { id: "lp-2", title: "إعادة هندسة العمليات التشغيلية للمبيعات الميدانية في المنطقة الشرقية", description: "تحسين الأداء وتقليل زمن الاستجابة بنسبة ملحوظة.", imageUrl: "/demo/restaurant-cover.jpg", url: "", visible: true, sortOrder: 1 },
   ];
 
   const business = await db.business.upsert({

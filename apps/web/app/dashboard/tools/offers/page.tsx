@@ -58,7 +58,7 @@ export default async function DashboardOffersDesignerPage() {
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || "hee.sa";
   const protocol = host.includes("localhost") ? "http" : "https";
-  const publicUrl = `${protocol}://${host}/b/${business.slug}`;
+  const publicUrl = `${protocol}://${host}/${business.slug}`;
 
   return (
     <div className="space-y-6">

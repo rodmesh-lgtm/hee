@@ -1,0 +1,11 @@
+HEE V11 Desktop Rebuild
+- MobileBusinessProfile is preserved byte-for-byte from the uploaded V10 file.
+- Desktop only was rebuilt/compacted.
+- No cover/hero was added.
+- Existing data/database logic remains untouched.
+
+Install from the directory where ./components/public-business-page.tsx exists:
+cp ./components/public-business-page.tsx ./components/public-business-page.before-v11.tsx
+cp ./hee-smart-business-v11-desktop-rebuild/components/public-business-page.tsx ./components/public-business-page.tsx
+rm -rf .next
+npm run build

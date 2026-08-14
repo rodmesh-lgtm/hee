@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useMemo, useState, useTransition } from "react";
+import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import type { Prisma } from "@prisma/client";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   addGalleryItemBuilderAction,
   addOfferBuilderAction,
@@ -81,7 +81,12 @@ function suggestSlug(name: string) {
 
 export function PageBuilderWizard({ business, completion, publicUrl }: WizardProps) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const initialStep = Number.parseInt(searchParams.get("step") ?? "0", 10);
+  const safeInitialStep = Number.isFinite(initialStep) && initialStep >= 0 && initialStep < stepLabels.length ? initialStep : 0;
+
+  const [step, setStep] = useState(safeInitialStep);
   const [slugDraft, setSlugDraft] = useState(() => business?.slug ?? suggestSlug(business?.name ?? ""));
   const [slugState, setSlugState] = useState<{ checking: boolean; available: boolean | null; message: string }>({
     checking: false,
@@ -149,6 +154,15 @@ export function PageBuilderWizard({ business, completion, publicUrl }: WizardPro
         ? "text-emerald-300"
         : "text-rose-300";
 
+  function updateStep(nextStep: number) {
+    const safeStep = Math.min(stepLabels.length - 1, Math.max(0, nextStep));
+    setStep(safeStep);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("step", String(safeStep));
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
   async function checkSlug() {
     const value = slugDraft.trim();
     if (!value) {
@@ -173,7 +187,7 @@ export function PageBuilderWizard({ business, completion, publicUrl }: WizardPro
             <button
               key={label}
               type="button"
-              onClick={() => setStep(index)}
+              onClick={() => updateStep(index)}
               className={`w-full rounded-2xl px-3 py-2 text-right text-sm font-semibold ${step === index ? "bg-indigo-500/20 text-indigo-100" : "bg-white/5 text-slate-300"}`}
             >
               {index + 1}. {label}
@@ -234,7 +248,7 @@ export function PageBuilderWizard({ business, completion, publicUrl }: WizardPro
               <label className="grid gap-2 text-sm text-slate-200">
                 الرابط العام
                 <div className="flex items-center gap-2" dir="ltr">
-                  <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs text-slate-300">hee.sa/b/</span>
+                  <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs text-slate-300">hee.sa/</span>
                   <input
                     name="slug"
                     value={slugDraft}
@@ -632,7 +646,7 @@ export function PageBuilderWizard({ business, completion, publicUrl }: WizardPro
                 </div>
                 <div>
                   <p className="text-slate-400">الرابط العام</p>
-                  <p className="font-bold text-white" dir="ltr">{review.slug ? `hee.sa/b/${review.slug}` : "غير مكتمل"}</p>
+                  <p className="font-bold text-white" dir="ltr">{review.slug ? `hee.sa/${review.slug}` : "غير مكتمل"}</p>
                 </div>
                 <div><p className="text-slate-400">المنتجات</p><p className="font-bold text-white">{review.productsCount}</p></div>
                 <div><p className="text-slate-400">الخدمات</p><p className="font-bold text-white">{review.servicesCount}</p></div>
@@ -678,8 +692,8 @@ export function PageBuilderWizard({ business, completion, publicUrl }: WizardPro
         ) : null}
 
         <div className="flex items-center justify-between border-t border-white/10 pt-3">
-          <button type="button" onClick={() => setStep((value) => Math.max(0, value - 1))} className="rounded-xl border border-white/20 px-3 py-2 text-sm">السابق</button>
-          <button type="button" onClick={() => setStep((value) => Math.min(stepLabels.length - 1, value + 1))} className="rounded-xl border border-white/20 px-3 py-2 text-sm">التالي</button>
+          <button type="button" onClick={() => updateStep(step - 1)} className="rounded-xl border border-white/20 px-3 py-2 text-sm">السابق</button>
+          <button type="button" onClick={() => updateStep(step + 1)} className="rounded-xl border border-white/20 px-3 py-2 text-sm">التالي</button>
         </div>
       </section>
 
@@ -687,7 +701,7 @@ export function PageBuilderWizard({ business, completion, publicUrl }: WizardPro
         <h3 className="text-lg font-black text-white">المعاينة المباشرة</h3>
         <div className="overflow-hidden rounded-[28px] border border-white/10 bg-black/40 p-2">
           {business?.slug ? (
-            <iframe src={`/b/${business.slug}`} className="h-[640px] w-full rounded-[22px] border border-white/10 bg-slate-950" title="public-page-preview" />
+            <iframe src={`/${business.slug}`} className="h-[640px] w-full rounded-[22px] border border-white/10 bg-slate-950" title="public-page-preview" />
           ) : (
             <div className="flex h-[640px] items-center justify-center rounded-[22px] border border-dashed border-white/10 text-sm text-slate-400">
               احفظ الهوية أولاً ليظهر الرابط والمعاينة

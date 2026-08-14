@@ -1,6 +1,12 @@
 import { z } from "zod";
+import { isValidPublicSlug, normalizePublicSlug } from "./public-url";
 
 const colorHexSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, "اللون يجب أن يكون بصيغة HEX");
+const publicSlugSchema = z
+  .string()
+  .trim()
+  .transform(normalizePublicSlug)
+  .refine((value) => value.length <= 60 && isValidPublicSlug(value), "الرابط العام غير صالح");
 const passwordComplexityRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 const optionalUrlSchema = z
@@ -29,7 +35,7 @@ export const loginSchema = z.object({
 
 export const businessSchema = z.object({
   name: z.string().min(2, "اسم النشاط مطلوب"),
-  slug: z.string().min(2, "الاسم المستعار مطلوب").regex(/^[a-z0-9-]+$/, "يجب أن يحتوي الاسم المستعار على أحرف صغيرة أو أرقام أو شرطة فقط"),
+  slug: publicSlugSchema,
   businessType: z.string().min(1, "اختر نوع النشاط"),
   description: z.string().trim().optional().default(""),
   city: z.string().trim().optional().default(""),
@@ -96,7 +102,7 @@ export const businessProfileSchema = z.object({
   buttonColor: colorHexSchema,
   buttonStyle: z.enum(["rounded", "pill", "square"]),
   cardStyle: z.enum(["glass", "flat", "elevated"]),
-  slug: z.string().trim().min(2, "الرابط العام مطلوب").regex(/^[a-z0-9-]+$/, "الرابط العام يجب أن يحتوي على أحرف صغيرة أو أرقام أو شرطة فقط"),
+  slug: publicSlugSchema,
   metaTitle: z.string().trim().min(10, "عنوان SEO مطلوب"),
   metaDescription: z.string().trim().min(30, "وصف SEO مطلوب"),
   isPublished: z.boolean(),

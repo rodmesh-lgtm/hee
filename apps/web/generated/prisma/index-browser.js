@@ -200,7 +200,11 @@ exports.Prisma.BusinessScalarFieldEnum = {
   publishedAt: 'publishedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  deletedAt: 'deletedAt'
+  deletedAt: 'deletedAt',
+  digitalDestinationType: 'digitalDestinationType',
+  companyProfileUrl: 'companyProfileUrl',
+  companyProfileTitle: 'companyProfileTitle',
+  licenseNumber: 'licenseNumber'
 };
 
 exports.Prisma.CategoryScalarFieldEnum = {
@@ -383,6 +387,53 @@ exports.Prisma.StoredObjectScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.BranchScalarFieldEnum = {
+  id: 'id',
+  businessId: 'businessId',
+  name: 'name',
+  city: 'city',
+  district: 'district',
+  address: 'address',
+  phone: 'phone',
+  whatsapp: 'whatsapp',
+  googleMapsLink: 'googleMapsLink',
+  isMain: 'isMain',
+  isActive: 'isActive',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.DepartmentScalarFieldEnum = {
+  id: 'id',
+  businessId: 'businessId',
+  name: 'name',
+  description: 'description',
+  icon: 'icon',
+  isActive: 'isActive',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ContactPersonScalarFieldEnum = {
+  id: 'id',
+  businessId: 'businessId',
+  departmentId: 'departmentId',
+  branchId: 'branchId',
+  name: 'name',
+  jobTitle: 'jobTitle',
+  phone: 'phone',
+  whatsapp: 'whatsapp',
+  email: 'email',
+  imageUrl: 'imageUrl',
+  isPrimary: 'isPrimary',
+  isActive: 'isActive',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -428,7 +479,10 @@ exports.Prisma.ModelName = {
   SocialLink: 'SocialLink',
   Subscription: 'Subscription',
   AnalyticsEvent: 'AnalyticsEvent',
-  StoredObject: 'StoredObject'
+  StoredObject: 'StoredObject',
+  Branch: 'Branch',
+  Department: 'Department',
+  ContactPerson: 'ContactPerson'
 };
 
 /**

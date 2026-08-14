@@ -1,0 +1,21 @@
+HEE Smart Business V10 — REAL SPLIT RENDERER
+
+This package is built directly from public-business-page.rebuild-base.txt supplied from the live project.
+
+What changed:
+- Separate MobileBusinessProfile and DesktopBusinessProfile render trees.
+- Cover/hero is not rendered.
+- Existing data adapter and database-derived mappings are preserved.
+- Existing module renderer is retained as fallback for enabled modules not custom-rendered.
+- Existing WhatsApp, phone, map, QR/share, smart action sheet and sticky mobile actions remain wired.
+- Desktop is no longer the mobile layout enlarged with md: classes.
+
+INSTALL FROM /workspaces/hee:
+1) cp apps/web/components/public-business-page.tsx apps/web/components/public-business-page.tsx.backup-before-v10
+2) cp hee-smart-business-v10-real-split-renderer/apps/web/components/public-business-page.tsx apps/web/components/public-business-page.tsx
+3) rm -rf apps/web/.next
+4) cd apps/web && npm run build
+5) npm run dev
+
+Expected marker:
+data-renderer="public-business-page-v10-real-split-renderer"

@@ -28,9 +28,9 @@ const supportSeed: ContactTeamMember[] = [
 ];
 
 const portfolioSeed: PortfolioItem[] = [
-  { id: "p1", title: "مشروع أول", description: "وصف قصير للعمل الأول", imageUrl: "", url: "", visible: true, sortOrder: 0 },
-  { id: "p2", title: "مشروع ثانٍ طويل العنوان لاختبار الالتفاف", description: "وصف إضافي للعمل الثاني", imageUrl: "https://dummyimage.com/900x600/eef6ff/1f2552&text=P2", url: "https://example.com/p2", visible: true, sortOrder: 1 },
-  { id: "p3", title: "مشروع ثالث", description: "عرض صورة ونص ورابط خارجي", imageUrl: "https://dummyimage.com/900x600/fff7e6/1f2552&text=P3", url: "https://example.com/p3", visible: true, sortOrder: 2 },
+  { id: "p1", title: "مشروع أول", description: "وصف قصير للعمل الأول", imageUrl: "/demo/restaurant-cover.jpg", url: "https://example.com/p1", visible: true, sortOrder: 0 },
+  { id: "p2", title: "مشروع ثانٍ طويل العنوان لاختبار الالتفاف", description: "وصف إضافي للعمل الثاني", imageUrl: "/demo/restaurant-cover.jpg", url: "https://example.com/p2", visible: true, sortOrder: 1 },
+  { id: "p3", title: "مشروع ثالث", description: "عرض صورة ونص ورابط خارجي", imageUrl: "/demo/restaurant-cover.jpg", url: "https://example.com/p3", visible: true, sortOrder: 2 },
 ];
 
 export default function QaComponentLabPage() {

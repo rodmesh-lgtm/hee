@@ -236,7 +236,7 @@ export default async function DashboardMyPage({
         <aside className="space-y-3">
           <div className="rounded-[28px] border border-[#d9deeb] bg-white p-3 shadow-[0_35px_50px_-36px_rgba(31,37,82,0.65)]">
             <div className="mx-auto w-[210px] overflow-hidden rounded-[30px] border-[6px] border-[#131a2f] bg-white shadow-[0_22px_34px_-24px_rgba(9,11,22,0.7)]">
-              <iframe src={`/b/${business.slug}?surface=phone`} title="معاينة الهاتف" className="h-[430px] w-full" />
+              <iframe src={`/${business.slug}?surface=phone`} title="معاينة الهاتف" className="h-[430px] w-full" />
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
               <button type="button" className="rounded-xl border border-[#d8d1ff] bg-[#f3f0ff] px-3 py-2 font-bold text-[#4f43d9]">الهاتف</button>

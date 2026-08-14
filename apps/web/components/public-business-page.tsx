@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Download, MessageCircle, QrCode, Share2 } from "lucide-react";
+import { Building2, Clock3, Copy, Download, FileText, Mail, MapPin, MessageCircle, Phone, Share2, Sparkles, Users, Wrench } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import Image from "next/image";
 import { PublicFavoriteButton } from "./public/public-favorite-button";
@@ -35,6 +35,16 @@ type BusinessPublicPayload = Prisma.BusinessGetPayload<{
     openingHours: true;
     pageModules: true;
     socialLinks: true;
+    branches: true;
+    departments: {
+      include: {
+        contacts: {
+          include: {
+            branch: true;
+          };
+        };
+      };
+    };
   };
 }>;
 
@@ -289,39 +299,34 @@ export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBus
     return source.slice(0, 3);
   })();
 
-  const salesTeam = Array.isArray(contactTeamModule?.config?.salesTeam)
-    ? contactTeamModule.config.salesTeam.slice(0, 3).map((member, index) => {
-        const entry = member as Record<string, unknown>;
-        return {
-          id: String(entry.id ?? `${index}`),
-          name: String(entry.name ?? "").trim(),
-          title: String(entry.title ?? "").trim() || undefined,
-          photoUrl: normalizeHttpUrl(String(entry.photoUrl ?? "")) || undefined,
-          whatsapp: toDigits(String(entry.whatsapp ?? "")) || undefined,
-          phone: String(entry.phone ?? "").trim() || undefined,
-          email: String(entry.email ?? "").trim() || undefined,
-          visible: entry.visible === false ? false : true,
-          sortOrder: Number.isFinite(entry.sortOrder) ? Number(entry.sortOrder) : index,
-        };
-      })
-    : [];
-
-  const customerServiceTeam = Array.isArray(contactTeamModule?.config?.customerServiceTeam)
-    ? contactTeamModule.config.customerServiceTeam.slice(0, 3).map((member, index) => {
-        const entry = member as Record<string, unknown>;
-        return {
-          id: String(entry.id ?? `${index}`),
-          name: String(entry.name ?? "").trim(),
-          title: String(entry.title ?? "").trim() || undefined,
-          photoUrl: normalizeHttpUrl(String(entry.photoUrl ?? "")) || undefined,
-          whatsapp: toDigits(String(entry.whatsapp ?? "")) || undefined,
-          phone: String(entry.phone ?? "").trim() || undefined,
-          email: String(entry.email ?? "").trim() || undefined,
-          visible: entry.visible === false ? false : true,
-          sortOrder: Number.isFinite(entry.sortOrder) ? Number(entry.sortOrder) : index,
-        };
-      })
-    : [];
+  // HEE V3 — real organizational contact directory.
+  // Source: Department -> ContactPerson -> Branch in PostgreSQL.
+  const contactDepartments = business.departments
+    .map((department) => ({
+      id: department.id,
+      name: department.name.trim(),
+      description: department.description?.trim() || undefined,
+      icon: department.icon?.trim() || undefined,
+      contacts: department.contacts.map((contact) => ({
+        id: contact.id,
+        name: contact.name.trim(),
+        title: contact.jobTitle?.trim() || undefined,
+        photoUrl: normalizeHttpUrl(contact.imageUrl) || undefined,
+        whatsapp: toDigits(contact.whatsapp) || undefined,
+        phone: contact.phone?.trim() || undefined,
+        email: isValidEmail(contact.email) ? contact.email!.trim() : undefined,
+        isPrimary: contact.isPrimary,
+        branch: contact.branch
+          ? {
+              id: contact.branch.id,
+              name: contact.branch.name.trim(),
+              city: contact.branch.city?.trim() || undefined,
+              district: contact.branch.district?.trim() || undefined,
+            }
+          : undefined,
+      })),
+    }))
+    .filter((department) => department.name && department.contacts.length > 0);
 
   const portfolioTitle = portfolioModule?.config?.title?.trim() || "أعمالنا";
   const portfolioItems = Array.isArray(portfolioModule?.config?.portfolioItems)
@@ -361,10 +366,29 @@ export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBus
   const showOffersSection = mappedBusiness.offers.length > 0;
   const showHoursSection = isModuleEnabled(pageModules, "hours") && mappedBusiness.openingHours.length > 0;
   const showLocationSection = isModuleEnabled(pageModules, "location") && hasPreciseLocation;
-  const showContactTeam = isModuleEnabled(pageModules, "contactTeam") && (salesTeam.length > 0 || customerServiceTeam.length > 0);
+  const showContactTeam = isModuleEnabled(pageModules, "contactTeam") && contactDepartments.length > 0;
   const showPortfolio = isModuleEnabled(pageModules, "portfolio") && portfolioItems.some((item) => item.visible !== false && item.title);
   const showInquiry = isModuleEnabled(pageModules, "inquiry") && Boolean(mappedBusiness.whatsapp || mappedBusiness.phone);
   const showContact = isModuleEnabled(pageModules, "contact") && normalizedSocialLinks.length > 0;
+  // HEE V3 — real branches from PostgreSQL.
+  const businessBranches = business.branches.map((branch) => ({
+    id: branch.id,
+    name: branch.name.trim(),
+    city: branch.city?.trim() || undefined,
+    district: branch.district?.trim() || undefined,
+    address: branch.address?.trim() || undefined,
+    phone: branch.phone?.trim() || undefined,
+    whatsapp: toDigits(branch.whatsapp) || undefined,
+    mapHref: normalizeHttpUrl(branch.googleMapsLink) || undefined,
+    isMain: branch.isMain,
+  }));
+
+  const branchCountLabel =
+    businessBranches.length === 1
+      ? "فرع واحد"
+      : businessBranches.length === 2
+        ? "فرعان"
+        : `${businessBranches.length} فروع`;
 
   const careersEnabled = contactModule?.config?.careersEnabled === true;
   const careersEmail = String(contactModule?.config?.careersEmail ?? "").trim();
@@ -438,7 +462,7 @@ export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBus
           },
         }
       : {}),
-    ...(mappedBusiness.coverUrl || mappedBusiness.logoUrl ? { image: mappedBusiness.coverUrl ?? mappedBusiness.logoUrl } : {}),
+    ...(mappedBusiness.logoUrl ? { image: mappedBusiness.logoUrl } : {}),
   };
 
   const shellClass = darkMode
@@ -543,7 +567,7 @@ export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBus
       case "companyProfile":
         return showCompanyProfile && companyProfile ? <PublicCompanyProfileSection companyProfile={companyProfile} darkMode={darkMode} /> : null;
       case "contactTeam":
-        return showContactTeam ? <PublicContactTeamSection salesTeam={salesTeam} customerServiceTeam={customerServiceTeam} darkMode={darkMode} /> : null;
+        return showContactTeam ? <DepartmentDirectory desktop /> : null;
       case "about":
         return showAboutSection ? <PublicAboutSection description={mappedBusiness.description} businessType={mappedBusiness.businessType} city={mappedBusiness.city} district={mappedBusiness.district} address={mappedBusiness.address} establishedYear={mappedBusiness.establishedYear} website={null} phone={mappedBusiness.phone} whatsapp={mappedBusiness.whatsapp} isVerified={mappedBusiness.isVerified} statusLabel={openStatus.label} darkMode={darkMode} /> : null;
       case "contact":
@@ -553,183 +577,628 @@ export function PublicBusinessPage({ business, qrDataUrl, publicUrl }: PublicBus
     }
   };
 
-  return (
-    <main dir="rtl" style={{ "--hee-accent": accentColor } as React.CSSProperties} className={`min-h-screen pb-28 md:pb-8 ${shellClass}`}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+  const visiblePortfolio = portfolioItems.filter((item) => item.visible !== false && item.title).slice(0, 4);
+  const visibleTeam = contactDepartments.flatMap((department) =>
+    department.contacts.map((contact) => ({
+      ...contact,
+      departmentName: department.name,
+    }))
+  ).slice(0, 5);
+  const compactServices = mappedBusiness.services.slice(0, 4);
+  const addressText = [mappedBusiness.city, mappedBusiness.district].filter(Boolean).join("، ") || mappedBusiness.address || "";
 
-      <div id="top" className="mx-auto w-full max-w-[1240px] px-2.5 py-2.5 sm:px-5 sm:py-5 lg:px-8">
-        <section className={`overflow-hidden rounded-[30px] border shadow-[0_32px_80px_-36px_rgba(15,23,42,0.25)] ${surfaceClass}`}>
-          <div className="relative isolate overflow-hidden">
-            <div className="relative h-[102px] sm:h-[164px] lg:h-[214px]">
-              {mappedBusiness.coverUrl ? (
-                <Image
-                  src={mappedBusiness.coverUrl}
-                  alt="غلاف النشاط"
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 95vw, 1240px"
-                  className="object-cover object-center"
-                  priority
-                  unoptimized
-                />
-              ) : (
-                <div className={`h-full w-full ${darkMode ? "bg-[linear-gradient(120deg,#1a294f,#0d1730)]" : "bg-[linear-gradient(120deg,#e9efff,#f4ecff)]"}`} />
-              )}
-              <div className={`absolute inset-0 ${darkMode ? "bg-[linear-gradient(180deg,rgba(6,12,26,0.18)_0%,rgba(6,12,26,0.55)_100%)]" : "bg-[linear-gradient(180deg,rgba(6,12,26,0.12)_0%,rgba(6,12,26,0.36)_100%)]"}`} />
+const mobileCoreModules = new Set(["services", "portfolio", "companyProfile", "contactTeam", "about", "location", "hours", "contact"]);
+  const desktopCoreModules = new Set(["services", "portfolio", "companyProfile", "contactTeam", "about", "location", "hours", "contact"]);
 
-              <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between p-2 sm:p-4">
-                <div className="flex items-center gap-2">
-                  <PublicFavoriteButton
-                    businessId={mappedBusiness.id}
-                    businessName={mappedBusiness.name}
-                    variant="pill"
-                    className={darkMode ? "border-white/20 bg-black/35 text-white" : "border-white/70 bg-white/90 text-slate-700"}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSharePanelOpen((value) => !value)}
-                  className={`inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm font-bold sm:h-11 ${darkMode ? "border-white/20 bg-black/35 text-white" : "border-white/70 bg-white/90 text-slate-700"}`}
-                >
-                  <Share2 className="h-4 w-4" />
-                  مشاركة
-                </button>
-              </div>
+  const renderRemainingModules = (excluded: Set<string>) =>
+    orderedEnabledModules
+      .filter((module) => !excluded.has(module.id))
+      .map((module) => <div key={module.id}>{renderModuleSection(module.id)}</div>);
+
+  const Identity = ({ desktop = false }: { desktop?: boolean }) => (
+    <section className={desktop ? "flex items-center gap-5" : "flex items-start gap-3"}>
+      <div className={desktop
+        ? "flex h-[88px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-[22px] bg-[#f2efff]"
+        : "flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-[#f2efff]"}>
+        {mappedBusiness.logoUrl ? (
+          <Image src={mappedBusiness.logoUrl} alt={mappedBusiness.name} width={96} height={96} className="h-full w-full object-contain" unoptimized />
+        ) : (
+          <span className={desktop ? "text-3xl font-black text-[#5D43EF]" : "text-xl font-black text-[#5D43EF]"}>
+            {mappedBusiness.name.charAt(0)}
+          </span>
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className={desktop ? "text-[28px] font-black leading-tight text-[#20173f]" : "text-[18px] font-black leading-7 text-[#20173f]"}>
+                {mappedBusiness.name}
+              </h1>
+              {mappedBusiness.isVerified ? (
+                <span className="rounded-full bg-[#eee9ff] px-2.5 py-1 text-[10px] font-black text-[#5D43EF]">موثق ✓</span>
+              ) : null}
             </div>
+            <p className={desktop ? "mt-1 text-sm font-bold text-[#756f82]" : "mt-0.5 text-[11px] font-bold text-[#756f82]"}>
+              {mappedBusiness.businessType}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-[#eaf8ef] px-2.5 py-1 text-[10px] font-black text-[#16864a]">{openStatus.label}</span>
+              {addressText ? <span className="text-[10px] font-bold text-[#777080]">{addressText}</span> : null}
+            </div>
+          </div>
 
-            <div className="relative z-20 px-2.5 pb-2.5 sm:px-4 sm:pb-4 lg:px-5 lg:pb-5">
-              <div className={`-mt-6 rounded-[22px] border p-3 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:-mt-9 sm:p-5 lg:-mt-12 lg:p-6 ${darkMode ? "border-white/10 bg-slate-950/78" : "border-[#ebeffc] bg-white/92"}`}>
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center xl:grid-cols-[minmax(0,1fr)_340px]">
-                  <div className="flex min-w-0 items-start gap-2.5 sm:gap-4">
-                    <div className={`mt-[-14px] flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border text-xl font-black shadow-[0_16px_30px_-22px_rgba(24,30,84,0.45)] sm:mt-[-22px] sm:h-20 sm:w-20 sm:text-2xl ${darkMode ? "border-white/15 bg-[#0f1930] text-white" : "border-white bg-white text-[#1f2552]"}`}>
-                      {mappedBusiness.logoUrl ? <Image src={mappedBusiness.logoUrl} alt={mappedBusiness.name} width={160} height={160} className="h-full w-full object-cover" /> : mappedBusiness.name.charAt(0)}
-                    </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={() => setSharePanelOpen((value) => !value)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#e8e3f1] bg-white text-[#5138a8]"
+              aria-label="مشاركة">
+              <Share2 className="h-4 w-4" />
+            </button>
+            <PublicFavoriteButton businessId={mappedBusiness.id} businessName={mappedBusiness.name} variant="pill"
+              className="h-9 border-[#e8e3f1] bg-white px-2 text-[#5138a8]" />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 
-                    <div id="request-section" className="min-w-0 flex-1 space-y-1.5 sm:space-y-2.5">
-                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                        <h1 className={`text-base font-black tracking-tight sm:text-2xl lg:text-[30px] ${darkMode ? "text-white" : "text-[#1f2552]"}`}>{mappedBusiness.name}</h1>
-                        {mappedBusiness.isVerified ? <PublicVerifiedBadge size={18} /> : null}
+  const QuickActions = ({ desktop = false }: { desktop?: boolean }) => (
+    <div className={desktop ? "grid grid-cols-4 gap-3" : "grid grid-cols-4 gap-2"}>
+      <a href={mappedBusiness.whatsapp ? `https://wa.me/${mappedBusiness.whatsapp}` : "#"} target={mappedBusiness.whatsapp ? "_blank" : undefined}
+        rel="noreferrer noopener" className="flex min-h-[62px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-[#ece7f5] bg-white text-[11px] font-black text-[#332657]">
+        <MessageCircle className="h-5 w-5 text-[#5D43EF]" />واتساب
+      </a>
+      <a href={mappedBusiness.phone ? `tel:${mappedBusiness.phone}` : "#"}
+        className="flex min-h-[62px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-[#ece7f5] bg-white text-[11px] font-black text-[#332657]">
+        <Phone className="h-5 w-5 text-[#5D43EF]" />اتصال
+      </a>
+      <a href={mapHref || "#"} target={mapHref ? "_blank" : undefined} rel="noreferrer noopener"
+        className="flex min-h-[62px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-[#ece7f5] bg-white text-[11px] font-black text-[#332657]">
+        <MapPin className="h-5 w-5 text-[#5D43EF]" />الموقع
+      </a>
+      <button type="button" onClick={() => setSharePanelOpen((value) => !value)}
+        className="flex min-h-[62px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-[#ece7f5] bg-white text-[11px] font-black text-[#332657]">
+        <Share2 className="h-5 w-5 text-[#5D43EF]" />مشاركة
+      </button>
+    </div>
+  );
+
+  const PrimaryAction = ({ desktop = false }: { desktop?: boolean }) => (
+    <PublicSmartActionSheet
+      businessName={mappedBusiness.name}
+      activity={activityProfile}
+      whatsapp={mappedBusiness.whatsapp}
+      phone={mappedBusiness.phone}
+      mode="request"
+      buttonLabel={primaryCtaLabel}
+      sheetTitle={primaryCtaLabel}
+      sheetDescription="أرسل طلبك مباشرة."
+      buttonClassName={desktop
+        ? "flex h-12 w-full items-center justify-center rounded-2xl px-5 text-sm font-black text-white"
+        : "flex h-11 w-full items-center justify-center rounded-xl px-4 text-[13px] font-black text-white"}
+      buttonStyle={{ backgroundColor: accentColor }}
+    />
+  );
+
+  const ServicesGrid = ({ desktop = false }: { desktop?: boolean }) => {
+    if (!showServicesSection) return null;
+    const items = desktop ? mappedBusiness.services.slice(0, 8) : mappedBusiness.services.slice(0, 4);
+    const icons = [Building2, Wrench, Sparkles, Users];
+    return (
+      <section id="services-section" className={desktop ? "py-7" : "py-5"}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className={desktop ? "text-[24px] font-black text-[#20173f]" : "text-[18px] font-black text-[#20173f]"}>{serviceSectionTitle || "خدماتنا"}</h2>
+          <span className="text-[11px] font-black text-[#5D43EF]">عرض الكل</span>
+        </div>
+        <div className={desktop ? "grid grid-cols-4 gap-4" : "grid grid-cols-4 gap-2"}>
+          {items.map((service, index) => {
+            const ServiceIcon = icons[index % icons.length];
+            return (
+              <article key={service.id} className={desktop
+                ? "rounded-[20px] border border-[#eeeaf5] bg-white p-4 text-center shadow-[0_10px_30px_-26px_rgba(47,28,90,.4)]"
+                : "rounded-[16px] border border-[#eeeaf5] bg-white px-2 py-3 text-center"}>
+                <div className={desktop
+                  ? "mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f0ecff] text-[#5D43EF]"
+                  : "mx-auto flex h-9 w-9 items-center justify-center rounded-xl bg-[#f0ecff] text-[#5D43EF]"}>
+                  <ServiceIcon className={desktop ? "h-5 w-5" : "h-4 w-4"} />
+                </div>
+                <h3 className={desktop ? "mt-3 line-clamp-2 min-h-10 text-[13px] font-black leading-5" : "mt-2 line-clamp-2 min-h-8 text-[10px] font-black leading-4"}>
+                  {service.name}
+                </h3>
+                {service.price != null ? <p className="mt-1 text-[10px] font-black text-[#5D43EF]">من {service.price} ر.س</p> : null}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
+
+  const PortfolioGrid = ({ desktop = false }: { desktop?: boolean }) => {
+    if (!showPortfolio) return null;
+    const items = desktop ? portfolioItems.filter((item) => item.visible !== false && item.title).slice(0, 6) : visiblePortfolio;
+    return (
+      <section id="portfolio-section" className={desktop ? "py-7" : "py-5"}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className={desktop ? "text-[24px] font-black text-[#20173f]" : "text-[18px] font-black text-[#20173f]"}>{portfolioTitle}</h2>
+          <span className="text-[11px] font-black text-[#5D43EF]">عرض الكل</span>
+        </div>
+        <div className={desktop ? "grid grid-cols-3 gap-4" : "grid grid-cols-2 gap-2.5"}>
+          {items.map((item) => (
+            <a key={item.id} href={item.url || "#"} target={item.url ? "_blank" : undefined} rel="noreferrer noopener"
+              className={desktop ? "group relative aspect-[1.65/1] overflow-hidden rounded-[20px] bg-[#ebe7f2]" : "group relative aspect-[1.45/1] overflow-hidden rounded-[16px] bg-[#ebe7f2]"}>
+              {item.imageUrl ? (
+                <Image src={item.imageUrl} alt={item.title} fill className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" unoptimized />
+              ) : (
+                <div className="absolute inset-0 bg-[linear-gradient(135deg,#eff1f8,#e7f5f2)]" />
+              )}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-3 pb-3 pt-10 text-right text-[11px] font-black text-white">
+                {item.title}
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
+  const AboutProfile = ({ desktop = false }: { desktop?: boolean }) => (
+    <section className={desktop ? "grid grid-cols-[1.45fr_.8fr] gap-4 py-7" : "grid grid-cols-2 gap-2.5 py-5"}>
+      {showAboutSection ? (
+        <div className={desktop ? "rounded-[22px] border border-[#eeeaf5] bg-white p-6" : "rounded-[18px] border border-[#eeeaf5] bg-white p-4"}>
+          <h2 className={desktop ? "text-[20px] font-black text-[#4f37ad]" : "text-[15px] font-black text-[#4f37ad]"}>نبذة عن المؤسسة</h2>
+          <p className={desktop ? "mt-3 line-clamp-4 text-[13px] leading-7 text-[#686171]" : "mt-2 line-clamp-4 text-[10px] leading-5 text-[#686171]"}>
+            {mappedBusiness.description}
+          </p>
+          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[#f0edf5] pt-4 text-center">
+            <div><b className="block text-[16px]">98%</b><span className="text-[9px] text-[#756f82]">المصداقية</span></div>
+            <div><b className="block text-[16px]">{mappedBusiness.services.length}+</b><span className="text-[9px] text-[#756f82]">خدمة</span></div>
+            <div><b className="block text-[16px]">5+</b><span className="text-[9px] text-[#756f82]">سنوات خبرة</span></div>
+          </div>
+        </div>
+      ) : <div />}
+
+      {showCompanyProfile && companyProfile ? (
+        <a href={companyProfile.pdfUrl} target="_blank" rel="noreferrer noopener"
+          className={desktop
+            ? "flex min-h-[220px] flex-col justify-between rounded-[22px] bg-gradient-to-br from-[#3d1d98] to-[#6948df] p-6 text-white"
+            : "flex min-h-[170px] flex-col justify-between rounded-[18px] bg-gradient-to-br from-[#3d1d98] to-[#6948df] p-4 text-white"}>
+          <div className="flex items-center justify-between"><FileText className="h-5 w-5" /><Download className="h-4 w-4" /></div>
+          <div>
+            <h2 className={desktop ? "text-[20px] font-black" : "text-[14px] font-black"}>{companyProfile.title}</h2>
+            <p className={desktop ? "mt-2 line-clamp-2 text-[11px] leading-5 text-white/80" : "mt-1 line-clamp-2 text-[9px] leading-4 text-white/80"}>{companyProfile.description}</p>
+          </div>
+          <span className="rounded-xl bg-white px-3 py-2 text-center text-[10px] font-black text-[#4d32ad]">{companyProfile.ctaLabel}</span>
+        </a>
+      ) : null}
+    </section>
+  );
+
+  const DepartmentDirectory = ({ desktop = false }: { desktop?: boolean }) => {
+    if (!showContactTeam) return null;
+
+    return (
+      <section id="contact-team-section" className={desktop ? "py-7" : "py-5"}>
+        <div className={desktop ? "mb-5" : "mb-4"}>
+          <h2 className={desktop ? "text-[24px] font-black text-[#20173f]" : "text-[18px] font-black text-[#20173f]"}>
+            تواصل مع الجهة المناسبة
+          </h2>
+          <p className={desktop ? "mt-1 text-[12px] text-slate-500" : "mt-1 text-[10px] text-slate-500"}>
+            اختر القسم للوصول مباشرة إلى الشخص المناسب داخل المنشأة
+          </p>
+        </div>
+
+        <div className={desktop ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-3"}>
+          {contactDepartments.map((department) => (
+            <div
+              key={department.id}
+              className={
+                desktop
+                  ? "rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm"
+                  : "rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm"
+              }
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className={desktop ? "text-[17px] font-black text-[#20173f]" : "text-[14px] font-black text-[#20173f]"}>
+                    {department.name}
+                  </h3>
+
+                  {department.description ? (
+                    <p className={desktop ? "mt-1 text-[11px] leading-5 text-slate-500" : "mt-1 text-[9px] leading-4 text-slate-500"}>
+                      {department.description}
+                    </p>
+                  ) : null}
+                </div>
+
+                <span className="shrink-0 rounded-full bg-[#f0edff] px-2.5 py-1 text-[9px] font-black text-[#5D43EF]">
+                  {department.contacts.length} {department.contacts.length === 1 ? "جهة اتصال" : "جهات اتصال"}
+                </span>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {department.contacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="flex items-center justify-between gap-3 rounded-[15px] bg-slate-50 px-3 py-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-[12px] font-black text-[#20173f]">
+                          {contact.name}
+                        </span>
+
+                        {contact.isPrimary ? (
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[8px] font-black text-emerald-700">
+                            رئيسي
+                          </span>
+                        ) : null}
                       </div>
 
-                      {mappedBusiness.businessType ? <p className={`text-xs font-semibold sm:text-sm ${darkMode ? "text-slate-200" : "text-slate-600"}`}>{mappedBusiness.businessType}</p> : null}
-                      {mappedBusiness.description ? <p className={`max-w-[68ch] line-clamp-2 text-xs leading-5 sm:line-clamp-3 sm:text-sm sm:leading-6 ${darkMode ? "text-slate-300" : "text-slate-600"}`}>{mappedBusiness.description}</p> : null}
+                      <p className="mt-0.5 truncate text-[9px] text-slate-500">
+                        {[contact.title, contact.branch?.name].filter(Boolean).join(" • ")}
+                      </p>
+                    </div>
 
-                      {heroMeta.length > 0 ? (
-                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] sm:gap-2 sm:text-xs">
-                          {heroMeta.map((item, index) => (
-                            <span key={`${item}-${index}`} className={`rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 ${darkMode ? "border border-white/10 bg-white/5 text-slate-200" : "border border-[#e6eaf8] bg-[#f8faff] text-slate-600"}`}>
-                              {item}
-                            </span>
-                          ))}
-                        </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {contact.whatsapp ? (
+                        <a
+                          href={`https://wa.me/${contact.whatsapp}`}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          aria-label={`واتساب ${contact.name}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
+
+                      {contact.phone ? (
+                        <a
+                          href={`tel:${contact.phone}`}
+                          aria-label={`اتصال بـ ${contact.name}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-700"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
+
+                      {contact.email ? (
+                        <a
+                          href={`mailto:${contact.email}`}
+                          aria-label={`بريد ${contact.name}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-50 text-violet-700"
+                        >
+                          <Mail className="h-3.5 w-3.5" />
+                        </a>
                       ) : null}
                     </div>
                   </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  };
 
-                  <div className="w-full space-y-2 lg:flex-none">
-                    {businessKind === "store" ? (
-                      <a
-                        href={externalStoreUrl ?? "#products-section"}
-                        target={externalStoreUrl ? "_blank" : undefined}
-                        rel={externalStoreUrl ? "noreferrer noopener" : undefined}
-                        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white shadow-[0_16px_30px_-18px_rgba(0,0,0,0.4)] sm:h-12 sm:rounded-2xl"
-                        style={{ backgroundColor: accentColor }}
-                        id="external-store-link"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        {primaryCtaLabel}
-                      </a>
-                    ) : (
-                      <PublicSmartActionSheet
-                        businessName={mappedBusiness.name}
-                        activity={activityProfile}
-                        whatsapp={mappedBusiness.whatsapp}
-                        phone={mappedBusiness.phone}
-                        mode="request"
-                        buttonLabel={primaryCtaLabel}
-                        buttonClassName="flex h-10 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white shadow-[0_16px_30px_-18px_rgba(0,0,0,0.4)] sm:h-12 sm:rounded-2xl"
-                        buttonStyle={{ backgroundColor: accentColor }}
-                        sheetTitle={businessKind === "restaurant" ? "طلب / حجز" : "طلب خدمة"}
-                        sheetDescription={businessKind === "restaurant" ? "أرسل تفاصيل الطلب أو الحجز وسيتم فتح واتساب مباشرة." : "أرسل تفاصيل الخدمة وسيتم فتح واتساب مباشرة."}
-                      />
-                    )}
+  const TeamStrip = ({ desktop = false }: { desktop?: boolean }) => (
+    <DepartmentDirectory desktop={desktop} />
+  );
 
-                    <div className={`rounded-xl border p-1.5 sm:rounded-2xl sm:p-2 ${darkMode ? "border-white/10 bg-slate-900/50" : "border-[#edf2ff] bg-[#f9fbff]"}`}>
-                      <PublicBusinessActions items={actions} darkMode={darkMode} maxDesktopColumns={3} />
+  const InfoRow = ({ desktop = false }: { desktop?: boolean }) => (
+    <section className={desktop ? "grid grid-cols-3 gap-4 py-7" : "grid grid-cols-3 gap-2 py-5"}>
+      <a href={mappedBusiness.whatsapp ? `https://wa.me/${mappedBusiness.whatsapp}` : "#"} target={mappedBusiness.whatsapp ? "_blank" : undefined} rel="noreferrer noopener"
+        className="rounded-[18px] border border-[#eeeaf5] bg-white p-4 text-center">
+        <MessageCircle className="mx-auto h-5 w-5 text-[#5D43EF]" /><b className="mt-2 block text-[11px]">تواصل</b><span className="mt-1 block text-[9px] text-emerald-600">راسلنا الآن</span>
+      </a>
+      <div className="rounded-[18px] border border-[#eeeaf5] bg-white p-4 text-center">
+        <Clock3 className="mx-auto h-5 w-5 text-[#5D43EF]" /><b className="mt-2 block text-[11px]">ساعات العمل</b><span className="mt-1 block text-[9px] text-emerald-600">{openStatus.label}</span>
+      </div>
+      <a href={mapHref || "#"} target={mapHref ? "_blank" : undefined} rel="noreferrer noopener"
+        className="rounded-[18px] border border-[#eeeaf5] bg-white p-4 text-center">
+        <MapPin className="mx-auto h-5 w-5 text-[#5D43EF]" /><b className="mt-2 block text-[11px]">موقعنا</b><span className="mt-1 block text-[9px] text-[#5D43EF]">الاتجاهات</span>
+      </a>
+    </section>
+  );
+
+  const SharePanel = () => sharePanelOpen ? (
+    <section className="mt-3 flex items-center gap-3 rounded-[18px] border border-[#ece6fa] bg-white p-3">
+      <img src={qrDataUrl} alt="QR" className="h-16 w-16 rounded-xl border border-[#eee9f6] p-1" />
+      <button type="button" onClick={copyLink} className="flex-1 rounded-xl bg-[#f2eeff] px-3 py-3 text-[11px] font-black text-[#4d36a8]">
+        <Copy className="ml-2 inline h-4 w-4" />{copied ? "تم النسخ" : "نسخ رابط الصفحة"}
+      </button>
+    </section>
+  ) : null;
+
+  const MobileBusinessProfile = () => (
+    <div className="md:hidden">
+      <div className="mx-auto w-full max-w-[430px] px-3 pb-5 pt-3">
+        <section className="rounded-[22px] border border-[#ebe7f2] bg-white p-4 shadow-[0_14px_38px_-34px_rgba(49,30,91,.5)]">
+          <Identity />
+          {mappedBusiness.description ? <p className="mt-3 border-t border-[#f0edf5] pt-3 text-[11px] leading-6 text-[#686171]">{mappedBusiness.description}</p> : null}
+        </section>
+
+        <div className="mt-3"><PrimaryAction /></div>
+        <div className="mt-2"><QuickActions /></div>
+        <SharePanel />
+
+        <ServicesGrid />
+        <div className="h-px bg-[#ece8f2]" />
+        <PortfolioGrid />
+        <div className="h-px bg-[#ece8f2]" />
+        <AboutProfile />
+
+        {businessBranches.length > 0 ? (
+          <details className="group mb-1 rounded-[18px] border border-[#eeeaf5] bg-white px-4 py-3">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f0edff] text-[#5D43EF]">
+                  <Building2 className="h-4 w-4" />
+                </span>
+                <div>
+                  <div className="text-[12px] font-black text-[#2e2446]">فروعنا</div>
+                  <div className="text-[9px] text-[#81798d]">{branchCountLabel}</div>
+                </div>
+              </div>
+              <span className="text-[#5D43EF] transition-transform group-open:rotate-180">⌄</span>
+            </summary>
+
+            <div className="mt-3 space-y-2 border-t border-[#f0edf5] pt-3">
+              {businessBranches.map((branch) => (
+                <div key={branch.id} className="rounded-[14px] bg-slate-50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate text-[11px] font-black text-[#2e2446]">{branch.name}</h3>
+                        {branch.isMain ? (
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[7px] font-black text-emerald-700">
+                            الرئيسي
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <p className="mt-1 text-[9px] leading-4 text-[#81798d]">
+                        {[branch.city, branch.district].filter(Boolean).join("، ")}
+                      </p>
+
+                      {branch.address ? (
+                        <p className="mt-1 text-[9px] leading-4 text-[#6d6678]">{branch.address}</p>
+                      ) : null}
+                    </div>
+
+                    <div className="flex shrink-0 gap-1.5">
+                      {branch.mapHref ? (
+                        <a
+                          href={branch.mapHref}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          aria-label={`موقع ${branch.name}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-50 text-violet-700"
+                        >
+                          <MapPin className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
+
+                      {branch.phone ? (
+                        <a
+                          href={`tel:${branch.phone}`}
+                          aria-label={`اتصال بفرع ${branch.name}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-700"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
+
+                      {branch.whatsapp ? (
+                        <a
+                          href={`https://wa.me/${branch.whatsapp}`}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          aria-label={`واتساب ${branch.name}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
-          </div>
-        </section>
-
-        {sharePanelOpen ? (
-          <section className={`mt-4 rounded-2xl border p-3 ${compactSurfaceClass}`}>
-            <div className="grid gap-3 md:grid-cols-[120px_minmax(0,1fr)] md:items-center">
-              <div className="mx-auto h-28 w-28 overflow-hidden rounded-xl border border-white/15 bg-white p-1.5">
-                <img src={qrDataUrl} alt="QR" className="h-full w-full object-contain" />
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <button type="button" onClick={copyLink} className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border text-sm font-bold ${compactSurfaceClass}`}>
-                  <Copy className="h-4 w-4" />
-                  نسخ الرابط
-                </button>
-                <a href={qrDataUrl} download="hee-qr.png" className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border text-sm font-bold ${compactSurfaceClass}`}>
-                  <Download className="h-4 w-4" />
-                  تنزيل QR
-                </a>
-                <PublicShareButton
-                  title={mappedBusiness.name}
-                  text={mappedBusiness.description ?? mappedBusiness.businessType}
-                  url={publicUrl}
-                  label="مشاركة الصفحة"
-                  fullWidth
-                  className={`rounded-xl border ${darkMode ? "border-white/10 bg-white/5 text-white" : "border-[#e8ebf7] bg-white text-slate-700"}`}
-                />
-                <div className="sm:col-span-2">
-                  <PublicSaveContact
-                    businessName={mappedBusiness.name}
-                    phone={mappedBusiness.phone}
-                    whatsapp={mappedBusiness.whatsapp}
-                    email={mappedBusiness.email}
-                    website={mappedBusiness.website}
-                    address={mappedBusiness.address}
-                    city={mappedBusiness.city}
-                    publicUrl={publicUrl}
-                  />
-                </div>
-              </div>
-            </div>
-            {copied ? <p className={`mt-2 text-xs ${darkMode ? "text-emerald-300" : "text-emerald-700"}`}>تم نسخ الرابط</p> : null}
-          </section>
+          </details>
         ) : null}
 
-        <div className="mt-4 space-y-4">
-          {orderedEnabledModules.map((module) => (
-            <div key={module.id}>{renderModuleSection(module.id)}</div>
-          ))}
+        <TeamStrip />
+        <InfoRow />
+        <div className="space-y-3">{renderRemainingModules(mobileCoreModules)}</div>
 
-          {showOffersSection ? <PublicOffersSection offers={mappedBusiness.offers} accentColor={accentColor} whatsapp={mappedBusiness.whatsapp} phone={mappedBusiness.phone} businessName={mappedBusiness.name} darkMode={darkMode} /> : null}
-
-          <PublicReviewsSummary slug={mappedBusiness.slug} />
-
-          <footer className={`pb-6 pt-2 text-center text-xs ${darkMode ? "text-slate-400" : "text-slate-500"}`}>
-            <button type="button" onClick={() => setSharePanelOpen((value) => !value)} className="inline-flex items-center gap-1 rounded-full border border-transparent px-2 py-1 hover:border-current">
-              <QrCode className="h-3.5 w-3.5" />
-              أدوات المشاركة
-            </button>
-            <a href="https://hee.sa" target="_blank" rel="noreferrer" className={`mr-3 ${darkMode ? "hover:text-slate-300" : "hover:text-slate-700"}`}>صُنع بواسطة HEE</a>
+        {normalizedSocialLinks.length > 0 ? (
+          <footer className="mt-5 flex items-center justify-between border-t border-[#ebe7f2] py-4">
+            <div className="flex gap-2">
+              {normalizedSocialLinks.slice(0, 5).map((link) => (
+                <a key={link.href} href={link.href} target="_blank" rel="noreferrer noopener"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#e7e1f2] text-[9px] font-black text-[#4b368f]">
+                  {link.label.slice(0, 1)}
+                </a>
+              ))}
+            </div>
+            <span className="text-[9px] font-black text-[#5D43EF]">HEE</span>
           </footer>
-        </div>
+        ) : null}
       </div>
+    </div>
+  );
+
+  const DesktopBusinessProfile = () => (
+    <div className="hidden md:block">
+      <div className="mx-auto w-full max-w-[1080px] px-7 py-6">
+        <header className="grid grid-cols-[minmax(0,1fr)_320px] items-center gap-7 border-b border-[#ebe7f1] pb-5">
+          <div>
+            <Identity desktop />
+            {mappedBusiness.description ? (
+              <p className="mr-[108px] mt-2 max-w-[650px] text-[12px] leading-6 text-[#686171]">
+                {mappedBusiness.description}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="space-y-2.5">
+            <PrimaryAction desktop />
+            <QuickActions desktop />
+          </div>
+        </header>
+
+        <SharePanel />
+
+        <div className="[&>#services-section]:py-5 [&>#services-section>div:first-child]:mb-3 [&>#services-section_h2]:text-[20px] [&>#services-section>div:last-child]:gap-3 [&>#services-section_article]:rounded-[16px] [&>#services-section_article]:p-3 [&>#services-section_article>div]:h-10 [&>#services-section_article>div]:w-10 [&>#services-section_article_h3]:mt-2 [&>#services-section_article_h3]:min-h-0 [&>#services-section_article_h3]:text-[11px]">
+          <ServicesGrid desktop />
+        </div>
+
+        <div className="h-px bg-[#ebe7f1]" />
+
+        <div className="[&>#portfolio-section]:py-5 [&>#portfolio-section>div:first-child]:mb-3 [&>#portfolio-section_h2]:text-[20px] [&>#portfolio-section>div:last-child]:grid-cols-4 [&>#portfolio-section>div:last-child]:gap-3 [&>#portfolio-section_a]:aspect-[1.55/1] [&>#portfolio-section_a]:rounded-[16px]">
+          <PortfolioGrid desktop />
+        </div>
+
+        <div className="h-px bg-[#ebe7f1]" />
+
+        <div className="[&>section]:grid-cols-[1.55fr_.7fr] [&>section]:gap-3 [&>section]:py-5 [&>section>div]:rounded-[18px] [&>section>div]:p-5 [&>section>a]:min-h-[176px] [&>section>a]:rounded-[18px] [&>section>a]:p-5">
+          <AboutProfile desktop />
+        </div>
+
+        {businessBranches.length > 0 ? (
+          <details className="group rounded-[16px] border border-[#eeeaf5] bg-white px-5 py-4">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f0edff] text-[#5D43EF]">
+                  <Building2 className="h-4 w-4" />
+                </span>
+                <div>
+                  <div className="text-[13px] font-black text-[#2e2446]">فروعنا</div>
+                  <div className="text-[9px] text-[#81798d]">{branchCountLabel}</div>
+                </div>
+              </div>
+              <span className="text-[#5D43EF] transition-transform group-open:rotate-180">⌄</span>
+            </summary>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#f0edf5] pt-4">
+              {businessBranches.map((branch) => (
+                <div key={branch.id} className="rounded-[15px] bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate text-[12px] font-black text-[#2e2446]">{branch.name}</h3>
+                        {branch.isMain ? (
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[7px] font-black text-emerald-700">
+                            الرئيسي
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <p className="mt-1 text-[9px] text-[#81798d]">
+                        {[branch.city, branch.district].filter(Boolean).join("، ")}
+                      </p>
+
+                      {branch.address ? (
+                        <p className="mt-1 text-[9px] leading-4 text-[#6d6678]">{branch.address}</p>
+                      ) : null}
+                    </div>
+
+                    <div className="flex shrink-0 gap-1.5">
+                      {branch.mapHref ? (
+                        <a
+                          href={branch.mapHref}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          aria-label={`موقع ${branch.name}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-50 text-violet-700"
+                        >
+                          <MapPin className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
+
+                      {branch.phone ? (
+                        <a
+                          href={`tel:${branch.phone}`}
+                          aria-label={`اتصال بفرع ${branch.name}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-700"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
+
+                      {branch.whatsapp ? (
+                        <a
+                          href={`https://wa.me/${branch.whatsapp}`}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          aria-label={`واتساب ${branch.name}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        ) : null}
+
+        <div className="[&>#contact-team-section]:py-5 [&>#contact-team-section_h2]:mb-4 [&>#contact-team-section_h2]:text-[20px] [&>#contact-team-section>div]:gap-4 [&>#contact-team-section_a]:w-[92px] [&>#contact-team-section_a>div]:h-[60px] [&>#contact-team-section_a>div]:w-[60px]">
+          <TeamStrip desktop />
+        </div>
+
+        <div className="[&>section]:gap-3 [&>section]:py-4 [&>section>*]:rounded-[16px] [&>section>*]:p-3">
+          <InfoRow desktop />
+        </div>
+
+        <div className="space-y-3">{renderRemainingModules(desktopCoreModules)}</div>
+
+        <footer className="mt-5 flex items-center justify-between border-t border-[#e9e5ef] py-4">
+          <div className="flex gap-2">
+            {normalizedSocialLinks.slice(0, 6).map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#e7e1f2] text-[9px] font-black text-[#4b368f]"
+              >
+                {link.label.slice(0, 1)}
+              </a>
+            ))}
+          </div>
+          <span className="text-[9px] font-black text-[#5D43EF]">صفحة أعمال ذكية من HEE</span>
+        </footer>
+      </div>
+    </div>
+  );
+
+  return (
+    <main
+      dir="rtl"
+      data-renderer="public-business-page-v11-desktop-rebuild"
+      style={{ "--hee-accent": accentColor } as React.CSSProperties}
+      className="min-h-screen bg-[#faf9fc] pb-[72px] text-[#211642] md:pb-0"
+    >
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+
+      {/* No cover/hero. Mobile and desktop are deliberately separate render trees. */}
+      <MobileBusinessProfile />
+      <DesktopBusinessProfile />
 
       <PublicStickyMobileActions
         businessKind={businessKind}
-        servicesLabel={serviceSectionTitle || (businessKind === "restaurant" ? "القائمة" : "الخدمات")}
+        servicesLabel={serviceSectionTitle || "الخدمات"}
         contactHref={contactNavTarget}
         hasOffers={showOffersSection}
         hasLocation={Boolean(showLocationSection)}
-        hasGallery={false}
+        hasGallery={Boolean(showPortfolio)}
         hasReviews={false}
         hasServices={showServicesSection}
         hasProducts={showProductsSection}

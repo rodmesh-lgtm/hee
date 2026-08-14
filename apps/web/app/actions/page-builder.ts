@@ -306,7 +306,7 @@ export async function saveIdentityStepAction(_prev: BuilderActionState, formData
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم حفظ الهوية بنجاح" };
 }
 
@@ -333,7 +333,7 @@ export async function saveSlugStepAction(_prev: BuilderActionState, formData: Fo
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${parsed.data}`);
+  revalidatePath(`/${parsed.data}`);
   return { success: "تم حفظ الرابط العام" };
 }
 
@@ -390,7 +390,7 @@ export async function saveContactStepAction(_prev: BuilderActionState, formData:
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم حفظ بيانات التواصل" };
 }
 
@@ -424,7 +424,7 @@ export async function saveLocationStepAction(_prev: BuilderActionState, formData
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم حفظ بيانات الموقع" };
 }
 
@@ -631,7 +631,7 @@ export async function saveMyPageAction(_prev: BuilderActionState, formData: Form
 
   revalidatePath("/dashboard/my-page");
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
 
   return { success: "تم حفظ التغييرات بنجاح" };
 }
@@ -684,7 +684,7 @@ export async function saveWorkingHoursStepAction(_prev: BuilderActionState, form
   }
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم حفظ ساعات العمل" };
 }
 
@@ -745,7 +745,7 @@ export async function addProductBuilderAction(_prev: BuilderActionState, formDat
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تمت إضافة المنتج" };
 }
 
@@ -813,7 +813,7 @@ export async function updateProductBuilderAction(prevOrFormData: BuilderActionSt
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم تحديث المنتج" };
 }
 
@@ -832,7 +832,7 @@ export async function deleteProductBuilderAction(prevOrFormData: BuilderActionSt
 
   await db.product.delete({ where: { id: product.id } });
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم حذف المنتج" };
 }
 
@@ -856,7 +856,7 @@ export async function reorderProductsBuilderAction(prevOrFormData: BuilderAction
   }
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم تحديث ترتيب المنتجات" };
 }
 
@@ -903,7 +903,7 @@ export async function addServiceBuilderAction(_prev: BuilderActionState, formDat
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تمت إضافة الخدمة" };
 }
 
@@ -957,7 +957,7 @@ export async function updateServiceBuilderAction(prevOrFormData: BuilderActionSt
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم تحديث الخدمة" };
 }
 
@@ -976,7 +976,7 @@ export async function deleteServiceBuilderAction(prevOrFormData: BuilderActionSt
 
   await db.service.delete({ where: { id: service.id } });
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم حذف الخدمة" };
 }
 
@@ -1023,7 +1023,7 @@ export async function addOfferBuilderAction(_prev: BuilderActionState, formData:
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تمت إضافة العرض" };
 }
 
@@ -1077,7 +1077,7 @@ export async function updateOfferBuilderAction(prevOrFormData: BuilderActionStat
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم تحديث العرض" };
 }
 
@@ -1096,7 +1096,7 @@ export async function deleteOfferBuilderAction(prevOrFormData: BuilderActionStat
 
   await db.offer.delete({ where: { id: offer.id } });
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم حذف العرض" };
 }
 
@@ -1124,7 +1124,7 @@ export async function addGalleryItemBuilderAction(_prev: BuilderActionState, for
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تمت إضافة صورة المعرض" };
 }
 
@@ -1154,7 +1154,7 @@ export async function updateGalleryItemBuilderAction(prevOrFormData: BuilderActi
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم تحديث الصورة" };
 }
 
@@ -1173,7 +1173,7 @@ export async function deleteGalleryItemBuilderAction(prevOrFormData: BuilderActi
 
   await db.galleryItem.delete({ where: { id: item.id } });
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم حذف الصورة" };
 }
 
@@ -1197,7 +1197,7 @@ export async function reorderGalleryBuilderAction(prevOrFormData: BuilderActionS
   }
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم تحديث ترتيب المعرض" };
 }
 
@@ -1225,7 +1225,7 @@ export async function saveBrandingStepAction(_prev: BuilderActionState, formData
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم حفظ إعدادات الهوية" };
 }
 
@@ -1278,7 +1278,7 @@ export async function publishBusinessAction(_prev: BuilderActionState, _formData
   });
 
   revalidatePath("/dashboard/page-builder");
-  revalidatePath(`/b/${parsedSlug.data}`);
+  revalidatePath(`/${parsedSlug.data}`);
 
   return { success: "مبروك، صفحتك أصبحت جاهزة لاستقبال العملاء" };
 }
@@ -1317,7 +1317,7 @@ export async function addCustomButtonAction(_prev: BuilderActionState, formData:
   });
 
   revalidatePath("/dashboard/my-page");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تمت إضافة الزر" };
 }
 
@@ -1356,7 +1356,7 @@ export async function updateCustomButtonAction(prevOrFormData: BuilderActionStat
   });
 
   revalidatePath("/dashboard/my-page");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم تحديث الزر" };
 }
 
@@ -1376,7 +1376,7 @@ export async function deleteCustomButtonAction(prevOrFormData: BuilderActionStat
   await db.socialLink.delete({ where: { id: existing.id } });
 
   revalidatePath("/dashboard/my-page");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم حذف الزر" };
 }
 
@@ -1400,6 +1400,6 @@ export async function reorderCustomButtonsAction(prevOrFormData: BuilderActionSt
   }
 
   revalidatePath("/dashboard/my-page");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
   return { success: "تم تحديث ترتيب الأزرار" };
 }

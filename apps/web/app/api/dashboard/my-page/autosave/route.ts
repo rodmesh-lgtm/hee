@@ -306,7 +306,7 @@ export async function POST(request: Request) {
   });
 
   revalidatePath("/dashboard/my-page");
-  revalidatePath(`/b/${business.slug}`);
+  revalidatePath(`/${business.slug}`);
 
   return NextResponse.json({ ok: true, changedKeys });
 }

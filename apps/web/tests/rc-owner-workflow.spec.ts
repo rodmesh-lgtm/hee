@@ -93,7 +93,7 @@ function makeModules() {
     id: `portfolio-${index + 1}`,
     title: `مشروع رقم ${index + 1}`,
     description: `وصف مختصر للمشروع ${index + 1}`,
-    imageUrl: `https://dummyimage.com/1200x800/e8eeff/1f2552&text=${encodeURIComponent(`Project ${index + 1}`)}`,
+    imageUrl: "/demo/restaurant-cover.jpg",
     url: `https://example.com/projects/${index + 1}`,
     ctaLabel: "تفاصيل المشروع",
     visible: true,
@@ -221,6 +221,8 @@ async function seedBusiness(): Promise<SeededBusiness> {
       buttonColor: "#4F46E5",
       buttonStyle: "rounded",
       cardStyle: "glass",
+      logoUrl: "/demo/restaurant-logo.jpg",
+      coverUrl: "/demo/restaurant-cover.jpg",
       pageModules: serializePageModules(seeded.modules),
       bookingAvailable: true,
       onboardingCompleted: true,
@@ -319,7 +321,7 @@ async function seedBusiness(): Promise<SeededBusiness> {
     sessionToken,
     businessId: business.id,
     slug: business.slug,
-    publicUrl: `${baseUrl}/b/${business.slug}`,
+    publicUrl: `${baseUrl}/${business.slug}`,
     dashboardUrl: `${baseUrl}/dashboard/my-page?edit=1`,
     snapshot: {
       serviceCount: snapshot.services.length,
@@ -483,6 +485,7 @@ test.describe.serial("RC owner workflow", () => {
 
       await stage("review-publish", async () => {
         await desktopPage.reload({ waitUntil: "domcontentloaded" });
+        await expect(desktopPage.getByRole("button", { name: "11. المراجعة" })).toBeVisible({ timeout: 15000 });
         await desktopPage.getByRole("button", { name: "11. المراجعة" }).click();
 
         await expect(desktopPage.getByRole("button", { name: "نشر الصفحة" })).toBeVisible({ timeout: 15000 });
@@ -559,8 +562,8 @@ test.describe.serial("RC owner workflow", () => {
         expect(portfolioBox).not.toBeNull();
         expect(companyProfileBox).not.toBeNull();
         if (contactTeamBox && portfolioBox && companyProfileBox) {
-          expect(companyProfileBox.y).toBeLessThan(portfolioBox.y);
-          expect(portfolioBox.y).toBeLessThan(contactTeamBox.y);
+          expect(portfolioBox.y).toBeLessThan(companyProfileBox.y);
+          expect(companyProfileBox.y).toBeLessThan(contactTeamBox.y);
         }
       });
 

@@ -108,6 +108,12 @@ model Business {
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
 
+  // HEE V3 — business profile
+  digitalDestinationType String?
+  companyProfileUrl      String?
+  companyProfileTitle    String?
+  licenseNumber          String?
+
   owner         User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   plan          BusinessPlan?    @relation(fields: [planId], references: [id], onDelete: SetNull)
   products      Product[]
@@ -122,6 +128,11 @@ model Business {
   galleryItems  GalleryItem[]
   subscriptions Subscription[]
   analytics     AnalyticsEvent[]
+
+  // HEE V3 — branches, departments and direct contacts
+  branches       Branch[]
+  departments    Department[]
+  contactPersons ContactPerson[]
 
   @@index([ownerId])
   @@index([planId])
@@ -403,4 +414,79 @@ model StoredObject {
 
   @@index([folder])
   @@index([createdAt])
+}
+
+// ============================================================
+// HEE V3 — Smart Business Profile
+// ============================================================
+
+model Branch {
+  id             String   @id @default(uuid())
+  businessId     String
+  name           String
+  city           String?
+  district       String?
+  address        String?
+  phone          String?
+  whatsapp       String?
+  googleMapsLink String?
+  isMain         Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contacts ContactPerson[]
+
+  @@index([businessId])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  businessId  String
+  name        String
+  description String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contacts ContactPerson[]
+
+  @@index([businessId])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model ContactPerson {
+  id           String   @id @default(uuid())
+  businessId   String
+  departmentId String?
+  branchId     String?
+  name         String
+  jobTitle     String?
+  phone        String?
+  whatsapp     String?
+  email        String?
+  imageUrl     String?
+  isPrimary    Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  branch     Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([businessId])
+  @@index([departmentId])
+  @@index([branchId])
+  @@index([isActive])
+  @@index([sortOrder])
 }

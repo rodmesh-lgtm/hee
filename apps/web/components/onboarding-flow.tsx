@@ -288,7 +288,7 @@ export function OnboardingFlow({ initialStep, initialBusiness }: OnboardingFlowP
                   setSlug(nextValue);
                   checkSlugAvailability(nextValue);
                 }} className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none" dir="ltr" placeholder="my-business" />
-                <p className="mt-2 text-sm text-slate-600">{slugStatus === "checking" ? "جارٍ التحقق..." : slugStatus === "available" ? "✓ الرابط متاح" : slugStatus === "taken" ? "✕ هذا الرابط مستخدم" : `مثال: hee.sa/b/${generatedSlug || "my-business"}`}</p>
+                <p className="mt-2 text-sm text-slate-600">{slugStatus === "checking" ? "جارٍ التحقق..." : slugStatus === "available" ? "✓ الرابط متاح" : slugStatus === "taken" ? "✕ هذا الرابط مستخدم" : `مثال: hee.sa/${generatedSlug || "my-business"}`}</p>
               </label>
 
               <label className="block text-sm">

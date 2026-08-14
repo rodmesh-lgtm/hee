@@ -1,0 +1,7 @@
+V10 STATIC QA
+[PASS] split mobile renderer
+[PASS] split desktop renderer
+[PASS] new renderer marker
+[PASS] no rendered cover reference
+[PASS] preserves ordered module fallback
+[PASS] preserves sticky mobile actions
