@@ -1,11 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { Suspense, useActionState } from "react";
+import { useSearchParams } from "next/navigation";
+import { FaApple } from "react-icons/fa";
+import { FcGoogle } from "react-icons/fc";
 import { loginAction } from "../actions/auth";
 
-export default function LoginPage() {
+const oauthMessages: Record<string, string> = {
+  "provider-unavailable": "تسجيل الدخول عبر هذا المزود غير مفعّل بعد. يمكنك استخدام البريد الإلكتروني حالياً.",
+  "provider-cancelled": "تم إلغاء تسجيل الدخول من المزود.",
+  "invalid-state": "انتهت جلسة تسجيل الدخول الآمن. أعد المحاولة.",
+  "missing-callback-data": "لم تكتمل بيانات تسجيل الدخول. أعد المحاولة.",
+  "account-not-found": "لا يوجد حساب HEE مرتبط بهذا البريد. أنشئ حساباً أولاً.",
+  "authentication-failed": "تعذر التحقق من تسجيل الدخول. أعد المحاولة.",
+  "start-failed": "تعذر بدء تسجيل الدخول الخارجي. أعد المحاولة لاحقاً.",
+};
+
+function LoginContent() {
   const [state, action, pending] = useActionState(loginAction, { error: "" });
+  const searchParams = useSearchParams();
+  const oauthError = oauthMessages[searchParams.get("oauth") ?? ""];
 
   return (
     <main className="min-h-screen bg-[#f7f8fb] text-slate-900">
@@ -17,13 +32,14 @@ export default function LoginPage() {
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          {oauthError ? <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm leading-6 text-amber-800">{oauthError}</p> : null}
           <div className="grid gap-3">
             <a href="/api/auth/oauth/google?mode=login" className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50">
-              <span className="grid h-5 w-5 place-items-center rounded-full border border-slate-200 text-[11px] font-black">G</span>
+              <FcGoogle className="h-5 w-5" aria-hidden="true" />
               المتابعة باستخدام Google
             </a>
             <a href="/api/auth/oauth/apple?mode=login" className="flex w-full items-center justify-center gap-3 rounded-2xl bg-black px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-900">
-              <span className="text-lg leading-none">●</span>
+              <FaApple className="h-5 w-5" aria-hidden="true" />
               المتابعة باستخدام Apple
             </a>
           </div>
@@ -45,4 +61,8 @@ export default function LoginPage() {
       </div>
     </main>
   );
+}
+
+export default function LoginPage() {
+  return <Suspense fallback={<main className="min-h-screen bg-[#f7f8fb]" />}><LoginContent /></Suspense>;
 }
