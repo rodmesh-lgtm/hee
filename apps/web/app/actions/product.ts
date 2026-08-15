@@ -3,41 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
-import { getCurrentUser, getCurrentUserForWrites } from "../lib/auth";
+import { getOwnedBusinessWithPlanForWrite, ownsBusinessRecord } from "../lib/ownership";
 import { productSchema } from "../lib/validation";
 
-export type ActionState = {
-  error?: string;
-};
+export type ActionState = { error?: string };
 
-const limits = {
-  FREE: 3,
-  BUSINESS: 10,
-  PRO: 30,
-} as const;
+const limits = { FREE: 3, BUSINESS: 10, PRO: 30 } as const;
 
 export async function addProductAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await getCurrentUserForWrites();
-  if (!user) {
-    return { error: "وضع المعاينة QA للقراءة فقط" };
-  }
+  const business = await getOwnedBusinessWithPlanForWrite();
+  if (!business) return { error: "يرجى إنشاء نشاط أولاً أو الخروج من وضع المعاينة" };
 
-  const business = await db.business.findFirst({
-    where: { ownerId: user.id },
-    include: { plan: true },
-  });
-  if (!business) {
-    return { error: "يرجى إنشاء نشاط أولاً" };
-  }
-
-  const count = await db.product.count({ where: { businessId: business.id } });
+  const count = await db.product.count({ where: { businessId: business.id, deletedAt: null } });
   const planCode = business.plan?.code?.toUpperCase();
   const limit = planCode && planCode in limits ? limits[planCode as keyof typeof limits] : limits.FREE;
-  if (count >= limit) {
-    return { error: `وصلت إلى الحد المسموح به (${limit} منتجات)` };
-  }
+  if (count >= limit) return { error: `وصلت إلى الحد المسموح به (${limit} منتجات)` };
 
-  const payload = {
+  const parsed = productSchema.safeParse({
     name: String(formData.get("name") ?? ""),
     description: String(formData.get("description") ?? ""),
     unit: String(formData.get("unit") ?? ""),
@@ -45,47 +27,23 @@ export async function addProductAction(_prevState: ActionState, formData: FormDa
     oldPrice: String(formData.get("oldPrice") ?? ""),
     imageUrl: String(formData.get("imageUrl") ?? ""),
     isActive: String(formData.get("isActive") ?? "on") === "on",
-  };
-
-  const parsed = productSchema.safeParse(payload);
-  if (!parsed.success) {
-    const message = parsed.error.issues[0]?.message ?? "بيانات المنتج غير صالحة";
-    return { error: message };
-  }
-
-  await db.product.create({
-    data: {
-      businessId: business.id,
-      ...parsed.data,
-    },
   });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "بيانات المنتج غير صالحة" };
 
+  await db.product.create({ data: { businessId: business.id, ...parsed.data } });
   revalidatePath("/dashboard/products");
   revalidatePath("/dashboard");
+  revalidatePath(`/${business.slug}`);
   redirect("/dashboard/products");
 }
 
 export async function updateProductAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await getCurrentUserForWrites();
-  if (!user) {
-    return { error: "وضع المعاينة QA للقراءة فقط" };
-  }
+  const business = await getOwnedBusinessWithPlanForWrite();
+  if (!business) return { error: "لا يوجد نشاط متاح للتعديل" };
+  const id = String(formData.get("productId") ?? "").trim();
+  if (!(await ownsBusinessRecord("product", id, business.id))) return { error: "المنتج غير موجود أو لا تملك صلاحية تعديله" };
 
-  const id = String(formData.get("productId") ?? "");
-  const product = await db.product.findFirst({
-    where: {
-      id,
-      business: {
-        ownerId: user.id,
-      },
-    },
-  });
-
-  if (!product) {
-    return { error: "المنتج غير موجود أو لا تملك صلاحية تعديله" };
-  }
-
-  const payload = {
+  const parsed = productSchema.safeParse({
     name: String(formData.get("name") ?? ""),
     description: String(formData.get("description") ?? ""),
     unit: String(formData.get("unit") ?? ""),
@@ -93,45 +51,23 @@ export async function updateProductAction(_prevState: ActionState, formData: For
     oldPrice: String(formData.get("oldPrice") ?? ""),
     imageUrl: String(formData.get("imageUrl") ?? ""),
     isActive: String(formData.get("isActive") ?? "off") === "on",
-  };
-
-  const parsed = productSchema.safeParse(payload);
-  if (!parsed.success) {
-    const message = parsed.error.issues[0]?.message ?? "بيانات المنتج غير صالحة";
-    return { error: message };
-  }
-
-  await db.product.update({
-    where: { id },
-    data: parsed.data,
   });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "بيانات المنتج غير صالحة" };
 
+  await db.product.update({ where: { id }, data: parsed.data });
   revalidatePath("/dashboard/products");
+  revalidatePath(`/${business.slug}`);
   redirect("/dashboard/products");
 }
 
 export async function deleteProductAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await getCurrentUserForWrites();
-  if (!user) {
-    return { error: "وضع المعاينة QA للقراءة فقط" };
-  }
+  const business = await getOwnedBusinessWithPlanForWrite();
+  if (!business) return { error: "لا يوجد نشاط متاح للتعديل" };
+  const id = String(formData.get("productId") ?? "").trim();
+  if (!(await ownsBusinessRecord("product", id, business.id))) return { error: "المنتج غير موجود أو لا تملك صلاحية حذفه" };
 
-  const id = String(formData.get("productId") ?? "");
-  const product = await db.product.findFirst({
-    where: {
-      id,
-      business: {
-        ownerId: user.id,
-      },
-    },
-  });
-
-  if (!product) {
-    return { error: "المنتج غير موجود أو لا تملك صلاحية حذفه" };
-  }
-
-  await db.product.delete({ where: { id } });
-
+  await db.product.deleteMany({ where: { id, businessId: business.id } });
   revalidatePath("/dashboard/products");
+  revalidatePath(`/${business.slug}`);
   redirect("/dashboard/products");
 }
