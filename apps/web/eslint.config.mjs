@@ -13,6 +13,16 @@ const eslintConfig = defineConfig([
     "components/public-business-page.before-*.tsx",
     "next-env.d.ts",
   ]),
+  {
+    files: [
+      "components/public/public-action-dialog.tsx",
+      "components/public/public-favorite-button.tsx",
+      "components/public/public-smart-action-sheet.tsx",
+    ],
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
