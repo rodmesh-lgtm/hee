@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "../../../../../lib/auth";
+import { db } from "../../../../../lib/db";
 import { isQaAuditModeUser } from "../../../../../lib/qa-audit";
-import { getPersistentStorageAdapter } from "../../../../../lib/storage";
+import { extractStorageKeyFromUrl, getPersistentStorageAdapter } from "../../../../../lib/storage";
 
 const MAX_PDF_BYTES = Number(process.env.COMPANY_PROFILE_MAX_BYTES ?? 5 * 1024 * 1024);
 
@@ -14,6 +15,35 @@ function hasPdfExtension(fileName: string) {
   return fileName.toLowerCase().endsWith(".pdf");
 }
 
+function getOwnedCompanyProfileStorageKey(pageModules: unknown) {
+  if (!Array.isArray(pageModules)) return "";
+
+  for (const rawModule of pageModules) {
+    if (!rawModule || typeof rawModule !== "object") continue;
+    const module = rawModule as { id?: unknown; config?: unknown };
+    if (module.id !== "companyProfile" || !module.config || typeof module.config !== "object") continue;
+
+    const config = module.config as { companyProfile?: unknown };
+    if (!config.companyProfile || typeof config.companyProfile !== "object") return "";
+    const profile = config.companyProfile as { pdfStorageKey?: unknown; pdfUrl?: unknown };
+
+    const explicitKey = typeof profile.pdfStorageKey === "string" ? profile.pdfStorageKey.trim() : "";
+    if (explicitKey) return explicitKey;
+
+    const pdfUrl = typeof profile.pdfUrl === "string" ? profile.pdfUrl : "";
+    return extractStorageKeyFromUrl(pdfUrl);
+  }
+
+  return "";
+}
+
+async function getOwnedBusiness(userId: string) {
+  return db.business.findFirst({
+    where: { ownerId: userId },
+    select: { id: true, pageModules: true },
+  });
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
@@ -22,6 +52,11 @@ export async function POST(request: Request) {
 
   if (await isQaAuditModeUser(user.id)) {
     return NextResponse.json({ error: "وضع المعاينة QA للقراءة فقط" }, { status: 403 });
+  }
+
+  const business = await getOwnedBusiness(user.id);
+  if (!business) {
+    return NextResponse.json({ error: "لا يوجد نشاط مرتبط بهذا الحساب" }, { status: 404 });
   }
 
   let formData: FormData;
@@ -54,14 +89,19 @@ export async function POST(request: Request) {
     lastModified: Date.now(),
   });
 
-  const previousStorageKey = String(formData.get("previousStorageKey") ?? "").trim();
+  const requestedPreviousStorageKey = String(formData.get("previousStorageKey") ?? "").trim();
+  const ownedPreviousStorageKey = getOwnedCompanyProfileStorageKey(business.pageModules);
 
   try {
     const storage = getPersistentStorageAdapter();
     const uploaded = await storage.upload({ file: normalizedPdfFile, folder: "company-profiles" });
 
-    if (previousStorageKey && previousStorageKey !== uploaded.storageKey) {
-      await storage.remove({ storageKey: previousStorageKey, folder: "company-profiles" });
+    if (
+      requestedPreviousStorageKey &&
+      requestedPreviousStorageKey === ownedPreviousStorageKey &&
+      requestedPreviousStorageKey !== uploaded.storageKey
+    ) {
+      await storage.remove({ storageKey: requestedPreviousStorageKey, folder: "company-profiles" });
     }
 
     return NextResponse.json({
@@ -87,16 +127,26 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "وضع المعاينة QA للقراءة فقط" }, { status: 403 });
   }
 
+  const business = await getOwnedBusiness(user.id);
+  if (!business) {
+    return NextResponse.json({ error: "لا يوجد نشاط مرتبط بهذا الحساب" }, { status: 404 });
+  }
+
   let body: { storageKey?: string } = {};
   try {
-    body = (await request.json().catch(() => ({}))) as { storageKey?: string };
+    body = (await request.json()) as { storageKey?: string };
   } catch {
-    body = {};
+    return NextResponse.json({ error: "بيانات الحذف غير صالحة" }, { status: 400 });
   }
 
   const storageKey = String(body.storageKey ?? "").trim();
   if (!storageKey) {
     return NextResponse.json({ ok: true });
+  }
+
+  const ownedStorageKey = getOwnedCompanyProfileStorageKey(business.pageModules);
+  if (!ownedStorageKey || storageKey !== ownedStorageKey) {
+    return NextResponse.json({ error: "الملف غير تابع لهذا النشاط" }, { status: 403 });
   }
 
   const storage = getPersistentStorageAdapter();
