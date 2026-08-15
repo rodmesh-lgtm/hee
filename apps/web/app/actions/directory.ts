@@ -51,12 +51,12 @@ export async function createBranchAction(formData: FormData) {
   if (!business) fail("error-business");
   const name = text(formData, "name");
   if (!name) fail("error-required");
-  const branchCount = await db.branch.count({ where: { businessId: business.id } });
-  const isMain = branchCount === 0 || formData.get("isMain") === "on";
+  const activeBranchCount = await db.branch.count({ where: { businessId: business.id, isActive: true } });
+  const isMain = activeBranchCount === 0 || formData.get("isMain") === "on";
   const nextSort = (await db.branch.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
   await db.$transaction(async (tx) => {
     if (isMain) await tx.branch.updateMany({ where: { businessId: business.id }, data: { isMain: false } });
-    await tx.branch.create({ data: { businessId: business.id, name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain, sortOrder: nextSort + 1 } });
+    await tx.branch.create({ data: { businessId: business.id, name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain, isActive: true, sortOrder: nextSort + 1 } });
   });
   finish(business.slug, "branch-created");
 }
@@ -68,11 +68,19 @@ export async function updateBranchAction(formData: FormData) {
   const name = text(formData, "name");
   const current = id ? await db.branch.findFirst({ where: { id, businessId: business.id } }) : null;
   if (!id || !name || !current) fail("error-not-found");
-  const requestedMain = formData.get("isMain") === "on";
-  const isMain = requestedMain || current.isMain;
+  const nextActive = formData.get("isActive") === "on";
+  const requestedMain = nextActive && formData.get("isMain") === "on";
   await db.$transaction(async (tx) => {
     if (requestedMain) await tx.branch.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isMain: false } });
-    await tx.branch.update({ where: { id }, data: { name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain, isActive: formData.get("isActive") === "on", sortOrder: integer(formData,"sortOrder") } });
+    await tx.branch.update({ where: { id }, data: { name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain: requestedMain || (current.isMain && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
+    if (!nextActive) {
+      await tx.contactPerson.updateMany({ where: { businessId: business.id, branchId: id }, data: { branchId: null } });
+    }
+    const activeMain = await tx.branch.findFirst({ where: { businessId: business.id, isActive: true, isMain: true }, select: { id: true } });
+    if (!activeMain) {
+      const replacement = await tx.branch.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
+      if (replacement) await tx.branch.update({ where: { id: replacement.id }, data: { isMain: true } });
+    }
   });
   finish(business.slug, "branch-updated");
 }
@@ -130,12 +138,12 @@ export async function createContactPersonAction(formData: FormData) {
   const departmentId = optional(formData, "departmentId");
   const branchId = optional(formData, "branchId");
   if (!(await belongsToBusiness("department", departmentId, business.id)) || !(await belongsToBusiness("branch", branchId, business.id))) fail("error-relation");
-  const contactCount = await db.contactPerson.count({ where: { businessId: business.id } });
-  const isPrimary = contactCount === 0 || formData.get("isPrimary") === "on";
+  const activeContactCount = await db.contactPerson.count({ where: { businessId: business.id, isActive: true } });
+  const isPrimary = activeContactCount === 0 || formData.get("isPrimary") === "on";
   const nextSort = (await db.contactPerson.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
   await db.$transaction(async (tx) => {
     if (isPrimary) await tx.contactPerson.updateMany({ where: { businessId: business.id }, data: { isPrimary: false } });
-    await tx.contactPerson.create({ data: { businessId: business.id, name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: optional(formData,"imageUrl"), isPrimary, sortOrder: nextSort + 1 } });
+    await tx.contactPerson.create({ data: { businessId: business.id, name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: optional(formData,"imageUrl"), isPrimary, isActive: true, sortOrder: nextSort + 1 } });
   });
   finish(business.slug, "contact-created");
 }
@@ -150,11 +158,16 @@ export async function updateContactPersonAction(formData: FormData) {
   const departmentId = optional(formData, "departmentId");
   const branchId = optional(formData, "branchId");
   if (!(await belongsToBusiness("department", departmentId, business.id)) || !(await belongsToBusiness("branch", branchId, business.id))) fail("error-relation");
-  const requestedPrimary = formData.get("isPrimary") === "on";
-  const isPrimary = requestedPrimary || current.isPrimary;
+  const nextActive = formData.get("isActive") === "on";
+  const requestedPrimary = nextActive && formData.get("isPrimary") === "on";
   await db.$transaction(async (tx) => {
     if (requestedPrimary) await tx.contactPerson.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isPrimary: false } });
-    await tx.contactPerson.update({ where: { id }, data: { name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: optional(formData,"imageUrl"), isPrimary, isActive: formData.get("isActive") === "on", sortOrder: integer(formData,"sortOrder") } });
+    await tx.contactPerson.update({ where: { id }, data: { name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: optional(formData,"imageUrl"), isPrimary: requestedPrimary || (current.isPrimary && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
+    const activePrimary = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true, isPrimary: true }, select: { id: true } });
+    if (!activePrimary) {
+      const replacement = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
+      if (replacement) await tx.contactPerson.update({ where: { id: replacement.id }, data: { isPrimary: true } });
+    }
   });
   finish(business.slug, "contact-updated");
 }
