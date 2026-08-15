@@ -17,6 +17,9 @@ async function ensureRateLimitTable() {
     )
   `);
   await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RequestRateLimit_updatedAt_idx" ON "RequestRateLimit"("updatedAt")`);
+  // A stable hashed key is kept per scope/business/identity. Prune cold entries so bot traffic
+  // cannot make this defensive table grow without bound. This runs once per server process.
+  await db.$executeRawUnsafe(`DELETE FROM "RequestRateLimit" WHERE "updatedAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`);
   rateLimitTableReady = true;
 }
 
