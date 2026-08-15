@@ -18,16 +18,47 @@ model User {
   id           String    @id @default(uuid())
   name         String
   email        String    @unique
-  passwordHash String
+  passwordHash String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  sessions   Session[]
-  businesses Business[]
+  sessions       Session[]
+  businesses     Business[]
+  authIdentities AuthIdentity[]
 
   @@index([email])
   @@index([deletedAt])
+}
+
+model AuthIdentity {
+  id              String   @id @default(uuid())
+  userId          String
+  provider        String
+  providerSubject String
+  providerEmail   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@index([providerEmail])
+}
+
+model OAuthState {
+  id           String   @id @default(uuid())
+  state        String   @unique
+  provider     String
+  nonce        String
+  codeVerifier String?
+  redirectTo   String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([provider])
+  @@index([expiresAt])
 }
 
 model Session {
@@ -77,7 +108,7 @@ model Business {
   website             String?
   country             String?
   city                String?
-  district            String?
+  district             String?
   googleMapsLink      String?
   whatsapp            String?
   phone               String?
@@ -360,20 +391,18 @@ model SocialLink {
   @@unique([businessId, platform])
   @@index([businessId])
   @@index([sortOrder])
+  @@index([isActive])
 }
 
 model Subscription {
-  id                     String    @id @default(uuid())
-  businessId             String
-  planId                 String
-  status                 String    @default("active")
-  provider               String?
-  providerCustomerId     String?
-  providerSubscriptionId String?
-  startsAt               DateTime  @default(now())
-  endsAt                 DateTime?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  id         String   @id @default(uuid())
+  businessId String
+  planId     String
+  status     String   @default("active")
+  startsAt   DateTime @default(now())
+  endsAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   business Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
   plan     BusinessPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
@@ -387,12 +416,7 @@ model AnalyticsEvent {
   id         String   @id @default(uuid())
   businessId String
   eventType  String
-  path       String?
-  referrer   String?
-  userAgent  String?
-  country    String?
-  city       String?
-  metadata   String?
+  metadata   Json?
   createdAt  DateTime @default(now())
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -401,24 +425,6 @@ model AnalyticsEvent {
   @@index([eventType])
   @@index([createdAt])
 }
-
-model StoredObject {
-  id        String   @id @default(uuid())
-  objectKey String   @unique
-  folder    String
-  fileName  String
-  mimeType  String
-  size      Int
-  data      Bytes
-  createdAt DateTime @default(now())
-
-  @@index([folder])
-  @@index([createdAt])
-}
-
-// ============================================================
-// HEE V3 — Smart Business Profile
-// ============================================================
 
 model Branch {
   id             String   @id @default(uuid())
@@ -489,4 +495,18 @@ model ContactPerson {
   @@index([branchId])
   @@index([isActive])
   @@index([sortOrder])
+}
+
+model StoredObject {
+  id        String   @id @default(uuid())
+  objectKey String   @unique
+  folder    String
+  fileName  String
+  mimeType  String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  @@index([folder])
+  @@index([createdAt])
 }
