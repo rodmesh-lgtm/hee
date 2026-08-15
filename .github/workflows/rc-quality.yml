@@ -36,5 +36,7 @@ jobs:
         run: npx prisma generate
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hee_ci
+      - name: TypeScript check
+        run: npx tsc --noEmit
       - name: Run unit tests
         run: npm run test:unit
