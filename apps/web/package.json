@@ -10,7 +10,9 @@
     "test:unit": "tsx --test tests/*.test.ts",
     "test:rc": "playwright test tests/rc-owner-workflow.spec.ts",
     "test:directory": "playwright test tests/directory-workflow.spec.ts",
-    "qa:handoff": "tsx scripts/generate-qa-handoff.ts"
+    "qa:handoff": "tsx scripts/generate-qa-handoff.ts",
+    "storage:audit": "tsx scripts/storage-audit.ts",
+    "storage:sweep": "tsx scripts/storage-audit.ts --delete"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
