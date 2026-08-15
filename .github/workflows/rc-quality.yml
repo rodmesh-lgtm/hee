@@ -34,6 +34,10 @@ jobs:
         run: npm ci
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
+      - name: Validate Prisma schema
+        run: npx prisma validate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hee_ci
       - name: Generate Prisma client
         run: npx prisma generate
         env:
