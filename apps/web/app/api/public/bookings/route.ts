@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "../../../lib/db";
 import { normalizePublicSlug } from "../../../lib/public-url";
+import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 
 const bookingSchema = z.object({
   slug: z.string().trim().min(4).max(80),
@@ -18,6 +19,13 @@ function isRealCalendarDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function rateLimited(retryAfterSeconds: number) {
+  return NextResponse.json(
+    { error: "تم إرسال عدد كبير من الحجوزات خلال فترة قصيرة. حاول مرة أخرى لاحقاً." },
+    { status: 429, headers: { "Retry-After": String(Math.max(1, retryAfterSeconds)) } },
+  );
 }
 
 export async function POST(request: Request) {
@@ -42,6 +50,14 @@ export async function POST(request: Request) {
   if (!business.bookingAvailable) {
     return NextResponse.json({ error: "الحجوزات غير مفعلة حالياً" }, { status: 403 });
   }
+
+  const clientAddress = requestClientAddress(request);
+  if (clientAddress) {
+    const ipLimit = await consumePublicWriteLimit({ scope: "public-booking-ip", businessId: business.id, identity: clientAddress, limit: 20, windowSeconds: 600 });
+    if (!ipLimit.allowed) return rateLimited(ipLimit.retryAfterSeconds);
+  }
+  const phoneLimit = await consumePublicWriteLimit({ scope: "public-booking-phone", businessId: business.id, identity: parsed.data.customerPhone, limit: 6, windowSeconds: 600 });
+  if (!phoneLimit.allowed) return rateLimited(phoneLimit.retryAfterSeconds);
 
   if (parsed.data.serviceId) {
     const service = await db.service.findFirst({
