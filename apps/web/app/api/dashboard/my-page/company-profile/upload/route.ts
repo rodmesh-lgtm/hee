@@ -16,9 +16,9 @@ function getOwnedCompanyProfileStorageKey(pageModules: unknown) {
   if (!Array.isArray(pageModules)) return "";
   for (const rawModule of pageModules) {
     if (!rawModule || typeof rawModule !== "object") continue;
-    const module = rawModule as { id?: unknown; config?: unknown };
-    if (module.id !== "companyProfile" || !module.config || typeof module.config !== "object") continue;
-    const config = module.config as { companyProfile?: unknown };
+    const pageModule = rawModule as { id?: unknown; config?: unknown };
+    if (pageModule.id !== "companyProfile" || !pageModule.config || typeof pageModule.config !== "object") continue;
+    const config = pageModule.config as { companyProfile?: unknown };
     if (!config.companyProfile || typeof config.companyProfile !== "object") return "";
     const profile = config.companyProfile as { pdfStorageKey?: unknown; pdfUrl?: unknown };
     const explicitKey = typeof profile.pdfStorageKey === "string" ? profile.pdfStorageKey.trim() : "";
@@ -52,9 +52,6 @@ export async function POST(request: Request) {
 
   try {
     const uploaded = await getPersistentStorageAdapter().upload({ file: normalizedPdfFile, folder: "company-profiles" });
-    // Do not delete the previously saved PDF here. The editor still has to persist the
-    // new module configuration; deleting early could break the currently published page
-    // if autosave fails. Cleanup happens only after the pageModules update succeeds.
     return NextResponse.json({ ok: true, url: uploaded.url, storageKey: uploaded.storageKey, fileName: file.name, size: file.size, mimeType: "application/pdf" });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "تعذر رفع الملف" }, { status: 500 });
