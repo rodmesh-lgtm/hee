@@ -22,11 +22,7 @@ export async function createSession(userId: string) {
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
   await db.$transaction(async (tx) => {
-    // A successful authentication always rotates the browser session token.
-    // This prevents a pre-existing token from surviving a login/register boundary.
-    if (previousToken) {
-      await tx.session.deleteMany({ where: { token: previousToken } });
-    }
+    if (previousToken) await tx.session.deleteMany({ where: { token: previousToken } });
     await tx.session.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } });
     await tx.session.create({ data: { token, userId, expiresAt } });
   });
@@ -48,26 +44,25 @@ export async function getCurrentUser() {
 
   if (token) {
     const session = await db.session.findUnique({ where: { token }, include: { user: true } });
-    if (session && session.expiresAt >= new Date()) {
-      return session.user;
-    }
+    if (session && session.expiresAt >= new Date()) return session.user;
 
-    // Invalid/expired browser state should not linger. Database cleanup is best-effort;
-    // authentication still fails closed if cleanup itself cannot complete.
     cookieStore.delete(SESSION_COOKIE);
-    if (session) {
-      await db.session.deleteMany({ where: { token } }).catch(() => undefined);
-    }
+    if (session) await db.session.deleteMany({ where: { token } }).catch(() => undefined);
   }
 
   return getQaAuditSessionUser();
 }
 
-export async function getCurrentUserForWrites() {
+export async function getCurrentUserForApiWrite() {
   const user = await getCurrentUser();
+  if (!user) return null;
+  if (await isQaAuditModeUser(user.id)) return null;
+  return user;
+}
+
+export async function getCurrentUserForWrites() {
+  const user = await getCurrentUserForApiWrite();
   if (!user) redirect("/login");
-  const isQaAudit = await isQaAuditModeUser(user.id);
-  if (isQaAudit) return null;
   return user;
 }
 
