@@ -10,6 +10,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "generated/**",
+    "components/public-business-page.before-*.tsx",
     "next-env.d.ts",
   ]),
 ]);
