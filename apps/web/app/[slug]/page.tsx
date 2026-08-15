@@ -8,8 +8,6 @@ import { isPreviewQaEnvironment } from "../lib/qa-audit";
 
 export const dynamic = "force-dynamic";
 
-// generateMetadata and the page render run during the same request. React cache keeps the
-// relatively rich business graph query from executing twice for every public page view.
 const getPublicBusinessForRequest = cache((slug: string) => getBusinessPublic(slug));
 
 function makeQrUrl(url: string) {
@@ -20,15 +18,23 @@ function safeJsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
+function absolutePublicAssetUrl(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw, "https://hee.sa").toString();
+  } catch {
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const normalizedSlug = normalizePublicSlug(slug);
   if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) return {};
 
   const business = await getPublicBusinessForRequest(normalizedSlug);
-  if (!business || !business.isPublished) {
-    return {};
-  }
+  if (!business || !business.isPublished) return {};
 
   return {
     title: { absolute: business.metaTitle || `${business.name} | HEE` },
@@ -63,6 +69,8 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
   const qrDataUrl = makeQrUrl(publicUrl);
   const socialUrls = [business.website, business.instagramUrl, business.tiktokUrl, business.snapchatUrl, business.xUrl, business.facebookUrl].filter((value): value is string => Boolean(value));
+  const logoUrl = absolutePublicAssetUrl(business.logoUrl);
+  const imageUrl = absolutePublicAssetUrl(business.coverUrl) || logoUrl;
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -71,7 +79,8 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
     ...(business.nameEn ? { alternateName: business.nameEn } : {}),
     url: `https://hee.sa/${business.slug}`,
     ...(business.description ? { description: business.description } : {}),
-    ...(business.logoUrl ? { logo: business.logoUrl, image: business.coverUrl || business.logoUrl } : business.coverUrl ? { image: business.coverUrl } : {}),
+    ...(logoUrl ? { logo: logoUrl } : {}),
+    ...(imageUrl ? { image: imageUrl } : {}),
     ...(business.phone ? { telephone: business.phone } : {}),
     ...(business.email ? { email: business.email } : {}),
     ...(business.address || business.city || business.district ? {
