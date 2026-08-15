@@ -9,9 +9,9 @@ function profileReferencesStorageKey(pageModules: unknown, storageKey: string) {
   if (!Array.isArray(pageModules)) return false;
   for (const rawModule of pageModules) {
     if (!rawModule || typeof rawModule !== "object") continue;
-    const module = rawModule as { id?: unknown; enabled?: unknown; config?: unknown };
-    if (module.id !== "companyProfile" || module.enabled === false || !module.config || typeof module.config !== "object") continue;
-    const config = module.config as { companyProfile?: unknown };
+    const pageModule = rawModule as { id?: unknown; enabled?: unknown; config?: unknown };
+    if (pageModule.id !== "companyProfile" || pageModule.enabled === false || !pageModule.config || typeof pageModule.config !== "object") continue;
+    const config = pageModule.config as { companyProfile?: unknown };
     if (!config.companyProfile || typeof config.companyProfile !== "object") continue;
     const profile = config.companyProfile as { pdfStorageKey?: unknown; pdfUrl?: unknown; visible?: unknown };
     if (profile.visible === false) continue;
@@ -46,12 +46,8 @@ async function isPublicImageReference(storageKey: string, folder: string) {
   });
   if (directReference) return true;
 
-  // Known first-class assets must be referenced by their relational record. Avoid an
-  // O(number of published businesses) JSON scan for every logo/product/gallery request.
   if (DIRECT_REFERENCE_FOLDERS.has(folder)) return false;
 
-  // Builder-only assets may live inside pageModules, so unknown/media-module folders retain
-  // the exact-reference fallback until they receive first-class relational metadata.
   const moduleCandidates = await db.business.findMany({
     where: { isPublished: true, deletedAt: null },
     select: { pageModules: true },
@@ -72,11 +68,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
   const storageKey = String(rawStorageKey ?? "").trim();
   if (!/^[0-9a-f-]{20,64}$/i.test(storageKey)) return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
 
-  // This idempotent compatibility guard lets an RC deployment tolerate code/schema rollout
-  // ordering while the formal migration remains the source of truth for production releases.
   await ensurePersistentStorageReady();
 
-  // Authorize from metadata before reading bytes from PostgreSQL or a remote object store.
   const metadata = await db.storedObject.findUnique({
     where: { id: storageKey },
     select: { id: true, folder: true, fileName: true, mimeType: true, size: true },
