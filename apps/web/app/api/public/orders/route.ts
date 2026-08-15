@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "../../../lib/db";
 import { normalizePublicSlug } from "../../../lib/public-url";
+import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 
 const orderSchema = z.object({
   slug: z.string().trim().min(4).max(80),
@@ -20,6 +21,13 @@ const orderSchema = z.object({
     .min(1)
     .max(50),
 });
+
+function rateLimited(retryAfterSeconds: number) {
+  return NextResponse.json(
+    { error: "تم إرسال عدد كبير من الطلبات خلال فترة قصيرة. حاول مرة أخرى لاحقاً." },
+    { status: 429, headers: { "Retry-After": String(Math.max(1, retryAfterSeconds)) } },
+  );
+}
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -43,6 +51,16 @@ export async function POST(request: Request) {
   if (!business.acceptOnlineOrders) {
     return NextResponse.json({ error: "استقبال الطلبات غير مفعل حالياً" }, { status: 403 });
   }
+
+  // Hash-only fixed-window controls protect public write endpoints without storing raw IPs.
+  // Phone remains a fallback/second signal when a reverse proxy does not expose a client IP.
+  const clientAddress = requestClientAddress(request);
+  if (clientAddress) {
+    const ipLimit = await consumePublicWriteLimit({ scope: "public-order-ip", businessId: business.id, identity: clientAddress, limit: 20, windowSeconds: 600 });
+    if (!ipLimit.allowed) return rateLimited(ipLimit.retryAfterSeconds);
+  }
+  const phoneLimit = await consumePublicWriteLimit({ scope: "public-order-phone", businessId: business.id, identity: parsed.data.customerPhone, limit: 6, windowSeconds: 600 });
+  if (!phoneLimit.allowed) return rateLimited(phoneLimit.retryAfterSeconds);
 
   const aggregated = new Map<string, number>();
   for (const item of parsed.data.items) {
