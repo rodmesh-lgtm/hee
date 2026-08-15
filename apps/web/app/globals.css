@@ -61,3 +61,26 @@ a {
 ::selection {
   background: rgba(99, 102, 241, 0.26);
 }
+
+/*
+ * Dashboard phone preview
+ *
+ * Render the public page at a real modern-phone CSS viewport (390px) and
+ * scale that viewport down to fit the compact dashboard device frame.
+ * This prevents the preview itself from forcing the public page into an
+ * unnaturally narrow ~314px layout while keeping the dashboard column small.
+ */
+@media (min-width: 1024px) {
+  aside iframe[title="معاينة الصفحة"][src*="?preview="]:not([src*="surface=desktop"]) {
+    width: 390px !important;
+    height: 780px !important;
+    max-width: none !important;
+    border: 0;
+    transform: scale(0.805);
+    transform-origin: top left;
+  }
+
+  aside iframe[title="معاينة الصفحة"][src*="?preview="]:not([src*="surface=desktop"])::before {
+    content: "";
+  }
+}
