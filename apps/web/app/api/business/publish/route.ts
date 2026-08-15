@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserForWrites } from "../../../lib/auth";
 import { db } from "../../../lib/db";
-import { getPublicBusinessUrlFromRequest } from "../../../lib/public-url";
-
-function normalizeSlug(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+import {
+  getPublicBusinessUrlFromRequest,
+  isReservedPublicSlug,
+  normalizePublicSlug,
+} from "../../../lib/public-url";
 
 export async function POST(request: Request) {
   const user = await getCurrentUserForWrites();
@@ -29,10 +23,14 @@ export async function POST(request: Request) {
   const name = (body.name ?? "").trim();
   const description = (body.description ?? "").trim();
   const whatsapp = (body.whatsapp ?? "").trim();
-  const requestedSlug = normalizeSlug(body.slug ?? name);
+  const requestedSlug = normalizePublicSlug(body.slug ?? name);
 
   if (!name || !description || !whatsapp || !requestedSlug) {
     return NextResponse.json({ error: "يرجى إكمال الاسم والنبذة ورقم واتساب والرابط قبل النشر." }, { status: 400 });
+  }
+
+  if (requestedSlug.length < 4 || isReservedPublicSlug(requestedSlug)) {
+    return NextResponse.json({ error: "الرابط العام غير متاح" }, { status: 409 });
   }
 
   const existingBusiness = await db.business.findFirst({ where: { ownerId: user.id } });
