@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { getCurrentUserForWrites } from "../lib/auth";
 
@@ -30,6 +31,15 @@ function refresh(slug: string) {
   revalidatePath(`/${slug}`);
 }
 
+function finish(slug: string, status: string) {
+  refresh(slug);
+  redirect(`/dashboard/directory?status=${encodeURIComponent(status)}`);
+}
+
+function fail(status: string): never {
+  redirect(`/dashboard/directory?status=${encodeURIComponent(status)}`);
+}
+
 async function belongsToBusiness(kind: "branch" | "department", id: string | null, businessId: string) {
   if (!id) return true;
   if (kind === "branch") return Boolean(await db.branch.findFirst({ where: { id, businessId }, select: { id: true } }));
@@ -38,109 +48,129 @@ async function belongsToBusiness(kind: "branch" | "department", id: string | nul
 
 export async function createBranchAction(formData: FormData) {
   const business = await ownedBusiness();
-  if (!business) return;
+  if (!business) fail("error-business");
   const name = text(formData, "name");
-  if (!name) return;
-  const isMain = formData.get("isMain") === "on";
+  if (!name) fail("error-required");
+  const branchCount = await db.branch.count({ where: { businessId: business.id } });
+  const isMain = branchCount === 0 || formData.get("isMain") === "on";
   const nextSort = (await db.branch.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
   await db.$transaction(async (tx) => {
     if (isMain) await tx.branch.updateMany({ where: { businessId: business.id }, data: { isMain: false } });
     await tx.branch.create({ data: { businessId: business.id, name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain, sortOrder: nextSort + 1 } });
   });
-  refresh(business.slug);
+  finish(business.slug, "branch-created");
 }
 
 export async function updateBranchAction(formData: FormData) {
   const business = await ownedBusiness();
-  if (!business) return;
+  if (!business) fail("error-business");
   const id = text(formData, "id");
   const name = text(formData, "name");
-  if (!id || !name || !(await belongsToBusiness("branch", id, business.id))) return;
-  const isMain = formData.get("isMain") === "on";
+  const current = id ? await db.branch.findFirst({ where: { id, businessId: business.id } }) : null;
+  if (!id || !name || !current) fail("error-not-found");
+  const requestedMain = formData.get("isMain") === "on";
+  const isMain = requestedMain || current.isMain;
   await db.$transaction(async (tx) => {
-    if (isMain) await tx.branch.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isMain: false } });
+    if (requestedMain) await tx.branch.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isMain: false } });
     await tx.branch.update({ where: { id }, data: { name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain, isActive: formData.get("isActive") === "on", sortOrder: integer(formData,"sortOrder") } });
   });
-  refresh(business.slug);
+  finish(business.slug, "branch-updated");
 }
 
 export async function deleteBranchAction(formData: FormData) {
   const business = await ownedBusiness();
-  if (!business) return;
+  if (!business) fail("error-business");
   const id = text(formData, "id");
-  if (!id) return;
-  await db.branch.deleteMany({ where: { id, businessId: business.id } });
-  refresh(business.slug);
+  const current = id ? await db.branch.findFirst({ where: { id, businessId: business.id }, select: { id: true, isMain: true } }) : null;
+  if (!current) fail("error-not-found");
+  await db.$transaction(async (tx) => {
+    await tx.branch.delete({ where: { id: current.id } });
+    if (current.isMain) {
+      const replacement = await tx.branch.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
+      if (replacement) await tx.branch.update({ where: { id: replacement.id }, data: { isMain: true } });
+    }
+  });
+  finish(business.slug, "branch-deleted");
 }
 
 export async function createDepartmentAction(formData: FormData) {
   const business = await ownedBusiness();
-  if (!business) return;
+  if (!business) fail("error-business");
   const name = text(formData, "name");
-  if (!name) return;
+  if (!name) fail("error-required");
   const nextSort = (await db.department.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
   await db.department.create({ data: { businessId: business.id, name, description: optional(formData,"description"), sortOrder: nextSort + 1 } });
-  refresh(business.slug);
+  finish(business.slug, "department-created");
 }
 
 export async function updateDepartmentAction(formData: FormData) {
   const business = await ownedBusiness();
-  if (!business) return;
+  if (!business) fail("error-business");
   const id = text(formData, "id");
   const name = text(formData, "name");
-  if (!id || !name || !(await belongsToBusiness("department", id, business.id))) return;
+  if (!id || !name || !(await belongsToBusiness("department", id, business.id))) fail("error-not-found");
   await db.department.update({ where: { id }, data: { name, description: optional(formData,"description"), isActive: formData.get("isActive") === "on", sortOrder: integer(formData,"sortOrder") } });
-  refresh(business.slug);
+  finish(business.slug, "department-updated");
 }
 
 export async function deleteDepartmentAction(formData: FormData) {
   const business = await ownedBusiness();
-  if (!business) return;
+  if (!business) fail("error-business");
   const id = text(formData, "id");
-  if (!id) return;
-  await db.department.deleteMany({ where: { id, businessId: business.id } });
-  refresh(business.slug);
+  const result = id ? await db.department.deleteMany({ where: { id, businessId: business.id } }) : { count: 0 };
+  if (result.count === 0) fail("error-not-found");
+  finish(business.slug, "department-deleted");
 }
 
 export async function createContactPersonAction(formData: FormData) {
   const business = await ownedBusiness();
-  if (!business) return;
+  if (!business) fail("error-business");
   const name = text(formData, "name");
-  if (!name) return;
+  if (!name) fail("error-required");
   const departmentId = optional(formData, "departmentId");
   const branchId = optional(formData, "branchId");
-  if (!(await belongsToBusiness("department", departmentId, business.id)) || !(await belongsToBusiness("branch", branchId, business.id))) return;
-  const isPrimary = formData.get("isPrimary") === "on";
+  if (!(await belongsToBusiness("department", departmentId, business.id)) || !(await belongsToBusiness("branch", branchId, business.id))) fail("error-relation");
+  const contactCount = await db.contactPerson.count({ where: { businessId: business.id } });
+  const isPrimary = contactCount === 0 || formData.get("isPrimary") === "on";
   const nextSort = (await db.contactPerson.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
   await db.$transaction(async (tx) => {
     if (isPrimary) await tx.contactPerson.updateMany({ where: { businessId: business.id }, data: { isPrimary: false } });
     await tx.contactPerson.create({ data: { businessId: business.id, name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: optional(formData,"imageUrl"), isPrimary, sortOrder: nextSort + 1 } });
   });
-  refresh(business.slug);
+  finish(business.slug, "contact-created");
 }
 
 export async function updateContactPersonAction(formData: FormData) {
   const business = await ownedBusiness();
-  if (!business) return;
+  if (!business) fail("error-business");
   const id = text(formData, "id");
   const name = text(formData, "name");
-  if (!id || !name || !(await db.contactPerson.findFirst({ where: { id, businessId: business.id }, select: { id: true } }))) return;
+  const current = id ? await db.contactPerson.findFirst({ where: { id, businessId: business.id } }) : null;
+  if (!id || !name || !current) fail("error-not-found");
   const departmentId = optional(formData, "departmentId");
   const branchId = optional(formData, "branchId");
-  if (!(await belongsToBusiness("department", departmentId, business.id)) || !(await belongsToBusiness("branch", branchId, business.id))) return;
-  const isPrimary = formData.get("isPrimary") === "on";
+  if (!(await belongsToBusiness("department", departmentId, business.id)) || !(await belongsToBusiness("branch", branchId, business.id))) fail("error-relation");
+  const requestedPrimary = formData.get("isPrimary") === "on";
+  const isPrimary = requestedPrimary || current.isPrimary;
   await db.$transaction(async (tx) => {
-    if (isPrimary) await tx.contactPerson.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isPrimary: false } });
+    if (requestedPrimary) await tx.contactPerson.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isPrimary: false } });
     await tx.contactPerson.update({ where: { id }, data: { name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: optional(formData,"imageUrl"), isPrimary, isActive: formData.get("isActive") === "on", sortOrder: integer(formData,"sortOrder") } });
   });
-  refresh(business.slug);
+  finish(business.slug, "contact-updated");
 }
 
 export async function deleteContactPersonAction(formData: FormData) {
   const business = await ownedBusiness();
-  if (!business) return;
+  if (!business) fail("error-business");
   const id = text(formData, "id");
-  if (!id) return;
-  await db.contactPerson.deleteMany({ where: { id, businessId: business.id } });
-  refresh(business.slug);
+  const current = id ? await db.contactPerson.findFirst({ where: { id, businessId: business.id }, select: { id: true, isPrimary: true } }) : null;
+  if (!current) fail("error-not-found");
+  await db.$transaction(async (tx) => {
+    await tx.contactPerson.delete({ where: { id: current.id } });
+    if (current.isPrimary) {
+      const replacement = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
+      if (replacement) await tx.contactPerson.update({ where: { id: replacement.id }, data: { isPrimary: true } });
+    }
+  });
+  finish(business.slug, "contact-deleted");
 }
