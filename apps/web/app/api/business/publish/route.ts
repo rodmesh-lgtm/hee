@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
-import { getCurrentUserForWrites } from "../../../lib/auth";
 import { db } from "../../../lib/db";
+import { getOwnedBusinessForWrite } from "../../../lib/ownership";
 import {
   getPublicBusinessUrlFromRequest,
-  isReservedPublicSlug,
+  isValidPublicSlug,
   normalizePublicSlug,
 } from "../../../lib/public-url";
 
 export async function POST(request: Request) {
-  const user = await getCurrentUserForWrites();
-  if (!user) {
-    return NextResponse.json({ error: "يرجى تسجيل الدخول" }, { status: 401 });
-  }
-
   let body: { name?: string; description?: string; whatsapp?: string; slug?: string; logoUrl?: string; entityType?: string; businessCategory?: string; city?: string; onboardingStep?: string };
   try {
     body = await request.json();
@@ -28,17 +23,19 @@ export async function POST(request: Request) {
   if (!name || !description || !whatsapp || !requestedSlug) {
     return NextResponse.json({ error: "يرجى إكمال الاسم والنبذة ورقم واتساب والرابط قبل النشر." }, { status: 400 });
   }
-
-  if (requestedSlug.length < 4 || isReservedPublicSlug(requestedSlug)) {
+  if (!isValidPublicSlug(requestedSlug)) {
     return NextResponse.json({ error: "الرابط العام غير متاح" }, { status: 409 });
   }
 
-  const existingBusiness = await db.business.findFirst({ where: { ownerId: user.id } });
+  const existingBusiness = await getOwnedBusinessForWrite();
   if (!existingBusiness) {
-    return NextResponse.json({ error: "لا يوجد نشاط مرتبط بهذا الحساب" }, { status: 404 });
+    return NextResponse.json({ error: "لا يوجد نشاط متاح للنشر" }, { status: 403 });
   }
 
-  const slugConflict = await db.business.findFirst({ where: { slug: requestedSlug, id: { not: existingBusiness.id } } });
+  const slugConflict = await db.business.findFirst({
+    where: { slug: requestedSlug, id: { not: existingBusiness.id }, deletedAt: null },
+    select: { id: true },
+  });
   if (slugConflict) {
     return NextResponse.json({ error: "الرابط العام مستخدم من نشاط آخر" }, { status: 409 });
   }
@@ -55,13 +52,12 @@ export async function POST(request: Request) {
       businessCategory: body.businessCategory || existingBusiness.businessCategory,
       city: body.city || existingBusiness.city,
       isPublished: true,
-      publishedAt: new Date(),
+      publishedAt: existingBusiness.publishedAt ?? new Date(),
       onboardingCompleted: true,
       onboardingStep: body.onboardingStep || "published",
     },
   });
 
   const publicUrl = await getPublicBusinessUrlFromRequest(updated.slug);
-
   return NextResponse.json({ success: true, publicUrl, business: updated }, { status: 200 });
 }
