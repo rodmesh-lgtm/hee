@@ -21,6 +21,23 @@ function isRealCalendarDate(value: string) {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
+function riyadhToday() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
+function addDays(dateString: string, days: number) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day + days));
+  return value.toISOString().slice(0, 10);
+}
+
 function rateLimited(retryAfterSeconds: number) {
   return NextResponse.json(
     { error: "تم إرسال عدد كبير من الحجوزات خلال فترة قصيرة. حاول مرة أخرى لاحقاً." },
@@ -39,6 +56,14 @@ export async function POST(request: Request) {
   const parsed = bookingSchema.safeParse(body);
   if (!parsed.success || !isRealCalendarDate(parsed.success ? parsed.data.bookingDate : "")) {
     return NextResponse.json({ error: "بيانات الحجز غير صالحة" }, { status: 400 });
+  }
+
+  const today = riyadhToday();
+  if (parsed.data.bookingDate < today) {
+    return NextResponse.json({ error: "لا يمكن إنشاء حجز بتاريخ سابق" }, { status: 400 });
+  }
+  if (parsed.data.bookingDate > addDays(today, 365)) {
+    return NextResponse.json({ error: "تاريخ الحجز بعيد جداً. اختر موعداً خلال السنة القادمة" }, { status: 400 });
   }
 
   const slug = normalizePublicSlug(parsed.data.slug);
