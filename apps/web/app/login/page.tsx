@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages -- OAuth start endpoints require a full document navigation. */
 "use client";
 
 import Link from "next/link";
