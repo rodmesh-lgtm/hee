@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
-import { extractStorageKeyFromUrl, readPersistentObject } from "../../../lib/storage";
+import { ensurePersistentStorageReady, extractStorageKeyFromUrl, readPersistentObject } from "../../../lib/storage";
 
 const SAFE_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const DIRECT_REFERENCE_FOLDERS = new Set(["logos", "covers", "products", "services", "offers", "gallery", "contacts"]);
 
 function profileReferencesStorageKey(pageModules: unknown, storageKey: string) {
   if (!Array.isArray(pageModules)) return false;
@@ -25,7 +26,7 @@ function jsonReferencesUrl(value: unknown, url: string) {
   try { return JSON.stringify(value ?? null).includes(url); } catch { return false; }
 }
 
-async function isPublicImageReference(storageKey: string) {
+async function isPublicImageReference(storageKey: string, folder: string) {
   const url = `/api/storage/${storageKey}`;
   const directReference = await db.business.findFirst({
     where: {
@@ -45,6 +46,12 @@ async function isPublicImageReference(storageKey: string) {
   });
   if (directReference) return true;
 
+  // Known first-class assets must be referenced by their relational record. Avoid an
+  // O(number of published businesses) JSON scan for every logo/product/gallery request.
+  if (DIRECT_REFERENCE_FOLDERS.has(folder)) return false;
+
+  // Builder-only assets may live inside pageModules, so unknown/media-module folders retain
+  // the exact-reference fallback until they receive first-class relational metadata.
   const moduleCandidates = await db.business.findMany({
     where: { isPublished: true, deletedAt: null },
     select: { pageModules: true },
@@ -64,6 +71,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
   const { storageKey: rawStorageKey } = await params;
   const storageKey = String(rawStorageKey ?? "").trim();
   if (!/^[0-9a-f-]{20,64}$/i.test(storageKey)) return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
+
+  // This idempotent compatibility guard lets an RC deployment tolerate code/schema rollout
+  // ordering while the formal migration remains the source of truth for production releases.
+  await ensurePersistentStorageReady();
 
   // Authorize from metadata before reading bytes from PostgreSQL or a remote object store.
   const metadata = await db.storedObject.findUnique({
@@ -92,7 +103,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
     });
   }
 
-  if (!SAFE_IMAGE_MIME.has(metadata.mimeType) || !(await isPublicImageReference(metadata.id))) {
+  if (!SAFE_IMAGE_MIME.has(metadata.mimeType) || !(await isPublicImageReference(metadata.id, metadata.folder))) {
     return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
   }
 
