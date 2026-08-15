@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getBusinessPublic } from "../actions/business";
@@ -7,13 +8,20 @@ import { isPreviewQaEnvironment } from "../lib/qa-audit";
 
 export const dynamic = "force-dynamic";
 
+// generateMetadata and the page render run during the same request. React cache keeps the
+// relatively rich business graph query from executing twice for every public page view.
+const getPublicBusinessForRequest = cache((slug: string) => getBusinessPublic(slug));
+
 function makeQrUrl(url: string) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const business = await getBusinessPublic(slug);
+  const normalizedSlug = normalizePublicSlug(slug);
+  if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) return {};
+
+  const business = await getPublicBusinessForRequest(normalizedSlug);
   if (!business || !business.isPublished) {
     return {};
   }
@@ -45,7 +53,7 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
 
   if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) notFound();
 
-  const business = await getBusinessPublic(normalizedSlug);
+  const business = await getPublicBusinessForRequest(normalizedSlug);
   if (!business || !business.isPublished) notFound();
 
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
