@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
-import { getOwnedBusinessForWrite } from "../../../lib/ownership";
+import { getOwnedBusinessForApiWrite } from "../../../lib/ownership";
 import {
   getPublicBusinessUrlFromRequest,
   isValidPublicSlug,
@@ -27,9 +27,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "الرابط العام غير متاح" }, { status: 409 });
   }
 
-  const existingBusiness = await getOwnedBusinessForWrite();
+  const existingBusiness = await getOwnedBusinessForApiWrite();
   if (!existingBusiness) {
-    return NextResponse.json({ error: "لا يوجد نشاط متاح للنشر" }, { status: 403 });
+    return NextResponse.json({ error: "يرجى تسجيل الدخول بحساب مالك النشاط" }, { status: 401 });
   }
 
   const slugConflict = await db.business.findFirst({
