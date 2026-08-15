@@ -45,10 +45,8 @@ async function isPublicImageReference(storageKey: string) {
   });
   if (directReference) return true;
 
-  // Some builder-only assets (for example portfolio/team images) live inside pageModules.
-  // Keep them private unless an actually published page references the exact generated URL.
   const moduleCandidates = await db.business.findMany({
-    where: { isPublished: true, deletedAt: null, pageModules: { not: null } },
+    where: { isPublished: true, deletedAt: null },
     select: { pageModules: true },
   });
   return moduleCandidates.some((business) => jsonReferencesUrl(business.pageModules, url));
