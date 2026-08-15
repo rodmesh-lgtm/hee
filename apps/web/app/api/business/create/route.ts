@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { db } from "../../../lib/db";
@@ -44,6 +45,10 @@ function normalize(value: unknown, fallback = "") {
   return typeof value === "string" ? value.trim() : fallback;
 }
 
+function generatedPublicSlug() {
+  return `business-${randomUUID().slice(0, 8)}`;
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUserForApiWrite();
   if (!user) return NextResponse.json({ error: "يرجى تسجيل الدخول بحساب صالح" }, { status: 401 });
@@ -55,9 +60,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 });
   }
 
+  const existingBusiness = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
+  const requestedSlug = normalizePublicSlug(normalize(body.slug));
+  const normalizedSlug = requestedSlug || existingBusiness?.slug || generatedPublicSlug();
+
   const payload = {
     name: normalize(body.name),
-    slug: normalize(body.slug),
+    slug: normalizedSlug,
     businessType: normalize(body.businessType),
     description: normalize(body.description),
     city: normalize(body.city),
@@ -77,12 +86,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات النشاط غير صالحة" }, { status: 400 });
   }
 
-  const normalizedSlug = normalizePublicSlug(parsed.data.slug);
   if (!isValidPublicSlug(normalizedSlug)) {
     return NextResponse.json({ error: "الرابط العام غير متاح" }, { status: 409 });
   }
 
-  const existingBusiness = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
   const slugTaken = await db.business.findFirst({
     where: {
       slug: normalizedSlug,
@@ -91,12 +98,26 @@ export async function POST(request: Request) {
     },
     select: { id: true },
   });
-  if (slugTaken) return NextResponse.json({ error: "اسم الرابط مستخدم مسبقاً" }, { status: 409 });
+  if (slugTaken) {
+    // A generated slug collision is exceptionally unlikely, but never surface it as a
+    // user-facing conflict. Generate one more candidate and validate it before writing.
+    if (!requestedSlug && !existingBusiness) {
+      const retrySlug = generatedPublicSlug();
+      if (isValidPublicSlug(retrySlug)) {
+        const retryTaken = await db.business.findFirst({ where: { slug: retrySlug, deletedAt: null }, select: { id: true } });
+        if (!retryTaken) parsed.data.slug = retrySlug;
+        else return NextResponse.json({ error: "تعذر إنشاء رابط عام آمن. أعد المحاولة." }, { status: 409 });
+      }
+    } else {
+      return NextResponse.json({ error: "اسم الرابط مستخدم مسبقاً" }, { status: 409 });
+    }
+  }
 
+  const finalSlug = parsed.data.slug;
   const freePlan = await ensureBusinessPlan("FREE");
   const businessData = {
     ...parsed.data,
-    slug: normalizedSlug,
+    slug: finalSlug,
     isVerified: existingBusiness?.isVerified ?? false,
     isPublished: true,
     publishedAt: existingBusiness?.publishedAt ?? new Date(),
