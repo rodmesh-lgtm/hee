@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { timingSafeEqual } from "node:crypto";
 import { db } from "../../../../../lib/db";
 import { createSession } from "../../../../../lib/auth";
 import {
@@ -15,11 +17,29 @@ function asProvider(value: string): OAuthProvider | null {
   return value === "google" || value === "apple" ? value : null;
 }
 
+function stateCookieName(provider: OAuthProvider) {
+  return `hee_oauth_state_${provider}`;
+}
+
+function safeEqual(left: string, right: string) {
+  const a = Buffer.from(left);
+  const b = Buffer.from(right);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 function errorRedirect(request: Request, code: string, registration = false) {
   return NextResponse.redirect(new URL(`/${registration ? "register" : "login"}?oauth=${encodeURIComponent(code)}`, request.url));
 }
 
 async function complete(request: Request, provider: OAuthProvider, input: { state: string; code: string; appleUser?: string | null }) {
+  const cookieStore = await cookies();
+  const browserState = cookieStore.get(stateCookieName(provider))?.value ?? "";
+  cookieStore.delete(stateCookieName(provider));
+
+  if (!browserState || !safeEqual(browserState, input.state)) {
+    return errorRedirect(request, "invalid-state");
+  }
+
   let stateRecord;
   try {
     stateRecord = await consumeOAuthState(provider, input.state);
