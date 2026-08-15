@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "./db";
-import { getCurrentUser, getCurrentUserForWrites } from "./auth";
+import { getCurrentUser, getCurrentUserForApiWrite, getCurrentUserForWrites } from "./auth";
 
 export async function getOwnedBusinessForRead() {
   const user = await getCurrentUser();
@@ -9,15 +9,19 @@ export async function getOwnedBusinessForRead() {
   return db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
 }
 
+export async function getOwnedBusinessForApiWrite() {
+  const user = await getCurrentUserForApiWrite();
+  if (!user) return null;
+  return db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
+}
+
 export async function getOwnedBusinessForWrite() {
   const user = await getCurrentUserForWrites();
-  if (!user) return null;
   return db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
 }
 
 export async function getOwnedBusinessWithPlanForWrite() {
   const user = await getCurrentUserForWrites();
-  if (!user) return null;
   return db.business.findFirst({
     where: { ownerId: user.id, deletedAt: null },
     include: { plan: true },
