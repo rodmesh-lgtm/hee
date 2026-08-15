@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 import { extractStorageKeyFromUrl } from "../../../lib/storage";
 
+const SAFE_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
 function profileReferencesStorageKey(pageModules: unknown, storageKey: string) {
   if (!Array.isArray(pageModules)) return false;
   for (const rawModule of pageModules) {
@@ -19,41 +21,81 @@ function profileReferencesStorageKey(pageModules: unknown, storageKey: string) {
   return false;
 }
 
+function jsonReferencesUrl(value: unknown, url: string) {
+  try { return JSON.stringify(value ?? null).includes(url); } catch { return false; }
+}
+
+async function isPublicImageReference(storageKey: string) {
+  const url = `/api/storage/${storageKey}`;
+  const directReference = await db.business.findFirst({
+    where: {
+      isPublished: true,
+      deletedAt: null,
+      OR: [
+        { logoUrl: url },
+        { coverUrl: url },
+        { products: { some: { imageUrl: url, isActive: true, deletedAt: null } } },
+        { services: { some: { imageUrl: url, isActive: true, deletedAt: null } } },
+        { offers: { some: { imageUrl: url, isActive: true, deletedAt: null } } },
+        { galleryItems: { some: { imageUrl: url, isActive: true } } },
+        { contactPersons: { some: { imageUrl: url, isActive: true } } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (directReference) return true;
+
+  // Some builder-only assets (for example portfolio/team images) live inside pageModules.
+  // Keep them private unless an actually published page references the exact generated URL.
+  const moduleCandidates = await db.business.findMany({
+    where: { isPublished: true, deletedAt: null, pageModules: { not: null } },
+    select: { pageModules: true },
+  });
+  return moduleCandidates.some((business) => jsonReferencesUrl(business.pageModules, url));
+}
+
 export async function GET(_request: Request, { params }: { params: Promise<{ storageKey: string }> }) {
   const { storageKey: rawStorageKey } = await params;
   const storageKey = String(rawStorageKey ?? "").trim();
-  if (!/^[0-9a-f-]{20,64}$/i.test(storageKey)) {
-    return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
-  }
+  if (!/^[0-9a-f-]{20,64}$/i.test(storageKey)) return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
 
   const stored = await db.storedObject.findUnique({
     where: { id: storageKey },
     select: { id: true, folder: true, fileName: true, mimeType: true, size: true, data: true },
   });
-  if (!stored || stored.folder !== "company-profiles" || stored.mimeType !== "application/pdf") {
-    return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
+  if (!stored) return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
+
+  if (stored.folder === "company-profiles" && stored.mimeType === "application/pdf") {
+    const candidates = await db.business.findMany({ where: { isPublished: true, deletedAt: null }, select: { pageModules: true } });
+    if (!candidates.some((business) => profileReferencesStorageKey(business.pageModules, stored.id))) {
+      return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
+    }
+    const safeName = stored.fileName.replace(/[\r\n"\\]/g, "-") || "company-profile.pdf";
+    return new NextResponse(new Uint8Array(stored.data), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Length": String(stored.size),
+        "Content-Disposition": `inline; filename="${safeName}"`,
+        "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
   }
 
-  // Stored profile PDFs are public only when an active, published business page
-  // explicitly references the exact storage object. Uploaded-but-unsaved files stay private.
-  const candidates = await db.business.findMany({
-    where: { isPublished: true, deletedAt: null },
-    select: { pageModules: true },
-  });
-  const isPublic = candidates.some((business) => profileReferencesStorageKey(business.pageModules, stored.id));
-  if (!isPublic) {
+  if (!SAFE_IMAGE_MIME.has(stored.mimeType) || !(await isPublicImageReference(stored.id))) {
     return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
   }
 
-  const safeName = stored.fileName.replace(/[\r\n"\\]/g, "-") || "company-profile.pdf";
   return new NextResponse(new Uint8Array(stored.data), {
     status: 200,
     headers: {
-      "Content-Type": "application/pdf",
+      "Content-Type": stored.mimeType,
       "Content-Length": String(stored.size),
-      "Content-Disposition": `inline; filename="${safeName}"`,
-      "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+      "Content-Disposition": "inline",
+      "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
       "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; img-src 'self'; sandbox",
     },
   });
 }
