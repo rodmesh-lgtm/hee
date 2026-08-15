@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { getOwnedBusinessForWrite, ownsBusinessRecord } from "../lib/ownership";
+import { removePersistentUrl, removeReplacedPersistentUrl } from "../lib/storage-lifecycle";
 
 function text(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
 function optional(formData: FormData, key: string) { const value = text(formData, key); return value || null; }
@@ -114,22 +115,24 @@ export async function updateContactPersonAction(formData: FormData) {
   if ((departmentId && !(await ownsBusinessRecord("department", departmentId, business.id))) || (branchId && !(await ownsBusinessRecord("branch", branchId, business.id)))) fail("error-relation");
   const nextActive = formData.get("isActive") === "on";
   const requestedPrimary = nextActive && formData.get("isPrimary") === "on";
+  const nextImageUrl = optional(formData, "imageUrl");
   await db.$transaction(async (tx) => {
     if (requestedPrimary) await tx.contactPerson.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isPrimary: false } });
-    await tx.contactPerson.update({ where: { id }, data: { name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: optional(formData,"imageUrl"), isPrimary: requestedPrimary || (current.isPrimary && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
+    await tx.contactPerson.update({ where: { id }, data: { name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: nextImageUrl, isPrimary: requestedPrimary || (current.isPrimary && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
     const activePrimary = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true, isPrimary: true }, select: { id: true } });
     if (!activePrimary) {
       const replacement = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
       if (replacement) await tx.contactPerson.update({ where: { id: replacement.id }, data: { isPrimary: true } });
     }
   });
+  try { await removeReplacedPersistentUrl(current.imageUrl, nextImageUrl); } catch (error) { console.error("Failed to clean replaced contact image", error); }
   finish(business.slug, "contact-updated");
 }
 
 export async function deleteContactPersonAction(formData: FormData) {
   const business = await getOwnedBusinessForWrite(); if (!business) fail("error-business");
   const id = text(formData, "id");
-  const current = id && await ownsBusinessRecord("contactPerson", id, business.id) ? await db.contactPerson.findUnique({ where: { id }, select: { id: true, isPrimary: true } }) : null;
+  const current = id && await ownsBusinessRecord("contactPerson", id, business.id) ? await db.contactPerson.findUnique({ where: { id }, select: { id: true, isPrimary: true, imageUrl: true } }) : null;
   if (!current) fail("error-not-found");
   await db.$transaction(async (tx) => {
     await tx.contactPerson.deleteMany({ where: { id: current.id, businessId: business.id } });
@@ -138,5 +141,6 @@ export async function deleteContactPersonAction(formData: FormData) {
       if (replacement) await tx.contactPerson.update({ where: { id: replacement.id }, data: { isPrimary: true } });
     }
   });
+  try { await removePersistentUrl(current.imageUrl); } catch (error) { console.error("Failed to clean deleted contact image", error); }
   finish(business.slug, "contact-deleted");
 }
