@@ -21,6 +21,14 @@ jobs:
     defaults:
       run:
         working-directory: apps/web
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hee_ci
+      APP_ENV: test
+      APP_URL: http://localhost:3000
+      API_URL: http://localhost:3000
+      SESSION_SECRET: ci-only-not-for-production
+      PAYMENT_PROVIDER: mock
+      STORAGE_DRIVER: database
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,13 +44,13 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Validate Prisma schema
         run: npx prisma validate
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hee_ci
       - name: Generate Prisma client
         run: npx prisma generate
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hee_ci
       - name: TypeScript check
         run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
       - name: Run unit tests
         run: npm run test:unit
+      - name: Production build
+        run: npm run build
