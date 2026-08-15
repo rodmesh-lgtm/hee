@@ -66,8 +66,14 @@ export function PublicStickyMobileActions({ businessKind = "services", servicesL
   }
 
   return (
-    <div data-public-mobile-nav className="fixed inset-x-0 bottom-0 z-[90] border-t border-[#e7ebf8] bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+6px)] pt-1.5 shadow-[0_-10px_30px_-20px_rgba(15,23,42,0.35)] backdrop-blur md:hidden">
-      <div className="mx-auto grid max-w-[560px] gap-1" style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0,1fr))` }}>
+    <div
+      data-public-mobile-nav
+      className="fixed inset-x-0 bottom-0 z-[90] border-t border-[#e7ebf8] bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+8px)] pt-2 shadow-[0_-14px_34px_-24px_rgba(15,23,42,0.38)] backdrop-blur-xl md:hidden"
+    >
+      <div
+        className="mx-auto grid max-w-[560px] gap-1.5"
+        style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0,1fr))` }}
+      >
         {actions.map((action) => {
           const Icon = action.icon;
           const isActive = activeHref === action.href || (activeHref === "" && action.href === "#top");
@@ -76,10 +82,17 @@ export function PublicStickyMobileActions({ businessKind = "services", servicesL
               key={action.key}
               href={action.href}
               onClick={() => setActiveHref(action.href)}
-              className={`inline-flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-[10px] font-semibold transition ${isActive ? "bg-[#eef2ff] text-[#3f49bf]" : "text-slate-600 hover:bg-[#f3f5ff] hover:text-[#3f49bf]"}`}
+              aria-current={isActive ? "page" : undefined}
+              className={`group inline-flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[11px] font-bold transition-all duration-200 ${
+                isActive
+                  ? "bg-[#eef2ff] text-[#3f49bf] shadow-[inset_0_0_0_1px_rgba(99,102,241,0.08)]"
+                  : "text-slate-600 hover:bg-[#f5f7ff] hover:text-[#3f49bf]"
+              }`}
             >
-              <Icon className="h-4 w-4" />
-              <span className="leading-4">{action.label}</span>
+              <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition ${isActive ? "bg-white text-[#4652c7] shadow-sm" : "bg-transparent"}`}>
+                <Icon className="h-[18px] w-[18px]" strokeWidth={2.1} />
+              </span>
+              <span className="max-w-full truncate leading-4">{action.label}</span>
             </a>
           );
         })}
