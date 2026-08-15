@@ -43,8 +43,8 @@ function composeCardAppearance(themeMode:string,cardStyle:string,cornerRadius:st
 
 function companyProfileKey(pageModules: unknown) {
   const modules = normalizePageModulesInput(pageModules, "");
-  const module = modules.find((item) => item.id === "companyProfile");
-  const profile = module?.config?.companyProfile as { pdfStorageKey?: unknown; pdfUrl?: unknown } | undefined;
+  const profileModule = modules.find((item) => item.id === "companyProfile");
+  const profile = profileModule?.config?.companyProfile as { pdfStorageKey?: unknown; pdfUrl?: unknown } | undefined;
   if (!profile) return "";
   const explicit = typeof profile.pdfStorageKey === "string" ? profile.pdfStorageKey.trim() : "";
   return explicit || extractStorageKeyFromUrl(typeof profile.pdfUrl === "string" ? profile.pdfUrl : "");
@@ -95,8 +95,8 @@ export async function POST(request: Request) {
     const nextSerializedModules = JSON.stringify(serializedModules);
     if (previousSerializedModules !== nextSerializedModules) {
       updates.pageModules = serializedModules;
-      updates.bookingAvailable = normalizedModules.some((module) => module.enabled && ["request", "services", "inquiry"].includes(module.id));
-      updates.acceptOnlineOrders = normalizedModules.some((module) => module.enabled && module.id === "products");
+      updates.bookingAvailable = normalizedModules.some((pageModule) => pageModule.enabled && ["request", "services", "inquiry"].includes(pageModule.id));
+      updates.acceptOnlineOrders = normalizedModules.some((pageModule) => pageModule.enabled && pageModule.id === "products");
       changedKeys.push("pageModules");
     }
   }
@@ -105,8 +105,6 @@ export async function POST(request: Request) {
 
   await db.business.update({ where: { id: business.id }, data: updates });
 
-  // Cleanup happens after the DB commit, never before it. If deletion fails we keep a harmless
-  // orphan rather than risk breaking the newly saved page; a later sweeper can remove it.
   if (previousProfileKey && previousProfileKey !== nextProfileKey && parsed.data.modules) {
     removePersistentKey(previousProfileKey, "company-profiles").catch((error) => console.warn("[storage] deferred profile cleanup failed", error));
   }
