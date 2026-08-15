@@ -34,13 +34,30 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 3px solid #4f46e5;
+  outline-offset: 3px;
+}
+
+:where(button, input, textarea, select):disabled {
+  cursor: not-allowed;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
 ::selection {
   background: rgba(99, 102, 241, 0.26);
 }
-
