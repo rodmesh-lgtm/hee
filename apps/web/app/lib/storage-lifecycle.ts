@@ -1,9 +1,12 @@
 import { db } from "./db";
-import { extractStorageKeyFromUrl, getPersistentStorageAdapter } from "./storage";
+import { ensurePersistentStorageReady, extractStorageKeyFromUrl, getPersistentStorageAdapter } from "./storage";
 
 export async function validateStoredObject(storageKey: string, folder?: string) {
   const key = String(storageKey ?? "").trim();
   if (!key) return null;
+  // Compatibility guard for RC deployments that may receive application code before the
+  // formal portable-storage migration is applied. The operation is idempotent.
+  await ensurePersistentStorageReady();
   return db.storedObject.findFirst({
     where: { id: key, ...(folder ? { folder } : {}) },
     select: { id: true, folder: true, mimeType: true, size: true },
