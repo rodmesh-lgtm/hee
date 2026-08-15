@@ -9,11 +9,7 @@ test("extracts storage key from canonical relative URL", () => {
 });
 
 test("extracts storage key from absolute HEE URL", () => {
-  assert.equal(extractStorageKeyFromUrl(`https://hee.sa/api/storage/${uuid}`), uuid);
-});
-
-test("ignores query strings after a canonical key", () => {
-  assert.equal(extractStorageKeyFromUrl(`/api/storage/${uuid}?v=1`), uuid);
+  assert.equal(extractStorageKeyFromUrl(`https://hee.sa/api/storage/${uuid}?v=1`), uuid);
 });
 
 test("rejects malformed and unrelated URLs", () => {
