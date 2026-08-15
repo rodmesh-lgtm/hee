@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createQaAuditOneTimeLink, isPreviewQaEnvironment, isQaAuditTokenValid, requireQaAuditAccess } from "../../../lib/qa-audit";
-import { getCurrentUser } from "../../../lib/auth";
+import { createQaAuditOneTimeLink, hasQaAuditRequestAccess, isPreviewQaEnvironment, requireQaAuditAccess } from "../../../lib/qa-audit";
 
 export async function GET(request: Request) {
   if (!isPreviewQaEnvironment()) {
@@ -22,23 +21,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isPreviewQaEnvironment()) {
-    return new NextResponse(null, { status: 404 });
-  }
-
-  const authHeader = request.headers.get("authorization") ?? "";
-  const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
-  const url = new URL(request.url);
-  const queryToken = url.searchParams.get("token");
-  const authToken = bearerToken || queryToken;
-
-  let canMintLink = isQaAuditTokenValid(authToken);
-  if (!canMintLink) {
-    const user = await getCurrentUser();
-    canMintLink = Boolean(user);
-  }
-
-  if (!canMintLink) {
+  if (!(await hasQaAuditRequestAccess(request))) {
     return new NextResponse(null, { status: 404 });
   }
 
@@ -55,8 +38,8 @@ export async function POST(request: Request) {
     return new NextResponse(null, { status: 404 });
   }
 
-  const origin = url.origin;
-  const auditUrl = `${origin}/qa/dashboard-audit?auditId=${created.auditId}&path=${encodeURIComponent(created.path)}`;
+  const url = new URL(request.url);
+  const auditUrl = `${url.origin}/qa/dashboard-audit?auditId=${created.auditId}&path=${encodeURIComponent(created.path)}`;
   return NextResponse.json({
     url: auditUrl,
     expiresAt: created.expiresAt.toISOString(),
