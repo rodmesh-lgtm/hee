@@ -7,6 +7,9 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "test:unit": "tsx --test tests/*.test.ts",
+    "test:rc": "playwright test tests/rc-owner-workflow.spec.ts",
+    "test:directory": "playwright test tests/directory-workflow.spec.ts",
     "qa:handoff": "tsx scripts/generate-qa-handoff.ts"
   },
   "prisma": {
