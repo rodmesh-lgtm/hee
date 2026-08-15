@@ -10,9 +10,7 @@ import { resolveOnboardingRedirect } from "../lib/onboarding";
 
 export type ActionState = { error?: string };
 
-function normalizeEmail(value: string) {
-  return value.trim().toLowerCase();
-}
+function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
 
 export async function registerAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const agreed = String(formData.get("agreed") ?? "off") === "on";
@@ -38,7 +36,6 @@ export async function registerAction(_prevState: ActionState, formData: FormData
   try {
     user = await db.user.create({ data: { name: parsed.data.name, email: parsed.data.email, passwordHash } });
   } catch (error) {
-    // The unique constraint is the final authority if two registration requests race.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { error: "هذا البريد موجود مسبقاً" };
     }
@@ -56,9 +53,9 @@ export async function loginAction(_prevState: ActionState, formData: FormData): 
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" };
 
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });
-  if (!user || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
-    return { error: "البريد أو كلمة المرور غير صحيحة" };
-  }
+  if (!user) return { error: "البريد أو كلمة المرور غير صحيحة" };
+  if (!user.passwordHash) return { error: "هذا الحساب مرتبط بتسجيل دخول خارجي. استخدم Google أو Apple." };
+  if (!(await verifyPassword(parsed.data.password, user.passwordHash))) return { error: "البريد أو كلمة المرور غير صحيحة" };
 
   await clearQaAuditSession();
   await createSession(user.id);
