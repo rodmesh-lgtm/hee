@@ -2,8 +2,20 @@
 
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { Suspense, useActionState, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { FaApple } from "react-icons/fa";
+import { FcGoogle } from "react-icons/fc";
 import { registerAction } from "../actions/auth";
+
+const oauthMessages: Record<string, string> = {
+  "provider-unavailable": "إنشاء الحساب عبر هذا المزود غير مفعّل بعد. يمكنك التسجيل بالبريد الإلكتروني حالياً.",
+  "provider-cancelled": "تم إلغاء إنشاء الحساب من المزود.",
+  "invalid-state": "انتهت جلسة التسجيل الآمن. أعد المحاولة.",
+  "missing-callback-data": "لم تكتمل بيانات التسجيل. أعد المحاولة.",
+  "authentication-failed": "تعذر التحقق من الحساب الخارجي. أعد المحاولة.",
+  "start-failed": "تعذر بدء التسجيل الخارجي. أعد المحاولة لاحقاً.",
+};
 
 function getPasswordCriteria(password: string) {
   return [
@@ -15,8 +27,10 @@ function getPasswordCriteria(password: string) {
   ];
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const [state, action, pending] = useActionState(registerAction, { error: "" });
+  const searchParams = useSearchParams();
+  const oauthError = oauthMessages[searchParams.get("oauth") ?? ""];
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,9 +54,10 @@ export default function RegisterPage() {
         </div>
 
         <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          {oauthError ? <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm leading-6 text-amber-800">{oauthError}</p> : null}
           <div className="grid gap-3">
-            <a href="/api/auth/oauth/google?mode=register" className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50"><span className="grid h-5 w-5 place-items-center rounded-full border border-slate-200 text-[11px] font-black">G</span>المتابعة باستخدام Google</a>
-            <a href="/api/auth/oauth/apple?mode=register" className="flex w-full items-center justify-center gap-3 rounded-2xl bg-black px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-900"><span className="text-lg leading-none">●</span>المتابعة باستخدام Apple</a>
+            <a href="/api/auth/oauth/google?mode=register" className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50"><FcGoogle className="h-5 w-5" aria-hidden="true" />المتابعة باستخدام Google</a>
+            <a href="/api/auth/oauth/apple?mode=register" className="flex w-full items-center justify-center gap-3 rounded-2xl bg-black px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-900"><FaApple className="h-5 w-5" aria-hidden="true" />المتابعة باستخدام Apple</a>
             <p className="px-1 text-center text-[11px] leading-5 text-slate-500">بالمتابعة عبر Google أو Apple فإنك توافق على <Link href="/terms" className="underline underline-offset-2">الشروط والأحكام</Link> و<Link href="/privacy" className="underline underline-offset-2">سياسة الخصوصية</Link>.</p>
           </div>
 
@@ -64,4 +79,8 @@ export default function RegisterPage() {
       </div>
     </main>
   );
+}
+
+export default function RegisterPage() {
+  return <Suspense fallback={<main className="min-h-screen bg-[#f7f8fb]" />}><RegisterContent /></Suspense>;
 }
