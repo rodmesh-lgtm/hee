@@ -11,7 +11,7 @@ import {
   updateProductBuilderAction,
   updateServiceBuilderAction,
   type BuilderActionState,
-} from "../../app/actions/page-builder";
+} from "../../app/actions/catalog-media";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 
