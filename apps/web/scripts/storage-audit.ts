@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { getPersistentStorageAdapter } from "../app/lib/storage";
 
 const db = new PrismaClient();
 const deleteRequested = process.argv.includes("--delete");
@@ -46,7 +47,7 @@ async function main() {
     db.offer.findMany({ select: { imageUrl: true } }),
     db.galleryItem.findMany({ select: { imageUrl: true } }),
     db.contactPerson.findMany({ select: { imageUrl: true } }),
-    db.storedObject.findMany({ select: { id: true, objectKey: true, folder: true, fileName: true, size: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
+    db.storedObject.findMany({ select: { id: true, objectKey: true, folder: true, fileName: true, size: true, storageDriver: true, createdAt: true }, orderBy: { createdAt: "asc" } }),
   ]);
 
   for (const business of businesses) {
@@ -80,7 +81,7 @@ async function main() {
   }, null, 2));
 
   if (eligible.length) {
-    console.table(eligible.slice(0, 100).map((object) => ({ id: object.id, folder: object.folder, fileName: object.fileName, size: object.size, createdAt: object.createdAt.toISOString() })));
+    console.table(eligible.slice(0, 100).map((object) => ({ id: object.id, driver: object.storageDriver, folder: object.folder, fileName: object.fileName, size: object.size, createdAt: object.createdAt.toISOString() })));
     if (eligible.length > 100) console.log(`... ${eligible.length - 100} more eligible orphan objects`);
   }
 
@@ -88,9 +89,18 @@ async function main() {
   if (!deleteAllowed) throw new Error("Refusing deletion: set ALLOW_STORAGE_ORPHAN_DELETE=true together with --delete after reviewing the dry-run report.");
   if (!eligible.length) return;
 
-  const ids = eligible.map((object) => object.id);
-  const result = await db.storedObject.deleteMany({ where: { id: { in: ids } } });
-  console.log(`Deleted ${result.count} orphan storage objects (${eligibleBytes} bytes).`);
+  // Delete through the canonical adapter so remote S3/MinIO objects are removed before
+  // their StoredObject metadata. If one deletion fails, stop immediately and keep the
+  // remaining metadata intact so a later reviewed sweep can retry safely.
+  const storage = getPersistentStorageAdapter();
+  let deletedCount = 0;
+  let deletedBytes = 0;
+  for (const object of eligible) {
+    await storage.remove({ storageKey: object.id, folder: object.folder });
+    deletedCount += 1;
+    deletedBytes += object.size;
+  }
+  console.log(`Deleted ${deletedCount} orphan storage objects (${deletedBytes} bytes).`);
 }
 
 main().catch((error) => {
