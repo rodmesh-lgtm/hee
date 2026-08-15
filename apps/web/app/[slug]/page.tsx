@@ -16,6 +16,10 @@ function makeQrUrl(url: string) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
 }
 
+function safeJsonLd(value: unknown) {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const normalizedSlug = normalizePublicSlug(slug);
@@ -58,6 +62,34 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
 
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
   const qrDataUrl = makeQrUrl(publicUrl);
+  const socialUrls = [business.website, business.instagramUrl, business.tiktokUrl, business.snapchatUrl, business.xUrl, business.facebookUrl].filter((value): value is string => Boolean(value));
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": `https://hee.sa/${business.slug}#business`,
+    name: business.name,
+    ...(business.nameEn ? { alternateName: business.nameEn } : {}),
+    url: `https://hee.sa/${business.slug}`,
+    ...(business.description ? { description: business.description } : {}),
+    ...(business.logoUrl ? { logo: business.logoUrl, image: business.coverUrl || business.logoUrl } : business.coverUrl ? { image: business.coverUrl } : {}),
+    ...(business.phone ? { telephone: business.phone } : {}),
+    ...(business.email ? { email: business.email } : {}),
+    ...(business.address || business.city || business.district ? {
+      address: {
+        "@type": "PostalAddress",
+        ...(business.address ? { streetAddress: business.address } : {}),
+        ...(business.district ? { addressLocality: business.district } : {}),
+        ...(business.city ? { addressRegion: business.city } : {}),
+        ...(business.country ? { addressCountry: business.country } : { addressCountry: "SA" }),
+      },
+    } : {}),
+    ...(socialUrls.length ? { sameAs: socialUrls } : {}),
+  };
 
-  return <PublicBusinessPageV3 business={business} qrDataUrl={qrDataUrl} publicUrl={publicUrl} />;
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(structuredData) }} />
+      <PublicBusinessPageV3 business={business} qrDataUrl={qrDataUrl} publicUrl={publicUrl} />
+    </>
+  );
 }
