@@ -50,6 +50,20 @@ export function isQaAuditTokenValid(token?: string | null) {
   return Boolean(token && expectedSecret && token === expectedSecret);
 }
 
+function extractQaRequestToken(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+  const bearerToken = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : null;
+  const url = new URL(request.url);
+  const queryToken = url.searchParams.get("token")?.trim() || null;
+  return bearerToken || queryToken;
+}
+
+export async function hasQaAuditRequestAccess(request: Request) {
+  if (!isPreviewQaEnvironment()) return false;
+  if (isQaAuditTokenValid(extractQaRequestToken(request))) return true;
+  return isQaAuditSessionActive();
+}
+
 export async function resolveQaAuditUser() {
   const email = getQaAuditUserEmail();
   if (!email) {
@@ -119,6 +133,8 @@ export async function getQaAuditSessionUser() {
   });
 
   if (!session || session.userId !== qaUser.id || session.expiresAt < new Date()) {
+    if (session) await db.session.deleteMany({ where: { token } });
+    cookieStore.delete(QA_SESSION_COOKIE);
     return null;
   }
 
@@ -183,6 +199,7 @@ async function consumeQaAuditOneTimeLink(auditId: string, requestedPath?: string
     return null;
   }
 
+  await db.session.deleteMany({ where: { token } });
   await createQaAuditSession(qaUser.id);
   return resolveQaRequestedPath(requestedPath);
 }
