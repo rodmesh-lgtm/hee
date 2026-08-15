@@ -15,6 +15,9 @@
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
+  "overrides": {
+    "nanoid": "3.3.18"
+  },
   "dependencies": {
     "@prisma/adapter-pg": "^5.22.0",
     "@prisma/client": "^5.22.0",
