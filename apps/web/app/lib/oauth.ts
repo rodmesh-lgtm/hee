@@ -75,10 +75,12 @@ async function verifyRs256Jwt(token: string, jwksUrl: string) {
   if (header.alg !== "RS256" || !header.kid) throw new Error("invalid-id-token-header");
   const response = await fetch(jwksUrl, { cache: "no-store" });
   if (!response.ok) throw new Error("jwks-unavailable");
-  const jwks = await response.json() as { keys?: Array<JsonWebKey & { kid?: string }> };
+  const jwks = await response.json() as { keys?: Array<Record<string, unknown> & { kid?: string }> };
   const jwk = jwks.keys?.find((key) => key.kid === header.kid);
   if (!jwk) throw new Error("signing-key-not-found");
-  const key = createPublicKey({ key: jwk, format: "jwk" });
+  const normalizedJwk: Record<string, string> = {};
+  for (const [key, value] of Object.entries(jwk)) if (typeof value === "string") normalizedJwk[key] = value;
+  const key = createPublicKey({ key: normalizedJwk, format: "jwk" });
   const valid = cryptoVerify("RSA-SHA256", Buffer.from(`${parts[0]}.${parts[1]}`), key, Buffer.from(parts[2], "base64url"));
   if (!valid) throw new Error("invalid-id-token-signature");
   return decodeJwtPart<IdentityClaims>(parts[1]);
