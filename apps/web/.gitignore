@@ -20,6 +20,11 @@
 # production
 /build
 
+# local databases and captured responses
+*.db
+*.db-journal
+/-w
+
 # misc
 .DS_Store
 *.pem
