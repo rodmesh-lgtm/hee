@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Prisma } from "@prisma/client";
 import { createHash, createPrivateKey, createPublicKey, randomBytes, sign as cryptoSign, verify as cryptoVerify } from "node:crypto";
 import { db } from "./db";
 
@@ -137,14 +138,43 @@ export async function resolveOAuthUser(provider: OAuthProvider, claims: Identity
   const email = String(claims.email ?? "").trim().toLowerCase();
   const verified = claims.email_verified === true || claims.email_verified === "true";
   if (!subject || !email || !verified) throw new Error("verified-email-required");
-  const linked = await db.authIdentity.findUnique({ where: { provider_providerSubject: { provider, providerSubject: subject } }, include: { user: true } });
+
+  const identityWhere = { provider_providerSubject: { provider, providerSubject: subject } } as const;
+  const linked = await db.authIdentity.findUnique({ where: identityWhere, include: { user: true } });
   if (linked) return linked.user;
-  return db.$transaction(async (tx) => {
-    const existingUser = await tx.user.findUnique({ where: { email } });
-    const user = existingUser ?? await tx.user.create({ data: { name: String(claims.name || fallbackName || email.split("@")[0]).trim().slice(0, 120), email, passwordHash: null } });
-    await tx.authIdentity.create({ data: { userId: user.id, provider, providerSubject: subject, providerEmail: email } });
-    return user;
-  });
+
+  try {
+    return await db.$transaction(async (tx) => {
+      const existingIdentity = await tx.authIdentity.findUnique({ where: identityWhere, include: { user: true } });
+      if (existingIdentity) return existingIdentity.user;
+
+      const existingUser = await tx.user.findUnique({ where: { email } });
+      const user = existingUser ?? await tx.user.create({ data: { name: String(claims.name || fallbackName || email.split("@")[0]).trim().slice(0, 120), email, passwordHash: null } });
+      await tx.authIdentity.create({ data: { userId: user.id, provider, providerSubject: subject, providerEmail: email } });
+      return user;
+    });
+  } catch (error) {
+    // Concurrent callbacks can race on either the unique user email or provider subject.
+    // Re-read the canonical identity instead of surfacing an avoidable 500 to the user.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const racedIdentity = await db.authIdentity.findUnique({ where: identityWhere, include: { user: true } });
+      if (racedIdentity) return racedIdentity.user;
+      const racedUser = await db.user.findUnique({ where: { email } });
+      if (racedUser) {
+        try {
+          const identity = await db.authIdentity.create({ data: { userId: racedUser.id, provider, providerSubject: subject, providerEmail: email }, include: { user: true } });
+          return identity.user;
+        } catch (linkError) {
+          if (linkError instanceof Prisma.PrismaClientKnownRequestError && linkError.code === "P2002") {
+            const finalIdentity = await db.authIdentity.findUnique({ where: identityWhere, include: { user: true } });
+            if (finalIdentity) return finalIdentity.user;
+          }
+          throw linkError;
+        }
+      }
+    }
+    throw error;
+  }
 }
 
 export function parseAppleUser(raw?: string | null) {
