@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { db } from "../../../lib/db";
-import { getCurrentUser } from "../../../lib/auth";
 import { getPublicBusinessUrlFromRequest } from "../../../lib/public-url";
-import { isPreviewQaEnvironment, isQaAuditTokenValid } from "../../../lib/qa-audit";
+import { hasQaAuditRequestAccess } from "../../../lib/qa-audit";
 
 const OLD_ACCOUNT_EMAIL = "old.account.v52@hee-preview.local";
 const OLD_ACCOUNT_PASSWORD = "Aa!12345";
@@ -31,19 +30,7 @@ function buildLegacyModules() {
 }
 
 export async function POST(request: Request) {
-  if (!isPreviewQaEnvironment()) {
-    return new NextResponse(null, { status: 404 });
-  }
-
-  const authorization = request.headers.get("authorization") ?? "";
-  const bearerToken = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : null;
-  const url = new URL(request.url);
-  const queryToken = url.searchParams.get("token");
-  const authToken = bearerToken || queryToken;
-
-  const currentUser = await getCurrentUser();
-  const hasPermission = Boolean(currentUser) || isQaAuditTokenValid(authToken);
-  if (!hasPermission) {
+  if (!(await hasQaAuditRequestAccess(request))) {
     return new NextResponse(null, { status: 404 });
   }
 
