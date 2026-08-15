@@ -37,7 +37,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
   // Stored profile PDFs are public only when an active, published business page
   // explicitly references the exact storage object. Uploaded-but-unsaved files stay private.
   const candidates = await db.business.findMany({
-    where: { isPublished: true, deletedAt: null, pageModules: { not: null } },
+    where: { isPublished: true, deletedAt: null },
     select: { pageModules: true },
   });
   const isPublic = candidates.some((business) => profileReferencesStorageKey(business.pageModules, stored.id));
