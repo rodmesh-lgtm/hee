@@ -5,6 +5,10 @@ function asProvider(value: string): OAuthProvider | null {
   return value === "google" || value === "apple" ? value : null;
 }
 
+function stateCookieName(provider: OAuthProvider) {
+  return `hee_oauth_state_${provider}`;
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider: rawProvider } = await params;
   const provider = asProvider(rawProvider);
@@ -16,7 +20,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
 
   try {
     const authorizationUrl = await createOAuthAuthorization(provider, redirectTo);
-    return NextResponse.redirect(authorizationUrl);
+    const state = new URL(authorizationUrl).searchParams.get("state");
+    if (!state) throw new Error("missing-oauth-state");
+
+    const response = NextResponse.redirect(authorizationUrl);
+    response.cookies.set(stateCookieName(provider), state, {
+      httpOnly: true,
+      sameSite: provider === "apple" ? "none" : "lax",
+      secure: provider === "apple" || process.env.NODE_ENV === "production",
+      path: `/api/auth/oauth/${provider}/callback`,
+      maxAge: 10 * 60,
+    });
+    return response;
   } catch (error) {
     const code = error instanceof Error && error.message === "provider-not-configured" ? "provider-unavailable" : "start-failed";
     return NextResponse.redirect(new URL(`/${mode === "register" ? "register" : "login"}?oauth=${code}`, request.url));
