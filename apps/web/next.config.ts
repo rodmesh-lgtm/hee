@@ -16,7 +16,16 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:3000", "127.0.0.1:3000", "*.app.github.dev"],
+      // Explicitly include the canonical production hosts. Preview/dev hosts remain
+      // available for RC validation without weakening origin checks globally.
+      allowedOrigins: [
+        "hee.sa",
+        "www.hee.sa",
+        "localhost:3000",
+        "127.0.0.1:3000",
+        "*.app.github.dev",
+        "*.vercel.app",
+      ],
       bodySizeLimit: "8mb",
     },
   },
