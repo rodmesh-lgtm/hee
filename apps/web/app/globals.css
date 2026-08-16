@@ -12,15 +12,8 @@
   --font-mono: var(--font-inter), monospace;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
-  color-scheme: light;
-}
-
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; color-scheme: light; }
 body {
   margin: 0;
   background: var(--background);
@@ -28,106 +21,82 @@ body {
   font-family: var(--font-ibm-plex-sans-arabic), var(--font-inter), sans-serif;
   text-rendering: optimizeLegibility;
 }
-
-button,
-a {
-  -webkit-tap-highlight-color: transparent;
-}
-
-:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
-  outline: 3px solid #4f46e5;
-  outline-offset: 3px;
-}
-
-:where(button, input, textarea, select):disabled {
-  cursor: not-allowed;
-}
-
+button, a { -webkit-tap-highlight-color: transparent; }
+:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible { outline: 3px solid #4f46e5; outline-offset: 3px; }
+:where(button, input, textarea, select):disabled { cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+::selection { background: rgba(99,102,241,.26); }
 
-::selection {
-  background: rgba(99, 102, 241, 0.26);
-}
-
-/*
- * Public business profile polish
- *
- * Keep sparse profiles compact while giving content-rich profiles a consistent
- * visual rhythm. These rules deliberately target the public renderer only so
- * dashboard/editor surfaces are unaffected.
- */
+/* Public business profile */
 [data-renderer="hee-v3-smart-business-profile"] {
   --hee-card-border: #e1e9e5;
-  --hee-card-shadow: 0 18px 46px -40px rgba(4, 54, 43, 0.42);
+  --hee-card-shadow: 0 18px 46px -40px rgba(4,54,43,.42);
   background:
-    radial-gradient(circle at 92% 0%, rgba(16, 185, 129, 0.045), transparent 24rem),
-    #f6f8f7;
+    radial-gradient(circle at 92% 0%, rgba(16,185,129,.055), transparent 24rem),
+    linear-gradient(180deg,#f8fbf9 0%,#f5f8f6 55%,#f7f9f8 100%);
 }
-
-[data-renderer="hee-v3-smart-business-profile"] section {
-  isolation: isolate;
-}
-
-[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child) {
-  box-shadow: var(--hee-card-shadow);
-}
-
-[data-renderer="hee-v3-smart-business-profile"] h2 {
-  letter-spacing: -0.018em;
-}
-
-[data-renderer="hee-v3-smart-business-profile"] p {
-  text-wrap: pretty;
-}
-
+[data-renderer="hee-v3-smart-business-profile"] section { isolation: isolate; }
+[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child) { box-shadow: var(--hee-card-shadow); }
+[data-renderer="hee-v3-smart-business-profile"] h2 { letter-spacing: -.018em; }
+[data-renderer="hee-v3-smart-business-profile"] p { text-wrap: pretty; }
 [data-renderer="hee-v3-smart-business-profile"] a,
-[data-renderer="hee-v3-smart-business-profile"] button {
-  touch-action: manipulation;
-}
+[data-renderer="hee-v3-smart-business-profile"] button { touch-action: manipulation; }
+[data-renderer="hee-v3-smart-business-profile"] img { -webkit-user-drag: none; }
+[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto { scrollbar-width: none; overscroll-behavior-inline: contain; }
+[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto::-webkit-scrollbar { display: none; }
 
-[data-renderer="hee-v3-smart-business-profile"] img {
-  -webkit-user-drag: none;
-}
-
-/* Horizontal chips stay easy to swipe without showing a heavy browser bar. */
-[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto {
-  scrollbar-width: none;
-  overscroll-behavior-inline: contain;
-}
-
-[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto::-webkit-scrollbar {
-  display: none;
-}
-
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   [data-renderer="hee-v3-smart-business-profile"] > div {
     min-height: calc(100dvh - env(safe-area-inset-bottom));
+    padding-bottom: calc(104px + env(safe-area-inset-bottom));
+  }
+
+  [data-renderer="hee-v3-smart-business-profile"] section:first-child {
+    border-radius: 0 0 30px 30px;
+    border-left-color: transparent;
+    border-right-color: transparent;
+    border-top-color: transparent;
+    box-shadow: 0 24px 58px -42px rgba(4,54,43,.55);
+  }
+
+  /* The bottom dock owns primary actions on phones. Avoid duplicating four
+     large CTA cards in the hero; desktop/tablet keep the full action grid. */
+  [data-renderer="hee-v3-smart-business-profile"] section:first-child > div.relative > div.grid {
+    display: none;
   }
 
   [data-renderer="hee-v3-smart-business-profile"] section:not(:first-child) {
-    border-radius: 20px;
+    border-radius: 22px;
   }
 
-  [data-renderer="hee-v3-smart-business-profile"] h2 {
-    line-height: 1.45;
+  [data-renderer="hee-v3-smart-business-profile"] h2 { line-height: 1.45; }
+  [data-renderer="hee-v3-smart-business-profile"] article { min-width: 0; }
+
+  /* One department should feel like direct contact, not a tabbed directory. */
+  #hee-contact-directory > .mt-4.flex:has(> button:only-child) {
+    display: none;
+  }
+  #hee-contact-directory > .mt-4.flex:has(> button:only-child) + .mt-3 {
+    margin-top: .75rem;
   }
 
-  /* Prevent dense cards from feeling cramped on narrow phones. */
-  [data-renderer="hee-v3-smart-business-profile"] article {
-    min-width: 0;
+  /* Short profiles should end deliberately rather than looking unfinished. */
+  [data-renderer="hee-v3-smart-business-profile"] > div::after {
+    content: "HEE · صفحة أعمال ذكية";
+    display: block;
+    margin: 22px auto 0;
+    width: fit-content;
+    padding: 7px 12px;
+    border: 1px solid #e2ebe7;
+    border-radius: 999px;
+    background: rgba(255,255,255,.72);
+    color: #82918b;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .01em;
   }
 }
 
@@ -136,37 +105,25 @@ a {
   [data-renderer="hee-v3-smart-business-profile"] article {
     transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
   }
-
-  [data-renderer="hee-v3-smart-business-profile"] section:not(:first-child):hover {
-    border-color: #d6e5de;
-  }
+  [data-renderer="hee-v3-smart-business-profile"] section:not(:first-child):hover { border-color: #d6e5de; }
 }
 
-/*
- * Dashboard phone previews
- *
- * Render public pages at a real modern-phone CSS viewport (390px), then scale
- * that viewport down inside the compact dashboard device shell. This keeps
- * responsive typography, cards and sticky actions representative of an actual
- * phone instead of forcing the public page into a ~200–314px mini viewport.
- */
+/* Dashboard phone previews: render a real phone viewport and scale it into the shell. */
 @media (min-width: 1024px) {
   aside iframe[title="معاينة الصفحة"][src*="?preview="]:not([src*="surface=desktop"]) {
     width: 390px !important;
     height: 780px !important;
     max-width: none !important;
     border: 0;
-    transform: scale(0.805);
+    transform: scale(.805);
     transform-origin: top left;
   }
-
-  /* Read-only dashboard overview uses a narrower 210px device shell. */
   aside iframe[title="معاينة الهاتف"][src*="surface=phone"] {
     width: 390px !important;
     height: 846px !important;
     max-width: none !important;
     border: 0;
-    transform: scale(0.5077);
+    transform: scale(.5077);
     transform-origin: top left;
   }
 }
