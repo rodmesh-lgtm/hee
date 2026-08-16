@@ -63,12 +63,12 @@ a {
 }
 
 /*
- * Dashboard phone preview
+ * Dashboard phone previews
  *
- * Render the public page at a real modern-phone CSS viewport (390px) and
- * scale that viewport down to fit the compact dashboard device frame.
- * This prevents the preview itself from forcing the public page into an
- * unnaturally narrow ~314px layout while keeping the dashboard column small.
+ * Render public pages at a real modern-phone CSS viewport (390px), then scale
+ * that viewport down inside the compact dashboard device shell. This keeps
+ * responsive typography, cards and sticky actions representative of an actual
+ * phone instead of forcing the public page into a ~200–314px mini viewport.
  */
 @media (min-width: 1024px) {
   aside iframe[title="معاينة الصفحة"][src*="?preview="]:not([src*="surface=desktop"]) {
@@ -80,7 +80,13 @@ a {
     transform-origin: top left;
   }
 
-  aside iframe[title="معاينة الصفحة"][src*="?preview="]:not([src*="surface=desktop"])::before {
-    content: "";
+  /* Read-only dashboard overview uses a narrower 210px device shell. */
+  aside iframe[title="معاينة الهاتف"][src*="surface=phone"] {
+    width: 390px !important;
+    height: 846px !important;
+    max-width: none !important;
+    border: 0;
+    transform: scale(0.5077);
+    transform-origin: top left;
   }
 }
