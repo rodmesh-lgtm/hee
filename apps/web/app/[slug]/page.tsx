@@ -50,24 +50,31 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const business = resolved?.business;
   if (!business || !business.isPublished) return {};
 
+  const canonicalUrl = `https://hee.sa/${business.slug}`;
+  const title = business.metaTitle || `${business.name} | HEE`;
+  const description = business.metaDescription || business.description || `صفحة ${business.name}`;
+  const socialImageUrl = absolutePublicAssetUrl(business.coverUrl) || absolutePublicAssetUrl(business.logoUrl);
+
   return {
-    title: { absolute: business.metaTitle || `${business.name} | HEE` },
-    description: business.metaDescription || business.description || `صفحة ${business.name}`,
-    alternates: { canonical: `https://hee.sa/${business.slug}` },
+    title: { absolute: title },
+    description,
+    alternates: { canonical: canonicalUrl },
     openGraph: {
-      title: business.metaTitle || business.name,
-      description: business.metaDescription || business.description || `صفحة ${business.name}`,
+      title,
+      description,
       type: "website",
-      url: `https://hee.sa/${business.slug}`,
-      images: business.coverUrl ? [{ url: business.coverUrl }] : business.logoUrl ? [{ url: business.logoUrl }] : undefined,
+      url: canonicalUrl,
+      siteName: "HEE",
+      locale: "ar_SA",
+      images: socialImageUrl ? [{ url: socialImageUrl, alt: business.name }] : undefined,
     },
     twitter: {
-      card: "summary_large_image",
-      title: business.metaTitle || business.name,
-      description: business.metaDescription || business.description || `صفحة ${business.name}`,
-      images: business.coverUrl ? [business.coverUrl] : business.logoUrl ? [business.logoUrl] : undefined,
+      card: socialImageUrl ? "summary_large_image" : "summary",
+      title,
+      description,
+      images: socialImageUrl ? [socialImageUrl] : undefined,
     },
-    ...(isPreviewQaEnvironment() ? { robots: { index: false, follow: false } } : {}),
+    ...(isPreviewQaEnvironment() ? { robots: { index: false, follow: false } } : { robots: { index: true, follow: true } }),
   };
 }
 
@@ -82,6 +89,7 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
   if (resolved.isAlias) permanentRedirect(`/${resolved.business.slug}`);
 
   const business = resolved.business;
+  const canonicalUrl = `https://hee.sa/${business.slug}`;
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
   const qrDataUrl = makeQrUrl(publicUrl);
   const socialUrls = [business.website, business.instagramUrl, business.tiktokUrl, business.snapchatUrl, business.xUrl, business.facebookUrl].filter((value): value is string => Boolean(value));
@@ -90,10 +98,10 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    "@id": `https://hee.sa/${business.slug}#business`,
+    "@id": `${canonicalUrl}#business`,
     name: business.name,
     ...(business.nameEn ? { alternateName: business.nameEn } : {}),
-    url: `https://hee.sa/${business.slug}`,
+    url: canonicalUrl,
     ...(business.description ? { description: business.description } : {}),
     ...(logoUrl ? { logo: logoUrl } : {}),
     ...(imageUrl ? { image: imageUrl } : {}),
