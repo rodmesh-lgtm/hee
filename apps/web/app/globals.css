@@ -63,6 +63,86 @@ a {
 }
 
 /*
+ * Public business profile polish
+ *
+ * Keep sparse profiles compact while giving content-rich profiles a consistent
+ * visual rhythm. These rules deliberately target the public renderer only so
+ * dashboard/editor surfaces are unaffected.
+ */
+[data-renderer="hee-v3-smart-business-profile"] {
+  --hee-card-border: #e1e9e5;
+  --hee-card-shadow: 0 18px 46px -40px rgba(4, 54, 43, 0.42);
+  background:
+    radial-gradient(circle at 92% 0%, rgba(16, 185, 129, 0.045), transparent 24rem),
+    #f6f8f7;
+}
+
+[data-renderer="hee-v3-smart-business-profile"] section {
+  isolation: isolate;
+}
+
+[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child) {
+  box-shadow: var(--hee-card-shadow);
+}
+
+[data-renderer="hee-v3-smart-business-profile"] h2 {
+  letter-spacing: -0.018em;
+}
+
+[data-renderer="hee-v3-smart-business-profile"] p {
+  text-wrap: pretty;
+}
+
+[data-renderer="hee-v3-smart-business-profile"] a,
+[data-renderer="hee-v3-smart-business-profile"] button {
+  touch-action: manipulation;
+}
+
+[data-renderer="hee-v3-smart-business-profile"] img {
+  -webkit-user-drag: none;
+}
+
+/* Horizontal chips stay easy to swipe without showing a heavy browser bar. */
+[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto {
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+}
+
+[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  [data-renderer="hee-v3-smart-business-profile"] > div {
+    min-height: calc(100dvh - env(safe-area-inset-bottom));
+  }
+
+  [data-renderer="hee-v3-smart-business-profile"] section:not(:first-child) {
+    border-radius: 20px;
+  }
+
+  [data-renderer="hee-v3-smart-business-profile"] h2 {
+    line-height: 1.45;
+  }
+
+  /* Prevent dense cards from feeling cramped on narrow phones. */
+  [data-renderer="hee-v3-smart-business-profile"] article {
+    min-width: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  [data-renderer="hee-v3-smart-business-profile"] section:not(:first-child),
+  [data-renderer="hee-v3-smart-business-profile"] article {
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  }
+
+  [data-renderer="hee-v3-smart-business-profile"] section:not(:first-child):hover {
+    border-color: #d6e5de;
+  }
+}
+
+/*
  * Dashboard phone previews
  *
  * Render public pages at a real modern-phone CSS viewport (390px), then scale
