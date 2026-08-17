@@ -21,7 +21,7 @@ export default async function DashboardAnalyticsPage({ searchParams }: { searchP
   const params = searchParams ? await searchParams : {};
   const period = parsePeriod(params.period);
 
-  const business = await db.business.findFirst({ where: { ownerId: user.id }, select: { id: true, slug: true, isPublished: true } });
+  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, select: { id: true, slug: true, isPublished: true } });
   if (!business) redirect("/onboarding");
 
   const now = new Date();
