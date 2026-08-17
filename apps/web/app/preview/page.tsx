@@ -15,7 +15,7 @@ export default async function OwnerPreviewPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const business = await db.business.findFirst({
-    where: { ownerId: user.id },
+    where: { ownerId: user.id, deletedAt: null },
     include: {
       products: { include: { category: true } }, offers: true, services: true, openingHours: true,
       galleryItems: true, socialLinks: true, branches: true,
