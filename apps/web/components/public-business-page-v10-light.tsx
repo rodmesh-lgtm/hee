@@ -37,7 +37,7 @@ function externalUrl(value?: string | null) {
 
 function riyadhNow() {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Riyadh", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
-  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
   const days: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
   return { day: days[value("weekday")], minutes: Number(value("hour")) * 60 + Number(value("minute")) };
 }
@@ -102,7 +102,7 @@ export function PublicBusinessPageV10Light({ business, publicUrl }: Props) {
         {about ? <p className="mx-auto mt-3.5 max-w-[500px] line-clamp-3 text-[12.5px] leading-6 text-[#5f5864] sm:text-[13px]">{about}</p> : null}
       </section>
       <section className="mt-4 grid grid-cols-3 divide-x divide-x-reverse divide-[#eee9f2] rounded-[18px] border border-[#ebe6ef] bg-white py-3 shadow-[0_8px_24px_rgba(55,35,70,.035)]"><Metric icon={BadgeCheck} value={business.isVerified ? "موثق" : "HEE"} label={business.isVerified ? "هوية معتمدة" : "هوية رقمية"} /><Metric icon={BriefcaseBusiness} value={String(services.length)} label={services.length === 1 ? "خدمة" : "خدمات"} /><Metric icon={MapPin} value={String(branches.length)} label={branches.length === 1 ? "فرع" : "فروع"} /></section>
-      <section className="mt-2.5 grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(quickActions.length, 1)},minmax(0,1fr))` }}>{quickActions.map((action) => <QuickAction key={action.key} {...action} />)}</section>
+      <section className="mt-2.5 grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.max(quickActions.length, 1)},minmax(0,1fr))` }}>{quickActions.map(({ key, ...action }) => <QuickAction key={key} {...action} />)}</section>
       <section className="mt-3.5 space-y-2">
         {about ? <AccordionRow title="عن المنشأة" subtitle="نبذة مختصرة عنا" icon={Info} open={openPanel === "about"} onClick={() => toggle("about")}><p className="text-[13px] leading-7 text-[#625a68]">{clean(business.description) || about}</p></AccordionRow> : null}
         <AccordionRow title="خدماتنا" subtitle={services.length ? `${serviceCount(services.length)} متاحة` : "لم تتم إضافة خدمات بعد"} icon={BriefcaseBusiness} open={openPanel === "services"} onClick={() => toggle("services")}>{services.length ? <div className="space-y-2">{services.map((service) => <div key={String(service.id)} className="rounded-2xl bg-[#faf8fd] px-3.5 py-3"><b className="block text-[13px]">{clean(service.name)}</b>{clean(service.description) ? <p className="mt-1 text-[11px] leading-5 text-[#786f7d]">{clean(service.description)}</p> : null}</div>)}</div> : <EmptyState text="لم تتم إضافة خدمات بعد." />}</AccordionRow>
