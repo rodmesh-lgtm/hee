@@ -12,6 +12,7 @@ export async function resolveBusinessSlugAlias(slug: string): Promise<SlugAliasR
       FROM "BusinessSlugAlias" a
       JOIN "Business" b ON b."id" = a."businessId"
       WHERE a."slug" = ${slug}
+        AND b."deletedAt" IS NULL
       LIMIT 1
     `;
 
