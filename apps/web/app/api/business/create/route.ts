@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     phone: normalize(body.phone),
     address: normalize(body.address),
     logoUrl: normalize(body.logoUrl),
-    primaryColor: normalize(body.primaryColor, "#6366f1"),
+    primaryColor: normalize(body.primaryColor, "#6f3bd2"),
     entityType: normalize(body.entityType),
     businessCategory: normalize(body.businessCategory),
     onboardingCompleted: true,
@@ -99,8 +99,6 @@ export async function POST(request: Request) {
     select: { id: true },
   });
   if (slugTaken) {
-    // A generated slug collision is exceptionally unlikely, but never surface it as a
-    // user-facing conflict. Generate one more candidate and validate it before writing.
     if (!requestedSlug && !existingBusiness) {
       const retrySlug = generatedPublicSlug();
       if (isValidPublicSlug(retrySlug)) {
@@ -131,7 +129,8 @@ export async function POST(request: Request) {
     : await db.business.create({ data: { ownerId: user.id, ...businessData } });
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/my-page");
   revalidatePath(`/${business.slug}`);
 
-  return NextResponse.json({ business: { id: business.id, slug: business.slug }, redirectTo: `/${business.slug}` }, { status: existingBusiness ? 200 : 201 });
+  return NextResponse.json({ business: { id: business.id, slug: business.slug }, redirectTo: "/dashboard?welcome=1" }, { status: existingBusiness ? 200 : 201 });
 }
