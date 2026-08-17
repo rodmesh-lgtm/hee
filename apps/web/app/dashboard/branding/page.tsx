@@ -1,91 +1,59 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, Check, CheckCircle2, Crown, ImagePlus, LockKeyhole, Palette, Send, Sparkles, UsersRound } from "lucide-react";
+import { BadgeCheck, CheckCircle2, Crown, ImagePlus, LockKeyhole, Palette } from "lucide-react";
 import { getCurrentUser } from "../../lib/auth";
 import { db } from "../../lib/db";
-import { formatPlanLimit, getPlanEntitlements, HEE_PLAN_ENTITLEMENTS } from "../../lib/plan-entitlements";
+import { getPlanEntitlements } from "../../lib/plan-entitlements";
 import { hasPendingVerificationRequest, requestVerificationAction } from "../../actions/verification";
-import { applyBrandThemeAction } from "../../actions/branding-theme";
 import { requestPlanUpgradeAction } from "../../actions/subscription-request";
 import { updateBrandingImagesFromDashboardAction } from "../../actions/branding-images";
-
-const themes = [
-  { key: "HEE_LIGHT", name: "HEE Light", tone: "#6f3bd2", plan: "FREE", label: "مجاني", description: "الثيم الأساسي المعتمد لهوية HEE." },
-  { key: "EXECUTIVE", name: "Executive", tone: "#1f2552", plan: "BUSINESS", label: "Business", description: "هوية أكثر رسمية للشركات والمكاتب المهنية." },
-  { key: "SIGNATURE", name: "Signature", tone: "#7c3aed", plan: "PRO", label: "Pro", description: "مظهر مميز مع خيارات أوسع للألوان والتفاصيل." },
-] as const;
 
 export default async function DashboardBrandingPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const business = await db.business.findFirst({ where: { ownerId: user.id }, include: { plan: true, contactPersons: true, branches: true, services: true } });
-  if (!business) redirect("/dashboard");
+  const business = await db.business.findFirst({ where: { ownerId: user.id }, include: { plan: true } });
+  if (!business) redirect("/onboarding");
 
   const params = await searchParams;
-  const verificationParam = Array.isArray(params?.verification) ? params?.verification[0] : params?.verification;
-  const themeParam = Array.isArray(params?.theme) ? params?.theme[0] : params?.theme;
-  const upgradeParam = Array.isArray(params?.upgrade) ? params?.upgrade[0] : params?.upgrade;
-  const imagesParam = Array.isArray(params?.images) ? params?.images[0] : params?.images;
-  const imagesMessage = Array.isArray(params?.message) ? params?.message[0] : params?.message;
-  const planCode = business.plan?.code || "FREE";
-  const planRank: Record<string, number> = { FREE: 0, BUSINESS: 1, PRO: 2 };
-  const currentRank = planRank[planCode] ?? 0;
-  const entitlements = getPlanEntitlements(planCode);
+  const verificationParam = Array.isArray(params?.verification) ? params.verification[0] : params?.verification;
+  const upgradeParam = Array.isArray(params?.upgrade) ? params.upgrade[0] : params?.upgrade;
+  const imagesParam = Array.isArray(params?.images) ? params.images[0] : params?.images;
+  const imagesMessage = Array.isArray(params?.message) ? params.message[0] : params?.message;
+  const entitlements = getPlanEntitlements(business.plan?.code);
   const verificationPending = !business.isVerified && await hasPendingVerificationRequest(business.id);
 
-  return (
-    <div className="space-y-5 pb-4">
-      {verificationParam === "requested" || verificationPending ? <div className="flex items-start gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span>تم استلام طلب التوثيق وهو قيد مراجعة HEE. لن تظهر الشارة إلا بعد الاعتماد.</span></div> : null}
-      {verificationParam === "upgrade" ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">طلب التوثيق يتطلب باقة مؤهلة.</div> : null}
-      {themeParam && themeParam !== "upgrade" && themeParam !== "invalid" ? <div className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span>تم تطبيق الثيم على هوية صفحتك.</span></div> : null}
-      {themeParam === "upgrade" ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">هذا الثيم يتطلب ترقية الباقة.</div> : null}
-      {upgradeParam && upgradeParam !== "current" ? <div className="flex items-start gap-2 rounded-2xl border border-[#d9cff8] bg-[#f7f4ff] px-4 py-3 text-sm font-bold text-[#5638b8]"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span>تم تسجيل طلب الترقية إلى {upgradeParam.toUpperCase()} وسيمكن معالجته من إدارة HEE.</span></div> : null}
-      {imagesParam === "saved" ? <div className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span>تم تحديث الشعار وصورة الغلاف بنجاح.</span></div> : null}
-      {imagesParam === "error" ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">{imagesMessage || "تعذر تحديث الصور. حاول مرة أخرى."}</div> : null}
+  return <div className="space-y-4 pb-4">
+    {verificationParam === "requested" || verificationPending ? <div className="flex items-start gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />طلب التوثيق قيد المراجعة.</div> : null}
+    {verificationParam === "upgrade" ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">التوثيق متاح ضمن الباقات المؤهلة.</div> : null}
+    {upgradeParam && upgradeParam !== "current" ? <div className="rounded-2xl border border-[#d9cff8] bg-[#f7f4ff] px-4 py-3 text-sm font-bold text-[#5638b8]">تم تسجيل طلب الترقية إلى {upgradeParam.toUpperCase()}.</div> : null}
+    {imagesParam === "saved" ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">تم تحديث صور الهوية.</div> : null}
+    {imagesParam === "error" ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">{imagesMessage || "تعذر تحديث الصور."}</div> : null}
 
-      <section className="rounded-[28px] border border-[#e8e5f2] bg-[linear-gradient(135deg,#fff_0%,#faf8ff_62%,#f1ebff_100%)] p-5 sm:p-6">
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#efeaff] px-3 py-1 text-[11px] font-black text-[#5b3fd6]"><Palette className="h-3.5 w-3.5" /> المظهر والباقات</span>
-        <h1 className="mt-3 text-2xl font-black text-[#1f2552]">اجعل صفحتك تعكس هويتك</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-500">حدّث الشعار والغلاف، اختر ثيمًا جاهزًا أو عدّل اللون الأساسي. البنية تبقى موحدة ومهنية في جميع صفحات HEE.</p>
-        <div className="mt-4 flex flex-wrap gap-2"><Link href="/dashboard/my-page?edit=1" className="inline-flex h-11 items-center rounded-xl bg-[#6f3bd2] px-4 text-sm font-black text-white">تعديل بيانات الصفحة</Link><Link href="/dashboard/my-page" className="inline-flex h-11 items-center rounded-xl border border-[#ddd8f4] bg-white px-4 text-sm font-black text-[#4f43d9]">معاينة صفحتي</Link></div>
-      </section>
+    <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><Palette className="h-5 w-5 text-[#6f3bd2]" /><h1 className="text-xl font-black text-[#20264f]">المظهر</h1></div><p className="mt-1 text-sm text-slate-500">حافظنا على قالب HEE موحد حتى تبدو جميع الصفحات احترافية ومتناسقة.</p></div><Link href="/preview" target="_blank" className="inline-flex h-10 items-center rounded-xl border border-[#ded9f3] bg-[#f7f4ff] px-4 text-xs font-black text-[#5d49cc]">معاينة الصفحة</Link></div>
+    </section>
 
-      <section className="rounded-[24px] border border-[#e9e7f3] bg-white p-5">
-        <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><ImagePlus className="h-5 w-5" /></span><div><h2 className="text-lg font-black text-[#1f2552]">الشعار وصورة الغلاف</h2><p className="mt-1 text-xs text-slate-500">هذه الصور مرتبطة مباشرة بصفحتك العامة.</p></div></div>
-        <div className="mt-4 grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
-          <div className="space-y-2"><div className="grid h-28 w-28 place-items-center overflow-hidden rounded-full border border-[#e7e1ef] bg-[#faf8fd]">{business.logoUrl ? <img src={business.logoUrl} alt="شعار النشاط" className="h-full w-full object-cover" /> : <span className="text-xs text-slate-400">لا يوجد شعار</span>}</div><p className="text-[10px] text-slate-400">الشعار الحالي</p></div>
-          <div className="space-y-3"><div className="overflow-hidden rounded-2xl border border-[#e7e1ef] bg-[#faf8fd]">{business.coverUrl ? <img src={business.coverUrl} alt="صورة الغلاف" className="h-28 w-full object-cover" /> : <div className="grid h-28 place-items-center text-xs text-slate-400">لا توجد صورة غلاف</div>}</div><form action={updateBrandingImagesFromDashboardAction} className="grid gap-3 sm:grid-cols-2" encType="multipart/form-data"><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>تغيير الشعار</span><input name="logoFile" type="file" accept="image/*" className="block w-full rounded-xl border border-[#ded8e8] bg-white px-3 py-2 text-xs file:ml-3 file:rounded-lg file:border-0 file:bg-[#f1edff] file:px-3 file:py-1.5 file:font-bold file:text-[#6543ce]" /></label><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>تغيير الغلاف</span><input name="coverFile" type="file" accept="image/*" className="block w-full rounded-xl border border-[#ded8e8] bg-white px-3 py-2 text-xs file:ml-3 file:rounded-lg file:border-0 file:bg-[#f1edff] file:px-3 file:py-1.5 file:font-bold file:text-[#6543ce]" /></label><button className="inline-flex h-10 items-center justify-center rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white sm:col-span-2 sm:w-fit">حفظ الشعار والغلاف</button></form><p className="text-[10px] leading-5 text-slate-400">يمكنك رفع أحدهما فقط أو كليهما. الصور الجديدة تظهر بعد الحفظ في الصفحة العامة.</p></div>
-        </div>
-      </section>
+    <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5">
+      <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#f1edff] text-[#6543ce]"><ImagePlus className="h-5 w-5" /></span><div><h2 className="font-black text-[#20264f]">الشعار والغلاف</h2><p className="text-xs text-slate-500">ارفع صور الهوية؛ ستظهر في المعاينة مباشرة بعد الحفظ.</p></div></div>
+      <div className="mt-4 grid gap-4 md:grid-cols-[120px_minmax(0,1fr)]">
+        <div className="grid h-24 w-24 place-items-center overflow-hidden rounded-full border border-[#e7e1ef] bg-[#faf8fd]">{business.logoUrl ? <img src={business.logoUrl} alt="شعار النشاط" className="h-full w-full object-cover" /> : <span className="text-[10px] text-slate-400">لا يوجد شعار</span>}</div>
+        <div className="space-y-3"><div className="overflow-hidden rounded-2xl border border-[#e7e1ef] bg-[#faf8fd]">{business.coverUrl ? <img src={business.coverUrl} alt="صورة الغلاف" className="h-24 w-full object-cover" /> : <div className="grid h-24 place-items-center text-xs text-slate-400">لا توجد صورة غلاف</div>}</div><form action={updateBrandingImagesFromDashboardAction} className="grid gap-2 sm:grid-cols-2" encType="multipart/form-data"><input name="logoFile" type="file" accept="image/*" className="block w-full rounded-xl border border-[#ded8e8] bg-white px-3 py-2 text-xs" /><input name="coverFile" type="file" accept="image/*" className="block w-full rounded-xl border border-[#ded8e8] bg-white px-3 py-2 text-xs" /><button className="h-10 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white sm:col-span-2 sm:w-fit">حفظ الصور</button></form></div>
+      </div>
+    </section>
 
-      <section className="rounded-[24px] border border-[#e9e7f3] bg-white p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black text-[#1f2552]">الثيمات</h2><p className="mt-1 text-xs text-slate-500">اختيار الثيم فعلي ويُحفظ مباشرة في بيانات المنشأة.</p></div><span className="rounded-full bg-[#f4f1fb] px-3 py-1 text-xs font-black text-[#6543ce]">باقتك: {business.plan?.name || "Free"}</span></div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {themes.map((theme) => {
-            const requiredRank = planRank[theme.plan] ?? 0;
-            const unlocked = currentRank >= requiredRank;
-            const active = business.primaryColor?.toLowerCase() === theme.tone.toLowerCase();
-            return <article key={theme.key} className={`rounded-[22px] border p-4 ${active ? "border-[#a995ef] bg-[#faf8ff]" : unlocked ? "border-[#e5e1f0] bg-white" : "border-[#eeebf5] bg-[#faf9fc]"}`}><div className="h-24 rounded-[18px] border border-black/5" style={{ background: `linear-gradient(145deg,#ffffff 0%,${theme.tone}22 60%,${theme.tone}55 100%)` }} /><div className="mt-3 flex items-center justify-between gap-2"><div><h3 className="font-black text-[#252a4a]">{theme.name}</h3><span className="text-[10px] font-bold text-slate-400">{active ? "مطبق حاليًا" : theme.label}</span></div><span className={`grid h-9 w-9 place-items-center rounded-xl ${active || unlocked ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>{active || unlocked ? <Check className="h-4 w-4" /> : <LockKeyhole className="h-4 w-4" />}</span></div><p className="mt-2 text-xs leading-6 text-slate-500">{theme.description}</p>{unlocked ? <form action={applyBrandThemeAction} className="mt-3"><input type="hidden" name="theme" value={theme.key} /><button disabled={active} className="inline-flex h-9 items-center rounded-xl bg-[#6f3bd2] px-3 text-[11px] font-black text-white disabled:cursor-default disabled:bg-[#ebe6f4] disabled:text-[#81778a]">{active ? "الثيم الحالي" : "تطبيق الثيم"}</button></form> : <a href="#hee-plans" className="mt-3 inline-flex text-[11px] font-black text-[#6543ce]">يتطلب {theme.label}</a>}</article>;
-          })}
-        </div>
-      </section>
+    <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3"><div><h2 className="font-black text-[#20264f]">الثيم</h2><p className="mt-1 text-xs text-slate-500">قالب الإطلاق الحالي موحد لجميع العملاء.</p></div><span className="rounded-full bg-[#f1edff] px-3 py-1 text-[10px] font-black text-[#5d49cc]">HEE Light</span></div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-[#bfb2f2] bg-[#faf8ff] p-3"><div className="h-14 rounded-xl bg-[linear-gradient(135deg,#fff,#efeaff)]" /><b className="mt-2 block text-sm text-[#20264f]">HEE Light</b><span className="text-[10px] text-emerald-600">مطبق حاليًا</span></div>
+        <div className="rounded-2xl border border-[#e9e7f3] bg-[#fbfbfd] p-3 opacity-70"><div className="h-14 rounded-xl bg-[linear-gradient(135deg,#fff,#e9ebf2)]" /><div className="mt-2 flex items-center justify-between"><b className="text-sm text-[#20264f]">Executive</b><LockKeyhole className="h-4 w-4 text-slate-400" /></div><span className="text-[10px] text-slate-400">قريبًا · Business</span></div>
+        <div className="rounded-2xl border border-[#e9e7f3] bg-[#fbfbfd] p-3 opacity-70"><div className="h-14 rounded-xl bg-[linear-gradient(135deg,#fff,#ede3ff)]" /><div className="mt-2 flex items-center justify-between"><b className="text-sm text-[#20264f]">Signature</b><LockKeyhole className="h-4 w-4 text-slate-400" /></div><span className="text-[10px] text-slate-400">قريبًا · Pro</span></div>
+      </div>
+    </section>
 
-      <section id="hee-plans" className="grid scroll-mt-24 gap-3 lg:grid-cols-3">
-        {(["FREE", "BUSINESS", "PRO"] as const).map((code) => {
-          const item = HEE_PLAN_ENTITLEMENTS[code];
-          const active = code === planCode;
-          const canUpgrade = (planRank[code] ?? 0) > currentRank;
-          return <article key={code} className={`rounded-[24px] border p-5 ${active ? "border-[#bdb0f5] bg-[#f8f5ff]" : "border-[#e9e7f3] bg-white"}`}><div className="flex items-center justify-between gap-2"><h3 className="font-black text-[#1f2552]">{item.label}</h3>{active ? <span className="rounded-full bg-[#6f3bd2] px-2.5 py-1 text-[10px] font-black text-white">باقتك الحالية</span> : null}</div><div className="mt-4 space-y-2 text-xs leading-6 text-slate-600"><p>الفروع: <b>{formatPlanLimit(item.branchLimit)}</b></p><p>الخدمات: <b>{formatPlanLimit(item.serviceLimit)}</b></p><p>فريق التواصل والمبيعات: <b>{formatPlanLimit(item.contactLimit)}</b></p><p>الأقسام: <b>{formatPlanLimit(item.departmentLimit)}</b></p><p>الثيمات المميزة: <b>{item.premiumThemes ? "متاحة" : "الثيم الأساسي"}</b></p><p>اللون الأساسي: <b>{item.customColors ? "قابل للتخصيص" : "ثابت"}</b></p><p>طلب التوثيق: <b>{item.verificationEligible ? "متاح" : "يتطلب ترقية"}</b></p></div>{canUpgrade ? <form action={requestPlanUpgradeAction} className="mt-4"><input type="hidden" name="plan" value={code} /><button className="inline-flex h-10 items-center rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white">طلب الترقية إلى {item.label}</button></form> : null}</article>;
-        })}
-      </section>
+    <section className="grid gap-3 lg:grid-cols-2">
+      <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><Crown className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">باقتك: {business.plan?.name || "Free"}</h2></div><p className="mt-2 text-xs leading-6 text-slate-500">الترقية ترفع حدود الفروع والفريق وتتيح طلب التوثيق، ثم تفتح الثيمات المدفوعة عند اعتمادها.</p><div className="mt-4 flex gap-2">{String(business.plan?.code || "FREE").toUpperCase() === "FREE" ? <form action={requestPlanUpgradeAction}><input type="hidden" name="plan" value="BUSINESS" /><button className="h-10 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white">طلب Business</button></form> : null}<Link href="/dashboard/settings" className="inline-flex h-10 items-center rounded-xl border border-[#e5e1f0] px-4 text-xs font-black text-slate-600">تفاصيل الحساب</Link></div></article>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <article className="rounded-[24px] border border-[#e9e7f3] bg-white p-5"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-600"><BadgeCheck className="h-5 w-5" /></span><h3 className="mt-3 font-black text-[#1f2552]">توثيق HEE</h3><p className="mt-2 text-xs leading-6 text-slate-500">{business.isVerified ? "تم اعتماد المنشأة وتظهر شارة التوثيق في الصفحة العامة." : verificationPending ? "طلبك قيد المراجعة. ستظهر الشارة فقط بعد اعتماد HEE." : entitlements.verificationEligible ? "باقتك مؤهلة. أرسل طلب التوثيق وسيتم وضعه في قائمة المراجعة." : "التوثيق متاح في الباقات المدفوعة، وبعد الترقية يمكن تقديم الطلب للمراجعة."}</p>{!business.isVerified && entitlements.verificationEligible && !verificationPending ? <form action={requestVerificationAction} className="mt-4"><button className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-black text-white"><Send className="h-3.5 w-3.5" /> طلب التوثيق</button></form> : null}{!entitlements.verificationEligible ? <a href="#hee-plans" className="mt-4 inline-flex text-xs font-black text-[#6543ce]">يتطلب ترقية الباقة</a> : null}</article>
-        <article className="rounded-[24px] border border-[#e9e7f3] bg-white p-5"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><UsersRound className="h-5 w-5" /></span><h3 className="mt-3 font-black text-[#1f2552]">فريق المبيعات</h3><p className="mt-2 text-xs leading-6 text-slate-500">لديك حاليًا {business.contactPersons.length} من أصل {formatPlanLimit(entitlements.contactLimit)} جهة تواصل متاحة في باقتك.</p><Link href="/dashboard/directory" className="mt-4 inline-flex text-xs font-black text-[#6543ce]">إدارة الفريق والفروع</Link></article>
-        <article className="rounded-[24px] border border-[#e9e7f3] bg-white p-5"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-600"><Crown className="h-5 w-5" /></span><h3 className="mt-3 font-black text-[#1f2552]">مزايا Premium</h3><p className="mt-2 text-xs leading-6 text-slate-500">ثيمات مميزة، أهلية التوثيق، حدود أعلى للفروع والفريق، وتحليلات متقدمة.</p></article>
-      </section>
-
-      <section className="rounded-[24px] border border-[#e6e1fb] bg-[#f8f5ff] p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-[#6642cf]" /><h2 className="font-black text-[#1f2552]">المظهر والصلاحيات في مكان واحد</h2></div><p className="mt-1 text-xs leading-6 text-slate-500">الثيمات تُفرض من السيرفر حسب الباقة، وطلبات الترقية والتوثيق أصبحت مسارات فعلية محفوظة.</p></div><Link href="/dashboard/settings" className="inline-flex h-10 items-center justify-center rounded-xl border border-[#dcd5f7] bg-white px-4 text-sm font-black text-[#5b3fd6]">تفاصيل الحساب</Link></div></section>
-    </div>
-  );
+      <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><BadgeCheck className={`h-5 w-5 ${business.isVerified ? "text-blue-600" : "text-[#6f3bd2]"}`} /><h2 className="font-black text-[#20264f]">توثيق HEE</h2></div><p className="mt-2 text-xs leading-6 text-slate-500">الشارة لا تظهر إلا بعد مراجعة المنشأة واعتمادها من HEE.</p>{business.isVerified ? <span className="mt-4 inline-flex rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">موثق</span> : verificationPending ? <span className="mt-4 inline-flex rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">قيد المراجعة</span> : entitlements.verificationEligible ? <form action={requestVerificationAction} className="mt-4"><button className="h-10 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white">طلب التوثيق</button></form> : <p className="mt-4 text-xs font-bold text-slate-400">متاح مع الباقات المؤهلة.</p>}</article>
+    </section>
+  </div>;
 }
