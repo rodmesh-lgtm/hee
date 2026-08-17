@@ -11,7 +11,7 @@ import { updateBrandingImagesFromDashboardAction } from "../../actions/branding-
 export default async function DashboardBrandingPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const business = await db.business.findFirst({ where: { ownerId: user.id }, include: { plan: true } });
+  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, include: { plan: true } });
   if (!business) redirect("/onboarding");
 
   const params = await searchParams;
