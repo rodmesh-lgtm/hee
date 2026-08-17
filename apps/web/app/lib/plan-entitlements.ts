@@ -22,7 +22,7 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
     contactLimit: 2,
     departmentLimit: 2,
     premiumThemes: false,
-    customColors: false,
+    customColors: true,
     verificationEligible: false,
     analytics: "basic",
   },
