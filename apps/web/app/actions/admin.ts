@@ -10,13 +10,17 @@ function metadataObject(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
+async function activeBusinessExists(businessId: string) {
+  return Boolean(await db.business.findFirst({ where: { id: businessId, deletedAt: null }, select: { id: true } }));
+}
+
 export async function approveVerificationAdminAction(formData: FormData) {
   await requireAdmin();
   const eventId = String(formData.get("eventId") ?? "").trim();
   if (!eventId) redirect("/admin?error=verification");
 
   const event = await db.analyticsEvent.findUnique({ where: { id: eventId }, select: { id: true, businessId: true, eventType: true, metadata: true } });
-  if (!event || event.eventType !== "verification_requested") redirect("/admin?error=verification");
+  if (!event || event.eventType !== "verification_requested" || !(await activeBusinessExists(event.businessId))) redirect("/admin?error=verification");
 
   await db.$transaction([
     db.business.update({ where: { id: event.businessId }, data: { isVerified: true } }),
@@ -33,7 +37,7 @@ export async function approvePlanUpgradeAdminAction(formData: FormData) {
   if (!eventId) redirect("/admin?error=upgrade");
 
   const event = await db.analyticsEvent.findUnique({ where: { id: eventId }, select: { id: true, businessId: true, eventType: true, metadata: true } });
-  if (!event || event.eventType !== "plan_upgrade_requested") redirect("/admin?error=upgrade");
+  if (!event || event.eventType !== "plan_upgrade_requested" || !(await activeBusinessExists(event.businessId))) redirect("/admin?error=upgrade");
 
   const metadata = metadataObject(event.metadata);
   const requestedPlan = normalizePlanCode(String(metadata.requestedPlan ?? "BUSINESS"));
