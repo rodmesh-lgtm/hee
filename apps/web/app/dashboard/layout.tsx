@@ -16,7 +16,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const qaAuditUser = await getQaAuditSessionUser();
   const business = await db.business.findFirst({
-    where: { ownerId: user.id },
+    where: { ownerId: user.id, deletedAt: null },
     select: { name: true, slug: true, isPublished: true },
   });
 
