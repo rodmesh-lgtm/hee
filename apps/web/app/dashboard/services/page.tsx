@@ -7,7 +7,7 @@ import { addSimpleServiceAction, deleteSimpleServiceAction, updateSimpleServiceA
 export default async function DashboardServicesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const business = await db.business.findFirst({ where: { ownerId: user.id }, include: { services: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } } });
+  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, include: { services: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } } });
   if (!business) redirect("/onboarding");
 
   return <div className="space-y-4 pb-4">
