@@ -19,6 +19,7 @@ export const RESERVED_PUBLIC_SLUGS = new Set([
   "login",
   "logout",
   "onboarding",
+  "preview",
   "pricing",
   "privacy",
   "register",
