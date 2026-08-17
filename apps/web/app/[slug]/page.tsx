@@ -30,6 +30,8 @@ const customerThemeCss = `
 .hee-public-theme main > div:nth-of-type(2) [class~="bg-[#eee7f8]"] { background:color-mix(in srgb,var(--hee-customer-accent) 9%,white)!important; }
 .hee-public-theme main > div:nth-of-type(2) footer a { color:#6f3bd2!important; }
 .hee-public-theme main > div:first-of-type a[aria-label="HEE - الصفحة الرئيسية"] span:first-child { color:#6f3bd2!important; }
+.hee-public-theme main > div:nth-of-type(2) > section:nth-of-type(2) { display:none!important; }
+.hee-public-theme main > div:nth-of-type(2) > section:nth-of-type(1) > div:nth-of-type(3) > span:nth-child(3) { display:none!important; }
 `;
 
 export default async function PublicBusinessPageRoute({params}:{params:Promise<{slug:string}>}){
@@ -39,5 +41,12 @@ export default async function PublicBusinessPageRoute({params}:{params:Promise<{
  const socialUrls=[business.website,business.instagramUrl,business.tiktokUrl,business.snapchatUrl,business.xUrl,business.facebookUrl].filter((value):value is string=>Boolean(value)); const logoUrl=absolutePublicAssetUrl(business.logoUrl); const imageUrl=absolutePublicAssetUrl(business.coverUrl)||logoUrl;
  const structuredData={"@context":"https://schema.org","@type":"LocalBusiness","@id":`${canonicalUrl}#business`,name:business.name,...(business.nameEn?{alternateName:business.nameEn}:{}),url:canonicalUrl,...(business.description?{description:business.description}:{}),...(logoUrl?{logo:logoUrl}:{}),...(imageUrl?{image:imageUrl}:{}),...(business.phone?{telephone:business.phone}:{}),...(business.email?{email:business.email}:{}),...(business.address||business.city||business.district?{address:{"@type":"PostalAddress",...(business.address?{streetAddress:business.address}:{}),...(business.district?{addressLocality:business.district}:{}),...(business.city?{addressRegion:business.city}:{}),...(business.country?{addressCountry:business.country}:{addressCountry:"SA"})}}:{}),...(socialUrls.length?{sameAs:socialUrls}:{})};
  const accent=business.primaryColor||"#6f3bd2";
- return <><script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(structuredData)}}/><div className="hee-public-theme" style={{"--hee-customer-accent":accent} as CSSProperties}><style>{customerThemeCss}</style><PublicBusinessPageV10Light business={business} qrDataUrl={qrDataUrl} publicUrl={publicUrl}/></div></>;
+ const liveContentCss=[
+   !business.workingHours ? `.hee-public-theme main > div:nth-of-type(2) > section:nth-of-type(1) > div:nth-of-type(3) > span:nth-child(2){display:none!important;}` : "",
+   business.services.length===0 ? `.hee-public-theme main > div:nth-of-type(2) > section:nth-of-type(4) > section:nth-of-type(2){display:none!important;}` : "",
+   business.branches.length===0 ? `.hee-public-theme main > div:nth-of-type(2) > section:nth-of-type(4) > section:nth-of-type(3){display:none!important;}` : "",
+   business.contactPersons.length===0 ? `.hee-public-theme main > div:nth-of-type(2) > section:nth-of-type(4) > section:nth-of-type(4){display:none!important;}` : "",
+   business.galleryItems.length===0 ? `.hee-public-theme main > div:nth-of-type(2) > section:nth-of-type(4) > section:nth-of-type(5){display:none!important;}` : "",
+ ].join("\n");
+ return <><script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(structuredData)}}/><div className="hee-public-theme" style={{"--hee-customer-accent":accent} as CSSProperties}><style>{customerThemeCss+liveContentCss}</style><PublicBusinessPageV10Light business={business} qrDataUrl={qrDataUrl} publicUrl={publicUrl}/></div></>;
 }
