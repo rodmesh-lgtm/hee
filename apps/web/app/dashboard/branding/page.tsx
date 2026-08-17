@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, Check, CheckCircle2, Crown, LockKeyhole, Palette, Send, Sparkles, UsersRound } from "lucide-react";
+import { BadgeCheck, Check, CheckCircle2, Crown, ImagePlus, LockKeyhole, Palette, Send, Sparkles, UsersRound } from "lucide-react";
 import { getCurrentUser } from "../../lib/auth";
 import { db } from "../../lib/db";
 import { formatPlanLimit, getPlanEntitlements, HEE_PLAN_ENTITLEMENTS } from "../../lib/plan-entitlements";
 import { hasPendingVerificationRequest, requestVerificationAction } from "../../actions/verification";
 import { applyBrandThemeAction } from "../../actions/branding-theme";
 import { requestPlanUpgradeAction } from "../../actions/subscription-request";
+import { updateBrandingImagesFromDashboardAction } from "../../actions/branding-images";
 
 const themes = [
   { key: "HEE_LIGHT", name: "HEE Light", tone: "#6f3bd2", plan: "FREE", label: "مجاني", description: "الثيم الأساسي المعتمد لهوية HEE." },
@@ -24,6 +25,8 @@ export default async function DashboardBrandingPage({ searchParams }: { searchPa
   const verificationParam = Array.isArray(params?.verification) ? params?.verification[0] : params?.verification;
   const themeParam = Array.isArray(params?.theme) ? params?.theme[0] : params?.theme;
   const upgradeParam = Array.isArray(params?.upgrade) ? params?.upgrade[0] : params?.upgrade;
+  const imagesParam = Array.isArray(params?.images) ? params?.images[0] : params?.images;
+  const imagesMessage = Array.isArray(params?.message) ? params?.message[0] : params?.message;
   const planCode = business.plan?.code || "FREE";
   const planRank: Record<string, number> = { FREE: 0, BUSINESS: 1, PRO: 2 };
   const currentRank = planRank[planCode] ?? 0;
@@ -37,12 +40,22 @@ export default async function DashboardBrandingPage({ searchParams }: { searchPa
       {themeParam && themeParam !== "upgrade" && themeParam !== "invalid" ? <div className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span>تم تطبيق الثيم على هوية صفحتك.</span></div> : null}
       {themeParam === "upgrade" ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">هذا الثيم يتطلب ترقية الباقة.</div> : null}
       {upgradeParam && upgradeParam !== "current" ? <div className="flex items-start gap-2 rounded-2xl border border-[#d9cff8] bg-[#f7f4ff] px-4 py-3 text-sm font-bold text-[#5638b8]"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span>تم تسجيل طلب الترقية إلى {upgradeParam.toUpperCase()} وسيمكن معالجته من إدارة HEE.</span></div> : null}
+      {imagesParam === "saved" ? <div className="flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span>تم تحديث الشعار وصورة الغلاف بنجاح.</span></div> : null}
+      {imagesParam === "error" ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">{imagesMessage || "تعذر تحديث الصور. حاول مرة أخرى."}</div> : null}
 
       <section className="rounded-[28px] border border-[#e8e5f2] bg-[linear-gradient(135deg,#fff_0%,#faf8ff_62%,#f1ebff_100%)] p-5 sm:p-6">
         <span className="inline-flex items-center gap-2 rounded-full bg-[#efeaff] px-3 py-1 text-[11px] font-black text-[#5b3fd6]"><Palette className="h-3.5 w-3.5" /> المظهر والباقات</span>
         <h1 className="mt-3 text-2xl font-black text-[#1f2552]">اجعل صفحتك تعكس هويتك</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-500">اختر ثيمًا جاهزًا أو عدّل اللون الأساسي. البنية تبقى موحدة ومهنية في جميع صفحات HEE.</p>
-        <div className="mt-4 flex flex-wrap gap-2"><Link href="/dashboard/my-page?edit=1" className="inline-flex h-11 items-center rounded-xl bg-[#6f3bd2] px-4 text-sm font-black text-white">تعديل اللون والمظهر</Link><Link href="/dashboard/my-page" className="inline-flex h-11 items-center rounded-xl border border-[#ddd8f4] bg-white px-4 text-sm font-black text-[#4f43d9]">معاينة صفحتي</Link></div>
+        <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-500">حدّث الشعار والغلاف، اختر ثيمًا جاهزًا أو عدّل اللون الأساسي. البنية تبقى موحدة ومهنية في جميع صفحات HEE.</p>
+        <div className="mt-4 flex flex-wrap gap-2"><Link href="/dashboard/my-page?edit=1" className="inline-flex h-11 items-center rounded-xl bg-[#6f3bd2] px-4 text-sm font-black text-white">تعديل بيانات الصفحة</Link><Link href="/dashboard/my-page" className="inline-flex h-11 items-center rounded-xl border border-[#ddd8f4] bg-white px-4 text-sm font-black text-[#4f43d9]">معاينة صفحتي</Link></div>
+      </section>
+
+      <section className="rounded-[24px] border border-[#e9e7f3] bg-white p-5">
+        <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><ImagePlus className="h-5 w-5" /></span><div><h2 className="text-lg font-black text-[#1f2552]">الشعار وصورة الغلاف</h2><p className="mt-1 text-xs text-slate-500">هذه الصور مرتبطة مباشرة بصفحتك العامة.</p></div></div>
+        <div className="mt-4 grid gap-4 md:grid-cols-[140px_minmax(0,1fr)]">
+          <div className="space-y-2"><div className="grid h-28 w-28 place-items-center overflow-hidden rounded-full border border-[#e7e1ef] bg-[#faf8fd]">{business.logoUrl ? <img src={business.logoUrl} alt="شعار النشاط" className="h-full w-full object-cover" /> : <span className="text-xs text-slate-400">لا يوجد شعار</span>}</div><p className="text-[10px] text-slate-400">الشعار الحالي</p></div>
+          <div className="space-y-3"><div className="overflow-hidden rounded-2xl border border-[#e7e1ef] bg-[#faf8fd]">{business.coverUrl ? <img src={business.coverUrl} alt="صورة الغلاف" className="h-28 w-full object-cover" /> : <div className="grid h-28 place-items-center text-xs text-slate-400">لا توجد صورة غلاف</div>}</div><form action={updateBrandingImagesFromDashboardAction} className="grid gap-3 sm:grid-cols-2" encType="multipart/form-data"><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>تغيير الشعار</span><input name="logoFile" type="file" accept="image/*" className="block w-full rounded-xl border border-[#ded8e8] bg-white px-3 py-2 text-xs file:ml-3 file:rounded-lg file:border-0 file:bg-[#f1edff] file:px-3 file:py-1.5 file:font-bold file:text-[#6543ce]" /></label><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>تغيير الغلاف</span><input name="coverFile" type="file" accept="image/*" className="block w-full rounded-xl border border-[#ded8e8] bg-white px-3 py-2 text-xs file:ml-3 file:rounded-lg file:border-0 file:bg-[#f1edff] file:px-3 file:py-1.5 file:font-bold file:text-[#6543ce]" /></label><button className="inline-flex h-10 items-center justify-center rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white sm:col-span-2 sm:w-fit">حفظ الشعار والغلاف</button></form><p className="text-[10px] leading-5 text-slate-400">يمكنك رفع أحدهما فقط أو كليهما. الصور الجديدة تظهر بعد الحفظ في الصفحة العامة.</p></div>
+        </div>
       </section>
 
       <section className="rounded-[24px] border border-[#e9e7f3] bg-white p-5">
