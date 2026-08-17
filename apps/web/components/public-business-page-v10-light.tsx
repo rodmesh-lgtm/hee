@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { Prisma } from "@prisma/client";
 import { BadgeCheck, BriefcaseBusiness, ChevronDown, Clock3, Globe2, Headphones, Images, Info, Mail, MapPin, MessageCircle, Phone, Share2, Sparkles, Star, UserRound, UsersRound } from "lucide-react";
 
-type Business = Prisma.BusinessGetPayload<{ include: { products: { include: { category: true } }; offers: true; services: true; openingHours: true; galleryItems: true; socialLinks: true; branches: true; departments: { include: { contacts: { include: { branch: true } } } }; } }>;
+type Business = Prisma.BusinessGetPayload<{ include: { products: { include: { category: true } }; offers: true; services: true; openingHours: true; galleryItems: true; socialLinks: true; branches: true; contactPersons: { include: { branch: true; department: true } }; departments: { include: { contacts: { include: { branch: true } } } }; } }>;
 type Props = { business: Business; qrDataUrl: string; publicUrl: string };
 type PanelKey = "about" | "services" | "branches" | "team" | "work" | "contact";
 const clean = (value?: string | null) => String(value ?? "").trim();
@@ -24,7 +24,7 @@ export function PublicBusinessPageV10Light({ business, publicUrl }: Props) {
   const services = realServices.length ? realServices.map((s) => ({ id: String(s.id), name: s.name, description: clean(s.description) })) : [{ id:"1",name:"إدارة المشاريع",description:"حلول احترافية لإدارة وتنفيذ الأعمال."},{id:"2",name:"الخدمات التشغيلية",description:"دعم تشغيلي مرن يلائم احتياج المنشأة."},{id:"3",name:"الاستشارات",description:"خبرات عملية تساعد على اتخاذ القرار."}];
   const realBranches = business.branches.filter((b) => b.isActive && clean(b.name)).slice(0,6);
   const branches = realBranches.length ? realBranches.map((b,i)=>({id:String(b.id),name:b.name,place:[b.city,b.district,b.address].filter(Boolean).join("، ")||`الفرع ${i+1}`})) : [{id:"1",name:"الفرع الرئيسي",place:"الرياض"},{id:"2",name:"فرع جدة",place:"جدة"},{id:"3",name:"فرع الدمام",place:"الدمام"}];
-  const realContacts = useMemo(()=>business.departments.filter((d)=>d.isActive).flatMap((d)=>d.contacts.filter((c)=>c.isActive&&clean(c.name)).map((c)=>({id:String(c.id),name:c.name,role:clean(c.jobTitle)||clean(d.name)||"خدمة العملاء",image:normalizedUrl(c.imageUrl),phone:digits(c.phone)||phone,whatsapp:digits(c.whatsapp)||whatsapp}))).slice(0,6),[business.departments,phone,whatsapp]);
+  const realContacts = business.contactPersons.filter((c)=>c.isActive&&clean(c.name)).slice(0,6).map((c)=>({id:String(c.id),name:c.name,role:clean(c.jobTitle)||clean(c.department?.name)||"خدمة العملاء",image:normalizedUrl(c.imageUrl),phone:digits(c.phone)||phone,whatsapp:digits(c.whatsapp)||whatsapp}));
   const contacts = realContacts.length ? realContacts : [{id:"1",name:"محمد العتيبي",role:"ممثل مبيعات أول",image:null,phone,whatsapp},{id:"2",name:"سارة القحطاني",role:"مدير خدمة العملاء",image:null,phone,whatsapp},{id:"3",name:"أحمد السالم",role:"مدير العمليات",image:null,phone,whatsapp}];
   const activeHours = business.openingHours.find((i)=>!i.isClosed&&i.opensAt&&i.closesAt);
   const workingHours = clean(business.workingHours)||(activeHours?`${activeHours.opensAt} - ${activeHours.closesAt}`:"السبت - الخميس، 9:00 ص - 6:00 م");
