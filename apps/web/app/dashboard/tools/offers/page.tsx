@@ -10,7 +10,7 @@ export default async function DashboardOffersDesignerPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const business = await db.business.findFirst({ where: { ownerId: user.id }, include: { plan: true } });
+  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, include: { plan: true } });
 
   if (!business) {
     return (
