@@ -19,6 +19,18 @@ function absolutePublicAssetUrl(value?: string | null) {
   if (/^[\w@./-]+\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(raw)) return `https://hee.sa/${raw.replace(/^\/+/, "")}`;
   return null;
 }
+function safeExternalUrl(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    if (!/^https?:$/.test(url.protocol)) return null;
+    if (!url.hostname.includes(".")) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
 async function getBusinessOrAlias(slug: string) {
   const direct = await getPublicBusinessForRequest(slug);
   if (direct) return { business: direct, isAlias: false } as const;
@@ -38,7 +50,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!business || !business.isPublished) return {};
   const canonicalUrl = `https://hee.sa/${business.slug}`;
   const title = business.metaTitle || `${business.name} | HEE`;
-  const description = business.metaDescription || business.description || `صفحة ${business.name}`;
+  const description = business.metaDescription || business.shortDescription || business.description || `صفحة ${business.name}`;
   const socialImageUrl = absolutePublicAssetUrl(business.coverUrl) || absolutePublicAssetUrl(business.logoUrl);
   return {
     title: { absolute: title },
@@ -62,7 +74,9 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
   const canonicalUrl = `https://hee.sa/${business.slug}`;
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
   const qrDataUrl = makeQrUrl(publicUrl);
-  const socialUrls = [business.website, business.instagramUrl, business.tiktokUrl, business.snapchatUrl, business.xUrl, business.facebookUrl].filter((value): value is string => Boolean(value));
+  const socialUrls = [business.website, business.instagramUrl, business.tiktokUrl, business.snapchatUrl, business.xUrl, business.facebookUrl]
+    .map((value) => safeExternalUrl(value))
+    .filter((value): value is string => Boolean(value));
   const logoUrl = absolutePublicAssetUrl(business.logoUrl);
   const imageUrl = absolutePublicAssetUrl(business.coverUrl) || logoUrl;
   const structuredData = {
@@ -72,7 +86,7 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
     name: business.name,
     ...(business.nameEn ? { alternateName: business.nameEn } : {}),
     url: canonicalUrl,
-    ...(business.description ? { description: business.description } : {}),
+    ...(business.description || business.shortDescription ? { description: business.shortDescription || business.description } : {}),
     ...(logoUrl ? { logo: logoUrl } : {}),
     ...(imageUrl ? { image: imageUrl } : {}),
     ...(business.phone ? { telephone: business.phone } : {}),
