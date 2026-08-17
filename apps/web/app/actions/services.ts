@@ -2,12 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
-import { getCurrentUserForWrites } from "../lib/auth";
+import { getOwnedBusinessForWrite } from "../lib/ownership";
 
 async function ownedBusiness() {
-  const user = await getCurrentUserForWrites();
-  if (!user) return null;
-  return db.business.findFirst({ where: { ownerId: user.id } });
+  return getOwnedBusinessForWrite();
 }
 
 function text(formData: FormData, key: string) {
@@ -15,6 +13,7 @@ function text(formData: FormData, key: string) {
 }
 
 function refresh(slug: string) {
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard/my-page");
   revalidatePath("/preview");
