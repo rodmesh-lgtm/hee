@@ -48,10 +48,11 @@ const demoBusiness = {
   ],
   socialLinks: [],
   branches: [
-    { id: "b1", name: "الفرع الرئيسي", city: "الرياض", district: "العليا", address: "طريق الملك فهد", isActive: true },
-    { id: "b2", name: "فرع شمال الرياض", city: "الرياض", district: "الياسمين", address: "طريق أنس بن مالك", isActive: true },
-    { id: "b3", name: "فرع جدة", city: "جدة", district: "الروضة", address: "شارع الأمير سلطان", isActive: true },
+    { id: "b1", name: "الفرع الرئيسي", city: "الرياض", district: "العليا", address: "طريق الملك فهد", googleMapsLink: "https://maps.google.com/?q=Riyadh", isActive: true },
+    { id: "b2", name: "فرع شمال الرياض", city: "الرياض", district: "الياسمين", address: "طريق أنس بن مالك", googleMapsLink: "https://maps.google.com/?q=Riyadh", isActive: true },
+    { id: "b3", name: "فرع جدة", city: "جدة", district: "الروضة", address: "شارع الأمير سلطان", googleMapsLink: "https://maps.google.com/?q=Jeddah", isActive: true },
   ],
+  contactPersons: [],
   departments: [
     { id: "d1", name: "المبيعات", isActive: true, contacts: [
       { id: "c1", name: "محمد العتيبي", jobTitle: "ممثل مبيعات", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true, branch: null },
@@ -65,11 +66,5 @@ const demoBusiness = {
 } as any;
 
 export default function DemoPage() {
-  return (
-    <PublicBusinessPageV10Light
-      business={demoBusiness}
-      qrDataUrl=""
-      publicUrl="https://hee.sa/demo"
-    />
-  );
+  return <PublicBusinessPageV10Light business={demoBusiness} qrDataUrl="" publicUrl="https://hee.sa/demo" demoMode />;
 }
