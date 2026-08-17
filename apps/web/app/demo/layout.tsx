@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { isPreviewQaEnvironment } from "../lib/qa-audit";
 
 export const metadata: Metadata = {
-  title: "صفحة نموذجية | HEE",
+  title: "صفحة نموذجية",
   robots: {
     index: false,
     follow: false,
@@ -12,9 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function DemoLayout({ children }: { children: React.ReactNode }) {
-  if (!isPreviewQaEnvironment()) {
-    notFound();
-  }
-
   return children;
 }
