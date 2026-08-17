@@ -2,12 +2,11 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { BriefcaseBusiness, CheckCircle2, Eye, Loader2, Palette, RefreshCw, Save, UsersRound } from "lucide-react";
-import { publishBusinessAction, type BuilderActionState } from "../../app/actions/page-builder";
-import { unpublishBusinessAction } from "../../app/actions/publication";
+import { publishBusinessAction, unpublishBusinessAction, type PublicationActionState } from "../../app/actions/publication";
 
 type BusinessEditorData = { name: string; shortDescription: string; description: string; phone: string; whatsapp: string; city: string; district: string; googleMapsLink: string; isPublished: boolean; slug: string };
 type Props = { business: BusinessEditorData; serviceCount: number; branchCount: number; contactCount: number };
-const emptyState: BuilderActionState = {};
+const emptyState: PublicationActionState = {};
 const inputClass = "h-11 w-full rounded-xl border border-[#e5e8f3] bg-[#fbfcff] px-3 text-sm text-[#20264f] outline-none transition focus:border-[#b7a9ef] focus:bg-white";
 const textareaClass = "min-h-[96px] w-full rounded-xl border border-[#e5e8f3] bg-[#fbfcff] px-3 py-3 text-sm text-[#20264f] outline-none transition focus:border-[#b7a9ef] focus:bg-white";
 function countLabel(n: number, singular: string, dual: string, plural: string) { if (n === 1) return `${singular} واحد`; if (n === 2) return dual; if (n >= 3 && n <= 10) return `${n} ${plural}`; return `${n} ${singular}`; }
@@ -31,7 +30,7 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
       if (!Object.keys(changed).length) return;
       setStatus("saving"); setError("");
       try {
-        const response = await fetch("/api/dashboard/my-page/autosave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: changed }) });
+        const response = await fetch("/api/dashboard/business/autosave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: changed }) });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || "تعذر الحفظ");
         lastSaved.current = next; setStatus("saved"); setPreviewVersion((value) => value + 1);
