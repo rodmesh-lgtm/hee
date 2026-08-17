@@ -1,5 +1,7 @@
-function clean(value: unknown) {
-  return typeof value === "string" ? value.trim() : value;
+function clean(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const result = value.trim();
+  return result || null;
 }
 
 function safeGoogleMapsUrl(value?: string | null) {
@@ -10,97 +12,22 @@ function safeGoogleMapsUrl(value?: string | null) {
     const host = url.hostname.toLowerCase();
     const isGoogleMap = host === "maps.app.goo.gl" || host.endsWith("google.com") || host.endsWith("google.sa") || host === "goo.gl";
     return isGoogleMap ? url.toString() : null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-/**
- * Public pages are client components, so everything passed here is serialized
- * to the visitor. Keep this as an explicit allow-list: never spread the full
- * Prisma Business record into the public page.
- */
+/** Only explicitly public fields may cross the server/client boundary. */
 export function sanitizePublicBusiness(business: any) {
   return {
-    id: String(business.id),
-    slug: String(business.slug ?? ""),
-    name: String(business.name ?? ""),
-    nameEn: clean(business.nameEn) || null,
-    description: clean(business.description) || null,
-    shortDescription: clean(business.shortDescription) || null,
-    businessCategory: clean(business.businessCategory) || null,
-    businessType: clean(business.businessType) || null,
-    city: clean(business.city) || null,
-    district: clean(business.district) || null,
-    address: clean(business.address) || null,
-    country: clean(business.country) || null,
-    phone: clean(business.phone) || null,
-    whatsapp: clean(business.whatsapp) || null,
-    email: clean(business.email) || null,
-    website: clean(business.website) || null,
-    logoUrl: clean(business.logoUrl) || null,
-    coverUrl: clean(business.coverUrl) || null,
-    googleMapsLink: safeGoogleMapsUrl(business.googleMapsLink),
-    workingHours: clean(business.workingHours) || null,
-    isVerified: Boolean(business.isVerified),
-
-    services: (business.services ?? []).map((service: any) => ({
-      id: String(service.id),
-      name: clean(service.name) || null,
-      description: clean(service.description) || null,
-      isActive: service.isActive !== false,
-    })),
-
-    branches: (business.branches ?? []).map((branch: any) => ({
-      id: String(branch.id),
-      name: clean(branch.name) || null,
-      city: clean(branch.city) || null,
-      district: clean(branch.district) || null,
-      address: clean(branch.address) || null,
-      googleMapsLink: safeGoogleMapsUrl(branch.googleMapsLink),
-      isActive: branch.isActive !== false,
-    })),
-
-    contactPersons: (business.contactPersons ?? []).map((contact: any) => ({
-      id: String(contact.id),
-      name: clean(contact.name) || null,
-      jobTitle: clean(contact.jobTitle) || null,
-      imageUrl: clean(contact.imageUrl) || null,
-      phone: clean(contact.phone) || null,
-      whatsapp: clean(contact.whatsapp) || null,
-      isActive: contact.isActive !== false,
-      department: contact.department?.name ? { name: String(contact.department.name) } : null,
-    })),
-
-    departments: (business.departments ?? []).map((department: any) => ({
-      id: String(department.id),
-      name: clean(department.name) || null,
-      isActive: department.isActive !== false,
-      contacts: (department.contacts ?? []).map((contact: any) => ({
-        id: String(contact.id),
-        name: clean(contact.name) || null,
-        jobTitle: clean(contact.jobTitle) || null,
-        imageUrl: clean(contact.imageUrl) || null,
-        phone: clean(contact.phone) || null,
-        whatsapp: clean(contact.whatsapp) || null,
-        isActive: contact.isActive !== false,
-      })),
-    })),
-
-    openingHours: (business.openingHours ?? []).map((item: any) => ({
-      dayOfWeek: typeof item.dayOfWeek === "number" ? item.dayOfWeek : null,
-      opensAt: clean(item.opensAt) || null,
-      closesAt: clean(item.closesAt) || null,
-      secondOpensAt: clean(item.secondOpensAt) || null,
-      secondClosesAt: clean(item.secondClosesAt) || null,
-      isClosed: Boolean(item.isClosed),
-    })),
-
-    galleryItems: (business.galleryItems ?? []).map((item: any) => ({
-      id: String(item.id),
-      imageUrl: clean(item.imageUrl) || null,
-      title: clean(item.title) || null,
-      isActive: item.isActive !== false,
-    })),
+    id: String(business.id), slug: String(business.slug ?? ""), name: String(business.name ?? ""),
+    nameEn: clean(business.nameEn), description: clean(business.description), shortDescription: clean(business.shortDescription),
+    businessCategory: clean(business.businessCategory), businessType: clean(business.businessType), city: clean(business.city), district: clean(business.district), address: clean(business.address), country: clean(business.country),
+    phone: clean(business.phone), whatsapp: clean(business.whatsapp), email: clean(business.email), website: clean(business.website), logoUrl: clean(business.logoUrl), coverUrl: clean(business.coverUrl),
+    googleMapsLink: safeGoogleMapsUrl(business.googleMapsLink), workingHours: clean(business.workingHours), isVerified: Boolean(business.isVerified),
+    services: (business.services ?? []).map((service: any) => ({ id: String(service.id), name: clean(service.name), description: clean(service.description), isActive: service.isActive !== false })),
+    branches: (business.branches ?? []).map((branch: any) => ({ id: String(branch.id), name: clean(branch.name), city: clean(branch.city), district: clean(branch.district), address: clean(branch.address), googleMapsLink: safeGoogleMapsUrl(branch.googleMapsLink), isActive: branch.isActive !== false })),
+    contactPersons: (business.contactPersons ?? []).map((contact: any) => ({ id: String(contact.id), name: clean(contact.name), jobTitle: clean(contact.jobTitle), imageUrl: clean(contact.imageUrl), phone: clean(contact.phone), whatsapp: clean(contact.whatsapp), isActive: contact.isActive !== false, department: contact.department?.name ? { name: String(contact.department.name) } : null })),
+    departments: (business.departments ?? []).map((department: any) => ({ id: String(department.id), name: clean(department.name), isActive: department.isActive !== false, contacts: (department.contacts ?? []).map((contact: any) => ({ id: String(contact.id), name: clean(contact.name), jobTitle: clean(contact.jobTitle), imageUrl: clean(contact.imageUrl), phone: clean(contact.phone), whatsapp: clean(contact.whatsapp), isActive: contact.isActive !== false })) })),
+    openingHours: (business.openingHours ?? []).map((item: any) => ({ dayOfWeek: typeof item.dayOfWeek === "number" ? item.dayOfWeek : null, opensAt: clean(item.opensAt), closesAt: clean(item.closesAt), secondOpensAt: clean(item.secondOpensAt), secondClosesAt: clean(item.secondClosesAt), isClosed: Boolean(item.isClosed) })),
+    galleryItems: (business.galleryItems ?? []).map((item: any) => ({ id: String(item.id), imageUrl: clean(item.imageUrl), title: clean(item.title), isActive: item.isActive !== false })),
   };
 }
