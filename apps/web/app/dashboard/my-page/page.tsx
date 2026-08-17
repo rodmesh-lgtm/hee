@@ -8,7 +8,7 @@ export default async function DashboardMyPage() {
   if (!user) redirect("/login");
 
   const business = await db.business.findFirst({
-    where: { ownerId: user.id },
+    where: { ownerId: user.id, deletedAt: null },
     include: {
       services: { where: { isActive: true } },
       branches: { where: { isActive: true } },
