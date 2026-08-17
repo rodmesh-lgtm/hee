@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -42,34 +43,22 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" }, { status: 400 });
 
-  const updates: Record<string, string | null> = {};
-  const changedKeys: string[] = [];
   const fields = parsed.data.fields;
+  const updates: Prisma.BusinessUpdateInput = {};
+  const changedKeys: string[] = [];
 
-  const assign = (key: keyof typeof fields, current: string | null | undefined) => {
-    const value = fields[key];
-    if (typeof value !== "string" || value === (current ?? "")) return;
-    updates[key] = value;
-    changedKeys.push(key);
-  };
-
-  assign("name", business.name);
-  assign("shortDescription", business.shortDescription);
-  assign("description", business.description);
-  assign("whatsapp", business.whatsapp);
-  assign("phone", business.phone);
-  assign("city", business.city);
-  assign("district", business.district);
+  if (typeof fields.name === "string" && fields.name !== business.name) { updates.name = fields.name; changedKeys.push("name"); }
+  if (typeof fields.shortDescription === "string" && fields.shortDescription !== (business.shortDescription ?? "")) { updates.shortDescription = fields.shortDescription || null; changedKeys.push("shortDescription"); }
+  if (typeof fields.description === "string" && fields.description !== (business.description ?? "")) { updates.description = fields.description || null; changedKeys.push("description"); }
+  if (typeof fields.whatsapp === "string" && fields.whatsapp !== (business.whatsapp ?? "")) { updates.whatsapp = fields.whatsapp || null; changedKeys.push("whatsapp"); }
+  if (typeof fields.phone === "string" && fields.phone !== (business.phone ?? "")) { updates.phone = fields.phone || null; changedKeys.push("phone"); }
+  if (typeof fields.city === "string" && fields.city !== (business.city ?? "")) { updates.city = fields.city || null; changedKeys.push("city"); }
+  if (typeof fields.district === "string" && fields.district !== (business.district ?? "")) { updates.district = fields.district || null; changedKeys.push("district"); }
 
   if (typeof fields.googleMapsLink === "string") {
     const normalized = normalizeUrl(fields.googleMapsLink);
-    if (fields.googleMapsLink.trim() && !normalized) {
-      return NextResponse.json({ error: "رابط Google Maps غير صالح" }, { status: 400 });
-    }
-    if (normalized !== business.googleMapsLink) {
-      updates.googleMapsLink = normalized;
-      changedKeys.push("googleMapsLink");
-    }
+    if (fields.googleMapsLink.trim() && !normalized) return NextResponse.json({ error: "رابط Google Maps غير صالح" }, { status: 400 });
+    if (normalized !== business.googleMapsLink) { updates.googleMapsLink = normalized; changedKeys.push("googleMapsLink"); }
   }
 
   if (!changedKeys.length) return NextResponse.json({ ok: true, changedKeys: [] });
