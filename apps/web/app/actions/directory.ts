@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
-import { getOwnedBusinessForWrite, ownsBusinessRecord } from "../lib/ownership";
+import { getOwnedBusinessWithPlanForWrite, ownsBusinessRecord } from "../lib/ownership";
+import { getPlanEntitlements, limitReached } from "../lib/plan-entitlements";
 import { removePersistentUrl, removeReplacedPersistentUrl } from "../lib/storage-lifecycle";
 
 function text(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
@@ -11,6 +12,7 @@ function optional(formData: FormData, key: string) { const value = text(formData
 function integer(formData: FormData, key: string, fallback = 0) { const parsed = Number.parseInt(text(formData, key), 10); return Number.isFinite(parsed) ? parsed : fallback; }
 
 function refresh(slug: string) {
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/directory");
   revalidatePath("/dashboard/my-page");
   revalidatePath(`/${slug}`);
@@ -18,9 +20,17 @@ function refresh(slug: string) {
 function finish(slug: string, status: string) { refresh(slug); redirect(`/dashboard/directory?status=${encodeURIComponent(status)}`); }
 function fail(status: string): never { redirect(`/dashboard/directory?status=${encodeURIComponent(status)}`); }
 
+async function ownedBusinessAndPlan() {
+  const business = await getOwnedBusinessWithPlanForWrite();
+  if (!business) fail("error-business");
+  return { business, entitlements: getPlanEntitlements(business.plan?.code) };
+}
+
 export async function createBranchAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite(); if (!business) fail("error-business");
+  const { business, entitlements } = await ownedBusinessAndPlan();
   const name = text(formData, "name"); if (!name) fail("error-required");
+  const branchCount = await db.branch.count({ where: { businessId: business.id } });
+  if (limitReached(branchCount, entitlements.branchLimit)) fail("error-plan-branch-limit");
   const activeBranchCount = await db.branch.count({ where: { businessId: business.id, isActive: true } });
   const isMain = activeBranchCount === 0 || formData.get("isMain") === "on";
   const nextSort = (await db.branch.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
@@ -32,7 +42,7 @@ export async function createBranchAction(formData: FormData) {
 }
 
 export async function updateBranchAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite(); if (!business) fail("error-business");
+  const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id"), name = text(formData, "name");
   const current = id && await ownsBusinessRecord("branch", id, business.id) ? await db.branch.findUnique({ where: { id } }) : null;
   if (!id || !name || !current) fail("error-not-found");
@@ -52,7 +62,7 @@ export async function updateBranchAction(formData: FormData) {
 }
 
 export async function deleteBranchAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite(); if (!business) fail("error-business");
+  const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id");
   const current = id && await ownsBusinessRecord("branch", id, business.id) ? await db.branch.findUnique({ where: { id }, select: { id: true, isMain: true } }) : null;
   if (!current) fail("error-not-found");
@@ -67,15 +77,17 @@ export async function deleteBranchAction(formData: FormData) {
 }
 
 export async function createDepartmentAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite(); if (!business) fail("error-business");
+  const { business, entitlements } = await ownedBusinessAndPlan();
   const name = text(formData, "name"); if (!name) fail("error-required");
+  const count = await db.department.count({ where: { businessId: business.id } });
+  if (limitReached(count, entitlements.departmentLimit)) fail("error-plan-department-limit");
   const nextSort = (await db.department.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
   await db.department.create({ data: { businessId: business.id, name, description: optional(formData,"description"), sortOrder: nextSort + 1 } });
   finish(business.slug, "department-created");
 }
 
 export async function updateDepartmentAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite(); if (!business) fail("error-business");
+  const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id"), name = text(formData, "name");
   if (!id || !name || !(await ownsBusinessRecord("department", id, business.id))) fail("error-not-found");
   await db.department.update({ where: { id }, data: { name, description: optional(formData,"description"), isActive: formData.get("isActive") === "on", sortOrder: integer(formData,"sortOrder") } });
@@ -83,7 +95,7 @@ export async function updateDepartmentAction(formData: FormData) {
 }
 
 export async function deleteDepartmentAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite(); if (!business) fail("error-business");
+  const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id");
   if (!id || !(await ownsBusinessRecord("department", id, business.id))) fail("error-not-found");
   const result = await db.department.deleteMany({ where: { id, businessId: business.id } });
@@ -92,8 +104,10 @@ export async function deleteDepartmentAction(formData: FormData) {
 }
 
 export async function createContactPersonAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite(); if (!business) fail("error-business");
+  const { business, entitlements } = await ownedBusinessAndPlan();
   const name = text(formData, "name"); if (!name) fail("error-required");
+  const count = await db.contactPerson.count({ where: { businessId: business.id } });
+  if (limitReached(count, entitlements.contactLimit)) fail("error-plan-contact-limit");
   const departmentId = optional(formData, "departmentId"), branchId = optional(formData, "branchId");
   if ((departmentId && !(await ownsBusinessRecord("department", departmentId, business.id))) || (branchId && !(await ownsBusinessRecord("branch", branchId, business.id)))) fail("error-relation");
   const activeContactCount = await db.contactPerson.count({ where: { businessId: business.id, isActive: true } });
@@ -107,7 +121,7 @@ export async function createContactPersonAction(formData: FormData) {
 }
 
 export async function updateContactPersonAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite(); if (!business) fail("error-business");
+  const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id"), name = text(formData, "name");
   const current = id && await ownsBusinessRecord("contactPerson", id, business.id) ? await db.contactPerson.findUnique({ where: { id } }) : null;
   if (!id || !name || !current) fail("error-not-found");
@@ -130,7 +144,7 @@ export async function updateContactPersonAction(formData: FormData) {
 }
 
 export async function deleteContactPersonAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite(); if (!business) fail("error-business");
+  const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id");
   const current = id && await ownsBusinessRecord("contactPerson", id, business.id) ? await db.contactPerson.findUnique({ where: { id }, select: { id: true, isPrimary: true, imageUrl: true } }) : null;
   if (!current) fail("error-not-found");
