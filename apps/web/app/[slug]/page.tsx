@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getBusinessPublic } from "../actions/business";
 import { PublicBusinessPageV10Light } from "../../components/public-business-page-v10-light";
+import { PublicBusinessAnalytics } from "../../components/public-business-analytics";
 import { getPublicBusinessUrlFromRequest, isValidPublicSlug, normalizePublicSlug } from "../lib/public-url";
 import { isPreviewQaEnvironment } from "../lib/qa-audit";
 import { resolveBusinessSlugAlias } from "../lib/slug-alias";
@@ -95,5 +96,5 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
     ...(socialUrls.length ? { sameAs: socialUrls } : {}),
   };
 
-  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(structuredData) }} /><PublicBusinessPageV10Light business={business} qrDataUrl={qrDataUrl} publicUrl={publicUrl} /></>;
+  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(structuredData) }} /><PublicBusinessAnalytics slug={business.slug} /><PublicBusinessPageV10Light business={business} qrDataUrl={qrDataUrl} publicUrl={publicUrl} /></>;
 }
