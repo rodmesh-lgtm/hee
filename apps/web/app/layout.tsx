@@ -6,18 +6,20 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({ variable: "--font-ibm-plex-sans-arabic", subsets: ["arabic"], weight: ["400", "500", "600", "700"] });
 
+const description = "HEE منصة هوية أعمال رقمية تساعد الشركات والمؤسسات والمتاجر ومقدمي الخدمات على إنشاء صفحة أعمال احترافية موثوقة وسهلة المشاركة.";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://hee.sa"),
-  title: { default: "HEE", template: "%s | HEE" },
-  description: "منصة احترافية لإدارة النشاط التجاري، الطلبات، والعروض من واجهة واحدة، مع تجربة عربية غنية وتجهيز جاهز للتوسع.",
-  keywords: ["HEE", "منصة أعمال", "إدارة نشاط", "عيادات", "مطاعم", "متاجر", "صفحة أعمال", "السعودية"],
+  title: { default: "HEE | هوية أعمال رقمية", template: "%s | HEE" },
+  description,
+  keywords: ["HEE", "هوية أعمال رقمية", "صفحة أعمال", "هوية شركة", "ملف أعمال رقمي", "الشركات", "المؤسسات", "السعودية"],
   authors: [{ name: "HEE" }],
   creator: "HEE",
   publisher: "HEE",
   robots: { index: true, follow: true },
   openGraph: {
-    title: "HEE | المنصة الرقمية للأعمال",
-    description: "منصة احترافية لإدارة النشاط التجاري، الطلبات، والعروض من واجهة واحدة، مع تجربة عربية غنية وتجهيز جاهز للتوسع.",
+    title: "HEE | هوية أعمال رقمية",
+    description,
     url: "https://hee.sa",
     siteName: "HEE",
     locale: "ar_SA",
@@ -25,15 +27,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "HEE | المنصة الرقمية للأعمال",
-    description: "منصة احترافية لإدارة النشاط التجاري، الطلبات، والعروض من واجهة واحدة، مع تجربة عربية غنية وتجهيز جاهز للتوسع.",
+    title: "HEE | هوية أعمال رقمية",
+    description,
   },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning className={`${inter.variable} ${ibmPlexSansArabic.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">{children}</body>
+      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">{children}</body>
     </html>
   );
 }
