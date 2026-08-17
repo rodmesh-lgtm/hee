@@ -33,9 +33,9 @@ export default function RegisterPage() {
     <div className="mx-auto w-full max-w-md px-4 py-8 sm:py-10">
       <Link href="/" className="w-fit text-3xl font-black tracking-[-.08em] text-[#6f3bd2]">HEE</Link>
       <div className="mt-6 rounded-[28px] border border-[#e8e5f2] bg-white p-5 shadow-[0_24px_70px_-52px_rgba(73,48,125,.5)] sm:p-6">
-        <div className="flex items-center justify-between"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><UserPlus className="h-5 w-5" /></span><span className="rounded-full bg-[#f5f2ff] px-3 py-1 text-[10px] font-black text-[#6543ce]">الخطوة 1 من 2</span></div>
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><UserPlus className="h-5 w-5" /></span>
         <h1 className="mt-4 text-2xl font-black">إنشاء حساب</h1>
-        <p className="mt-1 text-sm leading-6 text-slate-500">أنشئ حسابك أولاً، ثم سنطلب فقط البيانات الأساسية لصفحة نشاطك.</p>
+        <p className="mt-1 text-sm leading-6 text-slate-500">حسابك أولاً، ثم إعداد هوية منشأتك بخطوتين قصيرتين.</p>
 
         <form action={action} className="mt-5 space-y-4" aria-label="نموذج إنشاء الحساب">
           <label className="block"><span className="mb-1.5 block text-sm font-black">الاسم الكامل</span><input name="name" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} className="h-12 w-full rounded-2xl border border-[#e5e3ec] bg-[#fbfbfd] px-4 text-sm outline-none focus:border-[#8b72dc] focus:bg-white" required /></label>
