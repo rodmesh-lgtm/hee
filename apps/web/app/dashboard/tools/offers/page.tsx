@@ -3,55 +3,35 @@ import { headers } from "next/headers";
 import { Lock, Sparkles } from "lucide-react";
 import { redirect } from "next/navigation";
 import { OfferDesigner } from "../../../../components/dashboard/offer-designer";
-import { Card } from "../../../../components/ui/card";
 import { getCurrentUser } from "../../../lib/auth";
 import { db } from "../../../lib/db";
 
 export default async function DashboardOffersDesignerPage() {
   const user = await getCurrentUser();
-  if (!user) {
-    redirect("/login");
-  }
+  if (!user) redirect("/login");
 
-  const business = await db.business.findFirst({
-    where: { ownerId: user.id },
-    include: { plan: true },
-  });
+  const business = await db.business.findFirst({ where: { ownerId: user.id }, include: { plan: true } });
 
   if (!business) {
     return (
-      <Card className="space-y-3 border-dashed bg-slate-950/75" hoverLift={false}>
-        <h1 className="text-2xl font-black text-white">مصمم العروض</h1>
-        <p className="text-sm text-slate-300">أنشئ نشاطك أولاً لتفعيل مصمم العروض.</p>
-        <Link href="/dashboard/my-page" className="inline-flex h-11 items-center justify-center rounded-2xl bg-indigo-600 px-5 text-sm font-bold text-white">
-          إكمال إنشاء صفحتي
-        </Link>
-      </Card>
+      <section className="space-y-3 rounded-[28px] border border-dashed border-[#ddd7ea] bg-white p-6">
+        <h1 className="text-2xl font-black text-[#1f2552]">مصمم العروض</h1>
+        <p className="text-sm text-slate-500">أنشئ نشاطك أولاً لتفعيل مصمم العروض.</p>
+        <Link href="/onboarding" className="inline-flex h-11 items-center justify-center rounded-xl bg-[#6f3bd2] px-5 text-sm font-bold text-white">إنشاء هويتي الرقمية</Link>
+      </section>
     );
   }
 
   const designerAvailable = Boolean(business.plan?.aiEnabled);
   if (!designerAvailable) {
     return (
-      <Card className="space-y-5 bg-slate-950/75" hoverLift={false}>
-        <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-200">
-          <Lock className="h-5 w-5" />
-        </div>
-        <h1 className="text-2xl font-black text-white">مصمم العروض</h1>
-        <p className="text-sm leading-7 text-slate-300">هذه الأداة متاحة ضمن الباقة المؤهلة. قم بترقية باقتك لتفعيل تصميم العروض وتحميلها.</p>
-        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-100">
-          <Lock className="h-3.5 w-3.5" />
-          متاح ضمن الباقة المؤهلة
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/dashboard/settings" className="inline-flex h-11 items-center justify-center rounded-2xl bg-indigo-600 px-5 text-sm font-bold text-white">
-            ترقية الباقة
-          </Link>
-          <Link href="/dashboard/tools" className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/15 bg-white/10 px-5 text-sm font-bold text-white">
-            العودة للأدوات
-          </Link>
-        </div>
-      </Card>
+      <section className="space-y-5 rounded-[28px] border border-[#e8e5f2] bg-white p-6">
+        <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600"><Lock className="h-5 w-5" /></div>
+        <h1 className="text-2xl font-black text-[#1f2552]">مصمم العروض</h1>
+        <p className="text-sm leading-7 text-slate-500">هذه الأداة مرتبطة بالباقة. عند تفعيل باقة مؤهلة ستتمكن من إنشاء التصاميم وتحميلها مباشرة.</p>
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700"><Lock className="h-3.5 w-3.5" /> ميزة مدفوعة</div>
+        <div className="flex flex-wrap gap-2"><Link href="/dashboard/branding" className="inline-flex h-11 items-center justify-center rounded-xl bg-[#6f3bd2] px-5 text-sm font-bold text-white">عرض الباقات</Link><Link href="/dashboard/tools" className="inline-flex h-11 items-center justify-center rounded-xl border border-[#ded8ec] bg-white px-5 text-sm font-bold text-slate-700">العودة للأدوات</Link></div>
+      </section>
     );
   }
 
@@ -62,22 +42,12 @@ export default async function DashboardOffersDesignerPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="space-y-3 bg-slate-950/75" hoverLift={false}>
-        <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-500/15 text-indigo-200">
-          <Sparkles className="h-5 w-5" />
-        </div>
-        <h1 className="text-3xl font-black text-white">مصمم العروض</h1>
-        <p className="text-sm text-slate-300">أنشئ عرضاً بصيغة مربعة 1080×1080 باستخدام هوية نشاطك، ثم حمّله كصورة PNG.</p>
-      </Card>
-
-      <OfferDesigner
-        businessName={business.name}
-        logoUrl={business.logoUrl}
-        primaryColor={business.primaryColor}
-        phone={business.phone}
-        whatsapp={business.whatsapp}
-        publicUrl={publicUrl}
-      />
+      <section className="space-y-3 rounded-[28px] border border-[#e8e5f2] bg-[linear-gradient(135deg,#fff_0%,#faf8ff_100%)] p-6">
+        <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><Sparkles className="h-5 w-5" /></div>
+        <h1 className="text-3xl font-black text-[#1f2552]">مصمم العروض</h1>
+        <p className="text-sm text-slate-500">أنشئ عرضًا مربعًا 1080×1080 باستخدام هوية نشاطك ثم حمّله كصورة PNG.</p>
+      </section>
+      <OfferDesigner businessName={business.name} logoUrl={business.logoUrl} primaryColor={business.primaryColor} phone={business.phone} whatsapp={business.whatsapp} publicUrl={publicUrl} />
     </div>
   );
 }
