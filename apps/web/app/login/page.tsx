@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LogIn } from "lucide-react";
 import { loginAction } from "../actions/auth";
 
-export default function LoginPage() {
+function LoginContent() {
   const [state, action, pending] = useActionState(loginAction, { error: "" });
   const searchParams = useSearchParams();
   const resetSuccess = searchParams.get("reset") === "success";
@@ -19,7 +19,6 @@ export default function LoginPage() {
         <h1 className="mt-4 text-2xl font-black">تسجيل الدخول</h1>
         <p className="mt-1 text-sm leading-6 text-slate-500">ادخل إلى هويتك الرقمية ولوحة الإدارة.</p>
         {resetSuccess ? <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-700">تم تحديث كلمة المرور. يمكنك تسجيل الدخول الآن.</p> : null}
-
         <form action={action} className="mt-5 space-y-4" aria-label="نموذج تسجيل الدخول">
           <label className="block"><span className="mb-1.5 block text-sm font-black">البريد الإلكتروني</span><input name="email" type="email" autoComplete="email" className="h-12 w-full rounded-2xl border border-[#e5e3ec] bg-[#fbfbfd] px-4 text-sm outline-none focus:border-[#8b72dc] focus:bg-white" required /></label>
           <label className="block"><span className="mb-1.5 flex items-center justify-between gap-3 text-sm font-black"><span>كلمة المرور</span><Link href="/forgot-password" className="text-[11px] text-[#6543ce]">نسيت كلمة المرور؟</Link></span><input name="password" type="password" autoComplete="current-password" className="h-12 w-full rounded-2xl border border-[#e5e3ec] bg-[#fbfbfd] px-4 text-sm outline-none focus:border-[#8b72dc] focus:bg-white" required /></label>
@@ -30,4 +29,8 @@ export default function LoginPage() {
       </div>
     </div>
   </main>;
+}
+
+export default function LoginPage() {
+  return <Suspense fallback={<main className="min-h-screen bg-[#fbfaff]" />}><LoginContent /></Suspense>;
 }
