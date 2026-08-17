@@ -37,10 +37,10 @@ export default async function DashboardAnalyticsPage({ searchParams }: { searchP
   const website = count("website_click");
   const interactions = whatsapp + calls + shares + maps + website;
 
-  const allDays = Array.from({ length: period }, (_, index) => { const date = addDays(start, index); return { key: dayKey(date), label: new Intl.DateTimeFormat("ar-SA", { day: "numeric", month: "short" }).format(date) }; });
+  const allDays = Array.from({ length: period }, (_, index) => { const date = addDays(start, index); return { dayKey: dayKey(date), label: new Intl.DateTimeFormat("ar-SA", { day: "numeric", month: "short" }).format(date) }; });
   const byDay = new Map<string, number>();
   events.filter((event) => event.eventType === "page_view").forEach((event) => byDay.set(dayKey(event.createdAt), (byDay.get(dayKey(event.createdAt)) ?? 0) + 1));
-  const chartData = allDays.map((day) => ({ label: day.label, value: byDay.get(day.key) ?? 0 }));
+  const chartData = allDays.map((day) => ({ dayKey: day.dayKey, label: day.label, value: byDay.get(day.dayKey) ?? 0 }));
 
   const metrics = [
     { label: "مشاهدات الصفحة", value: views, icon: Eye },
@@ -56,7 +56,7 @@ export default async function DashboardAnalyticsPage({ searchParams }: { searchP
 
     <section className="grid grid-cols-2 gap-2 lg:grid-cols-4">{metrics.map(({ label, value, icon: Icon }) => <article key={label} className="rounded-[20px] border border-[#e9e7f3] bg-white p-4"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#f3efff] text-[#6543ce]"><Icon className="h-4 w-4" /></span><b className="mt-3 block text-2xl text-[#20264f]">{number(value)}</b><span className="mt-1 block text-[10px] text-slate-400">{label}</span></article>)}</section>
 
-    <section className="rounded-[24px] border border-[#e9e7f3] bg-white p-4 sm:p-5"><div className="flex items-center justify-between"><div><h2 className="font-black text-[#20264f]">الزيارات</h2><p className="mt-1 text-xs text-slate-500">خلال آخر {periodLabel(period)}</p></div><span className="text-xs font-black text-[#5d49cc]">{number(views)} زيارة</span></div><div className="mt-5"><AnalyticsVisitsChart data={chartData} /></div></section>
+    <section className="rounded-[24px] border border-[#e9e7f3] bg-white p-4 sm:p-5"><div className="flex items-center justify-between"><div><h2 className="font-black text-[#20264f]">الزيارات</h2><p className="mt-1 text-xs text-slate-500">خلال آخر {periodLabel(period)}</p></div><span className="text-xs font-black text-[#5d49cc]">{number(views)} زيارة</span></div><div className="mt-5"><AnalyticsVisitsChart points={chartData} /></div></section>
 
     <section className="grid gap-3 sm:grid-cols-3"><article className="rounded-[20px] border border-[#e9e7f3] bg-white p-4"><MessageCircle className="h-4 w-4 text-emerald-600" /><b className="mt-2 block text-lg text-[#20264f]">{number(interactions)}</b><span className="text-[10px] text-slate-400">إجمالي التفاعلات</span></article><article className="rounded-[20px] border border-[#e9e7f3] bg-white p-4"><MapPin className="h-4 w-4 text-[#6543ce]" /><b className="mt-2 block text-lg text-[#20264f]">{number(maps)}</b><span className="text-[10px] text-slate-400">فتح الموقع</span></article><article className="rounded-[20px] border border-[#e9e7f3] bg-white p-4"><Eye className="h-4 w-4 text-[#6543ce]" /><b className="mt-2 block text-lg text-[#20264f]">{views ? `${Math.round((interactions / views) * 100)}%` : "0%"}</b><span className="text-[10px] text-slate-400">معدل التفاعل</span></article></section>
   </div>;
