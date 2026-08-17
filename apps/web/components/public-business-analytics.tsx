@@ -15,7 +15,15 @@ function send(slug: string, eventType: string) {
 
 export function PublicBusinessAnalytics({ slug }: { slug: string }) {
   useEffect(() => {
-    send(slug, "page_view");
+    const viewKey = `hee:view:${slug}`;
+    try {
+      if (!sessionStorage.getItem(viewKey)) {
+        sessionStorage.setItem(viewKey, "1");
+        send(slug, "page_view");
+      }
+    } catch {
+      send(slug, "page_view");
+    }
 
     const onClick = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target.closest("a,button") : null;
