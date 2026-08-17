@@ -10,8 +10,8 @@ export async function POST(request: Request) {
     const eventType = String(body.eventType ?? "").trim();
     if (!slug || !ALLOWED_EVENTS.has(eventType)) return NextResponse.json({ ok: false }, { status: 400 });
 
-    const business = await db.business.findUnique({ where: { slug }, select: { id: true, isPublished: true } });
-    if (!business?.isPublished) return NextResponse.json({ ok: false }, { status: 404 });
+    const business = await db.business.findFirst({ where: { slug, deletedAt: null, isPublished: true }, select: { id: true } });
+    if (!business) return NextResponse.json({ ok: false }, { status: 404 });
 
     await db.analyticsEvent.create({ data: { businessId: business.id, eventType } });
     return NextResponse.json({ ok: true });
