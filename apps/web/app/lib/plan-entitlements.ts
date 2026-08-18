@@ -56,6 +56,12 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
   },
 };
 
+const PLAN_RANK: Record<HeePlanCode, number> = {
+  FREE: 0,
+  BUSINESS: 1,
+  PRO: 2,
+};
+
 export function normalizePlanCode(code?: string | null): HeePlanCode {
   const normalized = String(code ?? "FREE").trim().toUpperCase();
   if (normalized === "BUSINESS" || normalized === "PRO") return normalized;
@@ -64,6 +70,14 @@ export function normalizePlanCode(code?: string | null): HeePlanCode {
 
 export function getPlanEntitlements(code?: string | null) {
   return HEE_PLAN_ENTITLEMENTS[normalizePlanCode(code)];
+}
+
+export function getPlanRank(code?: string | null) {
+  return PLAN_RANK[normalizePlanCode(code)];
+}
+
+export function isPlanAtLeast(current?: string | null, required?: string | null) {
+  return getPlanRank(current) >= getPlanRank(required);
 }
 
 export function limitReached(current: number, limit: number | null) {
