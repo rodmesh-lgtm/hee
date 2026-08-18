@@ -36,15 +36,17 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات النشاط غير صالحة" }, { status: 400 });
   if (!isValidPublicSlug(normalizedSlug)) return NextResponse.json({ error: "الرابط العام غير متاح" }, { status: 409 });
 
-  const slugTaken = await db.business.findFirst({ where: { slug: normalizedSlug, deletedAt: null, ...(existingBusiness ? { id: { not: existingBusiness.id } } : {}) }, select: { id: true } });
+  // Business.slug is globally unique at the database layer. Historical
+  // soft-deleted rows therefore reserve their slug too.
+  const slugTaken = await db.business.findFirst({ where: { slug: normalizedSlug, ...(existingBusiness ? { id: { not: existingBusiness.id } } : {}) }, select: { id: true } });
   if (slugTaken) {
     if (!requestedSlug && !existingBusiness) {
       const retrySlug = generatedPublicSlug();
       if (isValidPublicSlug(retrySlug)) {
-        const retryTaken = await db.business.findFirst({ where: { slug: retrySlug, deletedAt: null }, select: { id: true } });
+        const retryTaken = await db.business.findUnique({ where: { slug: retrySlug }, select: { id: true } });
         if (!retryTaken) parsed.data.slug = retrySlug; else return NextResponse.json({ error: "تعذر إنشاء رابط عام آمن. أعد المحاولة." }, { status: 409 });
       }
-    } else return NextResponse.json({ error: "اسم الرابط مستخدم مسبقاً" }, { status: 409 });
+    } else return NextResponse.json({ error: "اسم الرابط مستخدم أو محجوز مسبقاً" }, { status: 409 });
   }
 
   const freePlan = await ensureBusinessPlan("FREE");
