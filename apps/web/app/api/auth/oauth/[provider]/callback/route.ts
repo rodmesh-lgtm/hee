@@ -56,13 +56,17 @@ async function complete(request: Request, provider: OAuthProvider, input: { stat
 
     if (!registration) {
       const [identity, existingUser] = await Promise.all([
-        subject ? db.authIdentity.findUnique({ where: { provider_providerSubject: { provider, providerSubject: subject } }, select: { id: true } }) : null,
-        email ? db.user.findUnique({ where: { email }, select: { id: true } }) : null,
+        subject ? db.authIdentity.findUnique({ where: { provider_providerSubject: { provider, providerSubject: subject } }, select: { id: true, user: { select: { deletedAt: true } } } }) : null,
+        email ? db.user.findUnique({ where: { email }, select: { id: true, deletedAt: true } }) : null,
       ]);
-      if (!identity && !existingUser) return errorRedirect(request, "account-not-found");
+      const activeIdentity = Boolean(identity && !identity.user.deletedAt);
+      const activeUser = Boolean(existingUser && !existingUser.deletedAt);
+      if (!activeIdentity && !activeUser) return errorRedirect(request, "account-not-found");
     }
 
     const user = await resolveOAuthUser(provider, claims, provider === "apple" ? parseAppleUser(input.appleUser) : null);
+    if (user.deletedAt) return errorRedirect(request, "account-not-found", registration);
+
     await clearQaAuditSession();
     await createSession(user.id);
 
