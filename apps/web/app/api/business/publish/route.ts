@@ -32,12 +32,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "يرجى تسجيل الدخول بحساب مالك النشاط" }, { status: 401 });
   }
 
+  // Business.slug is globally unique, including soft-deleted historical rows.
   const slugConflict = await db.business.findFirst({
-    where: { slug: requestedSlug, id: { not: existingBusiness.id }, deletedAt: null },
+    where: { slug: requestedSlug, id: { not: existingBusiness.id } },
     select: { id: true },
   });
   if (slugConflict) {
-    return NextResponse.json({ error: "الرابط العام مستخدم من نشاط آخر" }, { status: 409 });
+    return NextResponse.json({ error: "الرابط العام مستخدم أو محجوز مسبقاً" }, { status: 409 });
   }
 
   const updated = await db.business.update({
