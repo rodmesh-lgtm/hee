@@ -55,41 +55,44 @@ export async function createBranchAction(formData: FormData) {
 export async function updateBranchAction(formData: FormData) {
   const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id"), name = text(formData, "name");
-  const current = id && await ownsBusinessRecord("branch", id, business.id) ? await db.branch.findUnique({ where: { id } }) : null;
-  if (!id || !name || !current) fail("error-not-found");
+  if (!id || !name || !(await ownsBusinessRecord("branch", id, business.id))) fail("error-not-found");
   const nextActive = formData.get("isActive") === "on";
   const requestedMain = nextActive && formData.get("isMain") === "on";
-  await db.$transaction(async (tx) => {
+
+  const result = await db.$transaction(async (tx) => {
     await lockDirectoryScope(tx, business.id, "branches");
-    const stillOwned = await tx.branch.findFirst({ where: { id, businessId: business.id } });
-    if (!stillOwned) return;
+    const current = await tx.branch.findFirst({ where: { id, businessId: business.id } });
+    if (!current) return "missing" as const;
     if (requestedMain) await tx.branch.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isMain: false } });
-    await tx.branch.update({ where: { id }, data: { name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain: requestedMain || (stillOwned.isMain && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
+    await tx.branch.update({ where: { id }, data: { name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain: requestedMain || (current.isMain && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
     if (!nextActive) await tx.contactPerson.updateMany({ where: { businessId: business.id, branchId: id }, data: { branchId: null } });
     const activeMain = await tx.branch.findFirst({ where: { businessId: business.id, isActive: true, isMain: true }, select: { id: true } });
     if (!activeMain) {
       const replacement = await tx.branch.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
       if (replacement) await tx.branch.update({ where: { id: replacement.id }, data: { isMain: true } });
     }
+    return "updated" as const;
   });
+  if (result === "missing") fail("error-not-found");
   finish(business.slug, "branch-updated");
 }
 
 export async function deleteBranchAction(formData: FormData) {
   const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id");
-  const current = id && await ownsBusinessRecord("branch", id, business.id) ? await db.branch.findUnique({ where: { id }, select: { id: true, isMain: true } }) : null;
-  if (!current) fail("error-not-found");
-  await db.$transaction(async (tx) => {
+  if (!id || !(await ownsBusinessRecord("branch", id, business.id))) fail("error-not-found");
+  const result = await db.$transaction(async (tx) => {
     await lockDirectoryScope(tx, business.id, "branches");
-    const deleting = await tx.branch.findFirst({ where: { id: current.id, businessId: business.id }, select: { id: true, isMain: true } });
-    if (!deleting) return;
+    const deleting = await tx.branch.findFirst({ where: { id, businessId: business.id }, select: { id: true, isMain: true } });
+    if (!deleting) return "missing" as const;
     await tx.branch.delete({ where: { id: deleting.id } });
     if (deleting.isMain) {
       const replacement = await tx.branch.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
       if (replacement) await tx.branch.update({ where: { id: replacement.id }, data: { isMain: true } });
     }
+    return "deleted" as const;
   });
+  if (result === "missing") fail("error-not-found");
   finish(business.slug, "branch-deleted");
 }
 
@@ -155,50 +158,54 @@ export async function createContactPersonAction(formData: FormData) {
 export async function updateContactPersonAction(formData: FormData) {
   const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id"), name = text(formData, "name");
-  const current = id && await ownsBusinessRecord("contactPerson", id, business.id) ? await db.contactPerson.findUnique({ where: { id } }) : null;
-  if (!id || !name || !current) fail("error-not-found");
+  if (!id || !name || !(await ownsBusinessRecord("contactPerson", id, business.id))) fail("error-not-found");
   const departmentId = optional(formData, "departmentId"), branchId = optional(formData, "branchId");
   if ((departmentId && !(await ownsBusinessRecord("department", departmentId, business.id))) || (branchId && !(await ownsBusinessRecord("branch", branchId, business.id)))) fail("error-relation");
   const nextActive = formData.get("isActive") === "on";
   const requestedPrimary = nextActive && formData.get("isPrimary") === "on";
   const nextImageUrl = optional(formData, "imageUrl");
-  let previousImageUrl = current.imageUrl;
-  await db.$transaction(async (tx) => {
+
+  const result = await db.$transaction(async (tx) => {
     await lockDirectoryScope(tx, business.id, "contacts");
-    const stillOwned = await tx.contactPerson.findFirst({ where: { id, businessId: business.id } });
-    if (!stillOwned) return;
-    if (departmentId && !(await tx.department.findFirst({ where: { id: departmentId, businessId: business.id }, select: { id: true } }))) return;
-    if (branchId && !(await tx.branch.findFirst({ where: { id: branchId, businessId: business.id }, select: { id: true } }))) return;
-    previousImageUrl = stillOwned.imageUrl;
+    const current = await tx.contactPerson.findFirst({ where: { id, businessId: business.id } });
+    if (!current) return { kind: "missing" as const, previousImageUrl: null as string | null };
+    if (departmentId && !(await tx.department.findFirst({ where: { id: departmentId, businessId: business.id }, select: { id: true } }))) return { kind: "relation" as const, previousImageUrl: current.imageUrl };
+    if (branchId && !(await tx.branch.findFirst({ where: { id: branchId, businessId: business.id }, select: { id: true } }))) return { kind: "relation" as const, previousImageUrl: current.imageUrl };
+
     if (requestedPrimary) await tx.contactPerson.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isPrimary: false } });
-    await tx.contactPerson.update({ where: { id }, data: { name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: nextImageUrl, isPrimary: requestedPrimary || (stillOwned.isPrimary && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
+    await tx.contactPerson.update({ where: { id }, data: { name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: nextImageUrl, isPrimary: requestedPrimary || (current.isPrimary && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
     const activePrimary = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true, isPrimary: true }, select: { id: true } });
     if (!activePrimary) {
       const replacement = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
       if (replacement) await tx.contactPerson.update({ where: { id: replacement.id }, data: { isPrimary: true } });
     }
+    return { kind: "updated" as const, previousImageUrl: current.imageUrl };
   });
-  try { await removeReplacedPersistentUrl(previousImageUrl, nextImageUrl); } catch (error) { console.error("Failed to clean replaced contact image", error); }
+
+  if (result.kind === "missing") fail("error-not-found");
+  if (result.kind === "relation") fail("error-relation");
+  try { await removeReplacedPersistentUrl(result.previousImageUrl, nextImageUrl); } catch (error) { console.error("Failed to clean replaced contact image", error); }
   finish(business.slug, "contact-updated");
 }
 
 export async function deleteContactPersonAction(formData: FormData) {
   const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id");
-  const current = id && await ownsBusinessRecord("contactPerson", id, business.id) ? await db.contactPerson.findUnique({ where: { id }, select: { id: true, isPrimary: true, imageUrl: true } }) : null;
-  if (!current) fail("error-not-found");
-  let deletedImageUrl = current.imageUrl;
-  await db.$transaction(async (tx) => {
+  if (!id || !(await ownsBusinessRecord("contactPerson", id, business.id))) fail("error-not-found");
+
+  const result = await db.$transaction(async (tx) => {
     await lockDirectoryScope(tx, business.id, "contacts");
-    const deleting = await tx.contactPerson.findFirst({ where: { id: current.id, businessId: business.id }, select: { id: true, isPrimary: true, imageUrl: true } });
-    if (!deleting) return;
-    deletedImageUrl = deleting.imageUrl;
+    const deleting = await tx.contactPerson.findFirst({ where: { id, businessId: business.id }, select: { id: true, isPrimary: true, imageUrl: true } });
+    if (!deleting) return { kind: "missing" as const, imageUrl: null as string | null };
     await tx.contactPerson.delete({ where: { id: deleting.id } });
     if (deleting.isPrimary) {
       const replacement = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
       if (replacement) await tx.contactPerson.update({ where: { id: replacement.id }, data: { isPrimary: true } });
     }
+    return { kind: "deleted" as const, imageUrl: deleting.imageUrl };
   });
-  try { await removePersistentUrl(deletedImageUrl); } catch (error) { console.error("Failed to clean deleted contact image", error); }
+
+  if (result.kind === "missing") fail("error-not-found");
+  try { await removePersistentUrl(result.imageUrl); } catch (error) { console.error("Failed to clean deleted contact image", error); }
   finish(business.slug, "contact-deleted");
 }
