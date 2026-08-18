@@ -7,7 +7,7 @@ export default async function DashboardBookingsPage() {
     return null;
   }
 
-  const business = await db.business.findFirst({ where: { ownerId: user.id } });
+  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
   if (!business) {
     return <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-6 text-sm text-slate-400">لا يوجد نشاط مرتبط بهذا الحساب.</div>;
   }
