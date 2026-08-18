@@ -14,12 +14,7 @@ export async function addProductAction(_prevState: ActionState, formData: FormDa
   const business = await getOwnedBusinessWithPlanForWrite();
   if (!business) return { error: "يرجى إنشاء نشاط أولاً أو الخروج من وضع المعاينة" };
 
-  const count = await db.product.count({ where: { businessId: business.id, deletedAt: null } });
   const entitlements = getPlanEntitlements(business.plan?.code);
-  if (limitReached(count, entitlements.productLimit)) {
-    return { error: `وصلت إلى الحد المسموح به (${entitlements.productLimit} منتجات)` };
-  }
-
   const parsed = productSchema.safeParse({
     name: String(formData.get("name") ?? ""),
     description: String(formData.get("description") ?? ""),
@@ -31,7 +26,18 @@ export async function addProductAction(_prevState: ActionState, formData: FormDa
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "بيانات المنتج غير صالحة" };
 
-  await db.product.create({ data: { businessId: business.id, ...parsed.data } });
+  const created = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${business.id}:products`}))`;
+    const count = await tx.product.count({ where: { businessId: business.id, deletedAt: null } });
+    if (limitReached(count, entitlements.productLimit)) return false;
+    await tx.product.create({ data: { businessId: business.id, ...parsed.data } });
+    return true;
+  });
+
+  if (!created) {
+    return { error: `وصلت إلى الحد المسموح به (${entitlements.productLimit} منتجات)` };
+  }
+
   revalidatePath("/dashboard/products");
   revalidatePath("/dashboard");
   revalidatePath(`/${business.slug}`);
