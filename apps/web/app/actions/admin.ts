@@ -4,9 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { requireAdmin } from "../lib/admin";
-import { getPlanEntitlements, normalizePlanCode } from "../lib/plan-entitlements";
-
-const PLAN_RANK = { FREE: 0, BUSINESS: 1, PRO: 2 } as const;
+import { getPlanEntitlements, getPlanRank, normalizePlanCode } from "../lib/plan-entitlements";
 
 function metadataObject(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -81,7 +79,7 @@ export async function approvePlanUpgradeAdminAction(formData: FormData) {
   if (!business) redirect("/admin?error=upgrade");
 
   const currentPlan = normalizePlanCode(business.plan?.code);
-  if (PLAN_RANK[requestedPlan] <= PLAN_RANK[currentPlan]) {
+  if (getPlanRank(requestedPlan) <= getPlanRank(currentPlan)) {
     await db.analyticsEvent.update({
       where: { id: event.id },
       data: { metadata: { ...metadata, status: "obsolete", reviewedAt: new Date().toISOString() } },
