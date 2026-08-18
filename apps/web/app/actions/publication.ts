@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getOwnedBusinessForWrite } from "../lib/ownership";
@@ -17,8 +18,11 @@ export async function publishBusinessAction(_previous: PublicationActionState, _
   const slug = normalizePublicSlug(business.slug);
   if (!slug || !isValidPublicSlug(slug)) return { error: "الرابط العام غير صالح" };
 
+  // Business.slug is globally unique in the database, including soft-deleted rows.
+  // Match that rule here so the UI never reports an old historical slug as available
+  // only for the final update to fail with a unique-constraint error.
   const conflict = await db.business.findFirst({
-    where: { slug, deletedAt: null, id: { not: business.id } },
+    where: { slug, id: { not: business.id } },
     select: { id: true },
   });
   if (conflict) return { error: "الرابط العام مستخدم من نشاط آخر" };
@@ -28,10 +32,17 @@ export async function publishBusinessAction(_previous: PublicationActionState, _
   );
   if (!hasContact) return { error: "أضف وسيلة تواصل واحدة على الأقل قبل النشر" };
 
-  await db.business.update({
-    where: { id: business.id },
-    data: { slug, isPublished: true, publishedAt: business.publishedAt ?? new Date() },
-  });
+  try {
+    await db.business.update({
+      where: { id: business.id },
+      data: { slug, isPublished: true, publishedAt: business.publishedAt ?? new Date() },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { error: "الرابط العام مستخدم من نشاط آخر" };
+    }
+    throw error;
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/my-page");
