@@ -12,7 +12,10 @@ export default async function AdminPage() {
   await requireAdmin();
   const [events, plans] = await Promise.all([
     db.analyticsEvent.findMany({
-      where: { eventType: { in: ["verification_requested", "plan_upgrade_requested"] } },
+      where: {
+        eventType: { in: ["verification_requested", "plan_upgrade_requested"] },
+        business: { deletedAt: null },
+      },
       include: { business: { select: { id: true, name: true, slug: true, isVerified: true, plan: { select: { code: true, name: true } } } } },
       orderBy: { createdAt: "desc" },
       take: 100,
