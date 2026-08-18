@@ -134,7 +134,9 @@ export async function getQaAuditSessionUser() {
 
   if (!session || session.userId !== qaUser.id || session.expiresAt < new Date()) {
     if (session) await db.session.deleteMany({ where: { token } });
-    cookieStore.delete(QA_SESSION_COOKIE);
+    // This helper is called while rendering Server Components too. Cookie deletion
+    // is only legal in Route Handlers / Server Actions, so stale QA cookies are
+    // left for the next explicit QA login/logout response instead of causing 500s.
     return null;
   }
 
