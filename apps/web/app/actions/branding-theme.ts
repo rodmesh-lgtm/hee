@@ -4,9 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { getOwnedBusinessWithPlanForWrite } from "../lib/ownership";
-import { normalizePlanCode } from "../lib/plan-entitlements";
-
-const PLAN_RANK = { FREE: 0, BUSINESS: 1, PRO: 2 } as const;
+import { isPlanAtLeast } from "../lib/plan-entitlements";
 
 const THEMES = {
   HEE_LIGHT: {
@@ -45,8 +43,7 @@ export async function applyBrandThemeAction(formData: FormData) {
   const theme = THEMES[requested];
   if (!theme) redirect("/dashboard/branding?theme=invalid");
 
-  const currentPlan = normalizePlanCode(business.plan?.code);
-  if (PLAN_RANK[currentPlan] < PLAN_RANK[theme.requiredPlan]) {
+  if (!isPlanAtLeast(business.plan?.code, theme.requiredPlan)) {
     redirect("/dashboard/branding?theme=upgrade");
   }
 
