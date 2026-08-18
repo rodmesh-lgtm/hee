@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
@@ -26,18 +27,28 @@ async function ownedBusinessAndPlan() {
   return { business, entitlements: getPlanEntitlements(business.plan?.code) };
 }
 
+async function lockDirectoryScope(tx: Prisma.TransactionClient, businessId: string, scope: "branches" | "departments" | "contacts") {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:${scope}`}))`;
+}
+
 export async function createBranchAction(formData: FormData) {
   const { business, entitlements } = await ownedBusinessAndPlan();
   const name = text(formData, "name"); if (!name) fail("error-required");
-  const branchCount = await db.branch.count({ where: { businessId: business.id } });
-  if (limitReached(branchCount, entitlements.branchLimit)) fail("error-plan-branch-limit");
-  const activeBranchCount = await db.branch.count({ where: { businessId: business.id, isActive: true } });
-  const isMain = activeBranchCount === 0 || formData.get("isMain") === "on";
-  const nextSort = (await db.branch.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
-  await db.$transaction(async (tx) => {
+
+  const result = await db.$transaction(async (tx) => {
+    await lockDirectoryScope(tx, business.id, "branches");
+    const branchCount = await tx.branch.count({ where: { businessId: business.id } });
+    if (limitReached(branchCount, entitlements.branchLimit)) return "limit" as const;
+
+    const activeBranchCount = await tx.branch.count({ where: { businessId: business.id, isActive: true } });
+    const isMain = activeBranchCount === 0 || formData.get("isMain") === "on";
+    const nextSort = (await tx.branch.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
     if (isMain) await tx.branch.updateMany({ where: { businessId: business.id }, data: { isMain: false } });
     await tx.branch.create({ data: { businessId: business.id, name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain, isActive: true, sortOrder: nextSort + 1 } });
+    return "created" as const;
   });
+
+  if (result === "limit") fail("error-plan-branch-limit");
   finish(business.slug, "branch-created");
 }
 
@@ -49,8 +60,11 @@ export async function updateBranchAction(formData: FormData) {
   const nextActive = formData.get("isActive") === "on";
   const requestedMain = nextActive && formData.get("isMain") === "on";
   await db.$transaction(async (tx) => {
+    await lockDirectoryScope(tx, business.id, "branches");
+    const stillOwned = await tx.branch.findFirst({ where: { id, businessId: business.id } });
+    if (!stillOwned) return;
     if (requestedMain) await tx.branch.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isMain: false } });
-    await tx.branch.update({ where: { id }, data: { name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain: requestedMain || (current.isMain && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
+    await tx.branch.update({ where: { id }, data: { name, city: optional(formData,"city"), district: optional(formData,"district"), address: optional(formData,"address"), phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), googleMapsLink: optional(formData,"googleMapsLink"), isMain: requestedMain || (stillOwned.isMain && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
     if (!nextActive) await tx.contactPerson.updateMany({ where: { businessId: business.id, branchId: id }, data: { branchId: null } });
     const activeMain = await tx.branch.findFirst({ where: { businessId: business.id, isActive: true, isMain: true }, select: { id: true } });
     if (!activeMain) {
@@ -67,8 +81,11 @@ export async function deleteBranchAction(formData: FormData) {
   const current = id && await ownsBusinessRecord("branch", id, business.id) ? await db.branch.findUnique({ where: { id }, select: { id: true, isMain: true } }) : null;
   if (!current) fail("error-not-found");
   await db.$transaction(async (tx) => {
-    await tx.branch.deleteMany({ where: { id: current.id, businessId: business.id } });
-    if (current.isMain) {
+    await lockDirectoryScope(tx, business.id, "branches");
+    const deleting = await tx.branch.findFirst({ where: { id: current.id, businessId: business.id }, select: { id: true, isMain: true } });
+    if (!deleting) return;
+    await tx.branch.delete({ where: { id: deleting.id } });
+    if (deleting.isMain) {
       const replacement = await tx.branch.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
       if (replacement) await tx.branch.update({ where: { id: replacement.id }, data: { isMain: true } });
     }
@@ -79,10 +96,15 @@ export async function deleteBranchAction(formData: FormData) {
 export async function createDepartmentAction(formData: FormData) {
   const { business, entitlements } = await ownedBusinessAndPlan();
   const name = text(formData, "name"); if (!name) fail("error-required");
-  const count = await db.department.count({ where: { businessId: business.id } });
-  if (limitReached(count, entitlements.departmentLimit)) fail("error-plan-department-limit");
-  const nextSort = (await db.department.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
-  await db.department.create({ data: { businessId: business.id, name, description: optional(formData,"description"), sortOrder: nextSort + 1 } });
+  const result = await db.$transaction(async (tx) => {
+    await lockDirectoryScope(tx, business.id, "departments");
+    const count = await tx.department.count({ where: { businessId: business.id } });
+    if (limitReached(count, entitlements.departmentLimit)) return "limit" as const;
+    const nextSort = (await tx.department.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
+    await tx.department.create({ data: { businessId: business.id, name, description: optional(formData,"description"), sortOrder: nextSort + 1 } });
+    return "created" as const;
+  });
+  if (result === "limit") fail("error-plan-department-limit");
   finish(business.slug, "department-created");
 }
 
@@ -90,7 +112,8 @@ export async function updateDepartmentAction(formData: FormData) {
   const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id"), name = text(formData, "name");
   if (!id || !name || !(await ownsBusinessRecord("department", id, business.id))) fail("error-not-found");
-  await db.department.update({ where: { id }, data: { name, description: optional(formData,"description"), isActive: formData.get("isActive") === "on", sortOrder: integer(formData,"sortOrder") } });
+  const updated = await db.department.updateMany({ where: { id, businessId: business.id }, data: { name, description: optional(formData,"description"), isActive: formData.get("isActive") === "on", sortOrder: integer(formData,"sortOrder") } });
+  if (updated.count !== 1) fail("error-not-found");
   finish(business.slug, "department-updated");
 }
 
@@ -106,17 +129,26 @@ export async function deleteDepartmentAction(formData: FormData) {
 export async function createContactPersonAction(formData: FormData) {
   const { business, entitlements } = await ownedBusinessAndPlan();
   const name = text(formData, "name"); if (!name) fail("error-required");
-  const count = await db.contactPerson.count({ where: { businessId: business.id } });
-  if (limitReached(count, entitlements.contactLimit)) fail("error-plan-contact-limit");
   const departmentId = optional(formData, "departmentId"), branchId = optional(formData, "branchId");
   if ((departmentId && !(await ownsBusinessRecord("department", departmentId, business.id))) || (branchId && !(await ownsBusinessRecord("branch", branchId, business.id)))) fail("error-relation");
-  const activeContactCount = await db.contactPerson.count({ where: { businessId: business.id, isActive: true } });
-  const isPrimary = activeContactCount === 0 || formData.get("isPrimary") === "on";
-  const nextSort = (await db.contactPerson.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
-  await db.$transaction(async (tx) => {
+
+  const result = await db.$transaction(async (tx) => {
+    await lockDirectoryScope(tx, business.id, "contacts");
+    const count = await tx.contactPerson.count({ where: { businessId: business.id } });
+    if (limitReached(count, entitlements.contactLimit)) return "limit" as const;
+    if (departmentId && !(await tx.department.findFirst({ where: { id: departmentId, businessId: business.id }, select: { id: true } }))) return "relation" as const;
+    if (branchId && !(await tx.branch.findFirst({ where: { id: branchId, businessId: business.id }, select: { id: true } }))) return "relation" as const;
+
+    const activeContactCount = await tx.contactPerson.count({ where: { businessId: business.id, isActive: true } });
+    const isPrimary = activeContactCount === 0 || formData.get("isPrimary") === "on";
+    const nextSort = (await tx.contactPerson.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
     if (isPrimary) await tx.contactPerson.updateMany({ where: { businessId: business.id }, data: { isPrimary: false } });
     await tx.contactPerson.create({ data: { businessId: business.id, name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: optional(formData,"imageUrl"), isPrimary, isActive: true, sortOrder: nextSort + 1 } });
+    return "created" as const;
   });
+
+  if (result === "limit") fail("error-plan-contact-limit");
+  if (result === "relation") fail("error-relation");
   finish(business.slug, "contact-created");
 }
 
@@ -130,16 +162,23 @@ export async function updateContactPersonAction(formData: FormData) {
   const nextActive = formData.get("isActive") === "on";
   const requestedPrimary = nextActive && formData.get("isPrimary") === "on";
   const nextImageUrl = optional(formData, "imageUrl");
+  let previousImageUrl = current.imageUrl;
   await db.$transaction(async (tx) => {
+    await lockDirectoryScope(tx, business.id, "contacts");
+    const stillOwned = await tx.contactPerson.findFirst({ where: { id, businessId: business.id } });
+    if (!stillOwned) return;
+    if (departmentId && !(await tx.department.findFirst({ where: { id: departmentId, businessId: business.id }, select: { id: true } }))) return;
+    if (branchId && !(await tx.branch.findFirst({ where: { id: branchId, businessId: business.id }, select: { id: true } }))) return;
+    previousImageUrl = stillOwned.imageUrl;
     if (requestedPrimary) await tx.contactPerson.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isPrimary: false } });
-    await tx.contactPerson.update({ where: { id }, data: { name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: nextImageUrl, isPrimary: requestedPrimary || (current.isPrimary && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
+    await tx.contactPerson.update({ where: { id }, data: { name, jobTitle: optional(formData,"jobTitle"), departmentId, branchId, phone: optional(formData,"phone"), whatsapp: optional(formData,"whatsapp"), email: optional(formData,"email"), imageUrl: nextImageUrl, isPrimary: requestedPrimary || (stillOwned.isPrimary && nextActive), isActive: nextActive, sortOrder: integer(formData,"sortOrder") } });
     const activePrimary = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true, isPrimary: true }, select: { id: true } });
     if (!activePrimary) {
       const replacement = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
       if (replacement) await tx.contactPerson.update({ where: { id: replacement.id }, data: { isPrimary: true } });
     }
   });
-  try { await removeReplacedPersistentUrl(current.imageUrl, nextImageUrl); } catch (error) { console.error("Failed to clean replaced contact image", error); }
+  try { await removeReplacedPersistentUrl(previousImageUrl, nextImageUrl); } catch (error) { console.error("Failed to clean replaced contact image", error); }
   finish(business.slug, "contact-updated");
 }
 
@@ -148,13 +187,18 @@ export async function deleteContactPersonAction(formData: FormData) {
   const id = text(formData, "id");
   const current = id && await ownsBusinessRecord("contactPerson", id, business.id) ? await db.contactPerson.findUnique({ where: { id }, select: { id: true, isPrimary: true, imageUrl: true } }) : null;
   if (!current) fail("error-not-found");
+  let deletedImageUrl = current.imageUrl;
   await db.$transaction(async (tx) => {
-    await tx.contactPerson.deleteMany({ where: { id: current.id, businessId: business.id } });
-    if (current.isPrimary) {
+    await lockDirectoryScope(tx, business.id, "contacts");
+    const deleting = await tx.contactPerson.findFirst({ where: { id: current.id, businessId: business.id }, select: { id: true, isPrimary: true, imageUrl: true } });
+    if (!deleting) return;
+    deletedImageUrl = deleting.imageUrl;
+    await tx.contactPerson.delete({ where: { id: deleting.id } });
+    if (deleting.isPrimary) {
       const replacement = await tx.contactPerson.findFirst({ where: { businessId: business.id, isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
       if (replacement) await tx.contactPerson.update({ where: { id: replacement.id }, data: { isPrimary: true } });
     }
   });
-  try { await removePersistentUrl(current.imageUrl); } catch (error) { console.error("Failed to clean deleted contact image", error); }
+  try { await removePersistentUrl(deletedImageUrl); } catch (error) { console.error("Failed to clean deleted contact image", error); }
   finish(business.slug, "contact-deleted");
 }
