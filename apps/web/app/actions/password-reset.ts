@@ -59,8 +59,8 @@ export async function requestPasswordResetAction(_previous: PasswordResetState, 
   const configured = Boolean(String(process.env.RESEND_API_KEY ?? "").trim() && String(process.env.HEE_FROM_EMAIL ?? "").trim());
   if (!configured) return { error: "استعادة كلمة المرور عبر البريد لم تُفعّل بعد. تواصل مع إدارة HEE." };
 
-  const user = await db.user.findUnique({ where: { email }, select: { id: true, passwordHash: true } });
-  if (!user?.passwordHash) return { success: "إذا كان البريد مرتبطًا بحساب HEE فستصلك رسالة الاستعادة خلال دقائق." };
+  const user = await db.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, deletedAt: true } });
+  if (!user?.passwordHash || user.deletedAt) return { success: "إذا كان البريد مرتبطًا بحساب HEE فستصلك رسالة الاستعادة خلال دقائق." };
 
   await db.oAuthState.deleteMany({ where: { provider: PROVIDER, nonce: user.id } });
   const token = randomBytes(32).toString("hex");
@@ -89,8 +89,8 @@ export async function resetPasswordAction(_previous: PasswordResetState, formDat
   const state = await db.oAuthState.findFirst({ where: { state: tokenHash, provider: PROVIDER, expiresAt: { gt: new Date() } }, select: { id: true, nonce: true } });
   if (!state) return { error: "انتهت صلاحية رابط الاستعادة أو تم استخدامه. اطلب رابطًا جديدًا." };
 
-  const user = await db.user.findUnique({ where: { id: state.nonce }, select: { id: true } });
-  if (!user) return { error: "رابط الاستعادة غير صالح" };
+  const user = await db.user.findUnique({ where: { id: state.nonce }, select: { id: true, deletedAt: true } });
+  if (!user || user.deletedAt) return { error: "رابط الاستعادة غير صالح" };
   const passwordHash = await hashPassword(password);
   await db.$transaction([
     db.user.update({ where: { id: user.id }, data: { passwordHash } }),
