@@ -6,7 +6,7 @@ import { db } from "../lib/db";
 import { getCurrentUserForWrites } from "../lib/auth";
 import { getPersistentStorageAdapter } from "../lib/storage";
 import { removePersistentUrl, removeReplacedPersistentUrl } from "../lib/storage-lifecycle";
-import { businessProfileSchema, businessSchema } from "../lib/validation";
+import { businessSchema } from "../lib/validation";
 import { normalizePageModulesForPersistence, serializePageModules } from "../lib/page-modules";
 import { getPlanEntitlements } from "../lib/plan-entitlements";
 
@@ -26,38 +26,133 @@ async function ensureBusinessPlan(code: "FREE" | "BUSINESS" | "PRO") {
   return db.businessPlan.create({ data: { code, name: planNameMap[code], monthlyPrice: monthlyPriceMap[code], productLimit, aiEnabled: code !== "FREE", onlinePay: code !== "FREE", isActive: true } });
 }
 
-function getFormString(formData: FormData, key: string, fallback = "") { return formData.getAll(key).map((value) => typeof value === "string" ? value.trim() : "").find(Boolean) ?? fallback; }
-function getFormBool(formData: FormData, key: string) { return String(formData.get(key) ?? "off") === "on"; }
-async function uploadBusinessImage(file: File, folder: string) { if (file.size === 0) return ""; return (await getPersistentStorageAdapter().upload({ file, folder })).url; }
-async function cleanupUploadedBusinessImages(logoUrl?: string, coverUrl?: string) { try { await Promise.all([removePersistentUrl(logoUrl, "logos"), removePersistentUrl(coverUrl, "covers")]); } catch (error) { console.error("Failed to clean uncommitted business images", error); } }
-async function cleanupReplacedBusinessImages(previous: { logoUrl?: string | null; coverUrl?: string | null } | null | undefined, next: { logoUrl?: string | null; coverUrl?: string | null }) { try { await Promise.all([removeReplacedPersistentUrl(previous?.logoUrl, next.logoUrl, "logos"), removeReplacedPersistentUrl(previous?.coverUrl, next.coverUrl, "covers")]); } catch (error) { console.error("Failed to clean replaced business images", error); } }
+function getFormString(formData: FormData, key: string, fallback = "") {
+  return formData.getAll(key).map((value) => typeof value === "string" ? value.trim() : "").find(Boolean) ?? fallback;
+}
+
+async function uploadBusinessImage(file: File, folder: string) {
+  if (file.size === 0) return "";
+  return (await getPersistentStorageAdapter().upload({ file, folder })).url;
+}
+
+async function cleanupUploadedBusinessImages(logoUrl?: string, coverUrl?: string) {
+  try { await Promise.all([removePersistentUrl(logoUrl, "logos"), removePersistentUrl(coverUrl, "covers")]); }
+  catch (error) { console.error("Failed to clean uncommitted business images", error); }
+}
+
+async function cleanupReplacedBusinessImages(
+  previous: { logoUrl?: string | null; coverUrl?: string | null } | null | undefined,
+  next: { logoUrl?: string | null; coverUrl?: string | null },
+) {
+  try {
+    await Promise.all([
+      removeReplacedPersistentUrl(previous?.logoUrl, next.logoUrl, "logos"),
+      removeReplacedPersistentUrl(previous?.coverUrl, next.coverUrl, "covers"),
+    ]);
+  } catch (error) {
+    console.error("Failed to clean replaced business images", error);
+  }
+}
 
 export async function createBusinessFromOnboarding(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await getCurrentUserForWrites(); if (!user) return { error: "وضع المعاينة QA للقراءة فقط" };
+  const user = await getCurrentUserForWrites();
+  if (!user) return { error: "وضع المعاينة QA للقراءة فقط" };
+
   const entityType = getFormString(formData, "entityType") || getFormString(formData, "businessType");
-  const payload = { name:getFormString(formData,"name"),slug:getFormString(formData,"slug"),businessType:entityType||getFormString(formData,"businessType"),description:getFormString(formData,"description"),shortDescription:getFormString(formData,"shortDescription"),city:getFormString(formData,"city"),whatsapp:getFormString(formData,"whatsapp"),phone:getFormString(formData,"phone"),address:getFormString(formData,"address"),logoUrl:getFormString(formData,"logoUrl"),primaryColor:getFormString(formData,"primaryColor","#6366f1"),entityType,businessCategory:getFormString(formData,"businessCategory"),onboardingCompleted:true };
-  const parsed=businessSchema.safeParse(payload); if(!parsed.success)return{error:parsed.error.issues[0]?.message??"بيانات النشاط غير صالحة"};
-  const existingBusiness=await db.business.findFirst({where:{ownerId:user.id,deletedAt:null}}); const slugTaken=await db.business.findFirst({where:{slug:parsed.data.slug,id:existingBusiness?{not:existingBusiness.id}:undefined}}); if(slugTaken)return{error:"اسم الرابط مستخدم أو محجوز مسبقاً"};
-  const freePlan=await ensureBusinessPlan("FREE"); const pageModules=serializePageModules(normalizePageModulesForPersistence(undefined,parsed.data.businessType)); const {slug,...businessFields}=parsed.data;
-  if(existingBusiness)await db.business.update({where:{id:existingBusiness.id},data:{...businessFields,slug,pageModules,isVerified:false,isPublished:existingBusiness.isPublished}});else await db.business.create({data:{ownerId:user.id,...businessFields,slug,pageModules,planId:freePlan.id,isVerified:false,isPublished:false}}); revalidatePath("/dashboard");redirect("/dashboard");
+  const payload = {
+    name: getFormString(formData, "name"),
+    slug: getFormString(formData, "slug"),
+    businessType: entityType || getFormString(formData, "businessType"),
+    description: getFormString(formData, "description"),
+    shortDescription: getFormString(formData, "shortDescription"),
+    city: getFormString(formData, "city"),
+    whatsapp: getFormString(formData, "whatsapp"),
+    phone: getFormString(formData, "phone"),
+    address: getFormString(formData, "address"),
+    logoUrl: getFormString(formData, "logoUrl"),
+    primaryColor: getFormString(formData, "primaryColor", "#6366f1"),
+    entityType,
+    businessCategory: getFormString(formData, "businessCategory"),
+    onboardingCompleted: true,
+  };
+  const parsed = businessSchema.safeParse(payload);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "بيانات النشاط غير صالحة" };
+
+  const existingBusiness = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
+  const slugTaken = await db.business.findFirst({ where: { slug: parsed.data.slug, id: existingBusiness ? { not: existingBusiness.id } : undefined } });
+  if (slugTaken) return { error: "اسم الرابط مستخدم أو محجوز مسبقاً" };
+
+  const freePlan = await ensureBusinessPlan("FREE");
+  const pageModules = serializePageModules(normalizePageModulesForPersistence(undefined, parsed.data.businessType));
+  const { slug, ...businessFields } = parsed.data;
+  if (existingBusiness) {
+    await db.business.update({
+      where: { id: existingBusiness.id },
+      data: { ...businessFields, slug, pageModules, isVerified: false, isPublished: existingBusiness.isPublished },
+    });
+  } else {
+    await db.business.create({
+      data: { ownerId: user.id, ...businessFields, slug, pageModules, planId: freePlan.id, isVerified: false, isPublished: false },
+    });
+  }
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
 }
 
-export async function updateBusinessAction(_prevState:ActionState,formData:FormData):Promise<ActionState>{const user=await getCurrentUserForWrites();if(!user)return{error:"وضع المعاينة QA للقراءة فقط"};const business=await db.business.findFirst({where:{ownerId:user.id,deletedAt:null}});if(!business)return{error:"لا يوجد نشاط لهذا المستخدم"};await db.business.update({where:{id:business.id},data:{name:String(formData.get("name")??""),description:String(formData.get("description")??""),city:String(formData.get("city")??""),whatsapp:String(formData.get("whatsapp")??""),phone:String(formData.get("phone")??""),address:String(formData.get("address")??""),logoUrl:String(formData.get("logoUrl")??""),primaryColor:String(formData.get("primaryColor")??"#6366f1"),isPublished:String(formData.get("isPublished")??"false")==="on"}});revalidatePath("/dashboard");revalidatePath("/dashboard/business");redirect("/dashboard");}
+export async function updateBusinessBrandingImagesAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await getCurrentUserForWrites();
+  if (!user) return { error: "وضع المعاينة QA للقراءة فقط" };
+  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
+  if (!business) return { error: "لا يوجد نشاط مرتبط بهذا الحساب" };
 
-export async function saveBusinessProfileAction(_prevState:ActionState,formData:FormData):Promise<ActionState>{
- const user=await getCurrentUserForWrites();if(!user)return{error:"وضع المعاينة QA للقراءة فقط"};let existingBusiness;try{existingBusiness=await db.business.findFirst({where:{ownerId:user.id,deletedAt:null}});}catch{return{error:"تعذر قراءة بيانات النشاط الحالية. تأكد من تشغيل ترحيل قاعدة البيانات ثم أعد المحاولة."};}
- let uploadedLogo="",uploadedCover="";try{const logoFile=formData.get("logoFile"),coverFile=formData.get("coverFile");if(logoFile instanceof File&&logoFile.size>0)uploadedLogo=await uploadBusinessImage(logoFile,"logos");if(coverFile instanceof File&&coverFile.size>0)uploadedCover=await uploadBusinessImage(coverFile,"covers");}catch(error){await cleanupUploadedBusinessImages(uploadedLogo,uploadedCover);return{error:error instanceof Error?error.message:"تعذر رفع الصورة"};}
- const payload={name:getFormString(formData,"name"),nameEn:getFormString(formData,"nameEn"),businessType:getFormString(formData,"businessType"),description:getFormString(formData,"description"),logoUrl:uploadedLogo||getFormString(formData,"logoUrl"),coverUrl:uploadedCover||getFormString(formData,"coverUrl"),phone:getFormString(formData,"phone"),whatsapp:getFormString(formData,"whatsapp"),email:getFormString(formData,"email"),website:getFormString(formData,"website"),country:getFormString(formData,"country"),city:getFormString(formData,"city"),district:getFormString(formData,"district"),address:getFormString(formData,"address"),googleMapsLink:getFormString(formData,"googleMapsLink"),xUrl:getFormString(formData,"xUrl"),instagramUrl:getFormString(formData,"instagramUrl"),snapchatUrl:getFormString(formData,"snapchatUrl"),tiktokUrl:getFormString(formData,"tiktokUrl"),facebookUrl:getFormString(formData,"facebookUrl"),workingHours:getFormString(formData,"workingHours"),deliveryAvailable:getFormBool(formData,"deliveryAvailable"),bookingAvailable:getFormBool(formData,"bookingAvailable"),acceptOnlineOrders:getFormBool(formData,"acceptOnlineOrders"),primaryColor:getFormString(formData,"primaryColor","#5D43EF"),secondaryColor:getFormString(formData,"secondaryColor","#1E293B"),buttonColor:getFormString(formData,"buttonColor","#4F46E5"),buttonStyle:getFormString(formData,"buttonStyle","rounded"),cardStyle:getFormString(formData,"cardStyle","glass"),slug:getFormString(formData,"slug"),metaTitle:getFormString(formData,"metaTitle"),metaDescription:getFormString(formData,"metaDescription"),isPublished:getFormBool(formData,"isPublished")};
- const parsed=businessProfileSchema.safeParse(payload);if(!parsed.success){await cleanupUploadedBusinessImages(uploadedLogo,uploadedCover);return{error:parsed.error.issues[0]?.message??"بيانات النشاط غير صالحة"};}const freePlan=await ensureBusinessPlan("FREE");let slugTaken;try{slugTaken=await db.business.findFirst({where:{slug:parsed.data.slug,id:existingBusiness?{not:existingBusiness.id}:undefined}});}catch{await cleanupUploadedBusinessImages(uploadedLogo,uploadedCover);return{error:"تعذر التحقق من الرابط العام. يرجى المحاولة مرة أخرى."};}if(slugTaken){await cleanupUploadedBusinessImages(uploadedLogo,uploadedCover);return{error:"الرابط العام مستخدم أو محجوز مسبقاً"};}const{slug,...profileFields}=parsed.data;try{if(existingBusiness)await db.business.update({where:{id:existingBusiness.id},data:{...profileFields,slug}});else await db.business.create({data:{ownerId:user.id,...profileFields,slug,planId:freePlan.id,pageModules:serializePageModules(normalizePageModulesForPersistence(undefined,parsed.data.businessType)),isVerified:false}});}catch{await cleanupUploadedBusinessImages(uploadedLogo,uploadedCover);return{error:"تعذر حفظ ملف النشاط. تأكد من تحديث قاعدة البيانات ثم أعد المحاولة."};}await cleanupReplacedBusinessImages(existingBusiness,{logoUrl:profileFields.logoUrl,coverUrl:profileFields.coverUrl});revalidatePath("/dashboard");revalidatePath("/dashboard/business");revalidatePath(`/${parsed.data.slug}`);return{success:"تم حفظ ملف النشاط بنجاح"};
+  const logoFile = formData.get("logoFile");
+  const coverFile = formData.get("coverFile");
+  const nextData: { logoUrl?: string; coverUrl?: string } = {};
+  try {
+    if (logoFile instanceof File && logoFile.size > 0) nextData.logoUrl = await uploadBusinessImage(logoFile, "logos");
+    if (coverFile instanceof File && coverFile.size > 0) nextData.coverUrl = await uploadBusinessImage(coverFile, "covers");
+  } catch (error) {
+    await cleanupUploadedBusinessImages(nextData.logoUrl, nextData.coverUrl);
+    return { error: error instanceof Error ? error.message : "تعذر رفع الصور" };
+  }
+  if (!nextData.logoUrl && !nextData.coverUrl) return { error: "اختر شعاراً أو صورة غلاف قبل الحفظ" };
+
+  try { await db.business.update({ where: { id: business.id }, data: nextData }); }
+  catch {
+    await cleanupUploadedBusinessImages(nextData.logoUrl, nextData.coverUrl);
+    return { error: "تعذر حفظ صور الهوية. يرجى المحاولة مرة أخرى." };
+  }
+
+  await cleanupReplacedBusinessImages(business, {
+    logoUrl: nextData.logoUrl ?? business.logoUrl,
+    coverUrl: nextData.coverUrl ?? business.coverUrl,
+  });
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/business");
+  revalidatePath("/dashboard/branding");
+  revalidatePath("/preview");
+  revalidatePath(`/${business.slug}`);
+  return { success: "تم تحديث الهوية والصور بنجاح" };
 }
 
-export async function updateBusinessBrandingImagesAction(_prevState:ActionState,formData:FormData):Promise<ActionState>{const user=await getCurrentUserForWrites();if(!user)return{error:"وضع المعاينة QA للقراءة فقط"};const business=await db.business.findFirst({where:{ownerId:user.id,deletedAt:null}});if(!business)return{error:"لا يوجد نشاط مرتبط بهذا الحساب"};const logoFile=formData.get("logoFile"),coverFile=formData.get("coverFile");const nextData:{logoUrl?:string;coverUrl?:string}={};try{if(logoFile instanceof File&&logoFile.size>0)nextData.logoUrl=await uploadBusinessImage(logoFile,"logos");if(coverFile instanceof File&&coverFile.size>0)nextData.coverUrl=await uploadBusinessImage(coverFile,"covers");}catch(error){await cleanupUploadedBusinessImages(nextData.logoUrl,nextData.coverUrl);return{error:error instanceof Error?error.message:"تعذر رفع الصور"};}if(!nextData.logoUrl&&!nextData.coverUrl)return{error:"اختر شعاراً أو صورة غلاف قبل الحفظ"};try{await db.business.update({where:{id:business.id},data:nextData});}catch{await cleanupUploadedBusinessImages(nextData.logoUrl,nextData.coverUrl);return{error:"تعذر حفظ صور الهوية. يرجى المحاولة مرة أخرى."};}await cleanupReplacedBusinessImages(business,{logoUrl:nextData.logoUrl??business.logoUrl,coverUrl:nextData.coverUrl??business.coverUrl});revalidatePath("/dashboard");revalidatePath("/dashboard/business");revalidatePath("/dashboard/branding");revalidatePath("/preview");revalidatePath(`/${business.slug}`);return{success:"تم تحديث الهوية والصور بنجاح"};}
-export async function getBusinessByOwner(userId:string){return db.business.findFirst({where:{ownerId:userId,deletedAt:null},include:{products:true}});}
-
-export async function getBusinessPublic(slug:string){const now=new Date();try{return await db.business.findFirst({where:{slug,deletedAt:null},include:{
- products:{where:{isActive:true,deletedAt:null},include:{category:true},orderBy:[{sortOrder:"asc"},{createdAt:"desc"}]},
- offers:{where:{isActive:true,deletedAt:null,OR:[{AND:[{startsAt:null},{endsAt:null}]},{AND:[{startsAt:{lte:now}},{endsAt:null}]},{AND:[{startsAt:null},{endsAt:{gte:now}}]},{AND:[{startsAt:{lte:now}},{endsAt:{gte:now}}]}]},orderBy:[{createdAt:"desc"}]},
- socialLinks:{where:{isActive:true},orderBy:[{sortOrder:"asc"},{createdAt:"asc"}]},services:{where:{isActive:true,deletedAt:null},orderBy:[{sortOrder:"asc"},{createdAt:"desc"}]},openingHours:{orderBy:{dayOfWeek:"asc"}},galleryItems:{where:{isActive:true},orderBy:[{sortOrder:"asc"},{createdAt:"desc"}]},branches:{where:{isActive:true},orderBy:[{isMain:"desc"},{sortOrder:"asc"},{createdAt:"asc"}]},
- contactPersons:{where:{isActive:true},include:{branch:true,department:true},orderBy:[{isPrimary:"desc"},{sortOrder:"asc"},{createdAt:"asc"}]},
- departments:{where:{isActive:true},include:{contacts:{where:{isActive:true},include:{branch:true},orderBy:[{isPrimary:"desc"},{sortOrder:"asc"},{createdAt:"asc"}]}},orderBy:[{sortOrder:"asc"},{createdAt:"asc"}]}
- }});}catch{return null;}}
+export async function getBusinessPublic(slug: string) {
+  const now = new Date();
+  try {
+    return await db.business.findFirst({
+      where: { slug, deletedAt: null },
+      include: {
+        products: { where: { isActive: true, deletedAt: null }, include: { category: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] },
+        offers: { where: { isActive: true, deletedAt: null, OR: [{ AND: [{ startsAt: null }, { endsAt: null }] }, { AND: [{ startsAt: { lte: now } }, { endsAt: null }] }, { AND: [{ startsAt: null }, { endsAt: { gte: now } }] }, { AND: [{ startsAt: { lte: now } }, { endsAt: { gte: now } }] }] }, orderBy: [{ createdAt: "desc" }] },
+        socialLinks: { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+        services: { where: { isActive: true, deletedAt: null }, orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] },
+        openingHours: { orderBy: { dayOfWeek: "asc" } },
+        galleryItems: { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] },
+        branches: { where: { isActive: true }, orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
+        contactPersons: { where: { isActive: true }, include: { branch: true, department: true }, orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
+        departments: { where: { isActive: true }, include: { contacts: { where: { isActive: true }, include: { branch: true }, orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] } }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+      },
+    });
+  } catch {
+    return null;
+  }
+}
