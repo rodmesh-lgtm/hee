@@ -8,16 +8,22 @@ import { getPersistentStorageAdapter } from "../lib/storage";
 import { removePersistentUrl, removeReplacedPersistentUrl } from "../lib/storage-lifecycle";
 import { businessProfileSchema, businessSchema } from "../lib/validation";
 import { normalizePageModulesForPersistence, serializePageModules } from "../lib/page-modules";
+import { getPlanEntitlements } from "../lib/plan-entitlements";
 
 export type ActionState = { error?: string; success?: string };
 
 async function ensureBusinessPlan(code: "FREE" | "BUSINESS" | "PRO") {
   const planNameMap = { FREE: "Free", BUSINESS: "Business", PRO: "Pro" } as const;
   const monthlyPriceMap = { FREE: 0, BUSINESS: 199, PRO: 399 } as const;
-  const productLimitMap = { FREE: 3, BUSINESS: 10, PRO: 30 } as const;
+  const productLimit = getPlanEntitlements(code).productLimit ?? 999999;
   const existing = await db.businessPlan.findUnique({ where: { code } });
-  if (existing) return existing;
-  return db.businessPlan.create({ data: { code, name: planNameMap[code], monthlyPrice: monthlyPriceMap[code], productLimit: productLimitMap[code], aiEnabled: code !== "FREE", onlinePay: code !== "FREE", isActive: true } });
+  if (existing) {
+    if (existing.productLimit !== productLimit) {
+      return db.businessPlan.update({ where: { id: existing.id }, data: { productLimit } });
+    }
+    return existing;
+  }
+  return db.businessPlan.create({ data: { code, name: planNameMap[code], monthlyPrice: monthlyPriceMap[code], productLimit, aiEnabled: code !== "FREE", onlinePay: code !== "FREE", isActive: true } });
 }
 
 function getFormString(formData: FormData, key: string, fallback = "") { return formData.getAll(key).map((value) => typeof value === "string" ? value.trim() : "").find(Boolean) ?? fallback; }
