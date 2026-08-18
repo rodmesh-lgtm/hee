@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { getOwnedBusinessWithPlanForWrite } from "../lib/ownership";
-import { normalizePlanCode } from "../lib/plan-entitlements";
+import { getPlanRank, normalizePlanCode } from "../lib/plan-entitlements";
 
-const PLAN_RANK = { FREE: 0, BUSINESS: 1, PRO: 2 } as const;
 const UPGRADE_EVENT = "plan_upgrade_requested";
 
 export async function requestPlanUpgradeAction(formData: FormData) {
@@ -15,7 +14,7 @@ export async function requestPlanUpgradeAction(formData: FormData) {
 
   const requestedPlan = normalizePlanCode(String(formData.get("plan") ?? "BUSINESS"));
   const currentPlan = normalizePlanCode(business.plan?.code);
-  if (PLAN_RANK[requestedPlan] <= PLAN_RANK[currentPlan]) {
+  if (getPlanRank(requestedPlan) <= getPlanRank(currentPlan)) {
     redirect("/dashboard/branding?upgrade=current");
   }
 
