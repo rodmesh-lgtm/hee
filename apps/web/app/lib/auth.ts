@@ -46,7 +46,10 @@ export async function getCurrentUser() {
     const session = await db.session.findUnique({ where: { token }, include: { user: true } });
     if (session && session.expiresAt >= new Date()) return session.user;
 
-    cookieStore.delete(SESSION_COOKIE);
+    // getCurrentUser is called from Server Components as well as actions. Next.js
+    // does not allow mutating response cookies from a Server Component render.
+    // Clean the stale database row best-effort and leave cookie replacement/removal
+    // to the next explicit login/logout response instead of turning expiry into a 500.
     if (session) await db.session.deleteMany({ where: { token } }).catch(() => undefined);
   }
 
