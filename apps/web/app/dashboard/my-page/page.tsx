@@ -10,7 +10,7 @@ export default async function DashboardMyPage() {
   const business = await db.business.findFirst({
     where: { ownerId: user.id, deletedAt: null },
     include: {
-      services: { where: { isActive: true } },
+      services: { where: { isActive: true, deletedAt: null } },
       branches: { where: { isActive: true } },
       contactPersons: { where: { isActive: true } },
     },
