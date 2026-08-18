@@ -4,13 +4,21 @@ function clean(value: unknown): string | null {
   return result || null;
 }
 
+function isHostOrSubdomain(host: string, domain: string) {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
 function safeGoogleMapsUrl(value?: string | null) {
   const raw = String(value ?? "").trim();
   if (!raw) return null;
   try {
     const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    if (!/^https?:$/.test(url.protocol)) return null;
     const host = url.hostname.toLowerCase();
-    const isGoogleMap = host === "maps.app.goo.gl" || host.endsWith("google.com") || host.endsWith("google.sa") || host === "goo.gl";
+    const isGoogleMap = host === "maps.app.goo.gl"
+      || host === "goo.gl"
+      || isHostOrSubdomain(host, "google.com")
+      || isHostOrSubdomain(host, "google.sa");
     return isGoogleMap ? url.toString() : null;
   } catch { return null; }
 }
