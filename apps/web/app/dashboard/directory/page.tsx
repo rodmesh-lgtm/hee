@@ -33,7 +33,7 @@ export default async function DirectoryPage({ searchParams }: { searchParams?: P
   const status = statusKey ? STATUS_MESSAGES[statusKey] : null;
 
   const business = await db.business.findFirst({
-    where: { ownerId: user.id },
+    where: { ownerId: user.id, deletedAt: null },
     include: {
       plan: true,
       branches: { orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
