@@ -29,7 +29,7 @@ function getOwnedCompanyProfileStorageKey(pageModules: unknown) {
 }
 
 async function getOwnedBusiness(userId: string) {
-  return db.business.findFirst({ where: { ownerId: userId }, select: { id: true, pageModules: true } });
+  return db.business.findFirst({ where: { ownerId: userId, deletedAt: null }, select: { id: true, pageModules: true } });
 }
 
 export async function POST(request: Request) {
