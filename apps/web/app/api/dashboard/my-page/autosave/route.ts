@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   const parsed = autosavePayloadSchema.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" }, { status: 400 });
 
-  const business = await db.business.findFirst({ where: { ownerId: user.id } });
+  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
   if (!business) return NextResponse.json({ error: "ابدأ بإنشاء النشاط أولاً" }, { status: 404 });
 
   const updates: Record<string, unknown> = {}; const changedKeys: string[] = []; const fields = parsed.data.fields;
