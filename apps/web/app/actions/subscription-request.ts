@@ -18,30 +18,43 @@ export async function requestPlanUpgradeAction(formData: FormData) {
     redirect("/dashboard/branding?upgrade=current");
   }
 
-  const recent = await db.analyticsEvent.findMany({
-    where: { businessId: business.id, eventType: UPGRADE_EVENT },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    select: { metadata: true },
-  });
+  await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`upgrade-request:${business.id}`}))`;
 
-  const hasMatchingPending = recent.some((event) => {
-    const metadata = event.metadata && typeof event.metadata === "object"
-      ? event.metadata as Record<string, unknown>
-      : {};
-    return String(metadata.requestedPlan ?? "").toUpperCase() === requestedPlan
-      && String(metadata.status ?? "pending").toLowerCase() === "pending";
-  });
-
-  if (!hasMatchingPending) {
-    await db.analyticsEvent.create({
-      data: {
-        businessId: business.id,
-        eventType: UPGRADE_EVENT,
-        metadata: { source: "dashboard_branding", requestedPlan, status: "pending" },
-      },
+    const currentBusiness = await tx.business.findFirst({
+      where: { id: business.id, deletedAt: null },
+      include: { plan: true },
     });
-  }
+    if (!currentBusiness) return;
+
+    const livePlan = normalizePlanCode(currentBusiness.plan?.code);
+    if (getPlanRank(requestedPlan) <= getPlanRank(livePlan)) return;
+
+    const recent = await tx.analyticsEvent.findMany({
+      where: { businessId: business.id, eventType: UPGRADE_EVENT },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { metadata: true },
+    });
+
+    const hasMatchingPending = recent.some((event) => {
+      const metadata = event.metadata && typeof event.metadata === "object"
+        ? event.metadata as Record<string, unknown>
+        : {};
+      return String(metadata.requestedPlan ?? "").toUpperCase() === requestedPlan
+        && String(metadata.status ?? "pending").toLowerCase() === "pending";
+    });
+
+    if (!hasMatchingPending) {
+      await tx.analyticsEvent.create({
+        data: {
+          businessId: business.id,
+          eventType: UPGRADE_EVENT,
+          metadata: { source: "dashboard_branding", requestedPlan, status: "pending" },
+        },
+      });
+    }
+  });
 
   revalidatePath("/dashboard/branding");
   revalidatePath("/dashboard/settings");
