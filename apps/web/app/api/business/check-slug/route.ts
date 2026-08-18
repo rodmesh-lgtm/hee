@@ -10,6 +10,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ available: false, message: "الرابط غير صالح" }, { status: 400 });
   }
 
-  const existing = await db.business.findFirst({ where: { slug, deletedAt: null }, select: { id: true } });
+  // Business.slug is globally unique at the database layer. Soft-deleted rows
+  // therefore continue to reserve their historical slug until an explicit
+  // slug-release migration/policy is introduced.
+  const existing = await db.business.findUnique({ where: { slug }, select: { id: true } });
   return NextResponse.json({ available: !existing, slug });
 }
