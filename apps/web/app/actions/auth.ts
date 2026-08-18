@@ -79,7 +79,7 @@ export async function loginAction(_prevState: ActionState, formData: FormData): 
   }
 
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });
-  const authenticated = Boolean(user?.passwordHash && await verifyPassword(parsed.data.password, user.passwordHash));
+  const authenticated = Boolean(user && !user.deletedAt && user.passwordHash && await verifyPassword(parsed.data.password, user.passwordHash));
   if (!user || !authenticated) {
     const emailAllowed = await consumeAuthLimit("login-email-failure", parsed.data.email, 10, 15 * 60);
     if (!emailAllowed) return { error: "تمت محاولات تسجيل دخول كثيرة. حاول مرة أخرى بعد قليل." };
