@@ -44,6 +44,16 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" }, { status: 400 });
 
   const fields = parsed.data.fields;
+
+  if (business.isPublished) {
+    const nextWhatsapp = typeof fields.whatsapp === "string" ? fields.whatsapp.trim() : business.whatsapp?.trim();
+    const nextPhone = typeof fields.phone === "string" ? fields.phone.trim() : business.phone?.trim();
+    const stillHasContact = Boolean(nextWhatsapp || nextPhone || business.email?.trim() || business.website?.trim());
+    if (!stillHasContact) {
+      return NextResponse.json({ error: "لا يمكن حذف آخر وسيلة تواصل من صفحة منشورة. أضف وسيلة أخرى أو ألغِ النشر أولاً." }, { status: 400 });
+    }
+  }
+
   const updates: Prisma.BusinessUpdateInput = {};
   const changedKeys: string[] = [];
 
