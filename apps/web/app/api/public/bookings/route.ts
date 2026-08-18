@@ -22,12 +22,7 @@ function isRealCalendarDate(value: string) {
 }
 
 function riyadhToday() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Riyadh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${value.year}-${value.month}-${value.day}`;
 }
@@ -39,42 +34,24 @@ function addDays(dateString: string, days: number) {
 }
 
 function rateLimited(retryAfterSeconds: number) {
-  return NextResponse.json(
-    { error: "تم إرسال عدد كبير من الحجوزات خلال فترة قصيرة. حاول مرة أخرى لاحقاً." },
-    { status: 429, headers: { "Retry-After": String(Math.max(1, retryAfterSeconds)) } },
-  );
+  return NextResponse.json({ error: "تم إرسال عدد كبير من الحجوزات خلال فترة قصيرة. حاول مرة أخرى لاحقاً." }, { status: 429, headers: { "Retry-After": String(Math.max(1, retryAfterSeconds)) } });
 }
 
 export async function POST(request: Request) {
   let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "بيانات الحجز غير صالحة" }, { status: 400 });
-  }
+  try { body = await request.json(); } catch { return NextResponse.json({ error: "بيانات الحجز غير صالحة" }, { status: 400 }); }
 
   const parsed = bookingSchema.safeParse(body);
-  if (!parsed.success || !isRealCalendarDate(parsed.success ? parsed.data.bookingDate : "")) {
-    return NextResponse.json({ error: "بيانات الحجز غير صالحة" }, { status: 400 });
-  }
+  if (!parsed.success || !isRealCalendarDate(parsed.success ? parsed.data.bookingDate : "")) return NextResponse.json({ error: "بيانات الحجز غير صالحة" }, { status: 400 });
 
   const today = riyadhToday();
-  if (parsed.data.bookingDate < today) {
-    return NextResponse.json({ error: "لا يمكن إنشاء حجز بتاريخ سابق" }, { status: 400 });
-  }
-  if (parsed.data.bookingDate > addDays(today, 365)) {
-    return NextResponse.json({ error: "تاريخ الحجز بعيد جداً. اختر موعداً خلال السنة القادمة" }, { status: 400 });
-  }
+  if (parsed.data.bookingDate < today) return NextResponse.json({ error: "لا يمكن إنشاء حجز بتاريخ سابق" }, { status: 400 });
+  if (parsed.data.bookingDate > addDays(today, 365)) return NextResponse.json({ error: "تاريخ الحجز بعيد جداً. اختر موعداً خلال السنة القادمة" }, { status: 400 });
 
   const slug = normalizePublicSlug(parsed.data.slug);
-  const business = await db.business.findUnique({ where: { slug } });
-  if (!business || !business.isPublished) {
-    return NextResponse.json({ error: "النشاط غير متاح" }, { status: 404 });
-  }
-
-  if (!business.bookingAvailable) {
-    return NextResponse.json({ error: "الحجوزات غير مفعلة حالياً" }, { status: 403 });
-  }
+  const business = await db.business.findFirst({ where: { slug, deletedAt: null } });
+  if (!business || !business.isPublished) return NextResponse.json({ error: "النشاط غير متاح" }, { status: 404 });
+  if (!business.bookingAvailable) return NextResponse.json({ error: "الحجوزات غير مفعلة حالياً" }, { status: 403 });
 
   const clientAddress = requestClientAddress(request);
   if (clientAddress) {
@@ -85,42 +62,13 @@ export async function POST(request: Request) {
   if (!phoneLimit.allowed) return rateLimited(phoneLimit.retryAfterSeconds);
 
   if (parsed.data.serviceId) {
-    const service = await db.service.findFirst({
-      where: {
-        id: parsed.data.serviceId,
-        businessId: business.id,
-        bookingEnabled: true,
-        isActive: true,
-        deletedAt: null,
-      },
-    });
-
-    if (!service) {
-      return NextResponse.json({ error: "الخدمة المختارة غير متاحة" }, { status: 400 });
-    }
+    const service = await db.service.findFirst({ where: { id: parsed.data.serviceId, businessId: business.id, bookingEnabled: true, isActive: true, deletedAt: null } });
+    if (!service) return NextResponse.json({ error: "الخدمة المختارة غير متاحة" }, { status: 400 });
   }
 
   const booking = await db.$transaction(async (tx) => {
-    const customer = await tx.customer.create({
-      data: {
-        businessId: business.id,
-        name: parsed.data.customerName,
-        phone: parsed.data.customerPhone,
-        notes: parsed.data.notes || null,
-      },
-    });
-
-    return tx.booking.create({
-      data: {
-        businessId: business.id,
-        customerId: customer.id,
-        serviceId: parsed.data.serviceId || null,
-        bookingDate: parsed.data.bookingDate,
-        bookingTime: parsed.data.bookingTime,
-        notes: parsed.data.notes || null,
-        status: "pending",
-      },
-    });
+    const customer = await tx.customer.create({ data: { businessId: business.id, name: parsed.data.customerName, phone: parsed.data.customerPhone, notes: parsed.data.notes || null } });
+    return tx.booking.create({ data: { businessId: business.id, customerId: customer.id, serviceId: parsed.data.serviceId || null, bookingDate: parsed.data.bookingDate, bookingTime: parsed.data.bookingTime, notes: parsed.data.notes || null, status: "pending" } });
   });
 
   revalidatePath("/dashboard/bookings");
