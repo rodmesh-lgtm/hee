@@ -28,7 +28,7 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
     for (const key of Object.keys(next) as Array<keyof typeof next>) {
       if (next[key] !== lastSaved.current[key]) changed[key] = next[key];
     }
-    if (!Object.keys(changed).length) return;
+    if (!Object.keys(changed).length) { setStatus("saved"); return; }
 
     setStatus("saving");
     setError("");
@@ -52,8 +52,6 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
   const queueSave = (next: typeof fields) => {
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
-      // Network responses can arrive out of order. Serialize autosaves so an older
-      // request can never finish after a newer edit and overwrite it in the DB.
       saveChain.current = saveChain.current.then(() => performSave(next));
     }, 700);
   };
@@ -61,8 +59,13 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
   const update = (key: keyof typeof fields, value: string) => {
     const next = { ...fields, [key]: value };
     setFields(next);
+    // Mark dirty immediately, including the debounce window, so publish cannot
+    // race ahead of an edit that has not reached the database yet.
+    setStatus("saving");
     queueSave(next);
   };
+
+  const publishBlocked = publishPending || status !== "saved";
 
   return <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:[direction:ltr]">
     <div className="space-y-4 xl:[direction:rtl]">
@@ -74,7 +77,7 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
 
       <section className="grid gap-3 sm:grid-cols-3"><a href="/dashboard/branding" className="rounded-[22px] border border-[#e7e9f4] bg-white p-4 transition hover:border-[#cfc5f5]"><Palette className="h-5 w-5 text-[#6f3bd2]" /><b className="mt-3 block text-sm text-[#20264f]">الشعار والمظهر</b><span className="mt-1 block text-[11px] leading-5 text-slate-500">الشعار، الغلاف والثيمات</span></a><a href="/dashboard/directory" className="rounded-[22px] border border-[#e7e9f4] bg-white p-4 transition hover:border-[#cfc5f5]"><UsersRound className="h-5 w-5 text-[#6f3bd2]" /><b className="mt-3 block text-sm text-[#20264f]">الفروع والفريق</b><span className="mt-1 block text-[11px] leading-5 text-slate-500">{countLabel(branchCount, "فرع", "فرعان", "فروع")} · {countLabel(contactCount, "عضو", "عضوان", "أعضاء")}</span></a><a href="/dashboard/services" className="rounded-[22px] border border-[#e7e9f4] bg-white p-4 transition hover:border-[#cfc5f5]"><BriefcaseBusiness className="h-5 w-5 text-[#6f3bd2]" /><b className="mt-3 block text-sm text-[#20264f]">الخدمات</b><span className="mt-1 block text-[11px] leading-5 text-slate-500">{countLabel(serviceCount, "خدمة", "خدمتان", "خدمات")}</span></a></section>
 
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div><b className="text-sm text-[#20264f]">{business.isPublished ? "صفحتك متاحة للزوار" : "جاهز للمشاركة؟"}</b><p className="mt-1 text-xs text-slate-500">{business.isPublished ? "يمكنك فتحها أو إلغاء نشرها مؤقتًا متى احتجت." : "عاين الصفحة أولاً ثم انشرها."}</p></div><div className="flex flex-wrap gap-2"><a href="/preview" target="_blank" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#ddd8f4] bg-white px-4 text-xs font-black text-[#5d49cc]"><Eye className="h-4 w-4" />معاينة</a>{!business.isPublished ? <form action={publishAction}><button disabled={publishPending} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white disabled:opacity-60"><Save className="h-4 w-4" />{publishPending ? "جارٍ النشر" : "نشر الصفحة"}</button></form> : <><a href={`/${business.slug}`} target="_blank" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white"><Eye className="h-4 w-4" />فتح الصفحة</a><form action={unpublishBusinessAction}><button className="inline-flex h-10 items-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-xs font-black text-rose-700">إلغاء النشر</button></form></>}</div>{publishState.error ? <p className="w-full text-xs font-bold text-rose-700">{publishState.error}</p> : null}</section>
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div><b className="text-sm text-[#20264f]">{business.isPublished ? "صفحتك متاحة للزوار" : "جاهز للمشاركة؟"}</b><p className="mt-1 text-xs text-slate-500">{business.isPublished ? "يمكنك فتحها أو إلغاء نشرها مؤقتًا متى احتجت." : "عاين الصفحة أولاً ثم انشرها."}</p></div><div className="flex flex-wrap gap-2"><a href="/preview" target="_blank" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#ddd8f4] bg-white px-4 text-xs font-black text-[#5d49cc]"><Eye className="h-4 w-4" />معاينة</a>{!business.isPublished ? <form action={publishAction}><button disabled={publishBlocked} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-60"><Save className="h-4 w-4" />{publishPending ? "جارٍ النشر" : status === "saving" ? "انتظر الحفظ" : "نشر الصفحة"}</button></form> : <><a href={`/${business.slug}`} target="_blank" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white"><Eye className="h-4 w-4" />فتح الصفحة</a><form action={unpublishBusinessAction}><button className="inline-flex h-10 items-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-xs font-black text-rose-700">إلغاء النشر</button></form></>}</div>{publishState.error ? <p className="w-full text-xs font-bold text-rose-700">{publishState.error}</p> : null}</section>
     </div>
 
     <aside className="hidden xl:block xl:[direction:rtl]"><div className="sticky top-24 rounded-[28px] border border-[#e3e6f2] bg-white p-3 shadow-[0_26px_50px_-36px_rgba(31,37,82,.45)]"><div className="mb-3 flex items-center justify-between"><div><b className="text-sm text-[#20264f]">معاينة مباشرة</b><p className="text-[10px] text-slate-400">تتحدث بعد الحفظ</p></div><a href="/preview" target="_blank" className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#f4f1ff] px-2.5 text-[10px] font-black text-[#5d49cc]"><Eye className="h-3.5 w-3.5" />تكبير</a></div><div className="mx-auto w-[292px] overflow-hidden rounded-[30px] border-[6px] border-[#171b2e] bg-white"><iframe key={previewVersion} src={`/preview?v=${previewVersion}`} title="معاينة صفحة النشاط" className="h-[600px] w-full" /></div></div></aside>
