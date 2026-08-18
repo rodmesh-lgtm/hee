@@ -10,6 +10,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ available: false, message: "الرابط غير صالح" }, { status: 400 });
   }
 
-  const existing = await db.business.findUnique({ where: { slug } });
+  const existing = await db.business.findFirst({ where: { slug, deletedAt: null }, select: { id: true } });
   return NextResponse.json({ available: !existing, slug });
 }
