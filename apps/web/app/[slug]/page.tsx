@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
-import { getBusinessPublic } from "../actions/business";
+import { getBusinessPublic } from "../lib/public-business";
 import { PublicBusinessPageV10Light } from "../../components/public-business-page-v10-light";
 import { PublicBusinessAnalytics } from "../../components/public-business-analytics";
 import { getPublicBusinessUrlFromRequest, isValidPublicSlug, normalizePublicSlug } from "../lib/public-url";
