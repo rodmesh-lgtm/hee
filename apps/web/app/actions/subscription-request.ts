@@ -15,19 +15,26 @@ export async function requestPlanUpgradeAction(formData: FormData) {
 
   const requestedPlan = normalizePlanCode(String(formData.get("plan") ?? "BUSINESS"));
   const currentPlan = normalizePlanCode(business.plan?.code);
-  if (PLAN_RANK[requestedPlan] <= PLAN_RANK[currentPlan]) redirect("/dashboard/branding?upgrade=current");
+  if (PLAN_RANK[requestedPlan] <= PLAN_RANK[currentPlan]) {
+    redirect("/dashboard/branding?upgrade=current");
+  }
 
-  const existing = await db.analyticsEvent.findFirst({
+  const recent = await db.analyticsEvent.findMany({
     where: { businessId: business.id, eventType: UPGRADE_EVENT },
     orderBy: { createdAt: "desc" },
-    select: { id: true, metadata: true },
+    take: 20,
+    select: { metadata: true },
   });
 
-  const previousPlan = existing?.metadata && typeof existing.metadata === "object" && "requestedPlan" in existing.metadata
-    ? String((existing.metadata as Record<string, unknown>).requestedPlan ?? "")
-    : "";
+  const hasMatchingPending = recent.some((event) => {
+    const metadata = event.metadata && typeof event.metadata === "object"
+      ? event.metadata as Record<string, unknown>
+      : {};
+    return String(metadata.requestedPlan ?? "").toUpperCase() === requestedPlan
+      && String(metadata.status ?? "pending").toLowerCase() === "pending";
+  });
 
-  if (!existing || previousPlan !== requestedPlan) {
+  if (!hasMatchingPending) {
     await db.analyticsEvent.create({
       data: {
         businessId: business.id,
@@ -49,6 +56,12 @@ export async function getLatestUpgradeRequest(businessId: string) {
     select: { metadata: true, createdAt: true },
   });
   if (!event) return null;
-  const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata as Record<string, unknown> : {};
-  return { requestedPlan: String(metadata.requestedPlan ?? ""), status: String(metadata.status ?? "pending"), createdAt: event.createdAt };
+  const metadata = event.metadata && typeof event.metadata === "object"
+    ? event.metadata as Record<string, unknown>
+    : {};
+  return {
+    requestedPlan: String(metadata.requestedPlan ?? ""),
+    status: String(metadata.status ?? "pending"),
+    createdAt: event.createdAt,
+  };
 }
