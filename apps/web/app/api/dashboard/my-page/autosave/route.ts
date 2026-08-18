@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../../../../lib/db";
 import { getCurrentUser } from "../../../../lib/auth";
 import { isQaAuditModeUser } from "../../../../lib/qa-audit";
+import { getPlanEntitlements } from "../../../../lib/plan-entitlements";
 import { normalizePageModulesInput, serializePageModules } from "../../../../lib/page-modules";
 import { extractStorageKeyFromUrl } from "../../../../lib/storage";
 import { removePersistentKey, validateStoredObject } from "../../../../lib/storage-lifecycle";
@@ -59,8 +60,13 @@ export async function POST(request: Request) {
   const parsed = autosavePayloadSchema.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" }, { status: 400 });
 
-  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
+  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, include: { plan: true } });
   if (!business) return NextResponse.json({ error: "ابدأ بإنشاء النشاط أولاً" }, { status: 404 });
+
+  const entitlements = getPlanEntitlements(business.plan?.code);
+  if (parsed.data.fields?.themePreset && parsed.data.fields.themePreset !== "custom" && !entitlements.premiumThemes) {
+    return NextResponse.json({ error: "هذا الثيم متاح ضمن الباقات المدفوعة" }, { status: 403 });
+  }
 
   const updates: Record<string, unknown> = {}; const changedKeys: string[] = []; const fields = parsed.data.fields;
   if (fields) {
