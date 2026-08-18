@@ -8,6 +8,22 @@ import { getPlanEntitlements } from "../lib/plan-entitlements";
 
 const VERIFICATION_EVENT = "verification_requested";
 
+function eventStatus(metadata: unknown) {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
+    ? String((metadata as Record<string, unknown>).status ?? "pending")
+    : "pending";
+}
+
+async function pendingVerificationEvent(businessId: string) {
+  const events = await db.analyticsEvent.findMany({
+    where: { businessId, eventType: VERIFICATION_EVENT },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, metadata: true },
+    take: 20,
+  });
+  return events.find((event) => eventStatus(event.metadata) === "pending") ?? null;
+}
+
 export async function requestVerificationAction() {
   const business = await getOwnedBusinessWithPlanForWrite();
   if (!business) redirect("/login");
@@ -17,12 +33,7 @@ export async function requestVerificationAction() {
   const entitlements = getPlanEntitlements(business.plan?.code);
   if (!entitlements.verificationEligible) redirect("/dashboard/branding?verification=upgrade");
 
-  const existing = await db.analyticsEvent.findFirst({
-    where: { businessId: business.id, eventType: VERIFICATION_EVENT },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  });
-
+  const existing = await pendingVerificationEvent(business.id);
   if (!existing) {
     await db.analyticsEvent.create({
       data: {
@@ -38,9 +49,5 @@ export async function requestVerificationAction() {
 }
 
 export async function hasPendingVerificationRequest(businessId: string) {
-  return Boolean(await db.analyticsEvent.findFirst({
-    where: { businessId, eventType: VERIFICATION_EVENT },
-    orderBy: { createdAt: "desc" },
-    select: { id: true },
-  }));
+  return Boolean(await pendingVerificationEvent(businessId));
 }
