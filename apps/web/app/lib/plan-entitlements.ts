@@ -3,6 +3,7 @@ export type HeePlanCode = "FREE" | "BUSINESS" | "PRO";
 export type PlanEntitlements = {
   code: HeePlanCode;
   label: string;
+  productLimit: number | null;
   branchLimit: number | null;
   serviceLimit: number | null;
   contactLimit: number | null;
@@ -17,6 +18,7 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
   FREE: {
     code: "FREE",
     label: "مجانية",
+    productLimit: 3,
     branchLimit: 1,
     serviceLimit: null,
     contactLimit: 2,
@@ -29,6 +31,7 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
   BUSINESS: {
     code: "BUSINESS",
     label: "Business",
+    productLimit: 10,
     branchLimit: 5,
     serviceLimit: null,
     contactLimit: 8,
@@ -41,6 +44,7 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
   PRO: {
     code: "PRO",
     label: "Pro",
+    productLimit: 30,
     branchLimit: null,
     serviceLimit: null,
     contactLimit: null,
