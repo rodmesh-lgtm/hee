@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { requireAdmin } from "../lib/admin";
-import { normalizePlanCode } from "../lib/plan-entitlements";
+import { getPlanEntitlements, normalizePlanCode } from "../lib/plan-entitlements";
 
 const PLAN_RANK = { FREE: 0, BUSINESS: 1, PRO: 2 } as const;
 
@@ -36,6 +36,17 @@ export async function approveVerificationAdminAction(formData: FormData) {
   const business = await getActiveBusinessWithPlan(event.businessId);
   if (!business) redirect("/admin?error=verification");
   if (business.isVerified) redirect("/admin?done=verification-already");
+
+  const entitlements = getPlanEntitlements(business.plan?.code);
+  if (!entitlements.verificationEligible) {
+    await db.analyticsEvent.update({
+      where: { id: event.id },
+      data: { metadata: { ...metadata, status: "obsolete", reviewedAt: new Date().toISOString(), reason: "plan_ineligible" } },
+    });
+    revalidatePath("/admin");
+    revalidatePath("/dashboard/branding");
+    redirect("/admin?error=verification-ineligible");
+  }
 
   await db.$transaction([
     db.business.update({ where: { id: event.businessId }, data: { isVerified: true } }),
