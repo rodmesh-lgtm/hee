@@ -5,55 +5,142 @@ import { db } from "../../../lib/db";
 import { getCurrentUserForApiWrite } from "../../../lib/auth";
 import { businessSchema } from "../../../lib/validation";
 import { isValidPublicSlug, normalizePublicSlug } from "../../../lib/public-url";
+import { getPlanEntitlements } from "../../../lib/plan-entitlements";
 
 async function ensureBusinessPlan(code: "FREE" | "BUSINESS" | "PRO") {
-  const planNameMap: Record<typeof code, string> = { FREE: "Free", BUSINESS: "Business", PRO: "Pro" };
-  const planPriceMap: Record<typeof code, number> = { FREE: 0, BUSINESS: 199, PRO: 399 };
-  const planLimitMap: Record<typeof code, number> = { FREE: 3, BUSINESS: 10, PRO: 30 };
+  const planNameMap = { FREE: "Free", BUSINESS: "Business", PRO: "Pro" } as const;
+  const planPriceMap = { FREE: 0, BUSINESS: 199, PRO: 399 } as const;
+  const productLimit = getPlanEntitlements(code).productLimit ?? 999999;
   const existing = await db.businessPlan.findUnique({ where: { code } });
-  if (existing) return existing;
-  return db.businessPlan.create({ data: { code, name: planNameMap[code], monthlyPrice: planPriceMap[code], productLimit: planLimitMap[code], aiEnabled: code !== "FREE", onlinePay: code !== "FREE", isActive: true } });
+  if (existing) {
+    if (existing.productLimit !== productLimit) {
+      return db.businessPlan.update({ where: { id: existing.id }, data: { productLimit } });
+    }
+    return existing;
+  }
+  return db.businessPlan.create({
+    data: {
+      code,
+      name: planNameMap[code],
+      monthlyPrice: planPriceMap[code],
+      productLimit,
+      aiEnabled: code !== "FREE",
+      onlinePay: code !== "FREE",
+      isActive: true,
+    },
+  });
 }
 
-type CreateBusinessPayload = { name?: string; slug?: string; businessType?: string; shortDescription?: string; description?: string; city?: string; whatsapp?: string; phone?: string; address?: string; logoUrl?: string; primaryColor?: string; entityType?: string; businessCategory?: string; onboardingStep?: string };
-function normalize(value: unknown, fallback = "") { return typeof value === "string" ? value.trim() : fallback; }
-function generatedPublicSlug() { return `business-${randomUUID().slice(0, 8)}`; }
+type CreateBusinessPayload = {
+  name?: string;
+  slug?: string;
+  businessType?: string;
+  shortDescription?: string;
+  description?: string;
+  city?: string;
+  whatsapp?: string;
+  phone?: string;
+  address?: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  entityType?: string;
+  businessCategory?: string;
+  onboardingStep?: string;
+};
+
+function normalize(value: unknown, fallback = "") {
+  return typeof value === "string" ? value.trim() : fallback;
+}
+
+function generatedPublicSlug() {
+  return `business-${randomUUID().slice(0, 8)}`;
+}
 
 export async function POST(request: Request) {
   const user = await getCurrentUserForApiWrite();
   if (!user) return NextResponse.json({ error: "يرجى تسجيل الدخول بحساب صالح" }, { status: 401 });
-  let body: CreateBusinessPayload;
-  try { body = (await request.json()) as CreateBusinessPayload; } catch { return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 }); }
 
-  const existingBusiness = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null } });
+  const existingBusiness = await db.business.findFirst({
+    where: { ownerId: user.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (existingBusiness) {
+    return NextResponse.json({ error: "يوجد نشاط مرتبط بهذا الحساب بالفعل" }, { status: 409 });
+  }
+
+  let body: CreateBusinessPayload;
+  try {
+    body = (await request.json()) as CreateBusinessPayload;
+  } catch {
+    return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 });
+  }
+
   const requestedSlug = normalizePublicSlug(normalize(body.slug));
-  const normalizedSlug = requestedSlug || existingBusiness?.slug || generatedPublicSlug();
+  let normalizedSlug = requestedSlug || generatedPublicSlug();
   const payload = {
-    name: normalize(body.name), slug: normalizedSlug, businessType: normalize(body.businessType), shortDescription: normalize(body.shortDescription), description: normalize(body.description), city: normalize(body.city), whatsapp: normalize(body.whatsapp), phone: normalize(body.phone), address: normalize(body.address), logoUrl: normalize(body.logoUrl), primaryColor: "#6f3bd2", entityType: normalize(body.entityType), businessCategory: normalize(body.businessCategory), onboardingCompleted: true, onboardingStep: "profile_created",
+    name: normalize(body.name),
+    slug: normalizedSlug,
+    businessType: normalize(body.businessType),
+    shortDescription: normalize(body.shortDescription),
+    description: normalize(body.description),
+    city: normalize(body.city),
+    whatsapp: normalize(body.whatsapp),
+    phone: normalize(body.phone),
+    address: normalize(body.address),
+    logoUrl: normalize(body.logoUrl),
+    primaryColor: "#6f3bd2",
+    entityType: normalize(body.entityType),
+    businessCategory: normalize(body.businessCategory),
+    onboardingCompleted: true,
+    onboardingStep: "profile_created",
   };
 
   const parsed = businessSchema.safeParse(payload);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات النشاط غير صالحة" }, { status: 400 });
-  if (!isValidPublicSlug(normalizedSlug)) return NextResponse.json({ error: "الرابط العام غير متاح" }, { status: 409 });
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات النشاط غير صالحة" }, { status: 400 });
+  }
+  if (!isValidPublicSlug(normalizedSlug)) {
+    return NextResponse.json({ error: "الرابط العام غير متاح" }, { status: 409 });
+  }
 
-  // Business.slug is globally unique at the database layer. Historical
-  // soft-deleted rows therefore reserve their slug too.
-  const slugTaken = await db.business.findFirst({ where: { slug: normalizedSlug, ...(existingBusiness ? { id: { not: existingBusiness.id } } : {}) }, select: { id: true } });
+  const slugTaken = await db.business.findUnique({ where: { slug: normalizedSlug }, select: { id: true } });
   if (slugTaken) {
-    if (!requestedSlug && !existingBusiness) {
-      const retrySlug = generatedPublicSlug();
-      if (isValidPublicSlug(retrySlug)) {
-        const retryTaken = await db.business.findUnique({ where: { slug: retrySlug }, select: { id: true } });
-        if (!retryTaken) parsed.data.slug = retrySlug; else return NextResponse.json({ error: "تعذر إنشاء رابط عام آمن. أعد المحاولة." }, { status: 409 });
-      }
-    } else return NextResponse.json({ error: "اسم الرابط مستخدم أو محجوز مسبقاً" }, { status: 409 });
+    if (requestedSlug) {
+      return NextResponse.json({ error: "اسم الرابط مستخدم أو محجوز مسبقاً" }, { status: 409 });
+    }
+
+    normalizedSlug = generatedPublicSlug();
+    if (!isValidPublicSlug(normalizedSlug)) {
+      return NextResponse.json({ error: "تعذر إنشاء رابط عام آمن. أعد المحاولة." }, { status: 409 });
+    }
+    const retryTaken = await db.business.findUnique({ where: { slug: normalizedSlug }, select: { id: true } });
+    if (retryTaken) {
+      return NextResponse.json({ error: "تعذر إنشاء رابط عام آمن. أعد المحاولة." }, { status: 409 });
+    }
+    parsed.data.slug = normalizedSlug;
   }
 
   const freePlan = await ensureBusinessPlan("FREE");
-  const finalSlug = parsed.data.slug;
-  const businessData = { ...parsed.data, slug: finalSlug, isVerified: existingBusiness?.isVerified ?? false, isPublished: existingBusiness?.isPublished ?? false, publishedAt: existingBusiness?.publishedAt ?? null, onboardingCompleted: true, onboardingStep: "profile_created", planId: existingBusiness?.planId ?? freePlan.id };
-  const business = existingBusiness ? await db.business.update({ where: { id: existingBusiness.id }, data: businessData }) : await db.business.create({ data: { ownerId: user.id, ...businessData } });
+  const business = await db.business.create({
+    data: {
+      ownerId: user.id,
+      ...parsed.data,
+      slug: parsed.data.slug,
+      isVerified: false,
+      isPublished: false,
+      publishedAt: null,
+      onboardingCompleted: true,
+      onboardingStep: "profile_created",
+      planId: freePlan.id,
+    },
+  });
 
-  revalidatePath("/dashboard"); revalidatePath("/dashboard/my-page"); revalidatePath("/preview"); revalidatePath(`/${business.slug}`);
-  return NextResponse.json({ business: { id: business.id, slug: business.slug }, redirectTo: "/dashboard?welcome=1" }, { status: existingBusiness ? 200 : 201 });
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/my-page");
+  revalidatePath("/preview");
+  revalidatePath(`/${business.slug}`);
+  return NextResponse.json(
+    { business: { id: business.id, slug: business.slug }, redirectTo: "/dashboard?welcome=1" },
+    { status: 201 },
+  );
 }
