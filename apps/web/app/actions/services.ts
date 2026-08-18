@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
 import { getOwnedBusinessWithPlanForWrite } from "../lib/ownership";
@@ -29,6 +30,10 @@ function refresh(slug: string) {
   revalidatePath(`/${slug}`);
 }
 
+async function lockServiceScope(tx: Prisma.TransactionClient, businessId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:services`}))`;
+}
+
 export async function addSimpleServiceAction(formData: FormData) {
   const business = await ownedBusiness();
   if (!business) return;
@@ -38,21 +43,27 @@ export async function addSimpleServiceAction(formData: FormData) {
   if (!validName(name) || !validDescription(description)) return;
 
   const entitlements = getPlanEntitlements(business.plan?.code);
-  const serviceCount = await db.service.count({ where: { businessId: business.id, deletedAt: null } });
-  if (limitReached(serviceCount, entitlements.serviceLimit)) return;
+  const result = await db.$transaction(async (tx) => {
+    await lockServiceScope(tx, business.id);
+    const serviceCount = await tx.service.count({ where: { businessId: business.id, deletedAt: null } });
+    if (limitReached(serviceCount, entitlements.serviceLimit)) return "limit" as const;
 
-  const max = await db.service.aggregate({ where: { businessId: business.id, deletedAt: null }, _max: { sortOrder: true } });
-  await db.service.create({
-    data: {
-      businessId: business.id,
-      name,
-      description: description || null,
-      price: 0,
-      isActive: true,
-      bookingEnabled: false,
-      sortOrder: (max._max.sortOrder ?? -1) + 1,
-    },
+    const max = await tx.service.aggregate({ where: { businessId: business.id, deletedAt: null }, _max: { sortOrder: true } });
+    await tx.service.create({
+      data: {
+        businessId: business.id,
+        name,
+        description: description || null,
+        price: 0,
+        isActive: true,
+        bookingEnabled: false,
+        sortOrder: (max._max.sortOrder ?? -1) + 1,
+      },
+    });
+    return "created" as const;
   });
+
+  if (result !== "created") return;
   refresh(business.slug);
 }
 
