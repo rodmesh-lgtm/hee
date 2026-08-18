@@ -18,26 +18,51 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
   const [error, setError] = useState("");
   const timer = useRef<number | null>(null);
   const lastSaved = useRef(fields);
+  const saveChain = useRef<Promise<void>>(Promise.resolve());
   const [previewVersion, setPreviewVersion] = useState(0);
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
   useEffect(() => { if (publishState.success) window.location.reload(); }, [publishState.success]);
 
+  const performSave = async (next: typeof fields) => {
+    const changed: Record<string, string> = {};
+    for (const key of Object.keys(next) as Array<keyof typeof next>) {
+      if (next[key] !== lastSaved.current[key]) changed[key] = next[key];
+    }
+    if (!Object.keys(changed).length) return;
+
+    setStatus("saving");
+    setError("");
+    try {
+      const response = await fetch("/api/dashboard/business/autosave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: changed }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "تعذر الحفظ");
+      lastSaved.current = next;
+      setStatus("saved");
+      setPreviewVersion((value) => value + 1);
+    } catch (saveError) {
+      setStatus("error");
+      setError(saveError instanceof Error ? saveError.message : "تعذر الحفظ");
+    }
+  };
+
   const queueSave = (next: typeof fields) => {
     if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(async () => {
-      const changed: Record<string, string> = {};
-      for (const key of Object.keys(next) as Array<keyof typeof next>) if (next[key] !== lastSaved.current[key]) changed[key] = next[key];
-      if (!Object.keys(changed).length) return;
-      setStatus("saving"); setError("");
-      try {
-        const response = await fetch("/api/dashboard/business/autosave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fields: changed }) });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.error || "تعذر الحفظ");
-        lastSaved.current = next; setStatus("saved"); setPreviewVersion((value) => value + 1);
-      } catch (saveError) { setStatus("error"); setError(saveError instanceof Error ? saveError.message : "تعذر الحفظ"); }
+    timer.current = window.setTimeout(() => {
+      // Network responses can arrive out of order. Serialize autosaves so an older
+      // request can never finish after a newer edit and overwrite it in the DB.
+      saveChain.current = saveChain.current.then(() => performSave(next));
     }, 700);
   };
-  const update = (key: keyof typeof fields, value: string) => { const next = { ...fields, [key]: value }; setFields(next); queueSave(next); };
+
+  const update = (key: keyof typeof fields, value: string) => {
+    const next = { ...fields, [key]: value };
+    setFields(next);
+    queueSave(next);
+  };
 
   return <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:[direction:ltr]">
     <div className="space-y-4 xl:[direction:rtl]">
