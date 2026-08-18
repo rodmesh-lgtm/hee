@@ -30,7 +30,7 @@ export async function publishBusinessAction(_previous: PublicationActionState, _
 
   await db.business.update({
     where: { id: business.id },
-    data: { slug, isPublished: true, publishedAt: new Date() },
+    data: { slug, isPublished: true, publishedAt: business.publishedAt ?? new Date() },
   });
 
   revalidatePath("/dashboard");
