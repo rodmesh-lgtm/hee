@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { hashPassword } from "../lib/auth";
+import { consumePublicWriteLimit } from "../lib/rate-limit";
 
 export type PasswordResetState = { error?: string; success?: string };
 const PROVIDER = "password-reset";
@@ -43,6 +44,17 @@ async function sendResetEmail(email: string, token: string) {
 export async function requestPasswordResetAction(_previous: PasswordResetState, formData: FormData): Promise<PasswordResetState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "أدخل بريدًا إلكترونيًا صالحًا" };
+
+  const rate = await consumePublicWriteLimit({
+    scope: "password-reset-email",
+    businessId: "auth",
+    identity: email,
+    limit: 3,
+    windowSeconds: 15 * 60,
+  });
+  if (!rate.allowed) {
+    return { success: "إذا كان البريد مرتبطًا بحساب HEE فستصلك رسالة الاستعادة خلال دقائق." };
+  }
 
   const configured = Boolean(String(process.env.RESEND_API_KEY ?? "").trim() && String(process.env.HEE_FROM_EMAIL ?? "").trim());
   if (!configured) return { error: "استعادة كلمة المرور عبر البريد لم تُفعّل بعد. تواصل مع إدارة HEE." };
