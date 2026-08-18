@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
@@ -10,11 +11,8 @@ function metadataObject(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
-async function getActiveBusinessWithPlan(businessId: string) {
-  return db.business.findFirst({
-    where: { id: businessId, deletedAt: null },
-    include: { plan: true },
-  });
+async function lockAdminEvent(tx: Prisma.TransactionClient, eventId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`admin-event:${eventId}`}))`;
 }
 
 export async function approveVerificationAdminAction(formData: FormData) {
@@ -22,39 +20,54 @@ export async function approveVerificationAdminAction(formData: FormData) {
   const eventId = String(formData.get("eventId") ?? "").trim();
   if (!eventId) redirect("/admin?error=verification");
 
-  const event = await db.analyticsEvent.findUnique({
-    where: { id: eventId },
-    select: { id: true, businessId: true, eventType: true, metadata: true },
-  });
-  const metadata = metadataObject(event?.metadata);
-  if (!event || event.eventType !== "verification_requested" || metadata.status !== "pending") {
-    redirect("/admin?error=verification-state");
-  }
+  const result = await db.$transaction(async (tx) => {
+    await lockAdminEvent(tx, eventId);
 
-  const business = await getActiveBusinessWithPlan(event.businessId);
-  if (!business) redirect("/admin?error=verification");
-  if (business.isVerified) redirect("/admin?done=verification-already");
-
-  const entitlements = getPlanEntitlements(business.plan?.code);
-  if (!entitlements.verificationEligible) {
-    await db.analyticsEvent.update({
-      where: { id: event.id },
-      data: { metadata: { ...metadata, status: "obsolete", reviewedAt: new Date().toISOString(), reason: "plan_ineligible" } },
+    const event = await tx.analyticsEvent.findUnique({
+      where: { id: eventId },
+      select: { id: true, businessId: true, eventType: true, metadata: true },
     });
-    revalidatePath("/admin");
-    revalidatePath("/dashboard/branding");
-    redirect("/admin?error=verification-ineligible");
-  }
+    const metadata = metadataObject(event?.metadata);
+    if (!event || event.eventType !== "verification_requested" || metadata.status !== "pending") {
+      return "invalid-state" as const;
+    }
 
-  await db.$transaction([
-    db.business.update({ where: { id: event.businessId }, data: { isVerified: true } }),
-    db.analyticsEvent.update({
+    const business = await tx.business.findFirst({
+      where: { id: event.businessId, deletedAt: null },
+      include: { plan: true },
+    });
+    if (!business) return "missing-business" as const;
+    if (business.isVerified) {
+      await tx.analyticsEvent.update({
+        where: { id: event.id },
+        data: { metadata: { ...metadata, status: "obsolete", reviewedAt: new Date().toISOString(), reason: "already_verified" } },
+      });
+      return "already-verified" as const;
+    }
+
+    const entitlements = getPlanEntitlements(business.plan?.code);
+    if (!entitlements.verificationEligible) {
+      await tx.analyticsEvent.update({
+        where: { id: event.id },
+        data: { metadata: { ...metadata, status: "obsolete", reviewedAt: new Date().toISOString(), reason: "plan_ineligible" } },
+      });
+      return "ineligible" as const;
+    }
+
+    await tx.business.update({ where: { id: event.businessId }, data: { isVerified: true } });
+    await tx.analyticsEvent.update({
       where: { id: event.id },
       data: { metadata: { ...metadata, status: "approved", reviewedAt: new Date().toISOString() } },
-    }),
-  ]);
+    });
+    return "approved" as const;
+  });
+
   revalidatePath("/admin");
   revalidatePath("/dashboard/branding");
+  if (result === "invalid-state") redirect("/admin?error=verification-state");
+  if (result === "missing-business") redirect("/admin?error=verification");
+  if (result === "already-verified") redirect("/admin?done=verification-already");
+  if (result === "ineligible") redirect("/admin?error=verification-ineligible");
   redirect("/admin?done=verification");
 }
 
@@ -63,35 +76,39 @@ export async function approvePlanUpgradeAdminAction(formData: FormData) {
   const eventId = String(formData.get("eventId") ?? "").trim();
   if (!eventId) redirect("/admin?error=upgrade");
 
-  const event = await db.analyticsEvent.findUnique({
-    where: { id: eventId },
-    select: { id: true, businessId: true, eventType: true, metadata: true },
-  });
-  if (!event || event.eventType !== "plan_upgrade_requested") redirect("/admin?error=upgrade");
+  const result = await db.$transaction(async (tx) => {
+    await lockAdminEvent(tx, eventId);
 
-  const metadata = metadataObject(event.metadata);
-  if (metadata.status !== "pending") redirect("/admin?error=upgrade-state");
-
-  const requestedPlan = normalizePlanCode(String(metadata.requestedPlan ?? "BUSINESS"));
-  if (requestedPlan === "FREE") redirect("/admin?error=plan");
-
-  const business = await getActiveBusinessWithPlan(event.businessId);
-  if (!business) redirect("/admin?error=upgrade");
-
-  const currentPlan = normalizePlanCode(business.plan?.code);
-  if (getPlanRank(requestedPlan) <= getPlanRank(currentPlan)) {
-    await db.analyticsEvent.update({
-      where: { id: event.id },
-      data: { metadata: { ...metadata, status: "obsolete", reviewedAt: new Date().toISOString() } },
+    const event = await tx.analyticsEvent.findUnique({
+      where: { id: eventId },
+      select: { id: true, businessId: true, eventType: true, metadata: true },
     });
-    revalidatePath("/admin");
-    redirect("/admin?error=stale-upgrade");
-  }
+    if (!event || event.eventType !== "plan_upgrade_requested") return "missing-event" as const;
 
-  const plan = await db.businessPlan.findUnique({ where: { code: requestedPlan } });
-  if (!plan || !plan.isActive) redirect(`/admin?error=missing-plan-${requestedPlan.toLowerCase()}`);
+    const metadata = metadataObject(event.metadata);
+    if (metadata.status !== "pending") return "invalid-state" as const;
 
-  await db.$transaction(async (tx) => {
+    const requestedPlan = normalizePlanCode(String(metadata.requestedPlan ?? "BUSINESS"));
+    if (requestedPlan === "FREE") return "invalid-plan" as const;
+
+    const business = await tx.business.findFirst({
+      where: { id: event.businessId, deletedAt: null },
+      include: { plan: true },
+    });
+    if (!business) return "missing-business" as const;
+
+    const currentPlan = normalizePlanCode(business.plan?.code);
+    if (getPlanRank(requestedPlan) <= getPlanRank(currentPlan)) {
+      await tx.analyticsEvent.update({
+        where: { id: event.id },
+        data: { metadata: { ...metadata, status: "obsolete", reviewedAt: new Date().toISOString(), reason: "stale_upgrade" } },
+      });
+      return "stale" as const;
+    }
+
+    const plan = await tx.businessPlan.findUnique({ where: { code: requestedPlan } });
+    if (!plan || !plan.isActive) return `missing-plan-${requestedPlan.toLowerCase()}` as const;
+
     await tx.business.update({ where: { id: event.businessId }, data: { planId: plan.id } });
     await tx.subscription.updateMany({ where: { businessId: event.businessId, status: "active" }, data: { status: "replaced", endsAt: new Date() } });
     await tx.subscription.create({ data: { businessId: event.businessId, planId: plan.id, status: "active" } });
@@ -99,10 +116,16 @@ export async function approvePlanUpgradeAdminAction(formData: FormData) {
       where: { id: event.id },
       data: { metadata: { ...metadata, status: "approved", reviewedAt: new Date().toISOString() } },
     });
+    return `approved-${requestedPlan.toLowerCase()}` as const;
   });
 
   revalidatePath("/admin");
   revalidatePath("/dashboard/branding");
   revalidatePath("/dashboard/settings");
-  redirect(`/admin?done=${requestedPlan.toLowerCase()}`);
+  if (result === "missing-event" || result === "missing-business") redirect("/admin?error=upgrade");
+  if (result === "invalid-state") redirect("/admin?error=upgrade-state");
+  if (result === "invalid-plan") redirect("/admin?error=plan");
+  if (result === "stale") redirect("/admin?error=stale-upgrade");
+  if (result.startsWith("missing-plan-")) redirect(`/admin?error=${result}`);
+  redirect(`/admin?done=${result.replace("approved-", "")}`);
 }
