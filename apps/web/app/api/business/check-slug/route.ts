@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "../../../lib/db";
 import { isReservedPublicSlug, normalizePublicSlug } from "../../../lib/public-url";
+import { isBusinessSlugReserved } from "../../../lib/slug-alias";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,9 +10,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ available: false, message: "الرابط غير صالح" }, { status: 400 });
   }
 
-  // Business.slug is globally unique at the database layer. Soft-deleted rows
-  // therefore continue to reserve their historical slug until an explicit
-  // slug-release migration/policy is introduced.
-  const existing = await db.business.findUnique({ where: { slug }, select: { id: true } });
-  return NextResponse.json({ available: !existing, slug });
+  try {
+    const reserved = await isBusinessSlugReserved(slug);
+    return NextResponse.json({ available: !reserved, slug });
+  } catch (error) {
+    console.error("[check-slug] failed to verify slug reservation", error);
+    return NextResponse.json({ available: false, message: "تعذر التحقق من الرابط الآن" }, { status: 503 });
+  }
 }
