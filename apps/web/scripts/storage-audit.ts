@@ -1,11 +1,13 @@
 import { PrismaClient } from "@prisma/client";
-import { getPersistentStorageAdapter } from "../app/lib/storage";
+import { removePersistentKey } from "../app/lib/storage-lifecycle";
 
 const db = new PrismaClient();
 const deleteRequested = process.argv.includes("--delete");
 const deleteAllowed = process.env.ALLOW_STORAGE_ORPHAN_DELETE === "true";
-const graceHours = Number(process.env.STORAGE_ORPHAN_GRACE_HOURS ?? 24);
-const graceMs = Number.isFinite(graceHours) && graceHours >= 0 ? graceHours * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+// Seven days by default: uploads are customer data and should never be reclaimed
+// aggressively. The sweep is a reviewed maintenance tool, not a billing/expiry job.
+const graceHours = Number(process.env.STORAGE_ORPHAN_GRACE_HOURS ?? 24 * 7);
+const graceMs = Number.isFinite(graceHours) && graceHours >= 0 ? graceHours * 60 * 60 * 1000 : 24 * 7 * 60 * 60 * 1000;
 
 function storageKeyFromUrl(value: unknown) {
   if (typeof value !== "string") return "";
@@ -41,6 +43,8 @@ async function main() {
   const addUrl = (value: unknown) => { const key = storageKeyFromUrl(value); if (key) referenced.add(key); };
 
   const [businesses, products, services, offers, gallery, contacts, objects] = await Promise.all([
+    // Intentionally include unpublished, inactive and soft-deleted tenant records.
+    // Retention is independent from subscription and visibility state.
     db.business.findMany({ select: { logoUrl: true, coverUrl: true, companyProfileUrl: true, pageModules: true } }),
     db.product.findMany({ select: { imageUrl: true } }),
     db.service.findMany({ select: { imageUrl: true } }),
@@ -89,18 +93,19 @@ async function main() {
   if (!deleteAllowed) throw new Error("Refusing deletion: set ALLOW_STORAGE_ORPHAN_DELETE=true together with --delete after reviewing the dry-run report.");
   if (!eligible.length) return;
 
-  // Delete through the canonical adapter so remote S3/MinIO objects are removed before
-  // their StoredObject metadata. If one deletion fails, stop immediately and keep the
-  // remaining metadata intact so a later reviewed sweep can retry safely.
-  const storage = getPersistentStorageAdapter();
   let deletedCount = 0;
   let deletedBytes = 0;
   for (const object of eligible) {
-    await storage.remove({ storageKey: object.id, folder: object.folder });
+    // Re-check live references immediately before each physical delete. This closes
+    // the race where an object was orphaned during the audit but became attached to
+    // customer data before the sweep reached it.
+    await removePersistentKey(object.id, object.folder);
+    const stillExists = await db.storedObject.findUnique({ where: { id: object.id }, select: { id: true } });
+    if (stillExists) continue;
     deletedCount += 1;
     deletedBytes += object.size;
   }
-  console.log(`Deleted ${deletedCount} orphan storage objects (${deletedBytes} bytes).`);
+  console.log(`Deleted ${deletedCount} reviewed orphan storage objects (${deletedBytes} bytes).`);
 }
 
 main().catch((error) => {
