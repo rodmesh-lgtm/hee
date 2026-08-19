@@ -1,3 +1,0 @@
-# scripts
-
-Reserved for implementation.

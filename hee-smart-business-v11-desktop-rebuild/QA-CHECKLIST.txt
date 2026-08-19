@@ -1,9 +1,0 @@
-[PASS] Uploaded V10 used as source
-[PASS] Mobile renderer unchanged byte-for-byte
-[PASS] Desktop renderer replaced
-[PASS] Desktop max width reduced 1180 -> 1080
-[PASS] Desktop portfolio uses 4-column presentation
-[PASS] Desktop vertical spacing reduced
-[PASS] No cover/hero added
-[PASS] Data adapter untouched
-[PASS] Renderer marker changed to V11
