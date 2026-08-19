@@ -1,6 +1,7 @@
 "use server";
 
 import { createHash, randomBytes } from "node:crypto";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { hashPassword } from "../lib/auth";
@@ -10,9 +11,17 @@ export type PasswordResetState = { error?: string; success?: string };
 const PROVIDER = "password-reset";
 const RESET_TTL_MS = 30 * 60 * 1000;
 const passwordComplexityRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const GENERIC_RESET_MESSAGE = "إذا كان البريد مرتبطًا بحساب HEE فستصلك رسالة الاستعادة خلال دقائق.";
 
 function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
 function hashToken(token: string) { return createHash("sha256").update(token).digest("hex"); }
+
+async function requestAddress() {
+  const requestHeaders = await headers();
+  return requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || requestHeaders.get("x-real-ip")?.trim()
+    || "";
+}
 
 async function sendResetEmail(email: string, token: string) {
   const apiKey = String(process.env.RESEND_API_KEY ?? "").trim();
@@ -37,6 +46,7 @@ async function sendResetEmail(email: string, token: string) {
       html: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.8"><h2>استعادة كلمة مرور HEE</h2><p>اضغط الزر التالي لتعيين كلمة مرور جديدة. الرابط صالح لمدة 30 دقيقة.</p><p><a href="${resetUrl}" style="display:inline-block;background:#6f3bd2;color:#fff;text-decoration:none;padding:12px 18px;border-radius:12px">تعيين كلمة مرور جديدة</a></p><p style="color:#666;font-size:13px">إذا لم تطلب استعادة كلمة المرور فتجاهل هذه الرسالة.</p></div>`,
     }),
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   return response.ok;
 }
@@ -45,6 +55,18 @@ export async function requestPasswordResetAction(_previous: PasswordResetState, 
   const email = normalizeEmail(String(formData.get("email") ?? ""));
   if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254) return { error: "أدخل بريدًا إلكترونيًا صالحًا" };
 
+  const address = await requestAddress();
+  if (address) {
+    const ipRate = await consumePublicWriteLimit({
+      scope: "password-reset-ip",
+      businessId: "auth",
+      identity: address,
+      limit: 12,
+      windowSeconds: 15 * 60,
+    });
+    if (!ipRate.allowed) return { success: GENERIC_RESET_MESSAGE };
+  }
+
   const rate = await consumePublicWriteLimit({
     scope: "password-reset-email",
     businessId: "auth",
@@ -52,15 +74,13 @@ export async function requestPasswordResetAction(_previous: PasswordResetState, 
     limit: 3,
     windowSeconds: 15 * 60,
   });
-  if (!rate.allowed) {
-    return { success: "إذا كان البريد مرتبطًا بحساب HEE فستصلك رسالة الاستعادة خلال دقائق." };
-  }
+  if (!rate.allowed) return { success: GENERIC_RESET_MESSAGE };
 
   const configured = Boolean(String(process.env.RESEND_API_KEY ?? "").trim() && String(process.env.HEE_FROM_EMAIL ?? "").trim());
   if (!configured) return { error: "استعادة كلمة المرور عبر البريد لم تُفعّل بعد. تواصل مع إدارة HEE." };
 
   const user = await db.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, deletedAt: true } });
-  if (!user?.passwordHash || user.deletedAt) return { success: "إذا كان البريد مرتبطًا بحساب HEE فستصلك رسالة الاستعادة خلال دقائق." };
+  if (!user?.passwordHash || user.deletedAt) return { success: GENERIC_RESET_MESSAGE };
 
   const token = randomBytes(32).toString("hex");
   const tokenHash = hashToken(token);
@@ -77,7 +97,7 @@ export async function requestPasswordResetAction(_previous: PasswordResetState, 
     await db.oAuthState.deleteMany({ where: { state: tokenHash, provider: PROVIDER } });
     return { error: "تعذر إرسال رسالة الاستعادة الآن. حاول مرة أخرى لاحقًا." };
   }
-  return { success: "إذا كان البريد مرتبطًا بحساب HEE فستصلك رسالة الاستعادة خلال دقائق." };
+  return { success: GENERIC_RESET_MESSAGE };
 }
 
 export async function resetPasswordAction(_previous: PasswordResetState, formData: FormData): Promise<PasswordResetState> {
