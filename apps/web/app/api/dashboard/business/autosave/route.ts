@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getOwnedBusinessForApiWrite } from "../../../../lib/ownership";
 import { db } from "../../../../lib/db";
+import { normalizeGoogleMapsUrl } from "../../../../lib/google-maps-url";
 
 const schema = z.object({
   fields: z.object({
@@ -17,29 +18,6 @@ const schema = z.object({
     googleMapsLink: z.string().trim().max(500).optional(),
   }).strict(),
 }).strict();
-
-function isHostOrSubdomain(host: string, domain: string) {
-  return host === domain || host.endsWith(`.${domain}`);
-}
-
-function normalizeGoogleMapsUrl(raw: string) {
-  const value = raw.trim();
-  if (!value) return null;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(value) && !/^https?:/i.test(value)) return null;
-  const candidate = /^https?:\/\//i.test(value) ? value : `https://${value}`;
-  try {
-    const url = new URL(candidate);
-    if (!/^https?:$/.test(url.protocol) || !url.hostname || /\s/.test(url.href)) return null;
-    const host = url.hostname.toLowerCase();
-    const allowed = host === "maps.app.goo.gl"
-      || host === "goo.gl"
-      || isHostOrSubdomain(host, "google.com")
-      || isHostOrSubdomain(host, "google.sa");
-    return allowed ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(request: Request) {
   const business = await getOwnedBusinessForApiWrite();
