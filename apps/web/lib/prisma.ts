@@ -11,41 +11,49 @@ type GlobalPrisma = {
 
 const globalForPrisma = globalThis as unknown as GlobalPrisma;
 
-function getDatabaseUrl() {
-  const fallbackUrl = "postgresql://hee:hee123@127.0.0.1:5432/hee?schema=public";
-  const rawUrl = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.PRISMA_DATABASE_URL ?? fallbackUrl;
+function validatedDatabaseUrl() {
+  const configured = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.PRISMA_DATABASE_URL;
+  const localFallback = "postgresql://hee:hee123@127.0.0.1:5432/hee?schema=public";
+  const rawUrl = configured?.trim() || (process.env.NODE_ENV === "production" ? "" : localFallback);
 
-  if (!rawUrl || rawUrl.trim() === "" || rawUrl === "base") {
-    return fallbackUrl;
+  if (!rawUrl) {
+    throw new Error("HEE database configuration is missing: set DATABASE_URL in this environment");
   }
 
+  let parsed: URL;
   try {
-    const parsed = new URL(rawUrl);
-    const hostname = parsed.hostname.toLowerCase();
-    if (!hostname || hostname === "base") {
-      return fallbackUrl;
-    }
-    return rawUrl;
+    parsed = new URL(rawUrl);
   } catch {
-    return fallbackUrl;
+    throw new Error("HEE database configuration is invalid: DATABASE_URL is not a valid URL");
   }
+
+  if (!["postgresql:", "postgres:"].includes(parsed.protocol) || !parsed.hostname || parsed.hostname.toLowerCase() === "base") {
+    throw new Error("HEE database configuration is invalid: a PostgreSQL DATABASE_URL is required");
+  }
+  return rawUrl;
+}
+
+function poolSize() {
+  const configured = Number.parseInt(String(process.env.PG_POOL_MAX ?? "5"), 10);
+  return Number.isFinite(configured) ? Math.max(1, Math.min(20, configured)) : 5;
 }
 
 function getPool() {
   if (!globalForPrisma.pgPool) {
-    globalForPrisma.pgPool = new Pool({ connectionString: getDatabaseUrl() });
+    globalForPrisma.pgPool = new Pool({
+      connectionString: validatedDatabaseUrl(),
+      max: poolSize(),
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
+    });
   }
-
   return globalForPrisma.pgPool;
 }
 
 function createPrismaClient() {
-  const adapter = new PrismaPg(getPool());
-  return new PrismaClient({ adapter });
+  return new PrismaClient({ adapter: new PrismaPg(getPool()) });
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Reuse one Prisma client and pg pool per warm Node.js isolate in development and production.
+globalForPrisma.prisma = prisma;
