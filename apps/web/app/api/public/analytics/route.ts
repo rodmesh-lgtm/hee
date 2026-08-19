@@ -24,29 +24,28 @@ export async function POST(request: Request) {
     const business = await db.business.findFirst({ where: { slug, deletedAt: null, isPublished: true }, select: { id: true } });
     if (!business) return NextResponse.json({ ok: false }, { status: 404 });
 
-    const clientAddress = requestClientAddress(request);
-    if (clientAddress) {
-      const rate = await consumePublicWriteLimit({
-        scope: `public-analytics-${eventType}`,
-        businessId: business.id,
-        identity: clientAddress,
-        limit: eventType === "page_view" ? 100 : 40,
-        windowSeconds: 600,
-      });
-      if (!rate.allowed) {
-        return NextResponse.json(
-          { ok: false },
-          { status: 429, headers: { "Retry-After": String(Math.max(1, rate.retryAfterSeconds)) } },
-        );
-      }
+    // Missing proxy/IP headers must not disable throttling. Group such traffic into a
+    // conservative fallback bucket for this business/event instead of failing open.
+    const rate = await consumePublicWriteLimit({
+      scope: `public-analytics-${eventType}`,
+      businessId: business.id,
+      identity: requestClientAddress(request) || "unknown",
+      limit: eventType === "page_view" ? 100 : 40,
+      windowSeconds: 600,
+    });
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { ok: false },
+        { status: 429, headers: { "Retry-After": String(Math.max(1, rate.retryAfterSeconds)) } },
+      );
     }
 
     await db.analyticsEvent.create({ data: { businessId: business.id, eventType } });
     return NextResponse.json({ ok: true });
   } catch (error) {
-    // A database outage is not a malformed visitor request. Preserve the distinction
-    // so runtime monitoring can detect infrastructure failures instead of hiding them
-    // inside a misleading 400 response.
+    // A database/rate-limit outage is not a malformed visitor request. Preserve the
+    // distinction so runtime monitoring can detect infrastructure failures instead of
+    // hiding them inside a misleading 400 response.
     console.error("[public-analytics] write_failed", { slug, eventType, error });
     return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
   }
