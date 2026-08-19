@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getOwnedBusinessForWrite } from "../lib/ownership";
 import { isValidPublicSlug, normalizePublicSlug } from "../lib/public-url";
 import { db } from "../lib/db";
+import { isBusinessSlugReserved } from "../lib/slug-alias";
 
 export type PublicationActionState = { error?: string; success?: string };
 
@@ -18,14 +19,12 @@ export async function publishBusinessAction(_previous: PublicationActionState, _
   const slug = normalizePublicSlug(business.slug);
   if (!slug || !isValidPublicSlug(slug)) return { error: "الرابط العام غير صالح" };
 
-  // Business.slug is globally unique in the database, including soft-deleted rows.
-  // Match that rule here so the UI never reports an old historical slug as available
-  // only for the final update to fail with a unique-constraint error.
-  const conflict = await db.business.findFirst({
-    where: { slug, id: { not: business.id } },
-    select: { id: true },
-  });
-  if (conflict) return { error: "الرابط العام مستخدم من نشاط آخر" };
+  try {
+    if (await isBusinessSlugReserved(slug, business.id)) return { error: "الرابط العام مستخدم أو محفوظ لنشاط آخر" };
+  } catch (error) {
+    console.error("[publication] failed to verify slug reservation", error);
+    return { error: "تعذر التحقق من الرابط العام الآن. حاول مرة أخرى بعد قليل." };
+  }
 
   const hasContact = Boolean(
     business.whatsapp?.trim() || business.phone?.trim() || business.email?.trim() || business.website?.trim(),
@@ -39,7 +38,7 @@ export async function publishBusinessAction(_previous: PublicationActionState, _
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { error: "الرابط العام مستخدم من نشاط آخر" };
+      return { error: "الرابط العام مستخدم أو محفوظ لنشاط آخر" };
     }
     throw error;
   }
