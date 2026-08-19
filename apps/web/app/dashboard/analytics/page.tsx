@@ -56,18 +56,21 @@ export default async function DashboardAnalyticsPage({ searchParams }: { searchP
   const startKey = shiftDateKey(todayKey, -(period - 1));
   const startUtc = riyadhMidnightUtc(startKey);
 
+  // Prisma DateTime is stored by PostgreSQL as a timestamp without time zone, with
+  // UTC values. Interpret that timestamp as UTC first, then convert to Riyadh for
+  // calendar-day grouping; a single AT TIME ZONE would shift in the wrong direction.
   const rows = await db.$queryRaw<AggregateRow[]>`
     SELECT
       "eventType",
-      to_char(("createdAt" AT TIME ZONE 'Asia/Riyadh')::date, 'YYYY-MM-DD') AS "day",
+      to_char((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Riyadh')::date, 'YYYY-MM-DD') AS "day",
       COUNT(*)::int AS "count"
     FROM "AnalyticsEvent"
     WHERE "businessId" = ${business.id}
       AND "createdAt" >= ${startUtc}
       AND "createdAt" < ${now}
       AND "eventType" IN ('page_view', 'whatsapp_click', 'phone_click', 'share_click', 'website_click', 'map_click')
-    GROUP BY "eventType", ("createdAt" AT TIME ZONE 'Asia/Riyadh')::date
-    ORDER BY ("createdAt" AT TIME ZONE 'Asia/Riyadh')::date ASC
+    GROUP BY "eventType", (("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Riyadh')::date
+    ORDER BY (("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Riyadh')::date ASC
   `;
 
   const totals = new Map<string, number>();
