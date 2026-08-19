@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
-import { createSession, getCurrentUser, hashPassword, logoutSession, verifyPassword } from "../lib/auth";
+import { createSession, hashPassword, logoutSession, verifyPassword } from "../lib/auth";
 import { clearQaAuditSession } from "../lib/qa-audit";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
 import { loginSchema, registerSchema } from "../lib/validation";
@@ -95,10 +95,4 @@ export async function loginAction(_prevState: ActionState, formData: FormData): 
 export async function logoutAction() {
   await logoutSession();
   redirect("/");
-}
-
-export async function requireAuth() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  return user;
 }
