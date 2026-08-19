@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
-import { getOwnedBusinessWithPlanForWrite } from "../lib/ownership";
+import { getOwnedBusinessForRead, getOwnedBusinessWithPlanForWrite } from "../lib/ownership";
 import { getPlanEntitlements } from "../lib/plan-entitlements";
 
 const VERIFICATION_EVENT = "verification_requested";
@@ -34,32 +34,14 @@ export async function requestVerificationAction() {
 
   const result = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`verification-request:${business.id}`}))`;
-
-    const currentBusiness = await tx.business.findFirst({
-      where: { id: business.id, deletedAt: null },
-      include: { plan: true },
-    });
+    const currentBusiness = await tx.business.findFirst({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, include: { plan: true } });
     if (!currentBusiness) return "missing" as const;
     if (currentBusiness.isVerified) return "verified" as const;
     if (!getPlanEntitlements(currentBusiness.plan?.code).verificationEligible) return "upgrade" as const;
 
-    const events = await tx.analyticsEvent.findMany({
-      where: { businessId: business.id, eventType: VERIFICATION_EVENT },
-      orderBy: { createdAt: "desc" },
-      select: { metadata: true },
-      take: 20,
-    });
+    const events = await tx.analyticsEvent.findMany({ where: { businessId: business.id, eventType: VERIFICATION_EVENT }, orderBy: { createdAt: "desc" }, select: { metadata: true }, take: 20 });
     const hasPending = events.some((event) => eventStatus(event.metadata) === "pending");
-
-    if (!hasPending) {
-      await tx.analyticsEvent.create({
-        data: {
-          businessId: business.id,
-          eventType: VERIFICATION_EVENT,
-          metadata: { source: "dashboard_branding", status: "pending" },
-        },
-      });
-    }
+    if (!hasPending) await tx.analyticsEvent.create({ data: { businessId: business.id, eventType: VERIFICATION_EVENT, metadata: { source: "dashboard_branding", status: "pending" } } });
     return "requested" as const;
   });
 
@@ -70,6 +52,10 @@ export async function requestVerificationAction() {
   redirect("/dashboard/branding?verification=requested");
 }
 
-export async function hasPendingVerificationRequest(businessId: string) {
-  return Boolean(await pendingVerificationEvent(businessId));
+// Server-action exports are callable endpoints. Never accept a caller-supplied businessId
+// for tenant-private status reads; resolve the business from the authenticated session.
+export async function hasPendingVerificationRequest() {
+  const business = await getOwnedBusinessForRead();
+  if (!business) return false;
+  return Boolean(await pendingVerificationEvent(business.id));
 }
