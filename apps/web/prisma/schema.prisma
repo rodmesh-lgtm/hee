@@ -3,12 +3,6 @@ generator client {
   previewFeatures = ["driverAdapters"]
 }
 
-generator generated {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
-  output          = "../generated/prisma"
-}
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -139,7 +133,6 @@ model Business {
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
 
-  // HEE V3 — business profile
   digitalDestinationType String?
   companyProfileUrl      String?
   companyProfileTitle    String?
@@ -159,8 +152,6 @@ model Business {
   galleryItems  GalleryItem[]
   subscriptions Subscription[]
   analytics     AnalyticsEvent[]
-
-  // HEE V3 — branches, departments and direct contacts
   branches       Branch[]
   departments    Department[]
   contactPersons ContactPerson[]
@@ -200,7 +191,7 @@ model Product {
   price       Int
   oldPrice    Int?
   imageUrl    String?
-  isActive    Boolean   @default(true)
+  isActive    Boolean   @default(false)
   featured    Boolean   @default(false)
   sortOrder   Int       @default(0)
   createdAt   DateTime  @default(now())
