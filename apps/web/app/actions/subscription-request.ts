@@ -14,21 +14,24 @@ export async function requestPlanUpgradeAction(formData: FormData) {
 
   const requestedPlan = normalizePlanCode(String(formData.get("plan") ?? "BUSINESS"));
   const currentPlan = normalizePlanCode(business.plan?.code);
-  if (getPlanRank(requestedPlan) <= getPlanRank(currentPlan)) {
+  if (requestedPlan === "FREE" || getPlanRank(requestedPlan) <= getPlanRank(currentPlan)) {
     redirect("/dashboard/branding?upgrade=current");
   }
 
-  await db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`upgrade-request:${business.id}`}))`;
 
     const currentBusiness = await tx.business.findFirst({
       where: { id: business.id, deletedAt: null },
       include: { plan: true },
     });
-    if (!currentBusiness) return;
+    if (!currentBusiness) return "missing" as const;
 
     const livePlan = normalizePlanCode(currentBusiness.plan?.code);
-    if (getPlanRank(requestedPlan) <= getPlanRank(livePlan)) return;
+    if (getPlanRank(requestedPlan) <= getPlanRank(livePlan)) return "current" as const;
+
+    const targetPlan = await tx.businessPlan.findUnique({ where: { code: requestedPlan }, select: { id: true, isActive: true } });
+    if (!targetPlan?.isActive) return "unavailable" as const;
 
     const recent = await tx.analyticsEvent.findMany({
       where: { businessId: business.id, eventType: UPGRADE_EVENT },
@@ -54,10 +57,14 @@ export async function requestPlanUpgradeAction(formData: FormData) {
         },
       });
     }
+    return hasMatchingPending ? "already-pending" as const : "created" as const;
   });
 
   revalidatePath("/dashboard/branding");
   revalidatePath("/dashboard/settings");
+  if (result === "missing") redirect("/onboarding");
+  if (result === "current") redirect("/dashboard/branding?upgrade=current");
+  if (result === "unavailable") redirect("/dashboard/branding?upgrade=unavailable");
   redirect(`/dashboard/branding?upgrade=${requestedPlan.toLowerCase()}`);
 }
 
