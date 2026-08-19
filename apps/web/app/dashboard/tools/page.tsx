@@ -11,7 +11,7 @@ export default async function DashboardToolsPage() {
 
   const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, include: { plan: true } });
   const entitlements = getPlanEntitlements(business?.plan?.code);
-  const designerAvailable = Boolean(business?.plan?.aiEnabled);
+  const designerAvailable = Boolean(business && entitlements.offerDesigner);
 
   return (
     <div className="space-y-5 pb-4">
