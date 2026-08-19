@@ -45,12 +45,10 @@ export async function isPersistentObjectReferenced(storageKey: string) {
 
   // pageModules is JSON and may contain current or legacy module-owned files.
   // Deliberately include unpublished and soft-deleted businesses: retention is
-  // independent from visibility/subscription state.
-  const moduleCandidates = await db.business.findMany({
-    where: { pageModules: { not: null } },
-    select: { pageModules: true },
-  });
-  return moduleCandidates.some((business) => jsonReferencesUrl(business.pageModules, url));
+  // independent from visibility/subscription state. Fetching the single JSON column
+  // avoids Prisma JSON-null filter ambiguity across connector/database versions.
+  const moduleCandidates = await db.business.findMany({ select: { pageModules: true } });
+  return moduleCandidates.some((business) => business.pageModules != null && jsonReferencesUrl(business.pageModules, url));
 }
 
 export async function removePersistentUrl(url: string | null | undefined, folder?: string) {
