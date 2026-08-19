@@ -8,13 +8,31 @@ import { AnalyticsVisitsChart } from "@/components/dashboard/analytics-visits-ch
 
 const PERIOD_OPTIONS = [7, 30, 90] as const;
 type Period = (typeof PERIOD_OPTIONS)[number];
+type AggregateRow = { eventType: string; day: string; count: number | bigint };
 
-function startOfDay(date: Date) { const next = new Date(date); next.setHours(0, 0, 0, 0); return next; }
-function addDays(date: Date, days: number) { const next = new Date(date); next.setDate(next.getDate() + days); return next; }
-function dayKey(date: Date) { return date.toISOString().slice(0, 10); }
 function number(value: number) { return new Intl.NumberFormat("ar-SA").format(value); }
 function requestedPeriod(value?: string | string[]): Period { const raw = Array.isArray(value) ? value[0] : value; const parsed = Number(raw); return PERIOD_OPTIONS.includes(parsed as Period) ? parsed as Period : 30; }
 function periodLabel(period: Period) { return period === 7 ? "7 أيام" : period === 90 ? "90 يوم" : "30 يوم"; }
+
+function riyadhDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+function shiftDateKey(key: string, days: number) {
+  const base = new Date(`${key}T00:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}
+
+function riyadhMidnightUtc(key: string) {
+  return new Date(`${key}T00:00:00+03:00`);
+}
+
+function chartLabel(key: string) {
+  return new Intl.DateTimeFormat("ar-SA", { timeZone: "Asia/Riyadh", day: "numeric", month: "short" }).format(new Date(`${key}T12:00:00+03:00`));
+}
 
 export default async function DashboardAnalyticsPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser();
@@ -34,10 +52,33 @@ export default async function DashboardAnalyticsPage({ searchParams }: { searchP
   const period: Period = allowedPeriods.includes(requested) ? requested : advancedAnalytics ? 30 : 7;
 
   const now = new Date();
-  const start = startOfDay(addDays(now, -(period - 1)));
-  const events = await db.analyticsEvent.findMany({ where: { businessId: business.id, createdAt: { gte: start, lt: now }, eventType: { in: ["page_view", "whatsapp_click", "phone_click", "share_click", "website_click", "map_click"] } }, select: { eventType: true, createdAt: true } });
+  const todayKey = riyadhDateKey(now);
+  const startKey = shiftDateKey(todayKey, -(period - 1));
+  const startUtc = riyadhMidnightUtc(startKey);
 
-  const count = (type: string) => events.filter((event) => event.eventType === type).length;
+  const rows = await db.$queryRaw<AggregateRow[]>`
+    SELECT
+      "eventType",
+      to_char(("createdAt" AT TIME ZONE 'Asia/Riyadh')::date, 'YYYY-MM-DD') AS "day",
+      COUNT(*)::int AS "count"
+    FROM "AnalyticsEvent"
+    WHERE "businessId" = ${business.id}
+      AND "createdAt" >= ${startUtc}
+      AND "createdAt" < ${now}
+      AND "eventType" IN ('page_view', 'whatsapp_click', 'phone_click', 'share_click', 'website_click', 'map_click')
+    GROUP BY "eventType", ("createdAt" AT TIME ZONE 'Asia/Riyadh')::date
+    ORDER BY ("createdAt" AT TIME ZONE 'Asia/Riyadh')::date ASC
+  `;
+
+  const totals = new Map<string, number>();
+  const viewsByDay = new Map<string, number>();
+  for (const row of rows) {
+    const value = Number(row.count) || 0;
+    totals.set(row.eventType, (totals.get(row.eventType) ?? 0) + value);
+    if (row.eventType === "page_view") viewsByDay.set(row.day, value);
+  }
+
+  const count = (type: string) => totals.get(type) ?? 0;
   const views = count("page_view");
   const whatsapp = count("whatsapp_click");
   const calls = count("phone_click");
@@ -46,10 +87,10 @@ export default async function DashboardAnalyticsPage({ searchParams }: { searchP
   const website = count("website_click");
   const interactions = whatsapp + calls + shares + maps + website;
 
-  const allDays = Array.from({ length: period }, (_, index) => { const date = addDays(start, index); return { dayKey: dayKey(date), label: new Intl.DateTimeFormat("ar-SA", { day: "numeric", month: "short" }).format(date) }; });
-  const byDay = new Map<string, number>();
-  events.filter((event) => event.eventType === "page_view").forEach((event) => byDay.set(dayKey(event.createdAt), (byDay.get(dayKey(event.createdAt)) ?? 0) + 1));
-  const chartData = allDays.map((day) => ({ dayKey: day.dayKey, label: day.label, value: byDay.get(day.dayKey) ?? 0 }));
+  const chartData = Array.from({ length: period }, (_, index) => {
+    const dayKey = shiftDateKey(startKey, index);
+    return { dayKey, label: chartLabel(dayKey), value: viewsByDay.get(dayKey) ?? 0 };
+  });
 
   const metrics = [
     { label: "مشاهدات الصفحة", value: views, icon: Eye },
