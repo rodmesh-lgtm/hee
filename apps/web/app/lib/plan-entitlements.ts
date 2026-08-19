@@ -11,6 +11,7 @@ export type PlanEntitlements = {
   premiumThemes: boolean;
   customColors: boolean;
   verificationEligible: boolean;
+  offerDesigner: boolean;
   analytics: "basic" | "advanced";
 };
 
@@ -26,6 +27,7 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
     premiumThemes: false,
     customColors: true,
     verificationEligible: false,
+    offerDesigner: false,
     analytics: "basic",
   },
   BUSINESS: {
@@ -39,6 +41,7 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
     premiumThemes: true,
     customColors: true,
     verificationEligible: true,
+    offerDesigner: true,
     analytics: "advanced",
   },
   PRO: {
@@ -52,6 +55,7 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
     premiumThemes: true,
     customColors: true,
     verificationEligible: true,
+    offerDesigner: true,
     analytics: "advanced",
   },
 };
