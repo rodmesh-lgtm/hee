@@ -1,17 +1,19 @@
 # HEE Web
 
-Arabic-first Next.js application for HEE business pages, dashboard management, public orders/bookings, analytics, authentication, and persistent media.
+Arabic-first Next.js application for HEE digital business identities, customer dashboards, analytics, authentication, subscriptions, and persistent media.
+
+The current public renderer is **V10 Light**. Public business pages are digital business identities, not storefronts. Product/order models are intentionally retained for a future HEE partner store, and booking models are intentionally retained for optional appointment booking for businesses that need it.
 
 ## Local setup
 
-1. Copy the repository root `.env.example` values into your local environment and replace secrets.
+1. Configure the required environment variables, especially `DATABASE_URL`.
 2. Install dependencies:
 
 ```bash
 npm ci
 ```
 
-3. Generate the Prisma client and apply the appropriate development migrations:
+3. Generate Prisma and apply development migrations:
 
 ```bash
 npx prisma generate
@@ -24,11 +26,9 @@ npx prisma migrate dev
 npm run dev
 ```
 
-The local application runs on `http://localhost:3000` by default.
-
 ## Release quality gate
 
-The `hee-v6-rc` GitHub Actions workflow is the release gate. A release candidate is not considered ready unless these commands pass:
+The `hee-v6-rc` GitHub Actions workflow is the baseline release gate. A release candidate is not ready unless the exact commit passes:
 
 ```bash
 npm audit --omit=dev --audit-level=high
@@ -40,44 +40,61 @@ npm run test:unit
 npm run build
 ```
 
-Do not bypass a failing gate for production deployment.
+Vercel Build success is required as well, but it is not a substitute for the RC gate or browser testing.
+
+Before production, run the owner/browser workflows separately against the release candidate:
+
+```bash
+npm run test:rc
+npm run test:directory
+```
+
+Do not use `vercel --prod` until the release candidate has been approved.
+
+## Database and migrations
+
+- Production runtime requires a valid PostgreSQL `DATABASE_URL`; there is no production fallback database.
+- Review and back up production before applying migrations.
+- Apply production migrations with the production migration procedure (`prisma migrate deploy`), never `prisma migrate dev`.
+- `RequestRateLimit` is migration-managed. Request traffic must not create database tables or indexes at runtime.
+- Canonical plans are seeded by `npm run prisma db seed`; demo data is created only when `SEED_DEMO_BUSINESS=true` outside production.
 
 ## Persistent storage
 
-Application uploads use the storage adapter in `app/lib/storage.ts` and canonical public URLs under `/api/storage/<id>`.
+Uploads use `app/lib/storage.ts` and canonical public URLs under `/api/storage/<id>`.
 
-- `STORAGE_DRIVER=database` stores bytes in PostgreSQL and is the safe default.
-- `STORAGE_DRIVER=s3` stores object bytes in an S3-compatible backend while PostgreSQL keeps metadata.
-- File replacement/deletion must use the storage lifecycle helpers so old persistent objects are removed only after the database update succeeds.
-- Run `npm run storage:audit` before any orphan cleanup.
-- Destructive cleanup requires both `npm run storage:sweep` and `ALLOW_STORAGE_ORPHAN_DELETE=true`; review the dry-run first.
-
-When switching production to S3-compatible storage, configure and test the endpoint/bucket credentials before changing `STORAGE_DRIVER`. Existing database-backed objects remain readable because each stored object records its own driver.
+- `STORAGE_DRIVER=database` stores bytes in PostgreSQL.
+- `STORAGE_DRIVER=s3` uses an S3-compatible backend while PostgreSQL keeps metadata.
+- Replacement/deletion must use storage lifecycle helpers.
+- Run `npm run storage:audit` before cleanup.
+- Destructive cleanup requires `npm run storage:sweep` together with `ALLOW_STORAGE_ORPHAN_DELETE=true` after reviewing the dry run.
 
 ## QA preview access
 
-QA fixture and audit endpoints are preview-only. Configure `QA_AUDIT_SECRET` and `QA_AUDIT_USER_EMAIL` only in the preview environment. Destructive QA fixture routes must never be exposed in production.
+QA audit access is preview-only and read-only. Configure `QA_AUDIT_SECRET` and `QA_AUDIT_USER_EMAIL` only in Vercel Preview. QA sessions must never gain admin or write privileges.
 
-## Production deployment checklist
+## Production checklist
 
-Before production:
+1. Confirm the exact commit is on `hee-v6-rc` and Vercel Build is green.
+2. Confirm GitHub RC Quality is green.
+3. Back up the production database and apply pending migrations.
+4. Verify `DATABASE_URL`, OAuth credentials/callbacks, email/reset configuration, storage configuration, and `HEE_ADMIN_EMAILS`.
+5. Verify the canonical production domain is `https://hee.sa`.
+6. Run `npm run storage:audit` and review orphaned files.
+7. Smoke-test register/login/logout/password reset/OAuth.
+8. Smoke-test onboarding, autosave, preview, publish/unpublish, branding images, services, branches/team, verification requests, upgrades, analytics, and public V10 rendering.
+9. Run `npm run test:rc` and `npm run test:directory` against the release candidate.
+10. Only after approval, deploy production.
 
-1. Verify the RC Quality workflow is green on the exact commit being deployed.
-2. Review pending Prisma migrations and back up the production database.
-3. Apply migrations using the production migration procedure; do not run development migrations in production.
-4. Verify required secrets and OAuth callback configuration.
-5. Verify `APP_URL`/canonical domain settings use `https://hee.sa`.
-6. Keep `ALLOW_STORAGE_ORPHAN_DELETE=false` during ordinary runtime.
-7. If enabling S3, test upload, read, replacement, deletion, and orphan audit against the production-compatible bucket before cutover.
-8. Smoke-test login/register, page publishing, public page rendering, orders, bookings, media, and dashboard flows after deployment.
-
-## Useful scripts
+## Current scripts
 
 ```bash
+npm run dev
+npm run build
+npm run lint
 npm run test:unit
-npm run test:security-sql
-npm run test:smoke
-npm run test:launch-security
+npm run test:rc
+npm run test:directory
 npm run storage:audit
 npm run storage:sweep
 npm run qa:handoff
