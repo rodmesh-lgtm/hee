@@ -12,7 +12,8 @@
     "test:directory": "playwright test tests/directory-workflow.spec.ts",
     "qa:handoff": "tsx scripts/generate-qa-handoff.ts",
     "storage:audit": "tsx scripts/storage-audit.ts",
-    "storage:sweep": "tsx scripts/storage-audit.ts --delete"
+    "storage:sweep": "tsx scripts/storage-audit.ts --delete",
+    "data:retention-audit": "tsx scripts/data-retention-audit.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
