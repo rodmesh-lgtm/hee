@@ -52,6 +52,16 @@ function generatedPublicSlug() {
   return `business-${randomUUID().slice(0, 8)}`;
 }
 
+async function slugReservedInTransaction(tx: Prisma.TransactionClient, slug: string) {
+  const [business, aliases] = await Promise.all([
+    tx.business.findUnique({ where: { slug }, select: { id: true } }),
+    tx.$queryRaw<Array<{ businessId: string }>>`
+      SELECT "businessId" FROM "BusinessSlugAlias" WHERE "slug" = ${slug} LIMIT 1
+    `,
+  ]);
+  return Boolean(business || aliases[0]);
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUserForApiWrite();
   if (!user) return NextResponse.json({ error: "يرجى تسجيل الدخول بحساب صالح" }, { status: 401 });
@@ -95,10 +105,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await db.$transaction(async (tx) => {
-      // The application currently supports one active business per owner. Serialize
-      // concurrent onboarding submissions for the same user without preventing
-      // historical soft-deleted rows or future multi-business migrations.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${user.id}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`create-business:${user.id}`}))`;
 
       const existingBusiness = await tx.business.findFirst({
         where: { ownerId: user.id, deletedAt: null },
@@ -107,17 +114,14 @@ export async function POST(request: Request) {
       if (existingBusiness) return { kind: "exists" as const };
 
       let finalSlug = parsed.data.slug;
-      let slugTaken = await tx.business.findUnique({ where: { slug: finalSlug }, select: { id: true } });
+      let slugTaken = await slugReservedInTransaction(tx, finalSlug);
       if (slugTaken && requestedSlug) return { kind: "slug-taken" as const };
 
       if (slugTaken) {
-        // Generated slugs are retried inside the same owner-serialized transaction.
-        // The database unique constraint remains the final guard against another
-        // owner's simultaneous claim of the same generated value.
-        for (let attempt = 0; attempt < 3 && slugTaken; attempt += 1) {
+        for (let attempt = 0; attempt < 5 && slugTaken; attempt += 1) {
           finalSlug = generatedPublicSlug();
           if (!isValidPublicSlug(finalSlug)) continue;
-          slugTaken = await tx.business.findUnique({ where: { slug: finalSlug }, select: { id: true } });
+          slugTaken = await slugReservedInTransaction(tx, finalSlug);
         }
         if (slugTaken || !isValidPublicSlug(finalSlug)) return { kind: "slug-generation-failed" as const };
       }
@@ -139,28 +143,20 @@ export async function POST(request: Request) {
       return { kind: "created" as const, business };
     });
 
-    if (result.kind === "exists") {
-      return NextResponse.json({ error: "يوجد نشاط مرتبط بهذا الحساب بالفعل" }, { status: 409 });
-    }
-    if (result.kind === "slug-taken") {
-      return NextResponse.json({ error: "اسم الرابط مستخدم أو محجوز مسبقاً" }, { status: 409 });
-    }
-    if (result.kind === "slug-generation-failed") {
-      return NextResponse.json({ error: "تعذر إنشاء رابط عام آمن. أعد المحاولة." }, { status: 409 });
-    }
+    if (result.kind === "exists") return NextResponse.json({ error: "يوجد نشاط مرتبط بهذا الحساب بالفعل" }, { status: 409 });
+    if (result.kind === "slug-taken") return NextResponse.json({ error: "اسم الرابط مستخدم أو محفوظ مسبقاً" }, { status: 409 });
+    if (result.kind === "slug-generation-failed") return NextResponse.json({ error: "تعذر إنشاء رابط عام آمن. أعد المحاولة." }, { status: 409 });
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/my-page");
     revalidatePath("/preview");
     revalidatePath(`/${result.business.slug}`);
-    return NextResponse.json(
-      { business: result.business, redirectTo: "/dashboard?welcome=1" },
-      { status: 201 },
-    );
+    return NextResponse.json({ business: result.business, redirectTo: "/dashboard?welcome=1" }, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ error: "اسم الرابط مستخدم أو تم إنشاء النشاط بالفعل. حدّث الصفحة وأعد المحاولة." }, { status: 409 });
     }
-    throw error;
+    console.error("[business-create] failed", error);
+    return NextResponse.json({ error: "تعذر إنشاء النشاط الآن. حاول مرة أخرى بعد قليل." }, { status: 500 });
   }
 }
