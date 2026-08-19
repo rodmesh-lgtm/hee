@@ -16,7 +16,7 @@ async function ensureBusinessPlan(code: "FREE" | "BUSINESS" | "PRO") {
   return db.businessPlan.upsert({ where: { code }, update: { productLimit }, create: { code, name: planNameMap[code], monthlyPrice: planPriceMap[code], productLimit, aiEnabled: code !== "FREE", onlinePay: code !== "FREE", isActive: true } });
 }
 
-type CreateBusinessPayload = { name?: string; slug?: string; businessType?: string; shortDescription?: string; description?: string; city?: string; whatsapp?: string; phone?: string; address?: string; logoUrl?: string; primaryColor?: string; entityType?: string; businessCategory?: string; onboardingStep?: string };
+type CreateBusinessPayload = { name?: string; slug?: string; businessType?: string; shortDescription?: string; description?: string; city?: string; whatsapp?: string; phone?: string; address?: string; primaryColor?: string; entityType?: string; businessCategory?: string; onboardingStep?: string };
 function normalize(value: unknown, fallback = "") { return typeof value === "string" ? value.trim() : fallback; }
 function generatedPublicSlug() { return `business-${randomUUID().slice(0, 8)}`; }
 async function slugReservedInTransaction(tx: Prisma.TransactionClient, slug: string) {
@@ -51,7 +51,9 @@ export async function POST(request: Request) {
 
   const requestedSlug = normalizePublicSlug(normalize(body.slug));
   const initialSlug = requestedSlug || generatedPublicSlug();
-  const payload = { name: normalize(body.name), slug: initialSlug, businessType: normalize(body.businessType), shortDescription: normalize(body.shortDescription), description: normalize(body.description), city: normalize(body.city), whatsapp: normalize(body.whatsapp), phone: normalize(body.phone), address: normalize(body.address), logoUrl: normalize(body.logoUrl), primaryColor: "#6f3bd2", entityType: normalize(body.entityType), businessCategory: normalize(body.businessCategory), onboardingCompleted: true, onboardingStep: "profile_created" };
+  // Branding assets are trusted only when they enter through HEE's validated upload/storage
+  // path. Never accept a client-supplied logo URL during tenant creation.
+  const payload = { name: normalize(body.name), slug: initialSlug, businessType: normalize(body.businessType), shortDescription: normalize(body.shortDescription), description: normalize(body.description), city: normalize(body.city), whatsapp: normalize(body.whatsapp), phone: normalize(body.phone), address: normalize(body.address), logoUrl: "", primaryColor: "#6f3bd2", entityType: normalize(body.entityType), businessCategory: normalize(body.businessCategory), onboardingCompleted: true, onboardingStep: "profile_created" };
   const parsed = businessSchema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات النشاط غير صالحة" }, { status: 400 });
   if (!isValidPublicSlug(parsed.data.slug)) return NextResponse.json({ error: "الرابط العام غير متاح" }, { status: 409 });
