@@ -67,15 +67,30 @@ export function getPublicBusinessUrl(slug: string) {
   return `${getCanonicalPublicBaseUrl()}/${normalized}`;
 }
 
+function safePreviewOrigin(rawHost: string, rawProto: string | null) {
+  const host = rawHost.trim().toLowerCase();
+  if (!host || /[\s\\/@]/.test(host)) return null;
+
+  const hostname = host.startsWith("[")
+    ? host.slice(0, host.indexOf("]") + 1)
+    : host.split(":")[0];
+  const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  const isVercelPreview = hostname.endsWith(".vercel.app");
+  const isCodespace = hostname.endsWith(".app.github.dev");
+  if (!isLocal && !isVercelPreview && !isCodespace) return null;
+
+  const protocol = isLocal && rawProto === "http" ? "http" : "https";
+  return `${protocol}://${host}`;
+}
+
 export async function getPublicBusinessUrlFromRequest(slug: string) {
   const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || "hee.sa";
-  const protocol = requestHeaders.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+  const rawHost = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || "";
+  const rawProto = requestHeaders.get("x-forwarded-proto")?.toLowerCase() ?? null;
   const normalized = normalizePublicSlug(slug);
+  const previewOrigin = safePreviewOrigin(rawHost, rawProto);
 
-  if (host.includes("localhost") || host.includes("127.0.0.1") || host.includes("vercel.app")) {
-    return `${protocol}://${host}/${normalized}`;
-  }
-
-  return `${protocol}://${host}/${normalized}`;
+  // Only known local/preview hosts are reflected. Any custom or spoofed Host header
+  // falls back to HEE's canonical production origin.
+  return `${previewOrigin ?? getCanonicalPublicBaseUrl()}/${normalized}`;
 }
