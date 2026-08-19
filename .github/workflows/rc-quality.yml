@@ -43,6 +43,7 @@ jobs:
       SESSION_SECRET: ci-only-not-for-production
       PAYMENT_PROVIDER: mock
       STORAGE_DRIVER: database
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       PGPASSWORD: postgres
     steps:
       - name: Checkout
@@ -86,3 +87,7 @@ jobs:
         run: npm run test:unit
       - name: Production build
         run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run current RC owner workflow
+        run: npm run test:rc
