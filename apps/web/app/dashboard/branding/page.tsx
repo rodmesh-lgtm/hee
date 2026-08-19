@@ -26,7 +26,8 @@ export default async function DashboardBrandingPage({ searchParams }: { searchPa
     {verificationParam === "requested" || verificationPending ? <div className="flex items-start gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />طلب التوثيق قيد المراجعة.</div> : null}
     {verificationParam === "upgrade" ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">التوثيق متاح ضمن الباقات المؤهلة.</div> : null}
     {upgradeParam === "unavailable" ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">الباقة المطلوبة غير متاحة حاليًا. لم يتم إنشاء طلب ترقية.</div> : null}
-    {upgradeParam && !["current", "unavailable"].includes(upgradeParam) ? <div className="rounded-2xl border border-[#d9cff8] bg-[#f7f4ff] px-4 py-3 text-sm font-bold text-[#5638b8]">تم تسجيل طلب الترقية إلى {upgradeParam.toUpperCase()}.</div> : null}
+    {upgradeParam === "pending" ? <div className="rounded-2xl border border-[#d9cff8] bg-[#f7f4ff] px-4 py-3 text-sm font-bold text-[#5638b8]">لديك طلب ترقية قيد المراجعة بالفعل. انتظر نتيجة الطلب الحالي قبل إنشاء طلب آخر.</div> : null}
+    {upgradeParam && !["current", "unavailable", "pending"].includes(upgradeParam) ? <div className="rounded-2xl border border-[#d9cff8] bg-[#f7f4ff] px-4 py-3 text-sm font-bold text-[#5638b8]">تم تسجيل طلب الترقية إلى {upgradeParam.toUpperCase()}.</div> : null}
     {imagesParam === "saved" ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">تم تحديث صور الهوية.</div> : null}
     {imagesParam === "error" ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">تعذر تحديث الصور. تحقق من نوع الملف وحجمه ثم حاول مرة أخرى.</div> : null}
 
