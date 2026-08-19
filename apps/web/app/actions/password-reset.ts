@@ -43,7 +43,7 @@ async function sendResetEmail(email: string, token: string) {
 
 export async function requestPasswordResetAction(_previous: PasswordResetState, formData: FormData): Promise<PasswordResetState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
-  if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "أدخل بريدًا إلكترونيًا صالحًا" };
+  if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254) return { error: "أدخل بريدًا إلكترونيًا صالحًا" };
 
   const rate = await consumePublicWriteLimit({
     scope: "password-reset-email",
@@ -62,10 +62,13 @@ export async function requestPasswordResetAction(_previous: PasswordResetState, 
   const user = await db.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, deletedAt: true } });
   if (!user?.passwordHash || user.deletedAt) return { success: "إذا كان البريد مرتبطًا بحساب HEE فستصلك رسالة الاستعادة خلال دقائق." };
 
-  await db.oAuthState.deleteMany({ where: { provider: PROVIDER, nonce: user.id } });
   const token = randomBytes(32).toString("hex");
   const tokenHash = hashToken(token);
-  await db.oAuthState.create({ data: { state: tokenHash, provider: PROVIDER, nonce: user.id, expiresAt: new Date(Date.now() + RESET_TTL_MS) } });
+  await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`password-reset-request:${user.id}`}))`;
+    await tx.oAuthState.deleteMany({ where: { provider: PROVIDER, nonce: user.id } });
+    await tx.oAuthState.create({ data: { state: tokenHash, provider: PROVIDER, nonce: user.id, expiresAt: new Date(Date.now() + RESET_TTL_MS) } });
+  });
 
   let sent = false;
   try { sent = await sendResetEmail(email, token); }
@@ -81,21 +84,36 @@ export async function resetPasswordAction(_previous: PasswordResetState, formDat
   const token = String(formData.get("token") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
-  if (!token) return { error: "رابط الاستعادة غير صالح" };
-  if (!passwordComplexityRegex.test(password)) return { error: "كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا" };
+  if (!token || token.length > 256) return { error: "رابط الاستعادة غير صالح" };
+  if (password.length > 200 || !passwordComplexityRegex.test(password)) return { error: "كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا" };
   if (password !== confirmPassword) return { error: "كلمتا المرور غير متطابقتين" };
 
   const tokenHash = hashToken(token);
-  const state = await db.oAuthState.findFirst({ where: { state: tokenHash, provider: PROVIDER, expiresAt: { gt: new Date() } }, select: { id: true, nonce: true } });
-  if (!state) return { error: "انتهت صلاحية رابط الاستعادة أو تم استخدامه. اطلب رابطًا جديدًا." };
-
-  const user = await db.user.findUnique({ where: { id: state.nonce }, select: { id: true, deletedAt: true } });
-  if (!user || user.deletedAt) return { error: "رابط الاستعادة غير صالح" };
   const passwordHash = await hashPassword(password);
-  await db.$transaction([
-    db.user.update({ where: { id: user.id }, data: { passwordHash } }),
-    db.session.deleteMany({ where: { userId: user.id } }),
-    db.oAuthState.deleteMany({ where: { provider: PROVIDER, nonce: user.id } }),
-  ]);
+  const result = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`password-reset-token:${tokenHash}`}))`;
+
+    const state = await tx.oAuthState.findFirst({
+      where: { state: tokenHash, provider: PROVIDER, expiresAt: { gt: new Date() } },
+      select: { id: true, nonce: true },
+    });
+    if (!state) return "invalid" as const;
+
+    const user = await tx.user.findFirst({ where: { id: state.nonce, deletedAt: null }, select: { id: true } });
+    if (!user) {
+      await tx.oAuthState.deleteMany({ where: { id: state.id } });
+      return "invalid" as const;
+    }
+
+    const consumed = await tx.oAuthState.deleteMany({ where: { id: state.id, state: tokenHash, provider: PROVIDER } });
+    if (consumed.count !== 1) return "invalid" as const;
+
+    await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
+    await tx.session.deleteMany({ where: { userId: user.id } });
+    await tx.oAuthState.deleteMany({ where: { provider: PROVIDER, nonce: user.id } });
+    return "updated" as const;
+  });
+
+  if (result !== "updated") return { error: "انتهت صلاحية رابط الاستعادة أو تم استخدامه. اطلب رابطًا جديدًا." };
   redirect("/login?reset=success");
 }
