@@ -1,6 +1,55 @@
 -- Enforce same-business relationships for multi-tenant records.
 -- Prisma application checks remain useful for friendly errors, but the database
 -- is the final guard against future code paths linking records across businesses.
+-- Refuse to install the guards over already-corrupt historical relationships so
+-- a release cannot silently preserve cross-tenant links.
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM "Product" p
+    JOIN "Category" c ON c."id" = p."categoryId"
+    WHERE p."categoryId" IS NOT NULL AND p."businessId" <> c."businessId"
+  ) THEN RAISE EXCEPTION 'historical product/category cross-business relation detected'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM "Order" o
+    JOIN "Customer" c ON c."id" = o."customerId"
+    WHERE o."businessId" <> c."businessId"
+  ) THEN RAISE EXCEPTION 'historical order/customer cross-business relation detected'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM "OrderItem" oi
+    JOIN "Order" o ON o."id" = oi."orderId"
+    JOIN "Product" p ON p."id" = oi."productId"
+    WHERE oi."productId" IS NOT NULL AND o."businessId" <> p."businessId"
+  ) THEN RAISE EXCEPTION 'historical order-item/product cross-business relation detected'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM "Booking" b
+    JOIN "Customer" c ON c."id" = b."customerId"
+    WHERE b."businessId" <> c."businessId"
+  ) THEN RAISE EXCEPTION 'historical booking/customer cross-business relation detected'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM "Booking" b
+    JOIN "Service" s ON s."id" = b."serviceId"
+    WHERE b."serviceId" IS NOT NULL AND b."businessId" <> s."businessId"
+  ) THEN RAISE EXCEPTION 'historical booking/service cross-business relation detected'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM "ContactPerson" cp
+    JOIN "Department" d ON d."id" = cp."departmentId"
+    WHERE cp."departmentId" IS NOT NULL AND cp."businessId" <> d."businessId"
+  ) THEN RAISE EXCEPTION 'historical contact/department cross-business relation detected'; END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM "ContactPerson" cp
+    JOIN "Branch" b ON b."id" = cp."branchId"
+    WHERE cp."branchId" IS NOT NULL AND cp."businessId" <> b."businessId"
+  ) THEN RAISE EXCEPTION 'historical contact/branch cross-business relation detected'; END IF;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION enforce_product_category_business()
 RETURNS trigger AS $$
