@@ -13,7 +13,9 @@
     "qa:handoff": "tsx scripts/generate-qa-handoff.ts",
     "storage:audit": "tsx scripts/storage-audit.ts",
     "storage:sweep": "tsx scripts/storage-audit.ts --delete",
-    "data:retention-audit": "tsx scripts/data-retention-audit.ts"
+    "data:retention-audit": "tsx scripts/data-retention-audit.ts",
+    "backup:audit-seed": "tsx scripts/backup-restore-audit.ts",
+    "backup:audit-verify": "tsx scripts/backup-restore-audit.ts --verify"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
