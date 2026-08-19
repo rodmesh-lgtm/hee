@@ -1,26 +1,9 @@
+import { normalizeGoogleMapsUrl } from "./google-maps-url";
+
 function clean(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const result = value.trim();
   return result || null;
-}
-
-function isHostOrSubdomain(host: string, domain: string) {
-  return host === domain || host.endsWith(`.${domain}`);
-}
-
-function safeGoogleMapsUrl(value?: string | null) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return null;
-  try {
-    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
-    if (!/^https?:$/.test(url.protocol)) return null;
-    const host = url.hostname.toLowerCase();
-    const isGoogleMap = host === "maps.app.goo.gl"
-      || host === "goo.gl"
-      || isHostOrSubdomain(host, "google.com")
-      || isHostOrSubdomain(host, "google.sa");
-    return isGoogleMap ? url.toString() : null;
-  } catch { return null; }
 }
 
 /** Only explicitly public fields may cross the server/client boundary. */
@@ -30,9 +13,9 @@ export function sanitizePublicBusiness(business: any) {
     nameEn: clean(business.nameEn), description: clean(business.description), shortDescription: clean(business.shortDescription),
     businessCategory: clean(business.businessCategory), businessType: clean(business.businessType), city: clean(business.city), district: clean(business.district), address: clean(business.address), country: clean(business.country),
     phone: clean(business.phone), whatsapp: clean(business.whatsapp), email: clean(business.email), website: clean(business.website), logoUrl: clean(business.logoUrl), coverUrl: clean(business.coverUrl),
-    googleMapsLink: safeGoogleMapsUrl(business.googleMapsLink), workingHours: clean(business.workingHours), isVerified: Boolean(business.isVerified), bookingAvailable: Boolean(business.bookingAvailable),
+    googleMapsLink: normalizeGoogleMapsUrl(business.googleMapsLink), workingHours: clean(business.workingHours), isVerified: Boolean(business.isVerified), bookingAvailable: Boolean(business.bookingAvailable),
     services: (business.services ?? []).map((service: any) => ({ id: String(service.id), name: clean(service.name), description: clean(service.description), isActive: service.isActive !== false, bookingEnabled: Boolean(service.bookingEnabled), durationMinutes: typeof service.durationMinutes === "number" ? service.durationMinutes : null })),
-    branches: (business.branches ?? []).map((branch: any) => ({ id: String(branch.id), name: clean(branch.name), city: clean(branch.city), district: clean(branch.district), address: clean(branch.address), googleMapsLink: safeGoogleMapsUrl(branch.googleMapsLink), isActive: branch.isActive !== false })),
+    branches: (business.branches ?? []).map((branch: any) => ({ id: String(branch.id), name: clean(branch.name), city: clean(branch.city), district: clean(branch.district), address: clean(branch.address), googleMapsLink: normalizeGoogleMapsUrl(branch.googleMapsLink), isActive: branch.isActive !== false })),
     contactPersons: (business.contactPersons ?? []).map((contact: any) => ({ id: String(contact.id), name: clean(contact.name), jobTitle: clean(contact.jobTitle), imageUrl: clean(contact.imageUrl), phone: clean(contact.phone), whatsapp: clean(contact.whatsapp), isActive: contact.isActive !== false, department: contact.department?.name ? { name: String(contact.department.name) } : null })),
     departments: (business.departments ?? []).map((department: any) => ({ id: String(department.id), name: clean(department.name), isActive: department.isActive !== false, contacts: (department.contacts ?? []).map((contact: any) => ({ id: String(contact.id), name: clean(contact.name), jobTitle: clean(contact.jobTitle), imageUrl: clean(contact.imageUrl), phone: clean(contact.phone), whatsapp: clean(contact.whatsapp), isActive: contact.isActive !== false })) })),
     openingHours: (business.openingHours ?? []).map((item: any) => ({ dayOfWeek: typeof item.dayOfWeek === "number" ? item.dayOfWeek : null, opensAt: clean(item.opensAt), closesAt: clean(item.closesAt), secondOpensAt: clean(item.secondOpensAt), secondClosesAt: clean(item.secondClosesAt), isClosed: Boolean(item.isClosed) })),
