@@ -191,7 +191,7 @@ model Product {
   price       Int
   oldPrice    Int?
   imageUrl    String?
-  isActive    Boolean   @default(false)
+  isActive    Boolean   @default(true)
   featured    Boolean   @default(false)
   sortOrder   Int       @default(0)
   createdAt   DateTime  @default(now())
