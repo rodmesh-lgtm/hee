@@ -1,3 +1,4 @@
-HEE production release trigger
-Renderer: public-business-page-v4
-Purpose: force a fresh production deployment containing the native business profile.
+HEE production release marker
+Renderer: public-business-page-v10-light
+Branch: hee-v6-rc
+Status: release candidate only — production deployment requires explicit approval.
