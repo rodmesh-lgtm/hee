@@ -11,12 +11,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ available: false, message: "الرابط غير صالح" }, { status: 400 });
   }
 
-  const clientAddress = requestClientAddress(request);
-  if (clientAddress) {
+  try {
     const rate = await consumePublicWriteLimit({
       scope: "slug-check",
       businessId: "public",
-      identity: clientAddress,
+      identity: requestClientAddress(request) || "unknown",
       limit: 80,
       windowSeconds: 10 * 60,
     });
@@ -26,6 +25,12 @@ export async function GET(request: Request) {
         { status: 429, headers: { "Retry-After": String(Math.max(1, rate.retryAfterSeconds)) } },
       );
     }
+  } catch (error) {
+    console.error("[check-slug] rate_limit_failed", error);
+    return NextResponse.json(
+      { available: false, message: "تعذر التحقق من الرابط الآن" },
+      { status: 503, headers: { "Retry-After": "30" } },
+    );
   }
 
   try {
@@ -33,6 +38,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ available: !reserved, slug });
   } catch (error) {
     console.error("[check-slug] failed to verify slug reservation", error);
-    return NextResponse.json({ available: false, message: "تعذر التحقق من الرابط الآن" }, { status: 503 });
+    return NextResponse.json({ available: false, message: "تعذر التحقق من الرابط الآن" }, { status: 503, headers: { "Retry-After": "30" } });
   }
 }
