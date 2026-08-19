@@ -16,12 +16,17 @@ async function requestAddress() {
   const requestHeaders = await headers();
   return requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim()
     || requestHeaders.get("x-real-ip")?.trim()
-    || "";
+    || "unknown";
 }
 
 async function consumeAuthLimit(scope: string, identity: string, limit: number, windowSeconds: number) {
-  if (!identity) return true;
-  const result = await consumePublicWriteLimit({ scope, businessId: "hee-auth", identity, limit, windowSeconds });
+  const result = await consumePublicWriteLimit({
+    scope,
+    businessId: "hee-auth",
+    identity: identity || "unknown",
+    limit,
+    windowSeconds,
+  });
   return result.allowed;
 }
 
