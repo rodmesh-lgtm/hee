@@ -3,24 +3,18 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { db } from "./db";
 
-let rateLimitTableReady = false;
+let lastPruneAt = 0;
+const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 
-async function ensureRateLimitTable() {
-  if (rateLimitTableReady) return;
-  await db.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "RequestRateLimit" (
-      "key" TEXT NOT NULL,
-      "windowStart" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "count" INTEGER NOT NULL DEFAULT 0,
-      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT "RequestRateLimit_pkey" PRIMARY KEY ("key")
-    )
-  `);
-  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RequestRateLimit_updatedAt_idx" ON "RequestRateLimit"("updatedAt")`);
-  // A stable hashed key is kept per scope/business/identity. Prune cold entries so bot traffic
-  // cannot make this defensive table grow without bound. This runs once per server process.
-  await db.$executeRawUnsafe(`DELETE FROM "RequestRateLimit" WHERE "updatedAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`);
-  rateLimitTableReady = true;
+async function pruneExpiredRateLimits(nowMs: number) {
+  if (nowMs - lastPruneAt < PRUNE_INTERVAL_MS) return;
+  lastPruneAt = nowMs;
+  try {
+    await db.$executeRaw`DELETE FROM "RequestRateLimit" WHERE "updatedAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`;
+  } catch (error) {
+    // Rate limiting must not turn a cleanup failure into an authentication outage.
+    console.error("[rate-limit] failed to prune expired rows", error);
+  }
 }
 
 function hashKey(parts: string[]) {
@@ -52,7 +46,10 @@ export async function consumePublicWriteLimit(input: {
   const now = new Date();
   const cutoff = new Date(now.getTime() - windowSeconds * 1000);
 
-  await ensureRateLimitTable();
+  // RequestRateLimit is created by the Prisma migration. Runtime traffic must never
+  // require CREATE TABLE/INDEX privileges or contend on DDL during serverless cold starts.
+  void pruneExpiredRateLimits(now.getTime());
+
   const rows = await db.$queryRaw<Array<{ count: number; windowStart: Date }>>`
     INSERT INTO "RequestRateLimit" ("key", "windowStart", "count", "updatedAt")
     VALUES (${key}, ${now}, 1, ${now})
