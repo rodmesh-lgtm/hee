@@ -12,6 +12,13 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
 ];
 
+function serverActionOrigins() {
+  const origins = ["hee.sa", "www.hee.sa"];
+  if (process.env.VERCEL_ENV === "preview") origins.push("*.vercel.app");
+  if (process.env.NODE_ENV !== "production") origins.push("localhost:3000", "127.0.0.1:3000", "*.app.github.dev");
+  return origins;
+}
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["localhost", "127.0.0.1", "*.app.github.dev"],
   images: {
@@ -19,16 +26,9 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      // Explicitly include the canonical production hosts. Preview/dev hosts remain
-      // available for RC validation without weakening origin checks globally.
-      allowedOrigins: [
-        "hee.sa",
-        "www.hee.sa",
-        "localhost:3000",
-        "127.0.0.1:3000",
-        "*.app.github.dev",
-        "*.vercel.app",
-      ],
+      // Production accepts only canonical HEE origins. Preview/dev hosts are added
+      // only in their own environments instead of being trusted by production.
+      allowedOrigins: serverActionOrigins(),
       bodySizeLimit: "8mb",
     },
   },
