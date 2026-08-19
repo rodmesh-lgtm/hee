@@ -6,6 +6,7 @@ import { clearQaAuditSession, getQaAuditSessionUser, isQaAuditModeUser } from ".
 
 const SESSION_COOKIE = "hee_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const QA_TOKEN_PREFIX = "hee_qa_audit_";
 
 export async function hashPassword(password: string) {
   return hash(password, 10);
@@ -22,7 +23,7 @@ export async function createSession(userId: string) {
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
   await db.$transaction(async (tx) => {
-    if (previousToken) await tx.session.deleteMany({ where: { token: previousToken } });
+    if (previousToken && !previousToken.startsWith(QA_TOKEN_PREFIX)) await tx.session.deleteMany({ where: { token: previousToken } });
     await tx.session.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } });
     await tx.session.create({ data: { token, userId, expiresAt } });
   });
@@ -42,7 +43,10 @@ export async function getCurrentUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
-  if (token) {
+  // QA preview tokens live in the same backing Session table for operational simplicity,
+  // but they are a separate trust domain. Never authenticate a QA token from the ordinary
+  // customer session cookie, even if a token is copied between cookies manually.
+  if (token && !token.startsWith(QA_TOKEN_PREFIX)) {
     const session = await db.session.findUnique({ where: { token }, include: { user: true } });
     if (session && session.expiresAt >= new Date() && !session.user.deletedAt) return session.user;
 
@@ -72,7 +76,7 @@ export async function getCurrentUserForWrites() {
 export async function logoutSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (token) await db.session.deleteMany({ where: { token } });
+  if (token && !token.startsWith(QA_TOKEN_PREFIX)) await db.session.deleteMany({ where: { token } });
   cookieStore.delete(SESSION_COOKIE);
   await clearQaAuditSession();
 }
