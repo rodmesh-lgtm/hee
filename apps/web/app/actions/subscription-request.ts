@@ -40,24 +40,22 @@ export async function requestPlanUpgradeAction(formData: FormData) {
       select: { metadata: true },
     });
 
-    const hasMatchingPending = recent.some((event) => {
+    const pending = recent.find((event) => {
       const metadata = event.metadata && typeof event.metadata === "object"
         ? event.metadata as Record<string, unknown>
         : {};
-      return String(metadata.requestedPlan ?? "").toUpperCase() === requestedPlan
-        && String(metadata.status ?? "pending").toLowerCase() === "pending";
+      return String(metadata.status ?? "pending").toLowerCase() === "pending";
     });
+    if (pending) return "already-pending" as const;
 
-    if (!hasMatchingPending) {
-      await tx.analyticsEvent.create({
-        data: {
-          businessId: business.id,
-          eventType: UPGRADE_EVENT,
-          metadata: { source: "dashboard_branding", requestedPlan, status: "pending" },
-        },
-      });
-    }
-    return hasMatchingPending ? "already-pending" as const : "created" as const;
+    await tx.analyticsEvent.create({
+      data: {
+        businessId: business.id,
+        eventType: UPGRADE_EVENT,
+        metadata: { source: "dashboard_branding", requestedPlan, status: "pending" },
+      },
+    });
+    return "created" as const;
   });
 
   revalidatePath("/dashboard/branding");
@@ -65,6 +63,7 @@ export async function requestPlanUpgradeAction(formData: FormData) {
   if (result === "missing") redirect("/onboarding");
   if (result === "current") redirect("/dashboard/branding?upgrade=current");
   if (result === "unavailable") redirect("/dashboard/branding?upgrade=unavailable");
+  if (result === "already-pending") redirect("/dashboard/branding?upgrade=pending");
   redirect(`/dashboard/branding?upgrade=${requestedPlan.toLowerCase()}`);
 }
 
