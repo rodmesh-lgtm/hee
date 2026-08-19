@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isReservedPublicSlug, normalizePublicSlug } from "../../../lib/public-url";
 import { isBusinessSlugReserved } from "../../../lib/slug-alias";
+import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -8,6 +9,23 @@ export async function GET(request: Request) {
 
   if (!slug || slug.length < 4 || /[^a-z0-9-]/.test(slug) || isReservedPublicSlug(slug)) {
     return NextResponse.json({ available: false, message: "الرابط غير صالح" }, { status: 400 });
+  }
+
+  const clientAddress = requestClientAddress(request);
+  if (clientAddress) {
+    const rate = await consumePublicWriteLimit({
+      scope: "slug-check",
+      businessId: "public",
+      identity: clientAddress,
+      limit: 80,
+      windowSeconds: 10 * 60,
+    });
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { available: false, message: "تم إجراء محاولات كثيرة. حاول بعد قليل." },
+        { status: 429, headers: { "Retry-After": String(Math.max(1, rate.retryAfterSeconds)) } },
+      );
+    }
   }
 
   try {
