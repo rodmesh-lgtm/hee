@@ -6,6 +6,7 @@ const connectionString = String(process.env.DATABASE_URL ?? "").trim();
 if (!connectionString) throw new Error("DATABASE_URL is required");
 const mode = process.argv.includes("--verify") ? "verify" : "seed";
 const marker = "hee-backup-restore-audit";
+const fileMarker = Buffer.from("hee-backup-file-marker-v1", "utf8");
 const pool = new Pool({ connectionString, max: 2 });
 const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
@@ -18,6 +19,18 @@ async function seed() {
   });
   await db.service.create({ data: { businessId: business.id, name: "Backup Restore Service", description: "retained-service-marker", price: 321 } });
   await db.branch.create({ data: { businessId: business.id, name: "Backup Restore Branch", city: "Riyadh", isMain: true } });
+  const stored = await db.storedObject.create({
+    data: {
+      objectKey: `logos/${marker}.png`,
+      folder: "logos",
+      fileName: `${marker}.png`,
+      mimeType: "image/png",
+      size: fileMarker.length,
+      storageDriver: "database",
+      data: fileMarker,
+    },
+  });
+  await db.business.update({ where: { id: business.id }, data: { logoUrl: `/api/storage/${stored.id}` } });
   console.log("backup-restore-audit: fixture seeded");
 }
 
@@ -28,6 +41,14 @@ async function verify() {
   if (business.shortDescription !== "durable-marker") throw new Error("Restored business content does not match");
   if (!business.services.some((service) => service.description === "retained-service-marker" && service.price === 321)) throw new Error("Restored service data is missing or changed");
   if (!business.branches.some((branch) => branch.name === "Backup Restore Branch" && branch.isMain)) throw new Error("Restored branch data is missing or changed");
+
+  const storageId = String(business.logoUrl ?? "").split("/api/storage/")[1] ?? "";
+  if (!storageId) throw new Error("Restored business lost its file reference");
+  const stored = await db.storedObject.findUnique({ where: { id: storageId }, select: { storageDriver: true, data: true, size: true } });
+  if (!stored || stored.storageDriver !== "database" || !stored.data) throw new Error("Restored StoredObject bytes are missing");
+  const restoredBytes = Buffer.from(stored.data);
+  if (stored.size !== fileMarker.length || !restoredBytes.equals(fileMarker)) throw new Error("Restored StoredObject bytes changed");
+
   console.log("backup-restore-audit: PASS");
 }
 
