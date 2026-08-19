@@ -91,3 +91,5 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run current RC owner workflow
         run: npm run test:rc
+      - name: Run directory workflow
+        run: npm run test:directory
