@@ -19,12 +19,13 @@ type IdentityClaims = {
 
 const GOOGLE_ISSUERS = new Set(["https://accounts.google.com", "accounts.google.com"]);
 const APPLE_ISSUER = "https://appleid.apple.com";
+const OAUTH_FETCH_TIMEOUT_MS = 7000;
 
 function base64url(input: Buffer | string) { return Buffer.from(input).toString("base64url"); }
 function randomToken(bytes = 32) { return randomBytes(bytes).toString("base64url"); }
 function safeRedirectPath(value?: string | null) {
   const path = String(value ?? "").trim();
-  return path.startsWith("/") && !path.startsWith("//") ? path : "/dashboard";
+  return path.startsWith("/") && !path.startsWith("//") && !path.includes("\\") ? path : "/dashboard";
 }
 
 export function providerConfigured(provider: OAuthProvider) {
@@ -57,24 +58,29 @@ export async function createOAuthAuthorization(provider: OAuthProvider, redirect
 }
 
 export async function consumeOAuthState(provider: OAuthProvider, state: string) {
-  const record = await db.oAuthState.findUnique({ where: { state } });
-  if (!record || record.provider !== provider || record.expiresAt < new Date()) {
-    if (record) await db.oAuthState.deleteMany({ where: { id: record.id } });
-    throw new Error("invalid-oauth-state");
-  }
-  const consumed = await db.oAuthState.deleteMany({ where: { id: record.id } });
-  if (consumed.count !== 1) throw new Error("oauth-state-reused");
-  return record;
+  if (!state || state.length > 256) throw new Error("invalid-oauth-state");
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`oauth-state:${state}`}))`;
+    const record = await tx.oAuthState.findUnique({ where: { state } });
+    if (!record || record.provider !== provider || record.expiresAt < new Date()) {
+      if (record) await tx.oAuthState.deleteMany({ where: { id: record.id } });
+      throw new Error("invalid-oauth-state");
+    }
+    const consumed = await tx.oAuthState.deleteMany({ where: { id: record.id, state } });
+    if (consumed.count !== 1) throw new Error("oauth-state-reused");
+    return record;
+  });
 }
 
 function decodeJwtPart<T>(value: string): T { return JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as T; }
 
 async function verifyRs256Jwt(token: string, jwksUrl: string) {
+  if (token.length > 20_000) throw new Error("invalid-id-token");
   const parts = token.split(".");
   if (parts.length !== 3) throw new Error("invalid-id-token");
   const header = decodeJwtPart<{ alg?: string; kid?: string }>(parts[0]);
-  if (header.alg !== "RS256" || !header.kid) throw new Error("invalid-id-token-header");
-  const response = await fetch(jwksUrl, { cache: "no-store" });
+  if (header.alg !== "RS256" || !header.kid || header.kid.length > 256) throw new Error("invalid-id-token-header");
+  const response = await fetch(jwksUrl, { cache: "no-store", signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS) });
   if (!response.ok) throw new Error("jwks-unavailable");
   const jwks = await response.json() as { keys?: Array<Record<string, unknown> & { kid?: string }> };
   const jwk = jwks.keys?.find((key) => key.kid === header.kid);
@@ -90,7 +96,7 @@ async function verifyRs256Jwt(token: string, jwksUrl: string) {
 function assertCommonClaims(claims: IdentityClaims, provider: OAuthProvider, nonce: string) {
   const clientId = provider === "google" ? process.env.GOOGLE_CLIENT_ID! : process.env.APPLE_CLIENT_ID!;
   const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-  if (!claims.sub || !audiences.includes(clientId)) throw new Error("invalid-id-token-audience");
+  if (!claims.sub || claims.sub.length > 512 || !audiences.includes(clientId)) throw new Error("invalid-id-token-audience");
   if (!claims.exp || claims.exp * 1000 <= Date.now()) throw new Error("expired-id-token");
   if (claims.nonce !== nonce) throw new Error("invalid-id-token-nonce");
   if (provider === "google" && !GOOGLE_ISSUERS.has(String(claims.iss))) throw new Error("invalid-id-token-issuer");
@@ -111,6 +117,7 @@ function appleClientSecret() {
 }
 
 export async function exchangeOAuthCode(provider: OAuthProvider, code: string, stateRecord: { nonce: string; codeVerifier: string | null }) {
+  if (!providerConfigured(provider) || !code || code.length > 4096) throw new Error("oauth-provider-unavailable");
   const callback = oauthCallbackUrl(provider);
   const body = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: callback, client_id: provider === "google" ? process.env.GOOGLE_CLIENT_ID! : process.env.APPLE_CLIENT_ID! });
   let tokenUrl: string;
@@ -122,7 +129,7 @@ export async function exchangeOAuthCode(provider: OAuthProvider, code: string, s
     tokenUrl = "https://appleid.apple.com/auth/token";
     body.set("client_secret", appleClientSecret());
   }
-  const response = await fetch(tokenUrl, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+  const response = await fetch(tokenUrl, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body, cache: "no-store", signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS) });
   if (!response.ok) throw new Error("oauth-code-exchange-failed");
   const tokens = await response.json() as { id_token?: string };
   if (!tokens.id_token) throw new Error("missing-id-token");
@@ -133,44 +140,50 @@ export async function exchangeOAuthCode(provider: OAuthProvider, code: string, s
   return claims;
 }
 
+function assertActiveUser<T extends { deletedAt?: Date | null }>(user: T | null) {
+  if (!user || user.deletedAt) throw new Error("oauth-account-unavailable");
+  return user;
+}
+
 export async function resolveOAuthUser(provider: OAuthProvider, claims: IdentityClaims, fallbackName?: string | null) {
   const subject = String(claims.sub ?? "");
   const email = String(claims.email ?? "").trim().toLowerCase();
   const verified = claims.email_verified === true || claims.email_verified === "true";
-  if (!subject || !email || !verified) throw new Error("verified-email-required");
+  if (!subject || subject.length > 512 || !email || email.length > 254 || !verified) throw new Error("verified-email-required");
 
   const identityWhere = { provider_providerSubject: { provider, providerSubject: subject } } as const;
   const linked = await db.authIdentity.findUnique({ where: identityWhere, include: { user: true } });
-  if (linked) return linked.user;
+  if (linked) return assertActiveUser(linked.user);
 
   try {
     return await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`oauth-user:${provider}:${subject}`}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`oauth-email:${email}`}))`;
+
       const existingIdentity = await tx.authIdentity.findUnique({ where: identityWhere, include: { user: true } });
-      if (existingIdentity) return existingIdentity.user;
+      if (existingIdentity) return assertActiveUser(existingIdentity.user);
 
       const existingUser = await tx.user.findUnique({ where: { email } });
+      if (existingUser?.deletedAt) throw new Error("oauth-account-unavailable");
       const user = existingUser ?? await tx.user.create({ data: { name: String(claims.name || fallbackName || email.split("@")[0]).trim().slice(0, 120), email, passwordHash: null } });
       await tx.authIdentity.create({ data: { userId: user.id, provider, providerSubject: subject, providerEmail: email } });
       return user;
     });
   } catch (error) {
-    // Concurrent callbacks can race on either the unique user email or provider subject.
-    // Re-read the canonical identity instead of surfacing an avoidable 500 to the user.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const racedIdentity = await db.authIdentity.findUnique({ where: identityWhere, include: { user: true } });
-      if (racedIdentity) return racedIdentity.user;
+      if (racedIdentity) return assertActiveUser(racedIdentity.user);
       const racedUser = await db.user.findUnique({ where: { email } });
-      if (racedUser) {
-        try {
-          const identity = await db.authIdentity.create({ data: { userId: racedUser.id, provider, providerSubject: subject, providerEmail: email }, include: { user: true } });
-          return identity.user;
-        } catch (linkError) {
-          if (linkError instanceof Prisma.PrismaClientKnownRequestError && linkError.code === "P2002") {
-            const finalIdentity = await db.authIdentity.findUnique({ where: identityWhere, include: { user: true } });
-            if (finalIdentity) return finalIdentity.user;
-          }
-          throw linkError;
+      const activeUser = assertActiveUser(racedUser);
+      try {
+        const identity = await db.authIdentity.create({ data: { userId: activeUser.id, provider, providerSubject: subject, providerEmail: email }, include: { user: true } });
+        return assertActiveUser(identity.user);
+      } catch (linkError) {
+        if (linkError instanceof Prisma.PrismaClientKnownRequestError && linkError.code === "P2002") {
+          const finalIdentity = await db.authIdentity.findUnique({ where: identityWhere, include: { user: true } });
+          if (finalIdentity) return assertActiveUser(finalIdentity.user);
         }
+        throw linkError;
       }
     }
     throw error;
@@ -178,10 +191,10 @@ export async function resolveOAuthUser(provider: OAuthProvider, claims: Identity
 }
 
 export function parseAppleUser(raw?: string | null) {
-  if (!raw) return null;
+  if (!raw || raw.length > 10_000) return null;
   try {
     const parsed = JSON.parse(raw) as { name?: { firstName?: string; lastName?: string } };
-    return [parsed.name?.firstName, parsed.name?.lastName].filter(Boolean).join(" ").trim() || null;
+    return [parsed.name?.firstName, parsed.name?.lastName].filter(Boolean).join(" ").trim().slice(0, 120) || null;
   } catch { return null; }
 }
 
