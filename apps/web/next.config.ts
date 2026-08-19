@@ -21,9 +21,9 @@ function serverActionOrigins() {
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["localhost", "127.0.0.1", "*.app.github.dev"],
-  images: {
-    remotePatterns: [{ protocol: "https", hostname: "**" }],
-  },
+  // Do not configure a wildcard Next Image proxy. Current V10 customer media is
+  // served by HEE's validated /api/storage endpoint or ordinary browser <img> tags.
+  // Future external image providers must be allow-listed explicitly.
   experimental: {
     serverActions: {
       // Production accepts only canonical HEE origins. Preview/dev hosts are added
