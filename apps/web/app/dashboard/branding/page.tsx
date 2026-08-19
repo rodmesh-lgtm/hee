@@ -20,7 +20,7 @@ export default async function DashboardBrandingPage({ searchParams }: { searchPa
   const imagesParam = Array.isArray(params?.images) ? params.images[0] : params?.images;
   const entitlements = getPlanEntitlements(business.plan?.code);
   const currentPlan = normalizePlanCode(business.plan?.code);
-  const verificationPending = !business.isVerified && await hasPendingVerificationRequest(business.id);
+  const verificationPending = !business.isVerified && await hasPendingVerificationRequest();
 
   return <div className="space-y-4 pb-4">
     {verificationParam === "requested" || verificationPending ? <div className="flex items-start gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />طلب التوثيق قيد المراجعة.</div> : null}
@@ -54,7 +54,6 @@ export default async function DashboardBrandingPage({ searchParams }: { searchPa
 
     <section className="grid gap-3 lg:grid-cols-2">
       <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><Crown className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">باقتك: {business.plan?.name || "Free"}</h2></div><p className="mt-2 text-xs leading-6 text-slate-500">الترقية ترفع حدود الفروع والفريق وتتيح طلب التوثيق، ثم تفتح الثيمات المدفوعة عند اعتمادها.</p><div className="mt-4 flex flex-wrap gap-2">{currentPlan === "FREE" ? <form action={requestPlanUpgradeAction}><input type="hidden" name="plan" value="BUSINESS" /><button className="h-10 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white">طلب Business</button></form> : null}{currentPlan === "BUSINESS" ? <form action={requestPlanUpgradeAction}><input type="hidden" name="plan" value="PRO" /><button className="h-10 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white">طلب Pro</button></form> : null}{currentPlan === "PRO" ? <span className="inline-flex h-10 items-center rounded-xl bg-emerald-50 px-4 text-xs font-black text-emerald-700">أعلى باقة مفعلة</span> : null}<Link href="/dashboard/settings" className="inline-flex h-10 items-center rounded-xl border border-[#e5e1f0] px-4 text-xs font-black text-slate-600">تفاصيل الحساب</Link></div></article>
-
       <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><BadgeCheck className={`h-5 w-5 ${business.isVerified ? "text-blue-600" : "text-[#6f3bd2]"}`} /><h2 className="font-black text-[#20264f]">توثيق HEE</h2></div><p className="mt-2 text-xs leading-6 text-slate-500">الشارة لا تظهر إلا بعد مراجعة المنشأة واعتمادها من HEE.</p>{business.isVerified ? <span className="mt-4 inline-flex rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">موثق</span> : verificationPending ? <span className="mt-4 inline-flex rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">قيد المراجعة</span> : entitlements.verificationEligible ? <form action={requestVerificationAction} className="mt-4"><button className="h-10 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white">طلب التوثيق</button></form> : <p className="mt-4 text-xs font-bold text-slate-400">متاح مع الباقات المؤهلة.</p>}</article>
     </section>
   </div>;
