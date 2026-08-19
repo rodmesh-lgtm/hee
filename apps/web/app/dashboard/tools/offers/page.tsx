@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { headers } from "next/headers";
 import { Lock, Sparkles } from "lucide-react";
 import { redirect } from "next/navigation";
 import { OfferDesigner } from "../../../../components/dashboard/offer-designer";
 import { getCurrentUser } from "../../../lib/auth";
 import { db } from "../../../lib/db";
+import { getPlanEntitlements } from "../../../lib/plan-entitlements";
+import { getPublicBusinessUrlFromRequest } from "../../../lib/public-url";
 
 export default async function DashboardOffersDesignerPage() {
   const user = await getCurrentUser();
@@ -22,8 +23,8 @@ export default async function DashboardOffersDesignerPage() {
     );
   }
 
-  const designerAvailable = Boolean(business.plan?.aiEnabled);
-  if (!designerAvailable) {
+  const entitlements = getPlanEntitlements(business.plan?.code);
+  if (!entitlements.offerDesigner) {
     return (
       <section className="space-y-5 rounded-[28px] border border-[#e8e5f2] bg-white p-6">
         <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600"><Lock className="h-5 w-5" /></div>
@@ -35,10 +36,7 @@ export default async function DashboardOffersDesignerPage() {
     );
   }
 
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || "hee.sa";
-  const protocol = host.includes("localhost") ? "http" : "https";
-  const publicUrl = `${protocol}://${host}/${business.slug}`;
+  const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
 
   return (
     <div className="space-y-6">
