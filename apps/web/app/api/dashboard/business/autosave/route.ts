@@ -18,7 +18,11 @@ const schema = z.object({
   }).strict(),
 }).strict();
 
-function normalizeUrl(raw: string) {
+function isHostOrSubdomain(host: string, domain: string) {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
+function normalizeGoogleMapsUrl(raw: string) {
   const value = raw.trim();
   if (!value) return null;
   if (/^[a-z][a-z0-9+.-]*:/i.test(value) && !/^https?:/i.test(value)) return null;
@@ -26,7 +30,12 @@ function normalizeUrl(raw: string) {
   try {
     const url = new URL(candidate);
     if (!/^https?:$/.test(url.protocol) || !url.hostname || /\s/.test(url.href)) return null;
-    return url.toString();
+    const host = url.hostname.toLowerCase();
+    const allowed = host === "maps.app.goo.gl"
+      || host === "goo.gl"
+      || isHostOrSubdomain(host, "google.com")
+      || isHostOrSubdomain(host, "google.sa");
+    return allowed ? url.toString() : null;
   } catch {
     return null;
   }
@@ -66,8 +75,8 @@ export async function POST(request: Request) {
   if (typeof fields.district === "string" && fields.district !== (business.district ?? "")) { updates.district = fields.district || null; changedKeys.push("district"); }
 
   if (typeof fields.googleMapsLink === "string") {
-    const normalized = normalizeUrl(fields.googleMapsLink);
-    if (fields.googleMapsLink.trim() && !normalized) return NextResponse.json({ error: "رابط Google Maps غير صالح" }, { status: 400 });
+    const normalized = normalizeGoogleMapsUrl(fields.googleMapsLink);
+    if (fields.googleMapsLink.trim() && !normalized) return NextResponse.json({ error: "استخدم رابط Google Maps صالحًا" }, { status: 400 });
     if (normalized !== business.googleMapsLink) { updates.googleMapsLink = normalized; changedKeys.push("googleMapsLink"); }
   }
 
