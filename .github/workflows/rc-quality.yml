@@ -43,6 +43,7 @@ jobs:
       SESSION_SECRET: ci-only-not-for-production
       PAYMENT_PROVIDER: mock
       STORAGE_DRIVER: database
+      PGPASSWORD: postgres
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,6 +65,19 @@ jobs:
         run: npx prisma migrate deploy
       - name: Verify customer data retention guards
         run: npm run data:retention-audit
+      - name: Seed backup/restore audit fixture
+        run: npm run backup:audit-seed
+      - name: Create PostgreSQL backup
+        run: pg_dump --host=127.0.0.1 --port=5432 --username=postgres --dbname=hee_ci --format=custom --file=/tmp/hee-ci.dump
+      - name: Restore backup into a fresh database
+        run: |
+          psql --host=127.0.0.1 --port=5432 --username=postgres --dbname=postgres --command='DROP DATABASE IF EXISTS hee_restore;'
+          psql --host=127.0.0.1 --port=5432 --username=postgres --dbname=postgres --command='CREATE DATABASE hee_restore;'
+          pg_restore --host=127.0.0.1 --port=5432 --username=postgres --dbname=hee_restore --no-owner --no-privileges /tmp/hee-ci.dump
+      - name: Verify restored customer data
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hee_restore
+        run: npm run backup:audit-verify
       - name: TypeScript check
         run: npx tsc --noEmit
       - name: Lint
