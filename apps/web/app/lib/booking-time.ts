@@ -16,24 +16,44 @@ export function normalizedBookingDuration(value: number | null) {
   return value;
 }
 
-function intervalInside(startMinute: number, durationMinutes: number, open: string | null, close: string | null) {
+function intervalInsideSameDay(startMinute: number, durationMinutes: number, open: string | null, close: string | null) {
   if (!open || !close) return false;
   const windowStart = bookingMinutes(open);
-  let windowEnd = bookingMinutes(close);
-  let targetStart = startMinute;
-  let targetEnd = targetStart + durationMinutes;
-  if (windowEnd <= windowStart) windowEnd += 1440;
-  if (targetStart < windowStart && windowEnd > 1440) {
-    targetStart += 1440;
-    targetEnd += 1440;
+  const rawEnd = bookingMinutes(close);
+  if (rawEnd === windowStart) return false;
+
+  const targetEnd = startMinute + durationMinutes;
+  if (rawEnd > windowStart) {
+    return startMinute >= windowStart && targetEnd <= rawEnd;
   }
-  return targetStart >= windowStart && targetEnd <= windowEnd;
+
+  // Overnight windows belong to the calendar day on which they start. A time
+  // after midnight must therefore be validated against the previous day's
+  // overnight window, not today's future overnight shift.
+  return startMinute >= windowStart && targetEnd <= rawEnd + 1440;
+}
+
+function intervalInsidePreviousOvernight(startMinute: number, durationMinutes: number, open: string | null, close: string | null) {
+  if (!open || !close) return false;
+  const windowStart = bookingMinutes(open);
+  const windowEnd = bookingMinutes(close);
+  if (windowEnd >= windowStart) return false;
+
+  const targetStart = startMinute + 1440;
+  const targetEnd = targetStart + durationMinutes;
+  return targetStart >= windowStart && targetEnd <= windowEnd + 1440;
 }
 
 export function bookingWithinWorkingHours(time: string, durationMinutes: number, schedule: BookingSchedule | null) {
   if (!schedule || schedule.isClosed) return false;
   const start = bookingMinutes(time);
-  return intervalInside(start, durationMinutes, schedule.opensAt, schedule.closesAt) || intervalInside(start, durationMinutes, schedule.secondOpensAt, schedule.secondClosesAt);
+  return intervalInsideSameDay(start, durationMinutes, schedule.opensAt, schedule.closesAt) || intervalInsideSameDay(start, durationMinutes, schedule.secondOpensAt, schedule.secondClosesAt);
+}
+
+export function bookingWithinPreviousOvernightWorkingHours(time: string, durationMinutes: number, schedule: BookingSchedule | null) {
+  if (!schedule || schedule.isClosed) return false;
+  const start = bookingMinutes(time);
+  return intervalInsidePreviousOvernight(start, durationMinutes, schedule.opensAt, schedule.closesAt) || intervalInsidePreviousOvernight(start, durationMinutes, schedule.secondOpensAt, schedule.secondClosesAt);
 }
 
 export function bookingIntervalsOverlap(startA: number, durationA: number, startB: number, durationB: number) {
