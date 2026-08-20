@@ -45,6 +45,20 @@ test("critical tenant writes continue to derive business scope from authenticate
   }
 });
 
+test("record-id tampering remains scoped by businessId at the write predicate", () => {
+  const services = source("app/actions/services.ts");
+  assert.match(
+    services,
+    /updateMany\(\{\s*where:\s*\{\s*id,\s*businessId:\s*business\.id,\s*deletedAt:\s*null\s*\}/m,
+    "Service updates must require both the submitted record id and the authenticated active business id",
+  );
+  assert.match(
+    services,
+    /updateMany\(\{\s*where:\s*\{\s*id,\s*businessId:\s*business\.id,\s*deletedAt:\s*null\s*\},\s*data:\s*\{\s*deletedAt:/m,
+    "Service soft deletes must require both the submitted record id and the authenticated active business id",
+  );
+});
+
 test("active business cookie is never trusted without an owner-bound database lookup", () => {
   const activeBusiness = source("app/lib/active-business.ts");
   assert.match(activeBusiness, /id:\s*requestedId,\s*ownerId:\s*userId,\s*deletedAt:\s*null/);
