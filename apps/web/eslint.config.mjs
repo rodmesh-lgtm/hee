@@ -16,7 +16,6 @@ const eslintConfig = defineConfig([
   {
     files: [
       "components/public/public-action-dialog.tsx",
-      "components/public/public-favorite-button.tsx",
       "components/public/public-smart-action-sheet.tsx",
     ],
     rules: {
