@@ -23,12 +23,6 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["app/actions/publication.ts"],
-    rules: {
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
-    },
-  },
-  {
     files: [
       "app/dashboard/branding/page.tsx",
       "components/dashboard/offer-designer.tsx",
