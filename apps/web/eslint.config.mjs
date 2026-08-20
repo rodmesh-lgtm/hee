@@ -30,18 +30,6 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["app/dashboard/inbox/page.tsx"],
-    rules: {
-      "@typescript-eslint/no-unused-vars": ["error", { varsIgnorePattern: "^(CheckCircle2|PackageCheck|UserRound|XCircle)$" }],
-    },
-  },
-  {
-    files: ["components/homepage-premium.tsx"],
-    rules: {
-      "@typescript-eslint/no-unused-vars": ["error", { varsIgnorePattern: "^UsersRound$" }],
-    },
-  },
-  {
     files: ["components/public/public-transaction-launcher.tsx"],
     rules: {
       "react-hooks/exhaustive-deps": "off",
