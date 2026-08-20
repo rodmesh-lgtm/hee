@@ -84,6 +84,12 @@ async function switchBusiness(page: import("@playwright/test").Page, businessId:
   await switcher.locator("xpath=..").getByRole("button", { name: "تبديل" }).click();
   await page.waitForURL(/\/dashboard/);
   await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", businessId);
+  const activeCookie = (await page.context().cookies()).find((cookie) => cookie.name === "hee_active_business");
+  expect(activeCookie?.value).toBe(businessId);
+}
+
+function serviceNameInput(page: import("@playwright/test").Page, name: string) {
+  return page.locator('input[name="name"]').filter({ hasValue: name });
 }
 
 test.describe.serial("active business tenant isolation", () => {
@@ -118,9 +124,10 @@ test.describe.serial("active business tenant isolation", () => {
       // Use the real server action to select B, then prove reads/writes are scoped to B.
       await switchBusiness(page, seeded.businessBId);
       await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByText("خدمة باء الخاصة", { exact: true })).toBeVisible();
-      await expect(page.getByText("خدمة ألف الخاصة", { exact: true })).toHaveCount(0);
-      await expect(page.getByText("خدمة المهاجم السرية", { exact: true })).toHaveCount(0);
+      await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessBId);
+      await expect(serviceNameInput(page, "خدمة باء الخاصة")).toHaveCount(1);
+      await expect(serviceNameInput(page, "خدمة ألف الخاصة")).toHaveCount(0);
+      await expect(serviceNameInput(page, "خدمة المهاجم السرية")).toHaveCount(0);
 
       const addForm = page.locator('form').filter({ has: page.locator('input[name="name"][placeholder="اسم الخدمة"]') });
       await addForm.locator('input[name="name"]').fill("خدمة باء الجديدة المعزولة");
@@ -132,6 +139,7 @@ test.describe.serial("active business tenant isolation", () => {
       // Switch back to A, then tamper an A form so its hidden record id points at B.
       await switchBusiness(page, seeded.businessAId);
       await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
       const editForm = page.locator('form').filter({ has: page.locator(`input[name="id"][value="${seeded.serviceAId}"]`) }).first();
       await expect(editForm).toBeVisible();
       await editForm.locator('input[name="id"]').evaluate((input, foreignId) => { (input as HTMLInputElement).value = String(foreignId); }, seeded.serviceBId);
