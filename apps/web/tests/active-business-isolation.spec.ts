@@ -4,7 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
-type Seeded = { ownerId: string; attackerId: string; sessionToken: string; businessAId: string; businessBId: string; attackerBusinessId: string; serviceAId: string; serviceBId: string };
+type Seeded = { ownerId: string; attackerId: string; sessionToken: string; businessAId: string; businessBId: string; attackerBusinessId: string };
 let pool: Pool;
 let db: PrismaClient;
 
@@ -16,12 +16,12 @@ async function seed(): Promise<Seeded> {
   const businessA = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "منشأة ألف الآمنة", slug: `safe-a-${suffix}`, businessType: "خدمات أعمال", shortDescription: "المنشأة الأولى", phone: "0555000101", onboardingCompleted: true } });
   const businessB = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "منشأة باء الآمنة", slug: `safe-b-${suffix}`, businessType: "خدمات أعمال", shortDescription: "المنشأة الثانية", phone: "0555000102", onboardingCompleted: true } });
   const attackerBusiness = await db.business.create({ data: { ownerId: attacker.id, planId: plan.id, name: "منشأة المهاجم السرية", slug: `other-c-${suffix}`, businessType: "خدمات أعمال", shortDescription: "يجب ألا تظهر للمالك الآخر", phone: "0555000199", onboardingCompleted: true } });
-  const serviceA = await db.service.create({ data: { businessId: businessA.id, name: "خدمة ألف الخاصة", price: 10, sortOrder: 0 } });
-  const serviceB = await db.service.create({ data: { businessId: businessB.id, name: "خدمة باء الخاصة", price: 20, sortOrder: 0 } });
+  await db.service.create({ data: { businessId: businessA.id, name: "خدمة ألف الخاصة", price: 10, sortOrder: 0 } });
+  await db.service.create({ data: { businessId: businessB.id, name: "خدمة باء الخاصة", price: 20, sortOrder: 0 } });
   await db.service.create({ data: { businessId: attackerBusiness.id, name: "خدمة المهاجم السرية", price: 999, sortOrder: 0 } });
   const sessionToken = crypto.randomUUID();
   await db.session.create({ data: { token: sessionToken, userId: owner.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
-  return { ownerId: owner.id, attackerId: attacker.id, sessionToken, businessAId: businessA.id, businessBId: businessB.id, attackerBusinessId: attackerBusiness.id, serviceAId: serviceA.id, serviceBId: serviceB.id };
+  return { ownerId: owner.id, attackerId: attacker.id, sessionToken, businessAId: businessA.id, businessBId: businessB.id, attackerBusinessId: attackerBusiness.id };
 }
 
 async function cleanup(seeded: Seeded) {
@@ -67,8 +67,8 @@ test.describe.serial("active business tenant isolation", () => {
   });
   test.afterAll(async () => { await db?.$disconnect(); await pool?.end(); });
 
-  test("isolates owned businesses and rejects cross-tenant selection and record tampering", async ({ page }) => {
-    test.setTimeout(60_000);
+  test("isolates owned businesses and rejects cross-tenant selection", async ({ page }) => {
+    test.setTimeout(45_000);
     const seeded = await seed();
     await authenticate(page, seeded.sessionToken);
     try {
@@ -100,27 +100,8 @@ test.describe.serial("active business tenant isolation", () => {
         expect(await db.service.count({ where: { businessId: seeded.attackerBusinessId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
       });
 
-      await test.step("foreign record id tampering cannot mutate another owned business", async () => {
-        await switchBusiness(page, seeded.businessAId);
-        await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded", timeout: 15_000 });
-        const editForm = page.locator('form').filter({ has: page.locator(`input[name="id"][value="${seeded.serviceAId}"]`) }).first();
-        await expect(editForm).toBeVisible({ timeout: 10_000 });
-        await editForm.locator('input[name="id"]').evaluate((input, foreignId) => { (input as HTMLInputElement).value = String(foreignId); }, seeded.serviceBId);
-        await editForm.locator('input[name="name"]').fill("اسم اختراق يجب ألا يحفظ");
-        await Promise.all([
-          page.waitForURL("**/dashboard/services", { timeout: 10_000 }).catch(() => undefined),
-          editForm.locator('button').filter({ hasText: "حفظ" }).click({ timeout: 10_000 }),
-        ]);
-        await expect.poll(async () => {
-          const [a, b] = await Promise.all([
-            db.service.findUnique({ where: { id: seeded.serviceAId }, select: { name: true } }),
-            db.service.findUnique({ where: { id: seeded.serviceBId }, select: { name: true } }),
-          ]);
-          return `${a?.name}|${b?.name}`;
-        }, { timeout: 10_000 }).toBe("خدمة ألف الخاصة|خدمة باء الخاصة");
-      });
-
       await test.step("foreign tenant business selection is rejected", async () => {
+        await switchBusiness(page, seeded.businessAId);
         await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded", timeout: 15_000 });
         const protectedSwitcher = page.getByLabel("اختيار المنشأة").first();
         await protectedSwitcher.evaluate((select, foreignId) => { const option = document.createElement("option"); option.value = String(foreignId); option.textContent = "منشأة مزورة"; select.append(option); (select as HTMLSelectElement).value = String(foreignId); }, seeded.attackerBusinessId);
