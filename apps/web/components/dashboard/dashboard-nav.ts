@@ -2,6 +2,7 @@ import {
   BarChart3,
   Building2,
   Home,
+  Inbox,
   Palette,
   Settings2,
   UserRound,
@@ -20,6 +21,7 @@ export type DashboardNavItem = {
 export const dashboardNavItems: DashboardNavItem[] = [
   { label: "الرئيسية", href: "/dashboard", icon: Home, exact: true },
   { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound },
+  { label: "الطلبات والحجوزات", href: "/dashboard/inbox", icon: Inbox },
   { label: "المظهر", href: "/dashboard/branding", icon: Palette },
   { label: "الفروع والفريق", href: "/dashboard/directory", icon: Building2 },
   { label: "الأداء", href: "/dashboard/analytics", icon: BarChart3 },
