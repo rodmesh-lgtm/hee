@@ -3,7 +3,6 @@ import { db } from "../../../lib/db";
 import { ensurePersistentStorageReady, extractStorageKeyFromUrl, readPersistentObject } from "../../../lib/storage";
 
 const SAFE_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-const DIRECT_REFERENCE_FOLDERS = new Set(["logos", "covers", "products", "services", "offers", "gallery", "contacts"]);
 
 function profileReferencesStorageKey(pageModules: unknown, storageKey: string) {
   if (!Array.isArray(pageModules)) return false;
@@ -22,12 +21,12 @@ function profileReferencesStorageKey(pageModules: unknown, storageKey: string) {
   return false;
 }
 
-function jsonReferencesUrl(value: unknown, url: string) {
-  try { return JSON.stringify(value ?? null).includes(url); } catch { return false; }
-}
-
-async function isPublicImageReference(storageKey: string, folder: string) {
+async function isPublicImageReference(storageKey: string) {
   const url = `/api/storage/${storageKey}`;
+  // Public image access must be granted only by typed, tenant-owned relations.
+  // Legacy/free-form pageModules JSON is deliberately NOT an authorization source:
+  // otherwise a published tenant that learns another object's opaque URL could copy
+  // that URL into arbitrary JSON and make the other tenant's file publicly readable.
   const directReference = await db.business.findFirst({
     where: {
       isPublished: true,
@@ -44,15 +43,7 @@ async function isPublicImageReference(storageKey: string, folder: string) {
     },
     select: { id: true },
   });
-  if (directReference) return true;
-
-  if (DIRECT_REFERENCE_FOLDERS.has(folder)) return false;
-
-  const moduleCandidates = await db.business.findMany({
-    where: { isPublished: true, deletedAt: null },
-    select: { pageModules: true },
-  });
-  return moduleCandidates.some((business) => jsonReferencesUrl(business.pageModules, url));
+  return Boolean(directReference);
 }
 
 async function loadAuthorizedBytes(storageKey: string) {
@@ -96,7 +87,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
     });
   }
 
-  if (!SAFE_IMAGE_MIME.has(metadata.mimeType) || !(await isPublicImageReference(metadata.id, metadata.folder))) {
+  if (!SAFE_IMAGE_MIME.has(metadata.mimeType) || !(await isPublicImageReference(metadata.id))) {
     return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
   }
 
