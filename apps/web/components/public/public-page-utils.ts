@@ -1,6 +1,7 @@
 import type { PublicWorkingHour } from "./types";
 
 const RIYADH_TIMEZONE = "Asia/Riyadh";
+const ARABIC_DAY_NAMES = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"] as const;
 
 export type PublicOpenStatus = {
   label: string | null;
@@ -63,7 +64,7 @@ export function resolvePublicAppearance(cardStyleRaw?: string | null, buttonStyl
   };
 }
 
-function getNowInRiyadh() {
+function getNowInRiyadh(at = new Date()) {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: RIYADH_TIMEZONE,
     year: "numeric",
@@ -75,7 +76,7 @@ function getNowInRiyadh() {
     hour12: false,
   });
 
-  const parts = formatter.formatToParts(new Date());
+  const parts = formatter.formatToParts(at);
   const map = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
 
   const year = Number(map.year);
@@ -107,7 +108,7 @@ function toArabicTime(value: string | null | undefined) {
   const hour = Number(hourRaw);
   const minute = Number(minuteRaw);
 
-  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
     return null;
   }
 
@@ -115,93 +116,97 @@ function toArabicTime(value: string | null | undefined) {
   return new Intl.DateTimeFormat("ar-SA", { timeZone: "UTC", hour: "numeric", minute: "2-digit", hour12: true }).format(date);
 }
 
-export function getPublicOpenStatus(openingHours: PublicWorkingHour[]): PublicOpenStatus {
+function toMinutes(value: string | null | undefined) {
+  if (!value || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return null;
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+type Shift = { opensAt: string; closesAt: string; start: number; end: number; overnight: boolean };
+
+function getShifts(schedule: PublicWorkingHour | undefined): Shift[] {
+  if (!schedule || schedule.isClosed) return [];
+  const pairs = [
+    [schedule.opensAt, schedule.closesAt],
+    [schedule.secondOpensAt, schedule.secondClosesAt],
+  ] as const;
+
+  return pairs.flatMap(([opensAt, closesAt]) => {
+    const start = toMinutes(opensAt);
+    const end = toMinutes(closesAt);
+    if (opensAt == null || closesAt == null || start == null || end == null || start === end) return [];
+    return [{ opensAt, closesAt, start, end, overnight: start > end }];
+  }).sort((a, b) => a.start - b.start);
+}
+
+function nextOpeningDetail(openingHours: PublicWorkingHour[], dayIndex: number) {
+  for (let offset = 1; offset <= 7; offset += 1) {
+    const nextDay = (dayIndex + offset) % 7;
+    const shifts = getShifts(openingHours.find((entry) => entry.dayOfWeek === nextDay));
+    if (!shifts.length) continue;
+    const opensAt = shifts[0].opensAt;
+    const formatted = toArabicTime(opensAt);
+    if (!formatted) return null;
+    if (offset === 1) return `يفتح غدًا الساعة ${formatted}`;
+    return `يفتح ${ARABIC_DAY_NAMES[nextDay]} الساعة ${formatted}`;
+  }
+  return null;
+}
+
+export function getPublicOpenStatus(openingHours: PublicWorkingHour[], at = new Date()): PublicOpenStatus {
   if (!openingHours?.length) {
     return { label: null, detail: null };
   }
 
-  const hasSchedule = openingHours.some((entry) => Boolean(entry.opensAt || entry.closesAt || entry.secondOpensAt || entry.secondClosesAt || entry.isClosed));
+  const hasSchedule = openingHours.some((entry) => getShifts(entry).length > 0 || entry.isClosed);
   if (!hasSchedule) {
     return { label: null, detail: null };
   }
 
-  const nowInRiyadh = getNowInRiyadh();
+  const nowInRiyadh = getNowInRiyadh(at);
   if (!nowInRiyadh) {
     return { label: "مغلق الآن", detail: null };
   }
 
   const dayIndex = (nowInRiyadh.dayOfWeek + 6) % 7;
-  const todayHours = openingHours.find((entry) => entry.dayOfWeek === dayIndex);
-
-  const findNextOpen = () => {
-    for (let offset = 1; offset <= 7; offset += 1) {
-      const nextDay = (dayIndex + offset) % 7;
-      const schedule = openingHours.find((entry) => entry.dayOfWeek === nextDay);
-      if (!schedule || schedule.isClosed || !schedule.opensAt) continue;
-      return schedule.opensAt;
-    }
-    return null;
-  };
-
-  if (!todayHours) {
-    return { label: null, detail: null };
-  }
-
-  if (todayHours.isClosed) {
-    const nextOpen = findNextOpen();
-    return {
-      label: "مغلق الآن",
-      detail: nextOpen ? `يفتح الساعة ${toArabicTime(nextOpen)}` : null,
-    };
-  }
-
+  const previousDayIndex = (dayIndex + 6) % 7;
   const currentMinutes = nowInRiyadh.hour * 60 + nowInRiyadh.minute;
-  const [openHour, openMinute] = (todayHours.opensAt ?? "00:00").split(":").map(Number);
-  const [closeHour, closeMinute] = (todayHours.closesAt ?? "23:59").split(":").map(Number);
-  const openMinutes = openHour * 60 + openMinute;
-  const closeMinutes = closeHour * 60 + closeMinute;
 
-  const inFirstShift = currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
-
-  if (inFirstShift) {
+  // An overnight shift belongs to the day it starts. Shortly after midnight,
+  // the current opening may therefore come from yesterday's schedule.
+  const previousOvernight = getShifts(openingHours.find((entry) => entry.dayOfWeek === previousDayIndex))
+    .find((shift) => shift.overnight && currentMinutes < shift.end);
+  if (previousOvernight) {
     return {
       label: "مفتوح الآن",
-      detail: todayHours.closesAt ? `يغلق الساعة ${toArabicTime(todayHours.closesAt)}` : null,
+      detail: `يغلق الساعة ${toArabicTime(previousOvernight.closesAt)}`,
     };
   }
 
-  if (todayHours.secondOpensAt && todayHours.secondClosesAt) {
-    const [secondOpenHour, secondOpenMinute] = todayHours.secondOpensAt.split(":").map(Number);
-    const [secondCloseHour, secondCloseMinute] = todayHours.secondClosesAt.split(":").map(Number);
-    const secondOpen = secondOpenHour * 60 + secondOpenMinute;
-    const secondClose = secondCloseHour * 60 + secondCloseMinute;
-
-    if (currentMinutes < secondOpen) {
-      return {
-        label: "مغلق الآن",
-        detail: `يفتح الساعة ${toArabicTime(todayHours.secondOpensAt)}`,
-      };
-    }
-
-    if (currentMinutes >= secondOpen && currentMinutes <= secondClose) {
+  const todayShifts = getShifts(openingHours.find((entry) => entry.dayOfWeek === dayIndex));
+  for (const shift of todayShifts) {
+    const isOpen = shift.overnight
+      ? currentMinutes >= shift.start
+      : currentMinutes >= shift.start && currentMinutes < shift.end;
+    if (isOpen) {
       return {
         label: "مفتوح الآن",
-        detail: `يغلق الساعة ${toArabicTime(todayHours.secondClosesAt)}`,
+        detail: `يغلق الساعة ${toArabicTime(shift.closesAt)}`,
       };
     }
   }
 
-  if (todayHours.opensAt && currentMinutes < openMinutes) {
+  const nextToday = todayShifts.find((shift) => currentMinutes < shift.start);
+  if (nextToday) {
     return {
       label: "مغلق الآن",
-      detail: `يفتح الساعة ${toArabicTime(todayHours.opensAt)}`,
+      detail: `يفتح الساعة ${toArabicTime(nextToday.opensAt)}`,
     };
   }
 
-  const nextOpen = findNextOpen();
   return {
     label: "مغلق الآن",
-    detail: nextOpen ? `يفتح الساعة ${toArabicTime(nextOpen)}` : null,
+    detail: nextOpeningDetail(openingHours, dayIndex),
   };
 }
 
