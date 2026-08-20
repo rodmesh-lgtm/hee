@@ -3,6 +3,7 @@ import "server-only";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
+import { normalizePostgresDatabaseUrl } from "./database-url";
 
 type GlobalPrisma = {
   prisma?: PrismaClient;
@@ -20,17 +21,7 @@ function validatedDatabaseUrl() {
     throw new Error("HEE database configuration is missing: set DATABASE_URL in this environment");
   }
 
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    throw new Error("HEE database configuration is invalid: DATABASE_URL is not a valid URL");
-  }
-
-  if (!["postgresql:", "postgres:"].includes(parsed.protocol) || !parsed.hostname || parsed.hostname.toLowerCase() === "base") {
-    throw new Error("HEE database configuration is invalid: a PostgreSQL DATABASE_URL is required");
-  }
-  return rawUrl;
+  return normalizePostgresDatabaseUrl(rawUrl);
 }
 
 function poolSize() {

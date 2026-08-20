@@ -28,6 +28,15 @@
   "overrides": {
     "nanoid": "3.3.18"
   },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.2": true,
+    "fsevents@2.3.3": true,
+    "prisma@5.22.0": true,
+    "unrs-resolver@1.12.2": true
+  },
   "dependencies": {
     "@prisma/adapter-pg": "^5.22.0",
     "@prisma/client": "^5.22.0",
