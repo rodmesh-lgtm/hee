@@ -40,3 +40,18 @@ test("sensitive owner and admin pages are private no-store and noindex", () => {
   assert.match(proxy, /Cache-Control", "private, no-store, max-age=0"/);
   assert.match(proxy, /X-Robots-Tag", "noindex, nofollow"/);
 });
+
+test("public JSON write endpoints enforce streaming body limits before parsing", () => {
+  const helper = source("app/lib/request-body.ts");
+  assert.match(helper, /total > limit/);
+  assert.match(helper, /RequestBodyTooLargeError/);
+  for (const path of [
+    "app/api/public/orders/route.ts",
+    "app/api/public/bookings/route.ts",
+    "app/api/public/analytics/route.ts",
+  ]) {
+    const route = source(path);
+    assert.match(route, /readBoundedJson\(/, `${path} must use the bounded JSON reader`);
+    assert.match(route, /RequestBodyTooLargeError/, `${path} must distinguish oversized bodies`);
+  }
+});
