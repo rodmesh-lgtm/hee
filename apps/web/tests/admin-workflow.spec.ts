@@ -115,11 +115,12 @@ test.describe.serial("platform admin workflow", () => {
       await setSession(page, seeded.adminSessionToken);
       await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "إدارة المنصة" })).toBeVisible();
-      await expect(page.getByText("منشأة عميل لوحة الإدارة", { exact: true })).toBeVisible();
-      await expect(page.getByText(/1 منتج · 1 خدمة · 1 عميل/)).toBeVisible();
-      await expect(page.getByText(/1 طلب · 1 حجز/)).toBeVisible();
+      const businessRow = page.getByRole("row").filter({ hasText: "منشأة عميل لوحة الإدارة" });
+      await expect(businessRow).toBeVisible();
+      await expect(businessRow.getByText(/1 منتج · 1 خدمة · 1 عميل/)).toBeVisible();
+      await expect(businessRow.getByText(/1 طلب · 1 حجز/)).toBeVisible();
 
-      await page.getByRole("link", { name: "التفاصيل" }).first().click();
+      await businessRow.getByRole("link", { name: "التفاصيل" }).click();
       await expect(page.getByRole("heading", { name: "منشأة عميل لوحة الإدارة" })).toBeVisible();
       await expect(page.getByText("RC Customer Owner", { exact: true })).toBeVisible();
       await expect(page.getByText("عميل نهائي تجريبي", { exact: true })).toBeVisible();
