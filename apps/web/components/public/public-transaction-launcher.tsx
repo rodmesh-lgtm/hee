@@ -46,7 +46,6 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
   const firstBookingInputRef = useRef<HTMLInputElement | null>(null);
   const bookingOpenerRef = useRef<HTMLButtonElement | null>(null);
   const submittingRef = useRef(false);
-  submittingRef.current = submitting;
   const bookableServices = useMemo(() => services.filter((service) => service.bookingEnabled && service.name), [services]);
   const canBook = bookingAvailable && hasWorkingHours && bookableServices.length > 0;
   const canRequest = Boolean(whatsapp?.trim() || phone?.trim());
