@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BadgeCheck, Building2, CheckCircle2, Eye, Inbox, Palette, Rocket, Store, UserRound } from "lucide-react";
 import { getCurrentUser } from "../lib/auth";
+import { getActiveBusinessWithPlanForUser } from "../lib/active-business";
 import { db } from "../lib/db";
 import { getPublicBusinessUrlFromRequest } from "../lib/public-url";
 
@@ -9,31 +10,26 @@ export default async function DashboardHomePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const business = await db.business.findFirst({
-    where: { ownerId: user.id, deletedAt: null },
-    include: {
-      plan: true,
-      services: { where: { isActive: true } },
-      branches: { where: { isActive: true } },
-      contactPersons: { where: { isActive: true } },
-    },
-  });
+  const business = await getActiveBusinessWithPlanForUser(user.id);
 
   if (!business) {
     return <section className="mx-auto max-w-2xl rounded-[26px] border border-[#e9e7f3] bg-white p-6 sm:p-8"><span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1edff] text-[#5b3fd6]"><Rocket className="h-5 w-5" /></span><h1 className="mt-4 text-2xl font-black text-[#1f2552]">ابدأ هويتك الرقمية</h1><p className="mt-2 text-sm leading-7 text-slate-500">أدخل بيانات نشاطك الأساسية، ثم ستنتقل مباشرة إلى صفحتك لإكمالها.</p><Link href="/onboarding" className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#6f3bd2] px-5 text-sm font-black text-white">إنشاء الصفحة</Link></section>;
   }
 
-  const [pendingOrders, pendingBookings] = await Promise.all([
+  const [pendingOrders, pendingBookings, services, branches, contacts] = await Promise.all([
     db.order.count({ where: { businessId: business.id, status: "pending" } }),
     db.booking.count({ where: { businessId: business.id, status: "pending" } }),
+    db.service.count({ where: { businessId: business.id, isActive: true, deletedAt: null } }),
+    db.branch.count({ where: { businessId: business.id, isActive: true } }),
+    db.contactPerson.count({ where: { businessId: business.id, isActive: true } }),
   ]);
   const pendingTransactions = pendingOrders + pendingBookings;
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
   const identityReady = Boolean(business.name && business.shortDescription && (business.phone || business.whatsapp));
   const tasks = [
     { label: "بيانات الصفحة", description: "الاسم، النبذة والتواصل", ready: identityReady, href: "/dashboard/my-page", icon: UserRound },
-    { label: "الخدمات", description: business.services.length ? `${business.services.length} مضافة` : "أضف خدماتك", ready: business.services.length > 0, href: "/dashboard/services", icon: Store },
-    { label: "الفروع والفريق", description: `${business.branches.length} فروع · ${business.contactPersons.length} فريق`, ready: business.branches.length > 0, href: "/dashboard/directory", icon: Building2 },
+    { label: "الخدمات", description: services ? `${services} مضافة` : "أضف خدماتك", ready: services > 0, href: "/dashboard/services", icon: Store },
+    { label: "الفروع والفريق", description: `${branches} فروع · ${contacts} فريق`, ready: branches > 0, href: "/dashboard/directory", icon: Building2 },
     { label: "الشعار والمظهر", description: business.logoUrl ? "الهوية جاهزة" : "أضف شعارك", ready: Boolean(business.logoUrl), href: "/dashboard/branding", icon: Palette },
   ];
   const completed = tasks.filter((task) => task.ready).length;
