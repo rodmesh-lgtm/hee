@@ -17,6 +17,7 @@ type Props = {
   whatsapp: string | null;
   phone: string | null;
   bookingAvailable: boolean;
+  hasWorkingHours: boolean;
   services: Service[];
 };
 
@@ -33,7 +34,7 @@ function riyadhToday() {
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
-export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone, bookingAvailable, services }: Props) {
+export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone, bookingAvailable, hasWorkingHours, services }: Props) {
   const [requestOpen, setRequestOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -42,7 +43,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
   const [values, setValues] = useState<BookingValues>({ name: "", phone: "", serviceId: "", bookingDate: "", bookingTime: "", notes: "" });
   const bookingId = useRef<string | null>(null);
   const bookableServices = useMemo(() => services.filter((service) => service.bookingEnabled && service.name), [services]);
-  const canBook = bookingAvailable && bookableServices.length > 0;
+  const canBook = bookingAvailable && hasWorkingHours && bookableServices.length > 0;
 
   const closeBooking = () => {
     if (submitting) return;
