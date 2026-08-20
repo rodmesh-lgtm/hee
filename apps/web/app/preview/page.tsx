@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../lib/auth";
+import { getActiveBusinessForUser } from "../lib/active-business";
 import { db } from "../lib/db";
 import { PublicBusinessPageV10Light } from "../../components/public-business-page-v10-light";
 import { getPublicBusinessUrlFromRequest } from "../lib/public-url";
@@ -19,8 +20,11 @@ export const metadata: Metadata = {
 export default async function OwnerPreviewPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const activeBusiness = await getActiveBusinessForUser(user.id);
+  if (!activeBusiness) redirect("/onboarding");
+
   const business = await db.business.findFirst({
-    where: { ownerId: user.id, deletedAt: null },
+    where: { id: activeBusiness.id, ownerId: user.id, deletedAt: null },
     include: {
       products: { include: { category: true } }, offers: true, services: true, openingHours: true,
       galleryItems: true, socialLinks: true, branches: true,
