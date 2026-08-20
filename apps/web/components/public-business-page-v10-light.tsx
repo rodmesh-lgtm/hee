@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { BadgeCheck, BriefcaseBusiness, ChevronDown, Clock3, Globe2, Headphones, Images, Info, Mail, MapPin, MessageCircle, Phone, Share2, Sparkles, UserRound, type LucideIcon } from "lucide-react";
+import { getPublicOpenStatus } from "./public/public-page-utils";
 
 type Service = { id: string | number; name?: string | null; description?: string | null; isActive?: boolean | null };
 type Branch = { id: string | number; name?: string | null; city?: string | null; district?: string | null; address?: string | null; googleMapsLink?: string | null; isActive?: boolean | null };
@@ -42,31 +43,6 @@ function googleMapSearch(query: string) {
   return value ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}` : null;
 }
 
-function riyadhNow() {
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Riyadh", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
-  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-  const days: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
-  return { day: days[value("weekday")], minutes: Number(value("hour")) * 60 + Number(value("minute")) };
-}
-
-function isOpenNow(openingHours: OpeningHour[]) {
-  if (!openingHours.some((item) => typeof item.dayOfWeek === "number")) return null;
-  const now = riyadhNow();
-  if (typeof now.day !== "number" || !Number.isFinite(now.minutes)) return null;
-  const today = openingHours.find((item) => item.dayOfWeek === now.day);
-  if (!today) return null;
-  if (today.isClosed) return false;
-  if (!today.opensAt || !today.closesAt) return null;
-  const toMinutes = (time: string) => { const [h, m] = time.split(":").map(Number); return h * 60 + m; };
-  const inRange = (start?: string | null, end?: string | null) => {
-    if (!start || !end) return false;
-    const from = toMinutes(start), to = toMinutes(end);
-    if (!Number.isFinite(from) || !Number.isFinite(to)) return false;
-    return from <= to ? now.minutes >= from && now.minutes <= to : now.minutes >= from || now.minutes <= to;
-  };
-  return inRange(today.opensAt, today.closesAt) || inRange(today.secondOpensAt, today.secondClosesAt);
-}
-
 function serviceCount(n: number) { if (n === 1) return "خدمة واحدة"; if (n === 2) return "خدمتان"; if (n >= 3 && n <= 10) return `${n} خدمات`; return `${n} خدمة`; }
 function branchCount(n: number) { if (n === 1) return "فرع واحد"; if (n === 2) return "فرعان"; if (n >= 3 && n <= 10) return `${n} فروع`; return `${n} فرعًا`; }
 function teamCount(n: number) { if (n === 1) return "ممثل واحد للمنشأة"; if (n === 2) return "ممثّلان للمنشأة"; return `${n} من ممثلي المنشأة`; }
@@ -94,7 +70,8 @@ export function PublicBusinessPageV10Light({ business, publicUrl }: Props) {
   const openingHours = business.openingHours ?? [];
   const activeHours = openingHours.find((item) => !item.isClosed && item.opensAt && item.closesAt);
   const workingHours = clean(business.workingHours) || (activeHours ? `${activeHours.opensAt} - ${activeHours.closesAt}` : "");
-  const openNow = isOpenNow(openingHours);
+  const openStatus = getPublicOpenStatus(openingHours.flatMap((item, index) => typeof item.dayOfWeek === "number" ? [{ id: `v10-${index}`, dayOfWeek: item.dayOfWeek, opensAt: item.opensAt ?? null, closesAt: item.closesAt ?? null, secondOpensAt: item.secondOpensAt ?? null, secondClosesAt: item.secondClosesAt ?? null, isClosed: Boolean(item.isClosed) }] : []));
+  const openNow = openStatus.label === null ? null : openStatus.label === "مفتوح الآن";
   const quickActions = [phone ? { key: "phone", href: `tel:${phone}`, icon: Phone, label: "اتصال" } : null, whatsapp ? { key: "whatsapp", href: `https://wa.me/${whatsapp}`, icon: MessageCircle, label: "واتساب", green: true } : null, businessMap ? { key: "map", href: businessMap, icon: MapPin, label: "الموقع" } : null, { key: "share", onClick: () => void share(), icon: Share2, label: "مشاركة" }].filter(Boolean) as Array<{ key: string; href?: string; onClick?: () => void; icon: IconType; label: string; green?: boolean }>;
   const contactMethods = [phone, whatsapp, clean(business.email), website].filter(Boolean).length;
   const toggle = (key: PanelKey) => setOpenPanel((current) => current === key ? null : key);
