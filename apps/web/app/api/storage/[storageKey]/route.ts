@@ -3,6 +3,7 @@ import { db } from "../../../lib/db";
 import { ensurePersistentStorageReady, readPersistentObject } from "../../../lib/storage";
 
 const SAFE_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const AUTHORIZED_FILE_CACHE_CONTROL = "private, no-store, max-age=0";
 
 function tenantIdFromFolder(folder: string) {
   const match = folder.match(/^(?:logos|covers|company-profiles)\/([0-9a-f-]{20,64})$/i);
@@ -72,7 +73,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
         "Content-Type": "application/pdf",
         "Content-Length": String(metadata.size),
         "Content-Disposition": `inline; filename="${safeName}"`,
-        "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+        // Every file request re-checks the current Business publication/reference state.
+        // A CDN cache must never keep serving a file after the customer unpublishes or replaces it.
+        "Cache-Control": AUTHORIZED_FILE_CACHE_CONTROL,
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'none'; frame-ancestors 'self'; sandbox",
       },
@@ -93,7 +96,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
       "Content-Type": metadata.mimeType,
       "Content-Length": String(metadata.size),
       "Content-Disposition": "inline",
-      "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+      "Cache-Control": AUTHORIZED_FILE_CACHE_CONTROL,
       "X-Content-Type-Options": "nosniff",
       "Content-Security-Policy": "default-src 'none'; img-src 'self'; sandbox",
     },
