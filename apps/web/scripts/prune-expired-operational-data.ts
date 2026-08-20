@@ -24,8 +24,8 @@ async function counts() {
   return {
     expiredSessions: sessions,
     expiredOAuthStates: oauthStates,
-    staleRateLimits: Number(rateLimits[0]?.count ?? 0n),
-    stalePublicSubmissions: Number(submissions[0]?.count ?? 0n),
+    staleRateLimits: Number(rateLimits[0]?.count ?? BigInt(0)),
+    stalePublicSubmissions: Number(submissions[0]?.count ?? BigInt(0)),
   };
 }
 
