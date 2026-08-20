@@ -10,8 +10,14 @@ async function ownedBusiness() { return getOwnedBusinessWithPlanForWrite(); }
 function text(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
 function validName(value: string) { return value.length >= 2 && value.length <= 120; }
 function validDescription(value: string) { return value.length <= 1000; }
+function optionalInt(formData: FormData, key: string, min: number, max: number) {
+  const raw = text(formData, key);
+  if (!raw) return null;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= min && value <= max ? value : undefined;
+}
 function refresh(slug: string) {
-  revalidatePath("/dashboard"); revalidatePath("/dashboard/services"); revalidatePath("/dashboard/my-page"); revalidatePath("/preview"); revalidatePath(`/${slug}`);
+  revalidatePath("/dashboard"); revalidatePath("/dashboard/services"); revalidatePath("/dashboard/my-page"); revalidatePath("/dashboard/inbox"); revalidatePath("/preview"); revalidatePath(`/${slug}`);
 }
 async function lockServiceScope(tx: Prisma.TransactionClient, businessId: string) { await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:services`}))`; }
 
@@ -34,8 +40,21 @@ export async function addSimpleServiceAction(formData: FormData) {
 export async function updateSimpleServiceAction(formData: FormData) {
   const business = await ownedBusiness(); if (!business) return;
   const id = text(formData, "id"), name = text(formData, "name"), description = text(formData, "description");
-  if (!id || !validName(name) || !validDescription(description)) return;
-  await db.service.updateMany({ where: { id, businessId: business.id, deletedAt: null }, data: { name, description: description || null, isActive: true } });
+  const price = optionalInt(formData, "price", 0, 100000000);
+  const durationMinutes = optionalInt(formData, "durationMinutes", 5, 1440);
+  const bookingEnabled = formData.get("bookingEnabled") === "on";
+  if (!id || !validName(name) || !validDescription(description) || price === undefined || durationMinutes === undefined) return;
+  await db.service.updateMany({
+    where: { id, businessId: business.id, deletedAt: null },
+    data: { name, description: description || null, price: price ?? 0, durationMinutes, bookingEnabled, isActive: true },
+  });
+  refresh(business.slug);
+}
+
+export async function updateBookingAvailabilityAction(formData: FormData) {
+  const business = await ownedBusiness(); if (!business) return;
+  const enabled = formData.get("bookingAvailable") === "on";
+  await db.business.updateMany({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, data: { bookingAvailable: enabled } });
   refresh(business.slug);
 }
 

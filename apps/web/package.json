@@ -10,6 +10,7 @@
     "test:unit": "tsx --test tests/*.test.ts",
     "test:rc": "playwright test tests/rc-owner-workflow.spec.ts",
     "test:directory": "playwright test tests/directory-workflow.spec.ts",
+    "test:transactions": "playwright test tests/transactions-workflow.spec.ts",
     "qa:handoff": "tsx scripts/generate-qa-handoff.ts",
     "storage:audit": "tsx scripts/storage-audit.ts",
     "storage:sweep": "tsx scripts/storage-audit.ts --delete",

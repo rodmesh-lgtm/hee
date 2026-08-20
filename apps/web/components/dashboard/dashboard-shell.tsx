@@ -14,9 +14,11 @@ type DashboardShellProps = { children: React.ReactNode; businessName: string; bu
 const pageTitles: Record<string, string> = {
   "/dashboard": "الرئيسية",
   "/dashboard/my-page": "صفحتي",
+  "/dashboard/inbox": "الطلبات والحجوزات",
   "/dashboard/branding": "المظهر",
   "/dashboard/directory": "الفروع والفريق",
   "/dashboard/services": "الخدمات",
+  "/dashboard/working-hours": "ساعات العمل",
   "/dashboard/analytics": "الأداء",
   "/dashboard/settings": "الحساب والباقات",
 };
