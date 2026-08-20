@@ -103,3 +103,5 @@ jobs:
         run: npm run test:rc
       - name: Run directory workflow
         run: npm run test:directory
+      - name: Run public transactions workflow
+        run: npm run test:transactions
