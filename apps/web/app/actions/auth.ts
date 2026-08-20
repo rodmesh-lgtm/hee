@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -8,6 +9,7 @@ import { createSession, hashPassword, logoutSession, verifyPassword } from "../l
 import { clearQaAuditSession } from "../lib/qa-audit";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
 import { loginSchema, registerSchema } from "../lib/validation";
+import { PRIVACY_VERSION, TERMS_VERSION } from "../lib/legal";
 
 export type ActionState = { error?: string };
 function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
@@ -20,19 +22,24 @@ async function requestAddress() {
 }
 
 async function consumeAuthLimit(scope: string, identity: string, limit: number, windowSeconds: number) {
-  const result = await consumePublicWriteLimit({
-    scope,
-    businessId: "hee-auth",
-    identity: identity || "unknown",
-    limit,
-    windowSeconds,
-  });
-  return result.allowed;
+  try {
+    const result = await consumePublicWriteLimit({
+      scope,
+      businessId: "hee-auth",
+      identity: identity || "unknown",
+      limit,
+      windowSeconds,
+    });
+    return result.allowed;
+  } catch (error) {
+    console.error("[auth] rate_limit_failed", { scope, error });
+    return false;
+  }
 }
 
 export async function registerAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const agreed = String(formData.get("agreed") ?? "off") === "on";
-  if (!agreed) return { error: "يجب الموافقة على الشروط والأحكام أولاً" };
+  if (!agreed) return { error: "يجب الموافقة على الشروط والأحكام وسياسة الخصوصية أولاً" };
 
   const payload = {
     name: String(formData.get("name") ?? "").trim(),
@@ -48,21 +55,37 @@ export async function registerAction(_prevState: ActionState, formData: FormData
 
   const address = await requestAddress();
   if (!(await consumeAuthLimit("register-ip", address, 8, 60 * 60))) {
-    return { error: "تم إنشاء عدد كبير من الحسابات من هذا الاتصال. حاول مرة أخرى لاحقاً." };
+    return { error: "تعذر إكمال التسجيل الآن أو تم إجراء محاولات كثيرة. حاول مرة أخرى لاحقاً." };
   }
 
-  const existing = await db.user.findUnique({ where: { email: parsed.data.email } });
+  const existing = await db.user.findUnique({ where: { email: parsed.data.email }, select: { id: true } });
   if (existing) return { error: "هذا البريد موجود مسبقاً" };
 
   const passwordHash = await hashPassword(parsed.data.password);
-  let user;
+  let user: { id: string };
   try {
-    user = await db.user.create({ data: { name: parsed.data.name, email: parsed.data.email, passwordHash } });
+    user = await db.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { name: parsed.data.name, email: parsed.data.email, passwordHash },
+        select: { id: true },
+      });
+      // Legal acceptance is part of account creation, not an optional follow-up write.
+      // If the audit row cannot be stored, the User creation rolls back as well.
+      await tx.$executeRaw`
+        INSERT INTO "LegalConsent" (
+          "id", "userId", "termsVersion", "privacyVersion", "source", "acceptedAt"
+        ) VALUES (
+          ${randomUUID()}, ${created.id}, ${TERMS_VERSION}, ${PRIVACY_VERSION}, 'password_registration', ${new Date()}
+        )
+      `;
+      return created;
+    });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { error: "هذا البريد موجود مسبقاً" };
     }
-    throw error;
+    console.error("[register] account_creation_failed", error);
+    return { error: "تعذر إنشاء الحساب الآن. حاول مرة أخرى بعد قليل." };
   }
 
   await clearQaAuditSession();
@@ -80,7 +103,7 @@ export async function loginAction(_prevState: ActionState, formData: FormData): 
 
   const address = await requestAddress();
   if (!(await consumeAuthLimit("login-ip", address, 30, 15 * 60))) {
-    return { error: "تمت محاولات تسجيل دخول كثيرة. حاول مرة أخرى بعد قليل." };
+    return { error: "تعذر تسجيل الدخول الآن أو تمت محاولات كثيرة. حاول مرة أخرى بعد قليل." };
   }
 
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });
