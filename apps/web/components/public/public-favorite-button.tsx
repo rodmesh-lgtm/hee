@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 
 type PublicFavoriteButtonProps = {
@@ -17,6 +17,7 @@ type FavoriteEntry = {
 };
 
 const KEY = "hee_public_favorites";
+const FAVORITES_CHANGED_EVENT = "hee:favorites-changed";
 
 function readFavorites() {
   try {
@@ -29,28 +30,40 @@ function readFavorites() {
   }
 }
 
+function subscribeToFavorites(onStoreChange: () => void) {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === KEY) onStoreChange();
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(FAVORITES_CHANGED_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(FAVORITES_CHANGED_EVENT, onStoreChange);
+  };
+}
+
+function writeFavorites(favorites: FavoriteEntry[]) {
+  localStorage.setItem(KEY, JSON.stringify(favorites));
+  window.dispatchEvent(new Event(FAVORITES_CHANGED_EVENT));
+}
+
 export function PublicFavoriteButton({ businessId, businessName, variant = "pill", className = "" }: PublicFavoriteButtonProps) {
-  const [saved, setSaved] = useState(false);
   const [flash, setFlash] = useState(false);
-
-  const label = useMemo(() => (saved ? "تم الحفظ" : "حفظ"), [saved]);
-
-  useEffect(() => {
-    setSaved(readFavorites().some((item) => item.id === businessId));
-  }, [businessId]);
+  const saved = useSyncExternalStore(
+    subscribeToFavorites,
+    () => readFavorites().some((item) => item.id === businessId),
+    () => false,
+  );
 
   const toggleFavorite = () => {
     const favorites = readFavorites();
     if (saved) {
-      const next = favorites.filter((item) => item.id !== businessId);
-      localStorage.setItem(KEY, JSON.stringify(next));
-      setSaved(false);
+      writeFavorites(favorites.filter((item) => item.id !== businessId));
       return;
     }
 
     const next: FavoriteEntry[] = [{ id: businessId, name: businessName, savedAt: new Date().toISOString() }, ...favorites.filter((item) => item.id !== businessId)];
-    localStorage.setItem(KEY, JSON.stringify(next.slice(0, 100)));
-    setSaved(true);
+    writeFavorites(next.slice(0, 100));
     setFlash(true);
     window.setTimeout(() => setFlash(false), 1800);
   };
@@ -66,7 +79,7 @@ export function PublicFavoriteButton({ businessId, businessName, variant = "pill
         className={`${isCircle ? "inline-flex h-11 w-11 items-center justify-center rounded-full" : "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-bold"} border transition-all duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${saved ? "border-amber-400/50 bg-amber-500/15 text-amber-200" : "border-white/15 bg-white/5 text-slate-100"} ${className}`}
       >
         {saved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-        {!isCircle ? <span>{label}</span> : null}
+        {!isCircle ? <span>{saved ? "تم الحفظ" : "حفظ"}</span> : null}
       </button>
       {flash ? <span className="text-xs text-emerald-300">تمت الإضافة للمفضلة</span> : null}
     </div>
