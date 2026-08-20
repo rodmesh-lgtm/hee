@@ -45,12 +45,14 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
   const bookingDialogRef = useRef<HTMLDivElement | null>(null);
   const firstBookingInputRef = useRef<HTMLInputElement | null>(null);
   const bookingOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const submittingRef = useRef(false);
+  submittingRef.current = submitting;
   const bookableServices = useMemo(() => services.filter((service) => service.bookingEnabled && service.name), [services]);
   const canBook = bookingAvailable && hasWorkingHours && bookableServices.length > 0;
   const canRequest = Boolean(whatsapp?.trim() || phone?.trim());
 
   const closeBooking = () => {
-    if (submitting) return;
+    if (submittingRef.current) return;
     setBookingOpen(false);
     setError("");
     setSuccess("");
@@ -69,7 +71,12 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        closeBooking();
+        if (!submittingRef.current) {
+          setBookingOpen(false);
+          setError("");
+          setSuccess("");
+          bookingId.current = null;
+        }
         return;
       }
       if (event.key !== "Tab") return;
@@ -95,17 +102,18 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
       document.body.style.paddingRight = previousPaddingRight;
       bookingOpenerRef.current?.focus();
     };
-  }, [bookingOpen, submitting]);
+  }, [bookingOpen]);
 
   async function submitBooking(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting) return;
+    if (submittingRef.current) return;
     const phoneDigits = values.phone.replace(/\D/g, "");
     if (!values.name.trim() || phoneDigits.length < 8 || phoneDigits.length > 15 || !values.serviceId || !values.bookingDate || !values.bookingTime) {
       setError("أكمل الاسم والجوال والخدمة والتاريخ والوقت.");
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
     setError("");
     try {
@@ -125,6 +133,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     } catch {
       setError("تعذر الاتصال بالخدمة الآن. حاول مرة أخرى.");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
