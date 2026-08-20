@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { CalendarDays, CheckCircle2, Clock3, PackageCheck, Phone, ShoppingBag, UserRound, XCircle } from "lucide-react";
+import { CalendarDays, Clock3, Phone, ShoppingBag } from "lucide-react";
 import { db } from "../../lib/db";
-import { getCurrentUser } from "../../lib/auth";
+import { getOwnedBusinessForRead } from "../../lib/ownership";
 import { updateBookingStatusAction, updateOrderStatusAction } from "../../actions/transactions";
 
 const orderStatusLabel: Record<string, string> = {
@@ -36,10 +36,7 @@ function ActionButton({ id, status, label, action, tone = "primary" }: { id: str
 }
 
 export default async function DashboardInboxPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-
-  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, select: { id: true } });
+  const business = await getOwnedBusinessForRead();
   if (!business) redirect("/onboarding");
 
   const [orders, bookings] = await Promise.all([
