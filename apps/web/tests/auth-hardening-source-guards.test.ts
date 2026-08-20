@@ -32,3 +32,11 @@ test("real runtimes do not authenticate plaintext legacy database sessions", () 
   assert.match(auth, /secure:\s*true/);
   assert.match(auth, /SESSION_COOKIE = "__Host-hee_session"/);
 });
+
+test("sensitive owner and admin pages are private no-store and noindex", () => {
+  const proxy = source("proxy.ts");
+  assert.match(proxy, /pathname\.startsWith\("\/dashboard"\)/);
+  assert.match(proxy, /pathname\.startsWith\("\/admin"\)/);
+  assert.match(proxy, /Cache-Control", "private, no-store, max-age=0"/);
+  assert.match(proxy, /X-Robots-Tag", "noindex, nofollow"/);
+});
