@@ -30,12 +30,6 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["components/public/public-transaction-launcher.tsx"],
-    rules: {
-      "react-hooks/exhaustive-deps": "off",
-    },
-  },
-  {
     files: [
       "app/dashboard/branding/page.tsx",
       "components/dashboard/offer-designer.tsx",
