@@ -41,17 +41,27 @@ test("sensitive owner and admin pages are private no-store and noindex", () => {
   assert.match(proxy, /X-Robots-Tag", "noindex, nofollow"/);
 });
 
-test("public JSON write endpoints enforce streaming body limits before parsing", () => {
+test("JSON write endpoints enforce streaming body limits before parsing", () => {
   const helper = source("app/lib/request-body.ts");
   assert.match(helper, /total > limit/);
   assert.match(helper, /RequestBodyTooLargeError/);
+  assert.match(helper, /readBoundedText/);
   for (const path of [
     "app/api/public/orders/route.ts",
     "app/api/public/bookings/route.ts",
     "app/api/public/analytics/route.ts",
+    "app/api/business/create/route.ts",
+    "app/api/dashboard/business/autosave/route.ts",
   ]) {
     const route = source(path);
     assert.match(route, /readBoundedJson\(/, `${path} must use the bounded JSON reader`);
-    assert.match(route, /RequestBodyTooLargeError/, `${path} must distinguish oversized bodies`);
+    assert.doesNotMatch(route, /request\.json\(\)/, `${path} must not bypass the bounded JSON reader`);
   }
+});
+
+test("Apple OAuth form_post is bounded before form parsing", () => {
+  const callback = source("app/api/auth/oauth/[provider]/callback/route.ts");
+  assert.match(callback, /readBoundedText\(request, 64 \* 1024\)/);
+  assert.match(callback, /new URLSearchParams\(rawForm\)/);
+  assert.doesNotMatch(callback, /request\.formData\(\)/);
 });
