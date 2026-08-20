@@ -4,13 +4,14 @@ import { ensurePersistentStorageReady, readPersistentObject } from "../../../lib
 
 const SAFE_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-async function isPublicImageReference(storageKey: string) {
+function tenantIdFromFolder(folder: string) {
+  const match = folder.match(/^(?:logos|covers|company-profiles)\/([0-9a-f-]{20,64})$/i);
+  return match?.[1] ?? null;
+}
+
+async function publicImageReferenceBusiness(storageKey: string) {
   const url = `/api/storage/${storageKey}`;
-  // Public image access must be granted only by typed, tenant-owned relations.
-  // Legacy/free-form pageModules JSON is deliberately NOT an authorization source:
-  // otherwise a published tenant that learns another object's opaque URL could copy
-  // that URL into arbitrary JSON and make the other tenant's file publicly readable.
-  const directReference = await db.business.findFirst({
+  return db.business.findFirst({
     where: {
       isPublished: true,
       deletedAt: null,
@@ -26,16 +27,14 @@ async function isPublicImageReference(storageKey: string) {
     },
     select: { id: true },
   });
-  return Boolean(directReference);
 }
 
-async function isPublicCompanyProfile(storageKey: string) {
+async function publicCompanyProfileBusiness(storageKey: string, tenantId: string | null) {
   const url = `/api/storage/${storageKey}`;
-  const business = await db.business.findFirst({
-    where: { isPublished: true, deletedAt: null, companyProfileUrl: url },
+  return db.business.findFirst({
+    where: { isPublished: true, deletedAt: null, companyProfileUrl: url, ...(tenantId ? { id: tenantId } : {}) },
     select: { id: true },
   });
-  return Boolean(business);
 }
 
 async function loadAuthorizedBytes(storageKey: string) {
@@ -58,9 +57,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
     select: { id: true, folder: true, fileName: true, mimeType: true, size: true },
   });
   if (!metadata) return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
+  const tenantId = tenantIdFromFolder(metadata.folder);
 
-  if (metadata.folder === "company-profiles" && metadata.mimeType === "application/pdf") {
-    if (!(await isPublicCompanyProfile(metadata.id))) {
+  if ((metadata.folder === "company-profiles" || metadata.folder.startsWith("company-profiles/")) && metadata.mimeType === "application/pdf") {
+    if (!(await publicCompanyProfileBusiness(metadata.id, tenantId))) {
       return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
     }
     const stored = await loadAuthorizedBytes(storageKey);
@@ -79,7 +79,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
     });
   }
 
-  if (!SAFE_IMAGE_MIME.has(metadata.mimeType) || !(await isPublicImageReference(metadata.id))) {
+  if (!SAFE_IMAGE_MIME.has(metadata.mimeType)) return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
+  const referencingBusiness = await publicImageReferenceBusiness(metadata.id);
+  if (!referencingBusiness || (tenantId && referencingBusiness.id !== tenantId)) {
     return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
   }
 
