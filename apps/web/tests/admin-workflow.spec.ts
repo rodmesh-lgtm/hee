@@ -113,6 +113,9 @@ test.describe.serial("platform admin workflow", () => {
     const seeded = await seed();
     try {
       await setSession(page, seeded.adminSessionToken);
+      await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("link", { name: "إدارة المنصة" })).toBeVisible();
+
       await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "إدارة المنصة" })).toBeVisible();
       const businessRow = page.getByRole("row").filter({ hasText: "منشأة عميل لوحة الإدارة" });
@@ -134,6 +137,7 @@ test.describe.serial("platform admin workflow", () => {
 
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page.getByRole("link", { name: "إدارة المنصة" })).toHaveCount(0);
     } finally {
       await cleanup(seeded);
     }
