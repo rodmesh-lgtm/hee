@@ -33,9 +33,9 @@ ALTER TABLE "Order" DROP CONSTRAINT IF EXISTS "Order_total_nonnegative";
 ALTER TABLE "Order" ADD CONSTRAINT "Order_total_nonnegative" CHECK ("total" >= 0);
 
 ALTER TABLE "Booking" DROP CONSTRAINT IF EXISTS "Booking_date_shape";
-ALTER TABLE "Booking" ADD CONSTRAINT "Booking_date_shape" CHECK ("bookingDate" ~ '^\\d{4}-\\d{2}-\\d{2}$');
+ALTER TABLE "Booking" ADD CONSTRAINT "Booking_date_shape" CHECK ("bookingDate" ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 ALTER TABLE "Booking" DROP CONSTRAINT IF EXISTS "Booking_time_shape";
-ALTER TABLE "Booking" ADD CONSTRAINT "Booking_time_shape" CHECK ("bookingTime" ~ '^([01]\\d|2[0-3]):[0-5]\\d$');
+ALTER TABLE "Booking" ADD CONSTRAINT "Booking_time_shape" CHECK ("bookingTime" ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$');
 
 CREATE UNIQUE INDEX IF NOT EXISTS "Booking_active_service_slot_unique"
 ON "Booking" ("businessId", "serviceId", "bookingDate", "bookingTime")
