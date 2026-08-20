@@ -44,6 +44,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
   const bookingId = useRef<string | null>(null);
   const bookableServices = useMemo(() => services.filter((service) => service.bookingEnabled && service.name), [services]);
   const canBook = bookingAvailable && hasWorkingHours && bookableServices.length > 0;
+  const canRequest = Boolean(whatsapp?.trim() || phone?.trim());
 
   const closeBooking = () => {
     if (submitting) return;
@@ -85,13 +86,15 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     }
   }
 
+  if (!canRequest && !canBook) return null;
+
   return <>
     <div dir="rtl" className="fixed inset-x-0 bottom-0 z-[120] mx-auto flex w-full max-w-[580px] gap-2 border-t border-[#ece7f1] bg-white/95 p-3 shadow-[0_-14px_32px_rgba(55,35,70,.08)] backdrop-blur" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-      <button onClick={() => setRequestOpen(true)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#6f3bd2] px-4 text-sm font-black text-white"><MessageCircle className="h-4 w-4" />طلب خدمة</button>
+      {canRequest ? <button onClick={() => setRequestOpen(true)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#6f3bd2] px-4 text-sm font-black text-white"><MessageCircle className="h-4 w-4" />طلب خدمة</button> : null}
       {canBook ? <button onClick={() => setBookingOpen(true)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#dcd5f4] bg-[#f7f4ff] px-4 text-sm font-black text-[#5d49cc]"><CalendarDays className="h-4 w-4" />حجز موعد</button> : null}
     </div>
 
-    <PublicActionDialog open={requestOpen} onClose={() => setRequestOpen(false)} mode="request" businessName={businessName} whatsapp={whatsapp} phone={phone} title="طلب خدمة" description="سنسجل طلبك داخل HEE ثم نجهز التواصل مع المنشأة." ctaLabel="تسجيل الطلب والمتابعة" />
+    {canRequest ? <PublicActionDialog open={requestOpen} onClose={() => setRequestOpen(false)} mode="request" businessName={businessName} whatsapp={whatsapp} phone={phone} title="طلب خدمة" description="سنسجل طلبك داخل HEE ثم نجهز التواصل مع المنشأة." ctaLabel="تسجيل الطلب والمتابعة" /> : null}
 
     {bookingOpen ? <div dir="rtl" className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 p-3" onClick={closeBooking}>
       <div role="dialog" aria-modal="true" aria-label="حجز موعد" className="w-full max-w-[520px] overflow-hidden rounded-[24px] bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
