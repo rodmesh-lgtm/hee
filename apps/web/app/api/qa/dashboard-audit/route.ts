@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createQaAuditOneTimeLink, hasQaAuditRequestAccess, isPreviewQaEnvironment, requireQaAuditAccess } from "../../../lib/qa-audit";
+import { readBoundedJson } from "../../../lib/request-body";
 
 export async function GET(request: Request) {
   if (!isPreviewQaEnvironment()) {
@@ -36,8 +37,8 @@ export async function POST(request: Request) {
 
   let path: string | null = null;
   try {
-    const payload = (await request.json().catch(() => ({}))) as { path?: string };
-    path = typeof payload.path === "string" ? payload.path : null;
+    const payload = (await readBoundedJson(request, 4 * 1024)) as { path?: unknown };
+    path = typeof payload?.path === "string" ? payload.path : null;
   } catch {
     path = null;
   }
