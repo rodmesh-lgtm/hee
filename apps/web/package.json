@@ -14,6 +14,8 @@
     "storage:audit": "tsx scripts/storage-audit.ts",
     "storage:sweep": "tsx scripts/storage-audit.ts --delete",
     "data:retention-audit": "tsx scripts/data-retention-audit.ts",
+    "retention:dry-run": "tsx scripts/prune-expired-operational-data.ts",
+    "retention:apply": "tsx scripts/prune-expired-operational-data.ts --apply",
     "public:transactions-audit": "tsx scripts/public-transactions-audit.ts",
     "backup:audit-seed": "tsx scripts/backup-restore-audit.ts",
     "backup:audit-verify": "tsx scripts/backup-restore-audit.ts --verify"
