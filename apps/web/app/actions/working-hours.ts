@@ -3,15 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
 import { getOwnedBusinessForWrite } from "../lib/ownership";
-
-const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+import { isValidWorkingTime, validateWorkingHoursWindow } from "../lib/working-hours-validation";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
 
 function validOptionalTime(raw: string) {
-  return !raw || timePattern.test(raw);
+  return !raw || isValidWorkingTime(raw);
 }
 
 export async function updateWorkingHoursAction(formData: FormData) {
@@ -29,8 +28,14 @@ export async function updateWorkingHoursAction(formData: FormData) {
 
   for (const row of rows) {
     if (![row.opensAt, row.closesAt, row.secondOpensAt, row.secondClosesAt].every(validOptionalTime)) return;
-    if (!row.isClosed && (!row.opensAt || !row.closesAt)) return;
-    if (Boolean(row.secondOpensAt) !== Boolean(row.secondClosesAt)) return;
+    if (row.isClosed) continue;
+    if (!row.opensAt || !row.closesAt) return;
+    if (!validateWorkingHoursWindow({
+      opensAt: row.opensAt,
+      closesAt: row.closesAt,
+      secondOpensAt: row.secondOpensAt,
+      secondClosesAt: row.secondClosesAt,
+    })) return;
   }
 
   await db.$transaction(rows.map((row) => db.workingHours.upsert({
