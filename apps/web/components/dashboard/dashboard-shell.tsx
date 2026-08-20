@@ -18,6 +18,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard/branding": "المظهر",
   "/dashboard/directory": "الفروع والفريق",
   "/dashboard/services": "الخدمات",
+  "/dashboard/working-hours": "ساعات العمل",
   "/dashboard/analytics": "الأداء",
   "/dashboard/settings": "الحساب والباقات",
 };
