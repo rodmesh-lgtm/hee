@@ -68,6 +68,10 @@ jobs:
         env:
           ALLOW_DATA_RETENTION_AUDIT: "true"
         run: npm run data:retention-audit
+      - name: Verify public transaction guards
+        env:
+          ALLOW_PUBLIC_TRANSACTIONS_AUDIT: "true"
+        run: npm run public:transactions-audit
       - name: Seed backup/restore audit fixture
         env:
           ALLOW_BACKUP_RESTORE_AUDIT_SEED: "true"
