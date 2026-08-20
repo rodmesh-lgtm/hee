@@ -37,9 +37,9 @@ export async function consumePublicWriteLimit(input: {
   limit?: number;
   windowSeconds?: number;
 }) {
-  const identity = normalizeIdentity(input.identity);
-  if (!identity) return { allowed: true, remaining: input.limit ?? 10, retryAfterSeconds: 0 };
-
+  // Empty/missing identities must never bypass throttling. Group them into a conservative
+  // shared bucket so every current and future caller inherits fail-closed behavior.
+  const identity = normalizeIdentity(input.identity) || "unknown";
   const limit = Math.max(1, Math.min(100, Math.floor(input.limit ?? 10)));
   const windowSeconds = Math.max(30, Math.min(24 * 60 * 60, Math.floor(input.windowSeconds ?? 10 * 60)));
   const key = hashKey([input.scope, input.businessId, identity]);
