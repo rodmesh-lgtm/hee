@@ -16,6 +16,11 @@ function riyadhDateKey(offsetDays: number) {
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
+function dayIndexForRiyadhDate(date: string) {
+  const localNoon = new Date(`${date}T12:00:00+03:00`);
+  return (localNoon.getUTCDay() + 6) % 7;
+}
+
 async function seed(): Promise<Seeded> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const plan = await db.businessPlan.upsert({ where: { code: "FREE" }, update: { isActive: true }, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true } });
@@ -138,6 +143,55 @@ test.describe.serial("public transactions workflow", () => {
     } finally {
       await publicPage.close();
       await ownerPage.close();
+      await cleanup(seeded);
+    }
+  });
+
+  test("keeps overnight availability on the starting day and blocks cross-midnight overlap", async ({ request }) => {
+    test.setTimeout(60_000);
+    const seeded = await seed();
+    const overnightDate = riyadhDateKey(2);
+    const followingDate = riyadhDateKey(3);
+    const overnightDay = dayIndexForRiyadhDate(overnightDate);
+
+    try {
+      await db.workingHours.updateMany({
+        where: { businessId: seeded.businessId },
+        data: { isClosed: true, opensAt: null, closesAt: null, secondOpensAt: null, secondClosesAt: null },
+      });
+      await db.workingHours.update({
+        where: { businessId_dayOfWeek: { businessId: seeded.businessId, dayOfWeek: overnightDay } },
+        data: { isClosed: false, opensAt: "20:00", closesAt: "02:00" },
+      });
+
+      const firstId = crypto.randomUUID();
+      const first = await request.post(`${baseUrl}/api/public/bookings`, {
+        headers: { "Idempotency-Key": firstId },
+        data: { slug: seeded.slug, name: "عميل ليلي 1", phone: "0500000101", serviceId: seeded.serviceId, bookingDate: overnightDate, bookingTime: "23:30", requestId: firstId },
+      });
+      expect(first.status()).toBe(201);
+
+      const conflictingId = crypto.randomUUID();
+      const conflicting = await request.post(`${baseUrl}/api/public/bookings`, {
+        headers: { "Idempotency-Key": conflictingId },
+        data: { slug: seeded.slug, name: "عميل ليلي 2", phone: "0500000102", serviceId: seeded.serviceId, bookingDate: followingDate, bookingTime: "00:00", requestId: conflictingId },
+      });
+      expect(conflicting.status()).toBe(409);
+      expect((await conflicting.json()).error).toContain("يتداخل");
+
+      const allowedId = crypto.randomUUID();
+      const allowed = await request.post(`${baseUrl}/api/public/bookings`, {
+        headers: { "Idempotency-Key": allowedId },
+        data: { slug: seeded.slug, name: "عميل ليلي 3", phone: "0500000103", serviceId: seeded.serviceId, bookingDate: followingDate, bookingTime: "01:00", requestId: allowedId },
+      });
+      expect(allowed.status()).toBe(201);
+
+      const stored = await db.booking.findMany({ where: { businessId: seeded.businessId }, orderBy: [{ bookingDate: "asc" }, { bookingTime: "asc" }], select: { bookingDate: true, bookingTime: true } });
+      expect(stored).toEqual([
+        { bookingDate: overnightDate, bookingTime: "23:30" },
+        { bookingDate: followingDate, bookingTime: "01:00" },
+      ]);
+    } finally {
       await cleanup(seeded);
     }
   });
