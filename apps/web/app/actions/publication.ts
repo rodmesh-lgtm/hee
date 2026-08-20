@@ -10,7 +10,12 @@ import { isBusinessSlugReserved } from "../lib/slug-alias";
 
 export type PublicationActionState = { error?: string; success?: string };
 
-export async function publishBusinessAction(_previous: PublicationActionState, _formData: FormData): Promise<PublicationActionState> {
+export async function publishBusinessAction(previous: PublicationActionState, formData: FormData): Promise<PublicationActionState> {
+  // The React action-state contract supplies both arguments even though publication
+  // currently derives all authoritative data from the authenticated server context.
+  void previous;
+  void formData;
+
   const business = await getOwnedBusinessForWrite();
   if (!business) return { error: "لا يوجد نشاط جاهز للنشر" };
   if (!business.name?.trim() || business.name.trim().length < 2) return { error: "اسم النشاط مطلوب قبل النشر" };

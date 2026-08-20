@@ -14,25 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
   ]),
   {
-    files: [
-      "components/public/public-action-dialog.tsx",
-      "components/public/public-favorite-button.tsx",
-      "components/public/public-smart-action-sheet.tsx",
-    ],
+    files: ["components/public/public-action-dialog.tsx"],
     rules: {
       "react-hooks/set-state-in-effect": "off",
-    },
-  },
-  {
-    files: ["app/actions/publication.ts"],
-    rules: {
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
-    },
-  },
-  {
-    files: ["components/public/public-transaction-launcher.tsx"],
-    rules: {
-      "react-hooks/exhaustive-deps": "off",
     },
   },
   {
