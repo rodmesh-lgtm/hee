@@ -86,7 +86,7 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
     db.businessPlan.findMany({ where: { isActive: true }, select: { code: true } }),
   ]);
 
-  const total = Number(countRows[0]?.count ?? 0n);
+  const total = Number(countRows[0]?.count ?? BigInt(0));
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const activePlans = new Set(plans.map((plan) => plan.code));
 
