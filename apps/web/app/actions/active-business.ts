@@ -7,6 +7,13 @@ import { getCurrentUserForWrites } from "../lib/auth";
 import { ACTIVE_BUSINESS_COOKIE } from "../lib/active-business";
 import { db } from "../lib/db";
 
+function activeBusinessCookieSecure() {
+  // CI exercises the production build over local HTTP. The only environment allowed
+  // to relax Secure is the explicit test environment; every real production runtime
+  // keeps this tenant-selection cookie HTTPS-only.
+  return process.env.NODE_ENV === "production" && process.env.APP_ENV !== "test";
+}
+
 export async function switchActiveBusinessAction(formData: FormData) {
   const user = await getCurrentUserForWrites();
   const businessId = String(formData.get("businessId") ?? "").trim();
@@ -21,7 +28,7 @@ export async function switchActiveBusinessAction(formData: FormData) {
   const jar = await cookies();
   jar.set(ACTIVE_BUSINESS_COOKIE, owned.id, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: activeBusinessCookieSecure(),
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
