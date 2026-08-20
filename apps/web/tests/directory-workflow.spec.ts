@@ -85,8 +85,12 @@ test.describe.serial("HEE directory workflow", () => {
       await expect(page.getByText("فرع جدة الرئيسي")).toBeVisible();
       await page.getByRole("button", { name: /فريق العمل/ }).click();
       await expect(page.getByText("مسؤول مبيعات جدة")).toBeVisible();
-      await expect(page.getByText("مسؤول مبيعات")).toBeVisible();
+      await expect(page.getByText("مسؤول مبيعات", { exact: true })).toBeVisible();
     } finally {
+      // Stop the public page before deleting its test fixture. The page can emit analytics
+      // asynchronously; leaving it open creates a race where a fresh event appears between
+      // deleteMany() and the RESTRICT-protected Business delete.
+      if (!page.isClosed()) await page.close();
       await db.analyticsEvent.deleteMany({ where: { businessId: business.id } });
       await db.contactPerson.deleteMany({ where: { businessId: business.id } });
       await db.branch.deleteMany({ where: { businessId: business.id } });
