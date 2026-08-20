@@ -15,6 +15,8 @@ type BookingPayload = {
   requestId?: unknown;
 };
 
+type Schedule = { opensAt: string | null; closesAt: string | null; secondOpensAt: string | null; secondClosesAt: string | null; isClosed: boolean };
+
 function text(value: unknown, max: number) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized.length <= max ? normalized : null;
@@ -51,16 +53,33 @@ function minutes(time: string) {
   return hour * 60 + minute;
 }
 
-function timeWithinWorkingHours(time: string, schedule: { opensAt: string | null; closesAt: string | null; secondOpensAt: string | null; secondClosesAt: string | null; isClosed: boolean } | null) {
-  if (!schedule) return true;
-  if (schedule.isClosed) return false;
-  const target = minutes(time);
-  const inside = (start: string | null, end: string | null) => {
-    if (!start || !end) return false;
-    const from = minutes(start), to = minutes(end);
-    return from <= to ? target >= from && target <= to : target >= from || target <= to;
-  };
-  return inside(schedule.opensAt, schedule.closesAt) || inside(schedule.secondOpensAt, schedule.secondClosesAt);
+function normalizedDuration(value: number | null) {
+  if (!Number.isInteger(value) || !value || value < 5 || value > 1440) return 30;
+  return value;
+}
+
+function intervalInside(startMinute: number, durationMinutes: number, open: string | null, close: string | null) {
+  if (!open || !close) return false;
+  const windowStart = minutes(open);
+  let windowEnd = minutes(close);
+  let targetStart = startMinute;
+  let targetEnd = targetStart + durationMinutes;
+  if (windowEnd <= windowStart) windowEnd += 1440;
+  if (targetStart < windowStart && windowEnd > 1440) {
+    targetStart += 1440;
+    targetEnd += 1440;
+  }
+  return targetStart >= windowStart && targetEnd <= windowEnd;
+}
+
+function bookingWithinWorkingHours(time: string, durationMinutes: number, schedule: Schedule | null) {
+  if (!schedule || schedule.isClosed) return false;
+  const start = minutes(time);
+  return intervalInside(start, durationMinutes, schedule.opensAt, schedule.closesAt) || intervalInside(start, durationMinutes, schedule.secondOpensAt, schedule.secondClosesAt);
+}
+
+function overlaps(startA: number, durationA: number, startB: number, durationB: number) {
+  return startA < startB + durationB && startB < startA + durationA;
 }
 
 export async function POST(request: Request) {
@@ -103,9 +122,10 @@ export async function POST(request: Request) {
 
   const service = await db.service.findFirst({
     where: { id: serviceId, businessId: business.id, isActive: true, bookingEnabled: true, deletedAt: null },
-    select: { id: true, name: true },
+    select: { id: true, name: true, durationMinutes: true },
   });
   if (!service) return NextResponse.json({ ok: false, error: "الخدمة غير متاحة للحجز" }, { status: 409 });
+  const durationMinutes = normalizedDuration(service.durationMinutes);
 
   const localNoon = new Date(`${bookingDate}T12:00:00+03:00`);
   const dayOfWeek = (localNoon.getUTCDay() + 6) % 7;
@@ -113,8 +133,9 @@ export async function POST(request: Request) {
     where: { businessId_dayOfWeek: { businessId: business.id, dayOfWeek } },
     select: { opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
   });
-  if (!timeWithinWorkingHours(bookingTime, schedule)) {
-    return NextResponse.json({ ok: false, error: "الموعد خارج ساعات العمل" }, { status: 409 });
+  if (!schedule) return NextResponse.json({ ok: false, error: "لم يتم ضبط ساعات العمل لهذا اليوم" }, { status: 409 });
+  if (!bookingWithinWorkingHours(bookingTime, durationMinutes, schedule)) {
+    return NextResponse.json({ ok: false, error: "مدة الخدمة لا تقع بالكامل داخل ساعات العمل" }, { status: 409 });
   }
 
   try {
@@ -142,12 +163,16 @@ export async function POST(request: Request) {
       `;
       if (previous[0]?.targetId) return { id: previous[0].targetId, replayed: true };
 
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-slot:${business.id}:${serviceId}:${bookingDate}:${bookingTime}`}))`;
-      const existingSlot = await tx.booking.findFirst({
-        where: { businessId: business.id, serviceId, bookingDate, bookingTime, status: { in: ["pending", "confirmed"] } },
-        select: { id: true },
+      // Serialize all bookings for this service/day so overlapping starts cannot race each other.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-day:${business.id}:${serviceId}:${bookingDate}`}))`;
+      const existingBookings = await tx.booking.findMany({
+        where: { businessId: business.id, serviceId, bookingDate, status: { in: ["pending", "confirmed"] } },
+        select: { id: true, bookingTime: true },
       });
-      if (existingSlot) throw new Error("PUBLIC_BOOKING_SLOT_TAKEN");
+      const requestedStart = minutes(bookingTime);
+      if (existingBookings.some((item) => overlaps(requestedStart, durationMinutes, minutes(item.bookingTime), durationMinutes))) {
+        throw new Error("PUBLIC_BOOKING_SLOT_TAKEN");
+      }
 
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`customer:${business.id}:${phone}`}))`;
       let customer = await tx.customer.findFirst({
@@ -183,7 +208,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, bookingId: result.id, replayed: result.replayed }, { status: result.replayed ? 200 : 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_SLOT_TAKEN") {
-      return NextResponse.json({ ok: false, error: "هذا الموعد محجوز بالفعل" }, { status: 409 });
+      return NextResponse.json({ ok: false, error: "هذا الوقت يتداخل مع حجز قائم للخدمة" }, { status: 409 });
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ ok: false, error: "هذا الموعد محجوز بالفعل" }, { status: 409 });
