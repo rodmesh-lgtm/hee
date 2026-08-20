@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertCircle, Building2, CheckCircle2, Eye, Pencil, Plus, Save, UsersRound } from "lucide-react";
 import { getCurrentUser } from "../../lib/auth";
+import { getActiveBusinessForUser } from "../../lib/active-business";
 import { db } from "../../lib/db";
 import { formatPlanLimit, getPlanEntitlements, limitReached } from "../../lib/plan-entitlements";
 import { createBranchAction, createContactPersonAction, deleteBranchAction, deleteContactPersonAction, updateBranchAction, updateContactPersonAction } from "../../actions/directory";
@@ -35,8 +36,10 @@ export default async function DirectoryPage({ searchParams }: { searchParams?: P
   const statusKey = Array.isArray(params?.status) ? params.status[0] : params?.status;
   const status = statusKey ? STATUS_MESSAGES[statusKey] : null;
 
+  const activeBusiness = await getActiveBusinessForUser(user.id);
+  if (!activeBusiness) redirect("/onboarding");
   const business = await db.business.findFirst({
-    where: { ownerId: user.id, deletedAt: null },
+    where: { id: activeBusiness.id, ownerId: user.id, deletedAt: null },
     include: {
       plan: true,
       branches: { orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] },
