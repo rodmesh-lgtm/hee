@@ -68,6 +68,8 @@ jobs:
         env:
           ALLOW_DATA_RETENTION_AUDIT: "true"
         run: npm run data:retention-audit
+      - name: Verify retention pruning dry run
+        run: npm run retention:dry-run
       - name: Verify public transaction guards
         env:
           ALLOW_PUBLIC_TRANSACTIONS_AUDIT: "true"
