@@ -12,7 +12,7 @@ import {
   type OAuthProvider,
 } from "../../../../../lib/oauth";
 import { clearQaAuditSession } from "../../../../../lib/qa-audit";
-import { readBoundedText, RequestBodyTooLargeError } from "../../../../../lib/request-body";
+import { readBoundedText } from "../../../../../lib/request-body";
 
 function asProvider(value: string): OAuthProvider | null {
   return value === "google" || value === "apple" ? value : null;
@@ -102,8 +102,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   let rawForm: string;
   try {
     rawForm = await readBoundedText(request, 64 * 1024);
-  } catch (error) {
-    return errorRedirect(request, error instanceof RequestBodyTooLargeError ? "invalid-callback" : "invalid-callback");
+  } catch {
+    return errorRedirect(request, "invalid-callback");
   }
   const form = new URLSearchParams(rawForm);
   if (String(form.get("error") ?? "")) return errorRedirect(request, "provider-cancelled");
