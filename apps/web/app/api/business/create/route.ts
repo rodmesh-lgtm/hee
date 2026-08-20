@@ -8,6 +8,7 @@ import { businessSchema } from "../../../lib/validation";
 import { isValidPublicSlug, normalizePublicSlug } from "../../../lib/public-url";
 import { getPlanEntitlements } from "../../../lib/plan-entitlements";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
+import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
 
 async function ensureBusinessPlan(code: "FREE" | "BUSINESS" | "PRO") {
   const planNameMap = { FREE: "Free", BUSINESS: "Business", PRO: "Pro" } as const;
@@ -46,8 +47,13 @@ export async function POST(request: Request) {
   }
 
   let body: CreateBusinessPayload;
-  try { body = (await request.json()) as CreateBusinessPayload; }
-  catch { return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 }); }
+  try { body = (await readBoundedJson(request, 64 * 1024)) as CreateBusinessPayload; }
+  catch (error) {
+    return NextResponse.json(
+      { error: error instanceof RequestBodyTooLargeError ? "حجم بيانات النشاط أكبر من المسموح" : "بيانات غير صالحة" },
+      { status: error instanceof RequestBodyTooLargeError ? 413 : 400 },
+    );
+  }
 
   const requestedSlug = normalizePublicSlug(normalize(body.slug));
   const initialSlug = requestedSlug || generatedPublicSlug();
