@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { compare, hash } from "bcryptjs";
@@ -9,29 +9,33 @@ const SESSION_COOKIE = "__Host-hee_session";
 const LEGACY_SESSION_COOKIE = "hee_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const QA_TOKEN_PREFIX = "hee_qa_audit_";
+const NORMAL_SESSION_STORAGE_PREFIX = "hee_session_sha256:";
 
-function newSessionToken() {
-  return randomBytes(32).toString("base64url");
+function newSessionToken() { return randomBytes(32).toString("base64url"); }
+function sessionStorageToken(rawToken: string) {
+  return `${NORMAL_SESSION_STORAGE_PREFIX}${createHash("sha256").update(rawToken).digest("hex")}`;
 }
+function looksLikeStoredSessionToken(value: string) { return value.startsWith(NORMAL_SESSION_STORAGE_PREFIX); }
 
-export async function hashPassword(password: string) {
-  return hash(password, 10);
-}
-
-export async function verifyPassword(password: string, passwordHash: string) {
-  return compare(password, passwordHash);
-}
+export async function hashPassword(password: string) { return hash(password, 10); }
+export async function verifyPassword(password: string, passwordHash: string) { return compare(password, passwordHash); }
 
 export async function createSession(userId: string) {
   const cookieStore = await cookies();
   const previousToken = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
   const token = newSessionToken();
+  const storedToken = sessionStorageToken(token);
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
   await db.$transaction(async (tx) => {
-    if (previousToken && !previousToken.startsWith(QA_TOKEN_PREFIX)) await tx.session.deleteMany({ where: { token: previousToken } });
+    if (previousToken && !previousToken.startsWith(QA_TOKEN_PREFIX)) {
+      const candidates = looksLikeStoredSessionToken(previousToken)
+        ? [previousToken]
+        : [previousToken, sessionStorageToken(previousToken)];
+      await tx.session.deleteMany({ where: { token: { in: candidates } } });
+    }
     await tx.session.deleteMany({ where: { userId, expiresAt: { lt: new Date() } } });
-    await tx.session.create({ data: { token, userId, expiresAt } });
+    await tx.session.create({ data: { token: storedToken, userId, expiresAt } });
   });
 
   cookieStore.set(SESSION_COOKIE, token, {
@@ -41,9 +45,7 @@ export async function createSession(userId: string) {
     path: "/",
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
   });
-  // Remove the pre-hardening cookie so browsers cannot carry two session authorities.
   cookieStore.delete(LEGACY_SESSION_COOKIE);
-
   return token;
 }
 
@@ -51,18 +53,23 @@ export async function getCurrentUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
 
-  // QA preview tokens live in the same backing Session table for operational simplicity,
-  // but they are a separate trust domain. Never authenticate a QA token from the ordinary
-  // customer session cookie, even if a token is copied between cookies manually.
-  if (token && !token.startsWith(QA_TOKEN_PREFIX)) {
-    const session = await db.session.findUnique({ where: { token }, include: { user: true } });
+  if (token && !token.startsWith(QA_TOKEN_PREFIX) && !looksLikeStoredSessionToken(token)) {
+    // New sessions store only SHA-256(token) in the database, so a database read alone
+    // cannot be replayed as an authenticated browser cookie. Legacy plaintext rows remain
+    // readable during the transition and disappear naturally on login/logout/expiry.
+    const hashedToken = sessionStorageToken(token);
+    let session = await db.session.findUnique({ where: { token: hashedToken }, include: { user: true } });
+    let legacy = false;
+    if (!session) {
+      session = await db.session.findUnique({ where: { token }, include: { user: true } });
+      legacy = Boolean(session);
+    }
     if (session && session.expiresAt >= new Date() && !session.user.deletedAt) return session.user;
 
-    // getCurrentUser is called from Server Components as well as actions. Next.js
-    // does not allow mutating response cookies from a Server Component render.
-    // Clean invalid/stale database rows best-effort and leave cookie replacement/removal
-    // to the next explicit login/logout response instead of turning expiry into a 500.
-    if (session) await db.session.deleteMany({ where: { token } }).catch(() => undefined);
+    if (session) {
+      const stored = legacy ? token : hashedToken;
+      await db.session.deleteMany({ where: { token: stored } }).catch(() => undefined);
+    }
   }
 
   return getQaAuditSessionUser();
@@ -84,7 +91,10 @@ export async function getCurrentUserForWrites() {
 export async function logoutSession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
-  if (token && !token.startsWith(QA_TOKEN_PREFIX)) await db.session.deleteMany({ where: { token } });
+  if (token && !token.startsWith(QA_TOKEN_PREFIX)) {
+    const candidates = looksLikeStoredSessionToken(token) ? [token] : [token, sessionStorageToken(token)];
+    await db.session.deleteMany({ where: { token: { in: candidates } } });
+  }
   cookieStore.delete(SESSION_COOKIE);
   cookieStore.delete(LEGACY_SESSION_COOKIE);
   await clearQaAuditSession();
