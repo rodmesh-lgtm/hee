@@ -126,8 +126,11 @@ test.describe.serial("platform admin workflow", () => {
       await businessRow.getByRole("link", { name: "التفاصيل" }).click();
       await expect(page.getByRole("heading", { name: "منشأة عميل لوحة الإدارة" })).toBeVisible();
       await expect(page.getByText("RC Customer Owner", { exact: true })).toBeVisible();
-      await expect(page.getByText("عميل نهائي تجريبي", { exact: true })).toBeVisible();
-      await expect(page.getByText("استشارة إدارية", { exact: true })).toBeVisible();
+      const ordersSection = page.getByRole("heading", { name: "آخر الطلبات" }).locator("..");
+      const bookingsSection = page.getByRole("heading", { name: "آخر الحجوزات" }).locator("..");
+      await expect(ordersSection.getByText("عميل نهائي تجريبي", { exact: true })).toBeVisible();
+      await expect(bookingsSection.getByText("عميل نهائي تجريبي", { exact: true })).toBeVisible();
+      await expect(bookingsSection.getByText("استشارة إدارية", { exact: true })).toBeVisible();
       await expect(page.getByRole("link", { name: /فتح الصفحة العامة/ })).toHaveAttribute("href", `/${seeded.slug}`);
 
       await setSession(page, seeded.ownerSessionToken);
