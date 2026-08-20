@@ -1,6 +1,12 @@
 import { PublicBusinessPageV10Light } from "../../components/public-business-page-v10-light";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 type DemoBusiness = Parameters<typeof PublicBusinessPageV10Light>[0]["business"];
 
