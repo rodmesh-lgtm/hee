@@ -1,19 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Clock3 } from "lucide-react";
-import { getCurrentUser } from "../../lib/auth";
 import { db } from "../../lib/db";
+import { getOwnedBusinessForRead } from "../../lib/ownership";
 import { updateWorkingHoursAction } from "../../actions/working-hours";
 
 const days = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"];
 
 export default async function DashboardWorkingHoursPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
   const params = searchParams ? await searchParams : {};
   const saved = params.saved === "1";
   const error = Array.isArray(params.error) ? params.error[0] : params.error;
-  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, select: { id: true, openingHours: { orderBy: { dayOfWeek: "asc" } } } });
+  const activeBusiness = await getOwnedBusinessForRead();
+  if (!activeBusiness) redirect("/onboarding");
+  const business = await db.business.findFirst({ where: { id: activeBusiness.id, ownerId: activeBusiness.ownerId, deletedAt: null }, select: { id: true, openingHours: { orderBy: { dayOfWeek: "asc" } } } });
   if (!business) redirect("/onboarding");
 
   const byDay = new Map(business.openingHours.map((item) => [item.dayOfWeek, item]));
