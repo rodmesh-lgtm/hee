@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CalendarClock, Plus, Trash2 } from "lucide-react";
-import { getCurrentUser } from "../../lib/auth";
 import { db } from "../../lib/db";
+import { getOwnedBusinessForRead } from "../../lib/ownership";
 import { addSimpleServiceAction, deleteSimpleServiceAction, updateBookingAvailabilityAction, updateSimpleServiceAction } from "../../actions/services";
 
 export default async function DashboardServicesPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const activeBusiness = await getOwnedBusinessForRead();
+  if (!activeBusiness) redirect("/onboarding");
   const business = await db.business.findFirst({
-    where: { ownerId: user.id, deletedAt: null },
+    where: { id: activeBusiness.id, ownerId: activeBusiness.ownerId, deletedAt: null },
     include: { services: { where: { deletedAt: null }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
   });
   if (!business) redirect("/onboarding");
