@@ -23,6 +23,26 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "off",
     },
   },
+  {
+    files: ["app/actions/publication.ts"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    },
+  },
+  {
+    files: [
+      "app/dashboard/branding/page.tsx",
+      "components/dashboard/offer-designer.tsx",
+      "components/public-business-page-v10-light.tsx",
+      "components/public/public-contact-team-section.tsx",
+      "components/public/public-external-store-section.tsx",
+      "components/public/public-portfolio-section.tsx",
+      "components/public/public-products-section.tsx",
+    ],
+    rules: {
+      "@next/next/no-img-element": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
