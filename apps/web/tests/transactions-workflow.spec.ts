@@ -84,13 +84,24 @@ test.describe.serial("public transactions workflow", () => {
 
     try {
       await publicPage.goto(`${baseUrl}/${seeded.slug}`, { waitUntil: "domcontentloaded" });
-      await expect(publicPage.getByRole("button", { name: "طلب خدمة" })).toBeVisible();
+      const requestButton = publicPage.getByRole("button", { name: "طلب خدمة" });
+      await expect(requestButton).toBeVisible();
+      await requestButton.click();
+      const requestDialog = publicPage.getByRole("dialog", { name: "طلب خدمة" });
+      await expect(requestDialog).toBeVisible();
+      await expect(requestDialog.getByLabel("الاسم")).toBeFocused();
+      expect(await publicPage.evaluate(() => document.body.style.overflow)).toBe("hidden");
+      await publicPage.keyboard.press("Escape");
+      await expect(requestDialog).toBeHidden();
+      expect(await publicPage.evaluate(() => document.body.style.overflow)).toBe("");
+      await expect(requestButton).toBeFocused();
+
       const bookingButton = publicPage.getByRole("button", { name: "حجز موعد" });
       await expect(bookingButton).toBeVisible();
       await bookingButton.click();
       const bookingDialog = publicPage.getByRole("dialog", { name: "حجز موعد" });
       await expect(bookingDialog).toBeVisible();
-      await expect(publicPage.getByLabel("الاسم")).toBeFocused();
+      await expect(bookingDialog.getByLabel("الاسم")).toBeFocused();
       expect(await publicPage.evaluate(() => document.body.style.overflow)).toBe("hidden");
 
       await publicPage.keyboard.press("Escape");
@@ -101,12 +112,12 @@ test.describe.serial("public transactions workflow", () => {
       await bookingButton.click();
       await expect(bookingDialog).toBeVisible();
       const tomorrow = riyadhDateKey(1);
-      await publicPage.getByLabel("الاسم").fill("عميل اختبار");
-      await publicPage.getByLabel("رقم الجوال").fill("0500000011");
-      await publicPage.getByLabel("الخدمة").selectOption(seeded.serviceId);
-      await publicPage.getByLabel("التاريخ").fill(tomorrow);
-      await publicPage.getByLabel("الوقت").fill("10:00");
-      await publicPage.getByRole("button", { name: "تأكيد الحجز" }).click();
+      await bookingDialog.getByLabel("الاسم").fill("عميل اختبار");
+      await bookingDialog.getByLabel("رقم الجوال").fill("0500000011");
+      await bookingDialog.getByLabel("الخدمة").selectOption(seeded.serviceId);
+      await bookingDialog.getByLabel("التاريخ").fill(tomorrow);
+      await bookingDialog.getByLabel("الوقت").fill("10:00");
+      await bookingDialog.getByRole("button", { name: "تأكيد الحجز" }).click();
       await expect(publicPage.getByText("تم تسجيل الحجز بنجاح وسيظهر مباشرة لدى المنشأة.")).toBeVisible({ timeout: 20_000 });
 
       const booking = await expect.poll(async () => db.booking.findFirst({ where: { businessId: seeded.businessId }, select: { id: true, status: true, bookingDate: true, bookingTime: true } }), { timeout: 20_000 }).not.toBeNull();
