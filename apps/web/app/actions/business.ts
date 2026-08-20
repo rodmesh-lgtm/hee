@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
 import { getCurrentUserForWrites } from "../lib/auth";
+import { getActiveBusinessForUser } from "../lib/active-business";
 import { getPersistentStorageAdapter } from "../lib/storage";
 import { removePersistentUrl, removeReplacedPersistentUrl } from "../lib/storage-lifecycle";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
@@ -50,7 +51,7 @@ export async function updateBusinessBrandingImagesAction(_prevState: ActionState
   const user = await getCurrentUserForWrites();
   if (!user) return { error: "وضع المعاينة QA للقراءة فقط" };
 
-  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, select: { id: true, slug: true } });
+  const business = await getActiveBusinessForUser(user.id);
   if (!business) return { error: "لا يوجد نشاط مرتبط بهذا الحساب" };
 
   try {
