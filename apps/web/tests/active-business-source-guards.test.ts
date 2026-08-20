@@ -54,3 +54,13 @@ test("active business cookie is never trusted without an owner-bound database lo
   assert.match(switchAction, /httpOnly:\s*true/);
   assert.match(switchAction, /sameSite:\s*"lax"/);
 });
+
+test("active business cookie stays Secure in every real production runtime", () => {
+  const switchAction = source("app/actions/active-business.ts");
+  assert.match(
+    switchAction,
+    /process\.env\.NODE_ENV\s*===\s*"production"\s*&&\s*process\.env\.APP_ENV\s*!==\s*"test"/,
+    "Only the explicit CI test environment may relax Secure for local HTTP integration tests",
+  );
+  assert.match(switchAction, /secure:\s*activeBusinessCookieSecure\(\)/);
+});
