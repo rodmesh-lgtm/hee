@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 import { normalizePublicSlug } from "../../../lib/public-url";
+import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
 import { bookingIntervalsOverlap, bookingMinutes, bookingWithinPreviousOvernightWorkingHours, bookingWithinWorkingHours, normalizedBookingDuration } from "../../../lib/booking-time";
 
 type BookingPayload = {
@@ -67,9 +68,12 @@ function shiftBookingDate(date: string, days: number) {
 export async function POST(request: Request) {
   let body: BookingPayload;
   try {
-    body = (await request.json()) as BookingPayload;
-  } catch {
-    return NextResponse.json({ ok: false, error: "بيانات غير صالحة" }, { status: 400 });
+    body = (await readBoundedJson(request, 64 * 1024)) as BookingPayload;
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error instanceof RequestBodyTooLargeError ? "حجم الحجز أكبر من المسموح" : "بيانات غير صالحة" },
+      { status: error instanceof RequestBodyTooLargeError ? 413 : 400 },
+    );
   }
 
   const slug = normalizePublicSlug(String(body.slug ?? ""));
