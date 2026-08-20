@@ -20,8 +20,23 @@ async function seed() {
   const business = await db.business.create({
     data: { ownerId: user.id, name: "Backup Restore Audit Business", slug: marker, businessType: "audit", shortDescription: "durable-marker" },
   });
-  await db.service.create({ data: { businessId: business.id, name: "Backup Restore Service", description: "retained-service-marker", price: 321 } });
+  const service = await db.service.create({ data: { businessId: business.id, name: "Backup Restore Service", description: "retained-service-marker", price: 321, durationMinutes: 75 } });
   await db.branch.create({ data: { businessId: business.id, name: "Backup Restore Branch", city: "Riyadh", isMain: true } });
+  const customer = await db.customer.create({ data: { businessId: business.id, name: "Backup Restore Customer", phone: "0555123456" } });
+  const booking = await db.booking.create({
+    data: {
+      businessId: business.id,
+      customerId: customer.id,
+      serviceId: service.id,
+      bookingDate: "2099-12-30",
+      bookingTime: "14:15",
+      status: "confirmed",
+    },
+  });
+  await db.$executeRaw`
+    INSERT INTO "BookingDurationSnapshot" ("bookingId", "durationMinutes")
+    VALUES (${booking.id}, 75)
+  `;
   const stored = await db.storedObject.create({
     data: {
       objectKey: `logos/${marker}.png`,
@@ -38,12 +53,19 @@ async function seed() {
 }
 
 async function verify() {
-  const user = await db.user.findUnique({ where: { email: `${marker}@hee.test` }, include: { businesses: { include: { services: true, branches: true } } } });
+  const user = await db.user.findUnique({ where: { email: `${marker}@hee.test` }, include: { businesses: { include: { services: true, branches: true, bookings: true } } } });
   const business = user?.businesses.find((item) => item.slug === marker);
   if (!business) throw new Error("Restored business fixture is missing");
   if (business.shortDescription !== "durable-marker") throw new Error("Restored business content does not match");
-  if (!business.services.some((service) => service.description === "retained-service-marker" && service.price === 321)) throw new Error("Restored service data is missing or changed");
+  if (!business.services.some((service) => service.description === "retained-service-marker" && service.price === 321 && service.durationMinutes === 75)) throw new Error("Restored service data is missing or changed");
   if (!business.branches.some((branch) => branch.name === "Backup Restore Branch" && branch.isMain)) throw new Error("Restored branch data is missing or changed");
+
+  const booking = business.bookings.find((item) => item.bookingDate === "2099-12-30" && item.bookingTime === "14:15" && item.status === "confirmed");
+  if (!booking) throw new Error("Restored booking fixture is missing or changed");
+  const durationRows = await db.$queryRaw<Array<{ durationMinutes: number }>>`
+    SELECT "durationMinutes" FROM "BookingDurationSnapshot" WHERE "bookingId" = ${booking.id}
+  `;
+  if (durationRows[0]?.durationMinutes !== 75) throw new Error("Restored booking duration snapshot is missing or changed");
 
   const storageId = String(business.logoUrl ?? "").split("/api/storage/")[1] ?? "";
   if (!storageId) throw new Error("Restored business lost its file reference");
