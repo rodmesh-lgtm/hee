@@ -1,5 +1,3 @@
-import "server-only";
-
 export class RequestBodyTooLargeError extends Error {
   constructor() {
     super("request-body-too-large");
