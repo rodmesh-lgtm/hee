@@ -9,16 +9,20 @@ import { consumePublicWriteLimit } from "../lib/rate-limit";
 
 export type ActionState = { error?: string; success?: string };
 
-async function uploadBusinessImage(file: File, folder: string) {
-  if (file.size === 0) return "";
-  return (await getPersistentStorageAdapter().upload({ file, folder })).url;
+function tenantFolder(folder: "logos" | "covers", businessId: string) {
+  return `${folder}/${businessId}`;
 }
 
-async function cleanupUploadedBusinessImages(logoUrl?: string, coverUrl?: string) {
+async function uploadBusinessImage(file: File, folder: "logos" | "covers", businessId: string) {
+  if (file.size === 0) return "";
+  return (await getPersistentStorageAdapter().upload({ file, folder: tenantFolder(folder, businessId) })).url;
+}
+
+async function cleanupUploadedBusinessImages(businessId: string, logoUrl?: string, coverUrl?: string) {
   try {
     await Promise.all([
-      removePersistentUrl(logoUrl, "logos"),
-      removePersistentUrl(coverUrl, "covers"),
+      removePersistentUrl(logoUrl, tenantFolder("logos", businessId)),
+      removePersistentUrl(coverUrl, tenantFolder("covers", businessId)),
     ]);
   } catch (error) {
     console.error("Failed to clean uncommitted business images", error);
@@ -26,13 +30,16 @@ async function cleanupUploadedBusinessImages(logoUrl?: string, coverUrl?: string
 }
 
 async function cleanupReplacedBusinessImages(
+  businessId: string,
   previous: { logoUrl?: string | null; coverUrl?: string | null } | null | undefined,
   next: { logoUrl?: string | null; coverUrl?: string | null },
 ) {
   try {
+    // Only remove objects from this tenant's namespace. Legacy pre-namespace files are
+    // intentionally left for the guarded orphan audit rather than risking cross-tenant deletion.
     await Promise.all([
-      removeReplacedPersistentUrl(previous?.logoUrl, next.logoUrl, "logos"),
-      removeReplacedPersistentUrl(previous?.coverUrl, next.coverUrl, "covers"),
+      removeReplacedPersistentUrl(previous?.logoUrl, next.logoUrl, tenantFolder("logos", businessId)),
+      removeReplacedPersistentUrl(previous?.coverUrl, next.coverUrl, tenantFolder("covers", businessId)),
     ]);
   } catch (error) {
     console.error("Failed to clean replaced business images", error);
@@ -59,10 +66,10 @@ export async function updateBusinessBrandingImagesAction(_prevState: ActionState
   const nextData: { logoUrl?: string; coverUrl?: string } = {};
 
   try {
-    if (logoFile instanceof File && logoFile.size > 0) nextData.logoUrl = await uploadBusinessImage(logoFile, "logos");
-    if (coverFile instanceof File && coverFile.size > 0) nextData.coverUrl = await uploadBusinessImage(coverFile, "covers");
+    if (logoFile instanceof File && logoFile.size > 0) nextData.logoUrl = await uploadBusinessImage(logoFile, "logos", business.id);
+    if (coverFile instanceof File && coverFile.size > 0) nextData.coverUrl = await uploadBusinessImage(coverFile, "covers", business.id);
   } catch (error) {
-    await cleanupUploadedBusinessImages(nextData.logoUrl, nextData.coverUrl);
+    await cleanupUploadedBusinessImages(business.id, nextData.logoUrl, nextData.coverUrl);
     return { error: error instanceof Error ? error.message : "تعذر رفع الصور" };
   }
 
@@ -85,17 +92,17 @@ export async function updateBusinessBrandingImagesAction(_prevState: ActionState
       return current;
     });
     if (!result) {
-      await cleanupUploadedBusinessImages(nextData.logoUrl, nextData.coverUrl);
+      await cleanupUploadedBusinessImages(business.id, nextData.logoUrl, nextData.coverUrl);
       return { error: "تعذر العثور على النشاط أو لم يعد متاحاً للتعديل" };
     }
     previous = result;
   } catch (error) {
     console.error("[branding-images] write_failed", { businessId: business.id, error });
-    await cleanupUploadedBusinessImages(nextData.logoUrl, nextData.coverUrl);
+    await cleanupUploadedBusinessImages(business.id, nextData.logoUrl, nextData.coverUrl);
     return { error: "تعذر حفظ صور الهوية. يرجى المحاولة مرة أخرى." };
   }
 
-  await cleanupReplacedBusinessImages(previous, {
+  await cleanupReplacedBusinessImages(business.id, previous, {
     logoUrl: nextData.logoUrl ?? previous.logoUrl,
     coverUrl: nextData.coverUrl ?? previous.coverUrl,
   });
