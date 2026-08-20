@@ -5,60 +5,24 @@ import { Pool } from "pg";
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 
-type Seeded = {
-  ownerId: string;
-  attackerId: string;
-  sessionToken: string;
-  businessAId: string;
-  businessBId: string;
-  attackerBusinessId: string;
-  serviceAId: string;
-  serviceBId: string;
-};
-
+type Seeded = { ownerId: string; attackerId: string; sessionToken: string; businessAId: string; businessBId: string; attackerBusinessId: string; serviceAId: string; serviceBId: string };
 let pool: Pool;
 let db: PrismaClient;
 
 async function seed(): Promise<Seeded> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const plan = await db.businessPlan.upsert({
-    where: { code: "FREE" },
-    update: { isActive: true },
-    create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true },
-  });
+  const plan = await db.businessPlan.upsert({ where: { code: "FREE" }, update: { isActive: true }, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true } });
   const owner = await db.user.create({ data: { name: "Multi Business Owner", email: `multi-owner-${suffix}@hee.test`, passwordHash: "rc-only" } });
   const attacker = await db.user.create({ data: { name: "Other Tenant", email: `other-tenant-${suffix}@hee.test`, passwordHash: "rc-only" } });
-
-  const businessA = await db.business.create({ data: {
-    ownerId: owner.id, planId: plan.id, name: "منشأة ألف الآمنة", slug: `safe-a-${suffix}`,
-    businessType: "خدمات أعمال", shortDescription: "المنشأة الأولى", phone: "0555000101", onboardingCompleted: true,
-  } });
-  const businessB = await db.business.create({ data: {
-    ownerId: owner.id, planId: plan.id, name: "منشأة باء الآمنة", slug: `safe-b-${suffix}`,
-    businessType: "خدمات أعمال", shortDescription: "المنشأة الثانية", phone: "0555000102", onboardingCompleted: true,
-  } });
-  const attackerBusiness = await db.business.create({ data: {
-    ownerId: attacker.id, planId: plan.id, name: "منشأة المهاجم السرية", slug: `other-c-${suffix}`,
-    businessType: "خدمات أعمال", shortDescription: "يجب ألا تظهر للمالك الآخر", phone: "0555000199", onboardingCompleted: true,
-  } });
-
+  const businessA = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "منشأة ألف الآمنة", slug: `safe-a-${suffix}`, businessType: "خدمات أعمال", shortDescription: "المنشأة الأولى", phone: "0555000101", onboardingCompleted: true } });
+  const businessB = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "منشأة باء الآمنة", slug: `safe-b-${suffix}`, businessType: "خدمات أعمال", shortDescription: "المنشأة الثانية", phone: "0555000102", onboardingCompleted: true } });
+  const attackerBusiness = await db.business.create({ data: { ownerId: attacker.id, planId: plan.id, name: "منشأة المهاجم السرية", slug: `other-c-${suffix}`, businessType: "خدمات أعمال", shortDescription: "يجب ألا تظهر للمالك الآخر", phone: "0555000199", onboardingCompleted: true } });
   const serviceA = await db.service.create({ data: { businessId: businessA.id, name: "خدمة ألف الخاصة", price: 10, sortOrder: 0 } });
   const serviceB = await db.service.create({ data: { businessId: businessB.id, name: "خدمة باء الخاصة", price: 20, sortOrder: 0 } });
   await db.service.create({ data: { businessId: attackerBusiness.id, name: "خدمة المهاجم السرية", price: 999, sortOrder: 0 } });
-
   const sessionToken = crypto.randomUUID();
   await db.session.create({ data: { token: sessionToken, userId: owner.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
-
-  return {
-    ownerId: owner.id,
-    attackerId: attacker.id,
-    sessionToken,
-    businessAId: businessA.id,
-    businessBId: businessB.id,
-    attackerBusinessId: attackerBusiness.id,
-    serviceAId: serviceA.id,
-    serviceBId: serviceB.id,
-  };
+  return { ownerId: owner.id, attackerId: attacker.id, sessionToken, businessAId: businessA.id, businessBId: businessB.id, attackerBusinessId: attackerBusiness.id, serviceAId: serviceA.id, serviceBId: serviceB.id };
 }
 
 async function cleanup(seeded: Seeded) {
@@ -89,7 +53,7 @@ async function switchBusiness(page: import("@playwright/test").Page, businessId:
 }
 
 function serviceNameInput(page: import("@playwright/test").Page, name: string) {
-  return page.locator('input[name="name"]').filter({ hasValue: name });
+  return page.locator('input[name="name"]').and(page.getByDisplayValue(name));
 }
 
 test.describe.serial("active business tenant isolation", () => {
@@ -99,17 +63,12 @@ test.describe.serial("active business tenant isolation", () => {
     pool = new Pool({ connectionString, max: 4 });
     db = new PrismaClient({ adapter: new PrismaPg(pool) });
   });
-
-  test.afterAll(async () => {
-    await db?.$disconnect();
-    await pool?.end();
-  });
+  test.afterAll(async () => { await db?.$disconnect(); await pool?.end(); });
 
   test("isolates owned businesses and rejects cross-tenant selection and record tampering", async ({ page }) => {
     test.setTimeout(120_000);
     const seeded = await seed();
     await authenticate(page, seeded.sessionToken);
-
     try {
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
       const switcher = page.getByLabel("اختيار المنشأة").first();
@@ -121,7 +80,6 @@ test.describe.serial("active business tenant isolation", () => {
       await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
       await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
 
-      // Use the real server action to select B, then prove reads/writes are scoped to B.
       await switchBusiness(page, seeded.businessBId);
       await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
       await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessBId);
@@ -136,7 +94,6 @@ test.describe.serial("active business tenant isolation", () => {
       expect(await db.service.count({ where: { businessId: seeded.businessAId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
       expect(await db.service.count({ where: { businessId: seeded.attackerBusinessId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
 
-      // Switch back to A, then tamper an A form so its hidden record id points at B.
       await switchBusiness(page, seeded.businessAId);
       await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
       await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
@@ -148,27 +105,19 @@ test.describe.serial("active business tenant isolation", () => {
       await expect.poll(async () => (await db.service.findUnique({ where: { id: seeded.serviceBId }, select: { name: true } }))?.name).toBe("خدمة باء الخاصة");
       await expect.poll(async () => (await db.service.findUnique({ where: { id: seeded.serviceAId }, select: { name: true } }))?.name).toBe("خدمة ألف الخاصة");
 
-      // Tamper the DOM to submit another tenant's business id through the real switch action.
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
       const protectedSwitcher = page.getByLabel("اختيار المنشأة").first();
       await protectedSwitcher.evaluate((select, foreignId) => {
-        const option = document.createElement("option");
-        option.value = String(foreignId);
-        option.textContent = "منشأة مزورة";
-        select.append(option);
-        (select as HTMLSelectElement).value = String(foreignId);
+        const option = document.createElement("option"); option.value = String(foreignId); option.textContent = "منشأة مزورة"; select.append(option); (select as HTMLSelectElement).value = String(foreignId);
       }, seeded.attackerBusinessId);
       await protectedSwitcher.locator("xpath=..").getByRole("button", { name: "تبديل" }).click();
       await page.waitForURL(/business=invalid/);
       await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
       await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
 
-      // Preview follows the verified active owned business after the rejected attack.
       await page.goto(`${baseUrl}/preview`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "منشأة ألف الآمنة" })).toBeVisible();
       await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
-    } finally {
-      await cleanup(seeded);
-    }
+    } finally { await cleanup(seeded); }
   });
 });
