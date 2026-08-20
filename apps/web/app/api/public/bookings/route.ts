@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 import { normalizePublicSlug } from "../../../lib/public-url";
+import { bookingIntervalsOverlap, bookingMinutes, bookingWithinWorkingHours, normalizedBookingDuration } from "../../../lib/booking-time";
 
 type BookingPayload = {
   slug?: unknown;
@@ -14,8 +15,6 @@ type BookingPayload = {
   notes?: unknown;
   requestId?: unknown;
 };
-
-type Schedule = { opensAt: string | null; closesAt: string | null; secondOpensAt: string | null; secondClosesAt: string | null; isClosed: boolean };
 
 function text(value: unknown, max: number) {
   const normalized = typeof value === "string" ? value.trim() : "";
@@ -46,40 +45,6 @@ function validTime(value: unknown) {
 function riyadhDate(date: string, time: string) {
   const parsed = new Date(`${date}T${time}:00+03:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function minutes(time: string) {
-  const [hour, minute] = time.split(":").map(Number);
-  return hour * 60 + minute;
-}
-
-function normalizedDuration(value: number | null) {
-  if (!Number.isInteger(value) || !value || value < 5 || value > 1440) return 30;
-  return value;
-}
-
-function intervalInside(startMinute: number, durationMinutes: number, open: string | null, close: string | null) {
-  if (!open || !close) return false;
-  const windowStart = minutes(open);
-  let windowEnd = minutes(close);
-  let targetStart = startMinute;
-  let targetEnd = targetStart + durationMinutes;
-  if (windowEnd <= windowStart) windowEnd += 1440;
-  if (targetStart < windowStart && windowEnd > 1440) {
-    targetStart += 1440;
-    targetEnd += 1440;
-  }
-  return targetStart >= windowStart && targetEnd <= windowEnd;
-}
-
-function bookingWithinWorkingHours(time: string, durationMinutes: number, schedule: Schedule | null) {
-  if (!schedule || schedule.isClosed) return false;
-  const start = minutes(time);
-  return intervalInside(start, durationMinutes, schedule.opensAt, schedule.closesAt) || intervalInside(start, durationMinutes, schedule.secondOpensAt, schedule.secondClosesAt);
-}
-
-function overlaps(startA: number, durationA: number, startB: number, durationB: number) {
-  return startA < startB + durationB && startB < startA + durationA;
 }
 
 export async function POST(request: Request) {
@@ -125,7 +90,7 @@ export async function POST(request: Request) {
     select: { id: true, name: true, durationMinutes: true },
   });
   if (!service) return NextResponse.json({ ok: false, error: "الخدمة غير متاحة للحجز" }, { status: 409 });
-  const durationMinutes = normalizedDuration(service.durationMinutes);
+  const durationMinutes = normalizedBookingDuration(service.durationMinutes);
 
   const localNoon = new Date(`${bookingDate}T12:00:00+03:00`);
   const dayOfWeek = (localNoon.getUTCDay() + 6) % 7;
@@ -169,8 +134,8 @@ export async function POST(request: Request) {
         where: { businessId: business.id, serviceId, bookingDate, status: { in: ["pending", "confirmed"] } },
         select: { id: true, bookingTime: true },
       });
-      const requestedStart = minutes(bookingTime);
-      if (existingBookings.some((item) => overlaps(requestedStart, durationMinutes, minutes(item.bookingTime), durationMinutes))) {
+      const requestedStart = bookingMinutes(bookingTime);
+      if (existingBookings.some((item) => bookingIntervalsOverlap(requestedStart, durationMinutes, bookingMinutes(item.bookingTime), durationMinutes))) {
         throw new Error("PUBLIC_BOOKING_SLOT_TAKEN");
       }
 
