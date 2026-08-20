@@ -2,8 +2,32 @@ import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 import { isPreviewQaEnvironment } from "../../../lib/qa-audit";
 
-const EXPECTED_LATEST_MIGRATION = "20260820124500_booking_duration_snapshot";
-const EXPECTED_MIGRATION_COUNT = 22;
+const EXPECTED_MIGRATIONS = [
+  "20260808052423_init",
+  "20260809033945_add_product_unit",
+  "20260809035147_add_page_modules",
+  "20260809070559_add_onboarding_fields",
+  "20260809080000_add_onboarding_step_column",
+  "20260811113000_add_stored_object",
+  "20260814183000_hee_v3_smart_business_profile",
+  "20260815100000_add_social_auth",
+  "20260815113000_portable_storage_backend",
+  "20260815120000_public_write_rate_limit",
+  "20260816120000_preserve_business_slug_aliases",
+  "20260819053000_enforce_tenant_relation_integrity",
+  "20260819054500_enforce_single_active_designations",
+  "20260819061500_prevent_accidental_customer_data_cascade",
+  "20260819064000_optimize_analytics_access",
+  "20260819104500_protect_customer_history",
+  "20260820090000_convert_analytics_metadata_to_jsonb",
+  "20260820100000_freeze_tenant_record_ownership",
+  "20260820103000_unique_pending_admin_requests",
+  "20260820110000_legal_consent_audit",
+  "20260820113000_public_transactions_integrity",
+  "20260820124500_booking_duration_snapshot",
+] as const;
+const EXPECTED_LATEST_MIGRATION = EXPECTED_MIGRATIONS.at(-1)!;
+const EXPECTED_MIGRATION_COUNT = EXPECTED_MIGRATIONS.length;
 
 type ReadinessRow = {
   migrationApplied: boolean;
@@ -12,6 +36,7 @@ type ReadinessRow = {
   bookingForeignKeyExists: boolean;
   appliedMigrationCount: number;
   latestAppliedMigration: string | null;
+  appliedMigrationNames: string[];
   analyticsMetadataType: string | null;
   crossTenantRelations: number;
   duplicateActiveSubscriptions: number;
@@ -53,6 +78,11 @@ export async function GET() {
           WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL
           ORDER BY "finished_at" DESC, "migration_name" DESC LIMIT 1
         ) AS "latestAppliedMigration",
+        ARRAY(
+          SELECT "migration_name" FROM "_prisma_migrations"
+          WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL
+          ORDER BY "migration_name"
+        ) AS "appliedMigrationNames",
         (
           SELECT data_type FROM information_schema.columns
           WHERE table_schema = current_schema() AND table_name = 'AnalyticsEvent' AND column_name = 'metadata'
@@ -110,6 +140,7 @@ export async function GET() {
       bookingForeignKeyExists: false,
       appliedMigrationCount: 0,
       latestAppliedMigration: null,
+      appliedMigrationNames: [],
       analyticsMetadataType: null,
       crossTenantRelations: 0,
       duplicateActiveSubscriptions: 0,
@@ -141,14 +172,19 @@ export async function GET() {
       duplicateMainBranches: checks.duplicateMainBranches,
       duplicatePrimaryContacts: checks.duplicatePrimaryContacts,
     };
+    const appliedSet = new Set(checks.appliedMigrationNames);
+    const expectedSet = new Set<string>(EXPECTED_MIGRATIONS);
+    const pendingExpected = EXPECTED_MIGRATIONS.filter((name) => !appliedSet.has(name));
+    const unexpectedApplied = checks.appliedMigrationNames.filter((name) => !expectedSet.has(name));
     const blockerFree = Object.values(blockers).every((value) => value === 0);
-    const migrationSetCurrent = checks.migrationApplied && checks.appliedMigrationCount >= EXPECTED_MIGRATION_COUNT;
+    const migrationSetCurrent = pendingExpected.length === 0;
     const ready = blockerFree && migrationSetCurrent && checks.snapshotTableExists && checks.durationRangeConstraintExists && checks.bookingForeignKeyExists;
 
     return NextResponse.json({
       ready,
       migrationSafeToAttempt: blockerFree,
       expected: { latestMigration: EXPECTED_LATEST_MIGRATION, migrationCount: EXPECTED_MIGRATION_COUNT },
+      migrationHistory: { pendingExpected, unexpectedApplied },
       checks,
       blockers,
       normalizationCandidates,
