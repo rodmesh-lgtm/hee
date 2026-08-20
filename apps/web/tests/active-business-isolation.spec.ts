@@ -42,11 +42,14 @@ async function authenticate(page: import("@playwright/test").Page, token: string
 
 async function switchBusiness(page: import("@playwright/test").Page, businessId: string) {
   const switcher = page.getByLabel("اختيار المنشأة").first();
-  await expect(switcher).toBeVisible();
+  await expect(switcher).toBeVisible({ timeout: 10_000 });
   await switcher.selectOption(businessId);
-  await switcher.locator("xpath=..").getByRole("button", { name: "تبديل" }).click();
-  await page.waitForURL(/\/dashboard/);
-  await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", businessId);
+  const button = switcher.locator("xpath=..").getByRole("button", { name: "تبديل" });
+  await Promise.all([
+    page.waitForURL("**/dashboard?business=switched", { timeout: 10_000 }),
+    button.click({ timeout: 10_000 }),
+  ]);
+  await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", businessId, { timeout: 10_000 });
   const activeCookie = (await page.context().cookies()).find((cookie) => cookie.name === "hee_active_business");
   expect(activeCookie?.value).toBe(businessId);
 }
@@ -65,56 +68,70 @@ test.describe.serial("active business tenant isolation", () => {
   test.afterAll(async () => { await db?.$disconnect(); await pool?.end(); });
 
   test("isolates owned businesses and rejects cross-tenant selection and record tampering", async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(90_000);
     const seeded = await seed();
     await authenticate(page, seeded.sessionToken);
     try {
-      await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
-      const switcher = page.getByLabel("اختيار المنشأة").first();
-      await expect(switcher).toBeVisible();
-      await expect(switcher.locator("option")).toHaveCount(2);
-      await expect(switcher.locator(`option[value="${seeded.businessAId}"]`)).toHaveCount(1);
-      await expect(switcher.locator(`option[value="${seeded.businessBId}"]`)).toHaveCount(1);
-      await expect(switcher.locator(`option[value="${seeded.attackerBusinessId}"]`)).toHaveCount(0);
-      await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
-      await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
+      await test.step("owner sees only owned businesses", async () => {
+        await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded", timeout: 15_000 });
+        const switcher = page.getByLabel("اختيار المنشأة").first();
+        await expect(switcher).toBeVisible({ timeout: 10_000 });
+        await expect(switcher.locator("option")).toHaveCount(2);
+        await expect(switcher.locator(`option[value="${seeded.businessAId}"]`)).toHaveCount(1);
+        await expect(switcher.locator(`option[value="${seeded.businessBId}"]`)).toHaveCount(1);
+        await expect(switcher.locator(`option[value="${seeded.attackerBusinessId}"]`)).toHaveCount(0);
+        await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
+        await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
+      });
 
-      await switchBusiness(page, seeded.businessBId);
-      await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
-      await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessBId);
-      await expect(serviceNameInput(page, "خدمة باء الخاصة")).toHaveCount(1);
-      await expect(serviceNameInput(page, "خدمة ألف الخاصة")).toHaveCount(0);
-      await expect(serviceNameInput(page, "خدمة المهاجم السرية")).toHaveCount(0);
+      await test.step("switching to B scopes reads and writes to B", async () => {
+        await switchBusiness(page, seeded.businessBId);
+        await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded", timeout: 15_000 });
+        await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessBId);
+        await expect(serviceNameInput(page, "خدمة باء الخاصة")).toHaveCount(1);
+        await expect(serviceNameInput(page, "خدمة ألف الخاصة")).toHaveCount(0);
+        await expect(serviceNameInput(page, "خدمة المهاجم السرية")).toHaveCount(0);
 
-      const addForm = page.locator('form').filter({ has: page.locator('input[name="name"][placeholder="اسم الخدمة"]') });
-      await addForm.locator('input[name="name"]').fill("خدمة باء الجديدة المعزولة");
-      await addForm.getByRole("button", { name: "إضافة" }).click();
-      await expect.poll(async () => db.service.count({ where: { businessId: seeded.businessBId, name: "خدمة باء الجديدة المعزولة" } }), { timeout: 20_000 }).toBe(1);
-      expect(await db.service.count({ where: { businessId: seeded.businessAId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
-      expect(await db.service.count({ where: { businessId: seeded.attackerBusinessId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
+        const addForm = page.locator('form').filter({ has: page.locator('input[name="name"][placeholder="اسم الخدمة"]') });
+        await addForm.locator('input[name="name"]').fill("خدمة باء الجديدة المعزولة");
+        await addForm.getByRole("button", { name: "إضافة" }).click({ timeout: 10_000 });
+        await expect.poll(async () => db.service.count({ where: { businessId: seeded.businessBId, name: "خدمة باء الجديدة المعزولة" } }), { timeout: 10_000 }).toBe(1);
+        expect(await db.service.count({ where: { businessId: seeded.businessAId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
+        expect(await db.service.count({ where: { businessId: seeded.attackerBusinessId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
+      });
 
-      await switchBusiness(page, seeded.businessAId);
-      await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
-      await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
-      const editForm = page.locator('form').filter({ has: page.locator(`input[name="id"][value="${seeded.serviceAId}"]`) }).first();
-      await expect(editForm).toBeVisible();
-      await editForm.locator('input[name="id"]').evaluate((input, foreignId) => { (input as HTMLInputElement).value = String(foreignId); }, seeded.serviceBId);
-      await editForm.locator('input[name="name"]').fill("اسم اختراق يجب ألا يحفظ");
-      await editForm.getByRole("button", { name: "حفظ" }).click();
-      await expect.poll(async () => (await db.service.findUnique({ where: { id: seeded.serviceBId }, select: { name: true } }))?.name).toBe("خدمة باء الخاصة");
-      await expect.poll(async () => (await db.service.findUnique({ where: { id: seeded.serviceAId }, select: { name: true } }))?.name).toBe("خدمة ألف الخاصة");
+      await test.step("foreign record id tampering cannot mutate another owned business", async () => {
+        await switchBusiness(page, seeded.businessAId);
+        await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded", timeout: 15_000 });
+        const editForm = page.locator('form').filter({ has: page.locator(`input[name="id"][value="${seeded.serviceAId}"]`) }).first();
+        await expect(editForm).toBeVisible({ timeout: 10_000 });
+        await editForm.locator('input[name="id"]').evaluate((input, foreignId) => { (input as HTMLInputElement).value = String(foreignId); }, seeded.serviceBId);
+        await editForm.locator('input[name="name"]').fill("اسم اختراق يجب ألا يحفظ");
+        await editForm.evaluate((form) => (form as HTMLFormElement).requestSubmit());
+        await expect.poll(async () => (await db.service.findUnique({ where: { id: seeded.serviceBId }, select: { name: true } }))?.name, { timeout: 5_000 }).toBe("خدمة باء الخاصة");
+        await expect.poll(async () => (await db.service.findUnique({ where: { id: seeded.serviceAId }, select: { name: true } }))?.name, { timeout: 5_000 }).toBe("خدمة ألف الخاصة");
+      });
 
-      await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
-      const protectedSwitcher = page.getByLabel("اختيار المنشأة").first();
-      await protectedSwitcher.evaluate((select, foreignId) => { const option = document.createElement("option"); option.value = String(foreignId); option.textContent = "منشأة مزورة"; select.append(option); (select as HTMLSelectElement).value = String(foreignId); }, seeded.attackerBusinessId);
-      await protectedSwitcher.locator("xpath=..").getByRole("button", { name: "تبديل" }).click();
-      await page.waitForURL(/business=invalid/);
-      await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
-      await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
+      await test.step("foreign tenant business selection is rejected", async () => {
+        await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded", timeout: 15_000 });
+        const protectedSwitcher = page.getByLabel("اختيار المنشأة").first();
+        await protectedSwitcher.evaluate((select, foreignId) => { const option = document.createElement("option"); option.value = String(foreignId); option.textContent = "منشأة مزورة"; select.append(option); (select as HTMLSelectElement).value = String(foreignId); }, seeded.attackerBusinessId);
+        const button = protectedSwitcher.locator("xpath=..").getByRole("button", { name: "تبديل" });
+        await Promise.all([
+          page.waitForURL("**/dashboard?business=invalid", { timeout: 10_000 }),
+          button.click({ timeout: 10_000 }),
+        ]);
+        await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId, { timeout: 10_000 });
+        await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
+      });
 
-      await page.goto(`${baseUrl}/preview`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "منشأة ألف الآمنة" })).toBeVisible();
-      await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
-    } finally { await cleanup(seeded); }
+      await test.step("preview stays on the verified active owned business", async () => {
+        await page.goto(`${baseUrl}/preview`, { waitUntil: "domcontentloaded", timeout: 15_000 });
+        await expect(page.getByRole("heading", { name: "منشأة ألف الآمنة" })).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
+      });
+    } finally {
+      await cleanup(seeded);
+    }
   });
 });
