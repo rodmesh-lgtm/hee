@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
@@ -50,7 +50,7 @@ async function cleanup(seed: Seeded) {
   await db.user.delete({ where: { id: seed.userId } });
 }
 
-async function postBooking(request: Parameters<typeof test>[1] extends never ? never : any, seeded: Seeded, date: string, time: string, phone: string) {
+async function postBooking(request: APIRequestContext, seeded: Seeded, date: string, time: string, phone: string) {
   const requestId = crypto.randomUUID();
   return request.post(`${baseUrl}/api/public/bookings`, {
     headers: { "Idempotency-Key": requestId },
