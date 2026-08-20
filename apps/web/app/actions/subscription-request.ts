@@ -26,12 +26,17 @@ export async function requestPlanUpgradeAction(formData: FormData) {
     const targetPlan = await tx.businessPlan.findUnique({ where: { code: requestedPlan }, select: { id: true, isActive: true } });
     if (!targetPlan?.isActive) return "unavailable" as const;
 
-    const recent = await tx.analyticsEvent.findMany({ where: { businessId: business.id, eventType: UPGRADE_EVENT }, orderBy: { createdAt: "desc" }, take: 20, select: { metadata: true } });
-    const pending = recent.find((event) => {
-      const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata as Record<string, unknown> : {};
-      return String(metadata.status ?? "pending").toLowerCase() === "pending";
-    });
-    if (pending) return "already-pending" as const;
+    // Never limit this check to the most recent N events. Old pending requests remain
+    // pending until explicitly resolved, so truncating history can create duplicates.
+    const pending = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "AnalyticsEvent"
+      WHERE "businessId" = ${business.id}
+        AND "eventType" = ${UPGRADE_EVENT}
+        AND COALESCE("metadata"->>'status', 'pending') = 'pending'
+      LIMIT 1
+    `;
+    if (pending.length) return "already-pending" as const;
 
     await tx.analyticsEvent.create({ data: { businessId: business.id, eventType: UPGRADE_EVENT, metadata: { source: "dashboard_branding", requestedPlan, status: "pending" } } });
     return "created" as const;
