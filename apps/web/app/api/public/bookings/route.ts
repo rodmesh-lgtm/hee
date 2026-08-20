@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 import { normalizePublicSlug } from "../../../lib/public-url";
-import { bookingIntervalsOverlap, bookingMinutes, bookingWithinWorkingHours, normalizedBookingDuration } from "../../../lib/booking-time";
+import { bookingIntervalsOverlap, bookingMinutes, bookingWithinPreviousOvernightWorkingHours, bookingWithinWorkingHours, normalizedBookingDuration } from "../../../lib/booking-time";
 
 type BookingPayload = {
   slug?: unknown;
@@ -14,6 +14,13 @@ type BookingPayload = {
   bookingTime?: unknown;
   notes?: unknown;
   requestId?: unknown;
+};
+
+type ExistingBookingRange = {
+  id: string;
+  bookingDate: string;
+  bookingTime: string;
+  durationMinutes: number;
 };
 
 function text(value: unknown, max: number) {
@@ -49,6 +56,12 @@ function riyadhDate(date: string, time: string) {
 
 function previousDay(dayOfWeek: number) {
   return (dayOfWeek + 6) % 7;
+}
+
+function shiftBookingDate(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
 }
 
 export async function POST(request: Request) {
@@ -109,12 +122,7 @@ export async function POST(request: Request) {
     }),
   ]);
   const inTodayWindow = bookingWithinWorkingHours(bookingTime, durationMinutes, schedule);
-  const inPreviousOvernightWindow = bookingWithinWorkingHours(bookingTime, durationMinutes, previousSchedule) && Boolean(
-    previousSchedule && !previousSchedule.isClosed && (
-      (previousSchedule.opensAt && previousSchedule.closesAt && bookingMinutes(previousSchedule.closesAt) <= bookingMinutes(previousSchedule.opensAt)) ||
-      (previousSchedule.secondOpensAt && previousSchedule.secondClosesAt && bookingMinutes(previousSchedule.secondClosesAt) <= bookingMinutes(previousSchedule.secondOpensAt))
-    ),
-  );
+  const inPreviousOvernightWindow = bookingWithinPreviousOvernightWorkingHours(bookingTime, durationMinutes, previousSchedule);
   if (!inTodayWindow && !inPreviousOvernightWindow) {
     return NextResponse.json({ ok: false, error: schedule || previousSchedule ? "مدة الخدمة لا تقع بالكامل داخل ساعات العمل" : "لم يتم ضبط ساعات العمل لهذا اليوم" }, { status: 409 });
   }
@@ -144,14 +152,38 @@ export async function POST(request: Request) {
       `;
       if (previous[0]?.targetId) return { id: previous[0].targetId, replayed: true };
 
-      // Serialize all bookings for this service/day so overlapping starts cannot race each other.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-day:${business.id}:${serviceId}:${bookingDate}`}))`;
-      const existingBookings = await tx.booking.findMany({
-        where: { businessId: business.id, serviceId, bookingDate, status: { in: ["pending", "confirmed"] } },
-        select: { id: true, bookingTime: true },
-      });
+      // Serialize bookings per service, not per calendar day. Overnight services can
+      // otherwise race across midnight (for example Monday 23:30 vs Tuesday 00:00).
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-service:${business.id}:${serviceId}`}))`;
+      const previousBookingDate = shiftBookingDate(bookingDate, -1);
+      const nextBookingDate = shiftBookingDate(bookingDate, 1);
+      const existingBookings = await tx.$queryRaw<ExistingBookingRange[]>`
+        SELECT
+          b."id",
+          b."bookingDate",
+          b."bookingTime",
+          COALESCE(
+            snapshot."durationMinutes",
+            CASE WHEN service."durationMinutes" BETWEEN 5 AND 1440 THEN service."durationMinutes" ELSE 30 END
+          )::int AS "durationMinutes"
+        FROM "Booking" b
+        LEFT JOIN "BookingDurationSnapshot" snapshot ON snapshot."bookingId" = b."id"
+        LEFT JOIN "Service" service ON service."id" = b."serviceId"
+        WHERE b."businessId" = ${business.id}
+          AND b."serviceId" = ${serviceId}
+          AND b."status" IN ('pending', 'confirmed')
+          AND (
+            b."bookingDate" = ${previousBookingDate}
+            OR b."bookingDate" = ${bookingDate}
+            OR b."bookingDate" = ${nextBookingDate}
+          )
+      `;
       const requestedStart = bookingMinutes(bookingTime);
-      if (existingBookings.some((item) => bookingIntervalsOverlap(requestedStart, durationMinutes, bookingMinutes(item.bookingTime), durationMinutes))) {
+      const offsets = new Map([[previousBookingDate, -1440], [bookingDate, 0], [nextBookingDate, 1440]]);
+      if (existingBookings.some((item) => {
+        const existingStart = (offsets.get(item.bookingDate) ?? 0) + bookingMinutes(item.bookingTime);
+        return bookingIntervalsOverlap(requestedStart, durationMinutes, existingStart, normalizedBookingDuration(item.durationMinutes));
+      })) {
         throw new Error("PUBLIC_BOOKING_SLOT_TAKEN");
       }
 
@@ -179,6 +211,10 @@ export async function POST(request: Request) {
         },
         select: { id: true },
       });
+      await tx.$executeRaw`
+        INSERT INTO "BookingDurationSnapshot" ("bookingId", "durationMinutes")
+        VALUES (${booking.id}, ${durationMinutes})
+      `;
       await tx.$executeRaw`
         INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId")
         VALUES (${business.id}, 'booking', ${idempotencyKey}, ${booking.id})

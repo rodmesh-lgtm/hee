@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../lib/auth";
 import { db } from "../lib/db";
@@ -10,6 +11,10 @@ function makeQrUrl(url: string) {
 }
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "معاينة الصفحة | HEE",
+  robots: { index: false, follow: false, noarchive: true, nocache: true },
+};
 
 export default async function OwnerPreviewPage() {
   const user = await getCurrentUser();
