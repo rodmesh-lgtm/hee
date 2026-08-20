@@ -34,7 +34,9 @@ export function PublicSmartActionSheet({ businessName, activity, whatsapp, phone
     if (isOpen) nav.style.setProperty("display", "none");
     else nav.style.removeProperty("display");
 
-    return () => nav.style.removeProperty("display");
+    return () => {
+      nav.style.removeProperty("display");
+    };
   }, [isOpen]);
 
   return (
