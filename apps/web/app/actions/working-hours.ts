@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { getOwnedBusinessForWrite } from "../lib/ownership";
 import { isValidWorkingTime, validateWorkingHoursWindow } from "../lib/working-hours-validation";
@@ -13,9 +14,13 @@ function validOptionalTime(raw: string) {
   return !raw || isValidWorkingTime(raw);
 }
 
+function invalid(reason: "time" | "window") {
+  redirect(`/dashboard/working-hours?error=${reason}`);
+}
+
 export async function updateWorkingHoursAction(formData: FormData) {
   const business = await getOwnedBusinessForWrite();
-  if (!business) return;
+  if (!business) redirect("/login");
 
   const rows = Array.from({ length: 7 }, (_, dayOfWeek) => {
     const isClosed = formData.get(`closed-${dayOfWeek}`) === "on";
@@ -27,15 +32,15 @@ export async function updateWorkingHoursAction(formData: FormData) {
   });
 
   for (const row of rows) {
-    if (![row.opensAt, row.closesAt, row.secondOpensAt, row.secondClosesAt].every(validOptionalTime)) return;
+    if (![row.opensAt, row.closesAt, row.secondOpensAt, row.secondClosesAt].every(validOptionalTime)) invalid("time");
     if (row.isClosed) continue;
-    if (!row.opensAt || !row.closesAt) return;
+    if (!row.opensAt || !row.closesAt) invalid("time");
     if (!validateWorkingHoursWindow({
       opensAt: row.opensAt,
       closesAt: row.closesAt,
       secondOpensAt: row.secondOpensAt,
       secondClosesAt: row.secondClosesAt,
-    })) return;
+    })) invalid("window");
   }
 
   await db.$transaction(rows.map((row) => db.workingHours.upsert({
@@ -63,4 +68,5 @@ export async function updateWorkingHoursAction(formData: FormData) {
   revalidatePath("/dashboard/my-page");
   revalidatePath("/preview");
   revalidatePath(`/${business.slug}`);
+  redirect("/dashboard/working-hours?saved=1");
 }
