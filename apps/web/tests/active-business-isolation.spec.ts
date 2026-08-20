@@ -14,7 +14,6 @@ type Seeded = {
   attackerBusinessId: string;
   serviceAId: string;
   serviceBId: string;
-  attackerServiceId: string;
 };
 
 let pool: Pool;
@@ -45,7 +44,7 @@ async function seed(): Promise<Seeded> {
 
   const serviceA = await db.service.create({ data: { businessId: businessA.id, name: "خدمة ألف الخاصة", price: 10, sortOrder: 0 } });
   const serviceB = await db.service.create({ data: { businessId: businessB.id, name: "خدمة باء الخاصة", price: 20, sortOrder: 0 } });
-  const attackerService = await db.service.create({ data: { businessId: attackerBusiness.id, name: "خدمة المهاجم السرية", price: 999, sortOrder: 0 } });
+  await db.service.create({ data: { businessId: attackerBusiness.id, name: "خدمة المهاجم السرية", price: 999, sortOrder: 0 } });
 
   const sessionToken = crypto.randomUUID();
   await db.session.create({ data: { token: sessionToken, userId: owner.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
@@ -59,7 +58,6 @@ async function seed(): Promise<Seeded> {
     attackerBusinessId: attackerBusiness.id,
     serviceAId: serviceA.id,
     serviceBId: serviceB.id,
-    attackerServiceId: attackerService.id,
   };
 }
 
@@ -79,8 +77,13 @@ async function authenticate(page: import("@playwright/test").Page, token: string
   await page.context().addCookies([{ name: "hee_session", value: token, url: baseUrl }]);
 }
 
-async function forceActiveBusiness(page: import("@playwright/test").Page, businessId: string) {
-  await page.context().addCookies([{ name: "hee_active_business", value: businessId, url: baseUrl }]);
+async function switchBusiness(page: import("@playwright/test").Page, businessId: string) {
+  const switcher = page.getByLabel("اختيار المنشأة").first();
+  await expect(switcher).toBeVisible();
+  await switcher.selectOption(businessId);
+  await switcher.locator("xpath=..").getByRole("button", { name: "تبديل" }).click();
+  await page.waitForURL(/\/dashboard/);
+  await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", businessId);
 }
 
 test.describe.serial("active business tenant isolation", () => {
@@ -96,7 +99,7 @@ test.describe.serial("active business tenant isolation", () => {
     await pool?.end();
   });
 
-  test("isolates owned businesses and rejects cross-tenant cookie and record tampering", async ({ page }) => {
+  test("isolates owned businesses and rejects cross-tenant selection and record tampering", async ({ page }) => {
     test.setTimeout(120_000);
     const seeded = await seed();
     await authenticate(page, seeded.sessionToken);
@@ -112,21 +115,22 @@ test.describe.serial("active business tenant isolation", () => {
       await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
       await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
 
-      // Select the second business and prove reads/writes are scoped to it.
-      await forceActiveBusiness(page, seeded.businessBId);
+      // Use the real server action to select B, then prove reads/writes are scoped to B.
+      await switchBusiness(page, seeded.businessBId);
       await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
       await expect(page.getByText("خدمة باء الخاصة", { exact: true })).toBeVisible();
       await expect(page.getByText("خدمة ألف الخاصة", { exact: true })).toHaveCount(0);
       await expect(page.getByText("خدمة المهاجم السرية", { exact: true })).toHaveCount(0);
 
-      await page.locator('form').filter({ has: page.locator('input[name="name"][placeholder="اسم الخدمة"]') }).locator('input[name="name"]').fill("خدمة باء الجديدة المعزولة");
-      await page.locator('form').filter({ has: page.locator('input[name="name"][placeholder="اسم الخدمة"]') }).getByRole("button", { name: "إضافة" }).click();
+      const addForm = page.locator('form').filter({ has: page.locator('input[name="name"][placeholder="اسم الخدمة"]') });
+      await addForm.locator('input[name="name"]').fill("خدمة باء الجديدة المعزولة");
+      await addForm.getByRole("button", { name: "إضافة" }).click();
       await expect.poll(async () => db.service.count({ where: { businessId: seeded.businessBId, name: "خدمة باء الجديدة المعزولة" } }), { timeout: 20_000 }).toBe(1);
       expect(await db.service.count({ where: { businessId: seeded.businessAId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
       expect(await db.service.count({ where: { businessId: seeded.attackerBusinessId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
 
       // Switch back to A, then tamper an A form so its hidden record id points at B.
-      await forceActiveBusiness(page, seeded.businessAId);
+      await switchBusiness(page, seeded.businessAId);
       await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
       const editForm = page.locator('form').filter({ has: page.locator(`input[name="id"][value="${seeded.serviceAId}"]`) }).first();
       await expect(editForm).toBeVisible();
@@ -136,14 +140,22 @@ test.describe.serial("active business tenant isolation", () => {
       await expect.poll(async () => (await db.service.findUnique({ where: { id: seeded.serviceBId }, select: { name: true } }))?.name).toBe("خدمة باء الخاصة");
       await expect.poll(async () => (await db.service.findUnique({ where: { id: seeded.serviceAId }, select: { name: true } }))?.name).toBe("خدمة ألف الخاصة");
 
-      // A forged active-business cookie pointing at another tenant must be ignored.
-      await forceActiveBusiness(page, seeded.attackerBusinessId);
+      // Tamper the DOM to submit another tenant's business id through the real switch action.
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
+      const protectedSwitcher = page.getByLabel("اختيار المنشأة").first();
+      await protectedSwitcher.evaluate((select, foreignId) => {
+        const option = document.createElement("option");
+        option.value = String(foreignId);
+        option.textContent = "منشأة مزورة";
+        select.append(option);
+        (select as HTMLSelectElement).value = String(foreignId);
+      }, seeded.attackerBusinessId);
+      await protectedSwitcher.locator("xpath=..").getByRole("button", { name: "تبديل" }).click();
+      await page.waitForURL(/business=invalid/);
       await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
-      await expect(page.getByText("منشأة ألف الآمنة", { exact: true }).first()).toBeVisible();
       await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
 
-      // Preview follows the verified active business, not the forged cookie target.
+      // Preview follows the verified active owned business after the rejected attack.
       await page.goto(`${baseUrl}/preview`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "منشأة ألف الآمنة" })).toBeVisible();
       await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
