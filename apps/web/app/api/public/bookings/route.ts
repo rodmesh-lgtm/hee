@@ -47,6 +47,10 @@ function riyadhDate(date: string, time: string) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function previousDay(dayOfWeek: number) {
+  return (dayOfWeek + 6) % 7;
+}
+
 export async function POST(request: Request) {
   let body: BookingPayload;
   try {
@@ -94,13 +98,25 @@ export async function POST(request: Request) {
 
   const localNoon = new Date(`${bookingDate}T12:00:00+03:00`);
   const dayOfWeek = (localNoon.getUTCDay() + 6) % 7;
-  const schedule = await db.workingHours.findUnique({
-    where: { businessId_dayOfWeek: { businessId: business.id, dayOfWeek } },
-    select: { opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
-  });
-  if (!schedule) return NextResponse.json({ ok: false, error: "لم يتم ضبط ساعات العمل لهذا اليوم" }, { status: 409 });
-  if (!bookingWithinWorkingHours(bookingTime, durationMinutes, schedule)) {
-    return NextResponse.json({ ok: false, error: "مدة الخدمة لا تقع بالكامل داخل ساعات العمل" }, { status: 409 });
+  const [schedule, previousSchedule] = await Promise.all([
+    db.workingHours.findUnique({
+      where: { businessId_dayOfWeek: { businessId: business.id, dayOfWeek } },
+      select: { opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
+    }),
+    db.workingHours.findUnique({
+      where: { businessId_dayOfWeek: { businessId: business.id, dayOfWeek: previousDay(dayOfWeek) } },
+      select: { opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
+    }),
+  ]);
+  const inTodayWindow = bookingWithinWorkingHours(bookingTime, durationMinutes, schedule);
+  const inPreviousOvernightWindow = bookingWithinWorkingHours(bookingTime, durationMinutes, previousSchedule) && Boolean(
+    previousSchedule && !previousSchedule.isClosed && (
+      (previousSchedule.opensAt && previousSchedule.closesAt && bookingMinutes(previousSchedule.closesAt) <= bookingMinutes(previousSchedule.opensAt)) ||
+      (previousSchedule.secondOpensAt && previousSchedule.secondClosesAt && bookingMinutes(previousSchedule.secondClosesAt) <= bookingMinutes(previousSchedule.secondOpensAt))
+    ),
+  );
+  if (!inTodayWindow && !inPreviousOvernightWindow) {
+    return NextResponse.json({ ok: false, error: schedule || previousSchedule ? "مدة الخدمة لا تقع بالكامل داخل ساعات العمل" : "لم يتم ضبط ساعات العمل لهذا اليوم" }, { status: 409 });
   }
 
   try {
