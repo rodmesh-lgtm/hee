@@ -8,20 +8,16 @@ import { getPlanEntitlements } from "../lib/plan-entitlements";
 
 const VERIFICATION_EVENT = "verification_requested";
 
-function eventStatus(metadata: unknown) {
-  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
-    ? String((metadata as Record<string, unknown>).status ?? "pending")
-    : "pending";
-}
-
-async function pendingVerificationEvent(businessId: string) {
-  const events = await db.analyticsEvent.findMany({
-    where: { businessId, eventType: VERIFICATION_EVENT },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, metadata: true },
-    take: 20,
-  });
-  return events.find((event) => eventStatus(event.metadata) === "pending") ?? null;
+async function hasPendingVerificationForBusiness(businessId: string) {
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT "id"
+    FROM "AnalyticsEvent"
+    WHERE "businessId" = ${businessId}
+      AND "eventType" = ${VERIFICATION_EVENT}
+      AND COALESCE("metadata"->>'status', 'pending') = 'pending'
+    LIMIT 1
+  `;
+  return rows.length > 0;
 }
 
 export async function requestVerificationAction() {
@@ -39,9 +35,15 @@ export async function requestVerificationAction() {
     if (currentBusiness.isVerified) return "verified" as const;
     if (!getPlanEntitlements(currentBusiness.plan?.code).verificationEligible) return "upgrade" as const;
 
-    const events = await tx.analyticsEvent.findMany({ where: { businessId: business.id, eventType: VERIFICATION_EVENT }, orderBy: { createdAt: "desc" }, select: { metadata: true }, take: 20 });
-    const hasPending = events.some((event) => eventStatus(event.metadata) === "pending");
-    if (!hasPending) await tx.analyticsEvent.create({ data: { businessId: business.id, eventType: VERIFICATION_EVENT, metadata: { source: "dashboard_branding", status: "pending" } } });
+    const pending = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "AnalyticsEvent"
+      WHERE "businessId" = ${business.id}
+        AND "eventType" = ${VERIFICATION_EVENT}
+        AND COALESCE("metadata"->>'status', 'pending') = 'pending'
+      LIMIT 1
+    `;
+    if (!pending.length) await tx.analyticsEvent.create({ data: { businessId: business.id, eventType: VERIFICATION_EVENT, metadata: { source: "dashboard_branding", status: "pending" } } });
     return "requested" as const;
   });
 
@@ -57,5 +59,5 @@ export async function requestVerificationAction() {
 export async function hasPendingVerificationRequest() {
   const business = await getOwnedBusinessForRead();
   if (!business) return false;
-  return Boolean(await pendingVerificationEvent(business.id));
+  return hasPendingVerificationForBusiness(business.id);
 }
