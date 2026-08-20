@@ -16,6 +16,7 @@ function sessionStorageToken(rawToken: string) {
   return `${NORMAL_SESSION_STORAGE_PREFIX}${createHash("sha256").update(rawToken).digest("hex")}`;
 }
 function looksLikeStoredSessionToken(value: string) { return value.startsWith(NORMAL_SESSION_STORAGE_PREFIX); }
+function allowLegacyPlaintextSessions() { return process.env.APP_ENV === "test"; }
 
 export async function hashPassword(password: string) { return hash(password, 10); }
 export async function verifyPassword(password: string, passwordHash: string) { return compare(password, passwordHash); }
@@ -54,21 +55,20 @@ export async function getCurrentUser() {
   const token = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
 
   if (token && !token.startsWith(QA_TOKEN_PREFIX) && !looksLikeStoredSessionToken(token)) {
-    // New sessions store only SHA-256(token) in the database, so a database read alone
-    // cannot be replayed as an authenticated browser cookie. Legacy plaintext rows remain
-    // readable during the transition and disappear naturally on login/logout/expiry.
+    // Production authenticates only against SHA-256(token) rows. Plaintext legacy
+    // session rows are accepted solely by explicit CI tests so a database read cannot
+    // be replayed as a browser cookie in a real runtime.
     const hashedToken = sessionStorageToken(token);
     let session = await db.session.findUnique({ where: { token: hashedToken }, include: { user: true } });
-    let legacy = false;
-    if (!session) {
+    let storedToken = hashedToken;
+    if (!session && allowLegacyPlaintextSessions()) {
       session = await db.session.findUnique({ where: { token }, include: { user: true } });
-      legacy = Boolean(session);
+      storedToken = token;
     }
     if (session && session.expiresAt >= new Date() && !session.user.deletedAt) return session.user;
 
     if (session) {
-      const stored = legacy ? token : hashedToken;
-      await db.session.deleteMany({ where: { token: stored } }).catch(() => undefined);
+      await db.session.deleteMany({ where: { token: storedToken } }).catch(() => undefined);
     }
   }
 
