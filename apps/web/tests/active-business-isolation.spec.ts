@@ -4,7 +4,6 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
-
 type Seeded = { ownerId: string; attackerId: string; sessionToken: string; businessAId: string; businessBId: string; attackerBusinessId: string; serviceAId: string; serviceBId: string };
 let pool: Pool;
 let db: PrismaClient;
@@ -53,7 +52,7 @@ async function switchBusiness(page: import("@playwright/test").Page, businessId:
 }
 
 function serviceNameInput(page: import("@playwright/test").Page, name: string) {
-  return page.locator('input[name="name"]').and(page.getByDisplayValue(name));
+  return page.locator(`input[name="name"][value="${name}"]`);
 }
 
 test.describe.serial("active business tenant isolation", () => {
@@ -107,9 +106,7 @@ test.describe.serial("active business tenant isolation", () => {
 
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
       const protectedSwitcher = page.getByLabel("اختيار المنشأة").first();
-      await protectedSwitcher.evaluate((select, foreignId) => {
-        const option = document.createElement("option"); option.value = String(foreignId); option.textContent = "منشأة مزورة"; select.append(option); (select as HTMLSelectElement).value = String(foreignId);
-      }, seeded.attackerBusinessId);
+      await protectedSwitcher.evaluate((select, foreignId) => { const option = document.createElement("option"); option.value = String(foreignId); option.textContent = "منشأة مزورة"; select.append(option); (select as HTMLSelectElement).value = String(foreignId); }, seeded.attackerBusinessId);
       await protectedSwitcher.locator("xpath=..").getByRole("button", { name: "تبديل" }).click();
       await page.waitForURL(/business=invalid/);
       await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId);
