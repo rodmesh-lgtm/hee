@@ -2,6 +2,13 @@ import { notFound } from "next/navigation";
 import { isPreviewQaEnvironment } from "../../lib/qa-audit";
 import { PublicBusinessActions } from "../../../components/public/public-business-actions";
 
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
 type Item = {
   key: string;
   label: string;
