@@ -1,12 +1,18 @@
+import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { compare, hash } from "bcryptjs";
 import { db } from "./db";
 import { clearQaAuditSession, getQaAuditSessionUser, isQaAuditModeUser } from "./qa-audit";
 
-const SESSION_COOKIE = "hee_session";
+const SESSION_COOKIE = "__Host-hee_session";
+const LEGACY_SESSION_COOKIE = "hee_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 const QA_TOKEN_PREFIX = "hee_qa_audit_";
+
+function newSessionToken() {
+  return randomBytes(32).toString("base64url");
+}
 
 export async function hashPassword(password: string) {
   return hash(password, 10);
@@ -18,8 +24,8 @@ export async function verifyPassword(password: string, passwordHash: string) {
 
 export async function createSession(userId: string) {
   const cookieStore = await cookies();
-  const previousToken = cookieStore.get(SESSION_COOKIE)?.value;
-  const token = crypto.randomUUID();
+  const previousToken = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
+  const token = newSessionToken();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
   await db.$transaction(async (tx) => {
@@ -31,17 +37,19 @@ export async function createSession(userId: string) {
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: true,
     path: "/",
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
   });
+  // Remove the pre-hardening cookie so browsers cannot carry two session authorities.
+  cookieStore.delete(LEGACY_SESSION_COOKIE);
 
   return token;
 }
 
 export async function getCurrentUser() {
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
 
   // QA preview tokens live in the same backing Session table for operational simplicity,
   // but they are a separate trust domain. Never authenticate a QA token from the ordinary
@@ -75,8 +83,9 @@ export async function getCurrentUserForWrites() {
 
 export async function logoutSession() {
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
   if (token && !token.startsWith(QA_TOKEN_PREFIX)) await db.session.deleteMany({ where: { token } });
   cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete(LEGACY_SESSION_COOKIE);
   await clearQaAuditSession();
 }
