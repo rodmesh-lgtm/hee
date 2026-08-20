@@ -16,6 +16,13 @@ type BookingPayload = {
   requestId?: unknown;
 };
 
+type ExistingBookingRange = {
+  id: string;
+  bookingDate: string;
+  bookingTime: string;
+  durationMinutes: number;
+};
+
 function text(value: unknown, max: number) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized.length <= max ? normalized : null;
@@ -150,20 +157,32 @@ export async function POST(request: Request) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-service:${business.id}:${serviceId}`}))`;
       const previousBookingDate = shiftBookingDate(bookingDate, -1);
       const nextBookingDate = shiftBookingDate(bookingDate, 1);
-      const existingBookings = await tx.booking.findMany({
-        where: {
-          businessId: business.id,
-          serviceId,
-          bookingDate: { in: [previousBookingDate, bookingDate, nextBookingDate] },
-          status: { in: ["pending", "confirmed"] },
-        },
-        select: { id: true, bookingDate: true, bookingTime: true },
-      });
+      const existingBookings = await tx.$queryRaw<ExistingBookingRange[]>`
+        SELECT
+          b."id",
+          b."bookingDate",
+          b."bookingTime",
+          COALESCE(
+            snapshot."durationMinutes",
+            CASE WHEN service."durationMinutes" BETWEEN 5 AND 1440 THEN service."durationMinutes" ELSE 30 END
+          )::int AS "durationMinutes"
+        FROM "Booking" b
+        LEFT JOIN "BookingDurationSnapshot" snapshot ON snapshot."bookingId" = b."id"
+        LEFT JOIN "Service" service ON service."id" = b."serviceId"
+        WHERE b."businessId" = ${business.id}
+          AND b."serviceId" = ${serviceId}
+          AND b."status" IN ('pending', 'confirmed')
+          AND (
+            b."bookingDate" = ${previousBookingDate}
+            OR b."bookingDate" = ${bookingDate}
+            OR b."bookingDate" = ${nextBookingDate}
+          )
+      `;
       const requestedStart = bookingMinutes(bookingTime);
       const offsets = new Map([[previousBookingDate, -1440], [bookingDate, 0], [nextBookingDate, 1440]]);
       if (existingBookings.some((item) => {
         const existingStart = (offsets.get(item.bookingDate) ?? 0) + bookingMinutes(item.bookingTime);
-        return bookingIntervalsOverlap(requestedStart, durationMinutes, existingStart, durationMinutes);
+        return bookingIntervalsOverlap(requestedStart, durationMinutes, existingStart, normalizedBookingDuration(item.durationMinutes));
       })) {
         throw new Error("PUBLIC_BOOKING_SLOT_TAKEN");
       }
@@ -192,6 +211,10 @@ export async function POST(request: Request) {
         },
         select: { id: true },
       });
+      await tx.$executeRaw`
+        INSERT INTO "BookingDurationSnapshot" ("bookingId", "durationMinutes")
+        VALUES (${booking.id}, ${durationMinutes})
+      `;
       await tx.$executeRaw`
         INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId")
         VALUES (${business.id}, 'booking', ${idempotencyKey}, ${booking.id})
