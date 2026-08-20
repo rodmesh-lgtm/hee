@@ -1,13 +1,29 @@
 import type { NextConfig } from "next";
 
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https: wss:",
+  "media-src 'self' blob: https:",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+].join("; ");
+
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Dashboard previews intentionally frame the public HEE page on the same origin.
   // SAMEORIGIN keeps third-party framing blocked while allowing those previews to render.
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
-  { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
 ];

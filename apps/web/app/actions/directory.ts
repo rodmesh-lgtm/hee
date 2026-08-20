@@ -10,7 +10,11 @@ import { normalizeGoogleMapsUrl } from "../lib/google-maps-url";
 
 function text(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
 function bounded(formData: FormData, key: string, max: number) { const value = text(formData, key); return value.length <= max ? value : null; }
-function optionalBounded(formData: FormData, key: string, max: number) { const value = bounded(formData, key, max); return value === null ? null : value || null; }
+function optionalBounded(formData: FormData, key: string, max: number): string | null | undefined {
+  const value = text(formData, key);
+  if (value.length > max) return undefined;
+  return value || null;
+}
 function integer(formData: FormData, key: string, fallback = 0) { const parsed = Number.parseInt(text(formData, key), 10); return Number.isFinite(parsed) ? Math.max(0, Math.min(100000, parsed)) : fallback; }
 function validEmail(value: string | null) { return !value || (value.length <= 254 && /^\S+@\S+\.\S+$/.test(value)); }
 
@@ -41,7 +45,7 @@ function branchInput(formData: FormData) {
   const phone = optionalBounded(formData, "phone", 40);
   const whatsapp = optionalBounded(formData, "whatsapp", 40);
   const rawMap = bounded(formData, "googleMapsLink", 500);
-  if (name === null || city === null || district === null || address === null || phone === null || whatsapp === null || rawMap === null) fail("error-too-long");
+  if (name === null || city === undefined || district === undefined || address === undefined || phone === undefined || whatsapp === undefined || rawMap === null) fail("error-too-long");
   if (!name) fail("error-required");
   const googleMapsLink = normalizeGoogleMapsUrl(rawMap);
   if (rawMap && !googleMapsLink) fail("error-map");
@@ -111,7 +115,7 @@ export async function deleteBranchAction(formData: FormData) {
 export async function createDepartmentAction(formData: FormData) {
   const { business, entitlements } = await ownedBusinessAndPlan();
   const name = bounded(formData, "name", 120), description = optionalBounded(formData, "description", 500);
-  if (name === null || description === null) fail("error-too-long");
+  if (name === null || description === undefined) fail("error-too-long");
   if (!name) fail("error-required");
   const result = await db.$transaction(async (tx) => {
     await lockDirectoryScope(tx, business.id, "departments");
@@ -128,7 +132,7 @@ export async function createDepartmentAction(formData: FormData) {
 export async function updateDepartmentAction(formData: FormData) {
   const { business } = await ownedBusinessAndPlan();
   const id = text(formData, "id"), name = bounded(formData, "name", 120), description = optionalBounded(formData, "description", 500);
-  if (name === null || description === null) fail("error-too-long");
+  if (name === null || description === undefined) fail("error-too-long");
   if (!id || !name || !(await ownsBusinessRecord("department", id, business.id))) fail("error-not-found");
   const updated = await db.department.updateMany({ where: { id, businessId: business.id }, data: { name, description, isActive: formData.get("isActive") === "on", sortOrder: integer(formData, "sortOrder") } });
   if (updated.count !== 1) fail("error-not-found");
@@ -146,7 +150,7 @@ export async function deleteDepartmentAction(formData: FormData) {
 
 function contactInput(formData: FormData) {
   const name = bounded(formData, "name", 120), jobTitle = optionalBounded(formData, "jobTitle", 120), phone = optionalBounded(formData, "phone", 40), whatsapp = optionalBounded(formData, "whatsapp", 40), email = optionalBounded(formData, "email", 254);
-  if (name === null || jobTitle === null || phone === null || whatsapp === null || email === null) fail("error-too-long");
+  if (name === null || jobTitle === undefined || phone === undefined || whatsapp === undefined || email === undefined) fail("error-too-long");
   if (!name) fail("error-required");
   if (!validEmail(email)) fail("error-email");
   return { name, jobTitle, phone, whatsapp, email };
@@ -156,7 +160,7 @@ export async function createContactPersonAction(formData: FormData) {
   const { business, entitlements } = await ownedBusinessAndPlan();
   const input = contactInput(formData);
   const departmentId = optionalBounded(formData, "departmentId", 80), branchId = optionalBounded(formData, "branchId", 80);
-  if (departmentId === null || branchId === null) fail("error-too-long");
+  if (departmentId === undefined || branchId === undefined) fail("error-too-long");
   if ((departmentId && !(await ownsBusinessRecord("department", departmentId, business.id))) || (branchId && !(await ownsBusinessRecord("branch", branchId, business.id)))) fail("error-relation");
   const result = await db.$transaction(async (tx) => {
     await lockDirectoryScope(tx, business.id, "contacts");
@@ -180,7 +184,7 @@ export async function updateContactPersonAction(formData: FormData) {
   const id = text(formData, "id"), input = contactInput(formData);
   if (!id || !(await ownsBusinessRecord("contactPerson", id, business.id))) fail("error-not-found");
   const departmentId = optionalBounded(formData, "departmentId", 80), branchId = optionalBounded(formData, "branchId", 80);
-  if (departmentId === null || branchId === null) fail("error-too-long");
+  if (departmentId === undefined || branchId === undefined) fail("error-too-long");
   if ((departmentId && !(await ownsBusinessRecord("department", departmentId, business.id))) || (branchId && !(await ownsBusinessRecord("branch", branchId, business.id)))) fail("error-relation");
   const nextActive = formData.get("isActive") === "on";
   const requestedPrimary = nextActive && formData.get("isPrimary") === "on";

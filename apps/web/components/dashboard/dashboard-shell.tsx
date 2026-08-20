@@ -50,7 +50,7 @@ export function DashboardShell({ children, businessName, businessSlug, isPublish
 
         <div className="order-1 relative min-w-0 lg:[direction:rtl]">
           <header className="sticky top-0 z-20 border-b border-[#edf0fb] bg-white/95 px-4 py-3 backdrop-blur lg:border-b-0 lg:bg-[#f8f9fd]/95 xl:px-7">
-            <div className="flex items-center justify-between gap-3"><div className="min-w-0"><h1 className="truncate text-base font-black text-[#1f2552] sm:text-lg">{pageTitle}</h1>{showQaBadge ? <span className="mt-1 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">وضع المعاينة QA</span> : null}</div><Button type="button" variant="secondary" size="sm" icon={mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />} onClick={() => setMobileOpen((v) => !v)} className="border-[#e9e7fb] bg-white text-slate-700 lg:hidden">القائمة</Button></div>
+            <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-base font-black text-[#1f2552] sm:text-lg">{pageTitle}</div>{showQaBadge ? <span className="mt-1 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">وضع المعاينة QA</span> : null}</div><Button type="button" variant="secondary" size="sm" icon={mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />} onClick={() => setMobileOpen((v) => !v)} className="border-[#e9e7fb] bg-white text-slate-700 lg:hidden">القائمة</Button></div>
           </header>
           <main className="min-w-0 p-4 sm:p-5 xl:p-6">{children}</main>
         </div>

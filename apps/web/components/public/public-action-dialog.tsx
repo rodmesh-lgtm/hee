@@ -112,6 +112,17 @@ export function buildInquiryWhatsAppUrl({
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
+function currentPublicSlug() {
+  if (typeof window === "undefined") return "";
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  return parts.at(-1) ?? "";
+}
+
+function newRequestId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `request-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export function PublicActionDialog({
   open,
   onClose,
@@ -127,6 +138,8 @@ export function PublicActionDialog({
   const [values, setValues] = useState<PublicActionDialogFormState>({});
   const [errors, setErrors] = useState<PublicActionDialogFormErrors>({});
   const [mounted, setMounted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const requestIdRef = useRef<string | null>(null);
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const firstInputRef = useRef<HTMLInputElement | null>(null);
@@ -144,7 +157,11 @@ export function PublicActionDialog({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      requestIdRef.current = null;
+      setSubmitting(false);
+      return;
+    }
 
     const previousOverflow = document.body.style.overflow;
     const previousPaddingRight = document.body.style.paddingRight;
@@ -187,7 +204,9 @@ export function PublicActionDialog({
 
     if (mode === "request") {
       if (!values.name?.trim()) nextErrors.name = "الاسم مطلوب";
-      if (!values.phone?.trim()) nextErrors.phone = "رقم الجوال مطلوب";
+      const phoneDigits = values.phone?.replace(/\D/g, "") ?? "";
+      if (!phoneDigits) nextErrors.phone = "رقم الجوال مطلوب";
+      else if (phoneDigits.length < 8 || phoneDigits.length > 15) nextErrors.phone = "رقم الجوال غير صالح";
       if (!values.service?.trim()) nextErrors.service = "الخدمة المطلوبة مطلوبة";
     }
 
@@ -199,25 +218,47 @@ export function PublicActionDialog({
     return Object.keys(nextErrors).length === 0;
   };
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting || !validate()) return;
 
-    if (!validate()) {
-      return;
-    }
-
-    const url = mode === "request"
-      ? buildRequestWhatsAppUrl({ businessName, whatsapp, values })
-      : buildInquiryWhatsAppUrl({ businessName, whatsapp, values });
-
-    if (!url) {
-      if (fallbackPhoneHref) {
-        window.location.assign(fallbackPhoneHref);
+    setSubmitting(true);
+    try {
+      if (mode === "request") {
+        const requestId = requestIdRef.current ?? newRequestId();
+        requestIdRef.current = requestId;
+        const response = await fetch("/api/public/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": requestId },
+          body: JSON.stringify({
+            slug: currentPublicSlug(),
+            name: values.name?.trim(),
+            phone: values.phone?.trim(),
+            serviceRequest: values.service?.trim(),
+            notes: values.notes?.trim(),
+            requestId,
+          }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null) as { error?: string } | null;
+          setErrors((current) => ({ ...current, service: payload?.error || "تعذر تسجيل الطلب الآن. حاول مرة أخرى." }));
+          return;
+        }
       }
-      return;
-    }
 
-    window.location.href = url;
+      const url = mode === "request"
+        ? buildRequestWhatsAppUrl({ businessName, whatsapp, values })
+        : buildInquiryWhatsAppUrl({ businessName, whatsapp, values });
+
+      if (!url) {
+        if (fallbackPhoneHref) window.location.assign(fallbackPhoneHref);
+        return;
+      }
+
+      window.location.href = url;
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!open || !mounted) return null;
@@ -235,7 +276,7 @@ export function PublicActionDialog({
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 bg-slate-950 px-4 py-4 sm:px-5">
           <div>
             <h3 id={titleId} className="text-lg font-black">{title ?? (mode === "request" ? "طلب / حجز" : "استفسار")}</h3>
-            <p className="mt-1 text-xs leading-6 text-slate-300">{description ?? (mode === "request" ? "أرسل تفاصيل الطلب وسيتم تجهيز الرسالة عبر واتساب." : "أرسل استفسارك وسيتم فتح واتساب مباشرة.")}</p>
+            <p className="mt-1 text-xs leading-6 text-slate-300">{description ?? (mode === "request" ? "سيتم تسجيل الطلب في HEE ثم تجهيز الرسالة عبر واتساب." : "أرسل استفسارك وسيتم فتح واتساب مباشرة.")}</p>
           </div>
           <button ref={closeButtonRef} type="button" onClick={onClose} className="rounded-xl border border-white/15 p-2 text-slate-200" aria-label="إغلاق">
             <X className="h-4 w-4" />
@@ -282,9 +323,9 @@ export function PublicActionDialog({
           </div>
 
           <div className="shrink-0 border-t border-white/10 bg-slate-950 px-4 py-3.5 sm:px-5" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-            <button type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 text-sm font-black text-white">
+            <button disabled={submitting} type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
               {normalizedWhatsApp ? <MessageCircle className="h-4 w-4" /> : <Phone className="h-4 w-4" />}
-              {ctaLabel ?? (mode === "request" ? "إرسال عبر واتساب" : "إرسال الاستفسار عبر واتساب")}
+              {submitting ? "جارٍ تسجيل الطلب..." : (ctaLabel ?? (mode === "request" ? "إرسال عبر واتساب" : "إرسال الاستفسار عبر واتساب"))}
             </button>
           </div>
         </form>
