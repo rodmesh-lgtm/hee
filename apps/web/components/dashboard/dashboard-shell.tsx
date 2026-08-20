@@ -4,12 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "../../app/actions/auth";
-import { ExternalLink, LogOut, Menu, X } from "lucide-react";
+import { ExternalLink, LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "../../lib/utils";
 import { dashboardNavItems } from "./dashboard-nav";
 
-type DashboardShellProps = { children: React.ReactNode; businessName: string; businessSlug: string | null; isPublished: boolean; showQaBadge?: boolean };
+type DashboardShellProps = { children: React.ReactNode; businessName: string; businessSlug: string | null; isPublished: boolean; showQaBadge?: boolean; showAdminLink?: boolean };
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "الرئيسية",
@@ -29,7 +29,7 @@ function getCurrentPageTitle(pathname: string) {
   return found?.[1] ?? "لوحة التحكم";
 }
 
-export function DashboardShell({ children, businessName, businessSlug, isPublished, showQaBadge = false }: DashboardShellProps) {
+export function DashboardShell({ children, businessName, businessSlug, isPublished, showQaBadge = false, showAdminLink = false }: DashboardShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const pageTitle = getCurrentPageTitle(pathname);
@@ -47,6 +47,7 @@ export function DashboardShell({ children, businessName, businessSlug, isPublish
           <Link href="/dashboard" className="mb-6 block px-2"><div className="text-[28px] font-black tracking-[-.06em] text-[#6f3bd2]">HEE</div><p className="mt-1 text-xs font-semibold text-slate-500">هوية أعمال رقمية</p>{businessName ? <p className="mt-3 truncate text-xs font-bold text-[#1f2552]">{businessName}</p> : null}</Link>
           <nav className="space-y-1">{nav()}</nav>
           {businessSlug ? <Link href={isPublished ? `/${businessSlug}` : "/preview"} target="_blank" className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-[#f5f1ff] px-4 py-3 text-center text-xs font-black text-[#6543ce]"><ExternalLink className="h-3.5 w-3.5" />{isPublished ? "فتح الصفحة" : "معاينة الصفحة"}</Link> : null}
+          {showAdminLink ? <Link href="/admin" className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl border border-[#ddd5fb] bg-white px-4 py-3 text-center text-xs font-black text-[#5d49cc]"><ShieldCheck className="h-3.5 w-3.5" />إدارة المنصة</Link> : null}
           <div className="mt-auto border-t border-[#edf0fb] pt-5"><form action={logoutAction}><button type="submit" className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#e7eaf6] bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"><LogOut className="h-4 w-4" />تسجيل الخروج</button></form></div>
         </aside>
 
@@ -60,6 +61,7 @@ export function DashboardShell({ children, businessName, businessSlug, isPublish
         <aside className={cn("fixed inset-y-0 right-0 z-40 flex w-[86vw] max-w-[300px] flex-col border-l border-[#eceffc] bg-white p-4 shadow-[0_25px_60px_-35px_rgba(48,46,89,.55)] transition-transform duration-200 lg:hidden", mobileOpen ? "translate-x-0" : "translate-x-full")}>
           <div className="mb-5 flex items-center justify-between"><Link href="/dashboard" onClick={() => setMobileOpen(false)}><div className="text-[28px] font-black tracking-[-.06em] text-[#6f3bd2]">HEE</div><div className="text-xs text-slate-500">هوية أعمال رقمية</div></Link><button type="button" onClick={() => setMobileOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-[#eceffc] bg-white text-slate-600" aria-label="إغلاق القائمة"><X className="h-5 w-5" /></button></div>
           {businessSlug ? <Link href={isPublished ? `/${businessSlug}` : "/preview"} target="_blank" onClick={() => setMobileOpen(false)} className="mb-4 inline-flex items-center justify-center gap-2 rounded-xl bg-[#f5f1ff] px-4 py-3 text-sm font-black text-[#6543ce]"><ExternalLink className="h-4 w-4" />معاينة صفحتي</Link> : null}
+          {showAdminLink ? <Link href="/admin" onClick={() => setMobileOpen(false)} className="mb-3 inline-flex items-center justify-center gap-2 rounded-xl border border-[#ddd5fb] bg-white px-4 py-3 text-sm font-black text-[#5d49cc]"><ShieldCheck className="h-4 w-4" />إدارة المنصة</Link> : null}
           <nav className="space-y-1 overflow-y-auto pb-4">{nav(true)}</nav>
           <div className="mt-auto border-t border-[#eceffc] pt-4"><form action={logoutAction}><button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#eceffc] bg-white px-4 py-3 text-sm font-bold text-slate-700"><LogOut className="h-4 w-4" />تسجيل الخروج</button></form></div>
         </aside>
