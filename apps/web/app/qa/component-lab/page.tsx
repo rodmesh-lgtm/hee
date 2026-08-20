@@ -6,6 +6,13 @@ import { PublicPortfolioSection } from "../../../components/public/public-portfo
 import type { ContactTeamMember, PortfolioItem } from "../../lib/page-modules";
 import type { PublicService } from "../../../components/public/types";
 
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
 const serviceSeed: PublicService[] = [
   { id: "s1", name: "خدمة استشارية متقدمة", description: "تفاصيل مختصرة عن الخدمة الأولى.", price: 150, durationMinutes: 30, imageUrl: null, bookingEnabled: true, sortOrder: 0 },
   { id: "s2", name: "تركيب وصيانة", description: "خدمة عملية سريعة للمنزل أو المكتب.", price: 250, durationMinutes: 45, imageUrl: null, bookingEnabled: true, sortOrder: 1 },
