@@ -2,12 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BadgeCheck, CreditCard, Globe2, Mail, ShieldCheck, UserRound } from "lucide-react";
 import { getCurrentUser } from "../../lib/auth";
-import { db } from "../../lib/db";
+import { getActiveBusinessWithPlanForUser } from "../../lib/active-business";
 
 export default async function DashboardSettingsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, include: { plan: true } });
+  const business = await getActiveBusinessWithPlanForUser(user.id);
 
   return <div className="space-y-4 pb-4">
     <section className="rounded-[24px] border border-[#e8e5f2] bg-white p-4 sm:p-5"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#f1edff] text-[#6543ce]"><UserRound className="h-5 w-5" /></span><div><h1 className="text-xl font-black text-[#1f2552]">الحساب والباقات</h1><p className="mt-1 text-sm text-slate-500">بيانات حسابك وحالة اشتراكك.</p></div></div></section>
