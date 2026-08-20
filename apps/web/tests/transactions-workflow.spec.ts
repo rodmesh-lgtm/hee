@@ -85,10 +85,21 @@ test.describe.serial("public transactions workflow", () => {
     try {
       await publicPage.goto(`${baseUrl}/${seeded.slug}`, { waitUntil: "domcontentloaded" });
       await expect(publicPage.getByRole("button", { name: "طلب خدمة" })).toBeVisible();
-      await expect(publicPage.getByRole("button", { name: "حجز موعد" })).toBeVisible();
-      await publicPage.getByRole("button", { name: "حجز موعد" }).click();
-      await expect(publicPage.getByRole("dialog", { name: "حجز موعد" })).toBeVisible();
+      const bookingButton = publicPage.getByRole("button", { name: "حجز موعد" });
+      await expect(bookingButton).toBeVisible();
+      await bookingButton.click();
+      const bookingDialog = publicPage.getByRole("dialog", { name: "حجز موعد" });
+      await expect(bookingDialog).toBeVisible();
+      await expect(publicPage.getByLabel("الاسم")).toBeFocused();
+      expect(await publicPage.evaluate(() => document.body.style.overflow)).toBe("hidden");
 
+      await publicPage.keyboard.press("Escape");
+      await expect(bookingDialog).toBeHidden();
+      expect(await publicPage.evaluate(() => document.body.style.overflow)).toBe("");
+      await expect(bookingButton).toBeFocused();
+
+      await bookingButton.click();
+      await expect(bookingDialog).toBeVisible();
       const tomorrow = riyadhDateKey(1);
       await publicPage.getByLabel("الاسم").fill("عميل اختبار");
       await publicPage.getByLabel("رقم الجوال").fill("0500000011");
