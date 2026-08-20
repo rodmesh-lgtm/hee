@@ -68,7 +68,7 @@ test.describe.serial("active business tenant isolation", () => {
   test.afterAll(async () => { await db?.$disconnect(); await pool?.end(); });
 
   test("isolates owned businesses and rejects cross-tenant selection and record tampering", async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(60_000);
     const seeded = await seed();
     await authenticate(page, seeded.sessionToken);
     try {
@@ -107,9 +107,17 @@ test.describe.serial("active business tenant isolation", () => {
         await expect(editForm).toBeVisible({ timeout: 10_000 });
         await editForm.locator('input[name="id"]').evaluate((input, foreignId) => { (input as HTMLInputElement).value = String(foreignId); }, seeded.serviceBId);
         await editForm.locator('input[name="name"]').fill("اسم اختراق يجب ألا يحفظ");
-        await editForm.evaluate((form) => (form as HTMLFormElement).requestSubmit());
-        await expect.poll(async () => (await db.service.findUnique({ where: { id: seeded.serviceBId }, select: { name: true } }))?.name, { timeout: 5_000 }).toBe("خدمة باء الخاصة");
-        await expect.poll(async () => (await db.service.findUnique({ where: { id: seeded.serviceAId }, select: { name: true } }))?.name, { timeout: 5_000 }).toBe("خدمة ألف الخاصة");
+        await Promise.all([
+          page.waitForURL("**/dashboard/services", { timeout: 10_000 }).catch(() => undefined),
+          editForm.locator('button').filter({ hasText: "حفظ" }).click({ timeout: 10_000 }),
+        ]);
+        await expect.poll(async () => {
+          const [a, b] = await Promise.all([
+            db.service.findUnique({ where: { id: seeded.serviceAId }, select: { name: true } }),
+            db.service.findUnique({ where: { id: seeded.serviceBId }, select: { name: true } }),
+          ]);
+          return `${a?.name}|${b?.name}`;
+        }, { timeout: 10_000 }).toBe("خدمة ألف الخاصة|خدمة باء الخاصة");
       });
 
       await test.step("foreign tenant business selection is rejected", async () => {
