@@ -63,11 +63,13 @@ async function complete(request: Request, provider: OAuthProvider, input: { stat
       ]);
       const activeIdentity = Boolean(identity && !identity.user.deletedAt);
       const activeUser = Boolean(existingUser && !existingUser.deletedAt);
-      if (!activeIdentity && !activeUser) return errorRedirect(request, "account-not-found");
+      // OAuth is currently login-only. Use a generic failure so this path cannot be
+      // used to determine whether an HEE account exists for a provider email.
+      if (!activeIdentity && !activeUser) return errorRedirect(request, "authentication-failed");
     }
 
     const user = await resolveOAuthUser(provider, claims, provider === "apple" ? parseAppleUser(input.appleUser) : null);
-    if (user.deletedAt) return errorRedirect(request, "account-not-found", registration);
+    if (user.deletedAt) return errorRedirect(request, "authentication-failed", registration);
 
     await clearQaAuditSession();
     await createSession(user.id);
