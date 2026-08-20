@@ -23,3 +23,12 @@ test("oauth login failures do not expose account existence", () => {
   const callback = source("app/api/auth/oauth/[provider]/callback/route.ts");
   assert.doesNotMatch(callback, /account-not-found/);
 });
+
+test("real runtimes do not authenticate plaintext legacy database sessions", () => {
+  const auth = source("app/lib/auth.ts");
+  assert.match(auth, /function allowLegacyPlaintextSessions\(\) \{ return process\.env\.APP_ENV === "test"; \}/);
+  assert.match(auth, /if \(!session && allowLegacyPlaintextSessions\(\)\)/);
+  assert.match(auth, /NORMAL_SESSION_STORAGE_PREFIX/);
+  assert.match(auth, /secure:\s*true/);
+  assert.match(auth, /SESSION_COOKIE = "__Host-hee_session"/);
+});
