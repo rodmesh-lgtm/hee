@@ -33,7 +33,7 @@ async function main() {
   });
   const customer = await db.customer.create({ data: { businessId: business.id, name: "Audit Customer", phone: `9665${Date.now().toString().slice(-8)}` } });
   const product = await db.product.create({ data: { businessId: business.id, name: "Audit Product", price: 2500 } });
-  const service = await db.service.create({ data: { businessId: business.id, name: "Audit Service", price: 5000, bookingEnabled: true } });
+  const service = await db.service.create({ data: { businessId: business.id, name: "Audit Service", price: 5000, durationMinutes: 60, bookingEnabled: true } });
 
   const order = await db.order.create({
     data: {
@@ -74,6 +74,18 @@ async function main() {
   await expectBlocked("Booking status constraint", () => db.$executeRaw`UPDATE "Booking" SET "status" = 'typo_status' WHERE "id" = ${booking.id}`);
 
   await db.$executeRaw`
+    INSERT INTO "BookingDurationSnapshot" ("bookingId", "durationMinutes")
+    VALUES (${booking.id}, 60)
+  `;
+  await expectBlocked("Booking duration snapshot range", () => db.$executeRaw`
+    UPDATE "BookingDurationSnapshot" SET "durationMinutes" = 0 WHERE "bookingId" = ${booking.id}
+  `);
+  await expectBlocked("Booking duration snapshot foreign key", () => db.$executeRaw`
+    INSERT INTO "BookingDurationSnapshot" ("bookingId", "durationMinutes")
+    VALUES (${`missing-${suffix}`}, 30)
+  `);
+
+  await db.$executeRaw`
     INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId")
     VALUES (${business.id}, 'order', ${`audit-${suffix}`}, ${order.id})
   `;
@@ -84,6 +96,10 @@ async function main() {
 
   await db.$executeRaw`DELETE FROM "PublicSubmission" WHERE "businessId" = ${business.id}`;
   await db.booking.delete({ where: { id: booking.id } });
+  const snapshotAfterBookingDelete = await db.$queryRaw<Array<{ count: number }>>`
+    SELECT COUNT(*)::int AS "count" FROM "BookingDurationSnapshot" WHERE "bookingId" = ${booking.id}
+  `;
+  if ((snapshotAfterBookingDelete[0]?.count ?? -1) !== 0) throw new Error("Booking duration snapshot cascade: orphan row remains");
   await db.orderItem.deleteMany({ where: { orderId: order.id } });
   await db.order.delete({ where: { id: order.id } });
   await db.product.delete({ where: { id: product.id } });
