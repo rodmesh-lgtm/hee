@@ -7,12 +7,12 @@ export class RequestBodyTooLargeError extends Error {
   }
 }
 
-export async function readBoundedJson(request: Request, maxBytes: number): Promise<unknown> {
+async function readBoundedBytes(request: Request, maxBytes: number) {
   const limit = Math.max(1024, Math.min(1024 * 1024, Math.floor(maxBytes)));
   const declaredLength = Number(request.headers.get("content-length") ?? "");
   if (Number.isFinite(declaredLength) && declaredLength > limit) throw new RequestBodyTooLargeError();
 
-  if (!request.body) return null;
+  if (!request.body) return new Uint8Array();
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -38,5 +38,14 @@ export async function readBoundedJson(request: Request, maxBytes: number): Promi
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  return bytes;
+}
+
+export async function readBoundedText(request: Request, maxBytes: number) {
+  const bytes = await readBoundedBytes(request, maxBytes);
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
+export async function readBoundedJson(request: Request, maxBytes: number): Promise<unknown> {
+  return JSON.parse(await readBoundedText(request, maxBytes));
 }
