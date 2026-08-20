@@ -1,25 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
-import { ensurePersistentStorageReady, extractStorageKeyFromUrl, readPersistentObject } from "../../../lib/storage";
+import { ensurePersistentStorageReady, readPersistentObject } from "../../../lib/storage";
 
 const SAFE_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-
-function profileReferencesStorageKey(pageModules: unknown, storageKey: string) {
-  if (!Array.isArray(pageModules)) return false;
-  for (const rawModule of pageModules) {
-    if (!rawModule || typeof rawModule !== "object") continue;
-    const pageModule = rawModule as { id?: unknown; enabled?: unknown; config?: unknown };
-    if (pageModule.id !== "companyProfile" || pageModule.enabled === false || !pageModule.config || typeof pageModule.config !== "object") continue;
-    const config = pageModule.config as { companyProfile?: unknown };
-    if (!config.companyProfile || typeof config.companyProfile !== "object") continue;
-    const profile = config.companyProfile as { pdfStorageKey?: unknown; pdfUrl?: unknown; visible?: unknown };
-    if (profile.visible === false) continue;
-    const explicitKey = typeof profile.pdfStorageKey === "string" ? profile.pdfStorageKey.trim() : "";
-    const urlKey = typeof profile.pdfUrl === "string" ? extractStorageKeyFromUrl(profile.pdfUrl) : "";
-    if (explicitKey === storageKey || urlKey === storageKey) return true;
-  }
-  return false;
-}
 
 async function isPublicImageReference(storageKey: string) {
   const url = `/api/storage/${storageKey}`;
@@ -46,6 +29,15 @@ async function isPublicImageReference(storageKey: string) {
   return Boolean(directReference);
 }
 
+async function isPublicCompanyProfile(storageKey: string) {
+  const url = `/api/storage/${storageKey}`;
+  const business = await db.business.findFirst({
+    where: { isPublished: true, deletedAt: null, companyProfileUrl: url },
+    select: { id: true },
+  });
+  return Boolean(business);
+}
+
 async function loadAuthorizedBytes(storageKey: string) {
   try { return await readPersistentObject(storageKey); }
   catch (error) {
@@ -68,8 +60,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
   if (!metadata) return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
 
   if (metadata.folder === "company-profiles" && metadata.mimeType === "application/pdf") {
-    const candidates = await db.business.findMany({ where: { isPublished: true, deletedAt: null }, select: { pageModules: true } });
-    if (!candidates.some((business) => profileReferencesStorageKey(business.pageModules, metadata.id))) {
+    if (!(await isPublicCompanyProfile(metadata.id))) {
       return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
     }
     const stored = await loadAuthorizedBytes(storageKey);
@@ -83,6 +74,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
         "Content-Disposition": `inline; filename="${safeName}"`,
         "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
         "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'self'; sandbox",
       },
     });
   }
