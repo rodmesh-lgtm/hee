@@ -85,6 +85,12 @@ function requiredEnv(name: string) {
   return value;
 }
 
+function s3TimeoutMs() {
+  const configured = Number(process.env.S3_REQUEST_TIMEOUT_MS ?? 15_000);
+  if (!Number.isFinite(configured)) return 15_000;
+  return Math.max(1_000, Math.min(120_000, Math.floor(configured)));
+}
+
 function s3Config(): S3Config {
   const endpoint = new URL(requiredEnv("S3_ENDPOINT"));
   if (endpoint.protocol !== "https:" && process.env.S3_ALLOW_INSECURE !== "true") {
@@ -152,12 +158,21 @@ async function signedS3Request(method: "GET" | "PUT" | "DELETE", objectKey: stri
   };
   if (contentType) headers["Content-Type"] = contentType;
 
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body ? new Uint8Array(body) : undefined,
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      body: body ? new Uint8Array(body) : undefined,
+      cache: "no-store",
+      signal: AbortSignal.timeout(s3TimeoutMs()),
+    });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new Error(`انتهت مهلة اتصال S3 أثناء ${method}`);
+    }
+    throw error;
+  }
   if (!response.ok && !(method === "DELETE" && response.status === 404)) {
     const detail = (await response.text().catch(() => "")).slice(0, 300);
     throw new Error(`S3 ${method} فشل (${response.status})${detail ? `: ${detail}` : ""}`);
@@ -232,27 +247,16 @@ let storageTableReady = false;
 async function ensureStoredObjectTable() {
   if (storageTableReady) return;
   const { db } = await import("./db");
-  await db.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "StoredObject" (
-      "id" TEXT NOT NULL,
-      "objectKey" TEXT NOT NULL,
-      "folder" TEXT NOT NULL,
-      "fileName" TEXT NOT NULL,
-      "mimeType" TEXT NOT NULL,
-      "size" INTEGER NOT NULL,
-      "storageDriver" TEXT NOT NULL DEFAULT 'database',
-      "data" BYTEA,
-      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT "StoredObject_pkey" PRIMARY KEY ("id")
-    )
-  `);
-  await db.$executeRawUnsafe(`ALTER TABLE "StoredObject" ADD COLUMN IF NOT EXISTS "storageDriver" TEXT NOT NULL DEFAULT 'database'`);
-  await db.$executeRawUnsafe(`ALTER TABLE "StoredObject" ALTER COLUMN "data" DROP NOT NULL`);
-  await db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "StoredObject_objectKey_key" ON "StoredObject"("objectKey")`);
-  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoredObject_folder_idx" ON "StoredObject"("folder")`);
-  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoredObject_storageDriver_idx" ON "StoredObject"("storageDriver")`);
-  await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "StoredObject_createdAt_idx" ON "StoredObject"("createdAt")`);
-  storageTableReady = true;
+  try {
+    // Runtime code must never need DDL privileges. The storage schema is owned by
+    // Prisma migrations; this probe only verifies that the required table/columns exist.
+    await db.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "StoredObject" WHERE FALSE`;
+    await db.$queryRaw<Array<{ storageDriver: string }>>`SELECT "storageDriver" FROM "StoredObject" WHERE FALSE`;
+    storageTableReady = true;
+  } catch (error) {
+    console.error("[storage] schema_not_ready", error);
+    throw new Error("بنية التخزين غير جاهزة. يجب تطبيق ترحيلات قاعدة البيانات قبل تشغيل الخدمة.");
+  }
 }
 
 export async function readPersistentObject(storageKey: string): Promise<StorageReadResult | null> {
