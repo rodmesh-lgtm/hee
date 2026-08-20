@@ -5,6 +5,9 @@ import { Pool } from "pg";
 const connectionString = String(process.env.DATABASE_URL ?? "").trim();
 if (!connectionString) throw new Error("DATABASE_URL is required");
 const mode = process.argv.includes("--verify") ? "verify" : "seed";
+if (mode === "seed" && process.env.ALLOW_BACKUP_RESTORE_AUDIT_SEED !== "true") {
+  throw new Error("Refusing backup audit seed: set ALLOW_BACKUP_RESTORE_AUDIT_SEED=true only on an isolated database that will be backed up/restored for the test.");
+}
 const marker = "hee-backup-restore-audit";
 const fileMarker = Buffer.from("hee-backup-file-marker-v1", "utf8");
 const pool = new Pool({ connectionString, max: 2 });
