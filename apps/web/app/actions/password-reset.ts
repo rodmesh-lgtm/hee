@@ -20,7 +20,16 @@ async function requestAddress() {
   const requestHeaders = await headers();
   return requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim()
     || requestHeaders.get("x-real-ip")?.trim()
-    || "";
+    || "unknown";
+}
+
+async function consumeResetLimit(scope: string, identity: string, limit: number, windowSeconds: number) {
+  try {
+    return await consumePublicWriteLimit({ scope, businessId: "auth", identity: identity || "unknown", limit, windowSeconds });
+  } catch (error) {
+    console.error("[password-reset] rate_limit_failed", { scope, error });
+    return null;
+  }
 }
 
 async function sendResetEmail(email: string, token: string) {
@@ -56,25 +65,12 @@ export async function requestPasswordResetAction(_previous: PasswordResetState, 
   if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254) return { error: "أدخل بريدًا إلكترونيًا صالحًا" };
 
   const address = await requestAddress();
-  if (address) {
-    const ipRate = await consumePublicWriteLimit({
-      scope: "password-reset-ip",
-      businessId: "auth",
-      identity: address,
-      limit: 12,
-      windowSeconds: 15 * 60,
-    });
-    if (!ipRate.allowed) return { success: GENERIC_RESET_MESSAGE };
-  }
-
-  const rate = await consumePublicWriteLimit({
-    scope: "password-reset-email",
-    businessId: "auth",
-    identity: email,
-    limit: 3,
-    windowSeconds: 15 * 60,
-  });
-  if (!rate.allowed) return { success: GENERIC_RESET_MESSAGE };
+  const [ipRate, emailRate] = await Promise.all([
+    consumeResetLimit("password-reset-ip", address, 12, 15 * 60),
+    consumeResetLimit("password-reset-email", email, 3, 15 * 60),
+  ]);
+  if (!ipRate || !emailRate) return { error: "تعذر التحقق من طلب الاستعادة الآن. حاول مرة أخرى بعد قليل." };
+  if (!ipRate.allowed || !emailRate.allowed) return { success: GENERIC_RESET_MESSAGE };
 
   const configured = Boolean(String(process.env.RESEND_API_KEY ?? "").trim() && String(process.env.HEE_FROM_EMAIL ?? "").trim());
   if (!configured) return { error: "استعادة كلمة المرور عبر البريد لم تُفعّل بعد. تواصل مع إدارة HEE." };
@@ -104,11 +100,27 @@ export async function resetPasswordAction(_previous: PasswordResetState, formDat
   const token = String(formData.get("token") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
-  if (!token || token.length > 256) return { error: "رابط الاستعادة غير صالح" };
+  if (!/^[0-9a-f]{64}$/i.test(token)) return { error: "رابط الاستعادة غير صالح" };
   if (password.length > 200 || !passwordComplexityRegex.test(password)) return { error: "كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي حرفًا كبيرًا وصغيرًا ورقمًا ورمزًا" };
   if (password !== confirmPassword) return { error: "كلمتا المرور غير متطابقتين" };
 
   const tokenHash = hashToken(token);
+  const address = await requestAddress();
+  const [ipRate, tokenRate] = await Promise.all([
+    consumeResetLimit("password-reset-submit-ip", address, 20, 15 * 60),
+    consumeResetLimit("password-reset-submit-token", tokenHash, 8, 15 * 60),
+  ]);
+  if (!ipRate || !tokenRate) return { error: "تعذر التحقق من رابط الاستعادة الآن. حاول مرة أخرى بعد قليل." };
+  if (!ipRate.allowed || !tokenRate.allowed) return { error: "تمت محاولات كثيرة. اطلب رابط استعادة جديدًا أو حاول لاحقًا." };
+
+  // Reject invalid/expired tokens before doing expensive bcrypt work. The transaction below
+  // still re-checks and atomically consumes the token, so this preflight is only a DoS guard.
+  const preflight = await db.oAuthState.findFirst({
+    where: { state: tokenHash, provider: PROVIDER, expiresAt: { gt: new Date() } },
+    select: { id: true },
+  });
+  if (!preflight) return { error: "انتهت صلاحية رابط الاستعادة أو تم استخدامه. اطلب رابطًا جديدًا." };
+
   const passwordHash = await hashPassword(password);
   const result = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`password-reset-token:${tokenHash}`}))`;
