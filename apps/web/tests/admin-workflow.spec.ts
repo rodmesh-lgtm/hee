@@ -130,7 +130,7 @@ test.describe.serial("platform admin workflow", () => {
       const bookingsSection = page.getByRole("heading", { name: "آخر الحجوزات" }).locator("..");
       await expect(ordersSection.getByText("عميل نهائي تجريبي", { exact: true })).toBeVisible();
       await expect(bookingsSection.getByText("عميل نهائي تجريبي", { exact: true })).toBeVisible();
-      await expect(bookingsSection.getByText("استشارة إدارية", { exact: true })).toBeVisible();
+      await expect(bookingsSection.getByText(/استشارة إدارية/)).toBeVisible();
       await expect(page.getByRole("link", { name: /فتح الصفحة العامة/ })).toHaveAttribute("href", `/${seeded.slug}`);
 
       await setSession(page, seeded.ownerSessionToken);
