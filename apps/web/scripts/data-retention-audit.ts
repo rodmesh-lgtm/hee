@@ -4,6 +4,9 @@ import { Pool } from "pg";
 
 const connectionString = String(process.env.DATABASE_URL ?? "").trim();
 if (!connectionString) throw new Error("DATABASE_URL is required");
+if (process.env.ALLOW_DATA_RETENTION_AUDIT !== "true") {
+  throw new Error("Refusing data-retention audit: set ALLOW_DATA_RETENTION_AUDIT=true only on an isolated disposable/test database.");
+}
 
 const pool = new Pool({ connectionString, max: 2 });
 const db = new PrismaClient({ adapter: new PrismaPg(pool) });
@@ -45,7 +48,8 @@ async function main() {
   await expectDeleteBlocked("User RESTRICT guard", () => db.user.delete({ where: { id: user.id } }));
 
   // Explicit ordered cleanup models the only acceptable future hard-erasure shape:
-  // deliberate child deletion followed by parent deletion.
+  // deliberate child deletion followed by parent deletion. This script is therefore
+  // destructive by design and must only run after the opt-in guard above.
   await db.service.delete({ where: { id: service.id } });
   await db.business.delete({ where: { id: business.id } });
   await db.user.delete({ where: { id: user.id } });
