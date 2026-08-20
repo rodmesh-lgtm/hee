@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { getCurrentUser } from "../lib/auth";
 import { isAdminEmail } from "../lib/admin";
 import { getQaAuditSessionUser } from "../lib/qa-audit";
+import { getActiveBusinessForUser, getOwnedBusinessSummaries } from "../lib/active-business";
 import { DashboardShell } from "../../components/dashboard/dashboard-shell";
-import { db } from "../lib/db";
 
 export const metadata: Metadata = {
   title: "لوحة التحكم",
@@ -15,11 +15,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const qaAuditUser = await getQaAuditSessionUser();
-  const business = await db.business.findFirst({
-    where: { ownerId: user.id, deletedAt: null },
-    select: { name: true, slug: true, isPublished: true },
-  });
+  const [qaAuditUser, business, businesses] = await Promise.all([
+    getQaAuditSessionUser(),
+    getActiveBusinessForUser(user.id),
+    getOwnedBusinessSummaries(user.id),
+  ]);
 
-  return <DashboardShell businessName={business?.name ?? "نشاط جديد"} businessSlug={business?.slug ?? null} isPublished={business?.isPublished ?? false} showQaBadge={Boolean(qaAuditUser)} showAdminLink={!qaAuditUser && isAdminEmail(user.email)}>{children}</DashboardShell>;
+  return <DashboardShell
+    businessId={business?.id ?? null}
+    businessName={business?.name ?? "نشاط جديد"}
+    businessSlug={business?.slug ?? null}
+    isPublished={business?.isPublished ?? false}
+    businesses={businesses.map(({ id, name, slug }) => ({ id, name, slug }))}
+    showQaBadge={Boolean(qaAuditUser)}
+    showAdminLink={!qaAuditUser && isAdminEmail(user.email)}
+  >{children}</DashboardShell>;
 }

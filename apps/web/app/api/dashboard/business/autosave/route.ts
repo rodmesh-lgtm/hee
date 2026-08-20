@@ -6,6 +6,7 @@ import { getOwnedBusinessForApiWrite } from "../../../../lib/ownership";
 import { db } from "../../../../lib/db";
 import { normalizeGoogleMapsUrl } from "../../../../lib/google-maps-url";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../../lib/rate-limit";
+import { readBoundedJson, RequestBodyTooLargeError } from "../../../../lib/request-body";
 
 const schema = z.object({ fields: z.object({ name: z.string().trim().min(2).max(120).optional(), shortDescription: z.string().trim().max(160).optional(), description: z.string().trim().max(4000).optional(), whatsapp: z.string().trim().max(40).optional(), phone: z.string().trim().max(40).optional(), city: z.string().trim().max(80).optional(), district: z.string().trim().max(80).optional(), googleMapsLink: z.string().trim().max(500).optional() }).strict() }).strict();
 
@@ -25,7 +26,13 @@ export async function POST(request: Request) {
   }
 
   let body: unknown;
-  try { body = await request.json(); } catch { return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 }); }
+  try { body = await readBoundedJson(request, 32 * 1024); }
+  catch (error) {
+    return NextResponse.json(
+      { error: error instanceof RequestBodyTooLargeError ? "حجم التعديل أكبر من المسموح" : "بيانات غير صالحة" },
+      { status: error instanceof RequestBodyTooLargeError ? 413 : 400 },
+    );
+  }
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" }, { status: 400 });
   const fields = parsed.data.fields;

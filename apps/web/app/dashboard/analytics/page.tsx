@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CalendarDays, Eye, MapPin, MessageCircle, Phone, Share2, ShoppingBag } from "lucide-react";
 import { db } from "../../lib/db";
 import { getCurrentUser } from "../../lib/auth";
+import { getActiveBusinessWithPlanForUser } from "../../lib/active-business";
 import { getPlanEntitlements } from "../../lib/plan-entitlements";
 import { AnalyticsVisitsChart } from "@/components/dashboard/analytics-visits-chart";
 
@@ -39,10 +40,7 @@ export default async function DashboardAnalyticsPage({ searchParams }: { searchP
   if (!user) redirect("/login");
   const params = searchParams ? await searchParams : {};
 
-  const business = await db.business.findFirst({
-    where: { ownerId: user.id, deletedAt: null },
-    select: { id: true, slug: true, isPublished: true, plan: { select: { code: true } } },
-  });
+  const business = await getActiveBusinessWithPlanForUser(user.id);
   if (!business) redirect("/onboarding");
 
   const entitlements = getPlanEntitlements(business.plan?.code);

@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "../../lib/auth";
 import { db } from "../../lib/db";
+import { getOwnedBusinessForRead } from "../../lib/ownership";
 import { SimpleBusinessEditor } from "../../../components/dashboard/simple-business-editor";
 
 export default async function DashboardMyPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const activeBusiness = await getOwnedBusinessForRead();
+  if (!activeBusiness) redirect("/onboarding");
 
   const business = await db.business.findFirst({
-    where: { ownerId: user.id, deletedAt: null },
+    where: { id: activeBusiness.id, ownerId: activeBusiness.ownerId, deletedAt: null },
     include: {
       services: { where: { isActive: true, deletedAt: null } },
       branches: { where: { isActive: true } },

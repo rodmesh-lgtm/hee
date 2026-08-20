@@ -2,15 +2,16 @@ import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 import { normalizePublicSlug } from "../../../lib/public-url";
+import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
 
 const ALLOWED_EVENTS = new Set(["page_view", "whatsapp_click", "phone_click", "share_click", "website_click", "map_click"]);
 
 export async function POST(request: Request) {
   let body: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 400 });
+    body = await readBoundedJson(request, 8 * 1024);
+  } catch (error) {
+    return NextResponse.json({ ok: false }, { status: error instanceof RequestBodyTooLargeError ? 413 : 400 });
   }
 
   const payload = body && typeof body === "object" && !Array.isArray(body)

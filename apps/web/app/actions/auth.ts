@@ -12,6 +12,10 @@ import { loginSchema, registerSchema } from "../lib/validation";
 import { PRIVACY_VERSION, TERMS_VERSION } from "../lib/legal";
 
 export type ActionState = { error?: string };
+const GENERIC_REGISTRATION_ERROR = "تعذر إنشاء الحساب بهذه البيانات. إذا كان لديك حساب فجرّب تسجيل الدخول أو استعادة كلمة المرور.";
+// Valid bcrypt hash used only to equalize password-verification work when no password account exists.
+// It is not associated with any HEE account and never authenticates a user.
+const DUMMY_PASSWORD_HASH = "$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.";
 function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
 
 async function requestAddress() {
@@ -58,9 +62,6 @@ export async function registerAction(_prevState: ActionState, formData: FormData
     return { error: "تعذر إكمال التسجيل الآن أو تم إجراء محاولات كثيرة. حاول مرة أخرى لاحقاً." };
   }
 
-  const existing = await db.user.findUnique({ where: { email: parsed.data.email }, select: { id: true } });
-  if (existing) return { error: "هذا البريد موجود مسبقاً" };
-
   const passwordHash = await hashPassword(parsed.data.password);
   let user: { id: string };
   try {
@@ -82,7 +83,7 @@ export async function registerAction(_prevState: ActionState, formData: FormData
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { error: "هذا البريد موجود مسبقاً" };
+      return { error: GENERIC_REGISTRATION_ERROR };
     }
     console.error("[register] account_creation_failed", error);
     return { error: "تعذر إنشاء الحساب الآن. حاول مرة أخرى بعد قليل." };
@@ -107,8 +108,10 @@ export async function loginAction(_prevState: ActionState, formData: FormData): 
   }
 
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });
-  const authenticated = Boolean(user && !user.deletedAt && user.passwordHash && await verifyPassword(parsed.data.password, user.passwordHash));
-  if (!user || !authenticated) {
+  // Always perform one bcrypt comparison so unknown emails, OAuth-only accounts and
+  // password accounts have substantially similar CPU work before returning an error.
+  const passwordMatches = await verifyPassword(parsed.data.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  if (!user || user.deletedAt || !user.passwordHash || !passwordMatches) {
     const emailAllowed = await consumeAuthLimit("login-email-failure", parsed.data.email, 10, 15 * 60);
     if (!emailAllowed) return { error: "تمت محاولات تسجيل دخول كثيرة. حاول مرة أخرى بعد قليل." };
     return { error: "البريد أو كلمة المرور غير صحيحة" };

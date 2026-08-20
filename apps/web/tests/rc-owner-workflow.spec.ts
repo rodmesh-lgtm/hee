@@ -168,6 +168,8 @@ test.describe.serial("RC owner workflow", () => {
       await page.goto(`${baseUrl}/dashboard/my-page`, { waitUntil: "domcontentloaded" });
       await page.getByRole("button", { name: "نشر الصفحة" }).click();
       await waitForBusiness({ id: seeded.businessId, isPublished: true });
+      await expect(page.getByText("منشورة", { exact: true })).toBeVisible({ timeout: 20_000 });
+      await page.waitForLoadState("domcontentloaded");
 
       await page.goto(`${baseUrl}/${seeded.slug}`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "منشأة HEE المحدثة" })).toBeVisible();

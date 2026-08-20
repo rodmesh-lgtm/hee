@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 import { normalizePublicSlug } from "../../../lib/public-url";
+import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
 
 type OrderItemInput = { productId?: unknown; quantity?: unknown };
 type OrderPayload = {
@@ -40,9 +41,12 @@ function quantity(value: unknown) {
 export async function POST(request: Request) {
   let body: OrderPayload;
   try {
-    body = (await request.json()) as OrderPayload;
-  } catch {
-    return NextResponse.json({ ok: false, error: "بيانات غير صالحة" }, { status: 400 });
+    body = (await readBoundedJson(request, 64 * 1024)) as OrderPayload;
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error instanceof RequestBodyTooLargeError ? "حجم الطلب أكبر من المسموح" : "بيانات غير صالحة" },
+      { status: error instanceof RequestBodyTooLargeError ? 413 : 400 },
+    );
   }
 
   const slug = normalizePublicSlug(String(body.slug ?? ""));

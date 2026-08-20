@@ -12,6 +12,7 @@ import {
   type OAuthProvider,
 } from "../../../../../lib/oauth";
 import { clearQaAuditSession } from "../../../../../lib/qa-audit";
+import { readBoundedText, RequestBodyTooLargeError } from "../../../../../lib/request-body";
 
 function asProvider(value: string): OAuthProvider | null {
   return value === "google" || value === "apple" ? value : null;
@@ -63,11 +64,13 @@ async function complete(request: Request, provider: OAuthProvider, input: { stat
       ]);
       const activeIdentity = Boolean(identity && !identity.user.deletedAt);
       const activeUser = Boolean(existingUser && !existingUser.deletedAt);
-      if (!activeIdentity && !activeUser) return errorRedirect(request, "account-not-found");
+      // OAuth is currently login-only. Use a generic failure so this path cannot be
+      // used to determine whether an HEE account exists for a provider email.
+      if (!activeIdentity && !activeUser) return errorRedirect(request, "authentication-failed");
     }
 
     const user = await resolveOAuthUser(provider, claims, provider === "apple" ? parseAppleUser(input.appleUser) : null);
-    if (user.deletedAt) return errorRedirect(request, "account-not-found", registration);
+    if (user.deletedAt) return errorRedirect(request, "authentication-failed", registration);
 
     await clearQaAuditSession();
     await createSession(user.id);
@@ -96,12 +99,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   const provider = asProvider(rawProvider);
   if (!provider || provider !== "apple") return errorRedirect(request, "invalid-callback");
 
-  const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (Number.isFinite(contentLength) && contentLength > 64 * 1024) return errorRedirect(request, "invalid-callback");
-
-  let form: FormData;
-  try { form = await request.formData(); }
-  catch { return errorRedirect(request, "invalid-callback"); }
+  let rawForm: string;
+  try {
+    rawForm = await readBoundedText(request, 64 * 1024);
+  } catch (error) {
+    return errorRedirect(request, error instanceof RequestBodyTooLargeError ? "invalid-callback" : "invalid-callback");
+  }
+  const form = new URLSearchParams(rawForm);
   if (String(form.get("error") ?? "")) return errorRedirect(request, "provider-cancelled");
   const state = String(form.get("state") ?? "");
   const code = String(form.get("code") ?? "");

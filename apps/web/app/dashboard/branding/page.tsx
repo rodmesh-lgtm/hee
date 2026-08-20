@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BadgeCheck, CheckCircle2, Crown, ImagePlus, LockKeyhole, Palette } from "lucide-react";
 import { getCurrentUser } from "../../lib/auth";
-import { db } from "../../lib/db";
+import { getActiveBusinessWithPlanForUser } from "../../lib/active-business";
 import { getPlanEntitlements, normalizePlanCode } from "../../lib/plan-entitlements";
 import { hasPendingVerificationRequest, requestVerificationAction } from "../../actions/verification";
 import { requestPlanUpgradeAction } from "../../actions/subscription-request";
@@ -11,7 +11,7 @@ import { updateBrandingImagesFromDashboardAction } from "../../actions/branding-
 export default async function DashboardBrandingPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, include: { plan: true } });
+  const business = await getActiveBusinessWithPlanForUser(user.id);
   if (!business) redirect("/onboarding");
 
   const params = await searchParams;
