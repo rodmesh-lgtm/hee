@@ -8,6 +8,7 @@ function isSensitivePrivatePath(pathname: string) {
     || pathname === "/register"
     || pathname === "/forgot-password"
     || pathname === "/reset-password"
+    || pathname === "/verify-email"
     || pathname === "/onboarding"
     || pathname === "/preview";
 }
@@ -39,6 +40,7 @@ export const config = {
     "/register",
     "/forgot-password",
     "/reset-password",
+    "/verify-email",
     "/onboarding",
     "/preview",
   ],
