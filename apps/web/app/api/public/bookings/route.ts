@@ -65,6 +65,15 @@ function shiftBookingDate(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
+async function existingSubmission(businessId: string, idempotencyKey: string) {
+  const rows = await db.$queryRaw<Array<{ targetId: string | null }>>`
+    SELECT "targetId" FROM "PublicSubmission"
+    WHERE "businessId" = ${businessId} AND "scope" = 'booking' AND "idempotencyKey" = ${idempotencyKey}
+    LIMIT 1
+  `;
+  return rows[0]?.targetId ?? null;
+}
+
 export async function POST(request: Request) {
   let body: BookingPayload;
   try {
@@ -89,6 +98,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "بيانات الحجز غير مكتملة" }, { status: 400 });
   }
 
+  let business: { id: string; bookingAvailable: boolean } | null;
+  try {
+    business = await db.business.findFirst({
+      where: { slug, deletedAt: null, isPublished: true },
+      select: { id: true, bookingAvailable: true },
+    });
+  } catch (error) {
+    console.error("[public-booking] business_lookup_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
+  if (!business) return NextResponse.json({ ok: false }, { status: 404 });
+
+  try {
+    const replayTargetId = await existingSubmission(business.id, idempotencyKey);
+    if (replayTargetId) {
+      return NextResponse.json({ ok: true, bookingId: replayTargetId, replayed: true }, { status: 200 });
+    }
+  } catch (error) {
+    console.error("[public-booking] idempotency_lookup_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
+
   const startsAt = riyadhDate(bookingDate, bookingTime);
   if (!startsAt) return NextResponse.json({ ok: false, error: "موعد الحجز غير صالح" }, { status: 400 });
   const now = Date.now();
@@ -99,32 +130,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "لا يمكن الحجز لأكثر من 180 يوماً مقدماً" }, { status: 400 });
   }
 
-  const business = await db.business.findFirst({
-    where: { slug, deletedAt: null, isPublished: true },
-    select: { id: true, bookingAvailable: true },
-  });
-  if (!business) return NextResponse.json({ ok: false }, { status: 404 });
   if (!business.bookingAvailable) return NextResponse.json({ ok: false, error: "الحجز غير مفعل لهذا النشاط" }, { status: 409 });
 
-  const service = await db.service.findFirst({
-    where: { id: serviceId, businessId: business.id, isActive: true, bookingEnabled: true, deletedAt: null },
-    select: { id: true, name: true, durationMinutes: true },
-  });
+  let service: { id: string; name: string; durationMinutes: number | null } | null;
+  try {
+    service = await db.service.findFirst({
+      where: { id: serviceId, businessId: business.id, isActive: true, bookingEnabled: true, deletedAt: null },
+      select: { id: true, name: true, durationMinutes: true },
+    });
+  } catch (error) {
+    console.error("[public-booking] service_lookup_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
   if (!service) return NextResponse.json({ ok: false, error: "الخدمة غير متاحة للحجز" }, { status: 409 });
   const durationMinutes = normalizedBookingDuration(service.durationMinutes);
 
   const localNoon = new Date(`${bookingDate}T12:00:00+03:00`);
   const dayOfWeek = (localNoon.getUTCDay() + 6) % 7;
-  const [schedule, previousSchedule] = await Promise.all([
-    db.workingHours.findUnique({
-      where: { businessId_dayOfWeek: { businessId: business.id, dayOfWeek } },
-      select: { opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
-    }),
-    db.workingHours.findUnique({
-      where: { businessId_dayOfWeek: { businessId: business.id, dayOfWeek: previousDay(dayOfWeek) } },
-      select: { opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
-    }),
-  ]);
+  let schedule: { opensAt: string | null; closesAt: string | null; secondOpensAt: string | null; secondClosesAt: string | null; isClosed: boolean } | null;
+  let previousSchedule: typeof schedule;
+  try {
+    [schedule, previousSchedule] = await Promise.all([
+      db.workingHours.findUnique({
+        where: { businessId_dayOfWeek: { businessId: business.id, dayOfWeek } },
+        select: { opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
+      }),
+      db.workingHours.findUnique({
+        where: { businessId_dayOfWeek: { businessId: business.id, dayOfWeek: previousDay(dayOfWeek) } },
+        select: { opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
+      }),
+    ]);
+  } catch (error) {
+    console.error("[public-booking] schedule_lookup_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
   const inTodayWindow = bookingWithinWorkingHours(bookingTime, durationMinutes, schedule);
   const inPreviousOvernightWindow = bookingWithinPreviousOvernightWorkingHours(bookingTime, durationMinutes, previousSchedule);
   if (!inTodayWindow && !inPreviousOvernightWindow) {
