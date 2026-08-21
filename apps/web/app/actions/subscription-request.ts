@@ -21,29 +21,37 @@ export async function requestPlanUpgradeAction(formData: FormData) {
   if (requestedPlan === "FREE" || getPlanRank(requestedPlan) <= getPlanRank(currentPlan)) redirect("/dashboard/branding?upgrade=current");
   if (!paidUpgradeRequestsEnabled()) redirect("/dashboard/branding?upgrade=billing-unavailable");
 
-  // Real customers never enter the legacy manual approval queue. A Moyasar checkout
-  // creates a server-priced billing intent and entitlements are granted only after the
-  // payment is independently verified with the provider secret key.
   if (billingProvider() === "moyasar") {
     if (!moyasarConfigured()) redirect("/dashboard/branding?upgrade=billing-unavailable");
+
+    let rate;
     try {
-      const rate = await consumePublicWriteLimit({
+      rate = await consumePublicWriteLimit({
         scope: "billing-checkout",
         businessId: business.id,
         identity: business.ownerId,
         limit: 8,
         windowSeconds: 60 * 60,
       });
-      if (!rate.allowed) redirect("/dashboard/branding?billing=rate-limited");
+    } catch (error) {
+      console.error("[subscription] rate_limit_failed", { businessId: business.id, error });
+      redirect("/dashboard/branding?upgrade=billing-unavailable");
+    }
+    if (!rate.allowed) redirect("/dashboard/branding?billing=rate-limited");
+
+    let billingId: string;
+    try {
       const intent = await createBillingIntent(business.ownerId, business.id, requestedPlan);
-      redirect(`/dashboard/billing/checkout?billing=${encodeURIComponent(intent.payment.id)}`);
+      billingId = intent.payment.id;
     } catch (error) {
       const message = error instanceof Error ? error.message : "UNKNOWN";
       if (message === "PLAN_NOT_AN_UPGRADE") redirect("/dashboard/branding?upgrade=current");
       if (message === "PLAN_UNAVAILABLE" || message === "INVALID_PAID_PLAN") redirect("/dashboard/branding?upgrade=unavailable");
+      if (message === "OTHER_CHECKOUT_PENDING") redirect("/dashboard/branding?billing=pending");
       console.error("[subscription] checkout_failed", { businessId: business.id, requestedPlan, error: message });
       redirect("/dashboard/branding?upgrade=billing-unavailable");
     }
+    redirect(`/dashboard/billing/checkout?billing=${encodeURIComponent(billingId)}`);
   }
 
   // Mock billing is intentionally retained only for CI fixtures that exercise the
