@@ -5,6 +5,7 @@ import { cancelAutoRenewAction } from "../../../actions/billing";
 import { getCurrentUser } from "../../../lib/auth";
 import { getActiveBusinessWithPlanForUser } from "../../../lib/active-business";
 import { db } from "../../../lib/db";
+import { CancelRenewalButton } from "../../../../components/billing/cancel-renewal-button";
 
 function dateText(value: Date | null) {
   if (!value) return "—";
@@ -68,7 +69,7 @@ export default async function BillingManagePage({ searchParams }: { searchParams
       <article className="rounded-[22px] border border-[#e9e7f3] bg-white p-4"><span className="text-[10px] font-bold text-slate-400">وسيلة الدفع المحفوظة</span><div className="mt-2 flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-600" /><b className="text-sm text-[#252a4a]">{paymentMethod?.last4 ? `${paymentMethod.brand || "بطاقة"} •••• ${paymentMethod.last4}` : "لا توجد وسيلة دفع محفوظة"}</b></div><p className="mt-3 text-xs leading-6 text-slate-500">HEE لا تخزن رقم البطاقة أو CVV. تُحفظ فقط بيانات عرض مقنّعة ورمز مزود الدفع مشفرًا.</p></article>
     </section>
 
-    {subscription?.autoRenew ? <section className="rounded-[22px] border border-amber-200 bg-amber-50 p-4"><h2 className="font-black text-amber-950">إيقاف التجديد التلقائي</h2><p className="mt-2 text-xs leading-6 text-amber-900">لن يتم خصم دورة جديدة بعد نهاية الفترة الحالية. لا يؤدي هذا الإجراء إلى حذف بياناتك أو إيقاف الباقة المدفوعة فورًا.</p><form action={cancelAutoRenewAction} className="mt-3"><button className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 text-xs font-black text-amber-900">إيقاف التجديد التلقائي</button></form></section> : null}
+    {subscription?.autoRenew ? <section className="rounded-[22px] border border-amber-200 bg-amber-50 p-4"><h2 className="font-black text-amber-950">إيقاف التجديد التلقائي</h2><p className="mt-2 text-xs leading-6 text-amber-900">لن يتم خصم دورة جديدة بعد نهاية الفترة الحالية. لا يؤدي هذا الإجراء إلى حذف بياناتك أو إيقاف الباقة المدفوعة فورًا.</p><form action={cancelAutoRenewAction} className="mt-3"><CancelRenewalButton /></form></section> : null}
 
     <section className="rounded-[24px] border border-[#e9e7f3] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><ReceiptText className="h-4 w-4 text-[#6543ce]" /><h2 className="font-black text-[#1f2552]">سجل المدفوعات</h2></div>{payments.length ? <div className="mt-4 divide-y divide-[#efedf5]">{payments.map((payment) => <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><b className="block text-sm text-[#252a4a]">{payment.plan.name} · {paymentKind(payment.kind)}</b><span className="mt-1 block text-[11px] text-slate-400">{dateText(payment.paidAt ?? payment.createdAt)}</span></div><div className="text-left"><b className="block text-sm text-[#252a4a]">{(payment.amount / 100).toFixed(2)} ر.س</b><span className="mt-1 block text-[11px] font-bold text-slate-500">{paymentStatus(payment.status)}</span></div></div>)}</div> : <p className="mt-4 text-sm text-slate-500">لا توجد مدفوعات مسجلة حتى الآن.</p>}</section>
 
