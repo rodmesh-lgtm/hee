@@ -64,11 +64,26 @@ export async function cancelAutoRenewAction() {
   await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing-business:${business.id}`}))`;
     const active = await tx.subscription.findFirst({
-      where: { businessId: business.id, status: "active", autoRenew: true },
+      where: { businessId: business.id, status: { in: ["active", "past_due"] }, autoRenew: true },
       orderBy: { startsAt: "desc" },
       select: { id: true, paymentMethodId: true },
     });
     if (!active) return;
+
+    // A renewal worker must claim an attempt as `initiated` under this same business
+    // lock before contacting Moyasar. Cancellation therefore wins deterministically
+    // against any still-local `created`/`failed` attempt. Already initiated/authorized
+    // payments are left for reconciliation: if they were actually charged, the paid
+    // period is granted once, while the replacement subscription keeps autoRenew=false.
+    await tx.billingPayment.updateMany({
+      where: {
+        businessId: business.id,
+        subscriptionId: active.id,
+        kind: "renewal",
+        status: { in: ["created", "failed"] },
+      },
+      data: { status: "canceled", nextRetryAt: null },
+    });
 
     await tx.subscription.update({ where: { id: active.id }, data: { autoRenew: false } });
     if (active.paymentMethodId) {
