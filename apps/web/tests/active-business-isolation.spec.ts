@@ -92,8 +92,8 @@ test.describe.serial("active business tenant isolation", () => {
         await expect(serviceNameInput(page, "خدمة ألف الخاصة")).toHaveCount(0);
         await expect(serviceNameInput(page, "خدمة المهاجم السرية")).toHaveCount(0);
 
-        const addForm = page.locator('form').filter({ has: page.locator('input[name="name"][placeholder="اسم الخدمة"]') });
-        await addForm.locator('input[name="name"]').fill("خدمة باء الجديدة المعزولة");
+        const addForm = page.getByRole("heading", { name: "إضافة خدمة" }).locator("xpath=..").locator("form");
+        await addForm.getByLabel("اسم الخدمة").fill("خدمة باء الجديدة المعزولة");
         await addForm.getByRole("button", { name: "إضافة" }).click({ timeout: 10_000 });
         await expect.poll(async () => db.service.count({ where: { businessId: seeded.businessBId, name: "خدمة باء الجديدة المعزولة" } }), { timeout: 10_000 }).toBe(1);
         expect(await db.service.count({ where: { businessId: seeded.businessAId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
