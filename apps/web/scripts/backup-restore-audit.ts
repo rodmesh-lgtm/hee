@@ -12,6 +12,9 @@ const marker = "hee-backup-restore-audit";
 const fileMarker = Buffer.from("hee-backup-file-marker-v1", "utf8");
 const billingGivenId = "00000000-0000-4000-8000-000000000042";
 const billingProviderId = "audit_payment_hee_backup_restore";
+const receiptSellerName = "HEE Backup Audit Seller";
+const receiptSellerAddress = "Riyadh, Saudi Arabia — audit fixture";
+const receiptIssuedAt = new Date("2099-01-01T00:00:01.000Z");
 const pool = new Pool({ connectionString, max: 2 });
 const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
@@ -72,7 +75,13 @@ async function seed() {
       amount: 19900,
       currency: "SAR",
       status: "paid",
-      paidAt: new Date("2099-01-01T00:00:01.000Z"),
+      paidAt: receiptIssuedAt,
+      receiptSellerLegalName: receiptSellerName,
+      receiptSellerAddress,
+      receiptTaxStatus: "not_registered",
+      receiptNetAmount: 19900,
+      receiptVatAmount: 0,
+      receiptIssuedAt,
     },
   });
   await db.billingWebhookEvent.create({
@@ -117,6 +126,16 @@ async function verify() {
   }
   if (billing.subscription.paymentMethod?.last4 !== "4242" || billing.subscription.paymentMethod.status !== "active") {
     throw new Error("Restored billing payment method metadata is missing or changed");
+  }
+  if (
+    billing.receiptSellerLegalName !== receiptSellerName ||
+    billing.receiptSellerAddress !== receiptSellerAddress ||
+    billing.receiptTaxStatus !== "not_registered" ||
+    billing.receiptNetAmount !== 19900 ||
+    billing.receiptVatAmount !== 0 ||
+    billing.receiptIssuedAt?.toISOString() !== receiptIssuedAt.toISOString()
+  ) {
+    throw new Error("Restored immutable receipt snapshot is missing or changed");
   }
   if (!billing.webhookEvents.some((event) => event.eventType === "payment_paid" && event.processedAt)) {
     throw new Error("Restored billing webhook audit trail is missing or changed");
