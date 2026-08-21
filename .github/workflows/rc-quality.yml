@@ -74,6 +74,10 @@ jobs:
         env:
           ALLOW_PUBLIC_TRANSACTIONS_AUDIT: "true"
         run: npm run public:transactions-audit
+      - name: Verify billing database integrity
+        env:
+          ALLOW_BILLING_INTEGRITY_AUDIT: "true"
+        run: npm run billing:integrity-audit
       - name: Seed backup/restore audit fixture
         env:
           ALLOW_BACKUP_RESTORE_AUDIT_SEED: "true"
