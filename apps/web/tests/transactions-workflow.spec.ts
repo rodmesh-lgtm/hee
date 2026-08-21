@@ -108,21 +108,32 @@ test.describe.serial("public transactions workflow", () => {
       await expect(bookingDialog).toBeVisible();
       await expect(bookingDialog.getByLabel("الاسم")).toBeFocused();
       expect(await publicPage.evaluate(() => document.body.style.overflow)).toBe("hidden");
+      const bookingClose = bookingDialog.getByRole("button", { name: "إغلاق" });
+      const bookingCloseBox = await bookingClose.boundingBox();
+      expect(bookingCloseBox?.width ?? 0).toBeGreaterThanOrEqual(44);
+      expect(bookingCloseBox?.height ?? 0).toBeGreaterThanOrEqual(44);
 
       await publicPage.keyboard.press("Escape");
       await expect(bookingDialog).toBeHidden();
       expect(await publicPage.evaluate(() => document.body.style.overflow)).toBe("");
       await expect(bookingButton).toBeFocused();
 
+      await publicPage.setViewportSize({ width: 390, height: 520 });
       await bookingButton.click();
       await expect(bookingDialog).toBeVisible();
+      const bookingBox = await bookingDialog.boundingBox();
+      expect(bookingBox?.height ?? 9999).toBeLessThanOrEqual(496);
+      const bookingSubmit = bookingDialog.getByRole("button", { name: "تأكيد الحجز" });
+      await bookingSubmit.scrollIntoViewIfNeeded();
+      await expect(bookingSubmit).toBeVisible();
+
       const tomorrow = riyadhDateKey(1);
       await bookingDialog.getByLabel("الاسم").fill("عميل اختبار");
       await bookingDialog.getByLabel("رقم الجوال").fill("0500000011");
       await bookingDialog.getByLabel("الخدمة").selectOption(seeded.serviceId);
       await bookingDialog.getByLabel("التاريخ").fill(tomorrow);
       await bookingDialog.getByLabel("الوقت").fill("10:00");
-      await bookingDialog.getByRole("button", { name: "تأكيد الحجز" }).click();
+      await bookingSubmit.click();
       await expect(publicPage.getByText("تم تسجيل الحجز بنجاح وسيظهر مباشرة لدى المنشأة.")).toBeVisible({ timeout: 20_000 });
 
       const booking = await expect.poll(async () => db.booking.findFirst({ where: { businessId: seeded.businessId }, select: { id: true, status: true, bookingDate: true, bookingTime: true } }), { timeout: 20_000 }).not.toBeNull();
