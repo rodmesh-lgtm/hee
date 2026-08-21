@@ -54,10 +54,37 @@ CREATE TABLE "BillingPayment" (
   CONSTRAINT "BillingPayment_kind_allowed" CHECK ("kind" IN ('initial','renewal','upgrade')),
   CONSTRAINT "BillingPayment_status_allowed" CHECK ("status" IN ('created','initiated','paid','failed','refunded','voided','authorized','canceled')),
   CONSTRAINT "BillingPayment_attempt_positive" CHECK ("attempt" >= 1 AND "attempt" <= 10),
-  CONSTRAINT "BillingPayment_receipt_tax_status_allowed" CHECK ("receiptTaxStatus" IS NULL OR "receiptTaxStatus" IN ('not_registered')),
-  CONSTRAINT "BillingPayment_receipt_amounts_valid" CHECK (
-    ("receiptNetAmount" IS NULL AND "receiptVatAmount" IS NULL AND "receiptIssuedAt" IS NULL)
-    OR ("receiptNetAmount" = "amount" AND "receiptVatAmount" = 0 AND "receiptIssuedAt" IS NOT NULL)
+  CONSTRAINT "BillingPayment_receipt_snapshot_complete" CHECK (
+    (
+      "receiptSellerLegalName" IS NULL
+      AND "receiptSellerAddress" IS NULL
+      AND "receiptTaxStatus" IS NULL
+      AND "receiptNetAmount" IS NULL
+      AND "receiptVatAmount" IS NULL
+      AND "receiptIssuedAt" IS NULL
+    )
+    OR (
+      LENGTH(BTRIM("receiptSellerLegalName")) > 0
+      AND LENGTH(BTRIM("receiptSellerAddress")) > 0
+      AND "receiptTaxStatus" = 'not_registered'
+      AND "receiptNetAmount" = "amount"
+      AND "receiptVatAmount" = 0
+      AND "receiptIssuedAt" IS NOT NULL
+    )
+  ),
+  CONSTRAINT "BillingPayment_paid_state_complete" CHECK (
+    "status" <> 'paid'
+    OR (
+      "providerPaymentId" IS NOT NULL
+      AND "subscriptionId" IS NOT NULL
+      AND "paidAt" IS NOT NULL
+      AND "receiptSellerLegalName" IS NOT NULL
+      AND "receiptSellerAddress" IS NOT NULL
+      AND "receiptTaxStatus" = 'not_registered'
+      AND "receiptNetAmount" = "amount"
+      AND "receiptVatAmount" = 0
+      AND "receiptIssuedAt" IS NOT NULL
+    )
   )
 );
 
