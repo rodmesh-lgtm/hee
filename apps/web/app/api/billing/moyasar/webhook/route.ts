@@ -13,13 +13,14 @@ function validText(value: unknown, max: number) {
 
 async function claimEvent(event: MoyasarWebhook) {
   const id = randomUUID();
-  const rows = await db.$queryRaw<Array<{ id: string }>>`
+  const rows = await db.$queryRaw<Array<{ id: string; processedAt: Date | null }>>`
     INSERT INTO "BillingWebhookEvent" ("id", "provider", "providerEventId", "eventType", "createdAt")
     VALUES (${id}, 'moyasar', ${event.id}, ${event.type}, CURRENT_TIMESTAMP)
-    ON CONFLICT ("provider", "providerEventId") DO NOTHING
-    RETURNING "id"
+    ON CONFLICT ("provider", "providerEventId")
+    DO UPDATE SET "eventType" = EXCLUDED."eventType"
+    RETURNING "id", "processedAt"
   `;
-  return rows[0]?.id ?? null;
+  return rows[0] ?? null;
 }
 
 async function completeEvent(eventRowId: string, billingPaymentId?: string | null) {
@@ -58,12 +59,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  const eventRowId = await claimEvent(event);
-  if (!eventRowId) return NextResponse.json({ ok: true, duplicate: true });
+  const claimed = await claimEvent(event);
+  if (!claimed) return NextResponse.json({ ok: false }, { status: 503 });
+  if (claimed.processedAt) return NextResponse.json({ ok: true, duplicate: true });
 
   const providerPaymentId = String(event.data?.id ?? "").trim();
   if (!providerPaymentId || !event.type.startsWith("payment_")) {
-    await completeEvent(eventRowId);
+    await completeEvent(claimed.id);
     return NextResponse.json({ ok: true, ignored: true });
   }
 
@@ -78,7 +80,7 @@ export async function POST(request: Request) {
     }
 
     if (!billing) {
-      await completeEvent(eventRowId);
+      await completeEvent(claimed.id);
       return NextResponse.json({ ok: true, unmatched: true });
     }
 
@@ -86,7 +88,7 @@ export async function POST(request: Request) {
     const metadataBillingId = String(payment.metadata?.hee_billing_id ?? "");
     if (metadataBusinessId !== billing.businessId || metadataBillingId !== billing.id || payment.amount !== billing.amount || payment.currency !== billing.currency) {
       console.error("[moyasar-webhook] payment_mismatch", { eventId: event.id, billingId: billing.id });
-      await completeEvent(eventRowId, billing.id);
+      await completeEvent(claimed.id, billing.id);
       return NextResponse.json({ ok: false }, { status: 409 });
     }
 
@@ -97,10 +99,11 @@ export async function POST(request: Request) {
       await markBillingPaymentState(billing.id, payment);
     }
 
-    await completeEvent(eventRowId, billing.id);
+    await completeEvent(claimed.id, billing.id);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    // Leave processedAt null and return non-2xx so Moyasar can retry this delivery.
+    // processedAt stays null. A later delivery with the same provider event ID reuses
+    // this row and retries processing instead of being mistaken for a completed duplicate.
     console.error("[moyasar-webhook] processing_failed", {
       eventId: event.id,
       error: error instanceof Error ? error.message : "unknown",
