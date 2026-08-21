@@ -6,6 +6,7 @@ import { db } from "../lib/db";
 import { getCurrentUserForWrites } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
 import { createBillingIntent } from "../lib/billing-ledger";
+import { paidBillingTaxReady } from "../lib/billing-tax";
 import { moyasarConfigured } from "../lib/moyasar";
 import { normalizePlanCode } from "../lib/plan-entitlements";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
@@ -16,11 +17,11 @@ export async function startPaidCheckoutAction(formData: FormData) {
   const business = await getActiveBusinessForUser(user.id);
   if (!business) redirect("/onboarding");
 
-  // Do not accept money into an account whose mailbox ownership has not been proven.
-  // This reduces orphaned paid accounts and keeps billing/support/account recovery bound
-  // to an address the customer actually controls.
   if (!user.emailVerifiedAt) redirect("/dashboard/settings?billing=email-verification-required");
   if (!moyasarConfigured()) redirect("/dashboard/branding?billing=unavailable");
+  // Payment must not precede the seller's legal/tax invoicing posture. In particular,
+  // a VAT-registered Saudi seller is blocked until the compliant ZATCA path exists.
+  if (!paidBillingTaxReady()) redirect("/dashboard/branding?billing=tax-setup-required");
   const plan = normalizePlanCode(String(formData.get("plan") ?? ""));
   if (plan === "FREE") redirect("/dashboard/branding?billing=invalid-plan");
 
@@ -61,8 +62,6 @@ export async function cancelAutoRenewAction() {
   if (!business) redirect("/onboarding");
 
   await db.$transaction(async (tx) => {
-    // Use the same business-wide lock as checkout/renewal transitions. Otherwise a
-    // cancellation can race a renewal worker that has already loaded the reusable token.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing-business:${business.id}`}))`;
     const active = await tx.subscription.findFirst({
       where: { businessId: business.id, status: "active", autoRenew: true },
@@ -72,8 +71,6 @@ export async function cancelAutoRenewAction() {
     if (!active) return;
 
     await tx.subscription.update({ where: { id: active.id }, data: { autoRenew: false } });
-    // Cancel means HEE must lose the ability to initiate another recurring charge with
-    // the currently saved token. Historical masked metadata remains for audit/display.
     if (active.paymentMethodId) {
       await tx.billingPaymentMethod.updateMany({
         where: { id: active.paymentMethodId, businessId: business.id, status: "active" },
