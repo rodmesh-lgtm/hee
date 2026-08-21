@@ -36,9 +36,26 @@ test("provider tokens are encrypted at rest and raw card fields stay outside HEE
   const callback = source("app/api/billing/moyasar/callback/route.ts");
   const webhook = source("app/api/billing/moyasar/webhook/route.ts");
   assert.match(core, /aes-256-gcm/);
+  assert.match(core, /iv\.length !== 12/);
+  assert.match(core, /tag\.length !== 16/);
   assert.match(ledger, /encryptProviderToken\(token\)/);
   assert.doesNotMatch(callback, /\b(?:cardNumber|cvc|cvv)\b/i);
   assert.doesNotMatch(webhook, /\b(?:cardNumber|cvc|cvv)\b/i);
+});
+
+test("provider response bodies are not copied into financial logs", () => {
+  const core = source("app/lib/moyasar-core.ts");
+  assert.doesNotMatch(core, /body:\s*body\.slice/);
+  assert.match(core, /api_error.*path.*status/s);
+});
+
+test("runtime payment configuration prevents live/test key cross-contamination", () => {
+  const core = source("app/lib/moyasar-core.ts");
+  assert.match(core, /pk_live_/);
+  assert.match(core, /sk_live_/);
+  assert.match(core, /pk_test_/);
+  assert.match(core, /sk_test_/);
+  assert.match(core, /APP_ENV/);
 });
 
 test("billing database migration enforces ledger uniqueness and subscription renewal ownership", () => {
@@ -48,6 +65,34 @@ test("billing database migration enforces ledger uniqueness and subscription ren
   assert.match(migration, /BillingPayment_renewal_attempt_unique/);
   assert.match(migration, /BillingWebhookEvent_provider_event_unique/);
   assert.match(migration, /Subscription_payment_method_fkey/);
+  assert.doesNotMatch(migration, /ADD COLUMN "provider" TEXT/);
+});
+
+test("Prisma schema models financial ledger and subscription billing columns", () => {
+  const schema = source("prisma/schema.prisma");
+  assert.match(schema, /model BillingPaymentMethod/);
+  assert.match(schema, /model BillingPayment/);
+  assert.match(schema, /model BillingWebhookEvent/);
+  assert.match(schema, /autoRenew Boolean/);
+  assert.match(schema, /providerReference String\?/);
+  assert.match(schema, /paymentMethodId String\?/);
+});
+
+test("renewal retries reuse Moyasar idempotency keys and expire paid entitlement safely", () => {
+  const worker = source("scripts/billing-renewal-worker.ts");
+  assert.match(worker, /providerGivenId/);
+  assert.match(worker, /givenId: billing\.providerGivenId/);
+  assert.match(worker, /provider_request_ambiguous/);
+  assert.match(worker, /markPastDue/);
+  assert.match(worker, /status" IN \('active','past_due'\)/);
+  assert.match(worker, /"subscriptionId" = \$\{newSubscriptionId\}/);
+});
+
+test("refunds only revoke the exact entitlement created by the refunded payment", () => {
+  const ledger = source("app/lib/billing-ledger.ts");
+  assert.match(ledger, /active\.id === billing\.subscriptionId/);
+  assert.match(ledger, /provider-payment-mismatch/);
+  assert.match(ledger, /payment\.status !== "refunded"/);
 });
 
 test("paid production configuration requires live Moyasar keys and token encryption", () => {
