@@ -21,7 +21,8 @@
     "retention:apply": "tsx scripts/prune-expired-operational-data.ts --apply",
     "public:transactions-audit": "tsx scripts/public-transactions-audit.ts",
     "backup:audit-seed": "tsx scripts/backup-restore-audit.ts",
-    "backup:audit-verify": "tsx scripts/backup-restore-audit.ts --verify"
+    "backup:audit-verify": "tsx scripts/backup-restore-audit.ts --verify",
+    "launch:config-audit": "tsx scripts/launch-config-audit.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
