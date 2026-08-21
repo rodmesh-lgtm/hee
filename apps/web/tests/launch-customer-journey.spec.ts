@@ -49,7 +49,7 @@ test.describe.serial("launch customer journey", () => {
   });
   test.afterAll(async () => { await db?.$disconnect(); });
 
-  test("registers, onboards, uses mobile dashboard, publishes, logs out and signs back in", async ({ browser }) => {
+  test("registers, onboards, uses mobile dashboard, publishes, shares, and signs back in", async ({ browser }) => {
     test.setTimeout(180_000);
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const email = `launch-${suffix}@hee.test`;
@@ -131,6 +131,19 @@ test.describe.serial("launch customer journey", () => {
         await expect.poll(async () => (user ? await db.business.findFirst({ where: { ownerId: user.id }, select: { city: true } }) : null)?.city, { timeout: 20_000 }).toBe("جدة");
       });
 
+      await test.step("branding uploads are clearly labeled on mobile", async () => {
+        await page.goto(`${baseUrl}/dashboard/branding`, { waitUntil: "domcontentloaded" });
+        await expect(page.getByRole("heading", { name: "المظهر" })).toBeVisible();
+        const logoInput = page.getByLabel("شعار المنشأة");
+        const coverInput = page.getByLabel("صورة الغلاف");
+        await expect(logoInput).toBeVisible();
+        await expect(coverInput).toBeVisible();
+        await expect(logoInput).toHaveAttribute("accept", "image/jpeg,image/png,image/webp,image/gif");
+        await expect(coverInput).toHaveAttribute("accept", "image/jpeg,image/png,image/webp,image/gif");
+        await expect(page.getByText(/الأنواع المقبولة: JPG/)).toBeVisible();
+        await expect.poll(() => horizontalOverflow(page)).toBeLessThanOrEqual(2);
+      });
+
       await test.step("customer adds first service and publishes the page", async () => {
         await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
         await expect(page.getByRole("heading", { name: "الخدمات" })).toBeVisible();
@@ -153,6 +166,19 @@ test.describe.serial("launch customer journey", () => {
         await expect.poll(() => horizontalOverflow(page)).toBeLessThanOrEqual(2);
         await page.getByRole("button", { name: /خدماتنا/ }).click();
         await expect(page.getByText("خدمة رحلة الإطلاق")).toBeVisible();
+      });
+
+      await test.step("public share fallback gives clear mobile feedback", async () => {
+        await page.evaluate(() => {
+          Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+          Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => undefined } });
+        });
+        const shareButton = page.getByRole("button", { name: "مشاركة الصفحة" });
+        const box = await shareButton.boundingBox();
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+        await shareButton.click();
+        await expect(page.getByText("تم نسخ رابط الصفحة")).toBeVisible();
       });
 
       await test.step("logout protects dashboard and password login restores access", async () => {
