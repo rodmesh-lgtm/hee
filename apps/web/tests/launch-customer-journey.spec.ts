@@ -152,8 +152,9 @@ test.describe.serial("launch customer journey", () => {
       await test.step("customer adds first service and publishes the page", async () => {
         await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
         await expect(page.getByRole("heading", { name: "الخدمات" })).toBeVisible();
-        await page.locator('input[name="name"][placeholder="اسم الخدمة"]').fill("خدمة رحلة الإطلاق");
-        await page.getByRole("button", { name: "إضافة" }).click();
+        const addSection = page.getByRole("heading", { name: "إضافة خدمة" }).locator("xpath=..");
+        await addSection.getByLabel("اسم الخدمة").fill("خدمة رحلة الإطلاق");
+        await addSection.getByRole("button", { name: "إضافة" }).click();
         await expect(page.locator('input[name="name"][value="خدمة رحلة الإطلاق"]')).toHaveCount(1, { timeout: 20_000 });
 
         await page.goto(`${baseUrl}/dashboard/my-page`, { waitUntil: "domcontentloaded" });
