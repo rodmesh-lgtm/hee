@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 
@@ -83,7 +84,7 @@ export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId
         <li>يمكن إيقاف التجديد من إدارة الاشتراك، وتبقى الفترة المدفوعة فعالة حتى نهايتها.</li>
         <li>الإلغاء لا يعني استردادًا تلقائيًا؛ تطبق حقوق الاسترداد النظامية والشروط السارية عند الشراء.</li>
       </ul>
-      <p className="mt-3 text-xs leading-6 text-slate-500">بالمتابعة أنت تقر بمراجعة <a href="/terms" className="font-black text-[#5d49cc] underline underline-offset-4">الشروط والأحكام</a> و<a href="/privacy" className="font-black text-[#5d49cc] underline underline-offset-4">سياسة الخصوصية</a>.</p>
+      <p className="mt-3 text-xs leading-6 text-slate-500">بالمتابعة أنت تقر بمراجعة <Link href="/terms" className="font-black text-[#5d49cc] underline underline-offset-4">الشروط والأحكام</Link> و<Link href="/privacy" className="font-black text-[#5d49cc] underline underline-offset-4">سياسة الخصوصية</Link>.</p>
       <button type="button" onClick={() => setAccepted(true)} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#5b3fd6] px-5 text-xs font-black text-white">أوافق وأتابع للدفع الآمن</button>
     </div>;
   }
