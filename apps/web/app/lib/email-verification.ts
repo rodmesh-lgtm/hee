@@ -80,6 +80,9 @@ export async function issueEmailVerification(userId: string, email: string) {
         state: tokenHash,
         provider: PROVIDER,
         nonce: userId,
+        // Bind the proof to the exact address that received it. If account email editing
+        // is added later, a stale verification link must never verify the replacement.
+        redirectTo: normalizedEmail,
         expiresAt: new Date(Date.now() + VERIFICATION_TTL_MS),
       },
       select: { id: true },
@@ -112,15 +115,15 @@ export async function consumeEmailVerificationToken(token: string) {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`email-verification-token:${tokenHash}`}))`;
     const state = await tx.oAuthState.findFirst({
       where: { state: tokenHash, provider: PROVIDER, expiresAt: { gt: new Date() } },
-      select: { id: true, nonce: true },
+      select: { id: true, nonce: true, redirectTo: true },
     });
-    if (!state) return "invalid" as const;
+    if (!state || !state.redirectTo) return "invalid" as const;
 
     const user = await tx.user.findFirst({
       where: { id: state.nonce, deletedAt: null },
-      select: { id: true, emailVerifiedAt: true },
+      select: { id: true, email: true, emailVerifiedAt: true },
     });
-    if (!user) {
+    if (!user || user.email.trim().toLowerCase() !== state.redirectTo.trim().toLowerCase()) {
       await tx.oAuthState.deleteMany({ where: { id: state.id } });
       return "invalid" as const;
     }
