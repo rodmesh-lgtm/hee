@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { HomepagePremium } from "../components/homepage-premium";
+import { HomeTrustFooter } from "../components/home-trust-footer";
 
 const description = "أنشئ هوية أعمال رقمية احترافية لمنشأتك في رابط واحد يعرض معلوماتها وخدماتها وفروعها وفريقها وطرق التواصل بوضوح.";
 
@@ -18,5 +19,8 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <HomepagePremium />;
+  return <>
+    <HomepagePremium />
+    <HomeTrustFooter />
+  </>;
 }
