@@ -37,9 +37,24 @@ test("public identity protection has no test-environment bypass", () => {
   assert.doesNotMatch(publication, /APP_ENV/);
 });
 
-test("published demo and RC owner fixtures declare verification explicitly", () => {
-  const seed = source("prisma/seed.ts");
-  const ownerWorkflow = source("tests/rc-owner-workflow.spec.ts");
-  assert.match(seed, /emailVerifiedAt:\s*new Date\(\)/);
-  assert.match(ownerWorkflow, /emailVerifiedAt:\s*new Date\(\)/);
+test("published test fixtures declare verification explicitly", () => {
+  for (const path of [
+    "prisma/seed.ts",
+    "tests/rc-owner-workflow.spec.ts",
+    "tests/transactions-workflow.spec.ts",
+    "tests/booking-duration-workflow.spec.ts",
+    "tests/public-idempotency-workflow.spec.ts",
+  ]) {
+    assert.match(source(path), /emailVerifiedAt:\s*new Date\(\)/, `${path} must seed a verified owner when testing an already-public business`);
+  }
+});
+
+test("production email verification links are pinned and launch config is documented", () => {
+  const verification = source("app/lib/email-verification.ts");
+  assert.match(verification, /VERCEL_ENV === "production" \|\| process\.env\.NODE_ENV === "production"/);
+  assert.match(verification, /return "https:\/\/hee\.sa"/);
+
+  const envExample = source("../../.env.example");
+  assert.match(envExample, /RESEND_API_KEY=/);
+  assert.match(envExample, /HEE_FROM_EMAIL=/);
 });
