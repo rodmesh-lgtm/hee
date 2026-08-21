@@ -134,7 +134,7 @@ test.describe.serial("launch customer journey", () => {
       await test.step("customer adds first service and publishes the page", async () => {
         await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
         await expect(page.getByRole("heading", { name: "الخدمات" })).toBeVisible();
-        const addForm = page.getByRole("heading", { name: "إضافة خدمة" }).locator("xpath=../form");
+        const addForm = page.getByRole("form", { name: "إضافة خدمة" });
         await expect(addForm.getByLabel("اسم الخدمة")).toBeVisible();
         await addForm.getByLabel("اسم الخدمة").fill("خدمة رحلة الإطلاق");
         await addForm.getByRole("button", { name: "إضافة" }).click();
