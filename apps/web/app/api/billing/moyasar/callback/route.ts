@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "../../../../lib/auth";
 import { activateVerifiedMoyasarPayment, getOwnedBillingPayment, markBillingPaymentState } from "../../../../lib/billing-ledger";
 import { fetchMoyasarPayment } from "../../../../lib/moyasar";
+import { consumePublicWriteLimit } from "../../../../lib/rate-limit";
 
 function safeOrigin() {
   const configured = String(process.env.AUTH_ORIGIN ?? process.env.APP_URL ?? "").trim().replace(/\/$/, "");
@@ -25,10 +26,18 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const billingId = String(url.searchParams.get("billing") ?? "").trim();
   const providerPaymentId = String(url.searchParams.get("id") ?? "").trim();
-  if (!/^[0-9a-f-]{36}$/i.test(billingId) || !providerPaymentId) return back("invalid-callback");
+  if (!/^[0-9a-f-]{36}$/i.test(billingId) || !/^[A-Za-z0-9_-]{8,128}$/.test(providerPaymentId)) return back("invalid-callback");
 
   const billing = await getOwnedBillingPayment(user.id, billingId);
   if (!billing) return back("invalid-callback");
+
+  try {
+    const rate = await consumePublicWriteLimit({ scope: "billing-reconcile", businessId: billing.businessId, identity: user.id, limit: 30, windowSeconds: 600 });
+    if (!rate.allowed) return back("rate-limited");
+  } catch (error) {
+    console.error("[billing-callback] rate_limit_failed", { billingId, error });
+    return back("verification-unavailable");
+  }
 
   try {
     const payment = await fetchMoyasarPayment(providerPaymentId);
