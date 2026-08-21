@@ -16,6 +16,10 @@ export async function startPaidCheckoutAction(formData: FormData) {
   const business = await getActiveBusinessForUser(user.id);
   if (!business) redirect("/onboarding");
 
+  // Do not accept money into an account whose mailbox ownership has not been proven.
+  // This reduces orphaned paid accounts and keeps billing/support/account recovery bound
+  // to an address the customer actually controls.
+  if (!user.emailVerifiedAt) redirect("/dashboard/settings?billing=email-verification-required");
   if (!moyasarConfigured()) redirect("/dashboard/branding?billing=unavailable");
   const plan = normalizePlanCode(String(formData.get("plan") ?? ""));
   if (plan === "FREE") redirect("/dashboard/branding?billing=invalid-plan");
