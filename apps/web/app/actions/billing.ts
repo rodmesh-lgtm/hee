@@ -61,20 +61,30 @@ export async function cancelAutoRenewAction() {
   const business = await getActiveBusinessForUser(user.id);
   if (!business) redirect("/onboarding");
 
-  await db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing-business:${business.id}`}))`;
     const active = await tx.subscription.findFirst({
       where: { businessId: business.id, status: { in: ["active", "past_due"] }, autoRenew: true },
       orderBy: { startsAt: "desc" },
       select: { id: true, paymentMethodId: true },
     });
-    if (!active) return;
+    if (!active) return "none" as const;
 
-    // A renewal worker must claim an attempt as `initiated` under this same business
-    // lock before contacting Moyasar. Cancellation therefore wins deterministically
-    // against any still-local `created`/`failed` attempt. Already initiated/authorized
-    // payments are left for reconciliation: if they were actually charged, the paid
-    // period is granted once, while the replacement subscription keeps autoRenew=false.
+    // A renewal worker claims the attempt as `initiated` under this same business lock
+    // before contacting Moyasar. If the claim already won, do not pretend cancellation
+    // stopped that charge: let reconciliation finish, then the owner can cancel the next
+    // cycle. If cancellation wins first, no provider request can be claimed afterward.
+    const inFlight = await tx.billingPayment.findFirst({
+      where: {
+        businessId: business.id,
+        subscriptionId: active.id,
+        kind: "renewal",
+        status: { in: ["initiated", "authorized"] },
+      },
+      select: { id: true },
+    });
+    if (inFlight) return "processing" as const;
+
     await tx.billingPayment.updateMany({
       where: {
         businessId: business.id,
@@ -92,9 +102,12 @@ export async function cancelAutoRenewAction() {
         data: { status: "revoked" },
       });
     }
+    return "canceled" as const;
   });
 
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/billing/manage");
+  if (result === "processing") redirect("/dashboard/billing/manage?billing=renewal-processing");
+  if (result === "none") redirect("/dashboard/billing/manage");
   redirect("/dashboard/billing/manage?billing=renewal-canceled");
 }
