@@ -18,6 +18,7 @@ CREATE TABLE "BillingPaymentMethod" (
 
 CREATE INDEX "BillingPaymentMethod_business_idx" ON "BillingPaymentMethod"("businessId");
 CREATE UNIQUE INDEX "BillingPaymentMethod_one_active_provider" ON "BillingPaymentMethod"("businessId", "provider") WHERE "status" = 'active';
+CREATE UNIQUE INDEX "BillingPaymentMethod_id_business_unique" ON "BillingPaymentMethod"("id", "businessId");
 
 CREATE TABLE "BillingPayment" (
   "id" TEXT NOT NULL,
@@ -75,8 +76,14 @@ ALTER TABLE "Subscription"
   ADD COLUMN "providerReference" TEXT,
   ADD COLUMN "paymentMethodId" TEXT;
 
+CREATE UNIQUE INDEX "Subscription_id_business_unique" ON "Subscription"("id", "businessId");
+
 ALTER TABLE "Subscription"
-  ADD CONSTRAINT "Subscription_payment_method_fkey" FOREIGN KEY ("paymentMethodId") REFERENCES "BillingPaymentMethod"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  ADD CONSTRAINT "Subscription_payment_method_fkey" FOREIGN KEY ("paymentMethodId") REFERENCES "BillingPaymentMethod"("id") ON DELETE SET NULL ON UPDATE CASCADE,
+  ADD CONSTRAINT "Subscription_payment_method_business_fkey" FOREIGN KEY ("paymentMethodId", "businessId") REFERENCES "BillingPaymentMethod"("id", "businessId") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "BillingPayment"
+  ADD CONSTRAINT "BillingPayment_subscription_business_fkey" FOREIGN KEY ("subscriptionId", "businessId") REFERENCES "Subscription"("id", "businessId") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 CREATE INDEX "Subscription_payment_method_idx" ON "Subscription"("paymentMethodId");
 CREATE INDEX "Subscription_renewal_due_idx" ON "Subscription"("status", "endsAt") WHERE "autoRenew" = true;
