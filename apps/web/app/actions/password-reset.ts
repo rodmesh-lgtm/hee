@@ -15,14 +15,28 @@ const GENERIC_RESET_MESSAGE = "إذا كان البريد مرتبطًا بحس�
 
 function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
 function hashToken(token: string) { return createHash("sha256").update(token).digest("hex"); }
+
 function passwordResetOrigin() {
-  if (process.env.VERCEL_ENV === "production") return "https://hee.sa";
-  const candidate = String(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").trim();
+  const vercelEnv = String(process.env.VERCEL_ENV ?? "").toLowerCase();
+  if (vercelEnv === "production" || (!vercelEnv && process.env.NODE_ENV === "production")) return "https://hee.sa";
+
+  const candidate = String(
+    process.env.NEXT_PUBLIC_SITE_URL
+      || process.env.NEXT_PUBLIC_APP_URL
+      || process.env.AUTH_ORIGIN
+      || "http://localhost:3000",
+  ).trim();
   try {
     const url = new URL(candidate);
     const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    return url.protocol === "https:" || (local && url.protocol === "http:") ? url.origin : "https://hee.sa";
-  } catch { return "https://hee.sa"; }
+    const preview = url.hostname.endsWith(".vercel.app") || url.hostname.endsWith(".app.github.dev");
+    if ((url.protocol === "https:" && (preview || url.hostname === "hee.sa" || url.hostname === "www.hee.sa")) || (local && url.protocol === "http:")) {
+      return url.origin;
+    }
+  } catch {
+    // Fall through to the canonical origin.
+  }
+  return "https://hee.sa";
 }
 
 async function requestAddress() {
