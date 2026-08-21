@@ -77,6 +77,9 @@ ALTER TABLE "Subscription"
   ADD COLUMN "paymentMethodId" TEXT;
 
 CREATE UNIQUE INDEX "Subscription_id_business_unique" ON "Subscription"("id", "businessId");
+-- Active and past_due are both live entitlement states. There must never be two of
+-- either combination for one tenant, even if application code regresses later.
+CREATE UNIQUE INDEX "Subscription_one_live_per_business" ON "Subscription"("businessId") WHERE "status" IN ('active','past_due');
 
 ALTER TABLE "Subscription"
   ADD CONSTRAINT "Subscription_payment_method_fkey" FOREIGN KEY ("paymentMethodId") REFERENCES "BillingPaymentMethod"("id") ON DELETE SET NULL ON UPDATE CASCADE,
