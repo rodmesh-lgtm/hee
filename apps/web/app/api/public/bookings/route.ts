@@ -201,41 +201,84 @@ export async function POST(request: Request) {
       `;
       if (previous[0]?.targetId) return { id: previous[0].targetId, replayed: true };
 
+      // Serialize bookings per service, not per calendar day. Overnight services can
+      // otherwise race across midnight (for example Monday 23:30 vs Tuesday 00:00).
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-service:${business.id}:${serviceId}`}))`;
       const previousBookingDate = shiftBookingDate(bookingDate, -1);
       const nextBookingDate = shiftBookingDate(bookingDate, 1);
       const existingBookings = await tx.$queryRaw<ExistingBookingRange[]>`
-        SELECT b."id", b."bookingDate", b."bookingTime",
-          COALESCE(snapshot."durationMinutes", CASE WHEN service."durationMinutes" BETWEEN 5 AND 1440 THEN service."durationMinutes" ELSE 30 END)::int AS "durationMinutes"
+        SELECT
+          b."id",
+          b."bookingDate",
+          b."bookingTime",
+          COALESCE(
+            snapshot."durationMinutes",
+            CASE WHEN service."durationMinutes" BETWEEN 5 AND 1440 THEN service."durationMinutes" ELSE 30 END
+          )::int AS "durationMinutes"
         FROM "Booking" b
         LEFT JOIN "BookingDurationSnapshot" snapshot ON snapshot."bookingId" = b."id"
         LEFT JOIN "Service" service ON service."id" = b."serviceId"
-        WHERE b."businessId" = ${business.id} AND b."serviceId" = ${serviceId}
+        WHERE b."businessId" = ${business.id}
+          AND b."serviceId" = ${serviceId}
           AND b."status" IN ('pending', 'confirmed')
-          AND (b."bookingDate" = ${previousBookingDate} OR b."bookingDate" = ${bookingDate} OR b."bookingDate" = ${nextBookingDate})
+          AND (
+            b."bookingDate" = ${previousBookingDate}
+            OR b."bookingDate" = ${bookingDate}
+            OR b."bookingDate" = ${nextBookingDate}
+          )
       `;
       const requestedStart = bookingMinutes(bookingTime);
       const offsets = new Map([[previousBookingDate, -1440], [bookingDate, 0], [nextBookingDate, 1440]]);
       if (existingBookings.some((item) => {
         const existingStart = (offsets.get(item.bookingDate) ?? 0) + bookingMinutes(item.bookingTime);
         return bookingIntervalsOverlap(requestedStart, durationMinutes, existingStart, normalizedBookingDuration(item.durationMinutes));
-      })) throw new Error("PUBLIC_BOOKING_SLOT_TAKEN");
+      })) {
+        throw new Error("PUBLIC_BOOKING_SLOT_TAKEN");
+      }
 
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`customer:${business.id}:${phone}`}))`;
-      let customer = await tx.customer.findFirst({ where: { businessId: business.id, phone }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } });
-      if (!customer) customer = await tx.customer.create({ data: { businessId: business.id, name, phone }, select: { id: true, name: true } });
-      else if (customer.name !== name) await tx.customer.update({ where: { id: customer.id }, data: { name } });
+      let customer = await tx.customer.findFirst({
+        where: { businessId: business.id, phone },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, name: true },
+      });
+      if (!customer) {
+        customer = await tx.customer.create({ data: { businessId: business.id, name, phone }, select: { id: true, name: true } });
+      } else if (customer.name !== name) {
+        await tx.customer.update({ where: { id: customer.id }, data: { name } });
+      }
 
-      const booking = await tx.booking.create({ data: { businessId: business.id, customerId: customer.id, serviceId: service.id, bookingDate, bookingTime, notes: notes || null, status: "pending" }, select: { id: true } });
-      await tx.$executeRaw`INSERT INTO "BookingDurationSnapshot" ("bookingId", "durationMinutes") VALUES (${booking.id}, ${durationMinutes})`;
-      await tx.$executeRaw`INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId") VALUES (${business.id}, 'booking', ${idempotencyKey}, ${booking.id})`;
+      const booking = await tx.booking.create({
+        data: {
+          businessId: business.id,
+          customerId: customer.id,
+          serviceId: service.id,
+          bookingDate,
+          bookingTime,
+          notes: notes || null,
+          status: "pending",
+        },
+        select: { id: true },
+      });
+      await tx.$executeRaw`
+        INSERT INTO "BookingDurationSnapshot" ("bookingId", "durationMinutes")
+        VALUES (${booking.id}, ${durationMinutes})
+      `;
+      await tx.$executeRaw`
+        INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId")
+        VALUES (${business.id}, 'booking', ${idempotencyKey}, ${booking.id})
+      `;
       return { id: booking.id, replayed: false };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return NextResponse.json({ ok: true, bookingId: result.id, replayed: result.replayed }, { status: result.replayed ? 200 : 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "PUBLIC_BOOKING_SLOT_TAKEN") return NextResponse.json({ ok: false, error: "هذا الوقت يتداخل مع حجز قائم للخدمة" }, { status: 409 });
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return NextResponse.json({ ok: false, error: "هذا الموعد محجوز بالفعل" }, { status: 409 });
+    if (error instanceof Error && error.message === "PUBLIC_BOOKING_SLOT_TAKEN") {
+      return NextResponse.json({ ok: false, error: "هذا الوقت يتداخل مع حجز قائم للخدمة" }, { status: 409 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ ok: false, error: "هذا الموعد محجوز بالفعل" }, { status: 409 });
+    }
     console.error("[public-booking] write_failed", error);
     return NextResponse.json({ ok: false, error: "تعذر تسجيل الحجز الآن" }, { status: 503, headers: { "Retry-After": "30" } });
   }
