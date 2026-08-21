@@ -1,6 +1,6 @@
 # HEE Data Retention Policy
 
-This policy separates three concepts that must not be mixed: soft deletion, deactivation, and immutable customer history.
+This policy separates three concepts that must not be mixed: soft deletion, deactivation, immutable customer history, and financial audit history.
 
 ## Customer and commercial history
 
@@ -12,6 +12,17 @@ The following records are historical business records and must never be removed 
 - `Booking`
 
 Hard erasure, if ever required by an approved legal/privacy workflow, must be explicit, ordered, audited, and tenant-scoped. Parent deletions are protected with database `RESTRICT` constraints and CI retention audits.
+
+## Billing and subscription history
+
+Paid-plan records are financial and entitlement evidence. They are **not** ephemeral operational data and must never be removed by the routine retention pruner:
+
+- `Subscription`
+- `BillingPayment`
+- `BillingPaymentMethod`
+- `BillingWebhookEvent`
+
+Reusable provider tokens inside `BillingPaymentMethod.encryptedToken` remain encrypted at rest and must never be included in customer exports, logs, support tickets, or analytics. Revoking a payment method changes its status; it does not erase the historical payment ledger. Any future financial-retention or statutory-erasure policy must be explicitly approved and implemented as a separate audited workflow.
 
 ## Soft-deleted entities
 
@@ -38,4 +49,4 @@ The pruning script is dry-run by default and requires both `ALLOW_RETENTION_PURG
 
 ## Production rule
 
-Never use ad-hoc `DELETE ... CASCADE` cleanup against production customer/business tables. Any future erasure workflow must be reviewed together with backup/restore, tenant-integrity, and retention audits before release.
+Never use ad-hoc `DELETE ... CASCADE` cleanup against production customer, business, subscription, or billing tables. Any future erasure workflow must be reviewed together with backup/restore, tenant-integrity, payment reconciliation, and retention audits before release.
