@@ -41,9 +41,35 @@ test("settled stale payments are reversed rather than granting an old-price enti
 test("Moyasar form loads only after explicit renewal, cancellation and refund disclosure", () => {
   const form = source("components/billing/moyasar-checkout.tsx");
   assert.match(form, /if \(!accepted\)/);
+  assert.match(form, /\/api\/billing\/consent/);
+  assert.match(form, /if \(!response\.ok\)/);
+  assert.match(form, /setAccepted\(true\)/);
   assert.match(form, /أوافق وأتابع للدفع الآمن/);
   assert.match(form, /التجدد شهريًا|يتجدد شهريًا/);
   assert.match(form, /الاسترداد ليس تلقائيًا|الاسترداد.*تلقائي/);
   assert.match(form, /href="\/terms"/);
   assert.match(form, /href="\/privacy"/);
+});
+
+test("checkout acceptance is stored as immutable versioned evidence and required before paid activation", () => {
+  const migration = source("prisma/migrations/20260821203500_billing_checkout_consent/migration.sql");
+  const consent = source("app/lib/billing-consent.ts");
+  const endpoint = source("app/api/billing/consent/route.ts");
+  assert.match(migration, /CREATE TABLE "BillingCheckoutConsent"/);
+  assert.match(migration, /PRIMARY KEY \("billingPaymentId"\)/);
+  assert.match(consent, /TERMS_VERSION/);
+  assert.match(consent, /PRIVACY_VERSION/);
+  assert.match(consent, /BILLING_DISCLOSURE_VERSION/);
+  assert.match(endpoint, /recordBillingCheckoutConsent/);
+
+  for (const path of [
+    "app/api/billing/moyasar/created/route.ts",
+    "app/api/billing/moyasar/callback/route.ts",
+    "app/api/billing/moyasar/webhook/route.ts",
+  ]) {
+    const value = source(path);
+    assert.match(value, /hasBillingCheckoutConsent\(billing\.id\)/);
+    assert.match(value, /missing_checkout_consent/);
+    assert.match(value, /reverseMoyasarPayment\(payment\.id\)/);
+  }
 });
