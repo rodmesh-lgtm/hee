@@ -27,7 +27,14 @@ test.describe.serial("HEE directory workflow", () => {
       update: { isActive: true },
       create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true },
     });
-    const user = await db.user.create({ data: { name: "Directory RC Owner", email: `directory-${suffix}@hee.test`, passwordHash: "rc-only" } });
+    const user = await db.user.create({
+      data: {
+        name: "Directory RC Owner",
+        email: `directory-${suffix}@hee.test`,
+        passwordHash: "rc-only",
+        emailVerifiedAt: new Date(),
+      },
+    });
     const slug = `directory-rc-${suffix}`;
     const business = await db.business.create({
       data: {
