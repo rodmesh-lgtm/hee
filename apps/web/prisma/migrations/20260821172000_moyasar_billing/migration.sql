@@ -64,10 +64,15 @@ CREATE TABLE "BillingPayment" (
       AND "receiptIssuedAt" IS NULL
     )
     OR (
-      LENGTH(BTRIM("receiptSellerLegalName")) > 0
+      "receiptSellerLegalName" IS NOT NULL
+      AND LENGTH(BTRIM("receiptSellerLegalName")) > 0
+      AND "receiptSellerAddress" IS NOT NULL
       AND LENGTH(BTRIM("receiptSellerAddress")) > 0
+      AND "receiptTaxStatus" IS NOT NULL
       AND "receiptTaxStatus" = 'not_registered'
+      AND "receiptNetAmount" IS NOT NULL
       AND "receiptNetAmount" = "amount"
+      AND "receiptVatAmount" IS NOT NULL
       AND "receiptVatAmount" = 0
       AND "receiptIssuedAt" IS NOT NULL
     )
@@ -79,9 +84,14 @@ CREATE TABLE "BillingPayment" (
       AND "subscriptionId" IS NOT NULL
       AND "paidAt" IS NOT NULL
       AND "receiptSellerLegalName" IS NOT NULL
+      AND LENGTH(BTRIM("receiptSellerLegalName")) > 0
       AND "receiptSellerAddress" IS NOT NULL
+      AND LENGTH(BTRIM("receiptSellerAddress")) > 0
+      AND "receiptTaxStatus" IS NOT NULL
       AND "receiptTaxStatus" = 'not_registered'
+      AND "receiptNetAmount" IS NOT NULL
       AND "receiptNetAmount" = "amount"
+      AND "receiptVatAmount" IS NOT NULL
       AND "receiptVatAmount" = 0
       AND "receiptIssuedAt" IS NOT NULL
     )
