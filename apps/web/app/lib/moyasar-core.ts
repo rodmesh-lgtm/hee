@@ -54,7 +54,9 @@ async function moyasarRequest<T>(path: string, init?: RequestInit): Promise<T> {
     });
     const body = await response.text();
     if (!response.ok) {
-      console.error("[moyasar] api_error", { path, status: response.status, body: body.slice(0, 500) });
+      // Provider error payloads can contain payment/source details. Keep operational
+      // logs useful without copying provider response bodies into HEE logs.
+      console.error("[moyasar] api_error", { path, status: response.status });
       throw new Error(`MOYASAR_HTTP_${response.status}`);
     }
     return JSON.parse(body) as T;
@@ -68,11 +70,19 @@ export function moyasarPublishableKey() {
 }
 
 export function moyasarConfigured() {
-  return String(process.env.PAYMENT_PROVIDER ?? "").trim().toLowerCase() === "moyasar"
-    && Boolean(moyasarPublishableKey())
-    && Boolean(String(process.env.MOYASAR_SECRET_KEY ?? "").trim())
-    && Boolean(String(process.env.MOYASAR_WEBHOOK_SECRET ?? "").trim())
-    && Boolean(String(process.env.BILLING_TOKEN_ENCRYPTION_KEY ?? "").trim());
+  if (String(process.env.PAYMENT_PROVIDER ?? "").trim().toLowerCase() !== "moyasar") return false;
+  const publishable = moyasarPublishableKey();
+  const secret = String(process.env.MOYASAR_SECRET_KEY ?? "").trim();
+  const webhook = String(process.env.MOYASAR_WEBHOOK_SECRET ?? "").trim();
+  const encryption = String(process.env.BILLING_TOKEN_ENCRYPTION_KEY ?? "").trim();
+  if (!publishable || !secret || !webhook || !encryption) return false;
+
+  const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
+  // Never let Preview/local environments charge live cards, and never let production
+  // silently boot with sandbox credentials even if a deployment audit was skipped.
+  return production
+    ? publishable.startsWith("pk_live_") && secret.startsWith("sk_live_")
+    : publishable.startsWith("pk_test_") && secret.startsWith("sk_test_");
 }
 
 export async function fetchMoyasarPayment(paymentId: string) {
@@ -115,7 +125,9 @@ export function verifyMoyasarWebhookSecret(value: unknown) {
 }
 
 function encryptionKey() {
-  const raw = Buffer.from(required("BILLING_TOKEN_ENCRYPTION_KEY"), "base64");
+  const encoded = required("BILLING_TOKEN_ENCRYPTION_KEY");
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new Error("BILLING_TOKEN_ENCRYPTION_KEY_INVALID");
+  const raw = Buffer.from(encoded, "base64");
   if (raw.length !== 32) throw new Error("BILLING_TOKEN_ENCRYPTION_KEY_INVALID");
   return raw;
 }
@@ -132,8 +144,11 @@ export function encryptProviderToken(token: string) {
 export function decryptProviderToken(value: string) {
   const [version, ivText, tagText, encryptedText] = value.split(".");
   if (version !== "v1" || !ivText || !tagText || !encryptedText) throw new Error("INVALID_ENCRYPTED_TOKEN");
-  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(ivText, "base64url"));
-  decipher.setAuthTag(Buffer.from(tagText, "base64url"));
+  const iv = Buffer.from(ivText, "base64url");
+  const tag = Buffer.from(tagText, "base64url");
+  if (iv.length !== 12 || tag.length !== 16) throw new Error("INVALID_ENCRYPTED_TOKEN");
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), iv);
+  decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(Buffer.from(encryptedText, "base64url")), decipher.final()]).toString("utf8");
 }
 
