@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, Building2, CheckCircle2, Eye, Inbox, Palette, Rocket, Store, UserRound } from "lucide-react";
+import { BadgeCheck, Building2, CheckCircle2, Eye, Inbox, MailWarning, Palette, Rocket, Store, UserRound } from "lucide-react";
 import { getCurrentUser } from "../lib/auth";
 import { getActiveBusinessWithPlanForUser } from "../lib/active-business";
 import { db } from "../lib/db";
@@ -38,6 +38,8 @@ export default async function DashboardHomePage() {
     <section className="rounded-[26px] border border-[#e7e5f2] bg-[linear-gradient(135deg,#ffffff_0%,#faf8ff_65%,#f2edff_100%)] p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${business.isPublished ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{business.isPublished ? "منشورة" : "غير منشورة"}</span>{business.isVerified ? <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-700"><BadgeCheck className="h-3.5 w-3.5" />موثق</span> : null}</div><h1 className="mt-3 text-2xl font-black text-[#1f2552]">{business.name}</h1><p className="mt-1 text-sm text-slate-500">أدر هويتك الرقمية من مكان واحد.</p></div><div className="flex gap-2"><Link href="/dashboard/my-page" className="inline-flex h-10 items-center rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white">تعديل الصفحة</Link><a href={business.isPublished ? publicUrl : "/preview"} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[#ddd8f4] bg-white px-3 text-xs font-black text-[#5d49cc]"><Eye className="h-3.5 w-3.5" />{business.isPublished ? "فتح" : "معاينة"}</a></div></div>
     </section>
+
+    {!user.emailVerifiedAt ? <Link href="/dashboard/settings" className="flex items-center justify-between gap-3 rounded-[22px] border border-amber-200 bg-amber-50 p-4 transition hover:bg-amber-100/70"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-amber-700 shadow-sm"><MailWarning className="h-4 w-4" /></span><div><b className="block text-sm text-amber-900">أكد بريد حسابك قبل نشر الصفحة</b><span className="mt-0.5 block text-[10px] text-amber-700">يمكنك إكمال الإعداد الآن، ثم إرسال رابط التأكيد من الحساب والباقات.</span></div></div><span className="text-xs font-black text-amber-800">تأكيد</span></Link> : null}
 
     {pendingTransactions ? <Link href="/dashboard/inbox" className="flex items-center justify-between gap-3 rounded-[22px] border border-amber-200 bg-amber-50 p-4 transition hover:bg-amber-100/70"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-amber-700 shadow-sm"><Inbox className="h-4 w-4" /></span><div><b className="block text-sm text-amber-900">لديك {pendingTransactions} عنصر جديد يحتاج المراجعة</b><span className="mt-0.5 block text-[10px] text-amber-700">{pendingOrders} طلب · {pendingBookings} حجز</span></div></div><span className="text-xs font-black text-amber-800">فتح</span></Link> : null}
 
