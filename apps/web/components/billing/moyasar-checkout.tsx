@@ -25,11 +25,12 @@ const MOYASAR_CSS = "https://cdn.moyasar.com/mpf/1.15.0/moyasar.css";
 
 export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId, businessId, description }: Props) {
   const initialized = useRef(false);
+  const [accepted, setAccepted] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    if (!scriptReady || initialized.current || !window.Moyasar) return;
+    if (!accepted || !scriptReady || initialized.current || !window.Moyasar) return;
     initialized.current = true;
 
     try {
@@ -51,8 +52,6 @@ export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId
         credit_card: {
           save_card: true,
         },
-        // Moyasar recommends persisting the provider payment ID before redirecting to
-        // 3DS. HEE sends only the ID; the server re-fetches and verifies the payment.
         on_completed: async (payment: { id?: unknown }) => {
           const paymentId = typeof payment?.id === "string" ? payment.id : "";
           if (!paymentId) return;
@@ -65,8 +64,6 @@ export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId
             });
             if (!response.ok) console.error("[billing-checkout] payment_record_failed", { status: response.status });
           } catch {
-            // Callback and webhook reconciliation remain authoritative if this best-effort
-            // pre-redirect persistence is interrupted by navigation/network failure.
             console.error("[billing-checkout] payment_record_unavailable");
           }
         },
@@ -76,7 +73,20 @@ export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId
       console.error("[billing-checkout] moyasar_init_failed", error);
       window.setTimeout(() => setLoadFailed(true), 0);
     }
-  }, [amount, billingId, businessId, callbackUrl, description, publishableKey, scriptReady]);
+  }, [accepted, amount, billingId, businessId, callbackUrl, description, publishableKey, scriptReady]);
+
+  if (!accepted) {
+    return <div className="rounded-2xl border border-[#ddd8f4] bg-[#faf9ff] p-4 text-sm leading-7 text-slate-700">
+      <b className="block text-[#252a4a]">قبل فتح نموذج الدفع</b>
+      <ul className="mt-2 list-disc space-y-1 pr-5 text-xs leading-6 text-slate-600">
+        <li>أنت تراجع اشتراكًا مدفوعًا قد يتجدد شهريًا عند حفظ وسيلة دفع صالحة.</li>
+        <li>يمكن إيقاف التجديد من إدارة الاشتراك، وتبقى الفترة المدفوعة فعالة حتى نهايتها.</li>
+        <li>الإلغاء لا يعني استردادًا تلقائيًا؛ تطبق حقوق الاسترداد النظامية والشروط السارية عند الشراء.</li>
+      </ul>
+      <p className="mt-3 text-xs leading-6 text-slate-500">بالمتابعة أنت تقر بمراجعة <a href="/terms" className="font-black text-[#5d49cc] underline underline-offset-4">الشروط والأحكام</a> و<a href="/privacy" className="font-black text-[#5d49cc] underline underline-offset-4">سياسة الخصوصية</a>.</p>
+      <button type="button" onClick={() => setAccepted(true)} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#5b3fd6] px-5 text-xs font-black text-white">أوافق وأتابع للدفع الآمن</button>
+    </div>;
+  }
 
   return <>
     <link rel="stylesheet" href={MOYASAR_CSS} />
