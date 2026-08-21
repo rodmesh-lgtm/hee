@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUserForWrites } from "../../../../lib/auth";
 import { providerPaymentCreatedWithinBillingWindow } from "../../../../lib/billing-checkout-integrity";
 import { activateVerifiedMoyasarPayment, getOwnedBillingPayment, markBillingPaymentState } from "../../../../lib/billing-ledger";
-import { fetchMoyasarPayment } from "../../../../lib/moyasar";
+import { fetchMoyasarPayment, reverseMoyasarPayment } from "../../../../lib/moyasar";
 import { consumePublicWriteLimit } from "../../../../lib/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../../lib/request-body";
 
@@ -52,12 +52,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false }, { status: 409 });
     }
 
-    // A stale provider-less checkout must not be revived by creating a new Moyasar
-    // payment later with the old metadata/amount. Payments created during the original
-    // checkout window may still settle later and are allowed to reconcile.
     if (!billing.providerPaymentId && !providerPaymentCreatedWithinBillingWindow(billing.createdAt, payment)) {
-      console.error("[billing-created] stale_checkout_payment", { billingId });
-      await markBillingPaymentState(billing.id, { ...payment, status: "voided" });
+      console.error("[billing-created] stale_checkout_payment", { billingId, providerPaymentId: payment.id, providerStatus: payment.status });
+      if (["paid", "captured", "authorized"].includes(payment.status)) {
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+      }
       return NextResponse.json({ ok: false, error: "CHECKOUT_EXPIRED" }, { status: 409 });
     }
 
