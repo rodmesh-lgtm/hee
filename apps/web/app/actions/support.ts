@@ -31,19 +31,20 @@ export async function createSupportRequestAction(formData: FormData) {
   const message = text(formData, "message", 4000);
   if (!categories.has(category) || !subject || !message) redirect("/dashboard/support?error=invalid");
 
+  let rate;
   try {
-    const rate = await consumePublicWriteLimit({
+    rate = await consumePublicWriteLimit({
       scope: "customer-support",
       businessId: business.id,
       identity: user.id,
       limit: 8,
       windowSeconds: 24 * 60 * 60,
     });
-    if (!rate.allowed) redirect("/dashboard/support?error=rate-limited");
   } catch (error) {
     console.error("[support] rate_limit_failed", { businessId: business.id, error });
     redirect("/dashboard/support?error=unavailable");
   }
+  if (!rate.allowed) redirect("/dashboard/support?error=rate-limited");
 
   await db.analyticsEvent.create({
     data: {
