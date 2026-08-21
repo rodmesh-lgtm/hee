@@ -51,12 +51,29 @@ export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId
         credit_card: {
           save_card: true,
         },
+        // Moyasar recommends persisting the provider payment ID before redirecting to
+        // 3DS. HEE sends only the ID; the server re-fetches and verifies the payment.
+        on_completed: async (payment: { id?: unknown }) => {
+          const paymentId = typeof payment?.id === "string" ? payment.id : "";
+          if (!paymentId) return;
+          try {
+            const response = await fetch("/api/billing/moyasar/created", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ billingId, paymentId }),
+            });
+            if (!response.ok) console.error("[billing-checkout] payment_record_failed", { status: response.status });
+          } catch {
+            // Callback and webhook reconciliation remain authoritative if this best-effort
+            // pre-redirect persistence is interrupted by navigation/network failure.
+            console.error("[billing-checkout] payment_record_unavailable");
+          }
+        },
       });
     } catch (error) {
       initialized.current = false;
       console.error("[billing-checkout] moyasar_init_failed", error);
-      // Keep React state updates outside the effect body itself. This avoids a
-      // synchronous cascading render while still surfacing SDK initialization errors.
       window.setTimeout(() => setLoadFailed(true), 0);
     }
   }, [amount, billingId, businessId, callbackUrl, description, publishableKey, scriptReady]);
