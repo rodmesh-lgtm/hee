@@ -21,6 +21,7 @@
     "retention:apply": "tsx scripts/prune-expired-operational-data.ts --apply",
     "public:transactions-audit": "tsx scripts/public-transactions-audit.ts",
     "billing:integrity-audit": "tsx scripts/billing-integrity-audit.ts",
+    "billing:state-audit": "tsx scripts/billing-state-audit.ts",
     "backup:audit-seed": "tsx scripts/backup-restore-audit.ts",
     "backup:audit-verify": "tsx scripts/backup-restore-audit.ts --verify",
     "launch:config-audit": "tsx scripts/launch-config-audit.ts",
