@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { db } from "../../../../lib/db";
-import { activateVerifiedMoyasarPayment, findBillingPaymentByProviderId, markBillingPaymentState } from "../../../../lib/billing-ledger";
+import { activateVerifiedMoyasarPayment, findBillingPaymentByProviderId, getBillingPaymentById, markBillingPaymentState } from "../../../../lib/billing-ledger";
 import { fetchMoyasarPayment, verifyMoyasarWebhookSecret, type MoyasarWebhook } from "../../../../lib/moyasar";
 import { readBoundedText } from "../../../../lib/request-body";
 
@@ -68,19 +68,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Never grant entitlement from webhook JSON alone. Re-fetch the payment with the
-    // server-side secret key and independently verify the provider's canonical state.
+    // Entitlements are never granted from webhook JSON alone. Re-fetch the canonical
+    // payment with the secret key and verify its amount, currency and HEE metadata.
     const payment = await fetchMoyasarPayment(providerPaymentId);
     let billing = await findBillingPaymentByProviderId(payment.id);
     if (!billing) {
       const metadataBillingId = String(payment.metadata?.hee_billing_id ?? "");
-      if (/^[0-9a-f-]{36}$/i.test(metadataBillingId)) {
-        const rows = await db.$queryRaw<Awaited<ReturnType<typeof findBillingPaymentByProviderId>>[]>(
-          `SELECT * FROM "BillingPayment" WHERE "id" = $1 LIMIT 1` as never,
-          metadataBillingId as never,
-        ).catch(() => []);
-        billing = rows[0] ?? null;
-      }
+      if (/^[0-9a-f-]{36}$/i.test(metadataBillingId)) billing = await getBillingPaymentById(metadataBillingId);
     }
 
     if (!billing) {
@@ -106,7 +100,7 @@ export async function POST(request: Request) {
     await completeEvent(eventRowId, billing.id);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    // Keep processedAt null and return non-2xx so Moyasar retries delivery.
+    // Leave processedAt null and return non-2xx so Moyasar can retry this delivery.
     console.error("[moyasar-webhook] processing_failed", {
       eventId: event.id,
       error: error instanceof Error ? error.message : "unknown",
