@@ -109,9 +109,15 @@ test.describe.serial("launch customer journey", () => {
         expect(business?.onboardingCompleted).toBe(true);
       });
 
-      await test.step("mobile dashboard drawer is accessible and keyboard-safe", async () => {
+      await test.step("mobile dashboard drawer and thumb navigation are accessible", async () => {
         await expect(page.getByRole("heading", { name: "منشأة رحلة الإطلاق" })).toBeVisible();
         await expect.poll(() => horizontalOverflow(page)).toBeLessThanOrEqual(2);
+        const quickNav = page.getByRole("navigation", { name: "التنقل السريع" });
+        await expect(quickNav).toBeVisible();
+        await expect(quickNav.getByRole("link", { name: "الرئيسية" })).toHaveAttribute("aria-current", "page");
+        await expect(quickNav.getByRole("link", { name: "صفحتي" })).toBeVisible();
+        await expect(quickNav.getByRole("link", { name: "الطلبات" })).toBeVisible();
+
         const menuButton = page.locator("#hee-dashboard-mobile-menu-button");
         await expect(menuButton).toHaveAttribute("aria-expanded", "false");
         await menuButton.click();
@@ -124,6 +130,23 @@ test.describe.serial("launch customer journey", () => {
         await expect(drawer).toBeHidden();
         await expect(menuButton).toBeFocused();
         expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
+      });
+
+      await test.step("last mobile edit survives immediate navigation", async () => {
+        const quickNav = page.getByRole("navigation", { name: "التنقل السريع" });
+        await quickNav.getByRole("link", { name: "صفحتي" }).click();
+        await page.waitForURL("**/dashboard/my-page");
+        const city = page.getByLabel("المدينة");
+        await city.fill("جدة");
+        await quickNav.getByRole("link", { name: "الرئيسية" }).click();
+        await page.waitForURL(/\/dashboard(?:\?.*)?$/);
+
+        const user = await db.user.findUnique({ where: { email }, select: { id: true } });
+        expect(user?.id).toBeTruthy();
+        await expect.poll(async () => {
+          const saved = user ? await db.business.findFirst({ where: { ownerId: user.id }, select: { city: true } }) : null;
+          return saved?.city;
+        }, { timeout: 20_000 }).toBe("جدة");
       });
 
       await test.step("customer adds first service and publishes the page", async () => {
@@ -145,8 +168,8 @@ test.describe.serial("launch customer journey", () => {
 
       await test.step("logout protects dashboard and password login restores access", async () => {
         await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
-        const menuButton = page.locator("#hee-dashboard-mobile-menu-button");
-        await menuButton.click();
+        const moreButton = page.locator("#hee-dashboard-mobile-more-button");
+        await moreButton.click();
         const drawer = page.getByRole("dialog", { name: "قائمة لوحة التحكم" });
         await drawer.getByRole("button", { name: "تسجيل الخروج" }).click();
         await page.waitForURL(`${baseUrl}/`, { timeout: 20_000 });
