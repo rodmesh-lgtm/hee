@@ -46,7 +46,7 @@ test("provider tokens are encrypted at rest and raw card fields stay outside HEE
 test("provider response bodies are not copied into financial logs", () => {
   const core = source("app/lib/moyasar-core.ts");
   assert.doesNotMatch(core, /body:\s*body\.slice/);
-  assert.match(core, /api_error.*path.*status/s);
+  assert.match(core, /api_error[\s\S]*path[\s\S]*status/);
 });
 
 test("runtime payment configuration prevents live/test key cross-contamination", () => {
@@ -93,6 +93,26 @@ test("refunds only revoke the exact entitlement created by the refunded payment"
   assert.match(ledger, /active\.id === billing\.subscriptionId/);
   assert.match(ledger, /provider-payment-mismatch/);
   assert.match(ledger, /payment\.status !== "refunded"/);
+});
+
+test("checkout records provider payment IDs before redirect and blocks duplicate form reuse", () => {
+  const checkout = source("components/billing/moyasar-checkout.tsx");
+  const created = source("app/api/billing/moyasar/created/route.ts");
+  const page = source("app/dashboard/billing/checkout/page.tsx");
+  assert.match(checkout, /on_completed/);
+  assert.match(checkout, /\/api\/billing\/moyasar\/created/);
+  assert.match(created, /getOwnedBillingPayment/);
+  assert.match(created, /fetchMoyasarPayment\(paymentId\)/);
+  assert.match(created, /payment\.amount !== billing\.amount/);
+  assert.match(page, /providerStarted/);
+});
+
+test("CSP explicitly allows required Moyasar browser endpoints without generic HTTPS connect", () => {
+  const config = source("next.config.ts");
+  assert.match(config, /script-src[^\n]*https:\/\/cdn\.moyasar\.com/);
+  assert.match(config, /style-src[^\n]*https:\/\/cdn\.moyasar\.com/);
+  assert.match(config, /connect-src[^\n]*https:\/\/api\.moyasar\.com/);
+  assert.doesNotMatch(config, /connect-src 'self' https: wss:/);
 });
 
 test("paid production configuration requires live Moyasar keys and token encryption", () => {
