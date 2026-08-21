@@ -56,6 +56,7 @@ test("published test fixtures declare verification explicitly", () => {
     "tests/transactions-workflow.spec.ts",
     "tests/booking-duration-workflow.spec.ts",
     "tests/public-idempotency-workflow.spec.ts",
+    "tests/directory-workflow.spec.ts",
   ]) {
     assert.match(source(path), /emailVerifiedAt:\s*new Date\(\)/, `${path} must seed a verified owner when testing an already-public business`);
   }
