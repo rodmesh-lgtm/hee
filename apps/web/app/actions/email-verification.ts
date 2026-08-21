@@ -16,6 +16,8 @@ async function requestAddress() {
 }
 
 export async function requestEmailVerificationAction(_previous: EmailVerificationState, _formData: FormData): Promise<EmailVerificationState> {
+  void _previous;
+  void _formData;
   const user = await getCurrentUserForWrites();
   if (!user) return { error: "يجب تسجيل الدخول لإرسال رسالة التأكيد" };
   if (user.emailVerifiedAt) return { success: "بريد حسابك مؤكد بالفعل" };
