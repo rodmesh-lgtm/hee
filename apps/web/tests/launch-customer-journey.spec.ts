@@ -181,6 +181,29 @@ test.describe.serial("launch customer journey", () => {
         await expect(page.getByText("تم نسخ رابط الصفحة")).toBeVisible();
       });
 
+      await test.step("owner can share published page and safely cancel unpublish", async () => {
+        await page.goto(`${baseUrl}/dashboard/share`, { waitUntil: "domcontentloaded" });
+        await page.waitForURL("**/dashboard/my-page#share", { timeout: 20_000 });
+        await page.evaluate(() => {
+          Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+          Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => undefined } });
+        });
+        const ownerShare = page.getByRole("button", { name: "مشاركة الرابط" });
+        const ownerShareBox = await ownerShare.boundingBox();
+        expect(ownerShareBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+        await ownerShare.click();
+        await expect(page.getByText("تم نسخ رابط صفحتك.")).toBeVisible();
+
+        const cancelUnpublish = page.getByRole("button", { name: "إلغاء النشر" });
+        const cancelBox = await cancelUnpublish.boundingBox();
+        expect(cancelBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+        page.once("dialog", async (dialog) => dialog.dismiss());
+        await cancelUnpublish.click();
+        const user = await db.user.findUnique({ where: { email }, select: { id: true } });
+        const published = user ? await db.business.findFirst({ where: { ownerId: user.id }, select: { isPublished: true } }) : null;
+        expect(published?.isPublished).toBe(true);
+      });
+
       await test.step("logout protects dashboard and password login restores access", async () => {
         await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
         const moreButton = page.locator("#hee-dashboard-mobile-more-button");
