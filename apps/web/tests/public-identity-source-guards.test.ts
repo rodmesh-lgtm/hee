@@ -49,9 +49,11 @@ test("published test fixtures declare verification explicitly", () => {
   }
 });
 
-test("production email verification links are pinned and launch config is documented", () => {
+test("production verification links are canonical without breaking Vercel previews", () => {
   const verification = source("app/lib/email-verification.ts");
-  assert.match(verification, /VERCEL_ENV === "production" \|\| process\.env\.NODE_ENV === "production"/);
+  assert.match(verification, /const vercelEnv = String\(process\.env\.VERCEL_ENV \?\? ""\)\.toLowerCase\(\)/);
+  assert.match(verification, /vercelEnv === "production" \|\| \(!vercelEnv && process\.env\.NODE_ENV === "production"\)/);
+  assert.match(verification, /hostname\.endsWith\("\.vercel\.app"\)/);
   assert.match(verification, /return "https:\/\/hee\.sa"/);
 
   const envExample = source("../../.env.example");
