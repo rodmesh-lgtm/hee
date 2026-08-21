@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import { BriefcaseBusiness, CheckCircle2, Eye, Loader2, Palette, RefreshCw, Save, UsersRound } from "lucide-react";
 import { publishBusinessAction, unpublishBusinessAction, type PublicationActionState } from "../../app/actions/publication";
 
@@ -24,7 +24,7 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
   const mounted = useRef(true);
   const [previewVersion, setPreviewVersion] = useState(0);
 
-  const performSave = async (next: typeof fields, updateUi = true) => {
+  const performSave = useCallback(async (next: typeof fields, updateUi = true) => {
     const changed: Record<string, string> = {};
     for (const key of Object.keys(next) as Array<keyof typeof next>) {
       if (next[key] !== lastSaved.current[key]) changed[key] = next[key];
@@ -58,24 +58,24 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
         setError(saveError instanceof Error ? saveError.message : "تعذر الحفظ");
       }
     }
-  };
+  }, []);
 
-  const flushSave = (next = latestFields.current, updateUi = true) => {
+  const flushSave = useCallback((next = latestFields.current, updateUi = true) => {
     if (timer.current) {
       window.clearTimeout(timer.current);
       timer.current = null;
     }
     saveChain.current = saveChain.current.then(() => performSave(next, updateUi));
     return saveChain.current;
-  };
+  }, [performSave]);
 
-  const queueSave = (next: typeof fields) => {
+  const queueSave = useCallback((next: typeof fields) => {
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       timer.current = null;
       void flushSave(next);
     }, 700);
-  };
+  }, [flushSave]);
 
   const update = (key: keyof typeof fields, value: string) => {
     const next = { ...fields, [key]: value };
@@ -96,7 +96,7 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
       // response cannot overwrite the newest snapshot.
       void flushSave(latestFields.current, false);
     };
-  }, []);
+  }, [flushSave]);
   useEffect(() => { if (publishState.success) window.location.reload(); }, [publishState.success]);
 
   const publishBlocked = publishPending || status !== "saved";
