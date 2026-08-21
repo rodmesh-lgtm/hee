@@ -11,7 +11,11 @@ export async function getBusinessPublic(slug: string) {
       // Publication now requires mailbox ownership, but legacy rows may already have
       // isPublished=true before that gate existed. Enforce the invariant again at the
       // public read boundary so migration history cannot expose an unverified identity.
-      ...(process.env.APP_ENV === "test" ? {} : { owner: { deletedAt: null, emailVerifiedAt: { not: null } } }),
+      // Test fixtures may bypass this only outside a production Node runtime; a stray
+      // APP_ENV=test production variable must never reopen public legacy identities.
+      ...(process.env.APP_ENV === "test" && process.env.NODE_ENV !== "production"
+        ? {}
+        : { owner: { deletedAt: null, emailVerifiedAt: { not: null } } }),
     },
     include: {
       services: {
