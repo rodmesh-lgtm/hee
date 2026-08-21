@@ -73,9 +73,22 @@ test("billing database migration enforces ledger uniqueness, authorized checkout
   assert.doesNotMatch(migration, /ADD COLUMN "provider" TEXT/);
 });
 
-test("Prisma schema models financial ledger and subscription billing columns", () => {
+test("Prisma schema models the billing ledger including immutable receipt snapshots", () => {
   const schema = source("prisma/schema.prisma");
-  for (const pattern of [/model BillingPaymentMethod/, /model BillingPayment/, /model BillingWebhookEvent/, /autoRenew Boolean/, /providerReference String\?/, /paymentMethodId String\?/]) assert.match(schema, pattern);
+  for (const pattern of [
+    /model BillingPaymentMethod/,
+    /model BillingPayment/,
+    /model BillingWebhookEvent/,
+    /autoRenew Boolean/,
+    /providerReference String\?/,
+    /paymentMethodId String\?/,
+    /receiptSellerLegalName String\?/,
+    /receiptSellerAddress String\?/,
+    /receiptTaxStatus String\?/,
+    /receiptNetAmount Int\?/,
+    /receiptVatAmount Int\?/,
+    /receiptIssuedAt DateTime\?/,
+  ]) assert.match(schema, pattern);
 });
 
 test("renewal retries reuse Moyasar idempotency keys and expire paid entitlement safely", () => {
