@@ -67,6 +67,8 @@ test("billing database migration enforces ledger uniqueness, authorized checkout
     /BillingPayment_subscription_business_fkey/,
     /BillingPaymentMethod_id_business_unique/,
     /Subscription_id_business_unique/,
+    /BillingPayment_receipt_snapshot_complete/,
+    /BillingPayment_paid_state_complete/,
   ]) assert.match(migration, pattern);
   assert.doesNotMatch(migration, /ADD COLUMN "provider" TEXT/);
 });
@@ -78,28 +80,44 @@ test("Prisma schema models financial ledger and subscription billing columns", (
 
 test("renewal retries reuse Moyasar idempotency keys and expire paid entitlement safely", () => {
   const worker = source("scripts/billing-renewal-worker.ts");
-  for (const pattern of [/providerGivenId/, /givenId: billing\.providerGivenId/, /provider_request_ambiguous/, /markPastDue/, /status" IN \('active','past_due'\)/, /"subscriptionId" = \$\{newSubscriptionId\}/, /expireEndedNonRenewingSubscriptions/, /"autoRenew" = false/, /data: \{ planId: free\.id \}/]) assert.match(worker, pattern);
+  for (const pattern of [
+    /providerGivenId/,
+    /givenId: billing\.providerGivenId/,
+    /provider_request_ambiguous/,
+    /markPastDue/,
+    /status" IN \('active','past_due'\)/,
+    /"subscriptionId" = \$\{newSubscriptionId\}/,
+    /expireEndedNonRenewingSubscriptions/,
+    /"autoRenew" = false/,
+    /data: \{ planId: free\.id \}/,
+    /claimAttemptForProviderSubmission/,
+    /providerGivenId\) lets a later run fetch\/retry|given_id/,
+  ]) assert.match(worker, pattern);
 });
 
-test("canceling auto-renew also revokes the reusable payment method", () => {
+test("canceling auto-renew revokes reusable payment method and cannot lie about an in-flight charge", () => {
   const actions = source("app/actions/billing.ts");
   const button = source("components/billing/cancel-renewal-button.tsx");
+  const manage = source("app/dashboard/billing/manage/page.tsx");
   assert.match(actions, /autoRenew:\s*false/);
   assert.match(actions, /billingPaymentMethod\.updateMany/);
   assert.match(actions, /status:\s*"revoked"/);
+  assert.match(actions, /status: \{ in: \["initiated", "authorized"\] \}/);
+  assert.match(actions, /renewal-processing/);
+  assert.match(manage, /بدأت معالجة دفعة التجديد بالفعل/);
   assert.match(button, /window\.confirm/);
 });
 
 test("refund rollback restores only an unrefunded prior paid entitlement and never auto-renews it", () => {
   const ledger = source("app/lib/billing-ledger.ts");
-  assert.match(ledger, /active&&billing\.subscriptionId&&active\.id===billing\.subscriptionId/);
+  assert.match(ledger, /active\s*&&\s*billing\.subscriptionId\s*&&\s*active\.id\s*===\s*billing\.subscriptionId/);
   assert.match(ledger, /provider-payment-mismatch/);
-  assert.match(ledger, /payment\.status!=="refunded"/);
-  assert.match(ledger, /JOIN "BillingPayment" bp ON bp\."subscriptionId"=s\."id"/);
+  assert.match(ledger, /payment\.status\s*!==\s*"refunded"/);
+  assert.match(ledger, /JOIN "BillingPayment" bp[\s\S]*ON bp\."subscriptionId"=s\."id"/);
   assert.match(ledger, /bp\."status"='paid'/);
   assert.match(ledger, /s\."status"='replaced'/);
-  assert.match(ledger, /"status"='active',"autoRenew"=false/);
-  assert.match(ledger, /planId:prior\[0\]\.planId/);
+  assert.match(ledger, /"status"='active',\s*"autoRenew"=false/);
+  assert.match(ledger, /planId:\s*prior\[0\]\.planId/);
 });
 
 test("paid checkout requires verified mailbox ownership and provider reconciliation is throttled", () => {
@@ -156,6 +174,7 @@ test("billing integrity audit is wired into RC Quality and proves authorized che
   assert.match(audit, /cross-tenant renewal subscription/);
   assert.match(audit, /non-SAR payment currency/);
   assert.match(audit, /authorized checkout blocks duplicate open checkout/);
+  assert.match(audit, /paid payment without immutable receipt snapshot/);
   assert.match(audit, /BillingPayment_one_open_checkout_per_business/);
 });
 
