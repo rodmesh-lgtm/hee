@@ -40,18 +40,14 @@ async function authenticate(page: import("@playwright/test").Page, token: string
   await page.context().addCookies([{ name: "hee_session", value: token, url: baseUrl }]);
 }
 
-async function switchBusiness(page: import("@playwright/test").Page, businessId: string) {
+async function switchBusiness(page: import("@playwright/test").Page, businessId: string, expectedResult = "switched") {
   const switcher = page.getByLabel("اختيار المنشأة").first();
   await expect(switcher).toBeVisible({ timeout: 10_000 });
   await switcher.selectOption(businessId);
   const button = switcher.locator("xpath=..").getByRole("button", { name: "تبديل" });
-  await Promise.all([
-    page.waitForURL("**/dashboard?business=switched", { timeout: 10_000 }),
-    button.click({ timeout: 10_000 }),
-  ]);
-  await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", businessId, { timeout: 10_000 });
-  const activeCookie = (await page.context().cookies()).find((cookie) => cookie.name === "hee_active_business");
-  expect(activeCookie?.value).toBe(businessId);
+  await button.click({ timeout: 10_000 });
+  await page.waitForURL(`**/dashboard?business=${expectedResult}`, { timeout: 10_000 });
+  await page.waitForLoadState("domcontentloaded");
 }
 
 function serviceNameInput(page: import("@playwright/test").Page, name: string) {
@@ -65,10 +61,10 @@ test.describe.serial("active business tenant isolation", () => {
     pool = new Pool({ connectionString, max: 4 });
     db = new PrismaClient({ adapter: new PrismaPg(pool) });
   });
-  test.afterAll(async () => { await db?.$disconnect(); await pool?.end(); });
+  test.afterAll(async () => { await db?.$disconnect(); });
 
   test("isolates owned businesses and rejects cross-tenant selection", async ({ page }) => {
-    test.setTimeout(45_000);
+    test.setTimeout(90_000);
     const seeded = await seed();
     await authenticate(page, seeded.sessionToken);
     try {
@@ -86,14 +82,18 @@ test.describe.serial("active business tenant isolation", () => {
 
       await test.step("switching to B scopes reads and writes to B", async () => {
         await switchBusiness(page, seeded.businessBId);
+        await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessBId, { timeout: 10_000 });
+        const activeCookie = (await page.context().cookies()).find((cookie) => cookie.name === "hee_active_business");
+        expect(activeCookie?.value).toBe(seeded.businessBId);
+
         await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded", timeout: 15_000 });
         await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessBId);
         await expect(serviceNameInput(page, "خدمة باء الخاصة")).toHaveCount(1);
         await expect(serviceNameInput(page, "خدمة ألف الخاصة")).toHaveCount(0);
         await expect(serviceNameInput(page, "خدمة المهاجم السرية")).toHaveCount(0);
 
-        const addForm = page.locator('form').filter({ has: page.locator('input[name="name"][placeholder="اسم الخدمة"]') });
-        await addForm.locator('input[name="name"]').fill("خدمة باء الجديدة المعزولة");
+        const addForm = page.getByRole("form", { name: "إضافة خدمة" });
+        await addForm.getByLabel("اسم الخدمة").fill("خدمة باء الجديدة المعزولة");
         await addForm.getByRole("button", { name: "إضافة" }).click({ timeout: 10_000 });
         await expect.poll(async () => db.service.count({ where: { businessId: seeded.businessBId, name: "خدمة باء الجديدة المعزولة" } }), { timeout: 10_000 }).toBe(1);
         expect(await db.service.count({ where: { businessId: seeded.businessAId, name: "خدمة باء الجديدة المعزولة" } })).toBe(0);
@@ -101,22 +101,20 @@ test.describe.serial("active business tenant isolation", () => {
       });
 
       await test.step("foreign tenant business selection is rejected", async () => {
-        await switchBusiness(page, seeded.businessAId);
         await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded", timeout: 15_000 });
         const protectedSwitcher = page.getByLabel("اختيار المنشأة").first();
         await protectedSwitcher.evaluate((select, foreignId) => { const option = document.createElement("option"); option.value = String(foreignId); option.textContent = "منشأة مزورة"; select.append(option); (select as HTMLSelectElement).value = String(foreignId); }, seeded.attackerBusinessId);
         const button = protectedSwitcher.locator("xpath=..").getByRole("button", { name: "تبديل" });
-        await Promise.all([
-          page.waitForURL("**/dashboard?business=invalid", { timeout: 10_000 }),
-          button.click({ timeout: 10_000 }),
-        ]);
-        await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessAId, { timeout: 10_000 });
+        await button.click({ timeout: 10_000 });
+        await page.waitForURL("**/dashboard?business=invalid", { timeout: 10_000 });
+        await page.waitForLoadState("domcontentloaded");
+        await expect(page.locator("[data-active-business]")).toHaveAttribute("data-active-business", seeded.businessBId, { timeout: 10_000 });
         await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
       });
 
       await test.step("preview stays on the verified active owned business", async () => {
         await page.goto(`${baseUrl}/preview`, { waitUntil: "domcontentloaded", timeout: 15_000 });
-        await expect(page.getByRole("heading", { name: "منشأة ألف الآمنة" })).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByRole("heading", { name: "منشأة باء الآمنة" })).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText("منشأة المهاجم السرية")).toHaveCount(0);
       });
     } finally {

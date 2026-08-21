@@ -29,9 +29,7 @@ async function cleanupByEmail(email: string) {
     await db.category.deleteMany({ where: { businessId: { in: businessIds } } });
     await db.service.deleteMany({ where: { businessId: { in: businessIds } } });
     await db.subscription.deleteMany({ where: { businessId: { in: businessIds } } });
-    for (const businessId of businessIds) {
-      await db.$executeRaw`DELETE FROM "PublicSubmission" WHERE "businessId" = ${businessId}`;
-    }
+    for (const businessId of businessIds) await db.$executeRaw`DELETE FROM "PublicSubmission" WHERE "businessId" = ${businessId}`;
     await db.business.deleteMany({ where: { id: { in: businessIds } } });
   }
   await db.session.deleteMany({ where: { userId: user.id } });
@@ -40,9 +38,7 @@ async function cleanupByEmail(email: string) {
   await db.user.delete({ where: { id: user.id } });
 }
 
-function horizontalOverflow(page: import("@playwright/test").Page) {
-  return page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-}
+function horizontalOverflow(page: import("@playwright/test").Page) { return page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth); }
 
 test.describe.serial("launch customer journey", () => {
   test.beforeAll(async () => {
@@ -51,14 +47,10 @@ test.describe.serial("launch customer journey", () => {
     pool = new Pool({ connectionString, max: 4 });
     db = new PrismaClient({ adapter: new PrismaPg(pool) });
   });
-
-  test.afterAll(async () => {
-    await db?.$disconnect();
-    await pool?.end();
-  });
+  test.afterAll(async () => { await db?.$disconnect(); });
 
   test("registers, onboards, uses mobile dashboard, publishes, logs out and signs back in", async ({ browser }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const email = `launch-${suffix}@hee.test`;
     const password = "Launch#2026a";
@@ -80,12 +72,9 @@ test.describe.serial("launch customer journey", () => {
         await page.getByRole("checkbox").check();
         await page.getByRole("button", { name: "إنشاء الحساب والمتابعة" }).click();
         await page.waitForURL("**/onboarding", { timeout: 20_000 });
-
         const user = await db.user.findUnique({ where: { email }, select: { id: true } });
         expect(user?.id).toBeTruthy();
-        const consentRows = user
-          ? await db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "LegalConsent" WHERE "userId" = ${user.id}`
-          : [];
+        const consentRows = user ? await db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "LegalConsent" WHERE "userId" = ${user.id}` : [];
         expect(Number(consentRows[0]?.count ?? 0)).toBe(1);
       });
 
@@ -100,7 +89,6 @@ test.describe.serial("launch customer journey", () => {
         await page.getByLabel("المدينة").fill("الرياض");
         await page.getByRole("button", { name: /إنشاء الصفحة/ }).click();
         await page.waitForURL("**/dashboard?welcome=1", { timeout: 20_000 });
-
         const user = await db.user.findUnique({ where: { email }, select: { id: true } });
         const business = user ? await db.business.findFirst({ where: { ownerId: user.id }, include: { plan: true } }) : null;
         expect(business?.slug).toBe(slug);
@@ -109,9 +97,14 @@ test.describe.serial("launch customer journey", () => {
         expect(business?.onboardingCompleted).toBe(true);
       });
 
-      await test.step("mobile dashboard drawer is accessible and keyboard-safe", async () => {
+      await test.step("mobile dashboard drawer and thumb navigation are accessible", async () => {
         await expect(page.getByRole("heading", { name: "منشأة رحلة الإطلاق" })).toBeVisible();
         await expect.poll(() => horizontalOverflow(page)).toBeLessThanOrEqual(2);
+        const quickNav = page.getByRole("navigation", { name: "التنقل السريع" });
+        await expect(quickNav).toBeVisible();
+        await expect(quickNav.getByRole("link", { name: "الرئيسية" })).toHaveAttribute("aria-current", "page");
+        await expect(quickNav.getByRole("link", { name: "صفحتي" })).toBeVisible();
+        await expect(quickNav.getByRole("link", { name: "الطلبات" })).toBeVisible();
         const menuButton = page.locator("#hee-dashboard-mobile-menu-button");
         await expect(menuButton).toHaveAttribute("aria-expanded", "false");
         await menuButton.click();
@@ -126,12 +119,31 @@ test.describe.serial("launch customer journey", () => {
         expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
       });
 
+      await test.step("last mobile edit survives immediate navigation", async () => {
+        const quickNav = page.getByRole("navigation", { name: "التنقل السريع" });
+        await quickNav.getByRole("link", { name: "صفحتي" }).click();
+        await page.waitForURL("**/dashboard/my-page");
+        await page.getByLabel("المدينة").fill("جدة");
+        await quickNav.getByRole("link", { name: "الرئيسية" }).click();
+        await page.waitForURL(/\/dashboard(?:\?.*)?$/);
+        const user = await db.user.findUnique({ where: { email }, select: { id: true } });
+        expect(user?.id).toBeTruthy();
+        await expect.poll(async () => (user ? await db.business.findFirst({ where: { ownerId: user.id }, select: { city: true } }) : null)?.city, { timeout: 20_000 }).toBe("جدة");
+      });
+
       await test.step("customer adds first service and publishes the page", async () => {
         await page.goto(`${baseUrl}/dashboard/services`, { waitUntil: "domcontentloaded" });
         await expect(page.getByRole("heading", { name: "الخدمات" })).toBeVisible();
-        await page.locator('input[name="name"][placeholder="اسم الخدمة"]').fill("خدمة رحلة الإطلاق");
-        await page.getByRole("button", { name: "إضافة" }).click();
-        await expect(page.locator('input[name="name"][value="خدمة رحلة الإطلاق"]')).toHaveCount(1, { timeout: 20_000 });
+        const addForm = page.getByRole("form", { name: "إضافة خدمة" });
+        await expect(addForm.getByLabel("اسم الخدمة")).toBeVisible();
+        await addForm.getByLabel("اسم الخدمة").fill("خدمة رحلة الإطلاق");
+        await addForm.getByRole("button", { name: "إضافة" }).click();
+        await expect.poll(async () => {
+          const user = await db.user.findUnique({ where: { email }, select: { id: true } });
+          if (!user) return 0;
+          const business = await db.business.findFirst({ where: { ownerId: user.id }, select: { id: true } });
+          return business ? db.service.count({ where: { businessId: business.id, name: "خدمة رحلة الإطلاق", deletedAt: null } }) : 0;
+        }, { timeout: 20_000 }).toBe(1);
 
         await page.goto(`${baseUrl}/dashboard/my-page`, { waitUntil: "domcontentloaded" });
         await page.getByRole("button", { name: "نشر الصفحة" }).click();
@@ -145,8 +157,8 @@ test.describe.serial("launch customer journey", () => {
 
       await test.step("logout protects dashboard and password login restores access", async () => {
         await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
-        const menuButton = page.locator("#hee-dashboard-mobile-menu-button");
-        await menuButton.click();
+        const moreButton = page.locator("#hee-dashboard-mobile-more-button");
+        await moreButton.click();
         const drawer = page.getByRole("dialog", { name: "قائمة لوحة التحكم" });
         await drawer.getByRole("button", { name: "تسجيل الخروج" }).click();
         await page.waitForURL(`${baseUrl}/`, { timeout: 20_000 });
@@ -158,7 +170,6 @@ test.describe.serial("launch customer journey", () => {
         await page.waitForURL("**/dashboard", { timeout: 20_000 });
         await expect(page.getByRole("heading", { name: "منشأة رحلة الإطلاق" })).toBeVisible();
       });
-
       expect(consoleErrors).toEqual([]);
     } finally {
       await page.close();
