@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import test from "node:test";
+
+function source(path: string) {
+  return readFileSync(resolve(process.cwd(), path), "utf8");
+}
+
+test("Moyasar callback verifies canonical provider payment before entitlement activation", () => {
+  const callback = source("app/api/billing/moyasar/callback/route.ts");
+  assert.match(callback, /fetchMoyasarPayment\(providerPaymentId\)/);
+  assert.match(callback, /payment\.amount !== billing\.amount/);
+  assert.match(callback, /payment\.currency !== "SAR"/);
+  assert.match(callback, /metadataBilling !== billing\.id/);
+  assert.match(callback, /metadataBusiness !== billing\.businessId/);
+  assert.match(callback, /activateVerifiedMoyasarPayment/);
+});
+
+test("Moyasar webhook is bounded, secret-verified, idempotent and re-fetches provider state", () => {
+  const webhook = source("app/api/billing/moyasar/webhook/route.ts");
+  assert.match(webhook, /readBoundedText\(request, MAX_WEBHOOK_BYTES\)/);
+  assert.match(webhook, /verifyMoyasarWebhookSecret\(event\.secret_token\)/);
+  assert.match(webhook, /ON CONFLICT \("provider", "providerEventId"\) DO NOTHING/);
+  assert.match(webhook, /fetchMoyasarPayment\(providerPaymentId\)/);
+  assert.match(webhook, /event\.live !== true/);
+  assert.match(webhook, /payment\.amount !== billing\.amount/);
+});
+
+test("provider tokens are encrypted at rest and raw card fields stay outside HEE server routes", () => {
+  const core = source("app/lib/moyasar-core.ts");
+  const ledger = source("app/lib/billing-ledger.ts");
+  const callback = source("app/api/billing/moyasar/callback/route.ts");
+  const webhook = source("app/api/billing/moyasar/webhook/route.ts");
+  assert.match(core, /aes-256-gcm/);
+  assert.match(ledger, /encryptProviderToken\(token\)/);
+  assert.doesNotMatch(callback, /\b(?:cardNumber|cvc|cvv)\b/i);
+  assert.doesNotMatch(webhook, /\b(?:cardNumber|cvc|cvv)\b/i);
+});
+
+test("billing database migration enforces ledger uniqueness and subscription renewal ownership", () => {
+  const migration = source("prisma/migrations/20260821172000_moyasar_billing/migration.sql");
+  assert.match(migration, /BillingPayment_provider_payment_unique/);
+  assert.match(migration, /BillingPayment_provider_given_unique/);
+  assert.match(migration, /BillingPayment_renewal_attempt_unique/);
+  assert.match(migration, /BillingWebhookEvent_provider_event_unique/);
+  assert.match(migration, /Subscription_payment_method_fkey/);
+});
+
+test("paid production configuration requires live Moyasar keys and token encryption", () => {
+  const audit = source("scripts/launch-config-audit.ts");
+  assert.match(audit, /paymentProvider !== "moyasar"/);
+  assert.match(audit, /MOYASAR_PUBLISHABLE_KEY/);
+  assert.match(audit, /pk_live_/);
+  assert.match(audit, /MOYASAR_SECRET_KEY/);
+  assert.match(audit, /sk_live_/);
+  assert.match(audit, /MOYASAR_WEBHOOK_SECRET/);
+  assert.match(audit, /BILLING_TOKEN_ENCRYPTION_KEY/);
+  assert.match(audit, /BILLING_RENEWAL_ENABLED/);
+});
+
+test("billing and renewal logic remains portable to Hetzner", () => {
+  const files = [
+    source("app/lib/moyasar-core.ts"),
+    source("app/lib/billing-ledger.ts"),
+    source("scripts/billing-renewal-worker.ts"),
+  ].join("\n");
+  assert.doesNotMatch(files, /from\s+["']@vercel\//);
+  assert.doesNotMatch(files, /VERCEL_ENV/);
+  assert.match(source("scripts/billing-renewal-worker.ts"), /PAYMENT_PROVIDER.*moyasar/);
+});
