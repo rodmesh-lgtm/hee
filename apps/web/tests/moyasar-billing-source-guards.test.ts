@@ -2,18 +2,144 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-function source(path: string) { return readFileSync(resolve(process.cwd(), path), "utf8"); }
-test("Moyasar callback verifies canonical provider payment before entitlement activation",()=>{const s=source("app/api/billing/moyasar/callback/route.ts");assert.match(s,/fetchMoyasarPayment\(providerPaymentId\)/);assert.match(s,/payment\.amount !== billing\.amount/);assert.match(s,/payment\.currency !== "SAR"/);assert.match(s,/metadataBilling !== billing\.id/);assert.match(s,/metadataBusiness !== billing\.businessId/);assert.match(s,/activateVerifiedMoyasarPayment/);});
-test("Moyasar webhook is bounded, secret-verified, retryable-idempotent and re-fetches provider state",()=>{const s=source("app/api/billing/moyasar/webhook/route.ts");assert.match(s,/readBoundedText\(request, MAX_WEBHOOK_BYTES\)/);assert.match(s,/verifyMoyasarWebhookSecret\(event\.secret_token\)/);assert.match(s,/ON CONFLICT \("provider", "providerEventId"\)/);assert.match(s,/RETURNING "id", "processedAt"/);assert.match(s,/if \(claimed\.processedAt\)/);assert.match(s,/processedAt stays null/);assert.match(s,/fetchMoyasarPayment\(providerPaymentId\)/);assert.match(s,/event\.live !== true/);assert.match(s,/payment\.amount !== billing\.amount/);});
-test("provider tokens are encrypted at rest and raw card fields stay outside HEE server routes",()=>{const core=source("app/lib/moyasar-core.ts"),ledger=source("app/lib/billing-ledger.ts"),callback=source("app/api/billing/moyasar/callback/route.ts"),webhook=source("app/api/billing/moyasar/webhook/route.ts");assert.match(core,/aes-256-gcm/);assert.match(core,/iv\.length !== 12/);assert.match(core,/tag\.length !== 16/);assert.match(ledger,/encryptProviderToken\(token\)/);assert.doesNotMatch(callback,/\b(?:cardNumber|cvc|cvv)\b/i);assert.doesNotMatch(webhook,/\b(?:cardNumber|cvc|cvv)\b/i);});
-test("provider response bodies are not copied into financial logs",()=>{const s=source("app/lib/moyasar-core.ts");assert.doesNotMatch(s,/body:\s*body\.slice/);assert.match(s,/api_error[\s\S]*path[\s\S]*status/);});
-test("runtime payment configuration prevents live/test key cross-contamination",()=>{const s=source("app/lib/moyasar-core.ts");for(const p of [/pk_live_/,/sk_live_/,/pk_test_/,/sk_test_/,/APP_ENV/])assert.match(s,p);});
-test("billing database migration enforces ledger uniqueness and subscription renewal ownership",()=>{const s=source("prisma/migrations/20260821172000_moyasar_billing/migration.sql");for(const p of [/BillingPayment_provider_payment_unique/,/BillingPayment_provider_given_unique/,/BillingPayment_renewal_attempt_unique/,/BillingWebhookEvent_provider_event_unique/,/Subscription_payment_method_fkey/])assert.match(s,p);assert.doesNotMatch(s,/ADD COLUMN "provider" TEXT/);});
-test("Prisma schema models financial ledger and subscription billing columns",()=>{const s=source("prisma/schema.prisma");for(const p of [/model BillingPaymentMethod/,/model BillingPayment/,/model BillingWebhookEvent/,/autoRenew Boolean/,/providerReference String\?/,/paymentMethodId String\?/])assert.match(s,p);});
-test("renewal retries reuse Moyasar idempotency keys and expire paid entitlement safely",()=>{const s=source("scripts/billing-renewal-worker.ts");for(const p of [/providerGivenId/,/givenId: billing\.providerGivenId/,/provider_request_ambiguous/,/markPastDue/,/status" IN \('active','past_due'\)/,/"subscriptionId" = \$\{newSubscriptionId\}/,/expireEndedNonRenewingSubscriptions/,/"autoRenew" = false/,/data: \{ planId: free\.id \}/])assert.match(s,p);});
-test("canceling auto-renew also revokes the reusable payment method",()=>{const a=source("app/actions/billing.ts"),b=source("components/billing/cancel-renewal-button.tsx");assert.match(a,/autoRenew:\s*false/);assert.match(a,/billingPaymentMethod\.updateMany/);assert.match(a,/status:\s*"revoked"/);assert.match(b,/window\.confirm/);});
-test("refund rollback preserves prior paid-through history and never silently restores renewal",()=>{const s=source("app/lib/billing-ledger.ts");assert.match(s,/active\.id===billing\.subscriptionId/);assert.match(s,/provider-payment-mismatch/);assert.match(s,/payment\.status!=="refunded"/);assert.match(s,/Preserve the historical paid-through date/);assert.match(s,/"status"='replaced' AND "endsAt">\$\{now\}/);assert.match(s,/"status"='active',"autoRenew"=false/);assert.match(s,/planId:prior\[0\]\.planId/);});
-test("checkout records provider payment IDs before redirect and blocks duplicate form reuse",()=>{const c=source("components/billing/moyasar-checkout.tsx"),r=source("app/api/billing/moyasar/created/route.ts"),p=source("app/dashboard/billing/checkout/page.tsx");assert.match(c,/on_completed/);assert.match(c,/\/api\/billing\/moyasar\/created/);assert.match(r,/getOwnedBillingPayment/);assert.match(r,/fetchMoyasarPayment\(paymentId\)/);assert.match(r,/payment\.amount !== billing\.amount/);assert.match(p,/providerStarted/);});
-test("CSP explicitly allows required Moyasar browser endpoints without generic HTTPS connect",()=>{const s=source("next.config.ts");assert.match(s,/script-src[^\n]*https:\/\/cdn\.moyasar\.com/);assert.match(s,/style-src[^\n]*https:\/\/cdn\.moyasar\.com/);assert.match(s,/connect-src[^\n]*https:\/\/api\.moyasar\.com/);assert.doesNotMatch(s,/connect-src 'self' https: wss:/);});
-test("paid production configuration requires live Moyasar keys and token encryption",()=>{const s=source("scripts/launch-config-audit.ts");for(const p of [/paymentProvider !== "moyasar"/,/MOYASAR_PUBLISHABLE_KEY/,/pk_live_/,/MOYASAR_SECRET_KEY/,/sk_live_/,/MOYASAR_WEBHOOK_SECRET/,/BILLING_TOKEN_ENCRYPTION_KEY/,/BILLING_RENEWAL_ENABLED/])assert.match(s,p);});
-test("billing and renewal logic remains portable to Hetzner",()=>{const files=[source("app/lib/moyasar-core.ts"),source("app/lib/billing-ledger.ts"),source("scripts/billing-renewal-worker.ts")].join("\n");assert.doesNotMatch(files,/from\s+["']@vercel\//);assert.doesNotMatch(files,/VERCEL_ENV/);assert.match(source("scripts/billing-renewal-worker.ts"),/PAYMENT_PROVIDER.*moyasar/);});
+
+function source(path: string) {
+  return readFileSync(resolve(process.cwd(), path), "utf8");
+}
+
+test("Moyasar callback verifies canonical provider payment before entitlement activation", () => {
+  const callback = source("app/api/billing/moyasar/callback/route.ts");
+  assert.match(callback, /fetchMoyasarPayment\(providerPaymentId\)/);
+  assert.match(callback, /payment\.amount !== billing\.amount/);
+  assert.match(callback, /payment\.currency !== "SAR"/);
+  assert.match(callback, /metadataBilling !== billing\.id/);
+  assert.match(callback, /metadataBusiness !== billing\.businessId/);
+  assert.match(callback, /activateVerifiedMoyasarPayment/);
+});
+
+test("Moyasar webhook is bounded, secret-verified, retryable-idempotent and re-fetches provider state", () => {
+  const webhook = source("app/api/billing/moyasar/webhook/route.ts");
+  assert.match(webhook, /readBoundedText\(request, MAX_WEBHOOK_BYTES\)/);
+  assert.match(webhook, /verifyMoyasarWebhookSecret\(event\.secret_token\)/);
+  assert.match(webhook, /ON CONFLICT \("provider", "providerEventId"\)/);
+  assert.match(webhook, /RETURNING "id", "processedAt"/);
+  assert.match(webhook, /if \(claimed\.processedAt\)/);
+  assert.match(webhook, /processedAt stays null/);
+  assert.match(webhook, /fetchMoyasarPayment\(providerPaymentId\)/);
+  assert.match(webhook, /event\.live !== true/);
+  assert.match(webhook, /payment\.amount !== billing\.amount/);
+});
+
+test("provider tokens are encrypted at rest and raw card fields stay outside HEE server routes", () => {
+  const core = source("app/lib/moyasar-core.ts");
+  const ledger = source("app/lib/billing-ledger.ts");
+  const callback = source("app/api/billing/moyasar/callback/route.ts");
+  const webhook = source("app/api/billing/moyasar/webhook/route.ts");
+  assert.match(core, /aes-256-gcm/);
+  assert.match(core, /iv\.length !== 12/);
+  assert.match(core, /tag\.length !== 16/);
+  assert.match(ledger, /encryptProviderToken\(token\)/);
+  assert.doesNotMatch(callback, /\b(?:cardNumber|cvc|cvv)\b/i);
+  assert.doesNotMatch(webhook, /\b(?:cardNumber|cvc|cvv)\b/i);
+});
+
+test("provider response bodies are not copied into financial logs", () => {
+  const core = source("app/lib/moyasar-core.ts");
+  assert.doesNotMatch(core, /body:\s*body\.slice/);
+  assert.match(core, /api_error[\s\S]*path[\s\S]*status/);
+});
+
+test("runtime payment configuration prevents live/test key cross-contamination", () => {
+  const core = source("app/lib/moyasar-core.ts");
+  for (const pattern of [/pk_live_/, /sk_live_/, /pk_test_/, /sk_test_/, /APP_ENV/]) assert.match(core, pattern);
+});
+
+test("billing database migration enforces ledger uniqueness and tenant ownership", () => {
+  const migration = source("prisma/migrations/20260821172000_moyasar_billing/migration.sql");
+  for (const pattern of [
+    /BillingPayment_provider_payment_unique/,
+    /BillingPayment_provider_given_unique/,
+    /BillingPayment_renewal_attempt_unique/,
+    /BillingWebhookEvent_provider_event_unique/,
+    /Subscription_payment_method_business_fkey/,
+    /BillingPayment_subscription_business_fkey/,
+    /BillingPaymentMethod_id_business_unique/,
+    /Subscription_id_business_unique/,
+  ]) assert.match(migration, pattern);
+  assert.doesNotMatch(migration, /ADD COLUMN "provider" TEXT/);
+});
+
+test("Prisma schema models financial ledger and subscription billing columns", () => {
+  const schema = source("prisma/schema.prisma");
+  for (const pattern of [/model BillingPaymentMethod/, /model BillingPayment/, /model BillingWebhookEvent/, /autoRenew Boolean/, /providerReference String\?/, /paymentMethodId String\?/]) assert.match(schema, pattern);
+});
+
+test("renewal retries reuse Moyasar idempotency keys and expire paid entitlement safely", () => {
+  const worker = source("scripts/billing-renewal-worker.ts");
+  for (const pattern of [/providerGivenId/, /givenId: billing\.providerGivenId/, /provider_request_ambiguous/, /markPastDue/, /status" IN \('active','past_due'\)/, /"subscriptionId" = \$\{newSubscriptionId\}/, /expireEndedNonRenewingSubscriptions/, /"autoRenew" = false/, /data: \{ planId: free\.id \}/]) assert.match(worker, pattern);
+});
+
+test("canceling auto-renew also revokes the reusable payment method", () => {
+  const actions = source("app/actions/billing.ts");
+  const button = source("components/billing/cancel-renewal-button.tsx");
+  assert.match(actions, /autoRenew:\s*false/);
+  assert.match(actions, /billingPaymentMethod\.updateMany/);
+  assert.match(actions, /status:\s*"revoked"/);
+  assert.match(button, /window\.confirm/);
+});
+
+test("refund rollback restores only an unrefunded prior paid entitlement and never auto-renews it", () => {
+  const ledger = source("app/lib/billing-ledger.ts");
+  assert.match(ledger, /active&&billing\.subscriptionId&&active\.id===billing\.subscriptionId/);
+  assert.match(ledger, /provider-payment-mismatch/);
+  assert.match(ledger, /payment\.status!=="refunded"/);
+  assert.match(ledger, /JOIN "BillingPayment" bp ON bp\."subscriptionId"=s\."id"/);
+  assert.match(ledger, /bp\."status"='paid'/);
+  assert.match(ledger, /s\."status"='replaced'/);
+  assert.match(ledger, /"status"='active',"autoRenew"=false/);
+  assert.match(ledger, /planId:prior\[0\]\.planId/);
+});
+
+test("checkout records provider payment IDs before redirect and blocks duplicate form reuse", () => {
+  const checkout = source("components/billing/moyasar-checkout.tsx");
+  const created = source("app/api/billing/moyasar/created/route.ts");
+  const page = source("app/dashboard/billing/checkout/page.tsx");
+  assert.match(checkout, /on_completed/);
+  assert.match(checkout, /\/api\/billing\/moyasar\/created/);
+  assert.match(created, /getOwnedBillingPayment/);
+  assert.match(created, /fetchMoyasarPayment\(paymentId\)/);
+  assert.match(created, /payment\.amount !== billing\.amount/);
+  assert.match(page, /providerStarted/);
+});
+
+test("CSP explicitly allows required Moyasar browser endpoints without generic HTTPS connect", () => {
+  const config = source("next.config.ts");
+  assert.match(config, /script-src[^\n]*https:\/\/cdn\.moyasar\.com/);
+  assert.match(config, /style-src[^\n]*https:\/\/cdn\.moyasar\.com/);
+  assert.match(config, /connect-src[^\n]*https:\/\/api\.moyasar\.com/);
+  assert.doesNotMatch(config, /connect-src 'self' https: wss:/);
+});
+
+test("paid production configuration requires live Moyasar keys and token encryption", () => {
+  const audit = source("scripts/launch-config-audit.ts");
+  for (const pattern of [/paymentProvider !== "moyasar"/, /MOYASAR_PUBLISHABLE_KEY/, /pk_live_/, /MOYASAR_SECRET_KEY/, /sk_live_/, /MOYASAR_WEBHOOK_SECRET/, /BILLING_TOKEN_ENCRYPTION_KEY/, /BILLING_RENEWAL_ENABLED/]) assert.match(audit, pattern);
+});
+
+test("billing integrity audit is wired into RC Quality", () => {
+  const packageJson = source("package.json");
+  const workflow = source("../../.github/workflows/rc-quality.yml");
+  const audit = source("scripts/billing-integrity-audit.ts");
+  assert.match(packageJson, /billing:integrity-audit/);
+  assert.match(workflow, /Verify billing database integrity/);
+  assert.match(workflow, /ALLOW_BILLING_INTEGRITY_AUDIT/);
+  assert.match(audit, /cross-tenant subscription payment method/);
+  assert.match(audit, /cross-tenant renewal subscription/);
+  assert.match(audit, /non-SAR payment currency/);
+});
+
+test("billing and renewal logic remains portable to Hetzner", () => {
+  const files = [source("app/lib/moyasar-core.ts"), source("app/lib/billing-ledger.ts"), source("scripts/billing-renewal-worker.ts")].join("\n");
+  assert.doesNotMatch(files, /from\s+["']@vercel\//);
+  assert.doesNotMatch(files, /VERCEL_ENV/);
+  assert.match(source("scripts/billing-renewal-worker.ts"), /PAYMENT_PROVIDER.*moyasar/);
+});
