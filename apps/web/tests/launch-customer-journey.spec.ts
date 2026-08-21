@@ -29,7 +29,9 @@ async function cleanupByEmail(email: string) {
     await db.category.deleteMany({ where: { businessId: { in: businessIds } } });
     await db.service.deleteMany({ where: { businessId: { in: businessIds } } });
     await db.subscription.deleteMany({ where: { businessId: { in: businessIds } } });
-    await db.$executeRaw`DELETE FROM "PublicSubmission" WHERE "businessId" = ANY(${businessIds}::text[])`;
+    for (const businessId of businessIds) {
+      await db.$executeRaw`DELETE FROM "PublicSubmission" WHERE "businessId" = ${businessId}`;
+    }
     await db.business.deleteMany({ where: { id: { in: businessIds } } });
   }
   await db.session.deleteMany({ where: { userId: user.id } });
@@ -73,8 +75,8 @@ test.describe.serial("launch customer journey", () => {
         await expect.poll(() => horizontalOverflow(page)).toBeLessThanOrEqual(2);
         await page.getByLabel("الاسم الكامل").fill("عميل إطلاق HEE");
         await page.getByLabel("البريد الإلكتروني").fill(email);
-        await page.getByLabel("كلمة المرور", { exact: true }).fill(password);
-        await page.getByLabel("تأكيد كلمة المرور").fill(password);
+        await page.locator('input[name="password"]').fill(password);
+        await page.locator('input[name="confirmPassword"]').fill(password);
         await page.getByRole("checkbox").check();
         await page.getByRole("button", { name: "إنشاء الحساب والمتابعة" }).click();
         await page.waitForURL("**/onboarding", { timeout: 20_000 });
@@ -151,7 +153,7 @@ test.describe.serial("launch customer journey", () => {
         await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
         await page.waitForURL("**/login", { timeout: 20_000 });
         await page.getByLabel("البريد الإلكتروني").fill(email);
-        await page.getByLabel("كلمة المرور").fill(password);
+        await page.locator('input[name="password"]').fill(password);
         await page.getByRole("button", { name: "تسجيل الدخول" }).click();
         await page.waitForURL("**/dashboard", { timeout: 20_000 });
         await expect(page.getByRole("heading", { name: "منشأة رحلة الإطلاق" })).toBeVisible();
