@@ -13,6 +13,7 @@ model User {
   name String
   email String @unique
   passwordHash String?
+  emailVerifiedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
@@ -20,6 +21,7 @@ model User {
   businesses Business[]
   authIdentities AuthIdentity[]
   @@index([email])
+  @@index([emailVerifiedAt])
   @@index([deletedAt])
 }
 model AuthIdentity {
