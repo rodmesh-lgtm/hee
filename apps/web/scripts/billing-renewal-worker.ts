@@ -9,8 +9,6 @@ import { createMoyasarTokenPayment, decryptProviderToken, fetchMoyasarPayment, t
 const MAX_ATTEMPTS = 3;
 const FAILURE_RETRY_MS = 24 * 60 * 60 * 1000;
 const RECONCILE_RETRY_MS = 15 * 60 * 1000;
-// Never charge days before the paid-through timestamp. A renewal becomes eligible only
-// when the current entitlement is actually due, so customers retain the full period they bought.
 const DUE_WINDOW_MS = 0;
 
 type DueSubscription = {
@@ -84,10 +82,7 @@ async function expireEndedNonRenewingSubscriptions() {
         WHERE "id" = ${row.id} AND "status" = 'active' AND "autoRenew" = false AND "endsAt" <= CURRENT_TIMESTAMP
       `;
       if (changed) {
-        await tx.business.updateMany({
-          where: { id: row.businessId, deletedAt: null, planId: row.planId },
-          data: { planId: free.id },
-        });
+        await tx.business.updateMany({ where: { id: row.businessId, deletedAt: null, planId: row.planId }, data: { planId: free.id } });
       }
     });
   }
@@ -214,7 +209,6 @@ async function activateRenewal(sub: DueSubscription, billingId: string, payment:
 
     const now = new Date();
     const nextEnd = addMonth(current.endsAt > now ? current.endsAt : now);
-    // Preserve the original paid-through timestamp for audit/refund rollback.
     await tx.$executeRaw`
       UPDATE "Subscription"
       SET "status" = 'replaced', "autoRenew" = false, "updatedAt" = CURRENT_TIMESTAMP
@@ -276,7 +270,6 @@ async function resolveProviderState(sub: DueSubscription, billing: RenewalAttemp
 }
 
 async function submitAttempt(sub: DueSubscription, billing: RenewalAttempt) {
-  // Recheck cancellation/payment-method state immediately before contacting Moyasar.
   const eligibility = await db.$queryRaw<Array<{ ok: boolean }>>`
     SELECT EXISTS(
       SELECT 1 FROM "Subscription" s
@@ -311,7 +304,7 @@ async function submitAttempt(sub: DueSubscription, billing: RenewalAttempt) {
 }
 
 async function processSubscription(sub: DueSubscription) {
-  let latest = await latestAttempt(sub.id);
+  const latest = await latestAttempt(sub.id);
   if (latest?.status === "paid") return;
 
   if (latest && ["initiated", "authorized"].includes(latest.status)) {
@@ -357,9 +350,9 @@ async function processSubscription(sub: DueSubscription) {
   }
 
   const attempt = latest ? latest.attempt + 1 : 1;
-  latest = await createAttempt(sub, attempt);
-  if (!latest) return;
-  await submitAttempt(sub, latest);
+  const nextAttempt = await createAttempt(sub, attempt);
+  if (!nextAttempt) return;
+  await submitAttempt(sub, nextAttempt);
 }
 
 async function main() {
