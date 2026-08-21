@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ReceiptText } from "lucide-react";
-import { getCurrentUser } from "../../../../../lib/auth";
-import { getOwnedBillingPayment } from "../../../../../lib/billing-ledger";
-import { billingTaxStatus } from "../../../../../lib/billing-tax";
+import { getCurrentUser } from "../../../../lib/auth";
+import { getOwnedBillingPayment } from "../../../../lib/billing-ledger";
+import { billingTaxStatus } from "../../../../lib/billing-tax";
 
 export const dynamic = "force-dynamic";
 
