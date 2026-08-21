@@ -26,6 +26,29 @@ export async function getActiveBusinessForUser(userId: string) {
   });
 }
 
+async function withEffectivePlan<T extends { id: string; plan: { id: string; code: string } | null }>(business: T | null) {
+  if (!business?.plan || business.plan.code === "FREE") return business;
+
+  const now = new Date();
+  const activePaidEntitlement = await db.subscription.findFirst({
+    where: {
+      businessId: business.id,
+      planId: business.plan.id,
+      status: "active",
+      endsAt: { gt: now },
+    },
+    select: { id: true },
+  });
+  if (activePaidEntitlement) return business;
+
+  // Billing workers reconcile the persisted Business.planId, but runtime authorization
+  // must not depend on a worker being healthy at the exact expiry second. Fail closed
+  // to FREE in memory so premium writes stop immediately if the paid period has ended.
+  const freePlan = await db.businessPlan.findUnique({ where: { code: "FREE" } });
+  if (!freePlan) throw new Error("FREE_PLAN_MISSING");
+  return { ...business, plan: freePlan };
+}
+
 export async function getActiveBusinessWithPlanForUser(userId: string) {
   const requestedId = await requestedBusinessId();
   if (requestedId) {
@@ -33,14 +56,15 @@ export async function getActiveBusinessWithPlanForUser(userId: string) {
       where: { id: requestedId, ownerId: userId, deletedAt: null },
       include: { plan: true },
     });
-    if (requested) return requested;
+    if (requested) return withEffectivePlan(requested);
   }
 
-  return db.business.findFirst({
+  const first = await db.business.findFirst({
     where: { ownerId: userId, deletedAt: null },
     include: { plan: true },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
+  return withEffectivePlan(first);
 }
 
 export async function getOwnedBusinessSummaries(userId: string) {
