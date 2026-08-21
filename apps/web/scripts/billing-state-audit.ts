@@ -53,6 +53,21 @@ async function main() {
   `;
   drifts.push(...paidLineageMismatch);
 
+  const paidReceiptMismatch = await db.$queryRaw<DriftRow[]>`
+    SELECT bp."businessId" AS "businessId", 'paid billing row lacks a valid immutable receipt snapshot' AS detail
+    FROM "BillingPayment" bp
+    WHERE bp."status"='paid'
+      AND (
+        bp."receiptSellerLegalName" IS NULL
+        OR bp."receiptSellerAddress" IS NULL
+        OR bp."receiptTaxStatus" IS DISTINCT FROM 'not_registered'
+        OR bp."receiptNetAmount" IS DISTINCT FROM bp."amount"
+        OR bp."receiptVatAmount" IS DISTINCT FROM 0
+        OR bp."receiptIssuedAt" IS NULL
+      )
+  `;
+  drifts.push(...paidReceiptMismatch);
+
   const duplicateLive = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'multiple live subscriptions exist for one business' AS detail
     FROM "Subscription" s
