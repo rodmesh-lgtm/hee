@@ -5,14 +5,15 @@ import { getCurrentUser } from "../../lib/auth";
 import { getActiveBusinessWithPlanForUser } from "../../lib/active-business";
 import { EmailVerificationCard } from "../../../components/dashboard/email-verification-card";
 
-export default async function DashboardSettingsPage() {
+export default async function DashboardSettingsPage({ searchParams }: { searchParams: Promise<{ billing?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const business = await getActiveBusinessWithPlanForUser(user.id);
   const effectivelyPublished = Boolean(business?.isPublished && user.emailVerifiedAt);
+  const params = await searchParams;
 
   return <div className="space-y-4 pb-4">
-    <section className="rounded-[24px] border border-[#e8e5f2] bg-white p-4 sm:p-5"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#f1edff] text-[#6543ce]"><UserRound className="h-5 w-5" /></span><div><h1 className="text-xl font-black text-[#1f2552]">الحساب والباقات</h1><p className="mt-1 text-sm text-slate-500">بيانات حسابك وحالة اشتراكك.</p></div></div></section>
+    <section className="rounded-[24px] border border-[#e8e5f2] bg-white p-4 sm:p-5"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#f1edff] text-[#6543ce]"><UserRound className="h-5 w-5" /></span><div><h1 className="text-xl font-black text-[#1f2552]">الحساب والباقات</h1><p className="mt-1 text-sm text-slate-500">بيانات حسابك وحالة اشتراكك.</p></div></div>{params.billing === "email-verification-required" ? <div role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-900">أكد ملكية بريدك الإلكتروني قبل الانتقال إلى الدفع. لن نطلب منك سداد اشتراك مدفوع قبل ربط الحساب ببريد تملكه فعليًا.</div> : null}</section>
 
     <section className="grid gap-3 lg:grid-cols-2">
       <article className="rounded-[22px] border border-[#e9e7f3] bg-white p-4"><h2 className="font-black text-[#1f2552]">الحساب</h2><div className="mt-3 space-y-2"><div className="flex items-center gap-3 rounded-xl bg-[#faf9fd] p-3"><UserRound className="h-4 w-4 text-[#6543ce]" /><div className="min-w-0"><span className="block text-[10px] text-slate-400">الاسم</span><b className="block truncate text-sm text-[#252a4a]">{user.name}</b></div></div><div className="flex items-center gap-3 rounded-xl bg-[#faf9fd] p-3"><Mail className="h-4 w-4 text-[#6543ce]" /><div className="min-w-0"><span className="block text-[10px] text-slate-400">البريد الإلكتروني</span><b className="block truncate text-sm text-[#252a4a]">{user.email}</b></div></div></div><EmailVerificationCard verified={Boolean(user.emailVerifiedAt)} /></article>
