@@ -53,6 +53,43 @@ function addMonth(value: Date) {
 const pool = new Pool({ connectionString: required("DATABASE_URL"), max: 4 });
 const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
+async function expireEndedNonRenewingSubscriptions() {
+  const rows = await db.$queryRaw<Array<{ id: string; businessId: string; planId: string }>>`
+    SELECT s."id", s."businessId", s."planId"
+    FROM "Subscription" s
+    JOIN "Business" b ON b."id" = s."businessId" AND b."deletedAt" IS NULL
+    WHERE s."status" = 'active'
+      AND s."autoRenew" = false
+      AND s."endsAt" IS NOT NULL
+      AND s."endsAt" <= CURRENT_TIMESTAMP
+    ORDER BY s."endsAt" ASC
+    LIMIT 200
+  `;
+  if (!rows.length) return 0;
+
+  const free = await db.businessPlan.findUnique({ where: { code: "FREE" }, select: { id: true } });
+  if (!free) throw new Error("FREE_PLAN_MISSING");
+  for (const row of rows) {
+    await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`subscription-expire:${row.businessId}`}))`;
+      const changed = await tx.$executeRaw`
+        UPDATE "Subscription"
+        SET "status" = 'canceled', "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "id" = ${row.id} AND "status" = 'active' AND "autoRenew" = false AND "endsAt" <= CURRENT_TIMESTAMP
+      `;
+      if (changed) {
+        // Only remove this paid entitlement when the business still points at its plan.
+        // A newer payment/upgrade that already changed planId must win the race.
+        await tx.business.updateMany({
+          where: { id: row.businessId, deletedAt: null, planId: row.planId },
+          data: { planId: free.id },
+        });
+      }
+    });
+  }
+  return rows.length;
+}
+
 async function dueSubscriptions() {
   const horizon = new Date(Date.now() + DUE_WINDOW_MS);
   return db.$queryRaw<DueSubscription[]>`
@@ -116,8 +153,6 @@ async function markFailed(billingId: string, providerId: string | null, attempt:
 }
 
 async function markAmbiguous(billingId: string, providerId: string | null) {
-  // A timeout or 5xx does not prove that the provider failed to create the payment.
-  // Reuse the same Moyasar given_id on retry instead of creating a second charge.
   await setAttemptState(billingId, "initiated", providerId, new Date(Date.now() + RECONCILE_RETRY_MS));
 }
 
@@ -226,7 +261,7 @@ async function submitAttempt(sub: DueSubscription, billing: RenewalAttempt) {
       token: decryptProviderToken(sub.encryptedToken),
       amount: billing.amount,
       description: "HEE subscription renewal",
-      callbackUrl: "https://hee.sa/dashboard/settings",
+      callbackUrl: "https://hee.sa/dashboard/billing/manage",
       metadata: { hee_billing_id: billing.id, hee_business_id: sub.businessId },
     });
     return await resolveProviderState(sub, billing, payment);
@@ -300,9 +335,10 @@ async function main() {
   required("MOYASAR_SECRET_KEY");
   required("BILLING_TOKEN_ENCRYPTION_KEY");
 
+  const expired = await expireEndedNonRenewingSubscriptions();
   const due = await dueSubscriptions();
   for (const sub of due) await processSubscription(sub);
-  console.log(`billing-renewal-worker: PASS (${due.length} subscriptions checked)`);
+  console.log(`billing-renewal-worker: PASS (${expired} ended subscriptions expired, ${due.length} renewable subscriptions checked)`);
 }
 
 main()
