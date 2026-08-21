@@ -52,8 +52,16 @@ async function main() {
     await mustReject(client, `INSERT INTO "BillingPayment" ("id","businessId","planId","providerGivenId","kind","amount","currency","status","attempt","createdAt","updatedAt") VALUES ('billing-audit-payment-small-${suffix}','${businessA}','${planId}','${randomUUID()}','initial',99,'SAR','created',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`, "23514", "sub-minimum payment amount");
     await mustReject(client, `INSERT INTO "BillingPayment" ("id","businessId","planId","providerGivenId","kind","amount","currency","status","attempt","createdAt","updatedAt") VALUES ('billing-audit-payment-currency-${suffix}','${businessA}','${planId}','${randomUUID()}','initial',19900,'USD','created',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`, "23514", "non-SAR payment currency");
 
+    const authorizedId = `billing-audit-authorized-${suffix}`;
+    await client.query(`INSERT INTO "BillingPayment" ("id","businessId","planId","providerGivenId","kind","amount","currency","status","attempt","createdAt","updatedAt") VALUES ($1,$2,$3,$4,'initial',19900,'SAR','authorized',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`, [authorizedId, businessA, planId, randomUUID()]);
+    await mustReject(client, `INSERT INTO "BillingPayment" ("id","businessId","planId","providerGivenId","kind","amount","currency","status","attempt","createdAt","updatedAt") VALUES ('billing-audit-second-open-${suffix}','${businessA}','${planId}','${randomUUID()}','upgrade',19900,'SAR','created',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`, "23505", "authorized checkout blocks duplicate open checkout");
+
     const constraints = await client.query<{ conname: string }>(`SELECT conname FROM pg_constraint WHERE conname IN ('Subscription_payment_method_business_fkey','BillingPayment_subscription_business_fkey','BillingPayment_amount_positive','BillingPayment_currency_sar')`);
     assert.deepEqual(new Set(constraints.rows.map((row) => row.conname)), new Set(["Subscription_payment_method_business_fkey", "BillingPayment_subscription_business_fkey", "BillingPayment_amount_positive", "BillingPayment_currency_sar"]));
+
+    const openCheckoutIndex = await client.query<{ indexdef: string }>(`SELECT indexdef FROM pg_indexes WHERE indexname = 'BillingPayment_one_open_checkout_per_business'`);
+    assert.equal(openCheckoutIndex.rows.length, 1, "open-checkout unique index must exist");
+    assert.match(openCheckoutIndex.rows[0].indexdef, /authorized/);
 
     await client.query("ROLLBACK");
     console.log("billing-integrity-audit: PASS");
