@@ -1,10 +1,8 @@
-import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
+import { after, NextResponse } from "next/server";
 import { db } from "../../../../lib/db";
-import { hasBillingCheckoutConsent } from "../../../../lib/billing-consent";
-import { providerPaymentCreatedWithinBillingWindow } from "../../../../lib/billing-checkout-integrity";
-import { activateVerifiedMoyasarPayment, findBillingPaymentByProviderId, getBillingPaymentById, markBillingPaymentState } from "../../../../lib/billing-ledger";
-import { fetchMoyasarPayment, reverseMoyasarPayment, verifyMoyasarWebhookSecret, type MoyasarWebhook } from "../../../../lib/moyasar";
+import { processMoyasarWebhookEvent } from "../../../../lib/moyasar-webhook-processing";
+import { verifyMoyasarWebhookSecret, type MoyasarWebhook } from "../../../../lib/moyasar";
 import { readBoundedText } from "../../../../lib/request-body";
 
 const MAX_WEBHOOK_BYTES = 128 * 1024;
@@ -13,24 +11,27 @@ function validText(value: unknown, max: number) {
   return typeof value === "string" && value.length > 0 && value.length <= max;
 }
 
-async function claimEvent(event: MoyasarWebhook) {
-  const id = randomUUID();
-  const rows = await db.$queryRaw<Array<{ id: string; processedAt: Date | null }>>`
-    INSERT INTO "BillingWebhookEvent" ("id", "provider", "providerEventId", "eventType", "createdAt")
-    VALUES (${id}, 'moyasar', ${event.id}, ${event.type}, CURRENT_TIMESTAMP)
-    ON CONFLICT ("provider", "providerEventId")
-    DO UPDATE SET "eventType" = EXCLUDED."eventType"
-    RETURNING "id", "processedAt"
-  `;
-  return rows[0] ?? null;
+function validPaymentId(value: unknown) {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{8,128}$/.test(value);
 }
 
-async function completeEvent(eventRowId: string, billingPaymentId?: string | null) {
-  await db.$executeRaw`
-    UPDATE "BillingWebhookEvent"
-    SET "billingPaymentId" = ${billingPaymentId ?? null}, "processedAt" = CURRENT_TIMESTAMP
-    WHERE "id" = ${eventRowId}
+async function persistEvent(event: MoyasarWebhook, providerPaymentId: string) {
+  const id = randomUUID();
+  const rows = await db.$queryRaw<Array<{
+    id: string;
+    processedAt: Date | null;
+    providerPaymentId: string | null;
+  }>>`
+    INSERT INTO "BillingWebhookEvent" (
+      "id", "provider", "providerEventId", "eventType", "providerPaymentId", "createdAt"
+    ) VALUES (
+      ${id}, 'moyasar', ${event.id}, ${event.type}, ${providerPaymentId}, CURRENT_TIMESTAMP
+    )
+    ON CONFLICT ("provider", "providerEventId")
+    DO UPDATE SET "eventType" = EXCLUDED."eventType"
+    RETURNING "id", "processedAt", "providerPaymentId"
   `;
+  return rows[0] ?? null;
 }
 
 export async function POST(request: Request) {
@@ -61,70 +62,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  const claimed = await claimEvent(event);
-  if (!claimed) return NextResponse.json({ ok: false }, { status: 503 });
-  if (claimed.processedAt) return NextResponse.json({ ok: true, duplicate: true });
-
-  const providerPaymentId = String(event.data?.id ?? "").trim();
-  if (!providerPaymentId || !event.type.startsWith("payment_")) {
-    await completeEvent(claimed.id);
-    return NextResponse.json({ ok: true, ignored: true });
+  if (!event.type.startsWith("payment_")) {
+    return NextResponse.json({ ok: true, ignored: true }, { status: 202 });
   }
 
+  const providerPaymentId = String(event.data?.id ?? "").trim();
+  if (!validPaymentId(providerPaymentId)) {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+
+  let persisted: Awaited<ReturnType<typeof persistEvent>>;
   try {
-    const payment = await fetchMoyasarPayment(providerPaymentId);
-    let billing = await findBillingPaymentByProviderId(payment.id);
-    if (!billing) {
-      const metadataBillingId = String(payment.metadata?.hee_billing_id ?? "");
-      if (/^[0-9a-f-]{36}$/i.test(metadataBillingId)) billing = await getBillingPaymentById(metadataBillingId);
-    }
-
-    if (!billing) {
-      await completeEvent(claimed.id);
-      return NextResponse.json({ ok: true, unmatched: true });
-    }
-
-    const metadataBusinessId = String(payment.metadata?.hee_business_id ?? "");
-    const metadataBillingId = String(payment.metadata?.hee_billing_id ?? "");
-    if (metadataBusinessId !== billing.businessId || metadataBillingId !== billing.id || payment.amount !== billing.amount || payment.currency !== billing.currency) {
-      console.error("[moyasar-webhook] payment_mismatch", { eventId: event.id, billingId: billing.id });
-      await completeEvent(claimed.id, billing.id);
-      return NextResponse.json({ ok: false }, { status: 409 });
-    }
-
-    if (!billing.providerPaymentId && !providerPaymentCreatedWithinBillingWindow(billing.createdAt, payment)) {
-      console.error("[moyasar-webhook] stale_checkout_payment", { eventId: event.id, billingId: billing.id, providerPaymentId: payment.id, providerStatus: payment.status });
-      if (["paid", "captured", "authorized"].includes(payment.status)) {
-        const reversed = await reverseMoyasarPayment(payment.id);
-        await markBillingPaymentState(billing.id, reversed);
-      }
-      await completeEvent(claimed.id, billing.id);
-      return NextResponse.json({ ok: true, stale: true });
-    }
-
-    if (payment.status === "paid") {
-      if (billing.kind !== "renewal" && !(await hasBillingCheckoutConsent(billing.id))) {
-        console.error("[moyasar-webhook] missing_checkout_consent", { eventId: event.id, billingId: billing.id });
-        const reversed = await reverseMoyasarPayment(payment.id);
-        await markBillingPaymentState(billing.id, reversed);
-        await completeEvent(claimed.id, billing.id);
-        return NextResponse.json({ ok: true, reversed: true });
-      }
-      const result = await activateVerifiedMoyasarPayment(billing.id, payment);
-      if (result !== "activated" && result !== "already-paid") throw new Error(`ACTIVATION_${result}`);
-    } else {
-      await markBillingPaymentState(billing.id, payment);
-    }
-
-    await completeEvent(claimed.id, billing.id);
-    return NextResponse.json({ ok: true });
+    persisted = await persistEvent(event, providerPaymentId);
   } catch (error) {
-    // Retry invariant: processedAt stays null on transient/provider failures so Moyasar
-    // can deliver the same providerEventId again and claimEvent will retry the work.
-    console.error("[moyasar-webhook] processing_failed", {
+    console.error("[moyasar-webhook] inbox_persist_failed", {
       eventId: event.id,
       error: error instanceof Error ? error.message : "unknown",
     });
     return NextResponse.json({ ok: false }, { status: 503 });
   }
+
+  if (!persisted) return NextResponse.json({ ok: false }, { status: 503 });
+  if (persisted.providerPaymentId && persisted.providerPaymentId !== providerPaymentId) {
+    console.error("[moyasar-webhook] provider_event_collision", { eventId: event.id });
+    return NextResponse.json({ ok: false }, { status: 409 });
+  }
+  if (persisted.processedAt) return NextResponse.json({ ok: true, duplicate: true });
+
+  // Moyasar explicitly requires a quick 2xx acknowledgement before complex logic.
+  // The event is already durable in PostgreSQL. `after` gives a fast best-effort pass;
+  // the billing operations worker retries any row left unprocessed after runtime loss.
+  after(async () => {
+    await processMoyasarWebhookEvent(persisted.id);
+  });
+
+  return NextResponse.json({ ok: true, accepted: true }, { status: 202 });
 }
