@@ -9,7 +9,7 @@ function source(path: string) {
 
 test("terminal billing states cannot be resurrected by late provider events", () => {
   const ledger = source("app/lib/billing-ledger.ts");
-  assert.match(ledger, /\["refunded","voided","canceled"\]\.includes\(billing\.status\)/);
+  assert.match(ledger, /\["refunded",\s*"voided",\s*"canceled"\]\.includes\(billing\.status\)/);
   assert.match(ledger, /return "terminal-state" as const/);
   assert.match(ledger, /"status" IN \('created','initiated','authorized','failed'\)/);
 });
