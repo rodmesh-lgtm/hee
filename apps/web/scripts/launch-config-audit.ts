@@ -11,6 +11,11 @@ function canonical(name: string) {
   if (value !== "https://hee.sa") throw new Error(`${name} must equal https://hee.sa`);
 }
 
+function liveKey(name: string, prefix: string) {
+  const value = required(name);
+  if (!value.startsWith(prefix)) throw new Error(`${name} must be a live Moyasar key (${prefix}...)`);
+}
+
 function main() {
   if (String(process.env.APP_ENV ?? "").trim().toLowerCase() !== "production") {
     throw new Error("APP_ENV must be production for the launch audit");
@@ -31,7 +36,16 @@ function main() {
   if (!/@hee\.sa(?:>|\s|$)/i.test(from)) throw new Error("HEE_FROM_EMAIL must use the verified hee.sa sending domain");
 
   const paymentProvider = required("PAYMENT_PROVIDER").toLowerCase();
-  if (paymentProvider === "mock") throw new Error("PAYMENT_PROVIDER=mock is forbidden for paid production launch");
+  if (paymentProvider !== "moyasar") throw new Error("PAYMENT_PROVIDER must equal moyasar for paid production launch");
+  liveKey("MOYASAR_PUBLISHABLE_KEY", "pk_live_");
+  liveKey("MOYASAR_SECRET_KEY", "sk_live_");
+  const webhookSecret = required("MOYASAR_WEBHOOK_SECRET");
+  if (webhookSecret.length < 24) throw new Error("MOYASAR_WEBHOOK_SECRET must be a strong shared secret");
+  const encryptionKey = Buffer.from(required("BILLING_TOKEN_ENCRYPTION_KEY"), "base64");
+  if (encryptionKey.length !== 32) throw new Error("BILLING_TOKEN_ENCRYPTION_KEY must decode to exactly 32 bytes");
+  if (String(process.env.BILLING_RENEWAL_ENABLED ?? "").trim().toLowerCase() !== "true") {
+    throw new Error("BILLING_RENEWAL_ENABLED must be true only after the renewal worker and live webhook have been verified");
+  }
 
   if (String(process.env.QA_AUDIT_SECRET ?? "").trim() || String(process.env.QA_AUDIT_USER_EMAIL ?? "").trim()) {
     throw new Error("QA audit credentials must not be configured in production");
