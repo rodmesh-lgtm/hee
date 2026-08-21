@@ -46,7 +46,7 @@ test("Moyasar form loads only after explicit renewal, cancellation and refund di
   assert.match(form, /setAccepted\(true\)/);
   assert.match(form, /أوافق وأتابع للدفع الآمن/);
   assert.match(form, /التجدد شهريًا|يتجدد شهريًا/);
-  assert.match(form, /الاسترداد ليس تلقائيًا|الاسترداد.*تلقائي/);
+  assert.match(form, /(?:الإلغاء لا يعني استردادًا تلقائيًا|الاسترداد ليس تلقائيًا|الاسترداد[^\n<]*تلقائي)/);
   assert.match(form, /href="\/terms"/);
   assert.match(form, /href="\/privacy"/);
 });
