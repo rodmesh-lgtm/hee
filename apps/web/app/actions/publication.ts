@@ -20,6 +20,14 @@ export async function publishBusinessAction(previous: PublicationActionState, fo
   if (!business) return { error: "لا يوجد نشاط جاهز للنشر" };
   if (!business.name?.trim() || business.name.trim().length < 2) return { error: "اسم النشاط مطلوب قبل النشر" };
 
+  const owner = await db.user.findFirst({
+    where: { id: business.ownerId, deletedAt: null },
+    select: { emailVerifiedAt: true },
+  });
+  if (!owner?.emailVerifiedAt) {
+    return { error: "أكد ملكية بريد حسابك من «الحساب والباقات» قبل نشر الصفحة" };
+  }
+
   const slug = normalizePublicSlug(business.slug);
   if (!slug || !isValidPublicSlug(slug)) return { error: "الرابط العام غير صالح" };
   try {
