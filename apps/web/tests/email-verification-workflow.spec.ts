@@ -25,10 +25,11 @@ test.describe.serial("email ownership verification", () => {
     await pool?.end();
   });
 
-  test("blocks public identity publication until a single-use email link is confirmed", async ({ browser }) => {
+  test("blocks publication, rejects stale email links, and consumes the current proof once", async ({ browser }) => {
     test.setTimeout(90_000);
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `verify-${suffix}@example.invalid`;
+    const originalEmail = `verify-${suffix}@example.invalid`;
+    const currentEmail = `verify-current-${suffix}@example.invalid`;
     const slug = `verify-${suffix}`;
     const plan = await db.businessPlan.upsert({
       where: { code: "FREE" },
@@ -36,7 +37,7 @@ test.describe.serial("email ownership verification", () => {
       create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true },
     });
     const user = await db.user.create({
-      data: { name: "Email Verification Owner", email, passwordHash: "test-only", emailVerifiedAt: null },
+      data: { name: "Email Verification Owner", email: originalEmail, passwordHash: "test-only", emailVerifiedAt: null },
     });
     const business = await db.business.create({
       data: {
@@ -63,10 +64,22 @@ test.describe.serial("email ownership verification", () => {
       await expect(page.getByText("أكد ملكية بريد حسابك من «الحساب والباقات» قبل نشر الصفحة")).toBeVisible();
       expect((await db.business.findUnique({ where: { id: business.id }, select: { isPublished: true } }))?.isPublished).toBe(false);
 
+      const staleRawToken = randomBytes(32).toString("hex");
+      const staleTokenHash = hashToken(staleRawToken);
+      await db.oAuthState.create({
+        data: { state: staleTokenHash, provider: "email-verification", nonce: user.id, redirectTo: originalEmail, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+      });
+      await db.user.update({ where: { id: user.id }, data: { email: currentEmail } });
+      await page.goto(`${baseUrl}/verify-email?token=${staleRawToken}`, { waitUntil: "domcontentloaded" });
+      await page.getByRole("button", { name: "تأكيد ملكية البريد" }).click();
+      await page.waitForURL("**/verify-email?status=invalid", { timeout: 20_000 });
+      expect((await db.user.findUnique({ where: { id: user.id }, select: { emailVerifiedAt: true } }))?.emailVerifiedAt).toBeNull();
+      expect(await db.oAuthState.count({ where: { state: staleTokenHash } })).toBe(0);
+
       const rawToken = randomBytes(32).toString("hex");
       const tokenHash = hashToken(rawToken);
       await db.oAuthState.create({
-        data: { state: tokenHash, provider: "email-verification", nonce: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+        data: { state: tokenHash, provider: "email-verification", nonce: user.id, redirectTo: currentEmail, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
       });
 
       const response = await page.goto(`${baseUrl}/verify-email?token=${rawToken}`, { waitUntil: "domcontentloaded" });
