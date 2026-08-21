@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import { recoverPendingMoyasarWebhookEvents } from "../app/lib/moyasar-webhook-processing";
+import { closePrismaForWorker } from "../lib/prisma";
 
 async function main() {
   if (String(process.env.PAYMENT_PROVIDER ?? "").trim().toLowerCase() !== "moyasar") {
@@ -14,7 +15,11 @@ async function main() {
   console.log(`billing-webhook-recovery-worker: PASS (${result.checked} pending events checked, ${result.processed} claimed)`);
 }
 
-main().catch((error) => {
-  console.error("billing-webhook-recovery-worker: FAIL", error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+main()
+  .catch((error) => {
+    console.error("billing-webhook-recovery-worker: FAIL", error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await closePrismaForWorker();
+  });
