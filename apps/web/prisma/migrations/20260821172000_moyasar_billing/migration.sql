@@ -68,9 +68,10 @@ CREATE TABLE "BillingWebhookEvent" (
 CREATE UNIQUE INDEX "BillingWebhookEvent_provider_event_unique" ON "BillingWebhookEvent"("provider", "providerEventId");
 CREATE INDEX "BillingWebhookEvent_created_idx" ON "BillingWebhookEvent"("createdAt" DESC);
 
+-- `provider` already exists in the initial Subscription schema. Keep that historical
+-- column and add only the provider-backed lifecycle fields introduced by this migration.
 ALTER TABLE "Subscription"
   ADD COLUMN "autoRenew" BOOLEAN NOT NULL DEFAULT false,
-  ADD COLUMN "provider" TEXT,
   ADD COLUMN "providerReference" TEXT,
   ADD COLUMN "paymentMethodId" TEXT;
 
