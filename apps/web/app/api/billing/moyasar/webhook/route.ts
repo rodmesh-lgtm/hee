@@ -1,0 +1,113 @@
+import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import { db } from "../../../../lib/db";
+import { activateVerifiedMoyasarPayment, findBillingPaymentByProviderId, getBillingPaymentById, markBillingPaymentState } from "../../../../lib/billing-ledger";
+import { fetchMoyasarPayment, verifyMoyasarWebhookSecret, type MoyasarWebhook } from "../../../../lib/moyasar";
+import { readBoundedText } from "../../../../lib/request-body";
+
+const MAX_WEBHOOK_BYTES = 128 * 1024;
+
+function validText(value: unknown, max: number) {
+  return typeof value === "string" && value.length > 0 && value.length <= max;
+}
+
+async function claimEvent(event: MoyasarWebhook) {
+  const id = randomUUID();
+  const rows = await db.$queryRaw<Array<{ id: string; processedAt: Date | null }>>`
+    INSERT INTO "BillingWebhookEvent" ("id", "provider", "providerEventId", "eventType", "createdAt")
+    VALUES (${id}, 'moyasar', ${event.id}, ${event.type}, CURRENT_TIMESTAMP)
+    ON CONFLICT ("provider", "providerEventId")
+    DO UPDATE SET "eventType" = EXCLUDED."eventType"
+    RETURNING "id", "processedAt"
+  `;
+  return rows[0] ?? null;
+}
+
+async function completeEvent(eventRowId: string, billingPaymentId?: string | null) {
+  await db.$executeRaw`
+    UPDATE "BillingWebhookEvent"
+    SET "billingPaymentId" = ${billingPaymentId ?? null}, "processedAt" = CURRENT_TIMESTAMP
+    WHERE "id" = ${eventRowId}
+  `;
+}
+
+export async function POST(request: Request) {
+  if (!String(request.headers.get("content-type") ?? "").toLowerCase().includes("application/json")) {
+    return NextResponse.json({ ok: false }, { status: 415 });
+  }
+
+  let body: string;
+  try {
+    body = await readBoundedText(request, MAX_WEBHOOK_BYTES);
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 413 });
+  }
+
+  let event: MoyasarWebhook;
+  try {
+    event = JSON.parse(body) as MoyasarWebhook;
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+
+  if (!validText(event.id, 128) || !validText(event.type, 80) || !verifyMoyasarWebhookSecret(event.secret_token)) {
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
+  const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
+  if ((production && event.live !== true) || (!production && event.live === true)) {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+
+  const claimed = await claimEvent(event);
+  if (!claimed) return NextResponse.json({ ok: false }, { status: 503 });
+  if (claimed.processedAt) return NextResponse.json({ ok: true, duplicate: true });
+
+  const providerPaymentId = String(event.data?.id ?? "").trim();
+  if (!providerPaymentId || !event.type.startsWith("payment_")) {
+    await completeEvent(claimed.id);
+    return NextResponse.json({ ok: true, ignored: true });
+  }
+
+  try {
+    // Entitlements are never granted from webhook JSON alone. Re-fetch the canonical
+    // payment with the secret key and verify its amount, currency and HEE metadata.
+    const payment = await fetchMoyasarPayment(providerPaymentId);
+    let billing = await findBillingPaymentByProviderId(payment.id);
+    if (!billing) {
+      const metadataBillingId = String(payment.metadata?.hee_billing_id ?? "");
+      if (/^[0-9a-f-]{36}$/i.test(metadataBillingId)) billing = await getBillingPaymentById(metadataBillingId);
+    }
+
+    if (!billing) {
+      await completeEvent(claimed.id);
+      return NextResponse.json({ ok: true, unmatched: true });
+    }
+
+    const metadataBusinessId = String(payment.metadata?.hee_business_id ?? "");
+    const metadataBillingId = String(payment.metadata?.hee_billing_id ?? "");
+    if (metadataBusinessId !== billing.businessId || metadataBillingId !== billing.id || payment.amount !== billing.amount || payment.currency !== billing.currency) {
+      console.error("[moyasar-webhook] payment_mismatch", { eventId: event.id, billingId: billing.id });
+      await completeEvent(claimed.id, billing.id);
+      return NextResponse.json({ ok: false }, { status: 409 });
+    }
+
+    if (payment.status === "paid") {
+      const result = await activateVerifiedMoyasarPayment(billing.id, payment);
+      if (result !== "activated" && result !== "already-paid") throw new Error(`ACTIVATION_${result}`);
+    } else {
+      await markBillingPaymentState(billing.id, payment);
+    }
+
+    await completeEvent(claimed.id, billing.id);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    // processedAt stays null. A later delivery with the same provider event ID reuses
+    // this row and retries processing instead of being mistaken for a completed duplicate.
+    console.error("[moyasar-webhook] processing_failed", {
+      eventId: event.id,
+      error: error instanceof Error ? error.message : "unknown",
+    });
+    return NextResponse.json({ ok: false }, { status: 503 });
+  }
+}

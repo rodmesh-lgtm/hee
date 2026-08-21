@@ -20,7 +20,7 @@ export async function GET() {
     return NextResponse.json({ error: "تعذر تجهيز التصدير الآن" }, { status: 503, headers: { "Retry-After": "30" } });
   }
 
-  const [account, fullBusiness, products, services, offers, branches, departments, contacts, gallery, hours, customers, orders, bookings, subscriptions] = await Promise.all([
+  const [account, fullBusiness, products, services, offers, branches, departments, contacts, gallery, hours, customers, orders, bookings, subscriptions, billingPayments, paymentMethods] = await Promise.all([
     db.user.findFirst({ where: { id: user.id, deletedAt: null }, select: { id: true, name: true, email: true, emailVerifiedAt: true, createdAt: true, updatedAt: true } }),
     db.business.findFirst({ where: { id: business.id, ownerId: user.id, deletedAt: null }, select: { id: true, name: true, nameEn: true, slug: true, businessType: true, description: true, shortDescription: true, entityType: true, businessCategory: true, email: true, website: true, country: true, city: true, district: true, googleMapsLink: true, whatsapp: true, phone: true, address: true, logoUrl: true, coverUrl: true, primaryColor: true, secondaryColor: true, buttonColor: true, buttonStyle: true, cardStyle: true, pageModules: true, deliveryAvailable: true, bookingAvailable: true, acceptOnlineOrders: true, xUrl: true, instagramUrl: true, snapchatUrl: true, tiktokUrl: true, facebookUrl: true, metaTitle: true, metaDescription: true, isVerified: true, isPublished: true, publishedAt: true, createdAt: true, updatedAt: true, digitalDestinationType: true, companyProfileUrl: true, companyProfileTitle: true, licenseNumber: true, plan: { select: { code: true, name: true } } } }),
     db.product.findMany({ where: { businessId: business.id }, orderBy: { createdAt: "asc" } }),
@@ -34,11 +34,66 @@ export async function GET() {
     db.customer.findMany({ where: { businessId: business.id }, orderBy: { createdAt: "asc" } }),
     db.order.findMany({ where: { businessId: business.id }, orderBy: { createdAt: "asc" }, include: { items: true } }),
     db.booking.findMany({ where: { businessId: business.id }, orderBy: { createdAt: "asc" } }),
-    db.subscription.findMany({ where: { businessId: business.id }, orderBy: { createdAt: "asc" }, include: { plan: { select: { code: true, name: true } } } }),
+    db.subscription.findMany({
+      where: { businessId: business.id },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        status: true,
+        provider: true,
+        providerReference: true,
+        autoRenew: true,
+        startsAt: true,
+        endsAt: true,
+        createdAt: true,
+        updatedAt: true,
+        plan: { select: { code: true, name: true } },
+      },
+    }),
+    db.billingPayment.findMany({
+      where: { businessId: business.id },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        kind: true,
+        amount: true,
+        currency: true,
+        status: true,
+        attempt: true,
+        paidAt: true,
+        createdAt: true,
+        updatedAt: true,
+        plan: { select: { code: true, name: true } },
+      },
+    }),
+    // A customer has a right to their masked payment-method metadata, never to the
+    // encrypted reusable provider token itself. Keep encryptedToken out of this select.
+    db.billingPaymentMethod.findMany({
+      where: { businessId: business.id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, provider: true, brand: true, last4: true, status: true, createdAt: true, updatedAt: true },
+    }),
   ]);
 
   if (!account || !fullBusiness) return NextResponse.json({ error: "تعذر العثور على بيانات الحساب" }, { status: 404 });
-  const payload = JSON.stringify({ exportedAt: new Date().toISOString(), account, business: fullBusiness, products, services, offers, branches, departments, contacts, gallery, workingHours: hours, customers, orders, bookings, subscriptions }, null, 2);
+  const payload = JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    account,
+    business: fullBusiness,
+    products,
+    services,
+    offers,
+    branches,
+    departments,
+    contacts,
+    gallery,
+    workingHours: hours,
+    customers,
+    orders,
+    bookings,
+    subscriptions,
+    billing: { payments: billingPayments, paymentMethods },
+  }, null, 2);
   if (Buffer.byteLength(payload, "utf8") > MAX_EXPORT_BYTES) {
     return NextResponse.json({ error: "حجم البيانات كبير للتصدير المباشر. أرسل طلبًا من مركز الدعم." }, { status: 413 });
   }

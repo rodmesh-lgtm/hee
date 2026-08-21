@@ -88,6 +88,18 @@ export function limitReached(current: number, limit: number | null) {
   return limit !== null && current >= limit;
 }
 
+// Downgrades are non-destructive: existing customer data is retained even when the
+// new plan is below its current usage. Writes that increase a limited collection
+// remain blocked until usage is reduced below the new limit or the plan is upgraded.
+// This is deliberately different from hiding/deleting historical data at billing time.
+export function canIncreaseLimitedUsage(current: number, limit: number | null) {
+  return !limitReached(current, limit);
+}
+
+export function usageOverLimit(current: number, limit: number | null) {
+  return limit !== null && current > limit;
+}
+
 export function formatPlanLimit(limit: number | null) {
   return limit === null ? "غير محدود" : String(limit);
 }

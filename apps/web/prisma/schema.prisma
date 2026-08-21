@@ -72,6 +72,7 @@ model BusinessPlan {
   updatedAt DateTime @updatedAt
   businesses Business[]
   subscriptions Subscription[]
+  billingPayments BillingPayment[]
 }
 model Business {
   id String @id @default(uuid())
@@ -138,6 +139,8 @@ model Business {
   socialLinks SocialLink[]
   galleryItems GalleryItem[]
   subscriptions Subscription[]
+  billingPaymentMethods BillingPaymentMethod[]
+  billingPayments BillingPayment[]
   analytics AnalyticsEvent[]
   branches Branch[]
   departments Department[]
@@ -342,15 +345,80 @@ model Subscription {
   businessId String
   planId String
   status String @default("active")
+  provider String?
+  providerCustomerId String?
+  providerSubscriptionId String?
+  autoRenew Boolean @default(false)
+  providerReference String?
+  paymentMethodId String?
   startsAt DateTime @default(now())
   endsAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   plan BusinessPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  paymentMethod BillingPaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
+  billingPayments BillingPayment[]
   @@index([businessId])
   @@index([planId])
   @@index([status])
+  @@index([paymentMethodId])
+}
+model BillingPaymentMethod {
+  id String @id @default(uuid())
+  businessId String
+  provider String @default("moyasar")
+  encryptedToken String
+  brand String?
+  last4 String?
+  status String @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  subscriptions Subscription[]
+  @@index([businessId])
+}
+model BillingPayment {
+  id String @id @default(uuid())
+  businessId String
+  planId String
+  subscriptionId String?
+  provider String @default("moyasar")
+  providerPaymentId String? @unique(map: "BillingPayment_provider_payment_unique")
+  providerGivenId String @unique(map: "BillingPayment_provider_given_unique")
+  kind String @default("initial")
+  amount Int
+  currency String @default("SAR")
+  status String @default("created")
+  attempt Int @default(1)
+  nextRetryAt DateTime?
+  paidAt DateTime?
+  receiptSellerLegalName String?
+  receiptSellerAddress String?
+  receiptTaxStatus String?
+  receiptNetAmount Int?
+  receiptVatAmount Int?
+  receiptIssuedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  plan BusinessPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  webhookEvents BillingWebhookEvent[]
+  @@index([businessId, createdAt])
+  @@index([status, nextRetryAt])
+}
+model BillingWebhookEvent {
+  id String @id @default(uuid())
+  provider String @default("moyasar")
+  providerEventId String
+  eventType String
+  billingPaymentId String?
+  createdAt DateTime @default(now())
+  processedAt DateTime?
+  billingPayment BillingPayment? @relation(fields: [billingPaymentId], references: [id], onDelete: SetNull)
+  @@unique([provider, providerEventId], map: "BillingWebhookEvent_provider_event_unique")
+  @@index([createdAt])
 }
 model AnalyticsEvent {
   id String @id @default(uuid())

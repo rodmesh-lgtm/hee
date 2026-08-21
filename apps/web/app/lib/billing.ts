@@ -14,17 +14,20 @@ export function paidPlanActivationAllowed() {
   const provider = billingProvider();
   const appEnv = String(process.env.APP_ENV ?? "").trim().toLowerCase();
 
-  // Mock billing exists only so CI can exercise entitlement transitions. A production
-  // runtime must never convert an upgrade request into a paid entitlement without a
-  // real payment-provider proof path.
+  // Legacy manual activation remains a CI-only fixture. Production paid entitlement
+  // changes are performed exclusively by the provider-verified Moyasar billing ledger.
   return appEnv === "test" && provider === "mock";
 }
 
 export function paidUpgradeRequestsEnabled() {
-  // Until checkout + signed/idempotent provider webhooks are implemented, the legacy
-  // upgrade-request queue is only a CI fixture. Showing it to real customers would imply
-  // that a paid subscription can be completed when no billing flow exists yet.
-  return paidPlanActivationAllowed();
+  if (paidPlanActivationAllowed()) return true;
+  if (billingProvider() !== "moyasar") return false;
+  return Boolean(
+    String(process.env.MOYASAR_PUBLISHABLE_KEY ?? "").trim()
+    && String(process.env.MOYASAR_SECRET_KEY ?? "").trim()
+    && String(process.env.MOYASAR_WEBHOOK_SECRET ?? "").trim()
+    && String(process.env.BILLING_TOKEN_ENCRYPTION_KEY ?? "").trim(),
+  );
 }
 
 export function assertPaidPlanActivationAllowed(planCode: string) {

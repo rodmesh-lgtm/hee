@@ -6,11 +6,15 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "frame-ancestors 'self'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
+  // Moyasar's PCI-scoped payment form is loaded from its documented CDN. Do not widen
+  // this to arbitrary HTTPS script/style origins.
+  "script-src 'self' 'unsafe-inline' https://cdn.moyasar.com",
+  "style-src 'self' 'unsafe-inline' https://cdn.moyasar.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https: wss:",
+  // Browser-side payment creation is performed by Moyasar Form against its API.
+  // All other application API traffic remains same-origin.
+  "connect-src 'self' https://api.moyasar.com wss:",
   "media-src 'self' blob: https:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
