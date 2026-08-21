@@ -35,12 +35,14 @@ export default async function DashboardServicesPage() {
     </section>
 
     <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5">
-      <div className="mb-3"><h2 className="text-sm font-black text-[#20264f]">إضافة خدمة</h2><p className="mt-1 text-xs text-slate-500">ابدأ بالاسم، ويمكنك إكمال السعر والحجز بعد الإضافة.</p></div>
-      <form action={addSimpleServiceAction} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end">
-        <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>اسم الخدمة</span><input name="name" required minLength={2} placeholder="مثال: استشارة أولية" className={fieldClass} /></label>
-        <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>وصف مختصر <span className="font-normal text-slate-400">(اختياري)</span></span><input name="description" placeholder="ما الذي يحصل عليه العميل؟" className={fieldClass} /></label>
-        <button className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#6f3bd2] px-5 text-sm font-black text-white"><Plus className="h-4 w-4" />إضافة</button>
-      </form>
+      <div>
+        <div className="mb-3"><h2 className="text-sm font-black text-[#20264f]">إضافة خدمة</h2><p className="mt-1 text-xs text-slate-500">ابدأ بالاسم، ويمكنك إكمال السعر والحجز بعد الإضافة.</p></div>
+        <form action={addSimpleServiceAction} aria-label="إضافة خدمة" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end">
+          <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>اسم الخدمة</span><input name="name" required minLength={2} placeholder="مثال: استشارة أولية" className={fieldClass} /></label>
+          <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>وصف مختصر <span className="font-normal text-slate-400">(اختياري)</span></span><input name="description" placeholder="ما الذي يحصل عليه العميل؟" className={fieldClass} /></label>
+          <button className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#6f3bd2] px-5 text-sm font-black text-white"><Plus className="h-4 w-4" />إضافة</button>
+        </form>
+      </div>
     </section>
 
     <section className="space-y-2">{business.services.length ? business.services.map((service) => <article key={service.id} className="rounded-[20px] border border-[#e7e9f4] bg-white p-3.5 sm:p-4">
