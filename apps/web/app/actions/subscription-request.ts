@@ -23,6 +23,8 @@ export async function requestPlanUpgradeAction(formData: FormData) {
 
   if (billingProvider() === "moyasar") {
     if (!moyasarConfigured()) redirect("/dashboard/branding?upgrade=billing-unavailable");
+    const owner = await db.user.findFirst({ where: { id: business.ownerId, deletedAt: null }, select: { emailVerifiedAt: true } });
+    if (!owner?.emailVerifiedAt) redirect("/dashboard/settings?billing=email-verification-required");
 
     let rate;
     try {
