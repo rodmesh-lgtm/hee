@@ -58,11 +58,22 @@ export async function cancelAutoRenewAction() {
 
   await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing-cancel:${business.id}`}))`;
-    await tx.$executeRaw`
-      UPDATE "Subscription"
-      SET "autoRenew" = false, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "businessId" = ${business.id} AND "status" = 'active'
-    `;
+    const active = await tx.subscription.findFirst({
+      where: { businessId: business.id, status: "active", autoRenew: true },
+      orderBy: { startsAt: "desc" },
+      select: { id: true, paymentMethodId: true },
+    });
+    if (!active) return;
+
+    await tx.subscription.update({ where: { id: active.id }, data: { autoRenew: false } });
+    // Cancel means HEE must lose the ability to initiate another recurring charge with
+    // the currently saved token. Historical masked metadata remains for audit/display.
+    if (active.paymentMethodId) {
+      await tx.billingPaymentMethod.updateMany({
+        where: { id: active.paymentMethodId, businessId: business.id, status: "active" },
+        data: { status: "revoked" },
+      });
+    }
   });
 
   revalidatePath("/dashboard/settings");
