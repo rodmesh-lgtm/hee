@@ -171,10 +171,14 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
     const rows = await tx.$queryRaw<BillingPaymentRow[]>`SELECT * FROM "BillingPayment" WHERE "id" = ${billingId} FOR UPDATE`;
     const billing = rows[0];
     if (!billing) return "missing" as const;
-    if (billing.status === "paid") return "already-paid" as const;
     if (billing.provider !== "moyasar") return "wrong-provider" as const;
     if (payment.status !== "paid" || payment.amount !== billing.amount || payment.currency !== billing.currency) return "mismatch" as const;
     if (String(payment.metadata?.hee_billing_id ?? "") !== billing.id || String(payment.metadata?.hee_business_id ?? "") !== billing.businessId) return "mismatch" as const;
+    // A billing intent may be re-opened in the browser, but it must never accept two
+    // different provider payments. Detect a second charge instead of silently treating
+    // it as the already-processed payment.
+    if (billing.providerPaymentId && billing.providerPaymentId !== payment.id) return "provider-payment-mismatch" as const;
+    if (billing.status === "paid") return "already-paid" as const;
 
     const plan = await tx.businessPlan.findFirst({ where: { id: billing.planId, isActive: true } });
     const business = await tx.business.findFirst({ where: { id: billing.businessId, deletedAt: null } });
@@ -212,8 +216,7 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
     await tx.business.update({ where: { id: business.id }, data: { planId: plan.id } });
     await tx.$executeRaw`
       UPDATE "BillingPayment"
-      SET "providerPaymentId" = ${payment.id},
-          "subscriptionId" = CASE WHEN "kind" = 'renewal' THEN "subscriptionId" ELSE ${subscriptionId} END,
+      SET "providerPaymentId" = ${payment.id}, "subscriptionId" = ${subscriptionId},
           "status" = 'paid', "paidAt" = CURRENT_TIMESTAMP, "nextRetryAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
       WHERE "id" = ${billing.id}
     `;
@@ -227,6 +230,7 @@ export async function handleRefundedMoyasarPayment(billingId: string, payment: M
     const rows = await tx.$queryRaw<BillingPaymentRow[]>`SELECT * FROM "BillingPayment" WHERE "id" = ${billingId} FOR UPDATE`;
     const billing = rows[0];
     if (!billing) return "missing" as const;
+    if (payment.status !== "refunded") return "wrong-status" as const;
     if (billing.providerPaymentId && billing.providerPaymentId !== payment.id) return "mismatch" as const;
     if (payment.amount !== billing.amount || payment.currency !== billing.currency) return "mismatch" as const;
     if (String(payment.metadata?.hee_billing_id ?? "") !== billing.id || String(payment.metadata?.hee_business_id ?? "") !== billing.businessId) return "mismatch" as const;
@@ -236,7 +240,9 @@ export async function handleRefundedMoyasarPayment(billingId: string, payment: M
       WHERE "id" = ${billing.id}
     `;
     const active = await activeSubscriptionBillingState(tx, billing.businessId);
-    const paidSubscriptionMatches = billing.kind === "renewal" ? active?.id !== undefined : active?.id === billing.subscriptionId;
+    // Only the exact subscription created by this payment may be revoked. A refund of
+    // an older month or replaced upgrade must never cancel a newer paid entitlement.
+    const paidSubscriptionMatches = Boolean(active && billing.subscriptionId && active.id === billing.subscriptionId);
     if (billing.status === "paid" && active && paidSubscriptionMatches) {
       await tx.$executeRaw`
         UPDATE "Subscription" SET "status" = 'canceled', "autoRenew" = false, "endsAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
