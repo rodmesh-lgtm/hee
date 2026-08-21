@@ -24,6 +24,19 @@ test("oauth login failures do not expose account existence", () => {
   assert.doesNotMatch(callback, /account-not-found/);
 });
 
+test("first-time OAuth login cannot silently attach to a password account by email alone", () => {
+  const oauth = source("app/lib/oauth.ts");
+  const callback = source("app/api/auth/oauth/[provider]/callback/route.ts");
+  assert.match(oauth, /function assertOauthEmailAutoLinkSafe/);
+  assert.match(oauth, /if \(user\?\.passwordHash\) throw new Error\("oauth-password-account-link-required"\)/);
+  assert.match(oauth, /assertOauthEmailAutoLinkSafe\(existingUser\)/);
+  assert.match(oauth, /assertOauthEmailAutoLinkSafe\(activeUser\)/);
+  assert.match(callback, /passwordHash: true/);
+  assert.match(callback, /safeEmailOnlyUser/);
+  assert.match(callback, /!existingUser\.passwordHash/);
+  assert.match(callback, /if \(!activeIdentity && !safeEmailOnlyUser\) return errorRedirect\(request, "authentication-failed"\)/);
+});
+
 test("real runtimes do not authenticate plaintext legacy database sessions", () => {
   const auth = source("app/lib/auth.ts");
   assert.match(auth, /function allowLegacyPlaintextSessions\(\) \{ return process\.env\.APP_ENV === "test"; \}/);

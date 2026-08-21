@@ -145,6 +145,16 @@ function assertActiveUser<T extends { deletedAt?: Date | null }>(user: T | null)
   return user;
 }
 
+function assertOauthEmailAutoLinkSafe<T extends { passwordHash?: string | null }>(user: T | null) {
+  // Password registration currently does not prove ownership of the supplied email.
+  // Never silently attach a verified Google/Apple identity to such an account based
+  // on email equality alone: an earlier email squatter would retain password access
+  // after the legitimate mailbox owner signs in with OAuth. Existing provider links
+  // remain valid because they are resolved by provider+subject before this check.
+  if (user?.passwordHash) throw new Error("oauth-password-account-link-required");
+  return user;
+}
+
 export async function resolveOAuthUser(provider: OAuthProvider, claims: IdentityClaims, fallbackName?: string | null) {
   const subject = String(claims.sub ?? "");
   const email = String(claims.email ?? "").trim().toLowerCase();
@@ -165,6 +175,7 @@ export async function resolveOAuthUser(provider: OAuthProvider, claims: Identity
 
       const existingUser = await tx.user.findUnique({ where: { email } });
       if (existingUser?.deletedAt) throw new Error("oauth-account-unavailable");
+      assertOauthEmailAutoLinkSafe(existingUser);
       const user = existingUser ?? await tx.user.create({ data: { name: String(claims.name || fallbackName || email.split("@")[0]).trim().slice(0, 120), email, passwordHash: null } });
       await tx.authIdentity.create({ data: { userId: user.id, provider, providerSubject: subject, providerEmail: email } });
       return user;
@@ -175,6 +186,7 @@ export async function resolveOAuthUser(provider: OAuthProvider, claims: Identity
       if (racedIdentity) return assertActiveUser(racedIdentity.user);
       const racedUser = await db.user.findUnique({ where: { email } });
       const activeUser = assertActiveUser(racedUser);
+      assertOauthEmailAutoLinkSafe(activeUser);
       try {
         const identity = await db.authIdentity.create({ data: { userId: activeUser.id, provider, providerSubject: subject, providerEmail: email }, include: { user: true } });
         return assertActiveUser(identity.user);

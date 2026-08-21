@@ -60,13 +60,17 @@ async function complete(request: Request, provider: OAuthProvider, input: { stat
     if (!registration) {
       const [identity, existingUser] = await Promise.all([
         subject ? db.authIdentity.findUnique({ where: { provider_providerSubject: { provider, providerSubject: subject } }, select: { id: true, user: { select: { deletedAt: true } } } }) : null,
-        email ? db.user.findUnique({ where: { email }, select: { id: true, deletedAt: true } }) : null,
+        email ? db.user.findUnique({ where: { email }, select: { id: true, deletedAt: true, passwordHash: true } }) : null,
       ]);
       const activeIdentity = Boolean(identity && !identity.user.deletedAt);
-      const activeUser = Boolean(existingUser && !existingUser.deletedAt);
+      // A password account has not proven ownership of its registration email. Do not
+      // let first-time OAuth login silently attach to it; that could preserve access
+      // for an earlier email squatter after the real mailbox owner signs in socially.
+      // Already-linked provider identities continue through activeIdentity above.
+      const safeEmailOnlyUser = Boolean(existingUser && !existingUser.deletedAt && !existingUser.passwordHash);
       // OAuth is currently login-only. Use a generic failure so this path cannot be
-      // used to determine whether an HEE account exists for a provider email.
-      if (!activeIdentity && !activeUser) return errorRedirect(request, "authentication-failed");
+      // used to determine whether an HEE account exists or which credential type it uses.
+      if (!activeIdentity && !safeEmailOnlyUser) return errorRedirect(request, "authentication-failed");
     }
 
     const user = await resolveOAuthUser(provider, claims, provider === "apple" ? parseAppleUser(input.appleUser) : null);
