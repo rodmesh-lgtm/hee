@@ -110,6 +110,27 @@ export async function createMoyasarTokenPayment(input: {
   });
 }
 
+export async function reverseMoyasarPayment(paymentId: string) {
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(paymentId)) throw new Error("INVALID_MOYASAR_PAYMENT_ID");
+  const encoded = encodeURIComponent(paymentId);
+
+  // A just-created stale checkout should normally be inside Moyasar's void window.
+  // Prefer void because it reverses the transaction without creating a refund flow.
+  try {
+    return await moyasarRequest<MoyasarPayment>(`/payments/${encoded}/void`, { method: "POST" });
+  } catch {
+    const current = await fetchMoyasarPayment(paymentId);
+    if (current.status === "voided" || current.status === "refunded") return current;
+    if (current.status === "paid" || current.status === "captured") {
+      return moyasarRequest<MoyasarPayment>(`/payments/${encoded}/refund`, { method: "POST" });
+    }
+    // Initiated/failed payments have not produced a settled entitlement. Authorized
+    // payments should have been voidable above; fail closed so an operator can inspect
+    // the provider state rather than pretending a reversal succeeded.
+    throw new Error(`MOYASAR_REVERSAL_UNRESOLVED_${current.status}`);
+  }
+}
+
 function safeEqual(left: string, right: string) {
   const a = Buffer.from(left, "utf8");
   const b = Buffer.from(right, "utf8");
