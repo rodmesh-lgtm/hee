@@ -11,7 +11,9 @@ function hashToken(token: string) {
 }
 
 function verificationOrigin() {
-  if (process.env.VERCEL_ENV === "production") return "https://hee.sa";
+  // Production links must never inherit a mutable preview/custom environment origin.
+  // This also protects a non-Vercel production runtime where VERCEL_ENV is absent.
+  if (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") return "https://hee.sa";
   const candidate = String(
     process.env.NEXT_PUBLIC_SITE_URL
       || process.env.NEXT_PUBLIC_APP_URL
@@ -80,8 +82,6 @@ export async function issueEmailVerification(userId: string, email: string) {
         state: tokenHash,
         provider: PROVIDER,
         nonce: userId,
-        // Bind the proof to the exact address that received it. If account email editing
-        // is added later, a stale verification link must never verify the replacement.
         redirectTo: normalizedEmail,
         expiresAt: new Date(Date.now() + VERIFICATION_TTL_MS),
       },
