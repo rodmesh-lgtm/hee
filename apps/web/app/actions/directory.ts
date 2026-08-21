@@ -59,8 +59,7 @@ export async function createBranchAction(formData: FormData) {
     await lockDirectoryScope(tx, business.id, "branches");
     const branchCount = await tx.branch.count({ where: { businessId: business.id, isActive: true } });
     if (limitReached(branchCount, entitlements.branchLimit)) return "limit" as const;
-    const activeBranchCount = branchCount;
-    const isMain = activeBranchCount === 0 || formData.get("isMain") === "on";
+    const isMain = branchCount === 0 || formData.get("isMain") === "on";
     const nextSort = (await tx.branch.aggregate({ where: { businessId: business.id }, _max: { sortOrder: true } }))._max.sortOrder ?? -1;
     if (isMain) await tx.branch.updateMany({ where: { businessId: business.id }, data: { isMain: false } });
     await tx.branch.create({ data: { businessId: business.id, ...input, isMain, isActive: true, sortOrder: nextSort + 1 } });
@@ -71,7 +70,7 @@ export async function createBranchAction(formData: FormData) {
 }
 
 export async function updateBranchAction(formData: FormData) {
-  const { business } = await ownedBusinessAndPlan();
+  const { business, entitlements } = await ownedBusinessAndPlan();
   const id = text(formData, "id"), input = branchInput(formData);
   if (!id || !(await ownsBusinessRecord("branch", id, business.id))) fail("error-not-found");
   const nextActive = formData.get("isActive") === "on";
@@ -80,6 +79,10 @@ export async function updateBranchAction(formData: FormData) {
     await lockDirectoryScope(tx, business.id, "branches");
     const current = await tx.branch.findFirst({ where: { id, businessId: business.id } });
     if (!current) return "missing" as const;
+    if (!current.isActive && nextActive) {
+      const activeCount = await tx.branch.count({ where: { businessId: business.id, isActive: true } });
+      if (limitReached(activeCount, entitlements.branchLimit)) return "limit" as const;
+    }
     if (requestedMain) await tx.branch.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isMain: false } });
     await tx.branch.update({ where: { id }, data: { ...input, isMain: requestedMain || (current.isMain && nextActive), isActive: nextActive, sortOrder: integer(formData, "sortOrder") } });
     const activeMain = await tx.branch.findFirst({ where: { businessId: business.id, isActive: true, isMain: true }, select: { id: true } });
@@ -90,6 +93,7 @@ export async function updateBranchAction(formData: FormData) {
     return "updated" as const;
   });
   if (result === "missing") fail("error-not-found");
+  if (result === "limit") fail("error-plan-branch-limit");
   finish(business.slug, "branch-updated");
 }
 
@@ -130,12 +134,24 @@ export async function createDepartmentAction(formData: FormData) {
 }
 
 export async function updateDepartmentAction(formData: FormData) {
-  const { business } = await ownedBusinessAndPlan();
+  const { business, entitlements } = await ownedBusinessAndPlan();
   const id = text(formData, "id"), name = bounded(formData, "name", 120), description = optionalBounded(formData, "description", 500);
   if (name === null || description === undefined) fail("error-too-long");
   if (!id || !name || !(await ownsBusinessRecord("department", id, business.id))) fail("error-not-found");
-  const updated = await db.department.updateMany({ where: { id, businessId: business.id }, data: { name, description, isActive: formData.get("isActive") === "on", sortOrder: integer(formData, "sortOrder") } });
-  if (updated.count !== 1) fail("error-not-found");
+  const nextActive = formData.get("isActive") === "on";
+  const result = await db.$transaction(async (tx) => {
+    await lockDirectoryScope(tx, business.id, "departments");
+    const current = await tx.department.findFirst({ where: { id, businessId: business.id } });
+    if (!current) return "missing" as const;
+    if (!current.isActive && nextActive) {
+      const activeCount = await tx.department.count({ where: { businessId: business.id, isActive: true } });
+      if (limitReached(activeCount, entitlements.departmentLimit)) return "limit" as const;
+    }
+    await tx.department.update({ where: { id }, data: { name, description, isActive: nextActive, sortOrder: integer(formData, "sortOrder") } });
+    return "updated" as const;
+  });
+  if (result === "missing") fail("error-not-found");
+  if (result === "limit") fail("error-plan-department-limit");
   finish(business.slug, "department-updated");
 }
 
@@ -180,7 +196,7 @@ export async function createContactPersonAction(formData: FormData) {
 }
 
 export async function updateContactPersonAction(formData: FormData) {
-  const { business } = await ownedBusinessAndPlan();
+  const { business, entitlements } = await ownedBusinessAndPlan();
   const id = text(formData, "id"), input = contactInput(formData);
   if (!id || !(await ownsBusinessRecord("contactPerson", id, business.id))) fail("error-not-found");
   const departmentId = optionalBounded(formData, "departmentId", 80), branchId = optionalBounded(formData, "branchId", 80);
@@ -192,6 +208,10 @@ export async function updateContactPersonAction(formData: FormData) {
     await lockDirectoryScope(tx, business.id, "contacts");
     const current = await tx.contactPerson.findFirst({ where: { id, businessId: business.id } });
     if (!current) return "missing" as const;
+    if (!current.isActive && nextActive) {
+      const activeCount = await tx.contactPerson.count({ where: { businessId: business.id, isActive: true } });
+      if (limitReached(activeCount, entitlements.contactLimit)) return "limit" as const;
+    }
     if (departmentId && !(await tx.department.findFirst({ where: { id: departmentId, businessId: business.id, isActive: true }, select: { id: true } }))) return "relation" as const;
     if (branchId && !(await tx.branch.findFirst({ where: { id: branchId, businessId: business.id, isActive: true }, select: { id: true } }))) return "relation" as const;
     if (requestedPrimary) await tx.contactPerson.updateMany({ where: { businessId: business.id, id: { not: id } }, data: { isPrimary: false } });
@@ -205,6 +225,7 @@ export async function updateContactPersonAction(formData: FormData) {
   });
   if (result === "missing") fail("error-not-found");
   if (result === "relation") fail("error-relation");
+  if (result === "limit") fail("error-plan-contact-limit");
   finish(business.slug, "contact-updated");
 }
 
