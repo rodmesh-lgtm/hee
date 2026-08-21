@@ -71,6 +71,7 @@ async function main() {
     },
   }));
   await expectBlocked("Booking date shape constraint", () => db.$executeRaw`UPDATE "Booking" SET "bookingDate" = '30/12/2099' WHERE "id" = ${booking.id}`);
+  await expectBlocked("Booking calendar validity constraint", () => db.$executeRaw`UPDATE "Booking" SET "bookingDate" = '2099-02-30' WHERE "id" = ${booking.id}`);
   await expectBlocked("Booking status constraint", () => db.$executeRaw`UPDATE "Booking" SET "status" = 'typo_status' WHERE "id" = ${booking.id}`);
 
   await db.$executeRaw`

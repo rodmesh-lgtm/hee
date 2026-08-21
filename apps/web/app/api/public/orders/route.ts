@@ -65,9 +65,9 @@ export async function POST(request: Request) {
   const serviceRequest = text(body.serviceRequest, 240);
   const idempotencyKey = requestKey(request.headers.get("idempotency-key") || body.requestId);
   const orderTypeRaw = String(body.orderType ?? "pickup").trim();
-  const orderType = orderTypeRaw === "delivery" ? "delivery" : "pickup";
+  const orderType = orderTypeRaw === "delivery" ? "delivery" : orderTypeRaw === "pickup" ? "pickup" : null;
 
-  if (!slug || !name || !phone || notes === null || serviceRequest === null || !idempotencyKey) {
+  if (!slug || !name || !phone || notes === null || serviceRequest === null || !idempotencyKey || !orderType) {
     return NextResponse.json({ ok: false, error: "بيانات الطلب غير مكتملة" }, { status: 400 });
   }
 
@@ -85,11 +85,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "حدد منتجاً أو خدمة مطلوبة" }, { status: 400 });
   }
 
-  let business: { id: string; acceptOnlineOrders: boolean } | null;
+  let business: { id: string; acceptOnlineOrders: boolean; deliveryAvailable: boolean } | null;
   try {
     business = await db.business.findFirst({
       where: { slug, deletedAt: null, isPublished: true },
-      select: { id: true, acceptOnlineOrders: true },
+      select: { id: true, acceptOnlineOrders: true, deliveryAvailable: true },
     });
   } catch (error) {
     console.error("[public-order] business_lookup_failed", error);
@@ -109,6 +109,9 @@ export async function POST(request: Request) {
 
   if (items.length > 0 && !business.acceptOnlineOrders) {
     return NextResponse.json({ ok: false, error: "الطلبات الإلكترونية غير مفعلة لهذا النشاط" }, { status: 409 });
+  }
+  if (items.length > 0 && orderType === "delivery" && !business.deliveryAvailable) {
+    return NextResponse.json({ ok: false, error: "التوصيل غير متاح لهذا النشاط" }, { status: 409 });
   }
 
   try {

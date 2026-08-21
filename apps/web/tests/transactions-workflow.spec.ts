@@ -60,6 +60,7 @@ async function cleanup(seed: Seeded) {
   await db.booking.deleteMany({ where: { businessId: seed.businessId } });
   await db.orderItem.deleteMany({ where: { order: { businessId: seed.businessId } } });
   await db.order.deleteMany({ where: { businessId: seed.businessId } });
+  await db.product.deleteMany({ where: { businessId: seed.businessId } });
   await db.customer.deleteMany({ where: { businessId: seed.businessId } });
   await db.workingHours.deleteMany({ where: { businessId: seed.businessId } });
   await db.service.deleteMany({ where: { businessId: seed.businessId } });
@@ -221,6 +222,73 @@ test.describe.serial("public transactions workflow", () => {
         { bookingDate: overnightDate, bookingTime: "23:30" },
         { bookingDate: followingDate, bookingTime: "01:00" },
       ]);
+    } finally {
+      await cleanup(seeded);
+    }
+  });
+
+  test("rejects impossible Gregorian booking dates before persistence", async ({ request }) => {
+    const seeded = await seed();
+
+    try {
+      const requestId = crypto.randomUUID();
+      const response = await request.post(`${baseUrl}/api/public/bookings`, {
+        headers: { "Idempotency-Key": requestId },
+        data: {
+          slug: seeded.slug,
+          name: "عميل تاريخ",
+          phone: "0500000201",
+          serviceId: seeded.serviceId,
+          bookingDate: "2026-02-30",
+          bookingTime: "10:00",
+          requestId,
+        },
+      });
+      expect(response.status()).toBe(400);
+      expect(await db.booking.count({ where: { businessId: seeded.businessId } })).toBe(0);
+      expect(await db.customer.count({ where: { businessId: seeded.businessId } })).toBe(0);
+    } finally {
+      await cleanup(seeded);
+    }
+  });
+
+  test("rejects unsupported order types and delivery when the business disables it", async ({ request }) => {
+    const seeded = await seed();
+
+    try {
+      await db.business.update({ where: { id: seeded.businessId }, data: { acceptOnlineOrders: true, deliveryAvailable: false } });
+      const product = await db.product.create({ data: { businessId: seeded.businessId, name: "منتج اختبار", price: 2500, isActive: true } });
+
+      const invalidId = crypto.randomUUID();
+      const invalid = await request.post(`${baseUrl}/api/public/orders`, {
+        headers: { "Idempotency-Key": invalidId },
+        data: {
+          slug: seeded.slug,
+          name: "عميل طلب",
+          phone: "0500000202",
+          orderType: "courier",
+          items: [{ productId: product.id, quantity: 1 }],
+          requestId: invalidId,
+        },
+      });
+      expect(invalid.status()).toBe(400);
+
+      const deliveryId = crypto.randomUUID();
+      const delivery = await request.post(`${baseUrl}/api/public/orders`, {
+        headers: { "Idempotency-Key": deliveryId },
+        data: {
+          slug: seeded.slug,
+          name: "عميل توصيل",
+          phone: "0500000203",
+          orderType: "delivery",
+          items: [{ productId: product.id, quantity: 1 }],
+          requestId: deliveryId,
+        },
+      });
+      expect(delivery.status()).toBe(409);
+      expect((await delivery.json()).error).toContain("التوصيل غير متاح");
+      expect(await db.order.count({ where: { businessId: seeded.businessId } })).toBe(0);
+      expect(await db.customer.count({ where: { businessId: seeded.businessId } })).toBe(0);
     } finally {
       await cleanup(seeded);
     }
