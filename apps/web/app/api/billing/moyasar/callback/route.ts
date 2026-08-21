@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "../../../../lib/auth";
+import { providerPaymentCreatedWithinBillingWindow } from "../../../../lib/billing-checkout-integrity";
 import { activateVerifiedMoyasarPayment, getOwnedBillingPayment, markBillingPaymentState } from "../../../../lib/billing-ledger";
-import { fetchMoyasarPayment } from "../../../../lib/moyasar";
+import { fetchMoyasarPayment, reverseMoyasarPayment } from "../../../../lib/moyasar";
 import { consumePublicWriteLimit } from "../../../../lib/rate-limit";
 
 function safeOrigin() {
@@ -45,6 +46,15 @@ export async function GET(request: Request) {
     const metadataBusiness = String(payment.metadata?.hee_business_id ?? "");
     if (metadataBilling !== billing.id || metadataBusiness !== billing.businessId) return back("verification-failed");
     if (payment.amount !== billing.amount || payment.currency !== "SAR") return back("verification-failed");
+
+    if (!billing.providerPaymentId && !providerPaymentCreatedWithinBillingWindow(billing.createdAt, payment)) {
+      console.error("[billing-callback] stale_checkout_payment", { billingId, providerPaymentId: payment.id, providerStatus: payment.status });
+      if (["paid", "captured", "authorized"].includes(payment.status)) {
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+      }
+      return back("checkout-expired");
+    }
 
     if (payment.status === "paid") {
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
