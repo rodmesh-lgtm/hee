@@ -15,6 +15,15 @@ test("premium runtime authorization fails closed when the paid subscription has 
   assert.match(active, /runtime authorization/);
 });
 
+test("paid-only verification re-proves entitlement inside its transaction", () => {
+  const verification = source("app/actions/verification.ts");
+  assert.match(verification, /activePaidSubscription/);
+  assert.match(verification, /planId: currentBusiness\.plan\.id/);
+  assert.match(verification, /status: "active"/);
+  assert.match(verification, /endsAt: \{ gt: new Date\(\) \}/);
+  assert.match(verification, /if \(!activePaidSubscription\) return "upgrade"/);
+});
+
 test("billing management labels the effective plan instead of an expired historical subscription", () => {
   const page = source("app/dashboard/billing/manage/page.tsx");
   assert.match(page, /subscriptionStillEffective/);
