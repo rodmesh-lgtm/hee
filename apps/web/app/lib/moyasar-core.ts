@@ -78,9 +78,15 @@ export function moyasarConfigured() {
   if (!publishable || !secret || !webhook || !encryption) return false;
 
   const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
-  return production
-    ? publishable.startsWith("pk_live_") && secret.startsWith("sk_live_")
-    : publishable.startsWith("pk_test_") && secret.startsWith("sk_test_");
+  if (production) {
+    // Live checkout must not open until a recurring billing/recovery scheduler has been
+    // deliberately installed and verified. This prevents accepting subscriptions on a
+    // deployment where renewals or durable webhook retries would never run.
+    if (String(process.env.BILLING_RENEWAL_ENABLED ?? "").trim().toLowerCase() !== "true") return false;
+    if (String(process.env.BILLING_OPERATIONS_READY ?? "").trim().toLowerCase() !== "true") return false;
+    return publishable.startsWith("pk_live_") && secret.startsWith("sk_live_");
+  }
+  return publishable.startsWith("pk_test_") && secret.startsWith("sk_test_");
 }
 
 export async function fetchMoyasarPayment(paymentId: string) {
@@ -114,8 +120,6 @@ export async function reverseMoyasarPayment(paymentId: string) {
   if (!/^[A-Za-z0-9_-]{8,128}$/.test(paymentId)) throw new Error("INVALID_MOYASAR_PAYMENT_ID");
   const encoded = encodeURIComponent(paymentId);
 
-  // A just-created stale checkout should normally be inside Moyasar's void window.
-  // Prefer void because it reverses the transaction without creating a refund flow.
   try {
     return await moyasarRequest<MoyasarPayment>(`/payments/${encoded}/void`, { method: "POST" });
   } catch {
@@ -124,9 +128,6 @@ export async function reverseMoyasarPayment(paymentId: string) {
     if (current.status === "paid" || current.status === "captured") {
       return moyasarRequest<MoyasarPayment>(`/payments/${encoded}/refund`, { method: "POST" });
     }
-    // Initiated/failed payments have not produced a settled entitlement. Authorized
-    // payments should have been voidable above; fail closed so an operator can inspect
-    // the provider state rather than pretending a reversal succeeded.
     throw new Error(`MOYASAR_REVERSAL_UNRESOLVED_${current.status}`);
   }
 }
