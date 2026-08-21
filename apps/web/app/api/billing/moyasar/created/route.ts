@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserForWrites } from "../../../../lib/auth";
+import { hasBillingCheckoutConsent } from "../../../../lib/billing-consent";
 import { providerPaymentCreatedWithinBillingWindow } from "../../../../lib/billing-checkout-integrity";
 import { activateVerifiedMoyasarPayment, getOwnedBillingPayment, markBillingPaymentState } from "../../../../lib/billing-ledger";
 import { fetchMoyasarPayment, reverseMoyasarPayment } from "../../../../lib/moyasar";
@@ -62,6 +63,12 @@ export async function POST(request: Request) {
     }
 
     if (payment.status === "paid") {
+      if (billing.kind !== "renewal" && !(await hasBillingCheckoutConsent(billing.id))) {
+        console.error("[billing-created] missing_checkout_consent", { billingId });
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+        return NextResponse.json({ ok: false, error: "CHECKOUT_CONSENT_MISSING" }, { status: 409 });
+      }
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
       if (result !== "activated" && result !== "already-paid") {
         console.error("[billing-created] activation_rejected", { billingId, result });
