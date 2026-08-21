@@ -3,6 +3,7 @@
 ALTER TABLE "BillingWebhookEvent"
   ADD COLUMN "providerPaymentId" TEXT,
   ADD COLUMN "processingStartedAt" TIMESTAMP(3),
+  ADD COLUMN "nextAttemptAt" TIMESTAMP(3),
   ADD COLUMN "attempts" INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN "lastError" TEXT;
 
@@ -13,5 +14,5 @@ ALTER TABLE "BillingWebhookEvent"
   );
 
 CREATE INDEX "BillingWebhookEvent_pending_idx"
-  ON "BillingWebhookEvent"("createdAt" ASC)
+  ON "BillingWebhookEvent"("nextAttemptAt", "createdAt" ASC)
   WHERE "processedAt" IS NULL;
