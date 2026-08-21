@@ -54,13 +54,15 @@ test("runtime payment configuration prevents live/test key cross-contamination",
   for (const pattern of [/pk_live_/, /sk_live_/, /pk_test_/, /sk_test_/, /APP_ENV/]) assert.match(core, pattern);
 });
 
-test("billing database migration enforces ledger uniqueness and tenant ownership", () => {
+test("billing database migration enforces ledger uniqueness, authorized checkout locking and tenant ownership", () => {
   const migration = source("prisma/migrations/20260821172000_moyasar_billing/migration.sql");
   for (const pattern of [
     /BillingPayment_provider_payment_unique/,
     /BillingPayment_provider_given_unique/,
     /BillingPayment_renewal_attempt_unique/,
     /BillingWebhookEvent_provider_event_unique/,
+    /BillingPayment_one_open_checkout_per_business/,
+    /"status" IN \('created','initiated','authorized'\)/,
     /Subscription_payment_method_business_fkey/,
     /BillingPayment_subscription_business_fkey/,
     /BillingPaymentMethod_id_business_unique/,
@@ -100,16 +102,33 @@ test("refund rollback restores only an unrefunded prior paid entitlement and nev
   assert.match(ledger, /planId:prior\[0\]\.planId/);
 });
 
+test("paid checkout requires verified mailbox ownership and provider reconciliation is throttled", () => {
+  const billingAction = source("app/actions/billing.ts");
+  const upgradeAction = source("app/actions/subscription-request.ts");
+  const created = source("app/api/billing/moyasar/created/route.ts");
+  const callback = source("app/api/billing/moyasar/callback/route.ts");
+  assert.match(billingAction, /!user\.emailVerifiedAt/);
+  assert.match(upgradeAction, /emailVerifiedAt:\s*true/);
+  assert.match(upgradeAction, /!owner\?\.emailVerifiedAt/);
+  for (const route of [created, callback]) {
+    assert.match(route, /scope:\s*"billing-reconcile"/);
+    assert.match(route, /limit:\s*30/);
+    assert.match(route, /windowSeconds:\s*600/);
+  }
+});
+
 test("checkout records provider payment IDs before redirect and blocks duplicate form reuse", () => {
   const checkout = source("components/billing/moyasar-checkout.tsx");
   const created = source("app/api/billing/moyasar/created/route.ts");
   const page = source("app/dashboard/billing/checkout/page.tsx");
+  const ledger = source("app/lib/billing-ledger.ts");
   assert.match(checkout, /on_completed/);
   assert.match(checkout, /\/api\/billing\/moyasar\/created/);
   assert.match(created, /getOwnedBillingPayment/);
   assert.match(created, /fetchMoyasarPayment\(paymentId\)/);
   assert.match(created, /payment\.amount !== billing\.amount/);
   assert.match(page, /providerStarted/);
+  assert.match(ledger, /"status" IN \('created','initiated','authorized'\)/);
 });
 
 test("CSP explicitly allows required Moyasar browser endpoints without generic HTTPS connect", () => {
