@@ -21,7 +21,7 @@ test.describe.serial("platform admin request queue", () => {
     await pool?.end();
   });
 
-  test("all pending requests remain reachable beyond the first page", async ({ page }) => {
+  test("all pending requests remain reachable and correctly counted beyond 100 events", async ({ page }) => {
     test.setTimeout(120_000);
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const admin = await db.user.upsert({
@@ -41,17 +41,17 @@ test.describe.serial("platform admin request queue", () => {
     const prefix = `rc-request-${suffix}`;
     try {
       await db.business.createMany({
-        data: Array.from({ length: 51 }, (_, index) => ({
+        data: Array.from({ length: 101 }, (_, index) => ({
           ownerId: owner.id,
           planId: plan.id,
-          name: `منشأة طلب إداري ${String(index + 1).padStart(2, "0")}`,
+          name: `منشأة طلب إداري ${String(index + 1).padStart(3, "0")}`,
           slug: `${prefix}-${index + 1}`,
           businessType: "خدمات أعمال",
           onboardingCompleted: true,
         })),
       });
       const businesses = await db.business.findMany({ where: { slug: { startsWith: prefix } }, select: { id: true } });
-      expect(businesses).toHaveLength(51);
+      expect(businesses).toHaveLength(101);
       await db.analyticsEvent.createMany({
         data: businesses.map((business) => ({
           businessId: business.id,
@@ -61,12 +61,20 @@ test.describe.serial("platform admin request queue", () => {
       });
 
       await page.context().addCookies([{ name: "hee_session", value: adminSessionToken, url: baseUrl }]);
+
+      await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
+      const pendingMetric = page.locator("section").filter({ hasText: "طلبات معلقة" }).first();
+      await expect(pendingMetric).toContainText("101");
+
       await page.goto(`${baseUrl}/admin/requests?type=verification`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "طلبات الإدارة" })).toBeVisible();
-      await expect(page.getByText(/51 طلب معلق · صفحة 1 من 2/)).toBeVisible();
+      await expect(page.getByText(/101 طلب معلق · صفحة 1 من 3/)).toBeVisible();
       await expect(page.getByRole("button", { name: "اعتماد التوثيق" })).toHaveCount(50);
       await page.getByRole("link", { name: "التالي" }).click();
-      await expect(page.getByText(/51 طلب معلق · صفحة 2 من 2/)).toBeVisible();
+      await expect(page.getByText(/101 طلب معلق · صفحة 2 من 3/)).toBeVisible();
+      await expect(page.getByRole("button", { name: "اعتماد التوثيق" })).toHaveCount(50);
+      await page.getByRole("link", { name: "التالي" }).click();
+      await expect(page.getByText(/101 طلب معلق · صفحة 3 من 3/)).toBeVisible();
       await expect(page.getByRole("button", { name: "اعتماد التوثيق" })).toHaveCount(1);
     } finally {
       const businesses = await db.business.findMany({ where: { slug: { startsWith: prefix } }, select: { id: true } });
@@ -75,7 +83,6 @@ test.describe.serial("platform admin request queue", () => {
         await db.analyticsEvent.deleteMany({ where: { businessId: { in: businessIds } } });
         await db.business.deleteMany({ where: { id: { in: businessIds } } });
       }
-      await db.session.deleteMany({ where: { id: adminSessionToken } }).catch(() => undefined);
       await db.session.deleteMany({ where: { token: adminSessionToken } });
       await db.user.delete({ where: { id: owner.id } }).catch(() => undefined);
       const adminBusinesses = await db.business.count({ where: { ownerId: admin.id } });
