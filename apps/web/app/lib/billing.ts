@@ -20,6 +20,13 @@ export function paidPlanActivationAllowed() {
   return appEnv === "test" && provider === "mock";
 }
 
+export function paidUpgradeRequestsEnabled() {
+  // Until checkout + signed/idempotent provider webhooks are implemented, the legacy
+  // upgrade-request queue is only a CI fixture. Showing it to real customers would imply
+  // that a paid subscription can be completed when no billing flow exists yet.
+  return paidPlanActivationAllowed();
+}
+
 export function assertPaidPlanActivationAllowed(planCode: string) {
   if (!isPaidPlanCode(planCode)) return;
   if (!paidPlanActivationAllowed()) throw new Error("PAID_BILLING_NOT_CONFIGURED");
