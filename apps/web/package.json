@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:unit": "tsx --test tests/*.test.ts",
-    "test:rc": "playwright test tests/rc-owner-workflow.spec.ts tests/active-business-isolation.spec.ts",
+    "test:rc": "playwright test tests/launch-customer-journey.spec.ts tests/rc-owner-workflow.spec.ts tests/active-business-isolation.spec.ts",
     "test:admin": "playwright test tests/admin-workflow.spec.ts tests/admin-requests-workflow.spec.ts",
     "test:directory": "playwright test tests/directory-workflow.spec.ts",
     "test:transactions": "playwright test tests/transactions-workflow.spec.ts tests/booking-duration-workflow.spec.ts",
