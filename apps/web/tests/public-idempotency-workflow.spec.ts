@@ -44,7 +44,7 @@ test.describe("public write idempotency", () => {
   test("replays successful booking and order writes before mutable availability checks", async ({ request }) => {
     test.setTimeout(60_000);
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const user = await db.user.create({ data: { name: "Idempotency Owner", email: `idem-${suffix}@hee.test`, passwordHash: "test-only" } });
+    const user = await db.user.create({ data: { name: "Idempotency Owner", email: `idem-${suffix}@hee.test`, passwordHash: "test-only", emailVerifiedAt: new Date() } });
     const business = await db.business.create({
       data: {
         ownerId: user.id,
