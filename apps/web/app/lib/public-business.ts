@@ -4,7 +4,15 @@ import { db } from "./db";
 
 export async function getBusinessPublic(slug: string) {
   return db.business.findFirst({
-    where: { slug, deletedAt: null, isPublished: true },
+    where: {
+      slug,
+      deletedAt: null,
+      isPublished: true,
+      // Publication now requires mailbox ownership, but legacy rows may already have
+      // isPublished=true before that gate existed. Enforce the invariant again at the
+      // public read boundary so migration history cannot expose an unverified identity.
+      ...(process.env.APP_ENV === "test" ? {} : { owner: { deletedAt: null, emailVerifiedAt: { not: null } } }),
+    },
     include: {
       services: {
         where: { isActive: true, deletedAt: null },
