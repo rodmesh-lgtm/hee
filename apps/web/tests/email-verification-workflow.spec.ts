@@ -12,6 +12,18 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function riyadhDateKey(offsetDays: number) {
+  const date = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
 test.describe.serial("email ownership verification", () => {
   test.beforeAll(async () => {
     const connectionString = String(process.env.DATABASE_URL ?? "").trim();
@@ -25,8 +37,8 @@ test.describe.serial("email ownership verification", () => {
     await pool?.end();
   });
 
-  test("blocks publication, rejects stale email links, and consumes the current proof once", async ({ browser }) => {
-    test.setTimeout(90_000);
+  test("blocks publication and every legacy public boundary until the mailbox proof is consumed once", async ({ browser, request }) => {
+    test.setTimeout(120_000);
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const originalEmail = `verify-${suffix}@example.invalid`;
     const currentEmail = `verify-current-${suffix}@example.invalid`;
@@ -64,13 +76,66 @@ test.describe.serial("email ownership verification", () => {
       await expect(page.getByText("أكد ملكية بريد حسابك من «الحساب والباقات» قبل نشر الصفحة")).toBeVisible();
       expect((await db.business.findUnique({ where: { id: business.id }, select: { isPublished: true } }))?.isPublished).toBe(false);
 
+      // Simulate a legacy row that was published before mailbox verification existed.
+      // Every public read/write boundary must still behave as if it is private.
+      await db.business.update({ where: { id: business.id }, data: { isPublished: true, publishedAt: new Date() } });
+      const publicPage = await page.goto(`${baseUrl}/${slug}`, { waitUntil: "domcontentloaded" });
+      expect(publicPage?.status()).toBe(404);
+
+      const bookingKey = crypto.randomUUID();
+      const blockedBooking = await request.post(`${baseUrl}/api/public/bookings`, {
+        headers: { "Idempotency-Key": bookingKey },
+        data: {
+          slug,
+          name: "عميل محجوب",
+          phone: "0500000991",
+          serviceId: "missing-service",
+          bookingDate: riyadhDateKey(2),
+          bookingTime: "10:00",
+          requestId: bookingKey,
+        },
+      });
+      expect(blockedBooking.status()).toBe(404);
+
+      const orderKey = crypto.randomUUID();
+      const blockedOrder = await request.post(`${baseUrl}/api/public/orders`, {
+        headers: { "Idempotency-Key": orderKey },
+        data: {
+          slug,
+          name: "عميل محجوب",
+          phone: "0500000992",
+          orderType: "pickup",
+          serviceRequest: "طلب لا يجب إنشاؤه",
+          items: [],
+          requestId: orderKey,
+        },
+      });
+      expect(blockedOrder.status()).toBe(404);
+
+      const blockedAnalytics = await request.post(`${baseUrl}/api/public/analytics`, {
+        data: { slug, eventType: "page_view" },
+      });
+      expect(blockedAnalytics.status()).toBe(404);
+
+      const sitemap = await request.get(`${baseUrl}/sitemap.xml`);
+      expect(sitemap.status()).toBe(200);
+      expect(await sitemap.text()).not.toContain(`/${slug}`);
+      expect(await db.booking.count({ where: { businessId: business.id } })).toBe(0);
+      expect(await db.order.count({ where: { businessId: business.id } })).toBe(0);
+      expect(await db.analyticsEvent.count({ where: { businessId: business.id } })).toBe(0);
+      expect(await db.customer.count({ where: { businessId: business.id } })).toBe(0);
+
+      // Return to the normal new-account state before completing the verification flow.
+      await db.business.update({ where: { id: business.id }, data: { isPublished: false, publishedAt: null } });
+
       const staleRawToken = randomBytes(32).toString("hex");
       const staleTokenHash = hashToken(staleRawToken);
       await db.oAuthState.create({
         data: { state: staleTokenHash, provider: "email-verification", nonce: user.id, redirectTo: originalEmail, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
       });
       await db.user.update({ where: { id: user.id }, data: { email: currentEmail } });
-      await page.goto(`${baseUrl}/verify-email?token=${staleRawToken}`, { waitUntil: "domcontentloaded" });
+      const staleResponse = await page.goto(`${baseUrl}/verify-email?token=${staleRawToken}`, { waitUntil: "domcontentloaded" });
+      expect(staleResponse?.headers()["referrer-policy"]).toContain("no-referrer");
       await page.getByRole("button", { name: "تأكيد ملكية البريد" }).click();
       await page.waitForURL("**/verify-email?status=invalid", { timeout: 20_000 });
       expect((await db.user.findUnique({ where: { id: user.id }, select: { emailVerifiedAt: true } }))?.emailVerifiedAt).toBeNull();
@@ -85,6 +150,7 @@ test.describe.serial("email ownership verification", () => {
       const response = await page.goto(`${baseUrl}/verify-email?token=${rawToken}`, { waitUntil: "domcontentloaded" });
       expect(response?.headers()["x-robots-tag"]).toContain("noindex");
       expect(response?.headers()["cache-control"]).toContain("no-store");
+      expect(response?.headers()["referrer-policy"]).toContain("no-referrer");
       expect((await db.user.findUnique({ where: { id: user.id }, select: { emailVerifiedAt: true } }))?.emailVerifiedAt).toBeNull();
       expect(await db.oAuthState.count({ where: { state: tokenHash, provider: "email-verification" } })).toBe(1);
 
@@ -109,6 +175,10 @@ test.describe.serial("email ownership verification", () => {
       await page.close();
       await db.oAuthState.deleteMany({ where: { nonce: user.id } });
       await db.analyticsEvent.deleteMany({ where: { businessId: business.id } });
+      await db.booking.deleteMany({ where: { businessId: business.id } });
+      await db.orderItem.deleteMany({ where: { order: { businessId: business.id } } });
+      await db.order.deleteMany({ where: { businessId: business.id } });
+      await db.customer.deleteMany({ where: { businessId: business.id } });
       await db.business.delete({ where: { id: business.id } });
       await db.session.deleteMany({ where: { userId: user.id } });
       await db.authIdentity.deleteMany({ where: { userId: user.id } });
