@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
+import { paidUpgradeRequestsEnabled } from "../lib/billing";
 import { getOwnedBusinessWithPlanForWrite } from "../lib/ownership";
 import { getPlanRank, normalizePlanCode } from "../lib/plan-entitlements";
 
@@ -15,6 +16,7 @@ export async function requestPlanUpgradeAction(formData: FormData) {
   const requestedPlan = normalizePlanCode(String(formData.get("plan") ?? "BUSINESS"));
   const currentPlan = normalizePlanCode(business.plan?.code);
   if (requestedPlan === "FREE" || getPlanRank(requestedPlan) <= getPlanRank(currentPlan)) redirect("/dashboard/branding?upgrade=current");
+  if (!paidUpgradeRequestsEnabled()) redirect("/dashboard/branding?upgrade=billing-unavailable");
 
   const result = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`upgrade-request:${business.id}`}))`;

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { requireAdmin } from "../lib/admin";
+import { assertPaidPlanActivationAllowed } from "../lib/billing";
 import { getPlanEntitlements, getPlanRank, normalizePlanCode } from "../lib/plan-entitlements";
 
 function metadataObject(value: unknown) {
@@ -101,6 +102,16 @@ export async function approvePlanUpgradeAdminAction(formData: FormData) {
     const requestedPlan = normalizePlanCode(String(metadata.requestedPlan ?? "BUSINESS"));
     if (requestedPlan === "FREE") return "invalid-plan" as const;
 
+    // Until a real provider-backed payment proof path exists, paid entitlement mutation is
+    // test-only. This prevents a manual admin click from granting a paid subscription in a
+    // production runtime without a successful, provider-verified charge.
+    try {
+      assertPaidPlanActivationAllowed(requestedPlan);
+    } catch (error) {
+      if (error instanceof Error && error.message === "PAID_BILLING_NOT_CONFIGURED") return "billing-not-configured" as const;
+      throw error;
+    }
+
     await lockAdminBusiness(tx, event.businessId);
     const business = await tx.business.findFirst({ where: { id: event.businessId, deletedAt: null }, include: { plan: true } });
     if (!business) return "missing-business" as const;
@@ -139,6 +150,7 @@ export async function approvePlanUpgradeAdminAction(formData: FormData) {
   if (result === "missing-event" || result === "missing-business") redirect("/admin?error=upgrade");
   if (result === "invalid-state") redirect("/admin?error=upgrade-state");
   if (result === "invalid-plan") redirect("/admin?error=plan");
+  if (result === "billing-not-configured") redirect("/admin?error=billing-not-configured");
   if (result === "stale") redirect("/admin?error=stale-upgrade");
   if (result.startsWith("missing-plan-")) redirect(`/admin?error=${result}`);
   redirect(`/admin?done=${result.replace("approved-", "")}`);
