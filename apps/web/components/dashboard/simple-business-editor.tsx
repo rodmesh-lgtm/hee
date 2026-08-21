@@ -20,21 +20,22 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
   const timer = useRef<number | null>(null);
   const lastSaved = useRef(fields);
   const latestFields = useRef(fields);
+  const revision = useRef(0);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
   const mounted = useRef(true);
   const [previewVersion, setPreviewVersion] = useState(0);
 
-  const performSave = useCallback(async (next: typeof fields, updateUi = true) => {
+  const performSave = useCallback(async (next: typeof fields, saveRevision: number, updateUi = true) => {
     const changed: Record<string, string> = {};
     for (const key of Object.keys(next) as Array<keyof typeof next>) {
       if (next[key] !== lastSaved.current[key]) changed[key] = next[key];
     }
     if (!Object.keys(changed).length) {
-      if (updateUi && mounted.current) setStatus("saved");
+      if (updateUi && mounted.current && saveRevision === revision.current) setStatus("saved");
       return;
     }
 
-    if (updateUi && mounted.current) {
+    if (updateUi && mounted.current && saveRevision === revision.current) {
       setStatus("saving");
       setError("");
     }
@@ -48,41 +49,44 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "تعذر الحفظ");
       lastSaved.current = next;
-      if (updateUi && mounted.current) {
+      if (updateUi && mounted.current && saveRevision === revision.current) {
         setStatus("saved");
         setPreviewVersion((value) => value + 1);
       }
     } catch (saveError) {
-      if (updateUi && mounted.current) {
+      if (updateUi && mounted.current && saveRevision === revision.current) {
         setStatus("error");
         setError(saveError instanceof Error ? saveError.message : "تعذر الحفظ");
       }
     }
   }, []);
 
-  const flushSave = useCallback((next = latestFields.current, updateUi = true) => {
+  const flushSave = useCallback((next = latestFields.current, saveRevision = revision.current, updateUi = true) => {
     if (timer.current) {
       window.clearTimeout(timer.current);
       timer.current = null;
     }
-    saveChain.current = saveChain.current.then(() => performSave(next, updateUi));
+    saveChain.current = saveChain.current.then(() => performSave(next, saveRevision, updateUi));
     return saveChain.current;
   }, [performSave]);
 
-  const queueSave = useCallback((next: typeof fields) => {
+  const queueSave = useCallback((next: typeof fields, saveRevision: number) => {
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       timer.current = null;
-      void flushSave(next);
+      void flushSave(next, saveRevision);
     }, 700);
   }, [flushSave]);
 
   const update = (key: keyof typeof fields, value: string) => {
     const next = { ...fields, [key]: value };
+    const nextRevision = revision.current + 1;
+    revision.current = nextRevision;
     latestFields.current = next;
     setFields(next);
     setStatus("saving");
-    queueSave(next);
+    setError("");
+    queueSave(next, nextRevision);
   };
 
   useEffect(() => {
@@ -92,15 +96,15 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = null;
       // Preserve the final keystrokes when a customer leaves before the debounce
-      // finishes. The save is chained behind any in-flight request so an older
-      // response cannot overwrite the newest snapshot.
-      void flushSave(latestFields.current, false);
+      // finishes. Saves remain serialized, and only the newest revision may ever
+      // report "saved" to the customer.
+      void flushSave(latestFields.current, revision.current, false);
     };
   }, [flushSave]);
   useEffect(() => { if (publishState.success) window.location.reload(); }, [publishState.success]);
 
   const publishBlocked = publishPending || status !== "saved";
-  const blurSave = () => { if (status === "saving") void flushSave(); };
+  const blurSave = () => { if (status === "saving") void flushSave(latestFields.current, revision.current); };
 
   return <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:[direction:ltr]">
     <div className="space-y-4 xl:[direction:rtl]">
