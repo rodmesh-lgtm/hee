@@ -112,7 +112,7 @@ test.describe.serial("launch customer journey", () => {
       await test.step("mobile dashboard drawer is accessible and keyboard-safe", async () => {
         await expect(page.getByRole("heading", { name: "منشأة رحلة الإطلاق" })).toBeVisible();
         await expect.poll(() => horizontalOverflow(page)).toBeLessThanOrEqual(2);
-        const menuButton = page.getByRole("button", { name: "القائمة" });
+        const menuButton = page.locator("#hee-dashboard-mobile-menu-button");
         await expect(menuButton).toHaveAttribute("aria-expanded", "false");
         await menuButton.click();
         await expect(menuButton).toHaveAttribute("aria-expanded", "true");
@@ -145,7 +145,7 @@ test.describe.serial("launch customer journey", () => {
 
       await test.step("logout protects dashboard and password login restores access", async () => {
         await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
-        const menuButton = page.getByRole("button", { name: "القائمة" });
+        const menuButton = page.locator("#hee-dashboard-mobile-menu-button");
         await menuButton.click();
         const drawer = page.getByRole("dialog", { name: "قائمة لوحة التحكم" });
         await drawer.getByRole("button", { name: "تسجيل الخروج" }).click();
