@@ -119,6 +119,8 @@ export async function POST(request: Request) {
     await completeEvent(claimed.id, billing.id);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    // Retry invariant: processedAt stays null on transient/provider failures so Moyasar
+    // can deliver the same providerEventId again and claimEvent will retry the work.
     console.error("[moyasar-webhook] processing_failed", {
       eventId: event.id,
       error: error instanceof Error ? error.message : "unknown",
