@@ -128,6 +128,7 @@ test("checkout records provider payment IDs before redirect and blocks duplicate
   assert.match(created, /fetchMoyasarPayment\(paymentId\)/);
   assert.match(created, /payment\.amount !== billing\.amount/);
   assert.match(page, /providerStarted/);
+  assert.match(page, /التحقق من حالة العملية الآن/);
   assert.match(ledger, /"status" IN \('created','initiated','authorized'\)/);
 });
 
@@ -144,7 +145,7 @@ test("paid production configuration requires live Moyasar keys and token encrypt
   for (const pattern of [/paymentProvider !== "moyasar"/, /MOYASAR_PUBLISHABLE_KEY/, /pk_live_/, /MOYASAR_SECRET_KEY/, /sk_live_/, /MOYASAR_WEBHOOK_SECRET/, /BILLING_TOKEN_ENCRYPTION_KEY/, /BILLING_RENEWAL_ENABLED/]) assert.match(audit, pattern);
 });
 
-test("billing integrity audit is wired into RC Quality", () => {
+test("billing integrity audit is wired into RC Quality and proves authorized checkout uniqueness", () => {
   const packageJson = source("package.json");
   const workflow = source("../../.github/workflows/rc-quality.yml");
   const audit = source("scripts/billing-integrity-audit.ts");
@@ -154,6 +155,8 @@ test("billing integrity audit is wired into RC Quality", () => {
   assert.match(audit, /cross-tenant subscription payment method/);
   assert.match(audit, /cross-tenant renewal subscription/);
   assert.match(audit, /non-SAR payment currency/);
+  assert.match(audit, /authorized checkout blocks duplicate open checkout/);
+  assert.match(audit, /BillingPayment_one_open_checkout_per_business/);
 });
 
 test("billing and renewal logic remains portable to Hetzner", () => {
