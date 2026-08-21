@@ -11,8 +11,6 @@ import { isBusinessSlugReserved } from "../lib/slug-alias";
 export type PublicationActionState = { error?: string; success?: string };
 
 export async function publishBusinessAction(previous: PublicationActionState, formData: FormData): Promise<PublicationActionState> {
-  // The React action-state contract supplies both arguments even though publication
-  // currently derives all authoritative data from the authenticated server context.
   void previous;
   void formData;
 
@@ -22,12 +20,11 @@ export async function publishBusinessAction(previous: PublicationActionState, fo
 
   const owner = await db.user.findFirst({
     where: { id: business.ownerId, deletedAt: null },
-    select: { email: true, emailVerifiedAt: true },
+    select: { emailVerifiedAt: true },
   });
-  // Existing RC fixtures deliberately use @hee.test addresses and cannot receive mail.
-  // Keep that narrow exception only in APP_ENV=test; real runtimes always require proof.
-  const verifiedTestFixture = process.env.APP_ENV === "test" && Boolean(owner?.email.endsWith("@hee.test"));
-  if (!owner?.emailVerifiedAt && !verifiedTestFixture) {
+  // Publication has one invariant in every runtime. Tests that exercise an already
+  // verified owner must seed that state explicitly rather than bypassing this gate.
+  if (!owner?.emailVerifiedAt) {
     return { error: "أكد ملكية بريد حسابك من «الحساب والباقات» قبل نشر الصفحة" };
   }
 
