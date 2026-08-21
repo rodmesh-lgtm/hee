@@ -61,7 +61,9 @@ export async function cancelAutoRenewAction() {
   if (!business) redirect("/onboarding");
 
   await db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing-cancel:${business.id}`}))`;
+    // Use the same business-wide lock as checkout/renewal transitions. Otherwise a
+    // cancellation can race a renewal worker that has already loaded the reusable token.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing-business:${business.id}`}))`;
     const active = await tx.subscription.findFirst({
       where: { businessId: business.id, status: "active", autoRenew: true },
       orderBy: { startsAt: "desc" },
