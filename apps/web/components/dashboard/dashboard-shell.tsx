@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "../../app/actions/auth";
 import { switchActiveBusinessAction } from "../../app/actions/active-business";
-import { Building2, ExternalLink, LogOut, Menu, ShieldCheck, X } from "lucide-react";
+import { Building2, ExternalLink, Home, Inbox, LogOut, Menu, MoreHorizontal, ShieldCheck, UserRound, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "../../lib/utils";
 import { dashboardNavItems } from "./dashboard-nav";
@@ -27,12 +27,17 @@ const pageTitles: Record<string, string> = {
 
 const MOBILE_DRAWER_ID = "hee-dashboard-mobile-drawer";
 const MOBILE_MENU_BUTTON_ID = "hee-dashboard-mobile-menu-button";
+const MOBILE_MORE_BUTTON_ID = "hee-dashboard-mobile-more-button";
 const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), select:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function getCurrentPageTitle(pathname: string) {
   if (pageTitles[pathname]) return pageTitles[pathname];
   const found = Object.entries(pageTitles).filter(([path]) => path !== "/dashboard").find(([path]) => pathname.startsWith(`${path}/`));
   return found?.[1] ?? "لوحة التحكم";
+}
+
+function isPathActive(pathname: string, href: string, exact = false) {
+  return exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function BusinessSwitcher({ businesses, businessId, compact = false }: { businesses: BusinessOption[]; businessId: string | null; compact?: boolean }) {
@@ -55,6 +60,7 @@ export function DashboardShell({ children, businessId, businessName, businessSlu
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileDrawerRef = useRef<HTMLElement | null>(null);
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileTriggerRef = useRef<string>(MOBILE_MENU_BUTTON_ID);
   const pageTitle = getCurrentPageTitle(pathname);
 
   useEffect(() => {
@@ -91,15 +97,26 @@ export function DashboardShell({ children, businessId, businessName, businessSlu
       window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
-      document.getElementById(MOBILE_MENU_BUTTON_ID)?.focus();
+      document.getElementById(mobileTriggerRef.current)?.focus();
     };
   }, [mobileOpen]);
 
+  const openMobileDrawer = (triggerId: string) => {
+    mobileTriggerRef.current = triggerId;
+    setMobileOpen(true);
+  };
+
   const nav = (mobile = false) => dashboardNavItems.map((item) => {
     const Icon = item.icon;
-    const active = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
+    const active = isPathActive(pathname, item.href, item.exact);
     return <Link key={item.href} href={item.href} onClick={mobile ? () => setMobileOpen(false) : undefined} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-3 rounded-xl px-4 text-sm font-bold transition", mobile ? "py-3" : "h-11", active ? "bg-[#f1edff] text-[#5b3fd6]" : "text-slate-600 hover:bg-[#f8f6fc] hover:text-[#1f2552]")}><Icon className="h-4 w-4" />{item.label}</Link>;
   });
+
+  const mobileQuickNav = [
+    { label: "الرئيسية", href: "/dashboard", icon: Home, exact: true },
+    { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound },
+    { label: "الطلبات", href: "/dashboard/inbox", icon: Inbox },
+  ];
 
   return (
     <div data-dashboard-path={pathname} data-active-business={businessId ?? ""} className="min-h-screen bg-[#f8f9fd] text-slate-900">
@@ -115,10 +132,21 @@ export function DashboardShell({ children, businessId, businessName, businessSlu
 
         <div className="order-1 relative min-w-0 lg:[direction:rtl]">
           <header className="sticky top-0 z-20 border-b border-[#edf0fb] bg-white/95 px-4 py-3 backdrop-blur lg:border-b-0 lg:bg-[#f8f9fd]/95 xl:px-7">
-            <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-base font-black text-[#1f2552] sm:text-lg">{pageTitle}</div>{showQaBadge ? <span className="mt-1 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">وضع المعاينة QA</span> : null}</div><Button id={MOBILE_MENU_BUTTON_ID} type="button" variant="secondary" size="sm" icon={mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />} onClick={() => setMobileOpen((v) => !v)} aria-expanded={mobileOpen} aria-controls={MOBILE_DRAWER_ID} className="border-[#e9e7fb] bg-white text-slate-700 lg:hidden">القائمة</Button></div>
+            <div className="flex items-center justify-between gap-3"><div className="min-w-0"><div className="truncate text-base font-black text-[#1f2552] sm:text-lg">{pageTitle}</div>{showQaBadge ? <span className="mt-1 inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">وضع المعاينة QA</span> : null}</div><Button id={MOBILE_MENU_BUTTON_ID} type="button" variant="secondary" size="sm" icon={mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />} onClick={() => mobileOpen ? setMobileOpen(false) : openMobileDrawer(MOBILE_MENU_BUTTON_ID)} aria-expanded={mobileOpen} aria-controls={MOBILE_DRAWER_ID} className="border-[#e9e7fb] bg-white text-slate-700 lg:hidden">القائمة</Button></div>
           </header>
-          <main className="min-w-0 p-4 sm:p-5 xl:p-6">{children}</main>
+          <main className="min-w-0 p-4 pb-28 sm:p-5 sm:pb-28 lg:pb-5 xl:p-6">{children}</main>
         </div>
+
+        <nav aria-label="التنقل السريع" className="fixed inset-x-0 bottom-0 z-20 border-t border-[#e8e7f1] bg-white/95 px-3 pt-2 shadow-[0_-12px_34px_-28px_rgba(31,37,82,.65)] backdrop-blur lg:hidden" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)" }}>
+          <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+            {mobileQuickNav.map((item) => {
+              const Icon = item.icon;
+              const active = isPathActive(pathname, item.href, item.exact);
+              return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn("flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black transition", active ? "bg-[#f3efff] text-[#5b3fd6]" : "text-slate-500 active:bg-slate-50")}><Icon className="h-4.5 w-4.5" /><span>{item.label}</span></Link>;
+            })}
+            <button id={MOBILE_MORE_BUTTON_ID} type="button" onClick={() => openMobileDrawer(MOBILE_MORE_BUTTON_ID)} aria-expanded={mobileOpen} aria-controls={MOBILE_DRAWER_ID} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black text-slate-500 transition active:bg-slate-50"><MoreHorizontal className="h-4.5 w-4.5" /><span>المزيد</span></button>
+          </div>
+        </nav>
 
         <aside ref={mobileDrawerRef} id={MOBILE_DRAWER_ID} role="dialog" aria-modal={mobileOpen ? "true" : undefined} aria-label="قائمة لوحة التحكم" aria-hidden={!mobileOpen} inert={!mobileOpen} className={cn("fixed inset-y-0 right-0 z-40 flex w-[86vw] max-w-[300px] flex-col border-l border-[#eceffc] bg-white p-4 shadow-[0_25px_60px_-35px_rgba(48,46,89,.55)] transition-transform duration-200 lg:hidden", mobileOpen ? "translate-x-0" : "translate-x-full")}>
           <div className="mb-5 flex items-center justify-between"><Link href="/dashboard" onClick={() => setMobileOpen(false)}><div className="text-[28px] font-black tracking-[-.06em] text-[#6f3bd2]">HEE</div><div className="text-xs text-slate-500">هوية أعمال رقمية</div></Link><button ref={mobileCloseButtonRef} type="button" onClick={() => setMobileOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-[#eceffc] bg-white text-slate-600" aria-label="إغلاق القائمة"><X className="h-5 w-5" /></button></div>
