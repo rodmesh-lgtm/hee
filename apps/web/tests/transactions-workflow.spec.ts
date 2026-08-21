@@ -24,7 +24,7 @@ function dayIndexForRiyadhDate(date: string) {
 async function seed(): Promise<Seeded> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const plan = await db.businessPlan.upsert({ where: { code: "FREE" }, update: { isActive: true }, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true } });
-  const user = await db.user.create({ data: { name: "Transaction Owner", email: `tx-owner-${suffix}@hee.test`, passwordHash: "rc-only" } });
+  const user = await db.user.create({ data: { name: "Transaction Owner", email: `tx-owner-${suffix}@hee.test`, passwordHash: "rc-only", emailVerifiedAt: new Date() } });
   const slug = `tx-${suffix}`;
   const business = await db.business.create({
     data: {
