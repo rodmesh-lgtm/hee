@@ -27,8 +27,8 @@ test("data export requires an authenticated owned active business and never expo
   assert.match(route, /getCurrentUser\(\)/);
   assert.match(route, /getActiveBusinessForUser\(user\.id\)/);
   assert.match(route, /ownerId:\s*user\.id/);
-  assert.match(route, /Cache-Control.*private, no-store/s);
-  assert.match(route, /Referrer-Policy.*no-referrer/s);
+  assert.match(route, /Cache-Control[\s\S]*private, no-store/);
+  assert.match(route, /Referrer-Policy[\s\S]*no-referrer/);
   assert.doesNotMatch(route, /passwordHash:\s*true/);
   assert.doesNotMatch(route, /sessions:\s*true/);
   assert.match(route, /MAX_EXPORT_BYTES/);
