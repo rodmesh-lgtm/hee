@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
+import { receiptSnapshot } from "./billing-tax";
 import { encryptProviderToken, maskedLast4, type MoyasarPayment } from "./moyasar";
 import { getPlanRank, normalizePlanCode } from "./plan-entitlements";
 
@@ -11,15 +12,15 @@ export type BillingPaymentRow = {
   providerPaymentId: string | null; providerGivenId: string; kind: "initial" | "renewal" | "upgrade";
   amount: number; currency: string; status: string; attempt: number; nextRetryAt: Date | null;
   paidAt: Date | null; createdAt: Date; updatedAt: Date;
+  receiptSellerLegalName: string | null; receiptSellerAddress: string | null; receiptTaxStatus: string | null;
+  receiptNetAmount: number | null; receiptVatAmount: number | null; receiptIssuedAt: Date | null;
 };
 
 type SubscriptionBillingState = { id: string; planId: string; status: string; startsAt: Date; endsAt: Date | null; paymentMethodId: string | null; autoRenew: boolean };
 
 const ABANDONED_CHECKOUT_MS = 60 * 60 * 1000;
 
-function billingBusinessLockKey(businessId: string) {
-  return `billing-business:${businessId}`;
-}
+function billingBusinessLockKey(businessId: string) { return `billing-business:${businessId}`; }
 
 function addMonth(value: Date) {
   const year = value.getUTCFullYear(), month = value.getUTCMonth(), day = value.getUTCDate();
@@ -48,13 +49,9 @@ export async function createBillingIntent(userId: string, businessId: string, re
     const currentSubscription = await tx.subscription.findFirst({ where: { businessId, status: "active", endsAt: { gt: now } }, include: { plan: true }, orderBy: { startsAt: "desc" } });
     const abandonedBefore = new Date(now.getTime() - ABANDONED_CHECKOUT_MS);
     await tx.$executeRaw`
-      UPDATE "BillingPayment"
-      SET "status"='canceled', "updatedAt"=CURRENT_TIMESTAMP
-      WHERE "businessId"=${businessId}
-        AND "kind" IN ('initial','upgrade')
-        AND "status"='created'
-        AND "providerPaymentId" IS NULL
-        AND "createdAt" <= ${abandonedBefore}
+      UPDATE "BillingPayment" SET "status"='canceled', "updatedAt"=CURRENT_TIMESTAMP
+      WHERE "businessId"=${businessId} AND "kind" IN ('initial','upgrade') AND "status"='created'
+        AND "providerPaymentId" IS NULL AND "createdAt" <= ${abandonedBefore}
     `;
     const open = await tx.$queryRaw<BillingPaymentRow[]>`SELECT * FROM "BillingPayment" WHERE "businessId"=${businessId} AND "kind" IN ('initial','upgrade') AND "status" IN ('created','initiated','authorized') ORDER BY "createdAt" DESC LIMIT 1 FOR UPDATE`;
     if (open[0]) { if (open[0].planId !== target.id) throw new Error("OTHER_CHECKOUT_PENDING"); return { payment: open[0], plan: target, currentSubscription }; }
@@ -78,23 +75,24 @@ export async function activateVerifiedMoyasarPayment(billingId:string,payment:Mo
   const identity=await tx.$queryRaw<Array<{businessId:string}>>`SELECT "businessId" FROM "BillingPayment" WHERE "id"=${billingId} LIMIT 1`;if(!identity[0])return "missing" as const;
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${billingBusinessLockKey(identity[0].businessId)}))`;
   const rows=await tx.$queryRaw<BillingPaymentRow[]>`SELECT * FROM "BillingPayment" WHERE "id"=${billingId} FOR UPDATE`;const billing=rows[0];if(!billing)return "missing" as const;if(billing.provider!=="moyasar")return "wrong-provider" as const;if(payment.status!=="paid"||payment.amount!==billing.amount||payment.currency!==billing.currency)return "mismatch" as const;if(String(payment.metadata?.hee_billing_id??"")!==billing.id||String(payment.metadata?.hee_business_id??"")!==billing.businessId)return "mismatch" as const;if(billing.providerPaymentId&&billing.providerPaymentId!==payment.id)return "provider-payment-mismatch" as const;if(billing.status==="paid")return "already-paid" as const;if(["refunded","voided","canceled"].includes(billing.status))return "terminal-state" as const;const plan=await tx.businessPlan.findFirst({where:{id:billing.planId,isActive:true}}),business=await tx.business.findFirst({where:{id:billing.businessId,deletedAt:null}});if(!plan||!business)return "missing-target" as const;const now=new Date(),active=await activeSubscriptionBillingState(tx,business.id);let baseSubscription:SubscriptionBillingState|null=active,paymentMethodId:string|null,periodEnd:Date,autoRenew:boolean;if(billing.kind==="renewal"){if(!billing.subscriptionId)return "stale-renewal" as const;baseSubscription=await renewableSubscriptionBillingState(tx,business.id,billing.subscriptionId);if(!baseSubscription||!baseSubscription.autoRenew)return "stale-renewal" as const;paymentMethodId=baseSubscription.paymentMethodId;autoRenew=Boolean(baseSubscription.autoRenew&&paymentMethodId);const periodBase=baseSubscription.endsAt&&baseSubscription.endsAt>now?baseSubscription.endsAt:now;periodEnd=addMonth(periodBase);}else{paymentMethodId=await savePaymentMethod(tx,billing,payment);autoRenew=Boolean(paymentMethodId);periodEnd=billing.kind==="upgrade"&&active?.endsAt&&active.endsAt>now?active.endsAt:addMonth(now);}
-    await tx.$executeRaw`UPDATE "Subscription" SET "status"='replaced',"autoRenew"=false,"updatedAt"=CURRENT_TIMESTAMP WHERE "businessId"=${business.id} AND "status" IN ('active','past_due')`;
-    const subscriptionId=randomUUID();await tx.$executeRaw`INSERT INTO "Subscription" ("id","businessId","planId","status","startsAt","endsAt","createdAt","updatedAt","autoRenew","provider","providerReference","paymentMethodId") VALUES (${subscriptionId},${business.id},${plan.id},'active',${now},${periodEnd},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,${autoRenew},'moyasar',${payment.id},${paymentMethodId})`;await tx.business.update({where:{id:business.id},data:{planId:plan.id}});await tx.$executeRaw`UPDATE "BillingPayment" SET "providerPaymentId"=${payment.id},"subscriptionId"=${subscriptionId},"status"='paid',"paidAt"=CURRENT_TIMESTAMP,"nextRetryAt"=NULL,"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${billing.id} AND "status" IN ('created','initiated','authorized','failed')`;return "activated" as const;});}
+  const receipt=receiptSnapshot(billing.id,billing.amount);
+  await tx.$executeRaw`UPDATE "Subscription" SET "status"='replaced',"autoRenew"=false,"updatedAt"=CURRENT_TIMESTAMP WHERE "businessId"=${business.id} AND "status" IN ('active','past_due')`;
+  const subscriptionId=randomUUID();await tx.$executeRaw`INSERT INTO "Subscription" ("id","businessId","planId","status","startsAt","endsAt","createdAt","updatedAt","autoRenew","provider","providerReference","paymentMethodId") VALUES (${subscriptionId},${business.id},${plan.id},'active',${now},${periodEnd},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,${autoRenew},'moyasar',${payment.id},${paymentMethodId})`;await tx.business.update({where:{id:business.id},data:{planId:plan.id}});
+  await tx.$executeRaw`UPDATE "BillingPayment" SET "providerPaymentId"=${payment.id},"subscriptionId"=${subscriptionId},"status"='paid',"paidAt"=CURRENT_TIMESTAMP,"nextRetryAt"=NULL,"receiptSellerLegalName"=${receipt.sellerLegalName},"receiptSellerAddress"=${receipt.sellerAddress},"receiptTaxStatus"=${receipt.taxStatus},"receiptNetAmount"=${receipt.netAmount},"receiptVatAmount"=${receipt.vatAmount},"receiptIssuedAt"=${receipt.issuedAt},"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${billing.id} AND "status" IN ('created','initiated','authorized','failed')`;
+  return "activated" as const;});}
 
 export async function handleRefundedMoyasarPayment(billingId:string,payment:MoyasarPayment){return db.$transaction(async(tx)=>{
   const identity=await tx.$queryRaw<Array<{businessId:string}>>`SELECT "businessId" FROM "BillingPayment" WHERE "id"=${billingId} LIMIT 1`;if(!identity[0])return "missing" as const;
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${billingBusinessLockKey(identity[0].businessId)}))`;
   const rows=await tx.$queryRaw<BillingPaymentRow[]>`SELECT * FROM "BillingPayment" WHERE "id"=${billingId} FOR UPDATE`;const billing=rows[0];if(!billing)return "missing" as const;if(payment.status!=="refunded")return "wrong-status" as const;if(billing.providerPaymentId&&billing.providerPaymentId!==payment.id)return "mismatch" as const;if(payment.amount!==billing.amount||payment.currency!==billing.currency)return "mismatch" as const;if(String(payment.metadata?.hee_billing_id??"")!==billing.id||String(payment.metadata?.hee_business_id??"")!==billing.businessId)return "mismatch" as const;
-    const active=await activeSubscriptionBillingState(tx,billing.businessId);const paidSubscriptionMatches=Boolean(active&&billing.subscriptionId&&active.id===billing.subscriptionId);
-    await tx.$executeRaw`UPDATE "BillingPayment" SET "providerPaymentId"=${payment.id},"status"='refunded',"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${billing.id}`;
-    if(billing.status==="paid"&&active&&paidSubscriptionMatches){const now=new Date();await tx.$executeRaw`UPDATE "Subscription" SET "status"='canceled',"autoRenew"=false,"endsAt"=LEAST(COALESCE("endsAt",CURRENT_TIMESTAMP),CURRENT_TIMESTAMP),"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${active.id} AND "status"='active'`;
-      const prior=await tx.$queryRaw<Array<{id:string;planId:string}>>`
-        SELECT s."id",s."planId"
-        FROM "Subscription" s
-        JOIN "BillingPayment" bp ON bp."subscriptionId"=s."id" AND bp."businessId"=s."businessId" AND bp."status"='paid'
-        WHERE s."businessId"=${billing.businessId} AND s."status"='replaced' AND s."endsAt">${now} AND s."id"<>${active.id}
-        ORDER BY s."startsAt" DESC LIMIT 1 FOR UPDATE OF s`;
-      if(prior[0]){await tx.$executeRaw`UPDATE "Subscription" SET "status"='active',"autoRenew"=false,"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${prior[0].id} AND "status"='replaced'`;await tx.business.updateMany({where:{id:billing.businessId,deletedAt:null},data:{planId:prior[0].planId}});}else{const free=await tx.businessPlan.findUnique({where:{code:"FREE"},select:{id:true}});if(!free)throw new Error("FREE_PLAN_MISSING");await tx.business.updateMany({where:{id:billing.businessId,deletedAt:null},data:{planId:free.id}});}}
-    return "refunded" as const;});}
+  const active=await activeSubscriptionBillingState(tx,billing.businessId);const paidSubscriptionMatches=Boolean(active&&billing.subscriptionId&&active.id===billing.subscriptionId);
+  await tx.$executeRaw`UPDATE "BillingPayment" SET "providerPaymentId"=${payment.id},"status"='refunded',"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${billing.id}`;
+  if(billing.status==="paid"&&active&&paidSubscriptionMatches){const now=new Date();await tx.$executeRaw`UPDATE "Subscription" SET "status"='canceled',"autoRenew"=false,"endsAt"=LEAST(COALESCE("endsAt",CURRENT_TIMESTAMP),CURRENT_TIMESTAMP),"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${active.id} AND "status"='active'`;
+    const prior=await tx.$queryRaw<Array<{id:string;planId:string}>>`
+      SELECT s."id",s."planId" FROM "Subscription" s JOIN "BillingPayment" bp ON bp."subscriptionId"=s."id" AND bp."businessId"=s."businessId" AND bp."status"='paid'
+      WHERE s."businessId"=${billing.businessId} AND s."status"='replaced' AND s."endsAt">${now} AND s."id"<>${active.id}
+      ORDER BY s."startsAt" DESC LIMIT 1 FOR UPDATE OF s`;
+    if(prior[0]){await tx.$executeRaw`UPDATE "Subscription" SET "status"='active',"autoRenew"=false,"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${prior[0].id} AND "status"='replaced'`;await tx.business.updateMany({where:{id:billing.businessId,deletedAt:null},data:{planId:prior[0].planId}});}else{const free=await tx.businessPlan.findUnique({where:{code:"FREE"},select:{id:true}});if(!free)throw new Error("FREE_PLAN_MISSING");await tx.business.updateMany({where:{id:billing.businessId,deletedAt:null},data:{planId:free.id}});}}
+  return "refunded" as const;});}
 
 export async function markBillingPaymentState(billingId:string,payment:MoyasarPayment){if(payment.status==="refunded")return handleRefundedMoyasarPayment(billingId,payment);const allowed=new Set(["initiated","failed","voided","authorized"]),status=allowed.has(payment.status)?payment.status:"failed";return db.$transaction(async(tx)=>{const identity=await tx.$queryRaw<Array<{businessId:string}>>`SELECT "businessId" FROM "BillingPayment" WHERE "id"=${billingId} LIMIT 1`;if(!identity[0])return status;await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${billingBusinessLockKey(identity[0].businessId)}))`;await tx.$executeRaw`UPDATE "BillingPayment" SET "providerPaymentId"=COALESCE("providerPaymentId",${payment.id}),"status"=${status},"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${billingId} AND "status" IN ('created','initiated','authorized','failed')`;return status;});}
