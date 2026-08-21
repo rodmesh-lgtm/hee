@@ -60,6 +60,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
 
   useEffect(() => {
     if (!bookingOpen) return;
+    const bookingOpener = bookingOpenerRef.current;
     const previousOverflow = document.body.style.overflow;
     const previousPaddingRight = document.body.style.paddingRight;
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
@@ -99,7 +100,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
       document.body.style.paddingRight = previousPaddingRight;
-      bookingOpenerRef.current?.focus();
+      bookingOpener?.focus();
     };
   }, [bookingOpen]);
 
