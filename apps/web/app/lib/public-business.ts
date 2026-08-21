@@ -8,38 +8,19 @@ export async function getBusinessPublic(slug: string) {
       slug,
       deletedAt: null,
       isPublished: true,
-      // Publication now requires mailbox ownership, but legacy rows may already have
-      // isPublished=true before that gate existed. Enforce the invariant again at the
-      // public read boundary so migration history cannot expose an unverified identity.
-      // Test fixtures may bypass this only outside a production Node runtime; a stray
-      // APP_ENV=test production variable must never reopen public legacy identities.
-      ...(process.env.APP_ENV === "test" && process.env.NODE_ENV !== "production"
-        ? {}
-        : { owner: { deletedAt: null, emailVerifiedAt: { not: null } } }),
+      // Re-check mailbox ownership at the public read boundary. This protects legacy
+      // rows that may have been published before email verification became mandatory.
+      owner: { deletedAt: null, emailVerifiedAt: { not: null } },
     },
     include: {
       services: {
         where: { isActive: true, deletedAt: null },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          isActive: true,
-          bookingEnabled: true,
-          durationMinutes: true,
-        },
+        select: { id: true, name: true, description: true, isActive: true, bookingEnabled: true, durationMinutes: true },
       },
       openingHours: {
         orderBy: { dayOfWeek: "asc" },
-        select: {
-          dayOfWeek: true,
-          opensAt: true,
-          closesAt: true,
-          secondOpensAt: true,
-          secondClosesAt: true,
-          isClosed: true,
-        },
+        select: { dayOfWeek: true, opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
       },
       galleryItems: {
         where: { isActive: true },
@@ -49,30 +30,13 @@ export async function getBusinessPublic(slug: string) {
       branches: {
         where: { isActive: true },
         orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
-        select: {
-          id: true,
-          name: true,
-          city: true,
-          district: true,
-          address: true,
-          googleMapsLink: true,
-          isActive: true,
-        },
+        select: { id: true, name: true, city: true, district: true, address: true, googleMapsLink: true, isActive: true },
       },
-      // ContactPerson is the canonical team table. Loading the same rows again
-      // through Department.contacts doubled the public query and payload without
-      // adding any information used by the current renderer.
       contactPersons: {
         where: { isActive: true },
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
         select: {
-          id: true,
-          name: true,
-          jobTitle: true,
-          imageUrl: true,
-          phone: true,
-          whatsapp: true,
-          isActive: true,
+          id: true, name: true, jobTitle: true, imageUrl: true, phone: true, whatsapp: true, isActive: true,
           department: { select: { name: true } },
         },
       },
