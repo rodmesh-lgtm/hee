@@ -13,7 +13,42 @@ function canonical(name: string) {
 
 function liveKey(name: string, prefix: string) {
   const value = required(name);
-  if (!value.startsWith(prefix)) throw new Error(`${name} must be a live Moyasar key (${prefix}...)`);
+  if (!value.startsWith(prefix) || /replace|example|test|dummy|change/i.test(value)) {
+    throw new Error(`${name} must be a non-placeholder live Moyasar key (${prefix}...)`);
+  }
+}
+
+function strongSecret(name: string, minLength: number) {
+  const value = required(name);
+  if (value.length < minLength || /replace-me|change-this|ci-only|example|dummy|placeholder/i.test(value)) {
+    throw new Error(`${name} must be a strong non-placeholder production secret`);
+  }
+  return value;
+}
+
+function strictBase64Key(name: string) {
+  const encoded = required(name);
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length % 4 !== 0) {
+    throw new Error(`${name} must be canonical base64`);
+  }
+  const raw = Buffer.from(encoded, "base64");
+  if (raw.length !== 32 || raw.toString("base64") !== encoded) {
+    throw new Error(`${name} must be canonical base64 encoding of exactly 32 random bytes`);
+  }
+}
+
+function productionDatabaseUrl() {
+  const raw = required("DATABASE_URL");
+  let parsed: URL;
+  try { parsed = new URL(raw); }
+  catch { throw new Error("DATABASE_URL must be a valid PostgreSQL URL"); }
+  if (!new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) throw new Error("DATABASE_URL must use PostgreSQL");
+  if (!parsed.hostname || ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname.toLowerCase())) {
+    throw new Error("DATABASE_URL must not point to localhost in production");
+  }
+  if (/\b(?:test|ci|dev|local)\b/i.test(parsed.pathname.replace(/^\//, ""))) {
+    throw new Error("DATABASE_URL appears to reference a non-production database");
+  }
 }
 
 function main() {
@@ -25,13 +60,11 @@ function main() {
   canonical("AUTH_ORIGIN");
   canonical("NEXT_PUBLIC_APP_URL");
 
-  const sessionSecret = required("SESSION_SECRET");
-  if (sessionSecret.length < 32 || /replace-me|change-this|ci-only/i.test(sessionSecret)) {
-    throw new Error("SESSION_SECRET must be a strong non-placeholder production secret");
-  }
+  strongSecret("SESSION_SECRET", 32);
+  productionDatabaseUrl();
 
-  required("DATABASE_URL");
-  required("RESEND_API_KEY");
+  const resend = required("RESEND_API_KEY");
+  if (/replace|example|dummy|placeholder/i.test(resend)) throw new Error("RESEND_API_KEY must be a real production credential");
   const from = required("HEE_FROM_EMAIL");
   if (!/@hee\.sa(?:>|\s|$)/i.test(from)) throw new Error("HEE_FROM_EMAIL must use the verified hee.sa sending domain");
 
@@ -39,10 +72,8 @@ function main() {
   if (paymentProvider !== "moyasar") throw new Error("PAYMENT_PROVIDER must equal moyasar for paid production launch");
   liveKey("MOYASAR_PUBLISHABLE_KEY", "pk_live_");
   liveKey("MOYASAR_SECRET_KEY", "sk_live_");
-  const webhookSecret = required("MOYASAR_WEBHOOK_SECRET");
-  if (webhookSecret.length < 24) throw new Error("MOYASAR_WEBHOOK_SECRET must be a strong shared secret");
-  const encryptionKey = Buffer.from(required("BILLING_TOKEN_ENCRYPTION_KEY"), "base64");
-  if (encryptionKey.length !== 32) throw new Error("BILLING_TOKEN_ENCRYPTION_KEY must decode to exactly 32 bytes");
+  strongSecret("MOYASAR_WEBHOOK_SECRET", 24);
+  strictBase64Key("BILLING_TOKEN_ENCRYPTION_KEY");
   if (String(process.env.BILLING_RENEWAL_ENABLED ?? "").trim().toLowerCase() !== "true") {
     throw new Error("BILLING_RENEWAL_ENABLED must be true only after the renewal worker and live webhook have been verified");
   }
@@ -57,8 +88,8 @@ function main() {
     const endpoint = required("S3_ENDPOINT");
     if (!endpoint.startsWith("https://")) throw new Error("Production S3_ENDPOINT must use HTTPS");
     required("S3_BUCKET");
-    required("S3_ACCESS_KEY_ID");
-    required("S3_SECRET_ACCESS_KEY");
+    strongSecret("S3_ACCESS_KEY_ID", 8);
+    strongSecret("S3_SECRET_ACCESS_KEY", 16);
     if (String(process.env.S3_ALLOW_INSECURE ?? "").trim().toLowerCase() === "true") throw new Error("S3_ALLOW_INSECURE must not be true in production");
   }
 
