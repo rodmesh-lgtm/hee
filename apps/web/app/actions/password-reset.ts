@@ -15,6 +15,15 @@ const GENERIC_RESET_MESSAGE = "إذا كان البريد مرتبطًا بحس�
 
 function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
 function hashToken(token: string) { return createHash("sha256").update(token).digest("hex"); }
+function passwordResetOrigin() {
+  if (process.env.VERCEL_ENV === "production") return "https://hee.sa";
+  const candidate = String(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").trim();
+  try {
+    const url = new URL(candidate);
+    const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    return url.protocol === "https:" || (local && url.protocol === "http:") ? url.origin : "https://hee.sa";
+  } catch { return "https://hee.sa"; }
+}
 
 async function requestAddress() {
   const requestHeaders = await headers();
@@ -37,8 +46,7 @@ async function sendResetEmail(email: string, token: string) {
   const from = String(process.env.HEE_FROM_EMAIL ?? "").trim();
   if (!apiKey || !from) return false;
 
-  const baseUrl = String(process.env.NEXT_PUBLIC_SITE_URL ?? "https://hee.sa").replace(/\/$/, "");
-  const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+  const resetUrl = `${passwordResetOrigin()}/reset-password?token=${encodeURIComponent(token)}`;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -140,9 +148,12 @@ export async function resetPasswordAction(_previous: PasswordResetState, formDat
     const consumed = await tx.oAuthState.deleteMany({ where: { id: state.id, state: tokenHash, provider: PROVIDER } });
     if (consumed.count !== 1) return "invalid" as const;
 
-    await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
+    // A successful reset proves control of the mailbox because the single-use token was
+    // delivered to that account email, so it also satisfies the publication ownership gate.
+    await tx.user.update({ where: { id: user.id }, data: { passwordHash, emailVerifiedAt: new Date() } });
     await tx.session.deleteMany({ where: { userId: user.id } });
     await tx.oAuthState.deleteMany({ where: { provider: PROVIDER, nonce: user.id } });
+    await tx.oAuthState.deleteMany({ where: { provider: "email-verification", nonce: user.id } });
     return "updated" as const;
   });
 
