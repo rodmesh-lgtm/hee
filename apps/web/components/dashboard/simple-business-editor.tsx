@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useActionState, useCallback, useEffect, useRef, useState } from "react";
-import { BriefcaseBusiness, CheckCircle2, Eye, Loader2, Palette, RefreshCw, Save, UsersRound } from "lucide-react";
+import { BriefcaseBusiness, CheckCircle2, Eye, Loader2, Palette, RefreshCw, Save, Share2, UsersRound } from "lucide-react";
 import { publishBusinessAction, unpublishBusinessAction, type PublicationActionState } from "../../app/actions/publication";
+import { ConfirmSubmitButton } from "./confirm-submit-button";
 
 type BusinessEditorData = { name: string; shortDescription: string; description: string; phone: string; whatsapp: string; city: string; district: string; googleMapsLink: string; isPublished: boolean; slug: string };
 type Props = { business: BusinessEditorData; serviceCount: number; branchCount: number; contactCount: number };
+type ShareStatus = "idle" | "copied" | "failed";
 const emptyState: PublicationActionState = {};
 const inputClass = "h-11 w-full rounded-xl border border-[#e5e8f3] bg-[#fbfcff] px-3 text-sm text-[#20264f] outline-none transition focus:border-[#b7a9ef] focus:bg-white";
 const textareaClass = "min-h-[96px] w-full rounded-xl border border-[#e5e8f3] bg-[#fbfcff] px-3 py-3 text-sm text-[#20264f] outline-none transition focus:border-[#b7a9ef] focus:bg-white";
@@ -17,6 +19,7 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
   const [fields, setFields] = useState({ name: business.name, shortDescription: business.shortDescription, description: business.description, phone: business.phone, whatsapp: business.whatsapp, city: business.city, district: business.district, googleMapsLink: business.googleMapsLink });
   const [status, setStatus] = useState<"saved" | "saving" | "error">("saved");
   const [error, setError] = useState("");
+  const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
   const timer = useRef<number | null>(null);
   const lastSaved = useRef(fields);
   const latestFields = useRef(fields);
@@ -95,9 +98,6 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
       mounted.current = false;
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = null;
-      // Preserve the final keystrokes when a customer leaves before the debounce
-      // finishes. Saves remain serialized, and only the newest revision may ever
-      // report "saved" to the customer.
       void flushSave(latestFields.current, revision.current, false);
     };
   }, [flushSave]);
@@ -105,6 +105,26 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
 
   const publishBlocked = publishPending || status !== "saved";
   const blurSave = () => { if (status === "saving") void flushSave(latestFields.current, revision.current); };
+
+  async function sharePublishedPage() {
+    const publicUrl = `${window.location.origin}/${business.slug}`;
+    setShareStatus("idle");
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: business.name, url: publicUrl });
+        return;
+      } catch (shareError) {
+        if (shareError instanceof DOMException && shareError.name === "AbortError") return;
+      }
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("clipboard-unavailable");
+      await navigator.clipboard.writeText(publicUrl);
+      setShareStatus("copied");
+    } catch {
+      setShareStatus("failed");
+    }
+  }
 
   return <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:[direction:ltr]">
     <div className="space-y-4 xl:[direction:rtl]">
@@ -116,7 +136,7 @@ export function SimpleBusinessEditor({ business, serviceCount, branchCount, cont
 
       <section className="grid gap-3 sm:grid-cols-3"><Link href="/dashboard/branding" className="rounded-[22px] border border-[#e7e9f4] bg-white p-4 transition hover:border-[#cfc5f5]"><Palette className="h-5 w-5 text-[#6f3bd2]" /><b className="mt-3 block text-sm text-[#20264f]">الشعار والمظهر</b><span className="mt-1 block text-[11px] leading-5 text-slate-500">الشعار، الغلاف والثيمات</span></Link><Link href="/dashboard/directory" className="rounded-[22px] border border-[#e7e9f4] bg-white p-4 transition hover:border-[#cfc5f5]"><UsersRound className="h-5 w-5 text-[#6f3bd2]" /><b className="mt-3 block text-sm text-[#20264f]">الفروع والفريق</b><span className="mt-1 block text-[11px] leading-5 text-slate-500">{countLabel(branchCount, "فرع", "فرعان", "فروع")} · {countLabel(contactCount, "عضو", "عضوان", "أعضاء")}</span></Link><Link href="/dashboard/services" className="rounded-[22px] border border-[#e7e9f4] bg-white p-4 transition hover:border-[#cfc5f5]"><BriefcaseBusiness className="h-5 w-5 text-[#6f3bd2]" /><b className="mt-3 block text-sm text-[#20264f]">الخدمات</b><span className="mt-1 block text-[11px] leading-5 text-slate-500">{countLabel(serviceCount, "خدمة", "خدمتان", "خدمات")}</span></Link></section>
 
-      <section className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div><b className="text-sm text-[#20264f]">{business.isPublished ? "صفحتك متاحة للزوار" : "جاهز للمشاركة؟"}</b><p className="mt-1 text-xs text-slate-500">{business.isPublished ? "يمكنك فتحها أو إلغاء نشرها مؤقتًا متى احتجت." : "عاين الصفحة أولاً ثم انشرها."}</p></div><div className="flex flex-wrap gap-2"><a href="/preview" target="_blank" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#ddd8f4] bg-white px-4 text-xs font-black text-[#5d49cc]"><Eye className="h-4 w-4" />معاينة</a>{!business.isPublished ? <form action={publishAction}><button disabled={publishBlocked} className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-60"><Save className="h-4 w-4" />{publishPending ? "جارٍ النشر" : status === "saving" ? "انتظر الحفظ" : "نشر الصفحة"}</button></form> : <><a href={`/${business.slug}`} target="_blank" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white"><Eye className="h-4 w-4" />فتح الصفحة</a><form action={unpublishBusinessAction}><button className="inline-flex h-10 items-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-xs font-black text-rose-700">إلغاء النشر</button></form></>}</div>{publishState.error ? <p className="w-full text-xs font-bold text-rose-700">{publishState.error}</p> : null}</section>
+      <section id="share" className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div><b className="text-sm text-[#20264f]">{business.isPublished ? "صفحتك متاحة للزوار" : "جاهز للمشاركة؟"}</b><p className="mt-1 text-xs text-slate-500">{business.isPublished ? "افتح الصفحة أو شارك رابطها مباشرة من هنا." : "عاين الصفحة أولاً ثم انشرها."}</p></div><div className="flex w-full flex-wrap gap-2 sm:w-auto"><a href="/preview" target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#ddd8f4] bg-white px-4 text-xs font-black text-[#5d49cc]"><Eye className="h-4 w-4" />معاينة</a>{!business.isPublished ? <form action={publishAction}><button disabled={publishBlocked} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-60"><Save className="h-4 w-4" />{publishPending ? "جارٍ النشر" : status === "saving" ? "انتظر الحفظ" : "نشر الصفحة"}</button></form> : <><a href={`/${business.slug}`} target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white"><Eye className="h-4 w-4" />فتح الصفحة</a><button type="button" onClick={() => void sharePublishedPage()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#d9cff8] bg-[#f7f4ff] px-4 text-xs font-black text-[#5638b8]"><Share2 className="h-4 w-4" />مشاركة الرابط</button><form action={unpublishBusinessAction}><ConfirmSubmitButton label="إلغاء النشر" confirmMessage="إلغاء نشر الصفحة؟ لن يتمكن الزوار من فتحها حتى تنشرها مرة أخرى." showIcon={false} className="inline-flex min-h-11 items-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-xs font-black text-rose-700" /></form></>}</div><div aria-live="polite" aria-atomic="true" className="w-full text-xs font-bold">{shareStatus === "copied" ? <span className="text-emerald-700">تم نسخ رابط صفحتك.</span> : null}{shareStatus === "failed" ? <span className="text-rose-700">تعذر نسخ الرابط. افتح الصفحة وانسخ الرابط من المتصفح.</span> : null}{publishState.error ? <span className="text-rose-700">{publishState.error}</span> : null}</div></section>
     </div>
 
     <aside className="hidden xl:block xl:[direction:rtl]"><div className="sticky top-24 rounded-[28px] border border-[#e3e6f2] bg-white p-3 shadow-[0_26px_50px_-36px_rgba(31,37,82,.45)]"><div className="mb-3 flex items-center justify-between"><div><b className="text-sm text-[#20264f]">معاينة مباشرة</b><p className="text-[10px] text-slate-400">تتحدث بعد الحفظ</p></div><a href="/preview" target="_blank" className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#f4f1ff] px-2.5 text-[10px] font-black text-[#5d49cc]"><Eye className="h-3.5 w-3.5" />تكبير</a></div><div className="mx-auto w-[292px] overflow-hidden rounded-[30px] border-[6px] border-[#171b2e] bg-white"><iframe key={previewVersion} src={`/preview?v=${previewVersion}`} title="معاينة صفحة النشاط" className="h-[600px] w-full" /></div></div></aside>
