@@ -33,6 +33,8 @@ test("subscription database enforces lifecycle and one current entitlement", () 
 
 test("production billing docs explicitly reject mock activation", () => {
   const env = source("../../.env.example");
-  assert.match(env, /mock.*strictly for tests\/development/i);
-  assert.match(env, /real provider-backed/i);
+  assert.match(env, /mock["']? is strictly for CI\/development/i);
+  assert.match(env, /Production paid launch uses Moyasar/i);
+  assert.match(env, /Never commit live keys/i);
+  assert.match(env, /BILLING_RENEWAL_ENABLED=false/);
 });
