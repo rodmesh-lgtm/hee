@@ -86,6 +86,18 @@ test("renewal retries reuse Moyasar idempotency keys and expire paid entitlement
   assert.match(worker, /markPastDue/);
   assert.match(worker, /status" IN \('active','past_due'\)/);
   assert.match(worker, /"subscriptionId" = \$\{newSubscriptionId\}/);
+  assert.match(worker, /expireEndedNonRenewingSubscriptions/);
+  assert.match(worker, /"autoRenew" = false/);
+  assert.match(worker, /data: \{ planId: free\.id \}/);
+});
+
+test("canceling auto-renew also revokes the reusable payment method", () => {
+  const actions = source("app/actions/billing.ts");
+  const button = source("components/billing/cancel-renewal-button.tsx");
+  assert.match(actions, /autoRenew:\s*false/);
+  assert.match(actions, /billingPaymentMethod\.updateMany/);
+  assert.match(actions, /status:\s*"revoked"/);
+  assert.match(button, /window\.confirm/);
 });
 
 test("refunds only revoke the exact entitlement created by the refunded payment", () => {
