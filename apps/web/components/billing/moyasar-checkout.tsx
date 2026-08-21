@@ -27,6 +27,8 @@ const MOYASAR_CSS = "https://cdn.moyasar.com/mpf/1.15.0/moyasar.css";
 export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId, businessId, description }: Props) {
   const initialized = useRef(false);
   const [accepted, setAccepted] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [acceptanceError, setAcceptanceError] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -76,6 +78,29 @@ export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId
     }
   }, [accepted, amount, billingId, businessId, callbackUrl, description, publishableKey, scriptReady]);
 
+  async function acceptPurchaseDisclosure() {
+    if (accepting) return;
+    setAccepting(true);
+    setAcceptanceError(false);
+    try {
+      const response = await fetch("/api/billing/consent", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ billingId }),
+      });
+      if (!response.ok) {
+        setAcceptanceError(true);
+        return;
+      }
+      setAccepted(true);
+    } catch {
+      setAcceptanceError(true);
+    } finally {
+      setAccepting(false);
+    }
+  }
+
   if (!accepted) {
     return <div className="rounded-2xl border border-[#ddd8f4] bg-[#faf9ff] p-4 text-sm leading-7 text-slate-700">
       <b className="block text-[#252a4a]">قبل فتح نموذج الدفع</b>
@@ -85,7 +110,8 @@ export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId
         <li>الإلغاء لا يعني استردادًا تلقائيًا؛ تطبق حقوق الاسترداد النظامية والشروط السارية عند الشراء.</li>
       </ul>
       <p className="mt-3 text-xs leading-6 text-slate-500">بالمتابعة أنت تقر بمراجعة <Link href="/terms" className="font-black text-[#5d49cc] underline underline-offset-4">الشروط والأحكام</Link> و<Link href="/privacy" className="font-black text-[#5d49cc] underline underline-offset-4">سياسة الخصوصية</Link>.</p>
-      <button type="button" onClick={() => setAccepted(true)} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#5b3fd6] px-5 text-xs font-black text-white">أوافق وأتابع للدفع الآمن</button>
+      {acceptanceError ? <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800">تعذر تثبيت موافقتك أو انتهت صلاحية عملية الدفع. لم يتم فتح نموذج البطاقة ولم يتم خصم أي مبلغ.</p> : null}
+      <button type="button" disabled={accepting} onClick={acceptPurchaseDisclosure} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#5b3fd6] px-5 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-60">{accepting ? "جاري تثبيت الموافقة…" : "أوافق وأتابع للدفع الآمن"}</button>
     </div>;
   }
 
