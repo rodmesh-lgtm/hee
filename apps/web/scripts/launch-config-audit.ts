@@ -51,6 +51,18 @@ function productionDatabaseUrl() {
   }
 }
 
+function billingTaxReadiness() {
+  required("BILLING_SELLER_LEGAL_NAME_AR");
+  required("BILLING_SELLER_ADDRESS_AR");
+  const status = required("BILLING_TAX_STATUS").toLowerCase();
+  if (!new Set(["not_registered", "vat_registered"]).has(status)) {
+    throw new Error("BILLING_TAX_STATUS must be not_registered or vat_registered");
+  }
+  if (status === "vat_registered") {
+    throw new Error("Paid launch is blocked for a VAT-registered seller until the ZATCA-compliant e-invoicing integration is implemented and verified");
+  }
+}
+
 function main() {
   if (String(process.env.APP_ENV ?? "").trim().toLowerCase() !== "production") {
     throw new Error("APP_ENV must be production for the launch audit");
@@ -74,6 +86,7 @@ function main() {
   liveKey("MOYASAR_SECRET_KEY", "sk_live_");
   strongSecret("MOYASAR_WEBHOOK_SECRET", 24);
   strictBase64Key("BILLING_TOKEN_ENCRYPTION_KEY");
+  billingTaxReadiness();
   if (String(process.env.BILLING_RENEWAL_ENABLED ?? "").trim().toLowerCase() !== "true") {
     throw new Error("BILLING_RENEWAL_ENABLED must be true only after the renewal worker and live webhook have been verified");
   }
