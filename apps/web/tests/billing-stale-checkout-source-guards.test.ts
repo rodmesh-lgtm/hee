@@ -13,6 +13,7 @@ test("abandoned checkout recovery only cancels provider-less created intents", (
   assert.match(ledger, /"status"='created'/);
   assert.match(ledger, /"providerPaymentId" IS NULL/);
   assert.match(ledger, /"createdAt" <= \$\{abandonedBefore\}/);
-  assert.match(ledger, /"status"='canceled'/);
-  assert.match(ledger, /initiated\/authorized[\s\S]*canonical provider reconciliation/);
+  assert.match(ledger, /SET "status"='canceled'/);
+  assert.match(ledger, /"kind" IN \('initial','upgrade'\)/);
+  assert.match(ledger, /"status" IN \('created','initiated','authorized'\)/);
 });
