@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "../../app/actions/auth";
@@ -27,6 +27,7 @@ const pageTitles: Record<string, string> = {
 
 const MOBILE_DRAWER_ID = "hee-dashboard-mobile-drawer";
 const MOBILE_MENU_BUTTON_ID = "hee-dashboard-mobile-menu-button";
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), select:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function getCurrentPageTitle(pathname: string) {
   if (pageTitles[pathname]) return pageTitles[pathname];
@@ -52,19 +53,42 @@ function BusinessSwitcher({ businesses, businessId, compact = false }: { busines
 export function DashboardShell({ children, businessId, businessName, businessSlug, isPublished, businesses, showQaBadge = false, showAdminLink = false }: DashboardShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileDrawerRef = useRef<HTMLElement | null>(null);
+  const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const pageTitle = getCurrentPageTitle(pathname);
 
   useEffect(() => {
     if (!mobileOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(() => mobileCloseButtonRef.current?.focus(), 0);
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setMobileOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const drawer = mobileDrawerRef.current;
+      if (!drawer) return;
+      const focusable = Array.from(drawer.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
+      if (!focusable.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
+      window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
       document.getElementById(MOBILE_MENU_BUTTON_ID)?.focus();
@@ -96,8 +120,8 @@ export function DashboardShell({ children, businessId, businessName, businessSlu
           <main className="min-w-0 p-4 sm:p-5 xl:p-6">{children}</main>
         </div>
 
-        <aside id={MOBILE_DRAWER_ID} role="dialog" aria-modal={mobileOpen ? "true" : undefined} aria-label="قائمة لوحة التحكم" aria-hidden={!mobileOpen} inert={!mobileOpen} className={cn("fixed inset-y-0 right-0 z-40 flex w-[86vw] max-w-[300px] flex-col border-l border-[#eceffc] bg-white p-4 shadow-[0_25px_60px_-35px_rgba(48,46,89,.55)] transition-transform duration-200 lg:hidden", mobileOpen ? "translate-x-0" : "translate-x-full")}>
-          <div className="mb-5 flex items-center justify-between"><Link href="/dashboard" onClick={() => setMobileOpen(false)}><div className="text-[28px] font-black tracking-[-.06em] text-[#6f3bd2]">HEE</div><div className="text-xs text-slate-500">هوية أعمال رقمية</div></Link><button type="button" onClick={() => setMobileOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-[#eceffc] bg-white text-slate-600" aria-label="إغلاق القائمة"><X className="h-5 w-5" /></button></div>
+        <aside ref={mobileDrawerRef} id={MOBILE_DRAWER_ID} role="dialog" aria-modal={mobileOpen ? "true" : undefined} aria-label="قائمة لوحة التحكم" aria-hidden={!mobileOpen} inert={!mobileOpen} className={cn("fixed inset-y-0 right-0 z-40 flex w-[86vw] max-w-[300px] flex-col border-l border-[#eceffc] bg-white p-4 shadow-[0_25px_60px_-35px_rgba(48,46,89,.55)] transition-transform duration-200 lg:hidden", mobileOpen ? "translate-x-0" : "translate-x-full")}>
+          <div className="mb-5 flex items-center justify-between"><Link href="/dashboard" onClick={() => setMobileOpen(false)}><div className="text-[28px] font-black tracking-[-.06em] text-[#6f3bd2]">HEE</div><div className="text-xs text-slate-500">هوية أعمال رقمية</div></Link><button ref={mobileCloseButtonRef} type="button" onClick={() => setMobileOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-[#eceffc] bg-white text-slate-600" aria-label="إغلاق القائمة"><X className="h-5 w-5" /></button></div>
           <BusinessSwitcher businesses={businesses} businessId={businessId} compact />
           {businessSlug ? <Link href={isPublished ? `/${businessSlug}` : "/preview"} target="_blank" onClick={() => setMobileOpen(false)} className="mb-4 inline-flex items-center justify-center gap-2 rounded-xl bg-[#f5f1ff] px-4 py-3 text-sm font-black text-[#6543ce]"><ExternalLink className="h-4 w-4" />معاينة صفحتي</Link> : null}
           {showAdminLink ? <Link href="/admin" onClick={() => setMobileOpen(false)} className="mb-3 inline-flex items-center justify-center gap-2 rounded-xl border border-[#ddd5fb] bg-white px-4 py-3 text-sm font-black text-[#5d49cc]"><ShieldCheck className="h-4 w-4" />إدارة المنصة</Link> : null}
