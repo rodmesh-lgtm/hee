@@ -3,7 +3,7 @@ import { Lock, Sparkles } from "lucide-react";
 import { redirect } from "next/navigation";
 import { OfferDesigner } from "../../../../components/dashboard/offer-designer";
 import { getCurrentUser } from "../../../lib/auth";
-import { db } from "../../../lib/db";
+import { getActiveBusinessWithPlanForUser } from "../../../lib/active-business";
 import { getPlanEntitlements } from "../../../lib/plan-entitlements";
 import { getPublicBusinessUrlFromRequest } from "../../../lib/public-url";
 
@@ -11,7 +11,10 @@ export default async function DashboardOffersDesignerPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, include: { plan: true } });
+  // Paid tools must resolve the same active business as the rest of the dashboard.
+  // Selecting the first business owned by the user can show the wrong tenant's branding
+  // or entitlement when one account manages more than one business.
+  const business = await getActiveBusinessWithPlanForUser(user.id);
 
   if (!business) {
     return (
