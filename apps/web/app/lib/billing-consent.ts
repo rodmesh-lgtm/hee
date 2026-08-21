@@ -1,6 +1,5 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
 import { db } from "./db";
 import { TERMS_VERSION, PRIVACY_VERSION } from "./legal";
 
