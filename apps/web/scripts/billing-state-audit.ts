@@ -77,6 +77,24 @@ async function main() {
   `;
   drifts.push(...duplicateLive);
 
+  // A fast-ack webhook is safe only if its durable inbox cannot fail silently. Exhausted
+  // retries or a processing lease stuck for >15 minutes are operational payment drifts.
+  const webhookInboxDrift = await db.$queryRaw<DriftRow[]>`
+    SELECT COALESCE(bp."businessId", 'webhook:' || bwe."id") AS "businessId",
+           CASE
+             WHEN bwe."attempts" >= 12 THEN 'Moyasar webhook exhausted durable retry budget'
+             ELSE 'Moyasar webhook processing lease is stuck'
+           END AS detail
+    FROM "BillingWebhookEvent" bwe
+    LEFT JOIN "BillingPayment" bp ON bp."id"=bwe."billingPaymentId"
+    WHERE bwe."processedAt" IS NULL
+      AND (
+        bwe."attempts" >= 12
+        OR (bwe."processingStartedAt" IS NOT NULL AND bwe."processingStartedAt" < CURRENT_TIMESTAMP - INTERVAL '15 minutes')
+      )
+  `;
+  drifts.push(...webhookInboxDrift);
+
   if (drifts.length) {
     const summary = drifts.slice(0, 20).map((row) => `${row.businessId}: ${row.detail}`).join("\n");
     throw new Error(`Billing entitlement drift detected (${drifts.length})\n${summary}`);
