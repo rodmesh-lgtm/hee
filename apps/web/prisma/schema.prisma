@@ -393,6 +393,12 @@ model BillingPayment {
   attempt Int @default(1)
   nextRetryAt DateTime?
   paidAt DateTime?
+  receiptSellerLegalName String?
+  receiptSellerAddress String?
+  receiptTaxStatus String?
+  receiptNetAmount Int?
+  receiptVatAmount Int?
+  receiptIssuedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
