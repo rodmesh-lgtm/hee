@@ -81,11 +81,11 @@ test.describe.serial("public transactions workflow", () => {
     await pool?.end();
   });
 
-  test("creates a public booking and lets the owner confirm it from inbox", async ({ browser }) => {
+  test("creates a public booking and safely manages it from a mobile inbox", async ({ browser }) => {
     test.setTimeout(90_000);
     const seeded = await seed();
     const publicPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    const ownerPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const ownerPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
 
     try {
       await publicPage.goto(`${baseUrl}/${seeded.slug}`, { waitUntil: "domcontentloaded" });
@@ -140,6 +140,25 @@ test.describe.serial("public transactions workflow", () => {
       await ownerPage.getByRole("button", { name: "تأكيد الحجز" }).click();
       await expect.poll(async () => (await db.booking.findFirst({ where: { businessId: seeded.businessId }, select: { status: true } }))?.status, { timeout: 20_000 }).toBe("confirmed");
       await expect(ownerPage.getByText("مؤكد", { exact: true })).toBeVisible();
+
+      const cancelButton = ownerPage.getByRole("button", { name: "إلغاء", exact: true });
+      const cancelBox = await cancelButton.boundingBox();
+      expect(cancelBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+      ownerPage.once("dialog", async (dialog) => {
+        expect(dialog.message()).toContain("إلغاء هذا الحجز");
+        await dialog.dismiss();
+      });
+      await cancelButton.click();
+      await expect.poll(async () => (await db.booking.findFirst({ where: { businessId: seeded.businessId }, select: { status: true } }))?.status).toBe("confirmed");
+
+      ownerPage.once("dialog", async (dialog) => {
+        expect(dialog.message()).toContain("إلغاء هذا الحجز");
+        await dialog.accept();
+      });
+      await cancelButton.click();
+      await expect.poll(async () => (await db.booking.findFirst({ where: { businessId: seeded.businessId }, select: { status: true } }))?.status, { timeout: 20_000 }).toBe("cancelled");
+      await expect(ownerPage.getByText("ملغي", { exact: true })).toBeVisible();
     } finally {
       await publicPage.close();
       await ownerPage.close();
