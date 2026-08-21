@@ -1,0 +1,40 @@
+import Link from "next/link";
+import { requireAdmin } from "../../lib/admin";
+import { db } from "../../lib/db";
+import { resolveSupportRequestAdminAction } from "../../actions/support";
+
+function metadataObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+const categoryLabel: Record<string, string> = {
+  account: "الحساب",
+  billing: "الباقات والفوترة",
+  technical: "مشكلة تقنية",
+  privacy: "الخصوصية والبيانات",
+  other: "أخرى",
+};
+
+export default async function AdminSupportPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  await requireAdmin();
+  const params = await searchParams;
+  const done = Array.isArray(params?.done) ? params.done[0] : params?.done;
+  const error = Array.isArray(params?.error) ? params.error[0] : params?.error;
+
+  const events = await db.analyticsEvent.findMany({
+    where: { eventType: "support_requested" },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    select: { id: true, businessId: true, createdAt: true, metadata: true, business: { select: { name: true, slug: true, owner: { select: { name: true, email: true } } } } },
+  });
+  const tickets = events.filter((event) => String(metadataObject(event.metadata).status ?? "open") === "open");
+
+  return <main dir="rtl" className="min-h-screen bg-[#f7f8fb] px-4 py-8 text-slate-900 sm:px-6">
+    <div className="mx-auto w-full max-w-5xl">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-black text-[#1f2552]">دعم العملاء</h1><p className="mt-1 text-sm text-slate-500">طلبات الدعم المفتوحة المرتبطة بحسابات المنشآت.</p></div><Link href="/admin" className="rounded-xl border border-[#e1ddec] bg-white px-4 py-2.5 text-xs font-black text-[#5d49cc]">إدارة المنصة</Link></div>
+      {done ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">تم تحديث طلب الدعم.</div> : null}
+      {error ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">تعذر تحديث الطلب.</div> : null}
+      <section className="mt-5 space-y-3">{tickets.length ? tickets.map((ticket) => { const meta = metadataObject(ticket.metadata); const category = String(meta.category ?? "other"); return <article key={ticket.id} className="rounded-[22px] border border-[#e8e5f2] bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><b className="text-sm text-[#20264f]">{String(meta.subject ?? "طلب دعم")}</b><span className="rounded-full bg-[#f1edff] px-2.5 py-1 text-[10px] font-black text-[#5d49cc]">{categoryLabel[category] ?? categoryLabel.other}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{String(meta.message ?? "")}</p><div className="mt-3 text-[11px] leading-5 text-slate-400"><span>{ticket.business.name}</span><span> · </span><span>{ticket.business.owner.name}</span><span> · </span><span>{String(meta.requestedByEmail ?? ticket.business.owner.email)}</span><span> · </span><time>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(ticket.createdAt)}</time></div></div><form action={resolveSupportRequestAdminAction}><input type="hidden" name="eventId" value={ticket.id} /><button className="min-h-10 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white">تمت المعالجة</button></form></div></article>; }) : <div className="rounded-[22px] border border-[#e8e5f2] bg-white p-6 text-center text-sm text-slate-400">لا توجد طلبات دعم مفتوحة.</div>}</section>
+    </div>
+  </main>;
+}
