@@ -20,7 +20,7 @@ test("all provider reconciliation paths reject payments created after the HEE ch
   for (const path of [
     "app/api/billing/moyasar/created/route.ts",
     "app/api/billing/moyasar/callback/route.ts",
-    "app/api/billing/moyasar/webhook/route.ts",
+    "app/lib/moyasar-webhook-processing.ts",
   ]) {
     const value = source(path);
     assert.match(value, /providerPaymentCreatedWithinBillingWindow\(billing\.createdAt, payment\)/);
@@ -31,11 +31,11 @@ test("all provider reconciliation paths reject payments created after the HEE ch
 test("settled stale payments are reversed rather than granting an old-price entitlement", () => {
   const core = source("app/lib/moyasar-core.ts");
   const created = source("app/api/billing/moyasar/created/route.ts");
-  const webhook = source("app/api/billing/moyasar/webhook/route.ts");
+  const processor = source("app/lib/moyasar-webhook-processing.ts");
   assert.match(core, /\/payments\/\$\{encoded\}\/void/);
   assert.match(core, /\/payments\/\$\{encoded\}\/refund/);
   assert.match(created, /reverseMoyasarPayment\(payment\.id\)/);
-  assert.match(webhook, /reverseMoyasarPayment\(payment\.id\)/);
+  assert.match(processor, /reverseMoyasarPayment\(payment\.id\)/);
 });
 
 test("Moyasar form loads only after explicit renewal, cancellation and refund disclosure", () => {
@@ -65,7 +65,7 @@ test("checkout acceptance is stored as immutable versioned evidence and required
   for (const path of [
     "app/api/billing/moyasar/created/route.ts",
     "app/api/billing/moyasar/callback/route.ts",
-    "app/api/billing/moyasar/webhook/route.ts",
+    "app/lib/moyasar-webhook-processing.ts",
   ]) {
     const value = source(path);
     assert.match(value, /hasBillingCheckoutConsent\(billing\.id\)/);
