@@ -62,6 +62,7 @@ export default async function BillingManagePage({ searchParams }: { searchParams
     <section className="rounded-[24px] border border-[#e8e5f2] bg-white p-5">
       <div className="flex items-start justify-between gap-3"><div><h1 className="text-xl font-black text-[#1f2552]">إدارة الاشتراك والفوترة</h1><p className="mt-1 text-sm leading-6 text-slate-500">تابع الباقة والتجديد وسجل المدفوعات من مكان واحد.</p></div><span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><CreditCard className="h-5 w-5" /></span></div>
       {params.billing === "renewal-canceled" ? <div role="status" className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">تم إيقاف التجديد التلقائي. ستظل الباقة الحالية فعالة حتى نهاية الفترة المدفوعة.</div> : null}
+      {params.billing === "renewal-processing" ? <div role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 font-bold text-amber-900">بدأت معالجة دفعة التجديد بالفعل لدى مزود الدفع، لذلك لم ندّعِ إيقافها وهي قيد التنفيذ. انتظر ظهور نتيجتها في سجل المدفوعات، ثم أوقف التجديد التلقائي للدورة التالية.</div> : null}
     </section>
 
     <section className="grid gap-3 sm:grid-cols-2">
