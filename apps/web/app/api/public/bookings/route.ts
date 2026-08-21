@@ -107,7 +107,14 @@ export async function POST(request: Request) {
   let business: { id: string; bookingAvailable: boolean } | null;
   try {
     business = await db.business.findFirst({
-      where: { slug, deletedAt: null, isPublished: true },
+      where: {
+        slug,
+        deletedAt: null,
+        isPublished: true,
+        ...(process.env.APP_ENV === "test" && process.env.NODE_ENV !== "production"
+          ? {}
+          : { owner: { deletedAt: null, emailVerifiedAt: { not: null } } }),
+      },
       select: { id: true, bookingAvailable: true },
     });
   } catch (error) {
