@@ -38,6 +38,15 @@ function quantity(value: unknown) {
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100 ? parsed : null;
 }
 
+async function existingSubmission(businessId: string, idempotencyKey: string) {
+  const rows = await db.$queryRaw<Array<{ targetId: string | null }>>`
+    SELECT "targetId" FROM "PublicSubmission"
+    WHERE "businessId" = ${businessId} AND "scope" = 'order' AND "idempotencyKey" = ${idempotencyKey}
+    LIMIT 1
+  `;
+  return rows[0]?.targetId ?? null;
+}
+
 export async function POST(request: Request) {
   let body: OrderPayload;
   try {
@@ -76,11 +85,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "حدد منتجاً أو خدمة مطلوبة" }, { status: 400 });
   }
 
-  const business = await db.business.findFirst({
-    where: { slug, deletedAt: null, isPublished: true },
-    select: { id: true, acceptOnlineOrders: true },
-  });
+  let business: { id: string; acceptOnlineOrders: boolean } | null;
+  try {
+    business = await db.business.findFirst({
+      where: { slug, deletedAt: null, isPublished: true },
+      select: { id: true, acceptOnlineOrders: true },
+    });
+  } catch (error) {
+    console.error("[public-order] business_lookup_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
   if (!business) return NextResponse.json({ ok: false }, { status: 404 });
+
+  try {
+    const replayTargetId = await existingSubmission(business.id, idempotencyKey);
+    if (replayTargetId) {
+      return NextResponse.json({ ok: true, orderId: replayTargetId, replayed: true }, { status: 200 });
+    }
+  } catch (error) {
+    console.error("[public-order] idempotency_lookup_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
+
   if (items.length > 0 && !business.acceptOnlineOrders) {
     return NextResponse.json({ ok: false, error: "الطلبات الإلكترونية غير مفعلة لهذا النشاط" }, { status: 409 });
   }
