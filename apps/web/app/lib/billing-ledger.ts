@@ -26,9 +26,13 @@ export type BillingPaymentRow = {
 };
 
 function addMonth(value: Date) {
-  const next = new Date(value);
-  next.setUTCMonth(next.getUTCMonth() + 1);
-  return next;
+  const year = value.getUTCFullYear();
+  const month = value.getUTCMonth();
+  const day = value.getUTCDate();
+  const targetMonthStart = new Date(Date.UTC(year, month + 1, 1, value.getUTCHours(), value.getUTCMinutes(), value.getUTCSeconds(), value.getUTCMilliseconds()));
+  const lastTargetDay = new Date(Date.UTC(targetMonthStart.getUTCFullYear(), targetMonthStart.getUTCMonth() + 1, 0)).getUTCDate();
+  targetMonthStart.setUTCDate(Math.min(day, lastTargetDay));
+  return targetMonthStart;
 }
 
 function proratedUpgradeAmount(input: {
@@ -102,6 +106,13 @@ export async function createBillingIntent(userId: string, businessId: string, re
   });
 }
 
+export async function getBillingPaymentById(billingId: string) {
+  const rows = await db.$queryRaw<BillingPaymentRow[]>`
+    SELECT * FROM "BillingPayment" WHERE "id" = ${billingId} LIMIT 1
+  `;
+  return rows[0] ?? null;
+}
+
 export async function getOwnedBillingPayment(userId: string, billingId: string) {
   const rows = await db.$queryRaw<Array<BillingPaymentRow & { planCode: string; planName: string; monthlyPrice: number; ownerId: string }>>`
     SELECT bp.*, p."code" AS "planCode", p."name" AS "planName", p."monthlyPrice", b."ownerId"
@@ -164,7 +175,7 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
     if (metadataBusinessId && metadataBusinessId !== billing.businessId) return "mismatch" as const;
 
     const plan = await tx.businessPlan.findFirst({ where: { id: billing.planId, isActive: true } });
-    const business = await tx.business.findFirst({ where: { id: billing.businessId, deletedAt: null }, include: { plan: true } });
+    const business = await tx.business.findFirst({ where: { id: billing.businessId, deletedAt: null } });
     if (!plan || !business) return "missing-target" as const;
 
     const now = new Date();
