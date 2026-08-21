@@ -93,7 +93,7 @@ async function main() {
   await expectBlocked("Public submission idempotency uniqueness", () => db.$executeRaw`
     INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId")
     VALUES (${business.id}, 'order', ${`audit-${suffix}`}, ${order.id})
-  `;
+  `);
 
   await db.$executeRaw`DELETE FROM "PublicSubmission" WHERE "businessId" = ${business.id}`;
   await db.booking.delete({ where: { id: booking.id } });
