@@ -33,3 +33,15 @@ test("data export requires an authenticated owned active business and never expo
   assert.doesNotMatch(route, /sessions:\s*true/);
   assert.match(route, /MAX_EXPORT_BYTES/);
 });
+
+test("data export includes safe billing history without reusable payment secrets", () => {
+  const route = source("app/api/dashboard/export/route.ts");
+  assert.match(route, /db\.billingPayment\.findMany/);
+  assert.match(route, /db\.billingPaymentMethod\.findMany/);
+  assert.match(route, /last4:\s*true/);
+  assert.match(route, /brand:\s*true/);
+  assert.match(route, /billing:\s*\{\s*payments:\s*billingPayments,\s*paymentMethods/);
+  assert.doesNotMatch(route, /encryptedToken:\s*true/);
+  assert.doesNotMatch(route, /providerGivenId:\s*true/);
+  assert.doesNotMatch(route, /providerPaymentId:\s*true/);
+});
