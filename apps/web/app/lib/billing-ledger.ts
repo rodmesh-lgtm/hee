@@ -40,7 +40,9 @@ export async function createBillingIntent(userId: string, businessId: string, re
     const target = await tx.businessPlan.findUnique({ where: { code: requestedPlan } }); if (!target?.isActive || target.monthlyPrice <= 0) throw new Error("PLAN_UNAVAILABLE");
     const now = new Date();
     const currentSubscription = await tx.subscription.findFirst({ where: { businessId, status: "active", endsAt: { gt: now } }, include: { plan: true }, orderBy: { startsAt: "desc" } });
-    const open = await tx.$queryRaw<BillingPaymentRow[]>`SELECT * FROM "BillingPayment" WHERE "businessId"=${businessId} AND "kind" IN ('initial','upgrade') AND "status" IN ('created','initiated') ORDER BY "createdAt" DESC LIMIT 1 FOR UPDATE`;
+    // Authorized is still an in-flight provider state. Treat it as open so a second
+    // checkout cannot be created while the first charge may still settle.
+    const open = await tx.$queryRaw<BillingPaymentRow[]>`SELECT * FROM "BillingPayment" WHERE "businessId"=${businessId} AND "kind" IN ('initial','upgrade') AND "status" IN ('created','initiated','authorized') ORDER BY "createdAt" DESC LIMIT 1 FOR UPDATE`;
     if (open[0]) { if (open[0].planId !== target.id) throw new Error("OTHER_CHECKOUT_PENDING"); return { payment: open[0], plan: target, currentSubscription }; }
     let amount = target.monthlyPrice * 100; let kind: BillingPaymentRow["kind"] = "initial";
     if (currentSubscription?.endsAt && currentCode !== "FREE") { const prorated = proratedUpgradeAmount({ currentMonthlySar: currentSubscription.plan.monthlyPrice, targetMonthlySar: target.monthlyPrice, startsAt: currentSubscription.startsAt, endsAt: currentSubscription.endsAt, now }); if (prorated > 0) amount = prorated; kind = "upgrade"; }
@@ -66,8 +68,6 @@ export async function handleRefundedMoyasarPayment(billingId:string,payment:Moya
     const active=await activeSubscriptionBillingState(tx,billing.businessId);const paidSubscriptionMatches=Boolean(active&&billing.subscriptionId&&active.id===billing.subscriptionId);
     await tx.$executeRaw`UPDATE "BillingPayment" SET "providerPaymentId"=${payment.id},"status"='refunded',"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${billing.id}`;
     if(billing.status==="paid"&&active&&paidSubscriptionMatches){const now=new Date();await tx.$executeRaw`UPDATE "Subscription" SET "status"='canceled',"autoRenew"=false,"endsAt"=LEAST(COALESCE("endsAt",CURRENT_TIMESTAMP),CURRENT_TIMESTAMP),"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${active.id} AND "status"='active'`;
-      // A prior entitlement is restorable only when its own provider-backed payment is still paid.
-      // This prevents out-of-order refunds from resurrecting an entitlement whose payment was already refunded.
       const prior=await tx.$queryRaw<Array<{id:string;planId:string}>>`
         SELECT s."id",s."planId"
         FROM "Subscription" s
