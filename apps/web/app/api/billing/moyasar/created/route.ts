@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUserForWrites } from "../../../../lib/auth";
 import { activateVerifiedMoyasarPayment, getOwnedBillingPayment, markBillingPaymentState } from "../../../../lib/billing-ledger";
 import { fetchMoyasarPayment } from "../../../../lib/moyasar";
+import { consumePublicWriteLimit } from "../../../../lib/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../../lib/request-body";
 
 type Payload = { billingId?: unknown; paymentId?: unknown };
@@ -28,6 +29,14 @@ export async function POST(request: Request) {
   if (billing.providerPaymentId && billing.providerPaymentId !== paymentId) {
     console.error("[billing-created] duplicate_provider_payment", { billingId });
     return NextResponse.json({ ok: false }, { status: 409 });
+  }
+
+  try {
+    const rate = await consumePublicWriteLimit({ scope: "billing-reconcile", businessId: billing.businessId, identity: user.id, limit: 30, windowSeconds: 600 });
+    if (!rate.allowed) return NextResponse.json({ ok: false }, { status: 429, headers: { "Retry-After": String(Math.max(1, rate.retryAfterSeconds)) } });
+  } catch (error) {
+    console.error("[billing-created] rate_limit_failed", { billingId, error });
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
   }
 
   try {
