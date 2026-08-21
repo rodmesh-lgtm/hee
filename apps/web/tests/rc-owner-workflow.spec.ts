@@ -27,7 +27,14 @@ async function seedBusiness(): Promise<Seeded> {
     create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true },
   });
   const user = await db.user.create({
-    data: { name: "RC Owner", email: `rc-owner-${suffix}@hee.test`, passwordHash: "rc-only" },
+    data: {
+      name: "RC Owner",
+      email: `rc-owner-${suffix}@hee.test`,
+      passwordHash: "rc-only",
+      // This workflow tests the editor/publication lifecycle, not mailbox proof. Make
+      // its precondition explicit in the fixture instead of weakening production code.
+      emailVerifiedAt: new Date(),
+    },
   });
   const slug = `rc-owner-${suffix}`;
   const business = await db.business.create({
@@ -181,8 +188,6 @@ test.describe.serial("RC owner workflow", () => {
 
       await assertResponsive(browser, seeded);
 
-      // Unpublishing must require explicit confirmation and change visibility only.
-      // Customer content and files must remain after the confirmed action.
       await page.goto(`${baseUrl}/dashboard/my-page`, { waitUntil: "domcontentloaded" });
       page.once("dialog", async (dialog) => {
         expect(dialog.type()).toBe("confirm");
