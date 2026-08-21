@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { db } from "../../../../lib/db";
+import { hasBillingCheckoutConsent } from "../../../../lib/billing-consent";
 import { providerPaymentCreatedWithinBillingWindow } from "../../../../lib/billing-checkout-integrity";
 import { activateVerifiedMoyasarPayment, findBillingPaymentByProviderId, getBillingPaymentById, markBillingPaymentState } from "../../../../lib/billing-ledger";
 import { fetchMoyasarPayment, reverseMoyasarPayment, verifyMoyasarWebhookSecret, type MoyasarWebhook } from "../../../../lib/moyasar";
@@ -102,6 +103,13 @@ export async function POST(request: Request) {
     }
 
     if (payment.status === "paid") {
+      if (billing.kind !== "renewal" && !(await hasBillingCheckoutConsent(billing.id))) {
+        console.error("[moyasar-webhook] missing_checkout_consent", { eventId: event.id, billingId: billing.id });
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+        await completeEvent(claimed.id, billing.id);
+        return NextResponse.json({ ok: true, reversed: true });
+      }
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
       if (result !== "activated" && result !== "already-paid") throw new Error(`ACTIVATION_${result}`);
     } else {
