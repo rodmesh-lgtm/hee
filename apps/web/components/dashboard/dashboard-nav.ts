@@ -3,6 +3,7 @@ import {
   Building2,
   Home,
   Inbox,
+  LifeBuoy,
   Palette,
   Settings2,
   UserRound,
@@ -25,5 +26,6 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "المظهر", href: "/dashboard/branding", icon: Palette },
   { label: "الفروع والفريق", href: "/dashboard/directory", icon: Building2 },
   { label: "الأداء", href: "/dashboard/analytics", icon: BarChart3 },
+  { label: "الدعم والمساعدة", href: "/dashboard/support", icon: LifeBuoy },
   { label: "الحساب والباقات", href: "/dashboard/settings", icon: Settings2 },
 ];
