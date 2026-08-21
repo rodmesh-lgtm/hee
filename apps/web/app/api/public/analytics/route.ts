@@ -22,7 +22,15 @@ export async function POST(request: Request) {
   if (!slug || !ALLOWED_EVENTS.has(eventType)) return NextResponse.json({ ok: false }, { status: 400 });
 
   try {
-    const business = await db.business.findFirst({ where: { slug, deletedAt: null, isPublished: true }, select: { id: true } });
+    const business = await db.business.findFirst({
+      where: {
+        slug,
+        deletedAt: null,
+        isPublished: true,
+        owner: { deletedAt: null, emailVerifiedAt: { not: null } },
+      },
+      select: { id: true },
+    });
     if (!business) return NextResponse.json({ ok: false }, { status: 404 });
 
     // Missing proxy/IP headers must not disable throttling. Group such traffic into a

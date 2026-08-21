@@ -20,12 +20,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     getActiveBusinessForUser(user.id),
     getOwnedBusinessSummaries(user.id),
   ]);
+  const effectivelyPublished = Boolean(business?.isPublished && user.emailVerifiedAt);
 
   return <DashboardShell
     businessId={business?.id ?? null}
     businessName={business?.name ?? "نشاط جديد"}
     businessSlug={business?.slug ?? null}
-    isPublished={business?.isPublished ?? false}
+    isPublished={effectivelyPublished}
     businesses={businesses.map(({ id, name, slug }) => ({ id, name, slug }))}
     showQaBadge={Boolean(qaAuditUser)}
     showAdminLink={!qaAuditUser && isAdminEmail(user.email)}

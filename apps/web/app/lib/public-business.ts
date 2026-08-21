@@ -4,7 +4,12 @@ import { db } from "./db";
 
 export async function getBusinessPublic(slug: string) {
   return db.business.findFirst({
-    where: { slug, deletedAt: null, isPublished: true },
+    where: {
+      slug,
+      deletedAt: null,
+      isPublished: true,
+      owner: { deletedAt: null, emailVerifiedAt: { not: null } },
+    },
     include: {
       services: {
         where: { isActive: true, deletedAt: null },

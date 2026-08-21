@@ -8,6 +8,7 @@ function isSensitivePrivatePath(pathname: string) {
     || pathname === "/register"
     || pathname === "/forgot-password"
     || pathname === "/reset-password"
+    || pathname === "/verify-email"
     || pathname === "/onboarding"
     || pathname === "/preview";
 }
@@ -26,6 +27,10 @@ export function proxy(request: NextRequest) {
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
     response.headers.set("Pragma", "no-cache");
     response.headers.set("Expires", "0");
+    // Verification/reset tokens may live in the query string. Do not let same-origin
+    // navigation, external links, browser extensions, or intermediary logs receive the
+    // source URL through the Referer header.
+    response.headers.set("Referrer-Policy", "no-referrer");
   }
   return response;
 }
@@ -39,6 +44,7 @@ export const config = {
     "/register",
     "/forgot-password",
     "/reset-password",
+    "/verify-email",
     "/onboarding",
     "/preview",
   ],

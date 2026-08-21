@@ -76,6 +76,14 @@ async function complete(request: Request, provider: OAuthProvider, input: { stat
     const user = await resolveOAuthUser(provider, claims, provider === "apple" ? parseAppleUser(input.appleUser) : null);
     if (user.deletedAt) return errorRedirect(request, "authentication-failed", registration);
 
+    // exchangeOAuthCode only returns after signature, issuer, audience, nonce, expiry
+    // and provider email_verified checks. A successful provider login therefore proves
+    // current control of this account email and may satisfy the publication gate.
+    if (!user.emailVerifiedAt) {
+      await db.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
+      await db.oAuthState.deleteMany({ where: { provider: "email-verification", nonce: user.id } });
+    }
+
     await clearQaAuditSession();
     await createSession(user.id);
     const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, select: { onboardingCompleted: true, onboardingStep: true, isPublished: true } });

@@ -109,3 +109,5 @@ jobs:
         run: npm run test:directory
       - name: Run public transactions workflow
         run: npm run test:transactions
+      - name: Run email ownership verification workflow
+        run: npm run test:email-verification

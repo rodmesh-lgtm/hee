@@ -46,8 +46,18 @@ async function seedOptionalDemo() {
   const passwordHash = await hash(password, 10);
   const user = await prisma.user.upsert({
     where: { email },
-    update: { name: "حساب HEE التجريبي", passwordHash, deletedAt: null },
-    create: { name: "حساب HEE التجريبي", email, passwordHash },
+    update: {
+      name: "حساب HEE التجريبي",
+      passwordHash,
+      emailVerifiedAt: new Date(),
+      deletedAt: null,
+    },
+    create: {
+      name: "حساب HEE التجريبي",
+      email,
+      passwordHash,
+      emailVerifiedAt: new Date(),
+    },
   });
 
   await prisma.business.upsert({

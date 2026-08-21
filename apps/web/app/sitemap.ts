@@ -13,7 +13,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const businesses = await db.business.findMany({
-      where: { isPublished: true, deletedAt: null },
+      where: {
+        isPublished: true,
+        deletedAt: null,
+        owner: { deletedAt: null, emailVerifiedAt: { not: null } },
+      },
       select: { slug: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     });

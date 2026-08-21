@@ -11,14 +11,22 @@ import { isBusinessSlugReserved } from "../lib/slug-alias";
 export type PublicationActionState = { error?: string; success?: string };
 
 export async function publishBusinessAction(previous: PublicationActionState, formData: FormData): Promise<PublicationActionState> {
-  // The React action-state contract supplies both arguments even though publication
-  // currently derives all authoritative data from the authenticated server context.
   void previous;
   void formData;
 
   const business = await getOwnedBusinessForWrite();
   if (!business) return { error: "لا يوجد نشاط جاهز للنشر" };
   if (!business.name?.trim() || business.name.trim().length < 2) return { error: "اسم النشاط مطلوب قبل النشر" };
+
+  const owner = await db.user.findFirst({
+    where: { id: business.ownerId, deletedAt: null },
+    select: { emailVerifiedAt: true },
+  });
+  // Publication has one invariant in every runtime. Tests that exercise an already
+  // verified owner must seed that state explicitly rather than bypassing this gate.
+  if (!owner?.emailVerifiedAt) {
+    return { error: "أكد ملكية بريد حسابك من «الحساب والباقات» قبل نشر الصفحة" };
+  }
 
   const slug = normalizePublicSlug(business.slug);
   if (!slug || !isValidPublicSlug(slug)) return { error: "الرابط العام غير صالح" };

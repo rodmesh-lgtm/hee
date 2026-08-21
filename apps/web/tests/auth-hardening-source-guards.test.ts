@@ -37,6 +37,20 @@ test("first-time OAuth login cannot silently attach to a password account by ema
   assert.match(callback, /if \(!activeIdentity && !safeEmailOnlyUser\) return errorRedirect\(request, "authentication-failed"\)/);
 });
 
+test("production OAuth redirect_uri is pinned to the canonical HEE origin", () => {
+  const oauth = source("app/lib/oauth.ts");
+  assert.match(oauth, /if \(process\.env\.VERCEL_ENV === "production"\) return "https:\/\/hee\.sa"/);
+  assert.match(oauth, /return `\$\{oauthOrigin\(\)\}\/api\/auth\/oauth\/\$\{provider\}\/callback`/);
+});
+
+test("password reset links are canonical in production but preview-safe", () => {
+  const reset = source("app/actions/password-reset.ts");
+  assert.match(reset, /const vercelEnv = String\(process\.env\.VERCEL_ENV \?\? ""\)\.toLowerCase\(\)/);
+  assert.match(reset, /vercelEnv === "production" \|\| \(!vercelEnv && process\.env\.NODE_ENV === "production"\)/);
+  assert.match(reset, /hostname\.endsWith\("\.vercel\.app"\)/);
+  assert.match(reset, /return "https:\/\/hee\.sa"/);
+});
+
 test("real runtimes do not authenticate plaintext legacy database sessions", () => {
   const auth = source("app/lib/auth.ts");
   assert.match(auth, /function allowLegacyPlaintextSessions\(\) \{ return process\.env\.APP_ENV === "test"; \}/);
@@ -46,12 +60,15 @@ test("real runtimes do not authenticate plaintext legacy database sessions", () 
   assert.match(auth, /SESSION_COOKIE = "__Host-hee_session"/);
 });
 
-test("sensitive owner and admin pages are private no-store and noindex", () => {
+test("sensitive owner and token pages are private no-store, noindex, and no-referrer", () => {
   const proxy = source("proxy.ts");
   assert.match(proxy, /pathname\.startsWith\("\/dashboard"\)/);
   assert.match(proxy, /pathname\.startsWith\("\/admin"\)/);
+  assert.match(proxy, /pathname === "\/verify-email"/);
+  assert.match(proxy, /pathname === "\/reset-password"/);
   assert.match(proxy, /Cache-Control", "private, no-store, max-age=0"/);
   assert.match(proxy, /X-Robots-Tag", "noindex, nofollow"/);
+  assert.match(proxy, /Referrer-Policy", "no-referrer"/);
 });
 
 test("JSON write endpoints enforce streaming body limits before parsing", () => {
