@@ -52,12 +52,15 @@ test("real runtimes do not authenticate plaintext legacy database sessions", () 
   assert.match(auth, /SESSION_COOKIE = "__Host-hee_session"/);
 });
 
-test("sensitive owner and admin pages are private no-store and noindex", () => {
+test("sensitive owner and token pages are private no-store, noindex, and no-referrer", () => {
   const proxy = source("proxy.ts");
   assert.match(proxy, /pathname\.startsWith\("\/dashboard"\)/);
   assert.match(proxy, /pathname\.startsWith\("\/admin"\)/);
+  assert.match(proxy, /pathname === "\/verify-email"/);
+  assert.match(proxy, /pathname === "\/reset-password"/);
   assert.match(proxy, /Cache-Control", "private, no-store, max-age=0"/);
   assert.match(proxy, /X-Robots-Tag", "noindex, nofollow"/);
+  assert.match(proxy, /Referrer-Policy", "no-referrer"/);
 });
 
 test("JSON write endpoints enforce streaming body limits before parsing", () => {
