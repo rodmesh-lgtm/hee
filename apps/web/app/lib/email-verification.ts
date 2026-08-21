@@ -11,9 +11,10 @@ function hashToken(token: string) {
 }
 
 function verificationOrigin() {
-  // Production links must never inherit a mutable preview/custom environment origin.
-  // This also protects a non-Vercel production runtime where VERCEL_ENV is absent.
-  if (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") return "https://hee.sa";
+  // Production links are canonical. Vercel preview runtimes also use NODE_ENV=production,
+  // so only fall back to that signal when VERCEL_ENV is absent (for non-Vercel hosting).
+  const vercelEnv = String(process.env.VERCEL_ENV ?? "").toLowerCase();
+  if (vercelEnv === "production" || (!vercelEnv && process.env.NODE_ENV === "production")) return "https://hee.sa";
   const candidate = String(
     process.env.NEXT_PUBLIC_SITE_URL
       || process.env.NEXT_PUBLIC_APP_URL
@@ -23,11 +24,14 @@ function verificationOrigin() {
   try {
     const url = new URL(candidate);
     const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    if (url.protocol !== "https:" && !(local && url.protocol === "http:")) return "https://hee.sa";
-    return url.origin;
+    const preview = url.hostname.endsWith(".vercel.app") || url.hostname.endsWith(".app.github.dev");
+    if ((url.protocol === "https:" && (preview || url.hostname === "hee.sa" || url.hostname === "www.hee.sa")) || (local && url.protocol === "http:")) {
+      return url.origin;
+    }
   } catch {
-    return "https://hee.sa";
+    // Fall through to the canonical origin.
   }
+  return "https://hee.sa";
 }
 
 export function emailVerificationConfigured() {
