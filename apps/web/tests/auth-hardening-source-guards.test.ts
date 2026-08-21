@@ -37,6 +37,12 @@ test("first-time OAuth login cannot silently attach to a password account by ema
   assert.match(callback, /if \(!activeIdentity && !safeEmailOnlyUser\) return errorRedirect\(request, "authentication-failed"\)/);
 });
 
+test("production OAuth redirect_uri is pinned to the canonical HEE origin", () => {
+  const oauth = source("app/lib/oauth.ts");
+  assert.match(oauth, /if \(process\.env\.VERCEL_ENV === "production"\) return "https:\/\/hee\.sa"/);
+  assert.match(oauth, /return `\$\{oauthOrigin\(\)\}\/api\/auth\/oauth\/\$\{provider\}\/callback`/);
+});
+
 test("real runtimes do not authenticate plaintext legacy database sessions", () => {
   const auth = source("app/lib/auth.ts");
   assert.match(auth, /function allowLegacyPlaintextSessions\(\) \{ return process\.env\.APP_ENV === "test"; \}/);
