@@ -48,3 +48,15 @@ function createPrismaClient() {
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 // Reuse one Prisma client and pg pool per warm Node.js isolate in development and production.
 globalForPrisma.prisma = prisma;
+
+// Standalone cron/systemd workers must close both Prisma and the underlying pg Pool or
+// the Node process can remain alive after work completes. Application request handlers
+// never call this helper; it is intentionally reserved for one-shot operational scripts.
+export async function closePrismaForWorker() {
+  const client = globalForPrisma.prisma;
+  const pool = globalForPrisma.pgPool;
+  globalForPrisma.prisma = undefined;
+  globalForPrisma.pgPool = undefined;
+  if (client) await client.$disconnect();
+  if (pool) await pool.end();
+}
