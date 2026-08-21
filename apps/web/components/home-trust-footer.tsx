@@ -14,7 +14,7 @@ export function HomeTrustFooter() {
           <Link href="/terms" className="min-h-11 inline-flex items-center hover:text-[#6f3bd2]">الشروط والأحكام</Link>
           <Link href="/privacy" className="min-h-11 inline-flex items-center hover:text-[#6f3bd2]">سياسة الخصوصية</Link>
           <Link href="/contact" className="min-h-11 inline-flex items-center hover:text-[#6f3bd2]">تواصل معنا</Link>
-          <Link href="/login" className="min-h-11 inline-flex items-center hover:text-[#6f3bd2]">إدارة الاشتراك</Link>
+          <Link href="/dashboard/billing/manage" className="min-h-11 inline-flex items-center hover:text-[#6f3bd2]">إدارة الاشتراك</Link>
         </nav>
       </div>
     </footer>
