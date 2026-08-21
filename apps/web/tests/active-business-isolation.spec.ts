@@ -92,7 +92,7 @@ test.describe.serial("active business tenant isolation", () => {
         await expect(serviceNameInput(page, "خدمة ألف الخاصة")).toHaveCount(0);
         await expect(serviceNameInput(page, "خدمة المهاجم السرية")).toHaveCount(0);
 
-        const addForm = page.getByRole("heading", { name: "إضافة خدمة" }).locator("xpath=../form");
+        const addForm = page.getByRole("form", { name: "إضافة خدمة" });
         await addForm.getByLabel("اسم الخدمة").fill("خدمة باء الجديدة المعزولة");
         await addForm.getByRole("button", { name: "إضافة" }).click({ timeout: 10_000 });
         await expect.poll(async () => db.service.count({ where: { businessId: seeded.businessBId, name: "خدمة باء الجديدة المعزولة" } }), { timeout: 10_000 }).toBe(1);
