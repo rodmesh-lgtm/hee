@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { db } from "../../../../lib/db";
+import { providerPaymentCreatedWithinBillingWindow } from "../../../../lib/billing-checkout-integrity";
 import { activateVerifiedMoyasarPayment, findBillingPaymentByProviderId, getBillingPaymentById, markBillingPaymentState } from "../../../../lib/billing-ledger";
-import { fetchMoyasarPayment, verifyMoyasarWebhookSecret, type MoyasarWebhook } from "../../../../lib/moyasar";
+import { fetchMoyasarPayment, reverseMoyasarPayment, verifyMoyasarWebhookSecret, type MoyasarWebhook } from "../../../../lib/moyasar";
 import { readBoundedText } from "../../../../lib/request-body";
 
 const MAX_WEBHOOK_BYTES = 128 * 1024;
@@ -70,8 +71,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Entitlements are never granted from webhook JSON alone. Re-fetch the canonical
-    // payment with the secret key and verify its amount, currency and HEE metadata.
     const payment = await fetchMoyasarPayment(providerPaymentId);
     let billing = await findBillingPaymentByProviderId(payment.id);
     if (!billing) {
@@ -92,6 +91,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false }, { status: 409 });
     }
 
+    if (!billing.providerPaymentId && !providerPaymentCreatedWithinBillingWindow(billing.createdAt, payment)) {
+      console.error("[moyasar-webhook] stale_checkout_payment", { eventId: event.id, billingId: billing.id, providerPaymentId: payment.id, providerStatus: payment.status });
+      if (["paid", "captured", "authorized"].includes(payment.status)) {
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+      }
+      await completeEvent(claimed.id, billing.id);
+      return NextResponse.json({ ok: true, stale: true });
+    }
+
     if (payment.status === "paid") {
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
       if (result !== "activated" && result !== "already-paid") throw new Error(`ACTIVATION_${result}`);
@@ -102,8 +111,6 @@ export async function POST(request: Request) {
     await completeEvent(claimed.id, billing.id);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    // processedAt stays null. A later delivery with the same provider event ID reuses
-    // this row and retries processing instead of being mistaken for a completed duplicate.
     console.error("[moyasar-webhook] processing_failed", {
       eventId: event.id,
       error: error instanceof Error ? error.message : "unknown",
