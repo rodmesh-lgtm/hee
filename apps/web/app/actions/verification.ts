@@ -33,7 +33,25 @@ export async function requestVerificationAction() {
     const currentBusiness = await tx.business.findFirst({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, include: { plan: true } });
     if (!currentBusiness) return "missing" as const;
     if (currentBusiness.isVerified) return "verified" as const;
-    if (!getPlanEntitlements(currentBusiness.plan?.code).verificationEligible) return "upgrade" as const;
+
+    const currentEntitlements = getPlanEntitlements(currentBusiness.plan?.code);
+    if (!currentEntitlements.verificationEligible) return "upgrade" as const;
+
+    // The persisted Business.planId may lag behind subscription expiry if a renewal
+    // worker is temporarily unavailable. A paid-only action must therefore re-prove
+    // the live entitlement inside the same transaction instead of trusting planId.
+    if (currentBusiness.plan?.code && currentBusiness.plan.code !== "FREE") {
+      const activePaidSubscription = await tx.subscription.findFirst({
+        where: {
+          businessId: currentBusiness.id,
+          planId: currentBusiness.plan.id,
+          status: "active",
+          endsAt: { gt: new Date() },
+        },
+        select: { id: true },
+      });
+      if (!activePaidSubscription) return "upgrade" as const;
+    }
 
     const pending = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT "id"
@@ -54,8 +72,6 @@ export async function requestVerificationAction() {
   redirect("/dashboard/branding?verification=requested");
 }
 
-// Server-action exports are callable endpoints. Never accept a caller-supplied businessId
-// for tenant-private status reads; resolve the business from the authenticated session.
 export async function hasPendingVerificationRequest() {
   const business = await getOwnedBusinessForRead();
   if (!business) return false;
