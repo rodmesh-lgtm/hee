@@ -49,6 +49,7 @@ CREATE TABLE "BillingPayment" (
 
 CREATE UNIQUE INDEX "BillingPayment_provider_payment_unique" ON "BillingPayment"("providerPaymentId") WHERE "providerPaymentId" IS NOT NULL;
 CREATE UNIQUE INDEX "BillingPayment_provider_given_unique" ON "BillingPayment"("providerGivenId");
+CREATE UNIQUE INDEX "BillingPayment_renewal_attempt_unique" ON "BillingPayment"("subscriptionId", "attempt") WHERE "kind" = 'renewal' AND "subscriptionId" IS NOT NULL;
 CREATE INDEX "BillingPayment_business_created_idx" ON "BillingPayment"("businessId", "createdAt" DESC);
 CREATE INDEX "BillingPayment_retry_idx" ON "BillingPayment"("status", "nextRetryAt") WHERE "nextRetryAt" IS NOT NULL;
 
