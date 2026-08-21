@@ -35,6 +35,14 @@ CREATE TABLE "BillingPayment" (
   "attempt" INTEGER NOT NULL DEFAULT 1,
   "nextRetryAt" TIMESTAMP(3),
   "paidAt" TIMESTAMP(3),
+  -- Immutable receipt snapshot captured when a payment is first activated. Historical
+  -- receipts must not change when seller environment/configuration changes later.
+  "receiptSellerLegalName" TEXT,
+  "receiptSellerAddress" TEXT,
+  "receiptTaxStatus" TEXT,
+  "receiptNetAmount" INTEGER,
+  "receiptVatAmount" INTEGER,
+  "receiptIssuedAt" TIMESTAMP(3),
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "BillingPayment_pkey" PRIMARY KEY ("id"),
@@ -45,7 +53,12 @@ CREATE TABLE "BillingPayment" (
   CONSTRAINT "BillingPayment_currency_sar" CHECK ("currency" = 'SAR'),
   CONSTRAINT "BillingPayment_kind_allowed" CHECK ("kind" IN ('initial','renewal','upgrade')),
   CONSTRAINT "BillingPayment_status_allowed" CHECK ("status" IN ('created','initiated','paid','failed','refunded','voided','authorized','canceled')),
-  CONSTRAINT "BillingPayment_attempt_positive" CHECK ("attempt" >= 1 AND "attempt" <= 10)
+  CONSTRAINT "BillingPayment_attempt_positive" CHECK ("attempt" >= 1 AND "attempt" <= 10),
+  CONSTRAINT "BillingPayment_receipt_tax_status_allowed" CHECK ("receiptTaxStatus" IS NULL OR "receiptTaxStatus" IN ('not_registered')),
+  CONSTRAINT "BillingPayment_receipt_amounts_valid" CHECK (
+    ("receiptNetAmount" IS NULL AND "receiptVatAmount" IS NULL AND "receiptIssuedAt" IS NULL)
+    OR ("receiptNetAmount" = "amount" AND "receiptVatAmount" = 0 AND "receiptIssuedAt" IS NOT NULL)
+  )
 );
 
 CREATE UNIQUE INDEX "BillingPayment_provider_payment_unique" ON "BillingPayment"("providerPaymentId") WHERE "providerPaymentId" IS NOT NULL;
@@ -77,8 +90,6 @@ ALTER TABLE "Subscription"
   ADD COLUMN "paymentMethodId" TEXT;
 
 CREATE UNIQUE INDEX "Subscription_id_business_unique" ON "Subscription"("id", "businessId");
--- Active and past_due are both live entitlement states. There must never be two of
--- either combination for one tenant, even if application code regresses later.
 CREATE UNIQUE INDEX "Subscription_one_live_per_business" ON "Subscription"("businessId") WHERE "status" IN ('active','past_due');
 
 ALTER TABLE "Subscription"
