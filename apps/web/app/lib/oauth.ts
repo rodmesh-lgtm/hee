@@ -33,9 +33,24 @@ export function providerConfigured(provider: OAuthProvider) {
   return Boolean(process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_KEY_ID && process.env.APPLE_PRIVATE_KEY);
 }
 
+function oauthOrigin() {
+  // The redirect_uri registered with Google/Apple is an authentication boundary.
+  // Production must never drift because of a stale or compromised generic app URL env var.
+  if (process.env.VERCEL_ENV === "production") return "https://hee.sa";
+  const candidate = String(process.env.AUTH_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim();
+  try {
+    const url = new URL(candidate);
+    const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    const preview = url.hostname.endsWith(".vercel.app") || url.hostname.endsWith(".app.github.dev");
+    if ((url.protocol === "https:" && (preview || url.hostname === "hee.sa" || url.hostname === "www.hee.sa")) || (local && url.protocol === "http:")) return url.origin;
+  } catch {
+    // Fall through to a safe canonical origin.
+  }
+  return "https://hee.sa";
+}
+
 export function oauthCallbackUrl(provider: OAuthProvider) {
-  const origin = (process.env.AUTH_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || "https://hee.sa").replace(/\/$/, "");
-  return `${origin}/api/auth/oauth/${provider}/callback`;
+  return `${oauthOrigin()}/api/auth/oauth/${provider}/callback`;
 }
 
 export async function createOAuthAuthorization(provider: OAuthProvider, redirectTo?: string | null) {
