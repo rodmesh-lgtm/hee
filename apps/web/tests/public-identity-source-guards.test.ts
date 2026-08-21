@@ -37,6 +37,18 @@ test("public identity protection has no test-environment bypass", () => {
   assert.doesNotMatch(publication, /APP_ENV/);
 });
 
+test("owner UI uses effective public visibility rather than the raw persisted flag", () => {
+  for (const path of [
+    "app/dashboard/layout.tsx",
+    "app/dashboard/page.tsx",
+    "app/dashboard/my-page/page.tsx",
+    "app/dashboard/settings/page.tsx",
+  ]) {
+    const value = source(path);
+    assert.match(value, /isPublished\s*&&\s*user\.emailVerifiedAt/, `${path} must combine publication intent with mailbox verification`);
+  }
+});
+
 test("published test fixtures declare verification explicitly", () => {
   for (const path of [
     "prisma/seed.ts",
