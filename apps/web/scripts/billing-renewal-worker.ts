@@ -9,7 +9,9 @@ import { createMoyasarTokenPayment, decryptProviderToken, fetchMoyasarPayment, t
 const MAX_ATTEMPTS = 3;
 const FAILURE_RETRY_MS = 24 * 60 * 60 * 1000;
 const RECONCILE_RETRY_MS = 15 * 60 * 1000;
-const DUE_WINDOW_MS = 72 * 60 * 60 * 1000;
+// Never charge days before the paid-through timestamp. A renewal becomes eligible only
+// when the current entitlement is actually due, so customers retain the full period they bought.
+const DUE_WINDOW_MS = 0;
 
 type DueSubscription = {
   id: string;
@@ -53,6 +55,10 @@ function addMonth(value: Date) {
 const pool = new Pool({ connectionString: required("DATABASE_URL"), max: 4 });
 const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
+function businessLockKey(businessId: string) {
+  return `billing-business:${businessId}`;
+}
+
 async function expireEndedNonRenewingSubscriptions() {
   const rows = await db.$queryRaw<Array<{ id: string; businessId: string; planId: string }>>`
     SELECT s."id", s."businessId", s."planId"
@@ -71,15 +77,13 @@ async function expireEndedNonRenewingSubscriptions() {
   if (!free) throw new Error("FREE_PLAN_MISSING");
   for (const row of rows) {
     await db.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`subscription-expire:${row.businessId}`}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${businessLockKey(row.businessId)}))`;
       const changed = await tx.$executeRaw`
         UPDATE "Subscription"
         SET "status" = 'canceled', "updatedAt" = CURRENT_TIMESTAMP
         WHERE "id" = ${row.id} AND "status" = 'active' AND "autoRenew" = false AND "endsAt" <= CURRENT_TIMESTAMP
       `;
       if (changed) {
-        // Only remove this paid entitlement when the business still points at its plan.
-        // A newer payment/upgrade that already changed planId must win the race.
         await tx.business.updateMany({
           where: { id: row.businessId, deletedAt: null, planId: row.planId },
           data: { planId: free.id },
@@ -121,21 +125,34 @@ async function latestAttempt(subscriptionId: string) {
 }
 
 async function createAttempt(sub: DueSubscription, attempt: number) {
-  const id = randomUUID();
-  const providerGivenId = randomUUID();
-  const amount = sub.monthlyPrice * 100;
-  const rows = await db.$queryRaw<RenewalAttempt[]>`
-    INSERT INTO "BillingPayment" (
-      "id", "businessId", "planId", "subscriptionId", "provider", "providerGivenId",
-      "kind", "amount", "currency", "status", "attempt", "createdAt", "updatedAt"
-    ) VALUES (
-      ${id}, ${sub.businessId}, ${sub.planId}, ${sub.id}, 'moyasar', ${providerGivenId},
-      'renewal', ${amount}, 'SAR', 'created', ${attempt}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-    )
-    ON CONFLICT DO NOTHING
-    RETURNING "id", "attempt", "status", "nextRetryAt", "providerPaymentId", "providerGivenId", "amount", "createdAt"
-  `;
-  return rows[0] ?? null;
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${businessLockKey(sub.businessId)}))`;
+    const eligible = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT s."id"
+      FROM "Subscription" s
+      JOIN "BillingPaymentMethod" pm ON pm."id"=s."paymentMethodId" AND pm."businessId"=s."businessId" AND pm."status"='active'
+      WHERE s."id"=${sub.id} AND s."businessId"=${sub.businessId}
+        AND s."status" IN ('active','past_due') AND s."autoRenew"=true
+        AND s."provider"='moyasar' AND s."endsAt" IS NOT NULL AND s."endsAt" <= CURRENT_TIMESTAMP
+      FOR UPDATE OF s
+    `;
+    if (!eligible[0]) return null;
+    const id = randomUUID();
+    const providerGivenId = randomUUID();
+    const amount = sub.monthlyPrice * 100;
+    const rows = await tx.$queryRaw<RenewalAttempt[]>`
+      INSERT INTO "BillingPayment" (
+        "id", "businessId", "planId", "subscriptionId", "provider", "providerGivenId",
+        "kind", "amount", "currency", "status", "attempt", "createdAt", "updatedAt"
+      ) VALUES (
+        ${id}, ${sub.businessId}, ${sub.planId}, ${sub.id}, 'moyasar', ${providerGivenId},
+        'renewal', ${amount}, 'SAR', 'created', ${attempt}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      )
+      ON CONFLICT DO NOTHING
+      RETURNING "id", "attempt", "status", "nextRetryAt", "providerPaymentId", "providerGivenId", "amount", "createdAt"
+    `;
+    return rows[0] ?? null;
+  });
 }
 
 async function setAttemptState(billingId: string, status: string, providerId: string | null, nextRetryAt: Date | null) {
@@ -143,7 +160,7 @@ async function setAttemptState(billingId: string, status: string, providerId: st
     UPDATE "BillingPayment"
     SET "providerPaymentId" = COALESCE(${providerId}, "providerPaymentId"), "status" = ${status},
         "nextRetryAt" = ${nextRetryAt}, "updatedAt" = CURRENT_TIMESTAMP
-    WHERE "id" = ${billingId} AND "status" <> 'paid'
+    WHERE "id" = ${billingId} AND "status" IN ('created','initiated','authorized','failed')
   `;
 }
 
@@ -159,11 +176,11 @@ async function markAmbiguous(billingId: string, providerId: string | null) {
 async function markPastDue(sub: DueSubscription) {
   if (sub.endsAt.getTime() > Date.now()) return;
   await db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`renewal-past-due:${sub.businessId}`}))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${businessLockKey(sub.businessId)}))`;
     const changed = await tx.$executeRaw`
       UPDATE "Subscription"
       SET "status" = 'past_due', "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${sub.id} AND "status" = 'active'
+      WHERE "id" = ${sub.id} AND "status" = 'active' AND "autoRenew"=true AND "endsAt" <= CURRENT_TIMESTAMP
     `;
     if (changed) {
       const free = await tx.businessPlan.findUnique({ where: { code: "FREE" }, select: { id: true } });
@@ -175,7 +192,7 @@ async function markPastDue(sub: DueSubscription) {
 
 async function activateRenewal(sub: DueSubscription, billingId: string, payment: MoyasarPayment) {
   return db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`renewal-activate:${sub.id}`}))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${businessLockKey(sub.businessId)}))`;
     const billingRows = await tx.$queryRaw<Array<{ status: string; amount: number; currency: string; providerPaymentId: string | null }>>`
       SELECT "status", "amount", "currency", "providerPaymentId" FROM "BillingPayment" WHERE "id" = ${billingId} FOR UPDATE
     `;
@@ -183,23 +200,25 @@ async function activateRenewal(sub: DueSubscription, billingId: string, payment:
     if (!billing) return "missing" as const;
     if (billing.providerPaymentId && billing.providerPaymentId !== payment.id) return "provider-payment-mismatch" as const;
     if (billing.status === "paid") return "already-paid" as const;
+    if (["refunded","voided","canceled"].includes(billing.status)) return "terminal-state" as const;
     if (payment.status !== "paid" || payment.amount !== billing.amount || payment.currency !== billing.currency) return "mismatch" as const;
     if (String(payment.metadata?.hee_billing_id ?? "") !== billingId || String(payment.metadata?.hee_business_id ?? "") !== sub.businessId) return "mismatch" as const;
 
-    const currentRows = await tx.$queryRaw<Array<{ id: string; status: string; endsAt: Date }>>`
-      SELECT "id", "status", "endsAt" FROM "Subscription"
+    const currentRows = await tx.$queryRaw<Array<{ id: string; status: string; endsAt: Date; autoRenew: boolean }>>`
+      SELECT "id", "status", "endsAt", "autoRenew" FROM "Subscription"
       WHERE "id" = ${sub.id} AND "businessId" = ${sub.businessId} AND "status" IN ('active','past_due')
       FOR UPDATE
     `;
     const current = currentRows[0];
-    if (!current) return "stale" as const;
+    if (!current || !current.autoRenew) return "stale" as const;
 
     const now = new Date();
     const nextEnd = addMonth(current.endsAt > now ? current.endsAt : now);
+    // Preserve the original paid-through timestamp for audit/refund rollback.
     await tx.$executeRaw`
       UPDATE "Subscription"
-      SET "status" = 'replaced', "endsAt" = ${now}, "autoRenew" = false, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${sub.id} AND "status" IN ('active','past_due')
+      SET "status" = 'replaced', "autoRenew" = false, "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = ${sub.id} AND "status" IN ('active','past_due') AND "autoRenew"=true
     `;
     const newSubscriptionId = randomUUID();
     await tx.$executeRaw`
@@ -216,7 +235,7 @@ async function activateRenewal(sub: DueSubscription, billingId: string, payment:
       UPDATE "BillingPayment"
       SET "providerPaymentId" = ${payment.id}, "subscriptionId" = ${newSubscriptionId},
           "status" = 'paid', "paidAt" = CURRENT_TIMESTAMP, "nextRetryAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${billingId}
+      WHERE "id" = ${billingId} AND "status" IN ('created','initiated','authorized','failed')
     `;
     return "activated" as const;
   });
@@ -225,22 +244,24 @@ async function activateRenewal(sub: DueSubscription, billingId: string, payment:
 async function expireAfterFailedRenewal(sub: DueSubscription) {
   if (sub.endsAt.getTime() > Date.now()) return;
   await db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`renewal-expire:${sub.businessId}`}))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${businessLockKey(sub.businessId)}))`;
     const free = await tx.businessPlan.findUnique({ where: { code: "FREE" }, select: { id: true } });
     if (!free) throw new Error("FREE_PLAN_MISSING");
-    await tx.$executeRaw`
+    const changed = await tx.$executeRaw`
       UPDATE "Subscription"
       SET "status" = 'canceled', "autoRenew" = false, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${sub.id} AND "status" IN ('active','past_due')
+      WHERE "id" = ${sub.id} AND "status" IN ('active','past_due') AND "endsAt" <= CURRENT_TIMESTAMP
     `;
-    await tx.business.updateMany({ where: { id: sub.businessId, deletedAt: null, planId: sub.planId }, data: { planId: free.id } });
+    if (changed) {
+      await tx.business.updateMany({ where: { id: sub.businessId, deletedAt: null, planId: sub.planId }, data: { planId: free.id } });
+    }
   });
 }
 
 async function resolveProviderState(sub: DueSubscription, billing: RenewalAttempt, payment: MoyasarPayment) {
   if (payment.status === "paid") {
     const result = await activateRenewal(sub, billing.id, payment);
-    if (result !== "activated" && result !== "already-paid") throw new Error(`ACTIVATION_${result}`);
+    if (result !== "activated" && result !== "already-paid" && result !== "stale") throw new Error(`ACTIVATION_${result}`);
     return "done" as const;
   }
   if (payment.status === "failed" || payment.status === "voided" || payment.status === "refunded") {
@@ -255,6 +276,18 @@ async function resolveProviderState(sub: DueSubscription, billing: RenewalAttemp
 }
 
 async function submitAttempt(sub: DueSubscription, billing: RenewalAttempt) {
+  // Recheck cancellation/payment-method state immediately before contacting Moyasar.
+  const eligibility = await db.$queryRaw<Array<{ ok: boolean }>>`
+    SELECT EXISTS(
+      SELECT 1 FROM "Subscription" s
+      JOIN "BillingPaymentMethod" pm ON pm."id"=s."paymentMethodId" AND pm."businessId"=s."businessId" AND pm."status"='active'
+      WHERE s."id"=${sub.id} AND s."businessId"=${sub.businessId}
+        AND s."status" IN ('active','past_due') AND s."autoRenew"=true
+        AND s."endsAt" IS NOT NULL AND s."endsAt" <= CURRENT_TIMESTAMP
+    ) AS "ok"
+  `;
+  if (!eligibility[0]?.ok) return "stale" as const;
+
   try {
     const payment = await createMoyasarTokenPayment({
       givenId: billing.providerGivenId,
