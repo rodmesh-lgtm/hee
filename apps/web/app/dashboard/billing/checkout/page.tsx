@@ -27,6 +27,7 @@ export default async function BillingCheckoutPage({ searchParams }: { searchPara
 
   const configured = moyasarConfigured();
   const callbackUrl = `${publicOrigin()}/api/billing/moyasar/callback?billing=${encodeURIComponent(billing.id)}`;
+  const reconcileUrl = billing.providerPaymentId ? `${callbackUrl}&id=${encodeURIComponent(billing.providerPaymentId)}` : null;
   const amountSar = (billing.amount / 100).toFixed(2);
   const upgrade = billing.kind === "upgrade";
   const providerStarted = billing.status !== "created" || Boolean(billing.providerPaymentId);
@@ -43,7 +44,7 @@ export default async function BillingCheckoutPage({ searchParams }: { searchPara
 
     <section className="rounded-[24px] border border-[#e7e4f0] bg-white p-4 sm:p-5">
       <div className="mb-4 flex items-center gap-2 text-xs font-bold text-emerald-700"><ShieldCheck className="h-4 w-4" />دفع مشفر · تحقق 3D Secure · Mada / Visa / Mastercard</div>
-      {providerStarted ? <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900"><b>عملية الدفع قيد التحقق.</b><br />لن نعرض نموذج دفع جديد لنفس العملية حتى لا يحدث خصم مكرر. إذا أكملت التحقق البنكي فستتحدث حالة اشتراكك تلقائيًا.</div> : configured ? <MoyasarCheckout amount={billing.amount} publishableKey={moyasarPublishableKey()} callbackUrl={callbackUrl} billingId={billing.id} businessId={billing.businessId} description={`HEE ${billing.planName} subscription`} /> : <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900"><b>الدفع غير مفعّل في هذه البيئة.</b><br />لن يتم تحصيل أي مبلغ حتى تُضاف مفاتيح ميسر المعتمدة للبيئة الحالية.</div>}
+      {providerStarted ? <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900"><b>عملية الدفع قيد التحقق.</b><br />لن نعرض نموذج دفع جديد لنفس العملية حتى لا يحدث خصم مكرر. إذا أكملت التحقق البنكي فستتحدث حالة اشتراكك تلقائيًا.{reconcileUrl ? <div className="mt-3"><Link href={reconcileUrl} prefetch={false} className="inline-flex min-h-11 items-center rounded-xl border border-amber-300 bg-white px-4 text-xs font-black text-amber-950">التحقق من حالة العملية الآن</Link></div> : null}</div> : configured ? <MoyasarCheckout amount={billing.amount} publishableKey={moyasarPublishableKey()} callbackUrl={callbackUrl} billingId={billing.id} businessId={billing.businessId} description={`HEE ${billing.planName} subscription`} /> : <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900"><b>الدفع غير مفعّل في هذه البيئة.</b><br />لن يتم تحصيل أي مبلغ حتى تُضاف مفاتيح ميسر المعتمدة للبيئة الحالية.</div>}
     </section>
 
     <section className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-[#ece9f3] bg-white p-4 text-xs text-slate-500"><span className="inline-flex items-center gap-2"><LockKeyhole className="h-4 w-4" />لا نطلب منك إرسال بيانات البطاقة عبر الدعم.</span><Link href="/dashboard/branding" className="font-black text-[#5d49cc]">العودة للباقات</Link></section>
