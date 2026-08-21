@@ -17,11 +17,14 @@ test("Moyasar callback verifies canonical provider payment before entitlement ac
   assert.match(callback, /activateVerifiedMoyasarPayment/);
 });
 
-test("Moyasar webhook is bounded, secret-verified, idempotent and re-fetches provider state", () => {
+test("Moyasar webhook is bounded, secret-verified, retryable-idempotent and re-fetches provider state", () => {
   const webhook = source("app/api/billing/moyasar/webhook/route.ts");
   assert.match(webhook, /readBoundedText\(request, MAX_WEBHOOK_BYTES\)/);
   assert.match(webhook, /verifyMoyasarWebhookSecret\(event\.secret_token\)/);
-  assert.match(webhook, /ON CONFLICT \("provider", "providerEventId"\) DO NOTHING/);
+  assert.match(webhook, /ON CONFLICT \("provider", "providerEventId"\)/);
+  assert.match(webhook, /RETURNING "id", "processedAt"/);
+  assert.match(webhook, /if \(claimed\.processedAt\)/);
+  assert.match(webhook, /processedAt stays null/);
   assert.match(webhook, /fetchMoyasarPayment\(providerPaymentId\)/);
   assert.match(webhook, /event\.live !== true/);
   assert.match(webhook, /payment\.amount !== billing\.amount/);
