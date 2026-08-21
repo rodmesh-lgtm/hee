@@ -181,8 +181,14 @@ test.describe.serial("RC owner workflow", () => {
 
       await assertResponsive(browser, seeded);
 
-      // Unpublishing must change visibility only. Customer content and files remain.
+      // Unpublishing must require explicit confirmation and change visibility only.
+      // Customer content and files must remain after the confirmed action.
       await page.goto(`${baseUrl}/dashboard/my-page`, { waitUntil: "domcontentloaded" });
+      page.once("dialog", async (dialog) => {
+        expect(dialog.type()).toBe("confirm");
+        expect(dialog.message()).toContain("إلغاء نشر الصفحة");
+        await dialog.accept();
+      });
       await page.getByRole("button", { name: "إلغاء النشر" }).click();
       await waitForBusiness({ id: seeded.businessId, isPublished: false });
       const retained = await db.business.findUnique({
