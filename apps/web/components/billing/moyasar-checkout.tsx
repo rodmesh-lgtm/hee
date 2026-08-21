@@ -23,7 +23,7 @@ type Props = {
 const MOYASAR_JS = "https://cdn.moyasar.com/mpf/1.15.0/moyasar.js";
 const MOYASAR_CSS = "https://cdn.moyasar.com/mpf/1.15.0/moyasar.css";
 
-export function MoyasarCheckout(props: Props) {
+export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId, businessId, description }: Props) {
   const initialized = useRef(false);
   const [scriptReady, setScriptReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -31,21 +31,22 @@ export function MoyasarCheckout(props: Props) {
   useEffect(() => {
     if (!scriptReady || initialized.current || !window.Moyasar) return;
     initialized.current = true;
+
     try {
       window.Moyasar.init({
         element: "#hee-moyasar-form",
-        amount: props.amount,
+        amount,
         currency: "SAR",
-        description: props.description,
-        publishable_api_key: props.publishableKey,
-        callback_url: props.callbackUrl,
+        description,
+        publishable_api_key: publishableKey,
+        callback_url: callbackUrl,
         supported_networks: ["mada", "visa", "mastercard"],
         methods: ["creditcard"],
         language: "ar",
         fixed_width: false,
         metadata: {
-          hee_billing_id: props.billingId,
-          hee_business_id: props.businessId,
+          hee_billing_id: billingId,
+          hee_business_id: businessId,
         },
         credit_card: {
           save_card: true,
@@ -54,9 +55,11 @@ export function MoyasarCheckout(props: Props) {
     } catch (error) {
       initialized.current = false;
       console.error("[billing-checkout] moyasar_init_failed", error);
-      setLoadFailed(true);
+      // Keep React state updates outside the effect body itself. This avoids a
+      // synchronous cascading render while still surfacing SDK initialization errors.
+      window.setTimeout(() => setLoadFailed(true), 0);
     }
-  }, [scriptReady, props]);
+  }, [amount, billingId, businessId, callbackUrl, description, publishableKey, scriptReady]);
 
   return <>
     <link rel="stylesheet" href={MOYASAR_CSS} />
