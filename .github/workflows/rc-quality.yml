@@ -5,11 +5,11 @@ on:
     branches: [hee-v6-rc]
     paths:
       - "apps/web/**"
-      - ".github/workflows/rc-quality.yml"
+      - ".github/workflows/**"
   pull_request:
     paths:
       - "apps/web/**"
-      - ".github/workflows/rc-quality.yml"
+      - ".github/workflows/**"
 
 concurrency:
   group: rc-quality-${{ github.ref }}
