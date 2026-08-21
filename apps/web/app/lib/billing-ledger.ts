@@ -15,6 +15,8 @@ export type BillingPaymentRow = {
 
 type SubscriptionBillingState = { id: string; planId: string; status: string; startsAt: Date; endsAt: Date | null; paymentMethodId: string | null; autoRenew: boolean };
 
+const ABANDONED_CHECKOUT_MS = 60 * 60 * 1000;
+
 function addMonth(value: Date) {
   const year = value.getUTCFullYear(), month = value.getUTCMonth(), day = value.getUTCDate();
   const target = new Date(Date.UTC(year, month + 1, 1, value.getUTCHours(), value.getUTCMinutes(), value.getUTCSeconds(), value.getUTCMilliseconds()));
@@ -40,6 +42,19 @@ export async function createBillingIntent(userId: string, businessId: string, re
     const target = await tx.businessPlan.findUnique({ where: { code: requestedPlan } }); if (!target?.isActive || target.monthlyPrice <= 0) throw new Error("PLAN_UNAVAILABLE");
     const now = new Date();
     const currentSubscription = await tx.subscription.findFirst({ where: { businessId, status: "active", endsAt: { gt: now } }, include: { plan: true }, orderBy: { startsAt: "desc" } });
+    // A checkout that never reached Moyasar must not lock a tenant forever. Only a
+    // provider-less `created` intent can be expired locally; initiated/authorized
+    // payments always require canonical provider reconciliation before replacement.
+    const abandonedBefore = new Date(now.getTime() - ABANDONED_CHECKOUT_MS);
+    await tx.$executeRaw`
+      UPDATE "BillingPayment"
+      SET "status"='canceled', "updatedAt"=CURRENT_TIMESTAMP
+      WHERE "businessId"=${businessId}
+        AND "kind" IN ('initial','upgrade')
+        AND "status"='created'
+        AND "providerPaymentId" IS NULL
+        AND "createdAt" <= ${abandonedBefore}
+    `;
     // Authorized is still an in-flight provider state. Treat it as open so a second
     // checkout cannot be created while the first charge may still settle.
     const open = await tx.$queryRaw<BillingPaymentRow[]>`SELECT * FROM "BillingPayment" WHERE "businessId"=${businessId} AND "kind" IN ('initial','upgrade') AND "status" IN ('created','initiated','authorized') ORDER BY "createdAt" DESC LIMIT 1 FOR UPDATE`;
