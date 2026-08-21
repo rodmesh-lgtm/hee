@@ -27,6 +27,7 @@ export type BillingPaymentRow = {
 
 type SubscriptionBillingState = {
   id: string;
+  status: string;
   endsAt: Date | null;
   paymentMethodId: string | null;
   autoRenew: boolean;
@@ -157,10 +158,20 @@ async function savePaymentMethod(tx: Prisma.TransactionClient, billing: BillingP
 
 async function activeSubscriptionBillingState(tx: Prisma.TransactionClient, businessId: string) {
   const rows = await tx.$queryRaw<SubscriptionBillingState[]>`
-    SELECT "id", "endsAt", "paymentMethodId", "autoRenew"
+    SELECT "id", "status", "endsAt", "paymentMethodId", "autoRenew"
     FROM "Subscription"
     WHERE "businessId" = ${businessId} AND "status" = 'active'
     ORDER BY "startsAt" DESC LIMIT 1 FOR UPDATE
+  `;
+  return rows[0] ?? null;
+}
+
+async function renewableSubscriptionBillingState(tx: Prisma.TransactionClient, businessId: string, subscriptionId: string) {
+  const rows = await tx.$queryRaw<SubscriptionBillingState[]>`
+    SELECT "id", "status", "endsAt", "paymentMethodId", "autoRenew"
+    FROM "Subscription"
+    WHERE "id" = ${subscriptionId} AND "businessId" = ${businessId} AND "status" IN ('active','past_due')
+    LIMIT 1 FOR UPDATE
   `;
   return rows[0] ?? null;
 }
@@ -174,9 +185,6 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
     if (billing.provider !== "moyasar") return "wrong-provider" as const;
     if (payment.status !== "paid" || payment.amount !== billing.amount || payment.currency !== billing.currency) return "mismatch" as const;
     if (String(payment.metadata?.hee_billing_id ?? "") !== billing.id || String(payment.metadata?.hee_business_id ?? "") !== billing.businessId) return "mismatch" as const;
-    // A billing intent may be re-opened in the browser, but it must never accept two
-    // different provider payments. Detect a second charge instead of silently treating
-    // it as the already-processed payment.
     if (billing.providerPaymentId && billing.providerPaymentId !== payment.id) return "provider-payment-mismatch" as const;
     if (billing.status === "paid") return "already-paid" as const;
 
@@ -185,24 +193,30 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
     if (!plan || !business) return "missing-target" as const;
 
     const now = new Date();
-    const previous = await activeSubscriptionBillingState(tx, business.id);
+    const active = await activeSubscriptionBillingState(tx, business.id);
+    let baseSubscription: SubscriptionBillingState | null = active;
     let paymentMethodId: string | null;
     let periodEnd: Date;
     let autoRenew: boolean;
 
     if (billing.kind === "renewal") {
-      if (!previous || (billing.subscriptionId && previous.id !== billing.subscriptionId)) return "stale-renewal" as const;
-      paymentMethodId = previous.paymentMethodId;
-      autoRenew = Boolean(previous.autoRenew && paymentMethodId);
-      const periodBase = previous.endsAt && previous.endsAt > now ? previous.endsAt : now;
+      if (!billing.subscriptionId) return "stale-renewal" as const;
+      baseSubscription = await renewableSubscriptionBillingState(tx, business.id, billing.subscriptionId);
+      if (!baseSubscription) return "stale-renewal" as const;
+      paymentMethodId = baseSubscription.paymentMethodId;
+      autoRenew = Boolean(baseSubscription.autoRenew && paymentMethodId);
+      const periodBase = baseSubscription.endsAt && baseSubscription.endsAt > now ? baseSubscription.endsAt : now;
       periodEnd = addMonth(periodBase);
     } else {
       paymentMethodId = await savePaymentMethod(tx, billing, payment);
       autoRenew = Boolean(paymentMethodId);
-      periodEnd = billing.kind === "upgrade" && previous?.endsAt && previous.endsAt > now ? previous.endsAt : addMonth(now);
+      periodEnd = billing.kind === "upgrade" && active?.endsAt && active.endsAt > now ? active.endsAt : addMonth(now);
     }
 
-    await tx.subscription.updateMany({ where: { businessId: business.id, status: "active" }, data: { status: "replaced", endsAt: now } });
+    await tx.subscription.updateMany({
+      where: { businessId: business.id, status: { in: ["active", "past_due"] } },
+      data: { status: "replaced", endsAt: now, autoRenew: false },
+    });
     const subscriptionId = randomUUID();
     await tx.$executeRaw`
       INSERT INTO "Subscription" (
@@ -240,8 +254,6 @@ export async function handleRefundedMoyasarPayment(billingId: string, payment: M
       WHERE "id" = ${billing.id}
     `;
     const active = await activeSubscriptionBillingState(tx, billing.businessId);
-    // Only the exact subscription created by this payment may be revoked. A refund of
-    // an older month or replaced upgrade must never cancel a newer paid entitlement.
     const paidSubscriptionMatches = Boolean(active && billing.subscriptionId && active.id === billing.subscriptionId);
     if (billing.status === "paid" && active && paidSubscriptionMatches) {
       await tx.$executeRaw`
