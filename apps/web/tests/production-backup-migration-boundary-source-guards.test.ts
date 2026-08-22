@@ -44,6 +44,24 @@ test("production migration restores and proves the exact pre-migration backup be
   assert.match(proof, /_prisma_migrations/);
 });
 
+test("production migration proves critical row data is unchanged after deploy", () => {
+  const workflow = source("../../.github/workflows/production-migrations.yml");
+  const proof = source("scripts/production-migration-data-proof.ts");
+  const capture = "migration:production-data-proof -- --capture";
+  const deploy = "npx prisma migrate deploy";
+  const verify = "migration:production-data-proof -- --verify";
+
+  assert.match(workflow, /Capture pre-migration critical data fingerprint/);
+  assert.match(workflow, /Prove critical data unchanged after deploy/);
+  assert.ok(workflow.indexOf(capture) < workflow.indexOf(deploy), "critical data fingerprint must be captured before deploy");
+  assert.ok(workflow.indexOf(verify) > workflow.indexOf(deploy), "critical data fingerprint must be verified after deploy");
+  assert.match(proof, /row_to_json/);
+  assert.match(proof, /fingerprint/);
+  assert.match(proof, /BillingPayment/);
+  assert.match(proof, /BillingOperationsHeartbeat/);
+  assert.match(proof, /Critical data changed during production migration/);
+});
+
 test("scheduled production backups are encrypted, retained, and restore-tested", () => {
   const workflow = source("../../.github/workflows/production-backup-proof.yml");
   assert.match(workflow, /cron: "17 2 \* \* \*"/);
