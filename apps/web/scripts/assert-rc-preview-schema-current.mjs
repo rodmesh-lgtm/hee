@@ -53,10 +53,11 @@ try {
         WHERE table_schema=current_schema() AND table_name='AnalyticsEvent' AND column_name='metadata') AS "analyticsMetadataType"
   `);
   const critical = schema.rows[0] ?? {};
+  const incompatible = failed.length > 0 || pending.length > 0 || unexpected.length > 0
+    || !critical.legalConsent || !critical.emailVerifiedAt || !critical.billingHeartbeat
+    || critical.analyticsMetadataType !== "jsonb";
 
-  if (failed.length || pending.length || unexpected.length
-      || !critical.legalConsent || !critical.emailVerifiedAt || !critical.billingHeartbeat
-      || critical.analyticsMetadataType !== "jsonb") {
+  if (incompatible) {
     console.error("[rc-preview-schema] REFUSED — RC Preview database is not compatible with this release", {
       expectedMigrationCount: expected.length,
       appliedMigrationCount: applied.length,
@@ -66,10 +67,11 @@ try {
       critical,
     });
     process.exitCode = 1;
-    return;
+  } else {
+    console.log(`[rc-preview-schema] PASS — ${applied.length} migrations current; latest=${expected.at(-1) ?? "none"}`);
   }
-
-  console.log(`[rc-preview-schema] PASS — ${applied.length} migrations current; latest=${expected.at(-1) ?? "none"}`);
 } finally {
   await client.end();
 }
+
+if (process.exitCode) process.exit(process.exitCode);
