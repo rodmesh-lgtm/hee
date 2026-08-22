@@ -47,6 +47,8 @@ jobs:
       BILLING_TAX_STATUS: ${{ vars.PRODUCTION_BILLING_TAX_STATUS }}
       BILLING_RENEWAL_ENABLED: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED }}
       BILLING_OPERATIONS_READY: ${{ vars.PRODUCTION_BILLING_OPERATIONS_READY }}
+      # Paid launch mode is deployment-scoped. These GitHub values remain the safe
+      # Preflight baseline and are intentionally not used to prove canonical launch state.
       PAID_CHECKOUT_PUBLIC_ENABLED: ${{ vars.PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED }}
       BILLING_REHEARSAL_USER_EMAIL: ${{ vars.PRODUCTION_BILLING_REHEARSAL_USER_EMAIL }}
       STORAGE_DRIVER: ${{ vars.PRODUCTION_STORAGE_DRIVER }}
@@ -71,6 +73,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Require successful exact-SHA verified public paid checkout opening
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          open_runs="$(gh api \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-open-paid-checkout.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
+          test "$open_runs" -ge 1 || (echo "Exact release SHA has no successful verified Production Open Paid Checkout run" && exit 1)
+
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
@@ -87,7 +99,7 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Audit production launch configuration
+      - name: Audit immutable production launch configuration
         run: npm run launch:config-audit
 
       - name: Verify Resend hee.sa sending domain
@@ -128,6 +140,19 @@ jobs:
           test "$release_sha" = "$GITHUB_SHA" || (echo "Canonical hee.sa serves ${release_sha:-unknown}, expected exact release ${GITHUB_SHA}" && exit 1)
           test "$release_env" = "production" || (echo "Canonical release endpoint is not reporting production environment" && exit 1)
 
+      - name: Verify canonical exact-SHA public paid launch state
+        working-directory: .
+        run: |
+          set -euo pipefail
+          launch_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/billing/launch-status)"
+          node - <<'NODE' "$launch_json"
+          const launch = JSON.parse(process.argv[2]);
+          if (launch.releaseSha !== process.env.GITHUB_SHA) throw new Error("Canonical billing launch SHA differs from Final Readiness SHA");
+          if (launch.environment !== "production") throw new Error("Canonical billing launch endpoint is not Production");
+          if (launch.mode !== "public") throw new Error(`Canonical paid checkout mode is ${launch.mode ?? "unknown"}, expected public`);
+          if (launch.billingOperationsReady !== true || launch.renewalEnabled !== true) throw new Error("Canonical billing operations/renewal prerequisites are not ready");
+          NODE
+
       - name: Verify live runtime configuration and database readiness
         working-directory: .
         run: |
@@ -163,4 +188,4 @@ jobs:
           rm -f "$headers"
 
       - name: Launch readiness summary
-        run: echo "production-launch-readiness: PASS for ${GITHUB_SHA}"
+        run: echo "production-launch-readiness: PASS exact release ${GITHUB_SHA}, verified public paid checkout, billing worker, database, email, HTTPS and indexing"

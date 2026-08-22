@@ -17,13 +17,16 @@ test("production checkout remains closed until recurring billing operations are 
   assert.match(audit, /recurring billing\/webhook recovery schedule/);
 });
 
-test("production live rehearsal is isolated from general paid checkout", () => {
+test("production live rehearsal is isolated from general paid checkout and public mode is deployment-proven", () => {
   const billing = source("app/lib/billing.ts");
   const branding = source("app/dashboard/branding/page.tsx");
   const request = source("app/actions/subscription-request.ts");
   const direct = source("app/actions/billing.ts");
-  const audit = source("scripts/launch-config-audit.ts");
   const ready = source("app/api/health/ready/route.ts");
+  const launchStatus = source("app/api/billing/launch-status/route.ts");
+  const rehearsal = source("../../.github/workflows/production-billing-rehearsal.yml");
+  const open = source("../../.github/workflows/production-open-paid-checkout.yml");
+  const sync = source("../../.github/scripts/sync-vercel-production-env.mjs");
 
   assert.match(billing, /PAID_CHECKOUT_PUBLIC_ENABLED/);
   assert.match(billing, /BILLING_REHEARSAL_USER_EMAIL/);
@@ -31,10 +34,15 @@ test("production live rehearsal is isolated from general paid checkout", () => {
   assert.match(branding, /paidCheckoutEntryAllowed\(user\.email\)/);
   assert.match(request, /paidCheckoutEntryAllowed\(owner\.email\)/);
   assert.match(direct, /paidCheckoutEntryAllowed\(user\.email\)/);
-  assert.match(audit, /PAID_CHECKOUT_PUBLIC_ENABLED must be true only after the controlled live subscription rehearsal passes/);
-  assert.match(audit, /BILLING_REHEARSAL_USER_EMAIL must be removed before general paid launch/);
   assert.match(ready, /PAID_CHECKOUT_PUBLIC_ENABLED/);
   assert.match(ready, /BILLING_REHEARSAL_USER_EMAIL/);
+  assert.match(launchStatus, /return "public"/);
+  assert.match(launchStatus, /return "rehearsal"/);
+  assert.match(launchStatus, /return "closed"/);
+  assert.match(rehearsal, /HEE_BILLING_LAUNCH_MODE: rehearsal/);
+  assert.match(open, /HEE_BILLING_LAUNCH_MODE: public/);
+  assert.match(sync, /key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false"/);
+  assert.match(sync, /key: "BILLING_REHEARSAL_USER_EMAIL", value: ""/);
 });
 
 test("scheduled billing operations recover webhooks, renew, audit state, then record exact-release liveness", () => {

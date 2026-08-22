@@ -19,7 +19,7 @@ case "$workflow_ref" in
     verify_scope migration-core
     verify_scope worker-host
     ;;
-  */.github/workflows/production-deploy.yml@*)
+  */.github/workflows/production-deploy.yml@*|*/.github/workflows/production-billing-rehearsal.yml@*|*/.github/workflows/production-open-paid-checkout.yml@*)
     verify_scope release-core
     ;;
   */.github/workflows/production-worker-deploy.yml@*)

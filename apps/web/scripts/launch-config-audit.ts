@@ -115,12 +115,8 @@ function main() {
   if (String(process.env.BILLING_OPERATIONS_READY ?? "").trim().toLowerCase() !== "true") {
     throw new Error("BILLING_OPERATIONS_READY must be true only after the recurring billing/webhook recovery schedule has been installed and observed running successfully");
   }
-  if (String(process.env.PAID_CHECKOUT_PUBLIC_ENABLED ?? "").trim().toLowerCase() !== "true") {
-    throw new Error("PAID_CHECKOUT_PUBLIC_ENABLED must be true only after the controlled live subscription rehearsal passes");
-  }
-  if (String(process.env.BILLING_REHEARSAL_USER_EMAIL ?? "").trim()) {
-    throw new Error("BILLING_REHEARSAL_USER_EMAIL must be removed before general paid launch");
-  }
+  // Public-vs-rehearsal billing state is deployment-scoped and is proved against
+  // canonical hee.sa by Production Launch Readiness, not by GitHub project variables.
 
   if (String(process.env.QA_AUDIT_SECRET ?? "").trim() || String(process.env.QA_AUDIT_USER_EMAIL ?? "").trim()) {
     throw new Error("QA audit credentials must not be configured in production");

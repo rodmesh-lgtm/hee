@@ -61,6 +61,8 @@ test("release quality gate centrally enforces explicit path-based Production att
   assert.match(policy, /production-migrations\.yml@\*/);
   assert.match(policy, /verify_scope migration-core/);
   assert.match(policy, /production-deploy\.yml@\*/);
+  assert.match(policy, /production-billing-rehearsal\.yml@\*/);
+  assert.match(policy, /production-open-paid-checkout\.yml@\*/);
   assert.match(policy, /production-worker-deploy\.yml@\*/);
   assert.match(policy, /verify_scope worker-host/);
   assert.match(policy, /production-\*\.yml@\*/);
@@ -75,9 +77,13 @@ test("release quality gate centrally enforces explicit path-based Production att
   assert.match(helper, /production-config-attestation\.mjs" verify/);
 });
 
-test("launch-state variables are part of release-core so normal cutover cannot silently bypass closed Preflight state", () => {
+test("GitHub launch-state remains attested closed baseline while live paid state is deployment-scoped", () => {
   const attestation = source("../../.github/scripts/production-config-attestation.mjs");
   const preflight = source("../../.github/workflows/production-preflight.yml");
+  const sync = source("../../.github/scripts/sync-vercel-production-env.mjs");
+  const plainKeysStart = sync.indexOf("const plainKeys = [");
+  const sensitiveKeysStart = sync.indexOf("const sensitiveKeys = [");
+  const plainKeysBlock = sync.slice(plainKeysStart, sensitiveKeysStart);
 
   assert.match(attestation, /"PAID_CHECKOUT_PUBLIC_ENABLED"/);
   assert.match(attestation, /"BILLING_REHEARSAL_USER_EMAIL"/);
@@ -85,4 +91,11 @@ test("launch-state variables are part of release-core so normal cutover cannot s
   assert.match(attestation, /"BILLING_OPERATIONS_READY"/);
   assert.match(preflight, /Public paid checkout must be closed during preflight\/migration preparation/);
   assert.match(preflight, /Rehearsal account must not be enabled during preflight\/migration preparation/);
+
+  assert.ok(plainKeysStart >= 0 && sensitiveKeysStart > plainKeysStart);
+  assert.doesNotMatch(plainKeysBlock, /PAID_CHECKOUT_PUBLIC_ENABLED/);
+  assert.doesNotMatch(plainKeysBlock, /BILLING_REHEARSAL_USER_EMAIL/);
+  assert.match(sync, /key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false"/);
+  assert.match(sync, /key: "BILLING_REHEARSAL_USER_EMAIL", value: ""/);
+  assert.match(sync, /paid launch defaults closed/);
 });

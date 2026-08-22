@@ -121,6 +121,8 @@ test("production web deployment rebuilds the exact content-proven SHA with one r
   assert.match(sync, /QA_AUDIT_SECRET/);
   assert.match(sync, /QA_AUDIT_USER_EMAIL/);
   assert.match(sync, /PRODUCTION_MAINTENANCE_MODE must remain deployment-scoped/);
+  assert.match(sync, /key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false"/);
+  assert.match(sync, /key: "BILLING_REHEARSAL_USER_EMAIL", value: ""/);
   assert.match(workflow, /--env RELEASE_SHA="\$GITHUB_SHA"/);
   assert.match(workflow, /--build-env RELEASE_SHA="\$GITHUB_SHA"/);
   assert.match(workflow, /npx prisma migrate status/);
@@ -140,15 +142,18 @@ test("production web deployment rebuilds the exact content-proven SHA with one r
   assert.doesNotMatch(workflow, /pg_restore/);
 });
 
-test("production launch readiness proves content-qualified release, deployed SHA, verified email domain, live runtime, database, billing liveness and canonical surfaces", () => {
+test("production launch readiness proves content-qualified release, verified public paid launch, email domain, runtime, database, billing liveness and canonical surfaces", () => {
   const workflow = source("../../.github/workflows/production-launch-readiness.yml");
   const audit = source("scripts/launch-config-audit.ts");
   const release = source("app/api/release/route.ts");
   const ready = source("app/api/health/ready/route.ts");
+  const launchStatus = source("app/api/billing/launch-status/route.ts");
   assert.match(workflow, /VERIFY_PRODUCTION_READINESS/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
   assertUsesContentProvenQualityGate(workflow);
+  assert.match(workflow, /production-open-paid-checkout\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
+  assert.match(workflow, /Exact release SHA has no successful verified Production Open Paid Checkout run/);
   assert.match(workflow, /npm run launch:config-audit/);
   assert.match(workflow, /api\.resend\.com\/domains\?limit=100/);
   assert.match(workflow, /Resend hee\.sa domain is missing or not verified/);
@@ -162,6 +167,11 @@ test("production launch readiness proves content-qualified release, deployed SHA
   assert.match(workflow, /release_sha/);
   assert.match(workflow, /test "\$release_sha" = "\$GITHUB_SHA"/);
   assert.match(workflow, /release_env/);
+  assert.match(workflow, /https:\/\/hee\.sa\/api\/billing\/launch-status/);
+  assert.match(workflow, /launch\.releaseSha !== process\.env\.GITHUB_SHA/);
+  assert.match(workflow, /launch\.mode !== "public"/);
+  assert.match(workflow, /launch\.billingOperationsReady !== true/);
+  assert.match(workflow, /launch\.renewalEnabled !== true/);
   assert.match(workflow, /https:\/\/hee\.sa\/api\/health\/ready/);
   assert.match(workflow, /Canonical production runtime reports not ready/);
   assert.match(workflow, /\/register/);
@@ -175,6 +185,9 @@ test("production launch readiness proves content-qualified release, deployed SHA
   assert.match(release, /Cache-Control/);
   assert.match(release, /no-store/);
   assert.match(release, /X-Robots-Tag/);
+  assert.match(launchStatus, /mode: launchMode\(\)/);
+  assert.match(launchStatus, /billingOperationsReady/);
+  assert.match(launchStatus, /renewalEnabled/);
   assert.match(ready, /APP_ENV/);
   assert.match(ready, /pk_live_/);
   assert.match(ready, /sk_live_/);
@@ -187,8 +200,9 @@ test("production launch readiness proves content-qualified release, deployed SHA
   assert.match(ready, /status: ready \? 200 : 503/);
   assert.match(audit, /sslmode=verify-full/);
   assert.match(audit, /DATABASE_URL must use sslmode=verify-full/);
-  assert.match(audit, /PAID_CHECKOUT_PUBLIC_ENABLED must be true/);
-  assert.match(audit, /BILLING_REHEARSAL_USER_EMAIL must be removed/);
+  assert.match(audit, /deployment-scoped/);
+  assert.doesNotMatch(audit, /PAID_CHECKOUT_PUBLIC_ENABLED must be true/);
+  assert.doesNotMatch(audit, /BILLING_REHEARSAL_USER_EMAIL must be removed/);
   assert.doesNotMatch(workflow, /prisma db push/);
   assert.doesNotMatch(workflow, /prisma migrate deploy/);
   assert.doesNotMatch(workflow, /billing:renew/);
