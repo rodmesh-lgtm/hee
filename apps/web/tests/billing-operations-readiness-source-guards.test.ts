@@ -33,3 +33,9 @@ test("billing state audit catches customer-facing plan price drift", () => {
   assert.match(audit, /p\."code"='PRO' AND p\."monthlyPrice"<>399/);
   assert.match(audit, /required public plan is missing or inactive/);
 });
+
+test("billing management never presents raw Business.plan as an active paid entitlement", () => {
+  const page = source("app/dashboard/billing/manage/page.tsx");
+  assert.match(page, /subscriptionStillEffective \? subscription\?\.plan\.name \?\? "Free" : "Free"/);
+  assert.doesNotMatch(page, /business\.plan\?\.name \?\? "Free"/);
+});
