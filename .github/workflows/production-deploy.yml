@@ -74,7 +74,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Require successful Production Preflight and coherent exact-SHA maintenance lifecycle
+      - name: Require successful Production Preflight V2 and coherent exact-SHA maintenance lifecycle
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -84,10 +84,10 @@ jobs:
             gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
               --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length'
           }
-          preflight_runs="$(count_green_dispatches production-preflight.yml)"
+          preflight_runs="$(count_green_dispatches production-preflight-v2.yml)"
           maintenance_runs="$(count_green_dispatches production-enter-maintenance.yml)"
           migration_runs="$(count_green_dispatches production-migrations.yml)"
-          test "$preflight_runs" -ge 1 || (echo "Exact release SHA has no green Production Preflight run" && exit 1)
+          test "$preflight_runs" -ge 1 || (echo "Exact release SHA has no green Production Preflight V2 run" && exit 1)
           if [ "$maintenance_runs" -ge 1 ] && [ "$migration_runs" -lt 1 ]; then
             echo "Exact SHA entered Production maintenance but has no fully successful Production Migrations run; refusing live web cutover"
             exit 1

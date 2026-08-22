@@ -42,8 +42,8 @@ test("production migrations stay manually gated to the release branch with write
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
   assertUsesContentProvenQualityGate(workflow);
-  assert.match(workflow, /production-preflight\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
-  assert.match(workflow, /exact release SHA \$\{GITHUB_SHA\} has no successful Production Preflight run/);
+  assert.match(workflow, /production-preflight-v2\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
+  assert.match(workflow, /exact release SHA \$\{GITHUB_SHA\} has no successful Production Preflight V2 run/);
 });
 
 test("production migrations verify and restore an encrypted recovery backup into a clean isolated schema before deploy", () => {
@@ -66,8 +66,8 @@ test("production migrations verify and restore an encrypted recovery backup into
   assert.match(workflow, /retention-days: 14/);
 });
 
-test("production preflight proves external prerequisites read-only before maintenance", () => {
-  const workflow = source("../../.github/workflows/production-preflight.yml");
+test("production preflight V2 proves external prerequisites read-only before maintenance", () => {
+  const workflow = source("../../.github/workflows/production-preflight-v2.yml");
   assert.match(workflow, /VERIFY_PRODUCTION_PREFLIGHT/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
@@ -103,10 +103,10 @@ test("production web deployment rebuilds the exact content-proven SHA with one r
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
   assertUsesContentProvenQualityGate(workflow);
-  assert.match(workflow, /production-preflight\.yml/);
+  assert.match(workflow, /production-preflight-v2\.yml/);
   assert.match(workflow, /production-enter-maintenance\.yml/);
   assert.match(workflow, /production-migrations\.yml/);
-  assert.match(workflow, /Exact release SHA has no green Production Preflight run/);
+  assert.match(workflow, /Exact release SHA has no green Production Preflight V2 run/);
   assert.match(workflow, /no fully successful Production Migrations run; refusing live web cutover/);
   assert.match(workflow, /PRODUCTION_VERCEL_TOKEN/);
   assert.match(workflow, /VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph/);

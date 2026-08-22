@@ -42,7 +42,7 @@ test("production maintenance is staged and proven before canonical promotion", (
   assert.match(workflow, /ENTER_PRODUCTION_MAINTENANCE/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
-  assert.match(workflow, /production-preflight\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
+  assert.match(workflow, /production-preflight-v2\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
   assert.match(workflow, /deploy --prod --skip-domain/);
   assert.match(workflow, /--env PRODUCTION_MAINTENANCE_MODE=true/);
   assert.match(workflow, /--build-env PRODUCTION_MAINTENANCE_MODE=true/);

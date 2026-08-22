@@ -32,8 +32,8 @@ test("runtime database URL normalization rejects ambiguous duplicate sslmode", (
   assert.match(runtime, /must contain at most one sslmode parameter/);
 });
 
-test("preflight requires verify-full before its first PostgreSQL probe", () => {
-  const workflow = source("../../.github/workflows/production-preflight.yml");
+test("Preflight V2 requires verify-full before its first PostgreSQL probe", () => {
+  const workflow = source("../../.github/workflows/production-preflight-v2.yml");
   assert.match(workflow, /DATABASE_URL RESTORE_DATABASE_URL/);
   assert.match(workflow, /searchParams\.getAll\('sslmode'\)/);
   assert.match(workflow, /sslModes\.length > 1/);

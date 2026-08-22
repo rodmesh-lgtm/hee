@@ -49,7 +49,7 @@ test("production worker deploy keeps maintenance locked and rollback-armed until
   assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/);
   assert.match(workflow, /count_green_dispatches\(\)/);
   assert.match(workflow, /runs\?head_sha=\$\{GITHUB_SHA\}&status=completed/);
-  assert.match(workflow, /count_green_dispatches production-preflight\.yml/);
+  assert.match(workflow, /count_green_dispatches production-preflight-v2\.yml/);
   assert.match(workflow, /count_green_dispatches production-deploy\.yml/);
   assert.match(workflow, /count_green_dispatches production-enter-maintenance\.yml/);
   assert.match(workflow, /count_green_dispatches production-migrations\.yml/);

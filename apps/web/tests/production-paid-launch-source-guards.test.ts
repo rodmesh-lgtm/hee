@@ -98,7 +98,7 @@ test("rehearsal requires exact release web and worker cutover before opening one
   assert.ok(candidate > audit);
   assert.ok(promote > candidate);
   assert.ok(baseline > promote);
-  assert.match(workflow, /production-preflight\.yml/);
+  assert.match(workflow, /production-preflight-v2\.yml/);
   assert.match(workflow, /production-deploy\.yml/);
   assert.match(workflow, /production-worker-deploy\.yml/);
   assert.match(workflow, /HEE_BILLING_LAUNCH_MODE: rehearsal/);

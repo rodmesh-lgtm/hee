@@ -75,7 +75,7 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
-      - name: Require release quality and exact Preflight configuration
+      - name: Require release quality and exact Preflight V2 configuration
         uses: ./.github/actions/require-release-quality
         env:
           GH_TOKEN: ${{ github.token }}
@@ -90,7 +90,7 @@ jobs:
             gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
               --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length'
           }
-          test "$(count_green_dispatches production-preflight.yml)" -ge 1 || (echo "Exact SHA has no successful Production Preflight" && exit 1)
+          test "$(count_green_dispatches production-preflight-v2.yml)" -ge 1 || (echo "Exact SHA has no successful Production Preflight V2" && exit 1)
           test "$(count_green_dispatches production-deploy.yml)" -ge 1 || (echo "Exact SHA has no successful Production Web Deploy" && exit 1)
           test "$(count_green_dispatches production-worker-deploy.yml)" -ge 1 || (echo "Exact SHA has no successful Production Billing Worker Deploy" && exit 1)
 
