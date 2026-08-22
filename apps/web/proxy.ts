@@ -13,8 +13,52 @@ function isSensitivePrivatePath(pathname: string) {
     || pathname === "/preview";
 }
 
+function productionMaintenanceEnabled() {
+  return String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production"
+    && String(process.env.PRODUCTION_MAINTENANCE_MODE ?? "").trim().toLowerCase() === "true";
+}
+
+function isMaintenanceControlRead(request: NextRequest, pathname: string) {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  return pathname === "/api/release" || pathname === "/api/maintenance/status";
+}
+
+function maintenanceResponse() {
+  const html = `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <title>HEE — صيانة مجدولة</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f7f7f8;color:#171717;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:24px}.card{width:min(620px,100%);background:#fff;border:1px solid #e6e6e8;border-radius:24px;padding:40px;box-shadow:0 18px 60px rgba(0,0,0,.07);text-align:center}.mark{display:inline-grid;place-items:center;width:58px;height:58px;border-radius:18px;background:#171717;color:#fff;font-weight:800;font-size:22px;margin-bottom:22px}.title{font-size:28px;font-weight:800;margin:0 0 12px}.copy{font-size:17px;line-height:1.9;color:#5b5b63;margin:0}.note{margin-top:24px;padding-top:20px;border-top:1px solid #ededf0;color:#7a7a82;font-size:14px;line-height:1.8}</style>
+</head>
+<body><main class="card"><div class="mark">HEE</div><h1 class="title">نجري صيانة مجدولة</h1><p class="copy">تم إيقاف العمليات مؤقتًا لحماية البيانات أثناء التحديث. ستعود الخدمة بعد اكتمال التحقق الآمن.</p><p class="note">لا يلزم اتخاذ أي إجراء من جانبك. لم يتم حذف بياناتك أو تغييرها بسبب صفحة الصيانة.</p></main></body>
+</html>`;
+
+  return new NextResponse(html, {
+    status: 503,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "private, no-store, max-age=0",
+      Pragma: "no-cache",
+      Expires: "0",
+      "Retry-After": "300",
+      "X-Robots-Tag": "noindex, nofollow, noarchive",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (productionMaintenanceEnabled() && !isMaintenanceControlRead(request, pathname)) {
+    return maintenanceResponse();
+  }
+
   const isPreview = process.env.VERCEL_ENV?.toLowerCase() === "preview";
   const hasQaAuditSession = Boolean(request.cookies.get("hee_qa_audit")?.value);
   const isQaPath = pathname.startsWith("/qa/");
@@ -27,25 +71,11 @@ export function proxy(request: NextRequest) {
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
     response.headers.set("Pragma", "no-cache");
     response.headers.set("Expires", "0");
-    // Verification/reset tokens may live in the query string. Do not let same-origin
-    // navigation, external links, browser extensions, or intermediary logs receive the
-    // source URL through the Referer header.
     response.headers.set("Referrer-Policy", "no-referrer");
   }
   return response;
 }
 
 export const config = {
-  matcher: [
-    "/qa/:path*",
-    "/dashboard/:path*",
-    "/admin/:path*",
-    "/login",
-    "/register",
-    "/forgot-password",
-    "/reset-password",
-    "/verify-email",
-    "/onboarding",
-    "/preview",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

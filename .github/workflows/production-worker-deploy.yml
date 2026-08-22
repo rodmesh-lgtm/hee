@@ -117,10 +117,14 @@ jobs:
           fi
           sudo -n chmod 0644 "$release/release.env"
 
-          # Stop future timer activations, but never terminate a running billing cycle.
+          # Stop future activations and never kill an already-running billing cycle.
           sudo -n systemctl stop hee-billing-renew.timer 2>/dev/null || true
-          restart_timer() { sudo -n systemctl start hee-billing-renew.timer >/dev/null 2>&1 || true; }
-          trap restart_timer EXIT
+          restore_timer_if_safe() {
+            if ! sudo -n test -f /etc/hee/maintenance.lock; then
+              sudo -n systemctl start hee-billing-renew.timer >/dev/null 2>&1 || true
+            fi
+          }
+          trap restore_timer_if_safe EXIT
           for _ in $(seq 1 120); do
             if ! sudo -n systemctl is-active --quiet hee-billing-renew.service; then break; fi
             sleep 10
@@ -135,24 +139,32 @@ jobs:
           sudo -n install -o root -g root -m 0644 /srv/hee/current/ops/systemd/hee-billing-renew.service /etc/systemd/system/hee-billing-renew.service
           sudo -n install -o root -g root -m 0644 /srv/hee/current/ops/systemd/hee-billing-renew.timer /etc/systemd/system/hee-billing-renew.timer
           sudo -n systemctl daemon-reload
-          sudo -n systemctl enable hee-billing-renew.timer >/dev/null
-          sudo -n systemctl start hee-billing-renew.timer
-          trap - EXIT
 
           test "$(readlink -f /srv/hee/current)" = "$release"
           grep -qx "RELEASE_SHA=${sha}" /srv/hee/current/release.env
           sudo -n systemctl cat hee-billing-renew.service | grep -q 'WorkingDirectory=/srv/hee/current/apps/web'
+          sudo -n systemctl cat hee-billing-renew.service | grep -q 'ConditionPathExists=!/etc/hee/maintenance.lock'
+
+          # Only now may this exact worker release clear the maintenance interlock.
+          sudo -n rm -f /etc/hee/maintenance.lock
+          sudo -n rm -f /etc/systemd/system/hee-billing-renew.service.d/maintenance.conf
+          sudo -n systemctl daemon-reload
+          sudo -n systemctl enable hee-billing-renew.timer >/dev/null
+          sudo -n systemctl start hee-billing-renew.timer
+          trap - EXIT
+
+          test ! -e /etc/hee/maintenance.lock
           sudo -n systemctl is-active --quiet hee-billing-renew.timer
           rm -f "$archive"
           REMOTE
 
-      - name: Verify worker release symlink and timer remotely
+      - name: Verify worker release, cleared maintenance lock and active timer remotely
         run: |
           set -euo pipefail
           ssh -i "$HOME/.ssh/hee-production" \
             -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "${HETZNER_USER}@${HETZNER_HOST}" \
-            "test \"\$(cat /srv/hee/current/release.env)\" = 'RELEASE_SHA=${GITHUB_SHA}' && sudo -n systemctl is-active --quiet hee-billing-renew.timer"
+            "test \"\$(cat /srv/hee/current/release.env)\" = 'RELEASE_SHA=${GITHUB_SHA}' && test ! -e /etc/hee/maintenance.lock && sudo -n systemctl is-active --quiet hee-billing-renew.timer"
 
       - name: Remove local SSH material and release archive
         if: always()

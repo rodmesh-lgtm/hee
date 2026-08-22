@@ -85,6 +85,9 @@ function main() {
   if (String(process.env.APP_ENV ?? "").trim().toLowerCase() !== "production") {
     throw new Error("APP_ENV must be production for the launch audit");
   }
+  if (String(process.env.PRODUCTION_MAINTENANCE_MODE ?? "").trim().toLowerCase() === "true") {
+    throw new Error("PRODUCTION_MAINTENANCE_MODE must be false before general production launch");
+  }
 
   canonical("APP_URL");
   canonical("AUTH_ORIGIN");

@@ -27,8 +27,8 @@ function productionDatabaseTransportReady() {
     const parsed = new URL(String(process.env.DATABASE_URL ?? ""));
     if (!new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) return false;
     if (!parsed.hostname || ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname.toLowerCase())) return false;
-    const sslMode = parsed.searchParams.get("sslmode")?.trim().toLowerCase();
-    return Boolean(sslMode && new Set(["verify-full", "verify-ca", "require", "prefer"]).has(sslMode));
+    const sslModes = parsed.searchParams.getAll("sslmode");
+    return sslModes.length === 1 && String(sslModes[0] ?? "").trim().toLowerCase() === "verify-full";
   } catch {
     return false;
   }
@@ -56,6 +56,7 @@ function storageReady() {
 
 async function runtimeReady() {
   if (String(process.env.APP_ENV ?? "").trim().toLowerCase() !== "production") return false;
+  if (enabled("PRODUCTION_MAINTENANCE_MODE")) return false;
   const releaseSha = runtimeReleaseSha();
   if (!releaseSha) return false;
   if (!isCanonical(process.env.APP_URL) || !isCanonical(process.env.AUTH_ORIGIN) || !isCanonical(process.env.NEXT_PUBLIC_APP_URL)) return false;
