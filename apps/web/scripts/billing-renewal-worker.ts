@@ -24,9 +24,6 @@ type DueSubscription = {
   planId: string;
   status: string;
   endsAt: Date;
-  monthlyPrice: number;
-  encryptedToken: string;
-  paymentMethodId: string;
 };
 
 type RenewalAttempt = {
@@ -128,6 +125,13 @@ async function expireIneligibleDueRenewals() {
       AND s."provider" = 'moyasar'
       AND s."endsAt" IS NOT NULL
       AND s."endsAt" <= CURRENT_TIMESTAMP
+      AND NOT EXISTS (
+        SELECT 1 FROM "BillingPayment" bp
+        WHERE bp."subscriptionId" = s."id"
+          AND bp."businessId" = s."businessId"
+          AND bp."kind" = 'renewal'
+          AND bp."status" IN ('initiated','authorized')
+      )
       AND (
         b."deletedAt" IS NOT NULL
         OR u."deletedAt" IS NOT NULL
@@ -157,13 +161,21 @@ async function expireIneligibleDueRenewals() {
         emailVerifiedAt: Date | null;
         planActive: boolean;
         methodStatus: string | null;
+        inFlight: boolean;
       }>>`
         SELECT s."id", s."planId", s."paymentMethodId",
                b."deletedAt" AS "businessDeletedAt",
                u."deletedAt" AS "userDeletedAt",
                u."emailVerifiedAt" AS "emailVerifiedAt",
                p."isActive" AS "planActive",
-               pm."status" AS "methodStatus"
+               pm."status" AS "methodStatus",
+               EXISTS (
+                 SELECT 1 FROM "BillingPayment" bp
+                 WHERE bp."subscriptionId" = s."id"
+                   AND bp."businessId" = s."businessId"
+                   AND bp."kind" = 'renewal'
+                   AND bp."status" IN ('initiated','authorized')
+               ) AS "inFlight"
         FROM "Subscription" s
         JOIN "Business" b ON b."id" = s."businessId"
         JOIN "User" u ON u."id" = b."ownerId"
@@ -181,7 +193,7 @@ async function expireIneligibleDueRenewals() {
         FOR UPDATE OF s, b, u, p
       `;
       const current = currentRows[0];
-      if (!current) return;
+      if (!current || current.inFlight) return;
       const stillEligible = !current.businessDeletedAt
         && !current.userDeletedAt
         && Boolean(current.emailVerifiedAt)
@@ -201,6 +213,14 @@ async function expireIneligibleDueRenewals() {
       if (!changed) return;
       expired += 1;
 
+      await tx.$executeRaw`
+        UPDATE "BillingPayment"
+        SET "status" = 'canceled', "nextRetryAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "subscriptionId" = ${row.id}
+          AND "businessId" = ${row.businessId}
+          AND "kind" = 'renewal'
+          AND "status" IN ('created','failed')
+      `;
       if (current.paymentMethodId) {
         await tx.$executeRaw`
           UPDATE "BillingPaymentMethod"
@@ -221,17 +241,13 @@ async function expireIneligibleDueRenewals() {
 
 async function dueSubscriptions() {
   const horizon = new Date(Date.now() + DUE_WINDOW_MS);
+  // Deliberately include due subscriptions whose account eligibility changed after a
+  // provider request was claimed. New charges are still blocked in create/claim below,
+  // but an initiated/authorized payment must remain recoverable until it is activated or
+  // reversed; filtering it out here could strand real customer money at the provider.
   return db.$queryRaw<DueSubscription[]>`
-    SELECT s."id", s."businessId", s."planId", s."status", s."endsAt", p."monthlyPrice",
-           pm."encryptedToken", pm."id" AS "paymentMethodId"
+    SELECT s."id", s."businessId", s."planId", s."status", s."endsAt"
     FROM "Subscription" s
-    JOIN "BusinessPlan" p ON p."id" = s."planId" AND p."isActive" = true
-    JOIN "BillingPaymentMethod" pm
-      ON pm."id" = s."paymentMethodId"
-     AND pm."businessId" = s."businessId"
-     AND pm."status" = 'active'
-    JOIN "Business" b ON b."id" = s."businessId" AND b."deletedAt" IS NULL
-    JOIN "User" u ON u."id" = b."ownerId" AND u."deletedAt" IS NULL AND u."emailVerifiedAt" IS NOT NULL
     WHERE s."status" IN ('active','past_due')
       AND s."autoRenew" = true
       AND s."provider" = 'moyasar'
@@ -303,8 +319,8 @@ async function claimAttemptForProviderSubmission(sub: DueSubscription, billing: 
     // deletion/unverification, business deletion or plan disable that wins before this
     // lock prevents a new provider request. Once provider submission wins, any settled
     // payment that later loses its entitlement target is reversed during reconciliation.
-    const eligible = await tx.$queryRaw<Array<{ id: string }>>`
-      SELECT s."id"
+    const eligible = await tx.$queryRaw<Array<{ id: string; encryptedToken: string }>>`
+      SELECT s."id", pm."encryptedToken"
       FROM "Subscription" s
       JOIN "BillingPaymentMethod" pm
         ON pm."id"=s."paymentMethodId"
@@ -320,9 +336,9 @@ async function claimAttemptForProviderSubmission(sub: DueSubscription, billing: 
         AND s."provider"='moyasar'
         AND s."endsAt" IS NOT NULL
         AND s."endsAt" <= CURRENT_TIMESTAMP
-      FOR UPDATE OF s, b, u, p
+      FOR UPDATE OF s, b, u, p, pm
     `;
-    if (!eligible[0]) return false;
+    if (!eligible[0]) return null;
 
     const claimed = await tx.$queryRaw<Array<{ id: string }>>`
       UPDATE "BillingPayment"
@@ -336,7 +352,7 @@ async function claimAttemptForProviderSubmission(sub: DueSubscription, billing: 
         AND "status" IN ('created','initiated')
       RETURNING "id"
     `;
-    return Boolean(claimed[0]);
+    return claimed[0] ? eligible[0].encryptedToken : null;
   });
 }
 
@@ -578,13 +594,13 @@ async function resolveProviderState(sub: DueSubscription, billing: RenewalAttemp
 }
 
 async function submitAttempt(sub: DueSubscription, billing: RenewalAttempt) {
-  const claimed = await claimAttemptForProviderSubmission(sub, billing);
-  if (!claimed) return "stale" as const;
+  const encryptedToken = await claimAttemptForProviderSubmission(sub, billing);
+  if (!encryptedToken) return "stale" as const;
 
   try {
     const payment = await createMoyasarTokenPayment({
       givenId: billing.providerGivenId,
-      token: decryptProviderToken(sub.encryptedToken),
+      token: decryptProviderToken(encryptedToken),
       amount: billing.amount,
       description: "HEE subscription renewal",
       callbackUrl: "https://hee.sa/dashboard/billing/manage",
@@ -668,11 +684,12 @@ async function main() {
   required("BILLING_TOKEN_ENCRYPTION_KEY");
   if (!paidBillingTaxReady()) throw new Error("BILLING_TAX_CONFIGURATION_NOT_READY");
 
-  const ineligibleExpired = await expireIneligibleDueRenewals();
+  const preClosed = await expireIneligibleDueRenewals();
   const nonRenewingExpired = await expireEndedNonRenewingSubscriptions();
   const due = await dueSubscriptions();
   for (const sub of due) await processSubscription(sub);
-  console.log(`billing-renewal-worker: PASS (${ineligibleExpired} ineligible renewals closed, ${nonRenewingExpired} ended subscriptions expired, ${due.length} renewable subscriptions checked)`);
+  const postClosed = await expireIneligibleDueRenewals();
+  console.log(`billing-renewal-worker: PASS (${preClosed + postClosed} ineligible renewals closed, ${nonRenewingExpired} ended subscriptions expired, ${due.length} renewable subscriptions checked)`);
 }
 
 main()
