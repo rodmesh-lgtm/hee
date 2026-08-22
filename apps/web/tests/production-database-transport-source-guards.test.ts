@@ -17,9 +17,26 @@ function assertGuardPrecedes(workflow: string, dangerousToken: string) {
   assert.ok(guardIndex < dangerousIndex, `${validator} must run before ${dangerousToken}`);
 }
 
+test("shared production DB validator rejects weak and ambiguous TLS configuration", () => {
+  const guard = source("../../.github/scripts/require-production-database-safety.mjs");
+  assert.match(guard, /searchParams\.getAll\("sslmode"\)/);
+  assert.match(guard, /sslModes\.length > 1/);
+  assert.match(guard, /must contain at most one sslmode parameter/);
+  assert.match(guard, /sslMode !== "verify-full"/);
+});
+
+test("runtime database URL normalization rejects ambiguous duplicate sslmode", () => {
+  const runtime = source("lib/database-url.ts");
+  assert.match(runtime, /searchParams\.getAll\("sslmode"\)/);
+  assert.match(runtime, /sslModes\.length > 1/);
+  assert.match(runtime, /must contain at most one sslmode parameter/);
+});
+
 test("preflight requires verify-full before its first PostgreSQL probe", () => {
   const workflow = source("../../.github/workflows/production-preflight.yml");
   assert.match(workflow, /DATABASE_URL RESTORE_DATABASE_URL/);
+  assert.match(workflow, /searchParams\.getAll\('sslmode'\)/);
+  assert.match(workflow, /sslModes\.length > 1/);
   assert.match(workflow, /ssl !== 'verify-full'/);
   assertGuardPrecedes(workflow, 'psql "$DATABASE_URL"');
 });
@@ -51,8 +68,11 @@ test("production web deploy and final readiness require verify-full before Prism
   }
 });
 
-test("launch configuration contract accepts only explicit verify-full", () => {
+test("launch configuration contract accepts only one explicit verify-full mode", () => {
   const audit = source("scripts/launch-config-audit.ts");
+  assert.match(audit, /searchParams\.getAll\("sslmode"\)/);
+  assert.match(audit, /sslModes\.length > 1/);
+  assert.match(audit, /must contain at most one sslmode parameter/);
   assert.match(audit, /sslMode !== "verify-full"/);
   assert.match(audit, /all production operational tooling enforce certificate and hostname verification consistently/);
   assert.doesNotMatch(audit, /new Set\(\["verify-full", "verify-ca", "require", "prefer"\]\)/);
