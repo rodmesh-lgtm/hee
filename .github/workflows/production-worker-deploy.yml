@@ -50,11 +50,11 @@ jobs:
             gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
               --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length'
           }
-          preflight_runs="$(count_green_dispatches production-preflight.yml)"
+          preflight_runs="$(count_green_dispatches production-preflight-v2.yml)"
           web_runs="$(count_green_dispatches production-deploy.yml)"
           maintenance_runs="$(count_green_dispatches production-enter-maintenance.yml)"
           migration_runs="$(count_green_dispatches production-migrations.yml)"
-          test "$preflight_runs" -ge 1 || (echo "Exact SHA has no green Production Preflight run" && exit 1)
+          test "$preflight_runs" -ge 1 || (echo "Exact SHA has no green Production Preflight V2 run" && exit 1)
           test "$web_runs" -ge 1 || (echo "Exact SHA has no successful Production Web Deploy run" && exit 1)
           {
             echo "HEE_MAINTENANCE_RUNS=${maintenance_runs}"
