@@ -122,17 +122,31 @@ test("renewal retries reuse Moyasar idempotency keys and expire paid entitlement
   ]) assert.match(worker, pattern);
 });
 
-test("canceling auto-renew revokes reusable payment method and cannot lie about an in-flight charge", () => {
+test("canceling auto-renew revokes reusable payment method and keeps an in-flight charge reconcilable", () => {
   const actions = source("app/actions/billing.ts");
   const button = source("components/billing/cancel-renewal-button.tsx");
   const manage = source("app/dashboard/billing/manage/page.tsx");
+  const worker = source("scripts/billing-renewal-worker.ts");
   assert.match(actions, /autoRenew:\s*false/);
   assert.match(actions, /billingPaymentMethod\.updateMany/);
   assert.match(actions, /status:\s*"revoked"/);
   assert.match(actions, /status: \{ in: \["initiated", "authorized"\] \}/);
-  assert.match(actions, /renewal-processing/);
-  assert.match(manage, /بدأت معالجة دفعة التجديد بالفعل/);
+  assert.match(actions, /renewal-processing-future-canceled/);
+  assert.match(manage, /تم إيقاف التجديد للدورات المستقبلية الآن/);
+  assert.match(manage, /دفعة التجديد الحالية قد بدأت بالفعل/);
+  assert.match(worker, /s\."autoRenew" = true[\s\S]*OR EXISTS/);
+  assert.match(worker, /bp\."status" IN \('initiated','authorized'\)/);
   assert.match(button, /window\.confirm/);
+});
+
+test("missing provider renewal IDs age out safely and final reversals override only local cancellation", () => {
+  const worker = source("scripts/billing-renewal-worker.ts");
+  assert.match(worker, /PROVIDER_NOT_FOUND_GRACE_MS = 24 \* 60 \* 60 \* 1000/);
+  assert.match(worker, /errorCode === "MOYASAR_HTTP_404"/);
+  assert.match(worker, /Date\.now\(\) - latest\.createdAt\.getTime\(\) >= PROVIDER_NOT_FOUND_GRACE_MS/);
+  assert.match(worker, /setAttemptState\(latest\.id, "canceled", null, null\)/);
+  assert.match(worker, /retried === "stale"/);
+  assert.match(worker, /"status" = 'canceled' AND \$\{status\} IN \('refunded','voided'\)/);
 });
 
 test("refund rollback restores only an unrefunded prior paid entitlement and never auto-renews it", () => {
