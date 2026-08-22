@@ -25,3 +25,11 @@ test("billing state audit treats expired paid subscriptions as drift instead of 
   assert.match(audit, /bwe\."attempts" >= 12/);
   assert.match(audit, /processing lease is stuck/);
 });
+
+test("billing state audit catches customer-facing plan price drift", () => {
+  const audit = source("scripts/billing-state-audit.ts");
+  assert.match(audit, /p\."code"='FREE' AND p\."monthlyPrice"<>0/);
+  assert.match(audit, /p\."code"='BUSINESS' AND p\."monthlyPrice"<>199/);
+  assert.match(audit, /p\."code"='PRO' AND p\."monthlyPrice"<>399/);
+  assert.match(audit, /required public plan is missing or inactive/);
+});
