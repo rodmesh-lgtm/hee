@@ -36,7 +36,7 @@ test("production migrations verify and restore an encrypted recovery backup befo
   assert.match(workflow, /retention-days: 14/);
 });
 
-test("production launch readiness proves exact RC, exact deployed SHA, live runtime configuration, database, billing liveness and canonical surfaces", () => {
+test("production launch readiness proves exact RC, deployed SHA, verified email domain, live runtime, database, billing liveness and canonical surfaces", () => {
   const workflow = source("../../.github/workflows/production-launch-readiness.yml");
   const audit = source("scripts/launch-config-audit.ts");
   const release = source("app/api/release/route.ts");
@@ -47,9 +47,14 @@ test("production launch readiness proves exact RC, exact deployed SHA, live runt
   assert.match(workflow, /head_sha=\$\{GITHUB_SHA\}/);
   assert.match(workflow, /conclusion == "success"/);
   assert.match(workflow, /npm run launch:config-audit/);
+  assert.match(workflow, /api\.resend\.com\/domains\?limit=100/);
+  assert.match(workflow, /Resend hee\.sa domain is missing or not verified/);
+  assert.match(workflow, /sending capability is not enabled/);
   assert.match(workflow, /npx prisma migrate status/);
   assert.match(workflow, /npm run billing:state-audit/);
   assert.doesNotMatch(workflow, /--record-heartbeat/);
+  assert.match(workflow, /PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED/);
+  assert.match(workflow, /PRODUCTION_BILLING_REHEARSAL_USER_EMAIL/);
   assert.match(workflow, /https:\/\/hee\.sa\/api\/release/);
   assert.match(workflow, /release_sha/);
   assert.match(workflow, /test "\$release_sha" = "\$GITHUB_SHA"/);
@@ -70,6 +75,8 @@ test("production launch readiness proves exact RC, exact deployed SHA, live runt
   assert.match(ready, /APP_ENV/);
   assert.match(ready, /pk_live_/);
   assert.match(ready, /sk_live_/);
+  assert.match(ready, /PAID_CHECKOUT_PUBLIC_ENABLED/);
+  assert.match(ready, /BILLING_REHEARSAL_USER_EMAIL/);
   assert.match(ready, /billingOperationsHeartbeat/);
   assert.match(ready, /FREE/);
   assert.match(ready, /BUSINESS/);
@@ -77,6 +84,8 @@ test("production launch readiness proves exact RC, exact deployed SHA, live runt
   assert.match(ready, /status: ready \? 200 : 503/);
   assert.match(audit, /sslmode=verify-full/);
   assert.match(audit, /DATABASE_URL must explicitly enable PostgreSQL TLS/);
+  assert.match(audit, /PAID_CHECKOUT_PUBLIC_ENABLED must be true/);
+  assert.match(audit, /BILLING_REHEARSAL_USER_EMAIL must be removed/);
   assert.doesNotMatch(workflow, /prisma db push/);
   assert.doesNotMatch(workflow, /prisma migrate deploy/);
   assert.doesNotMatch(workflow, /billing:renew/);
