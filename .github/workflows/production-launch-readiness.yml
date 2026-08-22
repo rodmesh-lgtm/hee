@@ -32,6 +32,7 @@ jobs:
       NEXT_PUBLIC_APP_URL: https://hee.sa
       API_URL: https://hee.sa
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
       SESSION_SECRET: ${{ secrets.PRODUCTION_SESSION_SECRET }}
       RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
       HEE_FROM_EMAIL: ${{ vars.PRODUCTION_HEE_FROM_EMAIL }}
