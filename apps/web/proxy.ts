@@ -51,7 +51,7 @@ function maintenanceResponse() {
       Pragma: "no-cache",
       Expires: "0",
       "Retry-After": "300",
-      "X-Robots-Tag": "noindex, nofollow,noarchive".replace(",noarchive", ", noarchive"),
+      "X-Robots-Tag": "noindex, nofollow, noarchive",
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
     },
