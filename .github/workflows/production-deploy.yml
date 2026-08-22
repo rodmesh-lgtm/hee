@@ -104,6 +104,9 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
+      - name: Require verify-full PostgreSQL transport before Prisma CLI
+        run: node ../../.github/scripts/require-production-database-safety.mjs DATABASE_URL
+
       - name: Install dependencies
         run: npm ci
 
@@ -128,7 +131,6 @@ jobs:
             if (!value) throw new Error(`${name} is required before production environment sync`);
             return value;
           };
-
           required("VERCEL_TOKEN");
           required("RELEASE_SHA");
           if (process.env.RELEASE_SHA !== process.env.GITHUB_SHA) throw new Error("RELEASE_SHA must equal the exact GitHub Actions SHA");
@@ -148,7 +150,6 @@ jobs:
           required("BILLING_OPERATIONS_READY");
           required("PAID_CHECKOUT_PUBLIC_ENABLED");
           required("STORAGE_DRIVER");
-
           const plainKeys = [
             "APP_ENV", "APP_URL", "AUTH_ORIGIN", "NEXT_PUBLIC_APP_URL", "API_URL", "RELEASE_SHA",
             "PG_POOL_MAX", "HEE_FROM_EMAIL", "PAYMENT_PROVIDER",
@@ -164,30 +165,23 @@ jobs:
             "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "APPLE_CLIENT_ID", "APPLE_TEAM_ID",
             "APPLE_KEY_ID", "APPLE_PRIVATE_KEY",
           ];
-
           const entries = [
             ...plainKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "plain", target: ["production"] })),
             ...sensitiveKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "sensitive", target: ["production"] })),
             { key: "QA_AUDIT_SECRET", value: "", type: "sensitive", target: ["production"] },
             { key: "QA_AUDIT_USER_EMAIL", value: "", type: "plain", target: ["production"] },
           ];
-
           const response = await fetch(
             `https://api.vercel.com/v10/projects/${process.env.VERCEL_PROJECT_ID}/env?upsert=true&teamId=${process.env.VERCEL_ORG_ID}`,
             {
               method: "POST",
-              headers: {
-                authorization: `Bearer ${process.env.VERCEL_TOKEN}`,
-                "content-type": "application/json",
-              },
+              headers: { authorization: `Bearer ${process.env.VERCEL_TOKEN}`, "content-type": "application/json" },
               body: JSON.stringify(entries),
             },
           );
           if (!response.ok) throw new Error(`Vercel production environment sync failed with HTTP ${response.status}`);
           const result = await response.json();
-          if (Array.isArray(result?.failed) && result.failed.length) {
-            throw new Error(`Vercel production environment sync reported ${result.failed.length} failed entries`);
-          }
+          if (Array.isArray(result?.failed) && result.failed.length) throw new Error(`Vercel production environment sync reported ${result.failed.length} failed entries`);
           console.log(`vercel-production-env-sync: PASS (${entries.length} keys, values not logged)`);
           NODE
 
@@ -209,9 +203,7 @@ jobs:
             if release_json="$(curl --silent --show-error --fail --max-time 10 https://hee.sa/api/release 2>/dev/null)"; then
               release_sha="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.releaseSha ?? ""));' "$release_json")"
               release_env="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.environment ?? ""));' "$release_json")"
-              if [ "$release_sha" = "$GITHUB_SHA" ] && [ "$release_env" = "production" ]; then
-                exit 0
-              fi
+              if [ "$release_sha" = "$GITHUB_SHA" ] && [ "$release_env" = "production" ]; then exit 0; fi
             fi
             sleep 10
           done
@@ -224,10 +216,7 @@ jobs:
           set -euo pipefail
           for path in / /register /login /terms /privacy /contact /demo; do
             code="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' --max-time 20 "https://hee.sa${path}")"
-            case "$code" in
-              200|301|302|303|307|308) ;;
-              *) echo "Production surface ${path} returned HTTP ${code}"; exit 1 ;;
-            esac
+            case "$code" in 200|301|302|303|307|308) ;; *) echo "Production surface ${path} returned HTTP ${code}"; exit 1 ;; esac
           done
 
       - name: Deployment summary
