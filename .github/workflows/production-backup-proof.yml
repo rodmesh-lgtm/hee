@@ -54,9 +54,12 @@ jobs:
             -out /tmp/hee-production-${GITHUB_RUN_ID}.dump.enc \
             -pass env:PRODUCTION_BACKUP_PASSPHRASE
           test -s /tmp/hee-production-${GITHUB_RUN_ID}.dump.enc
-      - name: Recreate isolated restore database contents
+      - name: Reset isolated restore schema
         run: |
-          pg_restore --dbname="$RESTORE_DATABASE_URL" --clean --if-exists --no-owner --no-privileges /tmp/hee-production.dump
+          psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
+      - name: Restore production backup into clean isolated database
+        run: |
+          pg_restore --exit-on-error --dbname="$RESTORE_DATABASE_URL" --no-owner --no-privileges /tmp/hee-production.dump
       - name: Prove restored schema and critical data signatures
         working-directory: apps/web
         env:
