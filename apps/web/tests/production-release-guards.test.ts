@@ -36,10 +36,11 @@ test("production migrations verify and restore an encrypted recovery backup befo
   assert.match(workflow, /retention-days: 14/);
 });
 
-test("production launch readiness proves exact RC, exact deployed SHA, configuration, database, billing liveness and canonical surfaces", () => {
+test("production launch readiness proves exact RC, exact deployed SHA, live runtime configuration, database, billing liveness and canonical surfaces", () => {
   const workflow = source("../../.github/workflows/production-launch-readiness.yml");
   const audit = source("scripts/launch-config-audit.ts");
   const release = source("app/api/release/route.ts");
+  const ready = source("app/api/health/ready/route.ts");
   assert.match(workflow, /VERIFY_PRODUCTION_READINESS/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
@@ -53,6 +54,8 @@ test("production launch readiness proves exact RC, exact deployed SHA, configura
   assert.match(workflow, /release_sha/);
   assert.match(workflow, /test "\$release_sha" = "\$GITHUB_SHA"/);
   assert.match(workflow, /release_env/);
+  assert.match(workflow, /https:\/\/hee\.sa\/api\/health\/ready/);
+  assert.match(workflow, /Canonical production runtime reports not ready/);
   assert.match(workflow, /\/register/);
   assert.match(workflow, /\/login/);
   assert.match(workflow, /\/demo/);
@@ -64,6 +67,14 @@ test("production launch readiness proves exact RC, exact deployed SHA, configura
   assert.match(release, /Cache-Control/);
   assert.match(release, /no-store/);
   assert.match(release, /X-Robots-Tag/);
+  assert.match(ready, /APP_ENV/);
+  assert.match(ready, /pk_live_/);
+  assert.match(ready, /sk_live_/);
+  assert.match(ready, /billingOperationsHeartbeat/);
+  assert.match(ready, /FREE/);
+  assert.match(ready, /BUSINESS/);
+  assert.match(ready, /PRO/);
+  assert.match(ready, /status: ready \? 200 : 503/);
   assert.match(audit, /sslmode=verify-full/);
   assert.match(audit, /DATABASE_URL must explicitly enable PostgreSQL TLS/);
   assert.doesNotMatch(workflow, /prisma db push/);
