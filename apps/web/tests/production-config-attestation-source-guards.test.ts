@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 
@@ -7,8 +7,8 @@ function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("Preflight writes an exact-SHA scoped HMAC attestation after read-only external proofs", () => {
-  const workflow = source("../../.github/workflows/production-preflight.yml");
+test("Preflight V2 writes an exact-SHA scoped HMAC attestation after read-only external proofs", () => {
+  const workflow = source("../../.github/workflows/production-preflight-v2.yml");
   const attestation = source("../../.github/scripts/production-config-attestation.mjs");
 
   const dbProof = workflow.indexOf("Prove production PostgreSQL is reachable read-only");
@@ -68,10 +68,13 @@ test("release quality gate centrally enforces explicit path-based Production att
   assert.match(policy, /production-open-paid-checkout\.yml@\*/);
   assert.match(policy, /production-worker-deploy\.yml@\*/);
   assert.match(policy, /verify_scope worker-host/);
+  assert.match(policy, /production-preflight-v2\.yml@\*/);
+  assert.doesNotMatch(policy, /production-preflight\.yml@\*/);
   assert.match(policy, /production-\*\.yml@\*/);
   assert.match(policy, /Unknown Production workflow has no explicit attestation policy/);
 
-  assert.match(helper, /production-preflight\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
+  assert.match(helper, /production-preflight-v2\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
+  assert.doesNotMatch(helper, /production-preflight\.yml\/runs/);
   assert.match(helper, /\.conclusion == "success"/);
   assert.match(helper, /\.event == "workflow_dispatch"/);
   assert.match(helper, /\.head_branch == "hee-v6-rc"/);
@@ -80,9 +83,13 @@ test("release quality gate centrally enforces explicit path-based Production att
   assert.match(helper, /production-config-attestation\.mjs" verify/);
 });
 
+test("legacy Production Preflight V1 is removed so operators and gates have one canonical workflow", () => {
+  assert.equal(existsSync(resolve(process.cwd(), "../../.github/workflows/production-preflight.yml")), false);
+});
+
 test("GitHub launch-state remains attested closed baseline while live paid state is deployment-scoped", () => {
   const attestation = source("../../.github/scripts/production-config-attestation.mjs");
-  const preflight = source("../../.github/workflows/production-preflight.yml");
+  const preflight = source("../../.github/workflows/production-preflight-v2.yml");
   const sync = source("../../.github/scripts/sync-vercel-production-env.mjs");
   const plainKeysStart = sync.indexOf("const plainKeys = [");
   const sensitiveKeysStart = sync.indexOf("const sensitiveKeys = [");
