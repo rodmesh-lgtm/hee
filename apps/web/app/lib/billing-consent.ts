@@ -28,24 +28,18 @@ export async function recordBillingCheckoutConsent(input: {
         AND bp."providerPaymentId" IS NULL
         AND bp."createdAt" > CURRENT_TIMESTAMP - INTERVAL '1 hour'
       FOR UPDATE OF bp
-    ), inserted AS (
-      INSERT INTO "BillingCheckoutConsent"
-        ("billingPaymentId","userId","termsVersion","privacyVersion","disclosureVersion","acceptedAt")
-      SELECT "id", ${input.userId}, ${TERMS_VERSION}, ${PRIVACY_VERSION}, ${BILLING_DISCLOSURE_VERSION}, CURRENT_TIMESTAMP
-      FROM eligible
-      ON CONFLICT ("billingPaymentId") DO NOTHING
-      RETURNING "billingPaymentId","termsVersion","privacyVersion","disclosureVersion","acceptedAt"
     )
-    SELECT * FROM inserted
-    UNION ALL
-    SELECT c."billingPaymentId",c."termsVersion",c."privacyVersion",c."disclosureVersion",c."acceptedAt"
-    FROM "BillingCheckoutConsent" c
-    JOIN eligible e ON e."id" = c."billingPaymentId"
-    WHERE c."userId" = ${input.userId}
-      AND c."termsVersion" = ${TERMS_VERSION}
-      AND c."privacyVersion" = ${PRIVACY_VERSION}
-      AND c."disclosureVersion" = ${BILLING_DISCLOSURE_VERSION}
-    LIMIT 1
+    INSERT INTO "BillingCheckoutConsent"
+      ("billingPaymentId","userId","termsVersion","privacyVersion","disclosureVersion","acceptedAt")
+    SELECT "id", ${input.userId}, ${TERMS_VERSION}, ${PRIVACY_VERSION}, ${BILLING_DISCLOSURE_VERSION}, CURRENT_TIMESTAMP
+    FROM eligible
+    ON CONFLICT ("billingPaymentId") DO UPDATE
+      SET "termsVersion" = EXCLUDED."termsVersion",
+          "privacyVersion" = EXCLUDED."privacyVersion",
+          "disclosureVersion" = EXCLUDED."disclosureVersion",
+          "acceptedAt" = EXCLUDED."acceptedAt"
+      WHERE "BillingCheckoutConsent"."userId" = EXCLUDED."userId"
+    RETURNING "billingPaymentId","termsVersion","privacyVersion","disclosureVersion","acceptedAt"
   `;
   return rows[0] ?? null;
 }
