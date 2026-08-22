@@ -12,8 +12,10 @@ permissions:
   contents: read
   actions: read
 
+# Shares the restore database with the scheduled backup proof. Serializing both
+# workflows prevents one job from cleaning the restore target under the other.
 concurrency:
-  group: production-database-migrations
+  group: production-database-maintenance
   cancel-in-progress: false
 
 jobs:
