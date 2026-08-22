@@ -1,0 +1,29 @@
+[Unit]
+Description=HEE production billing reconciliation and renewal cycle
+Documentation=https://github.com/rodmesh-lgtm/hee/blob/hee-v6-rc/docs/HETZNER_BILLING_RUNBOOK.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=hee
+Group=hee
+WorkingDirectory=/srv/hee/apps/web
+EnvironmentFile=/etc/hee/production.env
+ExecStart=/usr/bin/npm run billing:renew
+TimeoutStartSec=20min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# The worker needs outbound network access to PostgreSQL/Moyasar but writes no local
+# application state. Logs are captured by journald.
+StandardOutput=journal
+StandardError=journal
