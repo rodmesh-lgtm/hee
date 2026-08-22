@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { GET, POST } from "../app/api/qa/dashboard-audit/route";
+
+function source(path: string) {
+  return readFileSync(resolve(process.cwd(), path), "utf8");
+}
 
 function withPreviewQaEnv<T>(fn: () => Promise<T>) {
   const previous = {
@@ -35,4 +41,20 @@ test("QA dashboard POST rejects query-string credentials before session checks",
     }));
     assert.equal(response.status, 404);
   });
+});
+
+test("Production QA pages are blocked independently by the edge proxy and server layout", () => {
+  const proxy = source("proxy.ts");
+  const layout = source("app/qa/layout.tsx");
+
+  assert.match(proxy, /const appEnv = String\(process\.env\.APP_ENV/);
+  assert.match(proxy, /const vercelEnv = String\(process\.env\.VERCEL_ENV/);
+  assert.match(proxy, /appEnv === "production" \|\| vercelEnv === "production"/);
+  assert.match(proxy, /pathname === "\/qa" \|\| pathname\.startsWith\("\/qa\/"\)/);
+  assert.match(proxy, /productionQaNotFoundResponse\(\)/);
+
+  assert.match(layout, /process\.env\.APP_ENV/);
+  assert.match(layout, /process\.env\.VERCEL_ENV/);
+  assert.match(layout, /appEnv === "production" \|\| vercelEnv === "production"/);
+  assert.match(layout, /if \(isProductionRuntime\(\)\) notFound\(\)/);
 });

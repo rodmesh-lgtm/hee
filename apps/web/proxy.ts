@@ -14,7 +14,9 @@ function isSensitivePrivatePath(pathname: string) {
 }
 
 function isProduction() {
-  return String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
+  const appEnv = String(process.env.APP_ENV ?? "").trim().toLowerCase();
+  const vercelEnv = String(process.env.VERCEL_ENV ?? "").trim().toLowerCase();
+  return appEnv === "production" || vercelEnv === "production";
 }
 
 function productionMaintenanceEnabled() {
