@@ -4,6 +4,7 @@ import { CreditCard, LockKeyhole, ShieldCheck } from "lucide-react";
 import { getCurrentUser } from "../../../lib/auth";
 import { billingCheckoutExpired } from "../../../lib/billing-checkout-integrity";
 import { getOwnedBillingPayment } from "../../../lib/billing-ledger";
+import { db } from "../../../lib/db";
 import { moyasarConfigured, moyasarPublishableKey } from "../../../lib/moyasar";
 import { MoyasarCheckout } from "../../../../components/billing/moyasar-checkout";
 
@@ -16,12 +17,24 @@ function publicOrigin() {
 export default async function BillingCheckoutPage({ searchParams }: { searchParams: Promise<{ billing?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (!user.emailVerifiedAt) redirect("/dashboard/settings?billing=email-verification-required");
   const params = await searchParams;
   const billingId = String(params.billing ?? "").trim();
   if (!/^[0-9a-f-]{36}$/i.test(billingId)) redirect("/dashboard/branding?billing=invalid");
 
   const billing = await getOwnedBillingPayment(user.id, billingId);
   if (!billing) redirect("/dashboard/branding?billing=invalid");
+
+  // getOwnedBillingPayment intentionally preserves historical financial access after a
+  // business soft-delete. A checkout page is different: never render a provider form
+  // unless the exact business and target plan are still live right now. The consent and
+  // activation transactions re-prove the same invariants again at their write boundaries.
+  const [liveBusiness, livePlan] = await Promise.all([
+    db.business.findFirst({ where: { id: billing.businessId, ownerId: user.id, deletedAt: null }, select: { id: true } }),
+    db.businessPlan.findFirst({ where: { id: billing.planId, isActive: true }, select: { id: true } }),
+  ]);
+  if (!liveBusiness || !livePlan) redirect("/dashboard/branding?billing=unavailable");
+
   if (billing.status === "paid") redirect("/dashboard/settings?billing=paid");
   if (["failed", "voided", "refunded", "canceled"].includes(billing.status)) redirect("/dashboard/branding?billing=failed");
   if (!["created", "initiated", "authorized"].includes(billing.status)) redirect("/dashboard/settings?billing=unavailable");
