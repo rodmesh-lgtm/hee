@@ -65,7 +65,16 @@ export async function GET(request: Request) {
         return back("checkout-consent-missing");
       }
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
-      if (result !== "activated" && result !== "already-paid") return back("verification-failed");
+      if (result !== "activated" && result !== "already-paid") {
+        // The provider settled real money but the locked HEE transaction could no longer
+        // prove a safe entitlement target (for example deleted business/owner, unverified
+        // owner, disabled plan or a terminal/stale billing state). Never keep the money
+        // while denying the entitlement: reverse first, then persist the provider state.
+        console.error("[billing-callback] settled_payment_not_activatable", { billingId, result });
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+        return back("payment-reversed");
+      }
       revalidatePath("/dashboard/settings");
       revalidatePath("/dashboard/branding");
       return back("paid");
