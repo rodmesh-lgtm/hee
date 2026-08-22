@@ -23,13 +23,12 @@ required("BILLING_SELLER_ADDRESS_AR");
 required("BILLING_TAX_STATUS");
 required("BILLING_RENEWAL_ENABLED");
 required("BILLING_OPERATIONS_READY");
-required("PAID_CHECKOUT_PUBLIC_ENABLED");
 required("STORAGE_DRIVER");
 
-// Maintenance mode is deliberately NOT persisted in the project environment.
-// The maintenance workflow injects it only into one staged deployment. A later
-// normal Production build therefore defaults fail-closed to maintenance=false
-// without depending on a mutable project-level toggle.
+// Maintenance and paid-launch modes are deliberately NOT persisted as mutable
+// project-level state. Ordinary Production sync always restores the safe billing
+// baseline (public checkout closed, no rehearsal account). Controlled workflows
+// may override these values only on one exact-SHA staged deployment.
 if (Object.prototype.hasOwnProperty.call(process.env, "PRODUCTION_MAINTENANCE_MODE")) {
   throw new Error("PRODUCTION_MAINTENANCE_MODE must remain deployment-scoped and must not be synced to the Vercel project environment");
 }
@@ -38,8 +37,8 @@ const plainKeys = [
   "APP_ENV", "APP_URL", "AUTH_ORIGIN", "NEXT_PUBLIC_APP_URL", "API_URL", "RELEASE_SHA",
   "PG_POOL_MAX", "HEE_FROM_EMAIL", "PAYMENT_PROVIDER",
   "BILLING_SELLER_LEGAL_NAME_AR", "BILLING_SELLER_ADDRESS_AR", "BILLING_TAX_STATUS",
-  "BILLING_RENEWAL_ENABLED", "BILLING_OPERATIONS_READY", "PAID_CHECKOUT_PUBLIC_ENABLED",
-  "BILLING_REHEARSAL_USER_EMAIL", "STORAGE_DRIVER", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET",
+  "BILLING_RENEWAL_ENABLED", "BILLING_OPERATIONS_READY",
+  "STORAGE_DRIVER", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET",
   "S3_FORCE_PATH_STYLE", "S3_ALLOW_INSECURE",
 ];
 const sensitiveKeys = [
@@ -53,6 +52,8 @@ const sensitiveKeys = [
 const entries = [
   ...plainKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "plain", target: ["production"] })),
   ...sensitiveKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "sensitive", target: ["production"] })),
+  { key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false", type: "plain", target: ["production"] },
+  { key: "BILLING_REHEARSAL_USER_EMAIL", value: "", type: "plain", target: ["production"] },
   { key: "QA_AUDIT_SECRET", value: "", type: "sensitive", target: ["production"] },
   { key: "QA_AUDIT_USER_EMAIL", value: "", type: "plain", target: ["production"] },
 ];
@@ -77,4 +78,4 @@ const result = await response.json();
 if (Array.isArray(result?.failed) && result.failed.length) {
   throw new Error(`Vercel production environment sync reported ${result.failed.length} failed entries`);
 }
-console.log(`vercel-production-env-sync: PASS (${entries.length} keys, values not logged)`);
+console.log(`vercel-production-env-sync: PASS (${entries.length} keys, paid launch defaults closed; values not logged)`);
