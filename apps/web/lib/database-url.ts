@@ -13,7 +13,12 @@ export function normalizePostgresDatabaseUrl(rawUrl: string) {
     throw new Error("HEE database configuration is invalid: a PostgreSQL DATABASE_URL is required");
   }
 
-  const sslMode = parsed.searchParams.get("sslmode")?.trim().toLowerCase();
+  const sslModes = parsed.searchParams.getAll("sslmode");
+  if (sslModes.length > 1) {
+    throw new Error("HEE database configuration is invalid: DATABASE_URL must contain at most one sslmode parameter");
+  }
+
+  const sslMode = sslModes[0]?.trim().toLowerCase();
   if (sslMode && LEGACY_STRICT_SSL_MODES.has(sslMode)) {
     // pg-connection-string currently treats these modes as verify-full, but pg v9
     // will adopt weaker libpq semantics. Preserve HEE's existing certificate and
