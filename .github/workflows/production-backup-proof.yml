@@ -8,8 +8,11 @@ on:
 permissions:
   contents: read
 
+# The scheduled restore proof and manual production migration both reuse the
+# isolated restore database. Keep them in one concurrency group so they can
+# never clean/restore the same target at the same time.
 concurrency:
-  group: production-backup-restore-proof
+  group: production-database-maintenance
   cancel-in-progress: false
 
 jobs:
@@ -35,6 +38,7 @@ jobs:
           const sourceDb = source.pathname.replace(/^\//, "");
           const restoreDb = restore.pathname.replace(/^\//, "");
           if (!sourceDb || !restoreDb) throw new Error("Both database URLs must name a database");
+          if (["localhost", "127.0.0.1", "::1"].includes(source.hostname.toLowerCase())) throw new Error("Production source must not be local");
           if (source.href === restore.href) throw new Error("Restore target must never equal production");
           if (!/^hee_restore(?:_|$)/i.test(restoreDb)) throw new Error("Restore database name must begin with hee_restore");
           if (/^hee_restore(?:_|$)/i.test(sourceDb)) throw new Error("Production source must not be a restore database");
