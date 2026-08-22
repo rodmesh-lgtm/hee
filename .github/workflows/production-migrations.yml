@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       writes_paused_confirmation:
-        description: "After web/workers are stopped, type PRODUCTION_WRITES_PAUSED"
+        description: "After verified maintenance is active, type PRODUCTION_WRITES_PAUSED"
         required: true
         type: string
 
@@ -24,7 +24,7 @@ jobs:
   migrate:
     if: ${{ inputs.confirmation == 'APPLY_PRODUCTION_MIGRATIONS' && inputs.writes_paused_confirmation == 'PRODUCTION_WRITES_PAUSED' && github.ref == 'refs/heads/hee-v6-rc' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     environment: production
     defaults:
       run:
@@ -33,6 +33,10 @@ jobs:
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
       RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
       PRODUCTION_BACKUP_PASSPHRASE: ${{ secrets.PRODUCTION_BACKUP_PASSPHRASE }}
+      HETZNER_HOST: ${{ vars.PRODUCTION_HETZNER_HOST }}
+      HETZNER_USER: ${{ vars.PRODUCTION_HETZNER_USER }}
+      HETZNER_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_HETZNER_SSH_PRIVATE_KEY }}
+      HETZNER_KNOWN_HOSTS: ${{ secrets.PRODUCTION_HETZNER_KNOWN_HOSTS }}
     steps:
       - name: Checkout exact release revision
         uses: actions/checkout@v7
@@ -55,6 +59,58 @@ jobs:
             echo "Refusing production migration: exact release SHA ${GITHUB_SHA} has no successful Production Preflight run."
             exit 1
           fi
+
+      - name: Require successful exact-SHA maintenance entry workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          maintenance_runs="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-enter-maintenance.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
+          test "$maintenance_runs" -ge 1 || (echo "Refusing production migration: exact release SHA has no successful Production Enter Maintenance run" && exit 1)
+
+      - name: Prove canonical web is still exact-SHA maintenance before any database access
+        working-directory: .
+        run: |
+          set -euo pipefail
+          status_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
+          maintenance="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.maintenance===true));' "$status_json")"
+          release_sha="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.releaseSha??""));' "$status_json")"
+          release_env="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.environment??""));' "$status_json")"
+          test "$maintenance" = "true" || (echo "Canonical web is no longer in maintenance" && exit 1)
+          test "$release_sha" = "$GITHUB_SHA" || (echo "Canonical maintenance SHA differs from migration SHA" && exit 1)
+          test "$release_env" = "production" || (echo "Canonical maintenance endpoint is not production" && exit 1)
+          code="$(curl --silent --show-error --output /tmp/hee-migration-maintenance.html --write-out '%{http_code}' --max-time 20 https://hee.sa/)"
+          test "$code" = "503" || (echo "Canonical customer traffic is not blocked (HTTP ${code})" && exit 1)
+          grep -q 'صيانة مجدولة' /tmp/hee-migration-maintenance.html || (echo "Canonical maintenance response body is missing" && exit 1)
+
+      - name: Configure pinned Hetzner SSH verification
+        working-directory: .
+        run: |
+          set -euo pipefail
+          test -n "$HETZNER_HOST" || (echo "PRODUCTION_HETZNER_HOST is not configured" && exit 1)
+          test -n "$HETZNER_USER" || (echo "PRODUCTION_HETZNER_USER is not configured" && exit 1)
+          test -n "$HETZNER_SSH_PRIVATE_KEY" || (echo "PRODUCTION_HETZNER_SSH_PRIVATE_KEY is not configured" && exit 1)
+          test -n "$HETZNER_KNOWN_HOSTS" || (echo "PRODUCTION_HETZNER_KNOWN_HOSTS is not configured" && exit 1)
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$HETZNER_SSH_PRIVATE_KEY" > "$HOME/.ssh/hee-production"
+          chmod 0600 "$HOME/.ssh/hee-production"
+          printf '%s\n' "$HETZNER_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/known_hosts"
+
+      - name: Prove billing worker maintenance lock and quiescence
+        working-directory: .
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes "${HETZNER_USER}@${HETZNER_HOST}" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          test -f /etc/hee/maintenance.lock || { echo 'Hetzner maintenance lock is missing'; exit 1; }
+          grep -qx 'ConditionPathExists=!/etc/hee/maintenance.lock' /etc/systemd/system/hee-billing-renew.service.d/maintenance.conf || { echo 'systemd maintenance condition is missing'; exit 1; }
+          if sudo -n systemctl is-active --quiet hee-billing-renew.timer; then echo 'Billing timer is active'; exit 1; fi
+          if sudo -n systemctl is-active --quiet hee-billing-renew.service; then echo 'Billing service is active'; exit 1; fi
+          REMOTE
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -85,6 +141,15 @@ jobs:
       - name: Show migration status before deploy
         run: npx prisma migrate status
 
+      - name: Re-prove maintenance immediately before taking production backup
+        working-directory: .
+        run: |
+          set -euo pipefail
+          status_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
+          node -e 'const b=JSON.parse(process.argv[1]);if(b.maintenance!==true||b.releaseSha!==process.env.GITHUB_SHA||b.environment!=="production")process.exit(1);' "$status_json"
+          ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes "${HETZNER_USER}@${HETZNER_HOST}" \
+            "test -f /etc/hee/maintenance.lock && ! sudo -n systemctl is-active --quiet hee-billing-renew.timer && ! sudo -n systemctl is-active --quiet hee-billing-renew.service"
+
       - name: Create encrypted pre-migration backup
         run: |
           pg_dump "$DATABASE_URL" --format=custom --file=/tmp/hee-production-pre-migration.dump
@@ -111,7 +176,7 @@ jobs:
       - name: Restore exact pre-migration backup into isolated database
         run: pg_restore --exit-on-error --dbname="$RESTORE_DATABASE_URL" --no-owner --no-privileges /tmp/hee-production-backup-verify.dump
 
-      - name: Prove restored critical data matches paused production source
+      - name: Prove restored critical data matches technically paused production source
         env:
           SOURCE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
@@ -137,6 +202,17 @@ jobs:
       - name: Prove critical data unchanged after deploy
         run: npm run migration:production-data-proof -- --verify /tmp/hee-production-pre-migration-proof.json
 
-      - name: Remove local backup copies
+      - name: Prove maintenance remains active after migration
+        working-directory: .
+        run: |
+          set -euo pipefail
+          status_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
+          node -e 'const b=JSON.parse(process.argv[1]);if(b.maintenance!==true||b.releaseSha!==process.env.GITHUB_SHA||b.environment!=="production")process.exit(1);' "$status_json"
+          ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes "${HETZNER_USER}@${HETZNER_HOST}" \
+            "test -f /etc/hee/maintenance.lock && ! sudo -n systemctl is-active --quiet hee-billing-renew.timer && ! sudo -n systemctl is-active --quiet hee-billing-renew.service"
+          echo "production-migrations: PASS for ${GITHUB_SHA}; maintenance intentionally remains active until exact release deployment"
+
+      - name: Remove runner-local backup and SSH material
         if: always()
-        run: rm -f /tmp/hee-production-pre-migration.dump /tmp/hee-production-pre-migration.dump.enc /tmp/hee-production-backup-verify.dump /tmp/hee-production-pre-migration-proof.json
+        working-directory: .
+        run: rm -f /tmp/hee-production-pre-migration.dump /tmp/hee-production-pre-migration.dump.enc /tmp/hee-production-backup-verify.dump /tmp/hee-production-pre-migration-proof.json /tmp/hee-migration-maintenance.html "$HOME/.ssh/hee-production" "$HOME/.ssh/known_hosts"
