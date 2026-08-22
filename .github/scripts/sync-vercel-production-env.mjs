@@ -26,14 +26,17 @@ required("BILLING_OPERATIONS_READY");
 required("PAID_CHECKOUT_PUBLIC_ENABLED");
 required("STORAGE_DRIVER");
 
-const maintenance = required("PRODUCTION_MAINTENANCE_MODE").toLowerCase();
-if (!new Set(["true", "false"]).has(maintenance)) {
-  throw new Error("PRODUCTION_MAINTENANCE_MODE must be exactly true or false");
+// Maintenance mode is deliberately NOT persisted in the project environment.
+// The maintenance workflow injects it only into one staged deployment. A later
+// normal Production build therefore defaults fail-closed to maintenance=false
+// without depending on a mutable project-level toggle.
+if (Object.prototype.hasOwnProperty.call(process.env, "PRODUCTION_MAINTENANCE_MODE")) {
+  throw new Error("PRODUCTION_MAINTENANCE_MODE must remain deployment-scoped and must not be synced to the Vercel project environment");
 }
 
 const plainKeys = [
   "APP_ENV", "APP_URL", "AUTH_ORIGIN", "NEXT_PUBLIC_APP_URL", "API_URL", "RELEASE_SHA",
-  "PG_POOL_MAX", "HEE_FROM_EMAIL", "PAYMENT_PROVIDER", "PRODUCTION_MAINTENANCE_MODE",
+  "PG_POOL_MAX", "HEE_FROM_EMAIL", "PAYMENT_PROVIDER",
   "BILLING_SELLER_LEGAL_NAME_AR", "BILLING_SELLER_ADDRESS_AR", "BILLING_TAX_STATUS",
   "BILLING_RENEWAL_ENABLED", "BILLING_OPERATIONS_READY", "PAID_CHECKOUT_PUBLIC_ENABLED",
   "BILLING_REHEARSAL_USER_EMAIL", "STORAGE_DRIVER", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET",
@@ -74,4 +77,4 @@ const result = await response.json();
 if (Array.isArray(result?.failed) && result.failed.length) {
   throw new Error(`Vercel production environment sync reported ${result.failed.length} failed entries`);
 }
-console.log(`vercel-production-env-sync: PASS (${entries.length} keys, maintenance=${maintenance}, values not logged)`);
+console.log(`vercel-production-env-sync: PASS (${entries.length} keys, values not logged)`);
