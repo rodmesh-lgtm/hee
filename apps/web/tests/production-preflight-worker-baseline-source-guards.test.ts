@@ -5,12 +5,12 @@ import test from "node:test";
 
 function workflowSource() {
   return readFileSync(
-    resolve(process.cwd(), "../../.github/workflows/production-preflight.yml"),
+    resolve(process.cwd(), "../../.github/workflows/production-preflight-v2.yml"),
     "utf8",
   );
 }
 
-test("production preflight proves the exact managed worker rollback baseline before maintenance", () => {
+test("production preflight V2 proves the exact managed worker rollback baseline before maintenance", () => {
   const workflow = workflowSource();
   const workerStep = workflow.indexOf("Verify Hetzner worker rollback baseline and prerequisites read-only");
   const current = workflow.indexOf('readlink -f /srv/hee/current', workerStep);
