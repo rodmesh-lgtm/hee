@@ -76,8 +76,8 @@ async function expireEndedNonRenewingSubscriptions() {
   const rows = await db.$queryRaw<Array<{ id: string; businessId: string; planId: string }>>`
     SELECT s."id", s."businessId", s."planId"
     FROM "Subscription" s
-    JOIN "Business" b ON b."id" = s."businessId" AND b."deletedAt" IS NULL
-    WHERE s."status" = 'active'
+    JOIN "Business" b ON b."id" = s."businessId"
+    WHERE s."status" IN ('active','past_due')
       AND s."autoRenew" = false
       AND s."endsAt" IS NOT NULL
       AND s."endsAt" <= CURRENT_TIMESTAMP
@@ -89,6 +89,7 @@ async function expireEndedNonRenewingSubscriptions() {
   const free = await db.businessPlan.findUnique({ where: { code: "FREE" }, select: { id: true } });
   if (!free) throw new Error("FREE_PLAN_MISSING");
 
+  let expired = 0;
   for (const row of rows) {
     await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${businessLockKey(row.businessId)}))`;
@@ -96,11 +97,12 @@ async function expireEndedNonRenewingSubscriptions() {
         UPDATE "Subscription"
         SET "status" = 'canceled', "updatedAt" = CURRENT_TIMESTAMP
         WHERE "id" = ${row.id}
-          AND "status" = 'active'
+          AND "status" IN ('active','past_due')
           AND "autoRenew" = false
           AND "endsAt" <= CURRENT_TIMESTAMP
       `;
       if (changed) {
+        expired += 1;
         await tx.business.updateMany({
           where: { id: row.businessId, deletedAt: null, planId: row.planId },
           data: { planId: free.id },
@@ -108,7 +110,113 @@ async function expireEndedNonRenewingSubscriptions() {
       }
     });
   }
-  return rows.length;
+  return expired;
+}
+
+async function expireIneligibleDueRenewals() {
+  const rows = await db.$queryRaw<Array<{ id: string; businessId: string }>>`
+    SELECT s."id", s."businessId"
+    FROM "Subscription" s
+    JOIN "Business" b ON b."id" = s."businessId"
+    JOIN "User" u ON u."id" = b."ownerId"
+    JOIN "BusinessPlan" p ON p."id" = s."planId"
+    LEFT JOIN "BillingPaymentMethod" pm
+      ON pm."id" = s."paymentMethodId"
+     AND pm."businessId" = s."businessId"
+    WHERE s."status" IN ('active','past_due')
+      AND s."autoRenew" = true
+      AND s."provider" = 'moyasar'
+      AND s."endsAt" IS NOT NULL
+      AND s."endsAt" <= CURRENT_TIMESTAMP
+      AND (
+        b."deletedAt" IS NOT NULL
+        OR u."deletedAt" IS NOT NULL
+        OR u."emailVerifiedAt" IS NULL
+        OR p."isActive" = false
+        OR pm."id" IS NULL
+        OR pm."status" <> 'active'
+      )
+    ORDER BY s."endsAt" ASC
+    LIMIT 200
+  `;
+  if (!rows.length) return 0;
+
+  const free = await db.businessPlan.findUnique({ where: { code: "FREE" }, select: { id: true } });
+  if (!free) throw new Error("FREE_PLAN_MISSING");
+
+  let expired = 0;
+  for (const row of rows) {
+    await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${businessLockKey(row.businessId)}))`;
+      const currentRows = await tx.$queryRaw<Array<{
+        id: string;
+        planId: string;
+        paymentMethodId: string | null;
+        businessDeletedAt: Date | null;
+        userDeletedAt: Date | null;
+        emailVerifiedAt: Date | null;
+        planActive: boolean;
+        methodStatus: string | null;
+      }>>`
+        SELECT s."id", s."planId", s."paymentMethodId",
+               b."deletedAt" AS "businessDeletedAt",
+               u."deletedAt" AS "userDeletedAt",
+               u."emailVerifiedAt" AS "emailVerifiedAt",
+               p."isActive" AS "planActive",
+               pm."status" AS "methodStatus"
+        FROM "Subscription" s
+        JOIN "Business" b ON b."id" = s."businessId"
+        JOIN "User" u ON u."id" = b."ownerId"
+        JOIN "BusinessPlan" p ON p."id" = s."planId"
+        LEFT JOIN "BillingPaymentMethod" pm
+          ON pm."id" = s."paymentMethodId"
+         AND pm."businessId" = s."businessId"
+        WHERE s."id" = ${row.id}
+          AND s."businessId" = ${row.businessId}
+          AND s."status" IN ('active','past_due')
+          AND s."autoRenew" = true
+          AND s."provider" = 'moyasar'
+          AND s."endsAt" IS NOT NULL
+          AND s."endsAt" <= CURRENT_TIMESTAMP
+        FOR UPDATE OF s, b, u, p
+      `;
+      const current = currentRows[0];
+      if (!current) return;
+      const stillEligible = !current.businessDeletedAt
+        && !current.userDeletedAt
+        && Boolean(current.emailVerifiedAt)
+        && current.planActive
+        && Boolean(current.paymentMethodId)
+        && current.methodStatus === "active";
+      if (stillEligible) return;
+
+      const changed = await tx.$executeRaw`
+        UPDATE "Subscription"
+        SET "status" = 'canceled', "autoRenew" = false, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "id" = ${row.id}
+          AND "status" IN ('active','past_due')
+          AND "autoRenew" = true
+          AND "endsAt" <= CURRENT_TIMESTAMP
+      `;
+      if (!changed) return;
+      expired += 1;
+
+      if (current.paymentMethodId) {
+        await tx.$executeRaw`
+          UPDATE "BillingPaymentMethod"
+          SET "status" = 'revoked', "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "id" = ${current.paymentMethodId}
+            AND "businessId" = ${row.businessId}
+            AND "status" = 'active'
+        `;
+      }
+      await tx.business.updateMany({
+        where: { id: row.businessId, deletedAt: null, planId: current.planId },
+        data: { planId: free.id },
+      });
+    });
+  }
+  return expired;
 }
 
 async function dueSubscriptions() {
@@ -148,8 +256,8 @@ async function latestAttempt(subscriptionId: string) {
 async function createAttempt(sub: DueSubscription, attempt: number) {
   return db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${businessLockKey(sub.businessId)}))`;
-    const eligible = await tx.$queryRaw<Array<{ id: string }>>`
-      SELECT s."id"
+    const eligible = await tx.$queryRaw<Array<{ id: string; monthlyPrice: number }>>`
+      SELECT s."id", p."monthlyPrice"
       FROM "Subscription" s
       JOIN "BillingPaymentMethod" pm
         ON pm."id"=s."paymentMethodId"
@@ -165,13 +273,13 @@ async function createAttempt(sub: DueSubscription, attempt: number) {
         AND s."provider"='moyasar'
         AND s."endsAt" IS NOT NULL
         AND s."endsAt" <= CURRENT_TIMESTAMP
-      FOR UPDATE OF s
+      FOR UPDATE OF s, b, u, p
     `;
     if (!eligible[0]) return null;
 
     const id = randomUUID();
     const providerGivenId = randomUUID();
-    const amount = sub.monthlyPrice * 100;
+    const amount = eligible[0].monthlyPrice * 100;
     const rows = await tx.$queryRaw<RenewalAttempt[]>`
       INSERT INTO "BillingPayment" (
         "id", "businessId", "planId", "subscriptionId", "provider", "providerGivenId",
@@ -447,9 +555,15 @@ async function resolveProviderState(sub: DueSubscription, billing: RenewalAttemp
     throw new Error(`ACTIVATION_${result}`);
   }
 
-  if (payment.status === "failed" || payment.status === "voided" || payment.status === "refunded") {
+  if (payment.status === "failed") {
     await markFailed(billing.id, payment.id, billing.attempt);
     if (billing.attempt >= MAX_ATTEMPTS) await expireAfterFailedRenewal(sub);
+    return "done" as const;
+  }
+
+  if (payment.status === "voided" || payment.status === "refunded") {
+    await setAttemptState(billing.id, payment.status, payment.id, null);
+    await expireAfterFailedRenewal(sub);
     return "done" as const;
   }
 
@@ -554,10 +668,11 @@ async function main() {
   required("BILLING_TOKEN_ENCRYPTION_KEY");
   if (!paidBillingTaxReady()) throw new Error("BILLING_TAX_CONFIGURATION_NOT_READY");
 
-  const expired = await expireEndedNonRenewingSubscriptions();
+  const ineligibleExpired = await expireIneligibleDueRenewals();
+  const nonRenewingExpired = await expireEndedNonRenewingSubscriptions();
   const due = await dueSubscriptions();
   for (const sub of due) await processSubscription(sub);
-  console.log(`billing-renewal-worker: PASS (${expired} ended subscriptions expired, ${due.length} renewable subscriptions checked)`);
+  console.log(`billing-renewal-worker: PASS (${ineligibleExpired} ineligible renewals closed, ${nonRenewingExpired} ended subscriptions expired, ${due.length} renewable subscriptions checked)`);
 }
 
 main()
