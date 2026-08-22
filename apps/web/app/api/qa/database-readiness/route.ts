@@ -45,7 +45,7 @@ export async function GET() {
   try {
     const rows = await db.$queryRaw<ReadinessRow[]>`
       SELECT
-        current_database() AS "currentDatabase",
+        current_database()::text AS "currentDatabase",
         EXISTS (
           SELECT 1 FROM "_prisma_migrations"
           WHERE "migration_name" = ${EXPECTED_PREVIEW_LATEST_MIGRATION}
@@ -109,7 +109,7 @@ export async function GET() {
         (SELECT COUNT(*)::int FROM "Order" WHERE "status" NOT IN ('pending','confirmed','processing','completed','cancelled')) AS "invalidOrderStatuses",
         (SELECT COUNT(*)::int FROM "Booking" WHERE "status" NOT IN ('pending','confirmed','completed','cancelled','no_show')) AS "invalidBookingStatuses",
         (SELECT COUNT(*)::int FROM "Order" WHERE "orderType" NOT IN ('استلام','pickup','delivery','request')) AS "invalidOrderTypes",
-        (SELECT COUNT(*)::int FROM "OrderItem" WHERE "quantity" <= 0 OR "quantity" > 1000) AS "invalidOrderItemQuantities",
+        (SELECT COUNT(*)::int FROM "OrderItem" WHERE "quantity" <= 0 OR "total" < 0 OR "unitPrice" < 0) AS "invalidOrderItemQuantities",
         (
           (SELECT COUNT(*) FROM "OrderItem" WHERE "unitPrice" < 0 OR "total" < 0) +
           (SELECT COUNT(*) FROM "Order" WHERE "total" < 0)
@@ -185,14 +185,15 @@ export async function GET() {
       && checks.bookingForeignKeyExists
       && checks.analyticsMetadataType === "jsonb";
     const ready = blockerFree && migrationSetCurrent && criticalSchemaCurrent;
+    const { currentDatabase, ...publicChecks } = checks;
 
     return NextResponse.json({
       ready,
       migrationSafeToAttempt: blockerFree,
-      databaseFingerprint: databaseFingerprint(checks.currentDatabase),
+      databaseFingerprint: databaseFingerprint(currentDatabase),
       expected: { latestMigration: EXPECTED_PREVIEW_LATEST_MIGRATION, migrationCount: EXPECTED_MIGRATION_COUNT },
       migrationHistory: { pendingExpected, unexpectedApplied },
-      checks: { ...checks, currentDatabase: undefined },
+      checks: publicChecks,
       blockers,
       normalizationCandidates,
     }, { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } });
