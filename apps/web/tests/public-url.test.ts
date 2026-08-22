@@ -5,10 +5,37 @@ import {
   isReservedPublicSlug,
   isValidPublicSlug,
   normalizePublicSlug,
+  resolvePublicBusinessUrl,
 } from "../app/lib/public-url";
 
 test("uses the canonical root public URL for business pages", () => {
   assert.equal(getPublicBusinessUrl("demo-store"), "https://hee.sa/demo-store");
+});
+
+test("production public links ignore preview-looking and forwarded request hosts", () => {
+  assert.equal(
+    resolvePublicBusinessUrl("demo-store", "attacker.vercel.app", "https", true),
+    "https://hee.sa/demo-store",
+  );
+  assert.equal(
+    resolvePublicBusinessUrl("demo-store", "localhost:3000", "http", true),
+    "https://hee.sa/demo-store",
+  );
+});
+
+test("non-production previews remain usable only on explicitly allowed preview hosts", () => {
+  assert.equal(
+    resolvePublicBusinessUrl("demo-store", "hee-preview.vercel.app", "https", false),
+    "https://hee-preview.vercel.app/demo-store",
+  );
+  assert.equal(
+    resolvePublicBusinessUrl("demo-store", "workspace-3000.app.github.dev", "https", false),
+    "https://workspace-3000.app.github.dev/demo-store",
+  );
+  assert.equal(
+    resolvePublicBusinessUrl("demo-store", "evil.example", "https", false),
+    "https://hee.sa/demo-store",
+  );
 });
 
 test("normalizes public slugs consistently", () => {
