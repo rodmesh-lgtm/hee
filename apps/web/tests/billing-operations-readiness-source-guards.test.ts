@@ -37,16 +37,29 @@ test("production live rehearsal is isolated from general paid checkout", () => {
   assert.match(ready, /BILLING_REHEARSAL_USER_EMAIL/);
 });
 
-test("scheduled billing operations recover webhooks, renew, audit state, then record liveness", () => {
+test("scheduled billing operations recover webhooks, renew, audit state, then record exact-release liveness", () => {
   const pkg = source("package.json");
   const audit = source("scripts/billing-state-audit.ts");
-  const migration = source("prisma/migrations/20260822050000_billing_operations_heartbeat/migration.sql");
+  const baseMigration = source("prisma/migrations/20260822050000_billing_operations_heartbeat/migration.sql");
+  const releaseMigration = source("prisma/migrations/20260822111500_billing_worker_release_provenance/migration.sql");
+  const schema = source("prisma/schema.prisma");
+  const ready = source("app/api/health/ready/route.ts");
+  const launch = source("../../.github/workflows/production-launch-readiness.yml");
   const runbook = source("../../docs/HETZNER_BILLING_RUNBOOK.md");
+
   assert.match(pkg, /billing:webhooks && npm run billing:renew-only && npm run billing:state-audit -- --record-heartbeat/);
   assert.match(audit, /HEARTBEAT_MAX_AGE_MINUTES = 90/);
+  assert.match(audit, /Production billing audit requires RELEASE_SHA/);
   assert.match(audit, /billing operations heartbeat is missing or older than 90 minutes/);
+  assert.match(audit, /billing operations worker release SHA does not match the audited web release/);
   assert.match(audit, /billingOperationsHeartbeat\.upsert/);
-  assert.match(migration, /BillingOperationsHeartbeat/);
+  assert.match(audit, /releaseSha: validReleaseSha \? releaseSha : null/);
+  assert.match(baseMigration, /BillingOperationsHeartbeat/);
+  assert.match(releaseMigration, /ADD COLUMN "releaseSha" TEXT/);
+  assert.match(schema, /releaseSha String\?/);
+  assert.match(ready, /heartbeat\.releaseSha/);
+  assert.match(ready, /runtimeReleaseSha/);
+  assert.match(launch, /RELEASE_SHA: \$\{\{ github\.sha \}\}/);
   assert.match(runbook, /BILLING_OPERATIONS_READY=true/);
   assert.match(runbook, /durable Moyasar webhook inbox/);
   assert.match(runbook, /Treat a non-zero exit from `npm run billing:renew` as an operational alert/);
