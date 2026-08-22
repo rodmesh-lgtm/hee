@@ -7,10 +7,12 @@ function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("production migrations stay manually gated to the release branch", () => {
+test("production migrations stay manually gated to the release branch with writes paused", () => {
   const workflow = source("../../.github/workflows/production-migrations.yml");
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /APPLY_PRODUCTION_MIGRATIONS/);
+  assert.match(workflow, /PRODUCTION_WRITES_PAUSED/);
+  assert.match(workflow, /inputs\.writes_paused_confirmation == 'PRODUCTION_WRITES_PAUSED'/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
 });
@@ -19,7 +21,7 @@ test("production migrations verify and restore an encrypted recovery backup befo
   const workflow = source("../../.github/workflows/production-migrations.yml");
   const decryptIndex = workflow.indexOf("Verify encrypted backup can be decrypted and parsed");
   const restoreIndex = workflow.indexOf("Restore exact pre-migration backup into isolated database");
-  const proofIndex = workflow.indexOf("Prove restored critical data matches production source");
+  const proofIndex = workflow.indexOf("npm run backup:production-proof");
   const migrateIndex = workflow.indexOf("Apply pending migrations");
 
   assert.ok(decryptIndex >= 0, "encrypted backup decrypt/parse verification step must exist");
