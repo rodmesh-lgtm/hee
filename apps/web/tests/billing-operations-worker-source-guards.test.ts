@@ -21,3 +21,19 @@ test("billing operations fail closed when webhook recovery schedules a retry", (
   assert.match(pkg, /billing:renew-only/);
   assert.match(pkg, /billing:state-audit/);
 });
+
+test("production billing scheduler is versioned, single-shot and runs every 30 minutes", () => {
+  const service = source("../../ops/systemd/hee-billing-renew.service");
+  const timer = source("../../ops/systemd/hee-billing-renew.timer");
+
+  assert.match(service, /Type=oneshot/);
+  assert.match(service, /User=hee/);
+  assert.match(service, /WorkingDirectory=\/srv\/hee\/apps\/web/);
+  assert.match(service, /EnvironmentFile=\/etc\/hee\/production\.env/);
+  assert.match(service, /ExecStart=\/usr\/bin\/npm run billing:renew/);
+  assert.match(service, /NoNewPrivileges=true/);
+  assert.match(service, /ProtectSystem=strict/);
+  assert.match(timer, /OnCalendar=\*:0\/30/);
+  assert.match(timer, /Persistent=true/);
+  assert.match(timer, /Unit=hee-billing-renew\.service/);
+});
