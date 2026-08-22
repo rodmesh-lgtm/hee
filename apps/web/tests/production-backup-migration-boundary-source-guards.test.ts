@@ -17,6 +17,13 @@ test("production migrations require exact release quality and explicit confirmat
   assert.doesNotMatch(workflow, /prisma db push/);
 });
 
+test("production migration executions are serialized", () => {
+  const workflow = source("../../.github/workflows/production-migrations.yml");
+  assert.match(workflow, /concurrency:/);
+  assert.match(workflow, /group: production-database-migrations/);
+  assert.match(workflow, /cancel-in-progress: false/);
+});
+
 test("production migration restores and proves the exact pre-migration backup before deploy", () => {
   const workflow = source("../../.github/workflows/production-migrations.yml");
   const proof = source("scripts/production-backup-restore-proof.ts");
@@ -29,6 +36,11 @@ test("production migration restores and proves the exact pre-migration backup be
   assert.match(proof, /BillingPayment/);
   assert.match(proof, /BillingCheckoutConsent/);
   assert.match(proof, /BillingOperationsHeartbeat/);
+  assert.match(proof, /ROW_TO_JSON/);
+  assert.match(proof, /STRING_AGG/);
+  assert.match(proof, /digest/);
+  assert.match(proof, /checksum/);
+  assert.match(proof, /Backup restore Prisma migration history does not exactly match production source/);
   assert.match(proof, /_prisma_migrations/);
 });
 
