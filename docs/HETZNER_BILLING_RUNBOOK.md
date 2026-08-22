@@ -33,7 +33,7 @@ The operations command is a normal Node process and can run from a systemd timer
 
 1. recover durable Moyasar webhook inbox events;
 2. reconcile/renew eligible subscriptions;
-3. run the billing state drift audit after reconciliation.
+3. run the billing state drift audit after reconciliation and record a durable successful-run heartbeat.
 
 Example cron cadence after deployment:
 
@@ -45,7 +45,9 @@ Use the same deployed release and EnvironmentFile as the web application. Do not
 
 Run only one scheduled worker per production database. Database/advisory locking and uniqueness constraints protect critical renewal transitions, but operations should still avoid intentionally launching concurrent schedulers.
 
-Treat a non-zero exit from `npm run billing:renew` as an operational alert. In particular, `billing:state-audit` intentionally fails when it detects plan-price drift, expired paid entitlements still marked live, inconsistent plan/subscription lineage, missing payment methods for auto-renew, invalid receipt snapshots, exhausted webhook retries or stuck webhook processing leases. Paid checkout must not remain enabled if this scheduler is not being observed successfully.
+Treat a non-zero exit from `npm run billing:renew` as an operational alert. In particular, webhook recovery now exits non-zero when an event must be retried, and `billing:state-audit` fails when it detects plan-price drift, expired paid entitlements still marked live, inconsistent plan/subscription lineage, missing payment methods for auto-renew, invalid receipt snapshots, exhausted webhook retries or stuck webhook processing leases. The heartbeat is written only after all three phases complete successfully.
+
+With `BILLING_OPERATIONS_READY=true`, a standalone `npm run billing:state-audit` also verifies that the last successful heartbeat is no older than 90 minutes. Because the recommended scheduler runs every 30 minutes, this permits one delayed/missed run while still detecting a stopped scheduler. A stale or missing heartbeat is a paid-checkout incident: set `BILLING_OPERATIONS_READY=false`, restart the web application, investigate the scheduler, and do not re-enable readiness until a complete `npm run billing:renew` succeeds and a following standalone state audit passes.
 
 ## Network and secrets
 
@@ -60,9 +62,9 @@ Allow outbound HTTPS to `api.moyasar.com`. The public reverse proxy needs inboun
 5. Verify the Moyasar webhook reaches the new host and that an authenticated sandbox/test event is durably accepted before changing production traffic.
 6. Install the billing operations schedule with `BILLING_RENEWAL_ENABLED=true` but keep `BILLING_OPERATIONS_READY=false` until the controlled rehearsal is complete.
 7. Verify one controlled subscription purchase, callback, durable webhook processing, entitlement activation, cancellation and one controlled renewal/reconciliation path.
-8. Observe successful scheduled `npm run billing:renew` execution and inspect its logs plus `npm run billing:state-audit` result.
-9. Set `BILLING_OPERATIONS_READY=true`, restart the application, then run `npm run launch:config-audit`.
-10. Only after that audit passes should paid production checkout be enabled for general traffic.
+8. Observe successful scheduled `npm run billing:renew` execution, confirm its heartbeat was recorded, and run standalone `npm run billing:state-audit` after setting readiness true.
+9. Set `BILLING_OPERATIONS_READY=true`, restart the application, then run `npm run launch:config-audit` and `npm run billing:state-audit`.
+10. Only after both audits pass should paid production checkout be enabled for general traffic.
 
 Never use `prisma db push` for production deployment. Never make schema changes from two application hosts at the same time.
 
