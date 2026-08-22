@@ -1,0 +1,14 @@
+name: Require Production Preflight attestation
+description: Fail closed unless the exact-SHA successful Production Preflight attested the current scoped configuration.
+inputs:
+  scope:
+    description: Attestation scope to verify
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Verify exact-SHA Production configuration attestation
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: bash "${{ github.action_path }}/../../scripts/require-production-preflight-attestation.sh" "${{ inputs.scope }}"
