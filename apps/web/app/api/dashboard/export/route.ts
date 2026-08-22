@@ -6,6 +6,14 @@ import { consumePublicWriteLimit } from "../../../lib/rate-limit";
 
 const MAX_EXPORT_BYTES = 10 * 1024 * 1024;
 
+type BillingConsentExport = {
+  billingPaymentId: string;
+  termsVersion: string;
+  privacyVersion: string;
+  disclosureVersion: string;
+  acceptedAt: Date;
+};
+
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
@@ -20,7 +28,7 @@ export async function GET() {
     return NextResponse.json({ error: "تعذر تجهيز التصدير الآن" }, { status: 503, headers: { "Retry-After": "30" } });
   }
 
-  const [account, fullBusiness, products, services, offers, branches, departments, contacts, gallery, hours, customers, orders, bookings, subscriptions, billingPayments, paymentMethods] = await Promise.all([
+  const [account, fullBusiness, products, services, offers, branches, departments, contacts, gallery, hours, customers, orders, bookings, subscriptions, billingPayments, paymentMethods, billingConsents] = await Promise.all([
     db.user.findFirst({ where: { id: user.id, deletedAt: null }, select: { id: true, name: true, email: true, emailVerifiedAt: true, createdAt: true, updatedAt: true } }),
     db.business.findFirst({ where: { id: business.id, ownerId: user.id, deletedAt: null }, select: { id: true, name: true, nameEn: true, slug: true, businessType: true, description: true, shortDescription: true, entityType: true, businessCategory: true, email: true, website: true, country: true, city: true, district: true, googleMapsLink: true, whatsapp: true, phone: true, address: true, logoUrl: true, coverUrl: true, primaryColor: true, secondaryColor: true, buttonColor: true, buttonStyle: true, cardStyle: true, pageModules: true, deliveryAvailable: true, bookingAvailable: true, acceptOnlineOrders: true, xUrl: true, instagramUrl: true, snapchatUrl: true, tiktokUrl: true, facebookUrl: true, metaTitle: true, metaDescription: true, isVerified: true, isPublished: true, publishedAt: true, createdAt: true, updatedAt: true, digitalDestinationType: true, companyProfileUrl: true, companyProfileTitle: true, licenseNumber: true, plan: { select: { code: true, name: true } } } }),
     db.product.findMany({ where: { businessId: business.id }, orderBy: { createdAt: "asc" } }),
@@ -41,7 +49,6 @@ export async function GET() {
         id: true,
         status: true,
         provider: true,
-        providerReference: true,
         autoRenew: true,
         startsAt: true,
         endsAt: true,
@@ -61,6 +68,12 @@ export async function GET() {
         status: true,
         attempt: true,
         paidAt: true,
+        receiptSellerLegalName: true,
+        receiptSellerAddress: true,
+        receiptTaxStatus: true,
+        receiptNetAmount: true,
+        receiptVatAmount: true,
+        receiptIssuedAt: true,
         createdAt: true,
         updatedAt: true,
         plan: { select: { code: true, name: true } },
@@ -73,6 +86,15 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
       select: { id: true, provider: true, brand: true, last4: true, status: true, createdAt: true, updatedAt: true },
     }),
+    // Checkout consent is part of the customer's own billing record. Export the legal
+    // versions and acceptance time, but no provider payment IDs or webhook internals.
+    db.$queryRaw<BillingConsentExport[]>`
+      SELECT c."billingPaymentId", c."termsVersion", c."privacyVersion", c."disclosureVersion", c."acceptedAt"
+      FROM "BillingCheckoutConsent" c
+      JOIN "BillingPayment" bp ON bp."id" = c."billingPaymentId"
+      WHERE bp."businessId" = ${business.id}
+      ORDER BY c."acceptedAt" ASC
+    `,
   ]);
 
   if (!account || !fullBusiness) return NextResponse.json({ error: "تعذر العثور على بيانات الحساب" }, { status: 404 });
@@ -92,7 +114,7 @@ export async function GET() {
     orders,
     bookings,
     subscriptions,
-    billing: { payments: billingPayments, paymentMethods },
+    billing: { payments: billingPayments, paymentMethods, checkoutConsents: billingConsents },
   }, null, 2);
   if (Buffer.byteLength(payload, "utf8") > MAX_EXPORT_BYTES) {
     return NextResponse.json({ error: "حجم البيانات كبير للتصدير المباشر. أرسل طلبًا من مركز الدعم." }, { status: 413 });

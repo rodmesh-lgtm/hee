@@ -8,14 +8,39 @@ const connectionString = String(process.env.DATABASE_URL ?? "").trim();
 if (!connectionString) throw new Error("DATABASE_URL is required");
 const pool = new Pool({ connectionString, max: 2 });
 const db = new PrismaClient({ adapter: new PrismaPg(pool) });
+const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
 
 type DriftRow = { businessId: string; detail: string };
 
 async function main() {
   const drifts: DriftRow[] = [];
 
+  // Homepage and checkout currently advertise these monthly SAR prices. Treat the DB
+  // plan catalog as audited financial configuration so an accidental admin/SQL change
+  // cannot silently make the charged price differ from the public promise.
+  const planPriceDrift = await db.$queryRaw<DriftRow[]>`
+    SELECT 'plan:' || p."code" AS "businessId",
+           'public plan monthly price differs from the audited customer-facing catalog' AS detail
+    FROM "BusinessPlan" p
+    WHERE (p."code"='FREE' AND p."monthlyPrice"<>0)
+       OR (p."code"='BUSINESS' AND p."monthlyPrice"<>199)
+       OR (p."code"='PRO' AND p."monthlyPrice"<>399)
+  `;
+  drifts.push(...planPriceDrift);
+
+  if (production) {
+    const requiredPlans = await db.businessPlan.findMany({
+      where: { code: { in: ["FREE", "BUSINESS", "PRO"] }, isActive: true },
+      select: { code: true },
+    });
+    const present = new Set(requiredPlans.map((plan) => plan.code));
+    for (const code of ["FREE", "BUSINESS", "PRO"]) {
+      if (!present.has(code)) drifts.push({ businessId: `plan:${code}`, detail: "required public plan is missing or inactive" });
+    }
+  }
+
   const paidWithoutLive = await db.$queryRaw<DriftRow[]>`
-    SELECT b."id" AS "businessId", 'paid business plan without matching live subscription' AS detail
+    SELECT b."id" AS "businessId", 'paid business plan without matching unexpired live subscription' AS detail
     FROM "Business" b
     JOIN "BusinessPlan" p ON p."id"=b."planId" AND p."code" IN ('BUSINESS','PRO')
     WHERE b."deletedAt" IS NULL
@@ -23,15 +48,31 @@ async function main() {
         SELECT 1 FROM "Subscription" s
         WHERE s."businessId"=b."id" AND s."planId"=b."planId"
           AND s."status" IN ('active','past_due')
+          AND s."endsAt" > CURRENT_TIMESTAMP
       )
   `;
   drifts.push(...paidWithoutLive);
+
+  const invalidLivePeriod = await db.$queryRaw<DriftRow[]>`
+    SELECT s."businessId" AS "businessId",
+           CASE
+             WHEN s."endsAt" IS NULL THEN 'paid subscription has no finite paid-through date'
+             ELSE 'expired subscription is still marked active/past_due'
+           END AS detail
+    FROM "Subscription" s
+    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO')
+    WHERE s."status" IN ('active','past_due')
+      AND (s."endsAt" IS NULL OR s."endsAt" <= CURRENT_TIMESTAMP)
+  `;
+  drifts.push(...invalidLivePeriod);
 
   const activeMismatch = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'live subscription plan differs from business entitlement plan' AS detail
     FROM "Subscription" s
     JOIN "Business" b ON b."id"=s."businessId" AND b."deletedAt" IS NULL
-    WHERE s."status"='active' AND b."planId" IS DISTINCT FROM s."planId"
+    WHERE s."status"='active'
+      AND s."endsAt" > CURRENT_TIMESTAMP
+      AND b."planId" IS DISTINCT FROM s."planId"
   `;
   drifts.push(...activeMismatch);
 
@@ -72,10 +113,45 @@ async function main() {
     SELECT s."businessId" AS "businessId", 'multiple live subscriptions exist for one business' AS detail
     FROM "Subscription" s
     WHERE s."status" IN ('active','past_due')
+      AND s."endsAt" > CURRENT_TIMESTAMP
     GROUP BY s."businessId"
     HAVING COUNT(*) > 1
   `;
   drifts.push(...duplicateLive);
+
+  // The scheduled recovery worker independently re-fetches provider-started checkouts
+  // when browser callbacks/webhooks are lost. Anything still open after a full day plus
+  // operational headroom is no longer a normal customer interaction: it can block a new
+  // checkout and may represent an unresolved provider authorization.
+  const staleOpenCheckout = await db.$queryRaw<DriftRow[]>`
+    SELECT bp."businessId" AS "businessId",
+           'provider-started checkout remained open after recovery window' AS detail
+    FROM "BillingPayment" bp
+    WHERE bp."provider"='moyasar'
+      AND bp."kind" IN ('initial','upgrade')
+      AND bp."status" IN ('initiated','authorized')
+      AND bp."providerPaymentId" IS NOT NULL
+      AND bp."createdAt" < CURRENT_TIMESTAMP - INTERVAL '26 hours'
+  `;
+  drifts.push(...staleOpenCheckout);
+
+  // A fast-ack webhook is safe only if its durable inbox cannot fail silently. Exhausted
+  // retries or a processing lease stuck for >15 minutes are operational payment drifts.
+  const webhookInboxDrift = await db.$queryRaw<DriftRow[]>`
+    SELECT COALESCE(bp."businessId", 'webhook:' || bwe."id") AS "businessId",
+           CASE
+             WHEN bwe."attempts" >= 12 THEN 'Moyasar webhook exhausted durable retry budget'
+             ELSE 'Moyasar webhook processing lease is stuck'
+           END AS detail
+    FROM "BillingWebhookEvent" bwe
+    LEFT JOIN "BillingPayment" bp ON bp."id"=bwe."billingPaymentId"
+    WHERE bwe."processedAt" IS NULL
+      AND (
+        bwe."attempts" >= 12
+        OR (bwe."processingStartedAt" IS NOT NULL AND bwe."processingStartedAt" < CURRENT_TIMESTAMP - INTERVAL '15 minutes')
+      )
+  `;
+  drifts.push(...webhookInboxDrift);
 
   if (drifts.length) {
     const summary = drifts.slice(0, 20).map((row) => `${row.businessId}: ${row.detail}`).join("\n");

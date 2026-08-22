@@ -17,17 +17,31 @@ test("Moyasar callback verifies canonical provider payment before entitlement ac
   assert.match(callback, /activateVerifiedMoyasarPayment/);
 });
 
-test("Moyasar webhook is bounded, secret-verified, retryable-idempotent and re-fetches provider state", () => {
+test("Moyasar webhook persists a bounded authenticated inbox event and acknowledges before complex processing", () => {
   const webhook = source("app/api/billing/moyasar/webhook/route.ts");
+  const processor = source("app/lib/moyasar-webhook-processing.ts");
+  const migration = source("prisma/migrations/20260821213000_durable_moyasar_webhook_inbox/migration.sql");
+  const packageJson = source("package.json");
+
   assert.match(webhook, /readBoundedText\(request, MAX_WEBHOOK_BYTES\)/);
   assert.match(webhook, /verifyMoyasarWebhookSecret\(event\.secret_token\)/);
+  assert.match(webhook, /"providerPaymentId"/);
   assert.match(webhook, /ON CONFLICT \("provider", "providerEventId"\)/);
-  assert.match(webhook, /RETURNING "id", "processedAt"/);
-  assert.match(webhook, /if \(claimed\.processedAt\)/);
-  assert.match(webhook, /processedAt stays null/);
-  assert.match(webhook, /fetchMoyasarPayment\(providerPaymentId\)/);
-  assert.match(webhook, /event\.live !== true/);
-  assert.match(webhook, /payment\.amount !== billing\.amount/);
+  assert.match(webhook, /after\(async \(\) =>/);
+  assert.match(webhook, /processMoyasarWebhookEvent\(persisted\.id\)/);
+  assert.match(webhook, /status: 202/);
+  assert.doesNotMatch(webhook, /fetchMoyasarPayment\(/);
+
+  assert.match(processor, /fetchMoyasarPayment\(event\.providerPaymentId\)/);
+  assert.match(processor, /providerPaymentCreatedWithinBillingWindow/);
+  assert.match(processor, /hasBillingCheckoutConsent/);
+  assert.match(processor, /activateVerifiedMoyasarPayment/);
+  assert.match(processor, /nextAttemptAt/);
+  assert.match(processor, /attempts/);
+  assert.match(migration, /BillingWebhookEvent_pending_idx/);
+  assert.match(migration, /providerPaymentId/);
+  assert.match(packageJson, /billing:webhooks/);
+  assert.match(packageJson, /billing:renew[^\n]*billing:webhooks/);
 });
 
 test("provider tokens are encrypted at rest and raw card fields stay outside HEE server routes", () => {
@@ -108,17 +122,31 @@ test("renewal retries reuse Moyasar idempotency keys and expire paid entitlement
   ]) assert.match(worker, pattern);
 });
 
-test("canceling auto-renew revokes reusable payment method and cannot lie about an in-flight charge", () => {
+test("canceling auto-renew revokes reusable payment method and keeps an in-flight charge reconcilable", () => {
   const actions = source("app/actions/billing.ts");
   const button = source("components/billing/cancel-renewal-button.tsx");
   const manage = source("app/dashboard/billing/manage/page.tsx");
+  const worker = source("scripts/billing-renewal-worker.ts");
   assert.match(actions, /autoRenew:\s*false/);
   assert.match(actions, /billingPaymentMethod\.updateMany/);
   assert.match(actions, /status:\s*"revoked"/);
   assert.match(actions, /status: \{ in: \["initiated", "authorized"\] \}/);
-  assert.match(actions, /renewal-processing/);
-  assert.match(manage, /بدأت معالجة دفعة التجديد بالفعل/);
+  assert.match(actions, /renewal-processing-future-canceled/);
+  assert.match(manage, /تم إيقاف التجديد للدورات المستقبلية الآن/);
+  assert.match(manage, /دفعة التجديد الحالية قد بدأت بالفعل/);
+  assert.match(worker, /s\."autoRenew" = true[\s\S]*OR EXISTS/);
+  assert.match(worker, /bp\."status" IN \('initiated','authorized'\)/);
   assert.match(button, /window\.confirm/);
+});
+
+test("missing provider renewal IDs age out safely and final reversals override only local cancellation", () => {
+  const worker = source("scripts/billing-renewal-worker.ts");
+  assert.match(worker, /PROVIDER_NOT_FOUND_GRACE_MS = 24 \* 60 \* 60 \* 1000/);
+  assert.match(worker, /errorCode === "MOYASAR_HTTP_404"/);
+  assert.match(worker, /Date\.now\(\) - latest\.createdAt\.getTime\(\) >= PROVIDER_NOT_FOUND_GRACE_MS/);
+  assert.match(worker, /setAttemptState\(latest\.id, "canceled", null, null\)/);
+  assert.match(worker, /retried === "stale"/);
+  assert.match(worker, /"status" = 'canceled' AND \$\{status\} IN \('refunded','voided'\)/);
 });
 
 test("refund rollback restores only an unrefunded prior paid entitlement and never auto-renews it", () => {
@@ -192,7 +220,13 @@ test("billing integrity audit is wired into RC Quality and proves authorized che
 });
 
 test("billing and renewal logic remains portable to Hetzner", () => {
-  const files = [source("app/lib/moyasar-core.ts"), source("app/lib/billing-ledger.ts"), source("scripts/billing-renewal-worker.ts")].join("\n");
+  const files = [
+    source("app/lib/moyasar-core.ts"),
+    source("app/lib/billing-ledger.ts"),
+    source("app/lib/moyasar-webhook-processing.ts"),
+    source("scripts/billing-webhook-recovery-worker.ts"),
+    source("scripts/billing-renewal-worker.ts"),
+  ].join("\n");
   assert.doesNotMatch(files, /from\s+["']@vercel\//);
   assert.doesNotMatch(files, /VERCEL_ENV/);
   assert.match(source("scripts/billing-renewal-worker.ts"), /PAYMENT_PROVIDER.*moyasar/);

@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
-import { getCurrentUserForWrites } from "../../../../lib/auth";
+import { getCurrentUserForApiWrite } from "../../../../lib/auth";
+import { hasBillingCheckoutConsent } from "../../../../lib/billing-consent";
+import { providerPaymentCreatedWithinBillingWindow } from "../../../../lib/billing-checkout-integrity";
 import { activateVerifiedMoyasarPayment, getOwnedBillingPayment, markBillingPaymentState } from "../../../../lib/billing-ledger";
-import { fetchMoyasarPayment } from "../../../../lib/moyasar";
+import { fetchMoyasarPayment, reverseMoyasarPayment } from "../../../../lib/moyasar";
 import { consumePublicWriteLimit } from "../../../../lib/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../../lib/request-body";
 
 type Payload = { billingId?: unknown; paymentId?: unknown };
 
 export async function POST(request: Request) {
-  const user = await getCurrentUserForWrites();
+  const user = await getCurrentUserForApiWrite();
   if (!user) return NextResponse.json({ ok: false }, { status: 401 });
 
   let body: Payload;
@@ -40,8 +42,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    // The browser only tells us which provider ID was created. Canonical amount,
-    // currency, status and metadata are always re-read with the secret key.
     const payment = await fetchMoyasarPayment(paymentId);
     if (
       payment.amount !== billing.amount
@@ -53,11 +53,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false }, { status: 409 });
     }
 
+    if (!billing.providerPaymentId && !providerPaymentCreatedWithinBillingWindow(billing.createdAt, payment)) {
+      console.error("[billing-created] stale_checkout_payment", { billingId, providerPaymentId: payment.id, providerStatus: payment.status });
+      if (["paid", "captured", "authorized"].includes(payment.status)) {
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+      }
+      return NextResponse.json({ ok: false, error: "CHECKOUT_EXPIRED" }, { status: 409 });
+    }
+
     if (payment.status === "paid") {
+      if (billing.kind !== "renewal" && !(await hasBillingCheckoutConsent(billing.id))) {
+        console.error("[billing-created] missing_checkout_consent", { billingId });
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+        return NextResponse.json({ ok: false, error: "CHECKOUT_CONSENT_MISSING" }, { status: 409 });
+      }
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
       if (result !== "activated" && result !== "already-paid") {
-        console.error("[billing-created] activation_rejected", { billingId, result });
-        return NextResponse.json({ ok: false }, { status: 409 });
+        console.error("[billing-created] settled_payment_not_activatable", { billingId, result });
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+        return NextResponse.json({ ok: false, error: "PAYMENT_REVERSED" }, { status: 409 });
       }
     } else {
       await markBillingPaymentState(billing.id, payment);

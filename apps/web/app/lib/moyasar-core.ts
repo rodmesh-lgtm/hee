@@ -8,6 +8,8 @@ export type MoyasarPayment = {
   status: string;
   amount: number;
   currency: string;
+  created_at?: string | null;
+  updated_at?: string | null;
   description?: string | null;
   metadata?: Record<string, string> | null;
   source?: {
@@ -54,8 +56,6 @@ async function moyasarRequest<T>(path: string, init?: RequestInit): Promise<T> {
     });
     const body = await response.text();
     if (!response.ok) {
-      // Provider error payloads can contain payment/source details. Keep operational
-      // logs useful without copying provider response bodies into HEE logs.
       console.error("[moyasar] api_error", { path, status: response.status });
       throw new Error(`MOYASAR_HTTP_${response.status}`);
     }
@@ -78,11 +78,15 @@ export function moyasarConfigured() {
   if (!publishable || !secret || !webhook || !encryption) return false;
 
   const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
-  // Never let Preview/local environments charge live cards, and never let production
-  // silently boot with sandbox credentials even if a deployment audit was skipped.
-  return production
-    ? publishable.startsWith("pk_live_") && secret.startsWith("sk_live_")
-    : publishable.startsWith("pk_test_") && secret.startsWith("sk_test_");
+  if (production) {
+    // Live checkout must not open until a recurring billing/recovery scheduler has been
+    // deliberately installed and verified. This prevents accepting subscriptions on a
+    // deployment where renewals or durable webhook retries would never run.
+    if (String(process.env.BILLING_RENEWAL_ENABLED ?? "").trim().toLowerCase() !== "true") return false;
+    if (String(process.env.BILLING_OPERATIONS_READY ?? "").trim().toLowerCase() !== "true") return false;
+    return publishable.startsWith("pk_live_") && secret.startsWith("sk_live_");
+  }
+  return publishable.startsWith("pk_test_") && secret.startsWith("sk_test_");
 }
 
 export async function fetchMoyasarPayment(paymentId: string) {
@@ -110,6 +114,22 @@ export async function createMoyasarTokenPayment(input: {
       source: { type: "token", token: input.token },
     }),
   });
+}
+
+export async function reverseMoyasarPayment(paymentId: string) {
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(paymentId)) throw new Error("INVALID_MOYASAR_PAYMENT_ID");
+  const encoded = encodeURIComponent(paymentId);
+
+  try {
+    return await moyasarRequest<MoyasarPayment>(`/payments/${encoded}/void`, { method: "POST" });
+  } catch {
+    const current = await fetchMoyasarPayment(paymentId);
+    if (current.status === "voided" || current.status === "refunded") return current;
+    if (current.status === "paid" || current.status === "captured") {
+      return moyasarRequest<MoyasarPayment>(`/payments/${encoded}/refund`, { method: "POST" });
+    }
+    throw new Error(`MOYASAR_REVERSAL_UNRESOLVED_${current.status}`);
+  }
 }
 
 function safeEqual(left: string, right: string) {
@@ -146,10 +166,13 @@ export function decryptProviderToken(value: string) {
   if (version !== "v1" || !ivText || !tagText || !encryptedText) throw new Error("INVALID_ENCRYPTED_TOKEN");
   const iv = Buffer.from(ivText, "base64url");
   const tag = Buffer.from(tagText, "base64url");
-  if (iv.length !== 12 || tag.length !== 16) throw new Error("INVALID_ENCRYPTED_TOKEN");
+  const encrypted = Buffer.from(encryptedText, "base64url");
+  if (iv.length !== 12 || tag.length !== 16 || encrypted.length < 1) throw new Error("INVALID_ENCRYPTED_TOKEN");
   const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), iv);
   decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(Buffer.from(encryptedText, "base64url")), decipher.final()]).toString("utf8");
+  const clear = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+  if (!clear) throw new Error("INVALID_ENCRYPTED_TOKEN");
+  return clear;
 }
 
 export function maskedLast4(source: MoyasarPayment["source"]) {

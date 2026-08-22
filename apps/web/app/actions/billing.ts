@@ -70,10 +70,11 @@ export async function cancelAutoRenewAction() {
     });
     if (!active) return "none" as const;
 
-    // A renewal worker claims the attempt as `initiated` under this same business lock
-    // before contacting Moyasar. If the claim already won, do not pretend cancellation
-    // stopped that charge: let reconciliation finish, then the owner can cancel the next
-    // cycle. If cancellation wins first, no provider request can be claimed afterward.
+    // A renewal worker claims a provider submission as initiated under this same lock.
+    // If that already happened we cannot promise the in-flight charge was stopped, but
+    // we can and should honor the customer's cancellation for every *future* cycle now.
+    // Setting autoRenew=false also makes a successful in-flight reconciliation create
+    // the paid replacement period with next-cycle renewal disabled.
     const inFlight = await tx.billingPayment.findFirst({
       where: {
         businessId: business.id,
@@ -83,7 +84,6 @@ export async function cancelAutoRenewAction() {
       },
       select: { id: true },
     });
-    if (inFlight) return "processing" as const;
 
     await tx.billingPayment.updateMany({
       where: {
@@ -102,12 +102,12 @@ export async function cancelAutoRenewAction() {
         data: { status: "revoked" },
       });
     }
-    return "canceled" as const;
+    return inFlight ? "processing-future-canceled" as const : "canceled" as const;
   });
 
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/billing/manage");
-  if (result === "processing") redirect("/dashboard/billing/manage?billing=renewal-processing");
+  if (result === "processing-future-canceled") redirect("/dashboard/billing/manage?billing=renewal-processing-future-canceled");
   if (result === "none") redirect("/dashboard/billing/manage");
   redirect("/dashboard/billing/manage?billing=renewal-canceled");
 }

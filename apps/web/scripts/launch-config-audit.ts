@@ -90,6 +90,9 @@ function main() {
   if (String(process.env.BILLING_RENEWAL_ENABLED ?? "").trim().toLowerCase() !== "true") {
     throw new Error("BILLING_RENEWAL_ENABLED must be true only after the renewal worker and live webhook have been verified");
   }
+  if (String(process.env.BILLING_OPERATIONS_READY ?? "").trim().toLowerCase() !== "true") {
+    throw new Error("BILLING_OPERATIONS_READY must be true only after the recurring billing/webhook recovery schedule has been installed and observed running successfully");
+  }
 
   if (String(process.env.QA_AUDIT_SECRET ?? "").trim() || String(process.env.QA_AUDIT_USER_EMAIL ?? "").trim()) {
     throw new Error("QA audit credentials must not be configured in production");

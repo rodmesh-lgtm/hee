@@ -176,7 +176,7 @@ export async function getOwnedBillingPayment(userId: string, billingId: string) 
     FROM "BillingPayment" bp
     JOIN "Business" b ON b."id"=bp."businessId"
     JOIN "BusinessPlan" p ON p."id"=bp."planId"
-    WHERE bp."id"=${billingId} AND b."ownerId"=${userId} AND b."deletedAt" IS NULL
+    WHERE bp."id"=${billingId} AND b."ownerId"=${userId}
     LIMIT 1
   `;
   return rows[0] ?? null;
@@ -266,12 +266,25 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
     if (billing.status === "paid") return "already-paid" as const;
     if (["refunded", "voided", "canceled"].includes(billing.status)) return "terminal-state" as const;
 
-    const plan = await tx.businessPlan.findFirst({ where: { id: billing.planId, isActive: true } });
-    const business = await tx.business.findFirst({ where: { id: billing.businessId, deletedAt: null } });
-    if (!plan || !business) return "missing-target" as const;
+    // Re-prove the complete paid target after taking the business billing lock. Row locks
+    // keep a concurrent soft-delete, email-verification reset or plan disable from racing
+    // between this eligibility decision and the entitlement/ledger commit below.
+    const eligibleTargets = await tx.$queryRaw<Array<{ businessId: string; planId: string }>>`
+      SELECT b."id" AS "businessId", p."id" AS "planId"
+      FROM "Business" b
+      JOIN "User" u ON u."id" = b."ownerId"
+      JOIN "BusinessPlan" p ON p."id" = ${billing.planId} AND p."isActive" = true
+      WHERE b."id" = ${billing.businessId}
+        AND b."deletedAt" IS NULL
+        AND u."deletedAt" IS NULL
+        AND u."emailVerifiedAt" IS NOT NULL
+      FOR KEY SHARE OF b, u, p
+    `;
+    const target = eligibleTargets[0];
+    if (!target) return "ineligible-target" as const;
 
     const now = new Date();
-    const active = await activeSubscriptionBillingState(tx, business.id);
+    const active = await activeSubscriptionBillingState(tx, target.businessId);
     let paymentMethodId: string | null;
     let periodEnd: Date;
     let autoRenew: boolean;
@@ -281,7 +294,7 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
       // If the owner cancels while that provider request is in flight, the already-paid
       // period must still be granted, but the *next* period must not auto-renew.
       if (billing.status === "created" || !billing.subscriptionId) return "stale-renewal" as const;
-      const baseSubscription = await renewableSubscriptionBillingState(tx, business.id, billing.subscriptionId);
+      const baseSubscription = await renewableSubscriptionBillingState(tx, target.businessId, billing.subscriptionId);
       if (!baseSubscription) return "stale-renewal" as const;
 
       paymentMethodId = baseSubscription.paymentMethodId;
@@ -301,7 +314,7 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
     await tx.$executeRaw`
       UPDATE "Subscription"
       SET "status"='replaced', "autoRenew"=false, "updatedAt"=CURRENT_TIMESTAMP
-      WHERE "businessId"=${business.id} AND "status" IN ('active','past_due')
+      WHERE "businessId"=${target.businessId} AND "status" IN ('active','past_due')
     `;
 
     const subscriptionId = randomUUID();
@@ -309,10 +322,10 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
       INSERT INTO "Subscription"
         ("id","businessId","planId","status","startsAt","endsAt","createdAt","updatedAt","autoRenew","provider","providerReference","paymentMethodId")
       VALUES
-        (${subscriptionId},${business.id},${plan.id},'active',${now},${periodEnd},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,${autoRenew},'moyasar',${payment.id},${paymentMethodId})
+        (${subscriptionId},${target.businessId},${target.planId},'active',${now},${periodEnd},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,${autoRenew},'moyasar',${payment.id},${paymentMethodId})
     `;
 
-    await tx.business.update({ where: { id: business.id }, data: { planId: plan.id } });
+    await tx.business.update({ where: { id: target.businessId }, data: { planId: target.planId } });
     await tx.$executeRaw`
       UPDATE "BillingPayment"
       SET "providerPaymentId"=${payment.id},

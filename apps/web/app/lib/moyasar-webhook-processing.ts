@@ -1,0 +1,250 @@
+import "server-only";
+
+import { db } from "./db";
+import { hasBillingCheckoutConsent } from "./billing-consent";
+import { providerPaymentCreatedWithinBillingWindow } from "./billing-checkout-integrity";
+import {
+  activateVerifiedMoyasarPayment,
+  findBillingPaymentByProviderId,
+  getBillingPaymentById,
+  markBillingPaymentState,
+  type BillingPaymentRow,
+} from "./billing-ledger";
+import { fetchMoyasarPayment, reverseMoyasarPayment, type MoyasarPayment } from "./moyasar";
+
+const CLAIM_STALE_MS = 5 * 60 * 1000;
+const MAX_WEBHOOK_ATTEMPTS = 12;
+const MAX_BACKOFF_MS = 15 * 60 * 1000;
+const OPEN_CHECKOUT_RECONCILE_AGE_MS = 2 * 60 * 1000;
+const OPEN_AUTHORIZATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+type ClaimedEvent = {
+  id: string;
+  providerPaymentId: string;
+  eventType: string;
+  attempts: number;
+};
+
+function retryDelayMs(attempts: number) {
+  return Math.min(MAX_BACKOFF_MS, 30_000 * (2 ** Math.max(0, attempts - 1)));
+}
+
+async function claimEvent(eventRowId: string): Promise<ClaimedEvent | null> {
+  const staleBefore = new Date(Date.now() - CLAIM_STALE_MS);
+  const rows = await db.$queryRaw<ClaimedEvent[]>`
+    UPDATE "BillingWebhookEvent"
+    SET "processingStartedAt" = CURRENT_TIMESTAMP,
+        "nextAttemptAt" = NULL,
+        "attempts" = "attempts" + 1,
+        "lastError" = NULL
+    WHERE "id" = ${eventRowId}
+      AND "processedAt" IS NULL
+      AND "provider" = 'moyasar'
+      AND "providerPaymentId" IS NOT NULL
+      AND "attempts" < ${MAX_WEBHOOK_ATTEMPTS}
+      AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= CURRENT_TIMESTAMP)
+      AND ("processingStartedAt" IS NULL OR "processingStartedAt" <= ${staleBefore})
+    RETURNING "id", "providerPaymentId", "eventType", "attempts"
+  `;
+  return rows[0] ?? null;
+}
+
+async function completeEvent(eventRowId: string, billingPaymentId?: string | null, note?: string | null) {
+  await db.$executeRaw`
+    UPDATE "BillingWebhookEvent"
+    SET "billingPaymentId" = COALESCE(${billingPaymentId ?? null}, "billingPaymentId"),
+        "processedAt" = CURRENT_TIMESTAMP,
+        "processingStartedAt" = NULL,
+        "nextAttemptAt" = NULL,
+        "lastError" = ${note ?? null}
+    WHERE "id" = ${eventRowId} AND "processedAt" IS NULL
+  `;
+}
+
+async function releaseForRetry(event: ClaimedEvent, code: string) {
+  const nextAttemptAt = new Date(Date.now() + retryDelayMs(event.attempts));
+  await db.$executeRaw`
+    UPDATE "BillingWebhookEvent"
+    SET "processingStartedAt" = NULL,
+        "nextAttemptAt" = ${nextAttemptAt},
+        "lastError" = ${code.slice(0, 160)}
+    WHERE "id" = ${event.id} AND "processedAt" IS NULL
+  `;
+}
+
+function paymentMatchesBilling(billing: BillingPaymentRow, payment: MoyasarPayment) {
+  return String(payment.metadata?.hee_business_id ?? "") === billing.businessId
+    && String(payment.metadata?.hee_billing_id ?? "") === billing.id
+    && payment.amount === billing.amount
+    && payment.currency === billing.currency;
+}
+
+async function reverseAndRecord(billing: BillingPaymentRow, payment: MoyasarPayment) {
+  const reversed = await reverseMoyasarPayment(payment.id);
+  await markBillingPaymentState(billing.id, reversed);
+  return reversed;
+}
+
+async function reconcileVerifiedCheckoutPayment(billing: BillingPaymentRow, payment: MoyasarPayment) {
+  if (billing.kind === "renewal") return "renewal-owned-by-renewal-worker" as const;
+  if (!paymentMatchesBilling(billing, payment)) return "mismatch" as const;
+
+  if (payment.status === "paid") {
+    if (!(await hasBillingCheckoutConsent(billing.id))) {
+      await reverseAndRecord(billing, payment);
+      return "missing-consent-reversed" as const;
+    }
+    const result = await activateVerifiedMoyasarPayment(billing.id, payment);
+    if (result === "activated" || result === "already-paid") return result;
+    await reverseAndRecord(billing, payment);
+    return `activation-${result}-reversed` as const;
+  }
+
+  // A provider authorization that survives for a full day without settling should not
+  // hold the customer's funds or permanently occupy HEE's one-open-checkout constraint.
+  // Reversal is idempotent: if Moyasar has already voided/refunded it, the current state
+  // is fetched and returned by reverseMoyasarPayment.
+  if (payment.status === "authorized" && Date.now() - billing.createdAt.getTime() >= OPEN_AUTHORIZATION_MAX_AGE_MS) {
+    await reverseAndRecord(billing, payment);
+    return "stale-authorization-reversed" as const;
+  }
+
+  await markBillingPaymentState(billing.id, payment);
+  return "state-recorded" as const;
+}
+
+export async function processMoyasarWebhookEvent(eventRowId: string) {
+  const event = await claimEvent(eventRowId);
+  if (!event) return "not-claimed" as const;
+
+  try {
+    const payment = await fetchMoyasarPayment(event.providerPaymentId);
+    let billing = await findBillingPaymentByProviderId(payment.id);
+    if (!billing) {
+      const metadataBillingId = String(payment.metadata?.hee_billing_id ?? "");
+      if (/^[0-9a-f-]{36}$/i.test(metadataBillingId)) billing = await getBillingPaymentById(metadataBillingId);
+    }
+
+    if (!billing) {
+      await completeEvent(event.id, null, "unmatched_payment");
+      return "unmatched" as const;
+    }
+
+    if (!paymentMatchesBilling(billing, payment)) {
+      console.error("[moyasar-webhook-worker] payment_mismatch", { eventId: event.id, billingId: billing.id });
+      await completeEvent(event.id, billing.id, "payment_mismatch");
+      return "mismatch" as const;
+    }
+
+    if (!billing.providerPaymentId && !providerPaymentCreatedWithinBillingWindow(billing.createdAt, payment)) {
+      console.error("[moyasar-webhook-worker] stale_checkout_payment", {
+        eventId: event.id,
+        billingId: billing.id,
+        providerPaymentId: payment.id,
+        providerStatus: payment.status,
+      });
+      if (["paid", "captured", "authorized"].includes(payment.status)) await reverseAndRecord(billing, payment);
+      await completeEvent(event.id, billing.id, "stale_checkout_payment");
+      return "stale" as const;
+    }
+
+    if (billing.kind !== "renewal") {
+      const result = await reconcileVerifiedCheckoutPayment(billing, payment);
+      if (result === "mismatch") {
+        await completeEvent(event.id, billing.id, "payment_mismatch");
+        return "mismatch" as const;
+      }
+      await completeEvent(event.id, billing.id, result.includes("reversed") ? result : null);
+      return result.includes("reversed") ? "reversed" as const : "processed" as const;
+    }
+
+    // Renewal webhooks still use the shared ledger activation path. The dedicated
+    // renewal worker additionally owns provider idempotency/retry timing.
+    if (payment.status === "paid") {
+      const result = await activateVerifiedMoyasarPayment(billing.id, payment);
+      if (result !== "activated" && result !== "already-paid") {
+        console.error("[moyasar-webhook-worker] settled_payment_not_activatable", {
+          eventId: event.id,
+          billingId: billing.id,
+          result,
+        });
+        await reverseAndRecord(billing, payment);
+        await completeEvent(event.id, billing.id, `activation_${result}_reversed`);
+        return "reversed" as const;
+      }
+    } else {
+      await markBillingPaymentState(billing.id, payment);
+    }
+
+    await completeEvent(event.id, billing.id);
+    return "processed" as const;
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "unknown";
+    console.error("[moyasar-webhook-worker] processing_failed", { eventId: event.id, error: code });
+    await releaseForRetry(event, code);
+    return "retry" as const;
+  }
+}
+
+export async function recoverPendingMoyasarWebhookEvents(limit = 50) {
+  const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT "id"
+    FROM "BillingWebhookEvent"
+    WHERE "provider" = 'moyasar'
+      AND "processedAt" IS NULL
+      AND "providerPaymentId" IS NOT NULL
+      AND "attempts" < ${MAX_WEBHOOK_ATTEMPTS}
+      AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= CURRENT_TIMESTAMP)
+      AND ("processingStartedAt" IS NULL OR "processingStartedAt" <= CURRENT_TIMESTAMP - INTERVAL '5 minutes')
+    ORDER BY "createdAt" ASC
+    LIMIT ${boundedLimit}
+  `;
+
+  let processed = 0;
+  for (const row of rows) {
+    const result = await processMoyasarWebhookEvent(row.id);
+    if (result !== "not-claimed") processed += 1;
+  }
+  return { checked: rows.length, processed };
+}
+
+export async function recoverOpenMoyasarCheckoutPayments(limit = 50) {
+  const boundedLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+  const olderThan = new Date(Date.now() - OPEN_CHECKOUT_RECONCILE_AGE_MS);
+  const rows = await db.$queryRaw<Array<{ id: string; providerPaymentId: string }>>`
+    SELECT "id", "providerPaymentId"
+    FROM "BillingPayment"
+    WHERE "provider" = 'moyasar'
+      AND "kind" IN ('initial','upgrade')
+      AND "status" IN ('initiated','authorized')
+      AND "providerPaymentId" IS NOT NULL
+      AND "updatedAt" <= ${olderThan}
+    ORDER BY "updatedAt" ASC
+    LIMIT ${boundedLimit}
+  `;
+
+  let reconciled = 0;
+  let errors = 0;
+  for (const row of rows) {
+    try {
+      const billing = await getBillingPaymentById(row.id);
+      if (!billing || !["initiated", "authorized"].includes(billing.status) || billing.providerPaymentId !== row.providerPaymentId) continue;
+      const payment = await fetchMoyasarPayment(row.providerPaymentId);
+      const result = await reconcileVerifiedCheckoutPayment(billing, payment);
+      if (result === "mismatch") {
+        console.error("[moyasar-checkout-recovery] payment_mismatch", { billingId: billing.id });
+        errors += 1;
+        continue;
+      }
+      reconciled += 1;
+    } catch (error) {
+      errors += 1;
+      console.error("[moyasar-checkout-recovery] reconciliation_failed", {
+        billingId: row.id,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+    }
+  }
+  return { checked: rows.length, reconciled, errors };
+}

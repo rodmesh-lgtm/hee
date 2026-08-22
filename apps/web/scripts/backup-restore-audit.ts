@@ -15,6 +15,10 @@ const billingProviderId = "audit_payment_hee_backup_restore";
 const receiptSellerName = "HEE Backup Audit Seller";
 const receiptSellerAddress = "Riyadh, Saudi Arabia — audit fixture";
 const receiptIssuedAt = new Date("2099-01-01T00:00:01.000Z");
+const consentAcceptedAt = new Date("2099-01-01T00:00:00.500Z");
+const termsVersion = "audit-terms-v1";
+const privacyVersion = "audit-privacy-v1";
+const disclosureVersion = "audit-billing-disclosure-v1";
 const pool = new Pool({ connectionString, max: 2 });
 const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
@@ -84,6 +88,13 @@ async function seed() {
       receiptIssuedAt,
     },
   });
+  await db.$executeRaw`
+    INSERT INTO "BillingCheckoutConsent" (
+      "billingPaymentId", "userId", "termsVersion", "privacyVersion", "disclosureVersion", "acceptedAt"
+    ) VALUES (
+      ${billingPayment.id}, ${user.id}, ${termsVersion}, ${privacyVersion}, ${disclosureVersion}, ${consentAcceptedAt}
+    )
+  `;
   await db.billingWebhookEvent.create({
     data: {
       provider: "moyasar",
@@ -104,7 +115,7 @@ async function seed() {
 async function verify() {
   const user = await db.user.findUnique({ where: { email: `${marker}@hee.test` }, include: { businesses: { include: { services: true, branches: true, bookings: true } } } });
   const business = user?.businesses.find((item) => item.slug === marker);
-  if (!business) throw new Error("Restored business fixture is missing");
+  if (!business || !user) throw new Error("Restored business fixture is missing");
   if (business.shortDescription !== "durable-marker") throw new Error("Restored business content does not match");
   if (!business.services.some((service) => service.description === "retained-service-marker" && service.price === 321 && service.durationMinutes === 75)) throw new Error("Restored service data is missing or changed");
   if (!business.branches.some((branch) => branch.name === "Backup Restore Branch" && branch.isMain)) throw new Error("Restored branch data is missing or changed");
@@ -136,6 +147,29 @@ async function verify() {
     billing.receiptIssuedAt?.toISOString() !== receiptIssuedAt.toISOString()
   ) {
     throw new Error("Restored immutable receipt snapshot is missing or changed");
+  }
+  const consentRows = await db.$queryRaw<Array<{
+    userId: string;
+    termsVersion: string;
+    privacyVersion: string;
+    disclosureVersion: string;
+    acceptedAt: Date;
+  }>>`
+    SELECT "userId", "termsVersion", "privacyVersion", "disclosureVersion", "acceptedAt"
+    FROM "BillingCheckoutConsent"
+    WHERE "billingPaymentId" = ${billing.id}
+    LIMIT 1
+  `;
+  const consent = consentRows[0];
+  if (
+    !consent
+    || consent.userId !== user.id
+    || consent.termsVersion !== termsVersion
+    || consent.privacyVersion !== privacyVersion
+    || consent.disclosureVersion !== disclosureVersion
+    || consent.acceptedAt.toISOString() !== consentAcceptedAt.toISOString()
+  ) {
+    throw new Error("Restored immutable billing checkout consent is missing or changed");
   }
   if (!billing.webhookEvents.some((event) => event.eventType === "payment_paid" && event.processedAt)) {
     throw new Error("Restored billing webhook audit trail is missing or changed");

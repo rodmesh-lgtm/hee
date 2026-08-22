@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "../../../../lib/auth";
+import { hasBillingCheckoutConsent } from "../../../../lib/billing-consent";
+import { providerPaymentCreatedWithinBillingWindow } from "../../../../lib/billing-checkout-integrity";
 import { activateVerifiedMoyasarPayment, getOwnedBillingPayment, markBillingPaymentState } from "../../../../lib/billing-ledger";
-import { fetchMoyasarPayment } from "../../../../lib/moyasar";
+import { fetchMoyasarPayment, reverseMoyasarPayment } from "../../../../lib/moyasar";
 import { consumePublicWriteLimit } from "../../../../lib/rate-limit";
 
 function safeOrigin() {
@@ -46,9 +48,33 @@ export async function GET(request: Request) {
     if (metadataBilling !== billing.id || metadataBusiness !== billing.businessId) return back("verification-failed");
     if (payment.amount !== billing.amount || payment.currency !== "SAR") return back("verification-failed");
 
+    if (!billing.providerPaymentId && !providerPaymentCreatedWithinBillingWindow(billing.createdAt, payment)) {
+      console.error("[billing-callback] stale_checkout_payment", { billingId, providerPaymentId: payment.id, providerStatus: payment.status });
+      if (["paid", "captured", "authorized"].includes(payment.status)) {
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+      }
+      return back("checkout-expired");
+    }
+
     if (payment.status === "paid") {
+      if (billing.kind !== "renewal" && !(await hasBillingCheckoutConsent(billing.id))) {
+        console.error("[billing-callback] missing_checkout_consent", { billingId });
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+        return back("checkout-consent-missing");
+      }
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
-      if (result !== "activated" && result !== "already-paid") return back("verification-failed");
+      if (result !== "activated" && result !== "already-paid") {
+        // The provider settled real money but the locked HEE transaction could no longer
+        // prove a safe entitlement target (for example deleted business/owner, unverified
+        // owner, disabled plan or a terminal/stale billing state). Never keep the money
+        // while denying the entitlement: reverse first, then persist the provider state.
+        console.error("[billing-callback] settled_payment_not_activatable", { billingId, result });
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+        return back("payment-reversed");
+      }
       revalidatePath("/dashboard/settings");
       revalidatePath("/dashboard/branding");
       return back("paid");
