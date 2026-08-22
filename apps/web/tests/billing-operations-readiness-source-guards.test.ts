@@ -12,7 +12,8 @@ test("production checkout remains closed until recurring billing operations are 
   const audit = source("scripts/launch-config-audit.ts");
   assert.match(core, /BILLING_RENEWAL_ENABLED/);
   assert.match(core, /BILLING_OPERATIONS_READY/);
-  assert.match(core, /if \(production\)/);
+  assert.match(core, /if \(isProductionRuntime\(\)\)/);
+  assert.match(core, /import \{ isProductionRuntime \} from "\.\/runtime-environment"/);
   assert.match(audit, /BILLING_OPERATIONS_READY/);
   assert.match(audit, /recurring billing\/webhook recovery schedule/);
 });
