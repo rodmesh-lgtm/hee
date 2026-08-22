@@ -8,7 +8,7 @@ function source(path: string) {
 }
 
 test("billing launch status exposes only safe exact-release state", () => {
-  const route = source("../app/api/billing/launch-status/route.ts");
+  const route = source("app/api/billing/launch-status/route.ts");
   assert.match(route, /PAID_CHECKOUT_PUBLIC_ENABLED/);
   assert.match(route, /BILLING_REHEARSAL_USER_EMAIL/);
   assert.match(route, /mode: launchMode\(\)/);
