@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "rm -rf .next && prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "rm -rf .next && prisma generate && next typegen && tsc --noEmit --pretty false",
+    "test": "npm run test:unit",
     "test:unit": "tsx --test tests/*.test.ts",
     "test:rc": "playwright test tests/launch-customer-journey.spec.ts tests/rc-owner-workflow.spec.ts tests/active-business-isolation.spec.ts",
     "test:admin": "playwright test tests/admin-workflow.spec.ts tests/admin-requests-workflow.spec.ts tests/support-data-rights-workflow.spec.ts",
