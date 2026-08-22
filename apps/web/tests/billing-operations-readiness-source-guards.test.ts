@@ -17,10 +17,16 @@ test("production checkout remains closed until recurring billing operations are 
   assert.match(audit, /recurring billing\/webhook recovery schedule/);
 });
 
-test("scheduled billing operations recover webhooks, renew, then audit state", () => {
+test("scheduled billing operations recover webhooks, renew, audit state, then record liveness", () => {
   const pkg = source("package.json");
+  const audit = source("scripts/billing-state-audit.ts");
+  const migration = source("prisma/migrations/20260822050000_billing_operations_heartbeat/migration.sql");
   const runbook = source("../../docs/HETZNER_BILLING_RUNBOOK.md");
-  assert.match(pkg, /billing:webhooks && npm run billing:renew-only && npm run billing:state-audit/);
+  assert.match(pkg, /billing:webhooks && npm run billing:renew-only && npm run billing:state-audit -- --record-heartbeat/);
+  assert.match(audit, /HEARTBEAT_MAX_AGE_MINUTES = 90/);
+  assert.match(audit, /billing operations heartbeat is missing or older than 90 minutes/);
+  assert.match(audit, /billingOperationsHeartbeat\.upsert/);
+  assert.match(migration, /BillingOperationsHeartbeat/);
   assert.match(runbook, /BILLING_OPERATIONS_READY=true/);
   assert.match(runbook, /durable Moyasar webhook inbox/);
   assert.match(runbook, /Treat a non-zero exit from `npm run billing:renew` as an operational alert/);
