@@ -29,6 +29,13 @@ function productionDatabaseTransportReady() {
   }
 }
 
+function productionPoolReady() {
+  const raw = String(process.env.PG_POOL_MAX ?? "").trim();
+  if (!/^\d+$/.test(raw)) return false;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) && value >= 1 && value <= 5;
+}
+
 function storageReady() {
   const driver = String(process.env.STORAGE_DRIVER ?? "database").trim().toLowerCase();
   if (driver === "database") return true;
@@ -45,7 +52,7 @@ function storageReady() {
 async function runtimeReady() {
   if (String(process.env.APP_ENV ?? "").trim().toLowerCase() !== "production") return false;
   if (!isCanonical(process.env.APP_URL) || !isCanonical(process.env.AUTH_ORIGIN) || !isCanonical(process.env.NEXT_PUBLIC_APP_URL)) return false;
-  if (!productionDatabaseTransportReady() || !configured("SESSION_SECRET")) return false;
+  if (!productionDatabaseTransportReady() || !productionPoolReady() || !configured("SESSION_SECRET")) return false;
   if (!configured("RESEND_API_KEY") || !/@hee\.sa(?:>|\s|$)/i.test(String(process.env.HEE_FROM_EMAIL ?? ""))) return false;
   if (String(process.env.PAYMENT_PROVIDER ?? "").trim().toLowerCase() !== "moyasar") return false;
   if (!String(process.env.MOYASAR_PUBLISHABLE_KEY ?? "").trim().startsWith("pk_live_")) return false;
