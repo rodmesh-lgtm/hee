@@ -29,6 +29,7 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
       VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
       VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      RELEASE_SHA: ${{ github.sha }}
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
       PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
       SESSION_SECRET: ${{ secrets.PRODUCTION_SESSION_SECRET }}
@@ -130,6 +131,8 @@ jobs:
           };
 
           required("VERCEL_TOKEN");
+          required("RELEASE_SHA");
+          if (process.env.RELEASE_SHA !== process.env.GITHUB_SHA) throw new Error("RELEASE_SHA must equal the exact GitHub Actions SHA");
           required("DATABASE_URL");
           required("PG_POOL_MAX");
           required("SESSION_SECRET");
@@ -148,7 +151,7 @@ jobs:
           required("STORAGE_DRIVER");
 
           const plainKeys = [
-            "APP_ENV", "APP_URL", "AUTH_ORIGIN", "NEXT_PUBLIC_APP_URL", "API_URL",
+            "APP_ENV", "APP_URL", "AUTH_ORIGIN", "NEXT_PUBLIC_APP_URL", "API_URL", "RELEASE_SHA",
             "PG_POOL_MAX", "HEE_FROM_EMAIL", "PAYMENT_PROVIDER",
             "BILLING_SELLER_LEGAL_NAME_AR", "BILLING_SELLER_ADDRESS_AR", "BILLING_TAX_STATUS",
             "BILLING_RENEWAL_ENABLED", "BILLING_OPERATIONS_READY", "PAID_CHECKOUT_PUBLIC_ENABLED",
@@ -195,7 +198,7 @@ jobs:
           VERCEL_GIT_COMMIT_REF: hee-v6-rc
         run: |
           set -euo pipefail
-          deployment_url="$(npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN")"
+          deployment_url="$(npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" --env RELEASE_SHA="$GITHUB_SHA" --build-env RELEASE_SHA="$GITHUB_SHA")"
           test -n "$deployment_url" || (echo "Vercel did not return a production deployment URL" && exit 1)
           printf '%s' "$deployment_url" > /tmp/hee-production-deployment-url
 
