@@ -13,8 +13,12 @@ function isSensitivePrivatePath(pathname: string) {
     || pathname === "/preview";
 }
 
+function isProduction() {
+  return String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
+}
+
 function productionMaintenanceEnabled() {
-  return String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production"
+  return isProduction()
     && String(process.env.PRODUCTION_MAINTENANCE_MODE ?? "").trim().toLowerCase() === "true";
 }
 
@@ -52,6 +56,17 @@ function maintenanceResponse() {
   });
 }
 
+function productionQaNotFoundResponse() {
+  return new NextResponse(null, {
+    status: 404,
+    headers: {
+      "Cache-Control": "private, no-store, max-age=0",
+      "X-Robots-Tag": "noindex, nofollow, noarchive",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -59,9 +74,13 @@ export function proxy(request: NextRequest) {
     return maintenanceResponse();
   }
 
+  const isQaPath = pathname === "/qa" || pathname.startsWith("/qa/");
+  if (isProduction() && isQaPath) {
+    return productionQaNotFoundResponse();
+  }
+
   const isPreview = process.env.VERCEL_ENV?.toLowerCase() === "preview";
   const hasQaAuditSession = Boolean(request.cookies.get("hee_qa_audit")?.value);
-  const isQaPath = pathname.startsWith("/qa/");
   const sensitivePrivatePath = isSensitivePrivatePath(pathname);
   const shouldMarkNoindex = isQaPath || sensitivePrivatePath || (isPreview && hasQaAuditSession && pathname.startsWith("/dashboard"));
 
