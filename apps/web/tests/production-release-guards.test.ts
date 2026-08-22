@@ -107,13 +107,15 @@ test("production web deployment rebuilds the exact content-proven SHA with Produ
   assert.match(workflow, /PRODUCTION_VERCEL_TOKEN/);
   assert.match(workflow, /VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph/);
   assert.match(workflow, /VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg/);
+  assert.match(workflow, /VERCEL_CLI_VERSION: 59\.3\.0/);
   assert.match(workflow, /RELEASE_SHA: \$\{\{ github\.sha \}\}/);
   assert.match(workflow, /process\.env\.RELEASE_SHA !== process\.env\.GITHUB_SHA/);
   assert.match(workflow, /"RELEASE_SHA"/);
   assert.match(workflow, /--env RELEASE_SHA="\$GITHUB_SHA"/);
   assert.match(workflow, /--build-env RELEASE_SHA="\$GITHUB_SHA"/);
   assert.match(workflow, /npx prisma migrate status/);
-  assert.match(workflow, /vercel@latest deploy --prod --yes/);
+  assert.match(workflow, /deploy --prod --skip-domain --yes/);
+  assert.doesNotMatch(workflow, /vercel@latest/);
   assert.match(workflow, /api\.vercel\.com\/v10\/projects/);
   assert.match(workflow, /upsert=true/);
   assert.match(workflow, /QA_AUDIT_SECRET/);
