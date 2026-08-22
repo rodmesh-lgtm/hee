@@ -12,6 +12,10 @@ permissions:
   contents: read
   actions: read
 
+concurrency:
+  group: production-database-migrations
+  cancel-in-progress: false
+
 jobs:
   migrate:
     if: ${{ inputs.confirmation == 'APPLY_PRODUCTION_MIGRATIONS' && github.ref == 'refs/heads/hee-v6-rc' }}
