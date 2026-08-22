@@ -7,6 +7,33 @@ function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
+function assertUsesContentProvenQualityGate(workflow: string) {
+  assert.match(workflow, /uses: \.\/\.github\/actions\/require-release-quality/);
+  assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+}
+
+test("release quality provenance accepts only exact green RC or a tree-identical directly tested merge parent", () => {
+  const script = source("../../.github/scripts/require-release-quality.sh");
+  const action = source("../../.github/actions/require-release-quality/action.yml");
+
+  assert.match(action, /require-release-quality\.sh/);
+  assert.match(script, /green_runs_for_sha/);
+  assert.match(script, /head_sha=\$\{candidate\}/);
+  assert.match(script, /\.conclusion == "success"/);
+  assert.match(script, /\.event == "push" or \.event == "pull_request"/);
+  assert.match(script, /exact_runs="\$\(green_runs_for_sha "\$sha"\)"/);
+  assert.match(script, /git\/commits\/\$\{sha\}/);
+  assert.match(script, /release_tree/);
+  assert.match(script, /mapfile -t parents/);
+  assert.match(script, /if \[ "\$\{#parents\[@\]\}" -lt 2 \]/);
+  assert.match(script, /git\/commits\/\$\{parent\}/);
+  assert.match(script, /\[ "\$parent_tree" = "\$release_tree" \] \|\| continue/);
+  assert.match(script, /parent_runs="\$\(green_runs_for_sha "\$parent"\)"/);
+  assert.match(script, /tree-identical directly tested parent/);
+  assert.doesNotMatch(script, /git rev-list/);
+  assert.doesNotMatch(script, /merge-base --is-ancestor/);
+});
+
 test("production migrations stay manually gated to the release branch with writes paused", () => {
   const workflow = source("../../.github/workflows/production-migrations.yml");
   assert.match(workflow, /workflow_dispatch:/);
@@ -15,6 +42,9 @@ test("production migrations stay manually gated to the release branch with write
   assert.match(workflow, /inputs\.writes_paused_confirmation == 'PRODUCTION_WRITES_PAUSED'/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
+  assertUsesContentProvenQualityGate(workflow);
+  assert.match(workflow, /production-preflight\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
+  assert.match(workflow, /exact release SHA \$\{GITHUB_SHA\} has no successful Production Preflight run/);
 });
 
 test("production migrations verify and restore an encrypted recovery backup into a clean isolated schema before deploy", () => {
@@ -44,7 +74,7 @@ test("production preflight proves external prerequisites read-only before mainte
   assert.match(workflow, /VERIFY_PRODUCTION_PREFLIGHT/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
-  assert.match(workflow, /head_sha=\$\{GITHUB_SHA\}/);
+  assertUsesContentProvenQualityGate(workflow);
   assert.match(workflow, /PRODUCTION_DATABASE_URL/);
   assert.match(workflow, /PRODUCTION_RESTORE_DATABASE_URL/);
   assert.match(workflow, /PRODUCTION_VERCEL_TOKEN/);
@@ -57,8 +87,6 @@ test("production preflight proves external prerequisites read-only before mainte
   assert.match(workflow, /Rehearsal account must not be enabled during preflight/);
   assert.match(workflow, /no production mutation performed/);
 
-  // The preflight may only prove reachability/configuration. It must never become a
-  // deployment, migration, backup/restore, billing worker, or SQL mutation path.
   assert.doesNotMatch(workflow, /vercel(?:@latest)? deploy/);
   assert.doesNotMatch(workflow, /prisma migrate deploy/);
   assert.doesNotMatch(workflow, /prisma db push/);
@@ -71,14 +99,13 @@ test("production preflight proves external prerequisites read-only before mainte
   assert.doesNotMatch(workflow, /\bINSERT\s+INTO\b/i);
 });
 
-test("production web deployment rebuilds the exact green SHA with Production environment and proves canonical provenance", () => {
+test("production web deployment rebuilds the exact content-proven SHA with Production environment and proves canonical provenance", () => {
   const workflow = source("../../.github/workflows/production-deploy.yml");
   assert.match(workflow, /DEPLOY_EXACT_RELEASE_TO_PRODUCTION/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
-  assert.match(workflow, /head_sha=\$\{GITHUB_SHA\}/);
-  assert.match(workflow, /conclusion == "success"/);
+  assertUsesContentProvenQualityGate(workflow);
   assert.match(workflow, /production-preflight\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
   assert.match(workflow, /Exact release SHA has no green Production Preflight run/);
   assert.match(workflow, /PRODUCTION_VERCEL_TOKEN/);
@@ -107,7 +134,7 @@ test("production web deployment rebuilds the exact green SHA with Production env
   assert.doesNotMatch(workflow, /pg_restore/);
 });
 
-test("production launch readiness proves exact RC, deployed SHA, verified email domain, live runtime, database, billing liveness and canonical surfaces", () => {
+test("production launch readiness proves content-qualified release, deployed SHA, verified email domain, live runtime, database, billing liveness and canonical surfaces", () => {
   const workflow = source("../../.github/workflows/production-launch-readiness.yml");
   const audit = source("scripts/launch-config-audit.ts");
   const release = source("app/api/release/route.ts");
@@ -115,8 +142,7 @@ test("production launch readiness proves exact RC, deployed SHA, verified email 
   assert.match(workflow, /VERIFY_PRODUCTION_READINESS/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
-  assert.match(workflow, /head_sha=\$\{GITHUB_SHA\}/);
-  assert.match(workflow, /conclusion == "success"/);
+  assertUsesContentProvenQualityGate(workflow);
   assert.match(workflow, /npm run launch:config-audit/);
   assert.match(workflow, /api\.resend\.com\/domains\?limit=100/);
   assert.match(workflow, /Resend hee\.sa domain is missing or not verified/);

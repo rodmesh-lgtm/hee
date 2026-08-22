@@ -66,19 +66,10 @@ jobs:
       - name: Checkout exact release revision
         uses: actions/checkout@v7
 
-      - name: Require green RC Quality for exact production candidate SHA
+      - name: Require content-proven RC Quality for release
+        uses: ./.github/actions/require-release-quality
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          successful_runs="$(gh api \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "/repos/${GITHUB_REPOSITORY}/actions/workflows/rc-quality.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
-            --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "push" and .head_branch == "hee-v6-rc")] | length')"
-          if [ "$successful_runs" -lt 1 ]; then
-            echo "Refusing launch readiness verification: exact SHA ${GITHUB_SHA} has no successful RC Quality push run on hee-v6-rc."
-            exit 1
-          fi
 
       - name: Setup Node
         uses: actions/setup-node@v7

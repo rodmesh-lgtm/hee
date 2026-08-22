@@ -67,21 +67,20 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
-      - name: Require green RC Quality and Production Preflight for exact release SHA
+      - name: Require content-proven RC Quality for release
+        uses: ./.github/actions/require-release-quality
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Require successful Production Preflight for exact release SHA
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          rc_runs="$(gh api \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "/repos/${GITHUB_REPOSITORY}/actions/workflows/rc-quality.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
-            --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "push" and .head_branch == "hee-v6-rc")] | length')"
           preflight_runs="$(gh api \
             -H 'Accept: application/vnd.github+json' \
             -H 'X-GitHub-Api-Version: 2022-11-28' \
             "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
             --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
-          test "$rc_runs" -ge 1 || (echo "Exact release SHA has no green RC Quality push run on hee-v6-rc" && exit 1)
           test "$preflight_runs" -ge 1 || (echo "Exact release SHA has no green Production Preflight run" && exit 1)
 
       - name: Verify deployment credential and project identity

@@ -1,0 +1,7 @@
+name: Require release quality provenance
+description: Prove the release SHA itself or a tree-identical direct merge parent passed RC Quality
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: bash "${GITHUB_ACTION_PATH}/../../scripts/require-release-quality.sh"

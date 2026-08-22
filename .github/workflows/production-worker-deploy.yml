@@ -35,15 +35,18 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
-      - name: Require exact-SHA RC, Production Preflight and web deployment
+      - name: Require content-proven RC Quality for release
+        uses: ./.github/actions/require-release-quality
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Require exact-SHA Production Preflight and web deployment
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          rc_runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/rc-quality.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "push" and .head_branch == "hee-v6-rc")] | length')"
           preflight_runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
           web_runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-deploy.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
-          test "$rc_runs" -ge 1 || (echo "Exact SHA has no green RC Quality run" && exit 1)
           test "$preflight_runs" -ge 1 || (echo "Exact SHA has no green Production Preflight run" && exit 1)
           test "$web_runs" -ge 1 || (echo "Exact SHA has no successful Production Web Deploy run" && exit 1)
 

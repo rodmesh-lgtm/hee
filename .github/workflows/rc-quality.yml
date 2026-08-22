@@ -6,10 +6,16 @@ on:
     paths:
       - "apps/web/**"
       - ".github/workflows/**"
+      - ".github/actions/**"
+      - ".github/scripts/**"
+      - "ops/**"
   pull_request:
     paths:
       - "apps/web/**"
       - ".github/workflows/**"
+      - ".github/actions/**"
+      - ".github/scripts/**"
+      - "ops/**"
 
 concurrency:
   group: rc-quality-${{ github.ref }}
@@ -45,9 +51,18 @@ jobs:
       STORAGE_DRIVER: database
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       PGPASSWORD: postgres
+      RC_CANDIDATE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: Checkout
+      - name: Checkout exact RC candidate
         uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RC_CANDIDATE_SHA }}
+          fetch-depth: 1
+      - name: Prove checkout matches RC candidate SHA
+        working-directory: .
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RC_CANDIDATE_SHA" || (echo "RC checkout does not match candidate SHA" && exit 1)
       - name: Setup Node
         uses: actions/setup-node@v7
         with:

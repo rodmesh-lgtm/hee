@@ -39,12 +39,13 @@ test("production billing scheduler is versioned, single-shot, release-pinned and
   assert.match(timer, /Unit=hee-billing-renew\.service/);
 });
 
-test("production worker deploy requires exact release gates and performs an atomic cutover without killing a running cycle", () => {
+test("production worker deploy requires content-proven RC plus exact downstream release gates and performs an atomic cutover without killing a running cycle", () => {
   const workflow = source("../../.github/workflows/production-worker-deploy.yml");
   assert.match(workflow, /DEPLOY_EXACT_BILLING_WORKER/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
-  assert.match(workflow, /rc-quality\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
+  assert.match(workflow, /uses: \.\/\.github\/actions\/require-release-quality/);
+  assert.match(workflow, /GH_TOKEN: \$\{\{ github\.token \}\}/);
   assert.match(workflow, /production-preflight\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
   assert.match(workflow, /production-deploy\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
   assert.match(workflow, /PRODUCTION_HETZNER_KNOWN_HOSTS/);
