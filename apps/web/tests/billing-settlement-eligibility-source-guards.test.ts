@@ -26,15 +26,17 @@ test("settled checkout activation re-proves a live verified owner and active pla
   assert.doesNotMatch(ownedQuery, /b\."deletedAt" IS NULL/);
 });
 
-test("callback and durable webhook reverse verified settled money when activation cannot complete", () => {
+test("all customer and durable reconciliation paths reverse verified settled money when activation cannot complete", () => {
   const callback = source("app/api/billing/moyasar/callback/route.ts");
+  const created = source("app/api/billing/moyasar/created/route.ts");
   const webhook = source("app/lib/moyasar-webhook-processing.ts");
 
-  for (const value of [callback, webhook]) {
+  for (const value of [callback, created, webhook]) {
     assert.match(value, /result !== "activated" && result !== "already-paid"/);
     assert.match(value, /reverseMoyasarPayment\(payment\.id\)/);
     assert.match(value, /markBillingPaymentState\(billing\.id, reversed\)/);
   }
+  assert.match(created, /PAYMENT_REVERSED/);
   assert.match(webhook, /activation_\$\{result\}_reversed/);
 });
 
