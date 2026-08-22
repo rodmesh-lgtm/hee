@@ -28,6 +28,20 @@ test("ordinary Vercel Production sync can only persist the closed paid-launch ba
   assert.doesNotMatch(sync, /String\(process\.env\.BILLING_REHEARSAL_USER_EMAIL/);
 });
 
+test("every workflow that may move canonical Production shares one non-canceling serialization lock", () => {
+  const workflows = [
+    "../../.github/workflows/production-deploy.yml",
+    "../../.github/workflows/production-enter-maintenance.yml",
+    "../../.github/workflows/production-billing-rehearsal.yml",
+    "../../.github/workflows/production-open-paid-checkout.yml",
+    "../../.github/workflows/production-close-paid-checkout.yml",
+  ];
+  for (const path of workflows) {
+    const workflow = source(path);
+    assert.match(workflow, /concurrency:\s*\n\s*group: production-billing-launch-transition\s*\n\s*cancel-in-progress: false/);
+  }
+});
+
 test("billing launch mode promotion is exact-SHA staged, rollback-armed before mutation, canonically proven, and only then disarmed", () => {
   const script = source("../../.github/scripts/promote-production-billing-launch-mode.sh");
   const capture = script.indexOf("capture-current-vercel-production.mjs");
