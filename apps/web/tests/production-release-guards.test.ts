@@ -44,7 +44,7 @@ test("production migrations stay manually gated to the release branch with write
   assert.match(workflow, /environment: production/);
   assertUsesContentProvenQualityGate(workflow);
   assert.match(workflow, /production-preflight\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
-  assert.match(workflow, /Exact release SHA \$\{GITHUB_SHA\} has no successful Production Preflight run/);
+  assert.match(workflow, /exact release SHA \$\{GITHUB_SHA\} has no successful Production Preflight run/);
 });
 
 test("production migrations verify and restore an encrypted recovery backup into a clean isolated schema before deploy", () => {
@@ -87,8 +87,6 @@ test("production preflight proves external prerequisites read-only before mainte
   assert.match(workflow, /Rehearsal account must not be enabled during preflight/);
   assert.match(workflow, /no production mutation performed/);
 
-  // The preflight may only prove reachability/configuration. It must never become a
-  // deployment, migration, backup/restore, billing worker, or SQL mutation path.
   assert.doesNotMatch(workflow, /vercel(?:@latest)? deploy/);
   assert.doesNotMatch(workflow, /prisma migrate deploy/);
   assert.doesNotMatch(workflow, /prisma db push/);
