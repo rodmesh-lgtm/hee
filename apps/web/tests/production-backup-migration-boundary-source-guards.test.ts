@@ -76,14 +76,18 @@ test("production migration proves pre-existing critical column data is unchanged
   assert.match(proof, /Critical data changed during production migration/);
 });
 
-test("scheduled production backups are encrypted, retained, clean-schema restore-tested, and reject local sources", () => {
+test("scheduled production backups are encrypted, retained, clean-schema restore-tested, and fail closed before local or weak-TLS sources", () => {
   const workflow = source("../../.github/workflows/production-backup-proof.yml");
+  const guard = source("../../.github/scripts/require-production-database-safety.mjs");
   assert.match(workflow, /cron: "17 2 \* \* \*"/);
+  assert.match(workflow, /require-production-database-safety\.mjs DATABASE_URL RESTORE_DATABASE_URL/);
+  assert.ok(workflow.indexOf("require-production-database-safety.mjs") < workflow.indexOf("pg_dump"));
   assert.match(workflow, /pg_dump/);
   assert.match(workflow, /openssl enc -aes-256-cbc -pbkdf2/);
   assert.match(workflow, /DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public/);
   assert.match(workflow, /pg_restore --exit-on-error --dbname="\$RESTORE_DATABASE_URL" --no-owner --no-privileges/);
   assert.match(workflow, /npm run backup:production-proof/);
   assert.match(workflow, /retention-days: 14/);
-  assert.match(workflow, /Production source must not be local/);
+  assert.match(guard, /must not point to a local host/);
+  assert.match(guard, /must use sslmode=verify-full/);
 });
