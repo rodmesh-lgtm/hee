@@ -9,6 +9,7 @@ import {
   createMoyasarTokenPayment,
   decryptProviderToken,
   fetchMoyasarPayment,
+  reverseMoyasarPayment,
   type MoyasarPayment,
 } from "../app/lib/moyasar-core";
 
@@ -116,12 +117,13 @@ async function dueSubscriptions() {
     SELECT s."id", s."businessId", s."planId", s."status", s."endsAt", p."monthlyPrice",
            pm."encryptedToken", pm."id" AS "paymentMethodId"
     FROM "Subscription" s
-    JOIN "BusinessPlan" p ON p."id" = s."planId"
+    JOIN "BusinessPlan" p ON p."id" = s."planId" AND p."isActive" = true
     JOIN "BillingPaymentMethod" pm
       ON pm."id" = s."paymentMethodId"
      AND pm."businessId" = s."businessId"
      AND pm."status" = 'active'
     JOIN "Business" b ON b."id" = s."businessId" AND b."deletedAt" IS NULL
+    JOIN "User" u ON u."id" = b."ownerId" AND u."deletedAt" IS NULL AND u."emailVerifiedAt" IS NOT NULL
     WHERE s."status" IN ('active','past_due')
       AND s."autoRenew" = true
       AND s."provider" = 'moyasar'
@@ -153,6 +155,9 @@ async function createAttempt(sub: DueSubscription, attempt: number) {
         ON pm."id"=s."paymentMethodId"
        AND pm."businessId"=s."businessId"
        AND pm."status"='active'
+      JOIN "Business" b ON b."id"=s."businessId" AND b."deletedAt" IS NULL
+      JOIN "User" u ON u."id"=b."ownerId" AND u."deletedAt" IS NULL AND u."emailVerifiedAt" IS NOT NULL
+      JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."isActive"=true
       WHERE s."id"=${sub.id}
         AND s."businessId"=${sub.businessId}
         AND s."status" IN ('active','past_due')
@@ -186,10 +191,10 @@ async function claimAttemptForProviderSubmission(sub: DueSubscription, billing: 
   return db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${businessLockKey(sub.businessId)}))`;
 
-    // This is the cancellation boundary. A cancellation that wins this lock prevents a
-    // new provider request. If this claim wins first, cancellation may still stop future
-    // renewals, but a provider request already in flight must be reconciled and, if paid,
-    // the paid period must be granted.
+    // This is the cancellation and account-eligibility boundary. A cancellation, owner
+    // deletion/unverification, business deletion or plan disable that wins before this
+    // lock prevents a new provider request. Once provider submission wins, any settled
+    // payment that later loses its entitlement target is reversed during reconciliation.
     const eligible = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT s."id"
       FROM "Subscription" s
@@ -197,6 +202,9 @@ async function claimAttemptForProviderSubmission(sub: DueSubscription, billing: 
         ON pm."id"=s."paymentMethodId"
        AND pm."businessId"=s."businessId"
        AND pm."status"='active'
+      JOIN "Business" b ON b."id"=s."businessId" AND b."deletedAt" IS NULL
+      JOIN "User" u ON u."id"=b."ownerId" AND u."deletedAt" IS NULL AND u."emailVerifiedAt" IS NOT NULL
+      JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."isActive"=true
       WHERE s."id"=${sub.id}
         AND s."businessId"=${sub.businessId}
         AND s."status" IN ('active','past_due')
@@ -204,7 +212,7 @@ async function claimAttemptForProviderSubmission(sub: DueSubscription, billing: 
         AND s."provider"='moyasar'
         AND s."endsAt" IS NOT NULL
         AND s."endsAt" <= CURRENT_TIMESTAMP
-      FOR UPDATE OF s
+      FOR UPDATE OF s, b, u, p
     `;
     if (!eligible[0]) return false;
 
@@ -306,6 +314,19 @@ async function activateRenewal(sub: DueSubscription, billingId: string, payment:
     if (payment.status !== "paid" || payment.amount !== billing.amount || payment.currency !== billing.currency) return "mismatch" as const;
     if (String(payment.metadata?.hee_billing_id ?? "") !== billingId || String(payment.metadata?.hee_business_id ?? "") !== sub.businessId) return "mismatch" as const;
 
+    const eligibleTargets = await tx.$queryRaw<Array<{ businessId: string; planId: string }>>`
+      SELECT b."id" AS "businessId", p."id" AS "planId"
+      FROM "Business" b
+      JOIN "User" u ON u."id"=b."ownerId"
+      JOIN "BusinessPlan" p ON p."id"=${sub.planId} AND p."isActive"=true
+      WHERE b."id"=${sub.businessId}
+        AND b."deletedAt" IS NULL
+        AND u."deletedAt" IS NULL
+        AND u."emailVerifiedAt" IS NOT NULL
+      FOR KEY SHARE OF b, u, p
+    `;
+    if (!eligibleTargets[0]) return "ineligible-target" as const;
+
     const currentRows = await tx.$queryRaw<Array<{
       id: string;
       status: string;
@@ -397,13 +418,33 @@ async function expireAfterFailedRenewal(sub: DueSubscription) {
   });
 }
 
+async function reverseUnactivatableRenewal(billing: RenewalAttempt, payment: MoyasarPayment, reason: string) {
+  console.error("[billing-renewal] settled_payment_not_activatable", {
+    billingId: billing.id,
+    providerPaymentId: payment.id,
+    reason,
+  });
+  const reversed = await reverseMoyasarPayment(payment.id);
+  if (reversed.status !== "refunded" && reversed.status !== "voided") {
+    throw new Error(`REVERSAL_UNRESOLVED_${reversed.status}`);
+  }
+  await setAttemptState(billing.id, reversed.status, reversed.id, null);
+}
+
 async function resolveProviderState(sub: DueSubscription, billing: RenewalAttempt, payment: MoyasarPayment) {
   if (payment.status === "paid") {
     const result = await activateRenewal(sub, billing.id, payment);
-    if (result !== "activated" && result !== "already-paid" && result !== "stale") {
-      throw new Error(`ACTIVATION_${result}`);
+    if (result === "activated" || result === "already-paid") return "done" as const;
+
+    // These states are terminal entitlement failures after a payment that is already
+    // known to belong to this renewal. Keeping it would charge the customer without a
+    // valid paid period, so reverse it. Structural mismatches remain operator-visible
+    // errors rather than refunding a payment whose identity cannot be proven safely.
+    if (["ineligible-target", "stale", "terminal-state", "unclaimed"].includes(result)) {
+      await reverseUnactivatableRenewal(billing, payment, result);
+      return "done" as const;
     }
-    return "done" as const;
+    throw new Error(`ACTIVATION_${result}`);
   }
 
   if (payment.status === "failed" || payment.status === "voided" || payment.status === "refunded") {
@@ -473,7 +514,8 @@ async function processSubscription(sub: DueSubscription) {
         error: error instanceof Error ? error.message : "unknown",
       });
       // Retrying POST with the exact same given_id is provider-supported idempotent
-      // recovery. claimAttemptForProviderSubmission re-checks cancellation first.
+      // recovery. claimAttemptForProviderSubmission re-checks cancellation and account
+      // eligibility before another provider call can occur.
       await submitAttempt(sub, latest);
       return;
     }
