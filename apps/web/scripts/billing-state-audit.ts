@@ -8,11 +8,36 @@ const connectionString = String(process.env.DATABASE_URL ?? "").trim();
 if (!connectionString) throw new Error("DATABASE_URL is required");
 const pool = new Pool({ connectionString, max: 2 });
 const db = new PrismaClient({ adapter: new PrismaPg(pool) });
+const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
 
 type DriftRow = { businessId: string; detail: string };
 
 async function main() {
   const drifts: DriftRow[] = [];
+
+  // Homepage and checkout currently advertise these monthly SAR prices. Treat the DB
+  // plan catalog as audited financial configuration so an accidental admin/SQL change
+  // cannot silently make the charged price differ from the public promise.
+  const planPriceDrift = await db.$queryRaw<DriftRow[]>`
+    SELECT 'plan:' || p."code" AS "businessId",
+           'public plan monthly price differs from the audited customer-facing catalog' AS detail
+    FROM "BusinessPlan" p
+    WHERE (p."code"='FREE' AND p."monthlyPrice"<>0)
+       OR (p."code"='BUSINESS' AND p."monthlyPrice"<>199)
+       OR (p."code"='PRO' AND p."monthlyPrice"<>399)
+  `;
+  drifts.push(...planPriceDrift);
+
+  if (production) {
+    const requiredPlans = await db.businessPlan.findMany({
+      where: { code: { in: ["FREE", "BUSINESS", "PRO"] }, isActive: true },
+      select: { code: true },
+    });
+    const present = new Set(requiredPlans.map((plan) => plan.code));
+    for (const code of ["FREE", "BUSINESS", "PRO"]) {
+      if (!present.has(code)) drifts.push({ businessId: `plan:${code}`, detail: "required public plan is missing or inactive" });
+    }
+  }
 
   const paidWithoutLive = await db.$queryRaw<DriftRow[]>`
     SELECT b."id" AS "businessId", 'paid business plan without matching unexpired live subscription' AS detail
