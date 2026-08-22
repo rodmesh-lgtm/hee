@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { createSession, hashPassword, logoutSession, verifyPassword } from "../lib/auth";
+import { issueEmailVerification } from "../lib/email-verification";
 import { clearQaAuditSession } from "../lib/qa-audit";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
 import { loginSchema, registerSchema } from "../lib/validation";
@@ -91,6 +92,15 @@ export async function registerAction(_prevState: ActionState, formData: FormData
 
   await clearQaAuditSession();
   await createSession(user.id);
+
+  // Make mailbox ownership verification part of the normal customer journey rather
+  // than a hidden prerequisite discovered only when publishing or paying. Failure to
+  // send never rolls back the already-created account: onboarding exposes the recovery
+  // state and the settings page retains the rate-limited resend action.
+  const verification = await issueEmailVerification(user.id, parsed.data.email);
+  if (verification === "sent") redirect("/onboarding?email=verification-sent");
+  if (verification === "send-failed") redirect("/onboarding?email=verification-send-failed");
+  if (verification === "not-configured") redirect("/onboarding?email=verification-unavailable");
   redirect("/onboarding");
 }
 
