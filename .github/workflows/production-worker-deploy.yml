@@ -127,7 +127,7 @@ jobs:
             "/tmp/hee-worker-${GITHUB_SHA}.tar.gz" \
             "${HETZNER_USER}@${HETZNER_HOST}:/tmp/hee-worker-${GITHUB_SHA}.tar.gz"
 
-      - name: Prepare and atomically activate exact worker release
+      - name: Prepare and atomically activate exact worker release with mandatory rollback
         run: |
           set -euo pipefail
           ssh -i "$HOME/.ssh/hee-production" \
@@ -154,6 +154,16 @@ jobs:
             test -f /etc/hee/maintenance.lock || { echo "Maintenance lock disappeared before worker preparation"; exit 1; }
           fi
 
+          previous_release="$(readlink -f /srv/hee/current 2>/dev/null || true)"
+          [[ "$previous_release" == /srv/hee/releases/* ]] || { echo "Existing worker current symlink is not a managed release"; exit 1; }
+          test -d "$previous_release/apps/web" || { echo "Existing worker release is incomplete"; exit 1; }
+          test -f "$previous_release/ops/systemd/hee-billing-renew.service" || { echo "Existing worker service unit is missing"; exit 1; }
+          test -f "$previous_release/ops/systemd/hee-billing-renew.timer" || { echo "Existing worker timer unit is missing"; exit 1; }
+          if sudo -n systemctl is-active --quiet hee-billing-renew.timer; then previous_timer_active=true; else previous_timer_active=false; fi
+          if test -f /etc/hee/maintenance.lock; then previous_lock_state=true; else previous_lock_state=false; fi
+          test "$previous_lock_state" = "$expected_lock" || { echo "Maintenance lock changed before worker cutover baseline capture"; exit 1; }
+          echo "worker-cutover-baseline: release=${previous_release} timer_active=${previous_timer_active} maintenance_lock=${previous_lock_state}"
+
           rm -rf "$stage"
           mkdir -p "$stage"
           tar -xzf "$archive" -C "$stage"
@@ -172,14 +182,62 @@ jobs:
           fi
           sudo -n chmod 0644 "$release/release.env"
 
-          # Stop future activations and never kill an already-running billing cycle.
-          sudo -n systemctl stop hee-billing-renew.timer 2>/dev/null || true
-          restore_timer_if_safe() {
-            if ! sudo -n test -f /etc/hee/maintenance.lock; then
-              sudo -n systemctl start hee-billing-renew.timer >/dev/null 2>&1 || true
+          rollback_armed=false
+          rollback_worker() {
+            original_rc="$1"
+            trap - EXIT
+            if [ "$rollback_armed" != "true" ]; then
+              exit "$original_rc"
             fi
+            echo "Worker cutover failed after mutation began; restoring ${previous_release}"
+            rollback_failed=false
+            sudo -n systemctl stop hee-billing-renew.timer >/dev/null 2>&1 || rollback_failed=true
+            sudo -n ln -sfn "$previous_release" /srv/hee/current.rollback || rollback_failed=true
+            sudo -n mv -Tf /srv/hee/current.rollback /srv/hee/current || rollback_failed=true
+            sudo -n install -o root -g root -m 0644 "$previous_release/ops/systemd/hee-billing-renew.service" /etc/systemd/system/hee-billing-renew.service || rollback_failed=true
+            sudo -n install -o root -g root -m 0644 "$previous_release/ops/systemd/hee-billing-renew.timer" /etc/systemd/system/hee-billing-renew.timer || rollback_failed=true
+            if [ "$previous_lock_state" = "true" ]; then
+              sudo -n install -d -o root -g hee -m 0750 /etc/hee || rollback_failed=true
+              sudo -n touch /etc/hee/maintenance.lock || rollback_failed=true
+              sudo -n chown root:hee /etc/hee/maintenance.lock || rollback_failed=true
+              sudo -n chmod 0640 /etc/hee/maintenance.lock || rollback_failed=true
+              sudo -n install -d -o root -g root -m 0755 /etc/systemd/system/hee-billing-renew.service.d || rollback_failed=true
+              printf '%s\n' '[Unit]' 'ConditionPathExists=!/etc/hee/maintenance.lock' | sudo -n tee /etc/systemd/system/hee-billing-renew.service.d/maintenance.conf >/dev/null || rollback_failed=true
+              sudo -n chmod 0644 /etc/systemd/system/hee-billing-renew.service.d/maintenance.conf || rollback_failed=true
+            else
+              sudo -n rm -f /etc/hee/maintenance.lock || rollback_failed=true
+              sudo -n rm -f /etc/systemd/system/hee-billing-renew.service.d/maintenance.conf || rollback_failed=true
+            fi
+            sudo -n systemctl daemon-reload || rollback_failed=true
+            if [ "$previous_timer_active" = "true" ] && [ "$previous_lock_state" = "false" ]; then
+              sudo -n systemctl enable hee-billing-renew.timer >/dev/null 2>&1 || rollback_failed=true
+              sudo -n systemctl start hee-billing-renew.timer >/dev/null 2>&1 || rollback_failed=true
+            else
+              sudo -n systemctl stop hee-billing-renew.timer >/dev/null 2>&1 || rollback_failed=true
+            fi
+
+            current_release="$(readlink -f /srv/hee/current 2>/dev/null || true)"
+            [ "$current_release" = "$previous_release" ] || rollback_failed=true
+            sudo -n systemctl cat hee-billing-renew.service | grep -q 'WorkingDirectory=/srv/hee/current/apps/web' || rollback_failed=true
+            if [ "$previous_lock_state" = "true" ]; then
+              test -f /etc/hee/maintenance.lock || rollback_failed=true
+              ! sudo -n systemctl is-active --quiet hee-billing-renew.timer || rollback_failed=true
+            else
+              test ! -e /etc/hee/maintenance.lock || rollback_failed=true
+              if [ "$previous_timer_active" = "true" ]; then sudo -n systemctl is-active --quiet hee-billing-renew.timer || rollback_failed=true; fi
+            fi
+            if [ "$rollback_failed" = "true" ]; then
+              echo "worker-cutover-rollback-proof: CRITICAL FAIL"
+              exit 71
+            fi
+            echo "worker-cutover-rollback-proof: PASS restored ${previous_release}"
+            exit "$original_rc"
           }
-          trap restore_timer_if_safe EXIT
+          trap 'rollback_worker $?' EXIT
+
+          # Stop future activations and never kill an already-running billing cycle.
+          rollback_armed=true
+          sudo -n systemctl stop hee-billing-renew.timer 2>/dev/null || true
           for _ in $(seq 1 120); do
             if ! sudo -n systemctl is-active --quiet hee-billing-renew.service; then break; fi
             sleep 10
@@ -209,11 +267,15 @@ jobs:
           sudo -n systemctl daemon-reload
           sudo -n systemctl enable hee-billing-renew.timer >/dev/null
           sudo -n systemctl start hee-billing-renew.timer
-          trap - EXIT
 
           test ! -e /etc/hee/maintenance.lock
           sudo -n systemctl is-active --quiet hee-billing-renew.timer
+          test "$(readlink -f /srv/hee/current)" = "$release"
+          grep -qx "RELEASE_SHA=${sha}" /srv/hee/current/release.env
+          rollback_armed=false
+          trap - EXIT
           rm -f "$archive"
+          echo "worker-cutover-proof: PASS release=${sha} timer=active maintenance_lock=false"
           REMOTE
 
       - name: Verify worker release, cleared maintenance lock and active timer remotely
