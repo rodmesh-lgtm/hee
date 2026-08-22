@@ -71,8 +71,10 @@ export async function POST(request: Request) {
       }
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
       if (result !== "activated" && result !== "already-paid") {
-        console.error("[billing-created] activation_rejected", { billingId, result });
-        return NextResponse.json({ ok: false }, { status: 409 });
+        console.error("[billing-created] settled_payment_not_activatable", { billingId, result });
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+        return NextResponse.json({ ok: false, error: "PAYMENT_REVERSED" }, { status: 409 });
       }
     } else {
       await markBillingPaymentState(billing.id, payment);
