@@ -119,6 +119,22 @@ async function main() {
   `;
   drifts.push(...duplicateLive);
 
+  // The scheduled recovery worker independently re-fetches provider-started checkouts
+  // when browser callbacks/webhooks are lost. Anything still open after a full day plus
+  // operational headroom is no longer a normal customer interaction: it can block a new
+  // checkout and may represent an unresolved provider authorization.
+  const staleOpenCheckout = await db.$queryRaw<DriftRow[]>`
+    SELECT bp."businessId" AS "businessId",
+           'provider-started checkout remained open after recovery window' AS detail
+    FROM "BillingPayment" bp
+    WHERE bp."provider"='moyasar'
+      AND bp."kind" IN ('initial','upgrade')
+      AND bp."status" IN ('initiated','authorized')
+      AND bp."providerPaymentId" IS NOT NULL
+      AND bp."createdAt" < CURRENT_TIMESTAMP - INTERVAL '26 hours'
+  `;
+  drifts.push(...staleOpenCheckout);
+
   // A fast-ack webhook is safe only if its durable inbox cannot fail silently. Exhausted
   // retries or a processing lease stuck for >15 minutes are operational payment drifts.
   const webhookInboxDrift = await db.$queryRaw<DriftRow[]>`
