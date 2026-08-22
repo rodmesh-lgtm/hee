@@ -98,6 +98,16 @@ jobs:
       - name: Verify production billing state and scheduler liveness
         run: npm run billing:state-audit
 
+      - name: Verify canonical release provenance
+        working-directory: .
+        run: |
+          set -euo pipefail
+          release_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/release)"
+          release_sha="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.releaseSha ?? ""));' "$release_json")"
+          release_env="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.environment ?? ""));' "$release_json")"
+          test "$release_sha" = "$GITHUB_SHA" || (echo "Canonical hee.sa serves ${release_sha:-unknown}, expected exact release ${GITHUB_SHA}" && exit 1)
+          test "$release_env" = "production" || (echo "Canonical release endpoint is not reporting production environment" && exit 1)
+
       - name: Verify canonical HTTPS customer surfaces
         working-directory: .
         run: |
