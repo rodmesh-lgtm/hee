@@ -20,14 +20,19 @@ export async function recordBillingCheckoutConsent(input: {
       SELECT bp."id"
       FROM "BillingPayment" bp
       JOIN "Business" b ON b."id" = bp."businessId"
+      JOIN "User" u ON u."id" = b."ownerId"
+      JOIN "BusinessPlan" p ON p."id" = bp."planId"
       WHERE bp."id" = ${input.billingPaymentId}
         AND b."ownerId" = ${input.userId}
         AND b."deletedAt" IS NULL
+        AND u."deletedAt" IS NULL
+        AND u."emailVerifiedAt" IS NOT NULL
+        AND p."isActive" = true
         AND bp."kind" IN ('initial','upgrade')
         AND bp."status" = 'created'
         AND bp."providerPaymentId" IS NULL
         AND bp."createdAt" > CURRENT_TIMESTAMP - INTERVAL '1 hour'
-      FOR UPDATE OF bp
+      FOR UPDATE OF bp, b, u, p
     )
     INSERT INTO "BillingCheckoutConsent"
       ("billingPaymentId","userId","termsVersion","privacyVersion","disclosureVersion","acceptedAt")
