@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { BadgeCheck, CheckCircle2, Crown, ImagePlus, LockKeyhole, Palette } from "lucide-react";
 import { getCurrentUser } from "../../lib/auth";
 import { getActiveBusinessWithPlanForUser } from "../../lib/active-business";
-import { paidUpgradeRequestsEnabled } from "../../lib/billing";
+import { paidCheckoutEntryAllowed } from "../../lib/billing";
 import { getPlanEntitlements, normalizePlanCode } from "../../lib/plan-entitlements";
 import { hasPendingVerificationRequest, requestVerificationAction } from "../../actions/verification";
 import { requestPlanUpgradeAction } from "../../actions/subscription-request";
@@ -25,7 +25,7 @@ export default async function DashboardBrandingPage({ searchParams }: { searchPa
   const entitlements = getPlanEntitlements(business.plan?.code);
   const currentPlan = normalizePlanCode(business.plan?.code);
   const verificationPending = !business.isVerified && await hasPendingVerificationRequest();
-  const upgradesEnabled = paidUpgradeRequestsEnabled();
+  const upgradesEnabled = paidCheckoutEntryAllowed(user.email);
 
   return <div className="space-y-4 pb-4">
     {verificationParam === "requested" || verificationPending ? <div className="flex items-start gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />طلب التوثيق قيد المراجعة.</div> : null}
