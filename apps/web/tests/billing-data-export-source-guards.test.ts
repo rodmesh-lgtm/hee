@@ -29,16 +29,28 @@ test("customer data export includes billing evidence without provider secrets", 
     "receiptIssuedAt",
   ]) assert.match(route, new RegExp(field));
 
-  const paymentMethodQuery = between(route, "db.billingPaymentMethod.findMany({", "}),\n    // Checkout consent");
-  assert.match(paymentMethodQuery, /last4:\s*true/);
-  assert.doesNotMatch(paymentMethodQuery, /encryptedToken:\s*true/);
-
-  const subscriptionQuery = between(route, "db.subscription.findMany({", "}),\n    db.billingPayment.findMany");
+  const subscriptionQuery = between(
+    route,
+    "db.subscription.findMany({",
+    "db.billingPayment.findMany({",
+  );
   assert.doesNotMatch(subscriptionQuery, /providerReference:\s*true/);
 
-  const paymentQuery = between(route, "db.billingPayment.findMany({", "}),\n    \/\/ A customer has a right/);
+  const paymentQuery = between(
+    route,
+    "db.billingPayment.findMany({",
+    "db.billingPaymentMethod.findMany({",
+  );
   assert.doesNotMatch(paymentQuery, /providerPaymentId:\s*true/);
   assert.doesNotMatch(paymentQuery, /providerGivenId:\s*true/);
+
+  const paymentMethodQuery = between(
+    route,
+    "db.billingPaymentMethod.findMany({",
+    "db.$queryRaw<BillingConsentExport[]>",
+  );
+  assert.match(paymentMethodQuery, /last4:\s*true/);
+  assert.doesNotMatch(paymentMethodQuery, /encryptedToken:\s*true/);
 
   assert.match(route, /Cache-Control": "private, no-store, max-age=0"/);
   assert.match(route, /Referrer-Policy": "no-referrer"/);
