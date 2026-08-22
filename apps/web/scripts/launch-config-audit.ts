@@ -50,9 +50,13 @@ function productionDatabaseUrl() {
     throw new Error("DATABASE_URL appears to reference a non-production database");
   }
 
-  const sslMode = parsed.searchParams.get("sslmode")?.trim().toLowerCase();
-  if (!sslMode || !new Set(["verify-full", "verify-ca", "require", "prefer"]).has(sslMode)) {
-    throw new Error("DATABASE_URL must explicitly enable PostgreSQL TLS with sslmode=verify-full (legacy strict modes are normalized to verify-full at runtime)");
+  const sslModes = parsed.searchParams.getAll("sslmode");
+  if (sslModes.length > 1) {
+    throw new Error("DATABASE_URL must contain at most one sslmode parameter");
+  }
+  const sslMode = sslModes[0]?.trim().toLowerCase();
+  if (sslMode !== "verify-full") {
+    throw new Error("DATABASE_URL must use sslmode=verify-full so the web runtime and all production operational tooling enforce certificate and hostname verification consistently");
   }
 }
 

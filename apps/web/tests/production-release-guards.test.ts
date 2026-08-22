@@ -15,7 +15,6 @@ function assertUsesContentProvenQualityGate(workflow: string) {
 test("release quality provenance accepts only exact green RC or a tree-identical directly tested merge parent", () => {
   const script = source("../../.github/scripts/require-release-quality.sh");
   const action = source("../../.github/actions/require-release-quality/action.yml");
-
   assert.match(action, /require-release-quality\.sh/);
   assert.match(script, /green_runs_for_sha/);
   assert.match(script, /head_sha=\$\{candidate\}/);
@@ -54,13 +53,11 @@ test("production migrations verify and restore an encrypted recovery backup into
   const restoreIndex = workflow.indexOf("Restore exact pre-migration backup into isolated database");
   const proofIndex = workflow.indexOf("npm run backup:production-proof");
   const migrateIndex = workflow.indexOf("Apply pending migrations");
-
   assert.ok(decryptIndex >= 0, "encrypted backup decrypt/parse verification step must exist");
   assert.ok(resetIndex > decryptIndex, "isolated restore schema must reset after decrypt verification");
   assert.ok(restoreIndex > resetIndex, "restore must run after clean isolated schema reset");
   assert.ok(proofIndex > restoreIndex, "restore proof must run after isolated restore");
   assert.ok(migrateIndex > proofIndex, "verified restore proof must complete before migrations");
-
   assert.match(workflow, /openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000/);
   assert.match(workflow, /pg_restore --list/);
   assert.match(workflow, /DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public/);
@@ -79,14 +76,13 @@ test("production preflight proves external prerequisites read-only before mainte
   assert.match(workflow, /PRODUCTION_RESTORE_DATABASE_URL/);
   assert.match(workflow, /PRODUCTION_VERCEL_TOKEN/);
   assert.match(workflow, /RESTORE_DATABASE_URL must name hee_restore/);
-  assert.match(workflow, /must explicitly enable TLS/);
+  assert.match(workflow, /must use sslmode=verify-full/);
   assert.match(workflow, /api\.vercel\.com\/v9\/projects/);
   assert.match(workflow, /api\.resend\.com\/domains\?limit=100/);
   assert.match(workflow, /api\.moyasar\.com\/v1\/payments\?page=1/);
   assert.match(workflow, /PAID_CHECKOUT_PUBLIC_ENABLED/);
   assert.match(workflow, /Rehearsal account must not be enabled during preflight/);
   assert.match(workflow, /no production mutation performed/);
-
   assert.doesNotMatch(workflow, /vercel(?:@latest)? deploy/);
   assert.doesNotMatch(workflow, /prisma migrate deploy/);
   assert.doesNotMatch(workflow, /prisma db push/);
@@ -180,7 +176,7 @@ test("production launch readiness proves content-qualified release, deployed SHA
   assert.match(ready, /PRO/);
   assert.match(ready, /status: ready \? 200 : 503/);
   assert.match(audit, /sslmode=verify-full/);
-  assert.match(audit, /DATABASE_URL must explicitly enable PostgreSQL TLS/);
+  assert.match(audit, /DATABASE_URL must use sslmode=verify-full/);
   assert.match(audit, /PAID_CHECKOUT_PUBLIC_ENABLED must be true/);
   assert.match(audit, /BILLING_REHEARSAL_USER_EMAIL must be removed/);
   assert.doesNotMatch(workflow, /prisma db push/);

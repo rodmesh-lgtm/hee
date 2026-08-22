@@ -8,9 +8,6 @@ on:
 permissions:
   contents: read
 
-# The scheduled restore proof and manual production migration both reuse the
-# isolated restore database. Keep them in one concurrency group so they can
-# never clean/restore the same target at the same time.
 concurrency:
   group: production-database-maintenance
   cancel-in-progress: false
@@ -27,26 +24,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      - name: Verify isolated source and restore targets
+
+      - name: Require verify-full PostgreSQL transport before backup or restore
+        run: node .github/scripts/require-production-database-safety.mjs DATABASE_URL RESTORE_DATABASE_URL
+
+      - name: Verify isolated source, restore and backup prerequisites
         run: |
           test -n "$DATABASE_URL" || (echo "PRODUCTION_DATABASE_URL is not configured" && exit 1)
           test -n "$RESTORE_DATABASE_URL" || (echo "PRODUCTION_RESTORE_DATABASE_URL is not configured" && exit 1)
           test -n "$PRODUCTION_BACKUP_PASSPHRASE" || (echo "PRODUCTION_BACKUP_PASSPHRASE is not configured" && exit 1)
-          node - <<'NODE'
-          const source = new URL(process.env.DATABASE_URL);
-          const restore = new URL(process.env.RESTORE_DATABASE_URL);
-          const sourceDb = source.pathname.replace(/^\//, "");
-          const restoreDb = restore.pathname.replace(/^\//, "");
-          if (!sourceDb || !restoreDb) throw new Error("Both database URLs must name a database");
-          if (["localhost", "127.0.0.1", "::1"].includes(source.hostname.toLowerCase())) throw new Error("Production source must not be local");
-          if (source.href === restore.href) throw new Error("Restore target must never equal production");
-          if (!/^hee_restore(?:_|$)/i.test(restoreDb)) throw new Error("Restore database name must begin with hee_restore");
-          if (/^hee_restore(?:_|$)/i.test(sourceDb)) throw new Error("Production source must not be a restore database");
-          NODE
+          test "${#PRODUCTION_BACKUP_PASSPHRASE}" -ge 32 || (echo "PRODUCTION_BACKUP_PASSPHRASE must be at least 32 characters" && exit 1)
+
       - name: Create production backup
         run: |
           pg_dump "$DATABASE_URL" --format=custom --file=/tmp/hee-production.dump
           test -s /tmp/hee-production.dump
+
       - name: Encrypt backup
         run: |
           openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
@@ -54,12 +47,15 @@ jobs:
             -out /tmp/hee-production-${GITHUB_RUN_ID}.dump.enc \
             -pass env:PRODUCTION_BACKUP_PASSPHRASE
           test -s /tmp/hee-production-${GITHUB_RUN_ID}.dump.enc
+
       - name: Reset isolated restore schema
         run: |
           psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
+
       - name: Restore production backup into clean isolated database
         run: |
           pg_restore --exit-on-error --dbname="$RESTORE_DATABASE_URL" --no-owner --no-privileges /tmp/hee-production.dump
+
       - name: Prove restored schema and critical data signatures
         working-directory: apps/web
         env:
@@ -68,6 +64,7 @@ jobs:
         run: |
           npm ci
           npm run backup:production-proof
+
       - name: Preserve encrypted backup
         uses: actions/upload-artifact@v4
         with:
@@ -75,6 +72,7 @@ jobs:
           path: /tmp/hee-production-${{ github.run_id }}.dump.enc
           if-no-files-found: error
           retention-days: 14
+
       - name: Remove local backup copies
         if: always()
         run: rm -f /tmp/hee-production.dump /tmp/hee-production-${GITHUB_RUN_ID}.dump.enc
