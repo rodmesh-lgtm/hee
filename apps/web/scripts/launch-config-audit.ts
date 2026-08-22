@@ -56,6 +56,15 @@ function productionDatabaseUrl() {
   }
 }
 
+function productionPoolBudget() {
+  const raw = required("PG_POOL_MAX");
+  if (!/^\d+$/.test(raw)) throw new Error("PG_POOL_MAX must be an integer between 1 and 5 for the production web runtime");
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 1 || value > 5) {
+    throw new Error("PG_POOL_MAX must be between 1 and 5 for the production web runtime; start at 2 unless the PostgreSQL connection budget proves a higher value is safe");
+  }
+}
+
 function billingTaxReadiness() {
   required("BILLING_SELLER_LEGAL_NAME_AR");
   required("BILLING_SELLER_ADDRESS_AR");
@@ -79,6 +88,7 @@ function main() {
 
   strongSecret("SESSION_SECRET", 32);
   productionDatabaseUrl();
+  productionPoolBudget();
 
   const resend = required("RESEND_API_KEY");
   if (/replace|example|dummy|placeholder/i.test(resend)) throw new Error("RESEND_API_KEY must be a real production credential");
