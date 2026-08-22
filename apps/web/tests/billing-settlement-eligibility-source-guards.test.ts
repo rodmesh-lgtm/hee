@@ -65,3 +65,24 @@ test("renewal charging and settlement both re-prove account eligibility and reve
   assert.match(worker, /\["ineligible-target", "stale", "terminal-state", "unclaimed"\]/);
   assert.doesNotMatch(worker, /result !== "activated" && result !== "already-paid" && result !== "stale"/);
 });
+
+test("expired subscriptions cannot remain live merely because renewal became ineligible or cancellation happened after past-due", () => {
+  const worker = source("scripts/billing-renewal-worker.ts");
+
+  assert.match(worker, /async function expireIneligibleDueRenewals/);
+  assert.match(worker, /b\."deletedAt" IS NOT NULL/);
+  assert.match(worker, /u\."emailVerifiedAt" IS NULL/);
+  assert.match(worker, /pm\."id" IS NULL/);
+  assert.match(worker, /pm\."status" <> 'active'/);
+  assert.match(worker, /SET "status" = 'canceled', "autoRenew" = false/);
+  assert.match(worker, /UPDATE "BillingPaymentMethod"[\s\S]*SET "status" = 'revoked'/);
+
+  const nonRenewingStart = worker.indexOf("async function expireEndedNonRenewingSubscriptions");
+  const nonRenewingEnd = worker.indexOf("async function expireIneligibleDueRenewals", nonRenewingStart);
+  const nonRenewing = worker.slice(nonRenewingStart, nonRenewingEnd);
+  assert.match(nonRenewing, /"status" IN \('active','past_due'\)/);
+  assert.doesNotMatch(nonRenewing, /b\."deletedAt" IS NULL/);
+
+  assert.match(worker, /payment\.status === "voided" \|\| payment\.status === "refunded"/);
+  assert.match(worker, /setAttemptState\(billing\.id, payment\.status, payment\.id, null\)/);
+});
