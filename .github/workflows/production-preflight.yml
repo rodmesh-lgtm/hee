@@ -181,7 +181,7 @@ jobs:
             --output /dev/null \
             'https://api.moyasar.com/v1/payments?page=1'
 
-      - name: Verify Hetzner worker host identity and prerequisites read-only
+      - name: Verify Hetzner worker rollback baseline and prerequisites read-only
         run: |
           set -euo pipefail
           install -d -m 0700 "$HOME/.ssh"
@@ -190,8 +190,31 @@ jobs:
           printf '%s\n' "$HETZNER_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 0600 "$HOME/.ssh/known_hosts"
           ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            "${HETZNER_USER}@${HETZNER_HOST}" \
-            'set -e; command -v node >/dev/null; command -v npm >/dev/null; command -v sudo >/dev/null; test "$(node -p '\''process.versions.node.split(`.`)[0]'\'')" = 24; sudo -n test -r /etc/hee/production.env; sudo -n true'
+            "${HETZNER_USER}@${HETZNER_HOST}" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          command -v node >/dev/null
+          command -v npm >/dev/null
+          command -v sudo >/dev/null
+          command -v systemctl >/dev/null
+          test "$(node -p 'process.versions.node.split(`.`)[0]')" = 24
+          sudo -n test -r /etc/hee/production.env
+          sudo -n true
+
+          current_release="$(readlink -f /srv/hee/current 2>/dev/null || true)"
+          [[ "$current_release" == /srv/hee/releases/* ]] || { echo "Hetzner worker current symlink is not a managed rollback release"; exit 1; }
+          test -d "$current_release/apps/web" || { echo "Managed worker release is missing apps/web"; exit 1; }
+          test -r "$current_release/release.env" || { echo "Managed worker release is missing release.env"; exit 1; }
+          grep -Eq '^RELEASE_SHA=[0-9a-f]{40}$' "$current_release/release.env" || { echo "Managed worker release.env does not contain an exact release SHA"; exit 1; }
+          test -r "$current_release/ops/systemd/hee-billing-renew.service" || { echo "Managed worker release is missing its service unit"; exit 1; }
+          test -r "$current_release/ops/systemd/hee-billing-renew.timer" || { echo "Managed worker release is missing its timer unit"; exit 1; }
+          sudo -n test -r /etc/systemd/system/hee-billing-renew.service
+          sudo -n test -r /etc/systemd/system/hee-billing-renew.timer
+          sudo -n cmp -s "$current_release/ops/systemd/hee-billing-renew.service" /etc/systemd/system/hee-billing-renew.service || { echo "Installed worker service unit has drifted from the managed rollback release"; exit 1; }
+          sudo -n cmp -s "$current_release/ops/systemd/hee-billing-renew.timer" /etc/systemd/system/hee-billing-renew.timer || { echo "Installed worker timer unit has drifted from the managed rollback release"; exit 1; }
+          sudo -n systemctl cat hee-billing-renew.service >/dev/null
+          sudo -n systemctl cat hee-billing-renew.timer >/dev/null
+          echo "worker-rollback-baseline-preflight: PASS release=${current_release}"
+          REMOTE
 
       - name: Write exact-SHA scoped Production configuration attestation
         run: node .github/scripts/production-config-attestation.mjs write /tmp/production-preflight-attestation.json
@@ -209,4 +232,4 @@ jobs:
         run: rm -f "$HOME/.ssh/hee-production" "$HOME/.ssh/known_hosts" /tmp/production-preflight-attestation.json
 
       - name: Preflight summary
-        run: echo "production-preflight: PASS for ${GITHUB_SHA}; read-only prerequisites attested; no production mutation performed"
+        run: echo "production-preflight: PASS for ${GITHUB_SHA}; read-only prerequisites and worker rollback baseline attested; no production mutation performed"
