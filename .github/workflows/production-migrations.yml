@@ -7,6 +7,10 @@ on:
         description: "Type APPLY_PRODUCTION_MIGRATIONS to continue"
         required: true
         type: string
+      writes_paused_confirmation:
+        description: "After web/workers are stopped, type PRODUCTION_WRITES_PAUSED"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,7 +24,7 @@ concurrency:
 
 jobs:
   migrate:
-    if: ${{ inputs.confirmation == 'APPLY_PRODUCTION_MIGRATIONS' && github.ref == 'refs/heads/hee-v6-rc' }}
+    if: ${{ inputs.confirmation == 'APPLY_PRODUCTION_MIGRATIONS' && inputs.writes_paused_confirmation == 'PRODUCTION_WRITES_PAUSED' && github.ref == 'refs/heads/hee-v6-rc' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
@@ -94,7 +98,7 @@ jobs:
           pg_restore --list /tmp/hee-production-backup-verify.dump >/dev/null
       - name: Restore exact pre-migration backup into isolated database
         run: pg_restore --dbname="$RESTORE_DATABASE_URL" --clean --if-exists --no-owner --no-privileges /tmp/hee-production-backup-verify.dump
-      - name: Prove restored critical data matches production source
+      - name: Prove restored critical data matches paused production source
         env:
           SOURCE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
