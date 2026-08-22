@@ -31,10 +31,11 @@ const tables = [
 ] as const;
 
 type Signature = {
-  count: string;
-  minId: string | null;
-  maxId: string | null;
-  digest: string | null;
+  exists: boolean;
+  count?: string;
+  minId?: string | null;
+  maxId?: string | null;
+  digest?: string | null;
 };
 
 type MigrationSignature = {
@@ -44,16 +45,29 @@ type MigrationSignature = {
   rolled_back_at: Date | null;
 };
 
+function quoteIdentifier(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+async function tableExists(client: Client, table: string) {
+  const result = await client.query<{ exists: boolean }>(
+    `SELECT to_regclass($1) IS NOT NULL AS exists`,
+    [`public.${quoteIdentifier(table)}`],
+  );
+  return result.rows[0]?.exists === true;
+}
+
 async function signature(client: Client, table: string): Promise<Signature> {
-  const escaped = `"${table.replaceAll('"', '""')}"`;
-  const result = await client.query<Signature>(`
+  if (!(await tableExists(client, table))) return { exists: false };
+  const escaped = quoteIdentifier(table);
+  const result = await client.query<Omit<Signature, "exists">>(`
     SELECT COUNT(*)::text AS count,
            MIN("id")::text AS "minId",
            MAX("id")::text AS "maxId",
            MD5(COALESCE(STRING_AGG(MD5(ROW_TO_JSON(t)::text), '' ORDER BY "id"::text), '')) AS digest
     FROM ${escaped} t
   `);
-  return result.rows[0];
+  return { exists: true, ...result.rows[0] };
 }
 
 async function financialSignature(client: Client) {
