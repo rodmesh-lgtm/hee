@@ -233,4 +233,5 @@ jobs:
         run: rm -f "$HOME/.ssh/hee-production" "$HOME/.ssh/known_hosts" /tmp/production-preflight-attestation.json
 
       - name: Preflight summary
-        run: echo "production-preflight: PASS for ${GITHUB_SHA}; read-only prerequisites and worker rollback baseline attested; no production mutation performed"
+        run: |
+          echo "production-preflight: PASS for ${GITHUB_SHA}; read-only prerequisites and worker rollback baseline attested; no production mutation performed"
