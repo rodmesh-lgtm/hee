@@ -7,9 +7,10 @@ function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("production migrations require exact release quality and explicit confirmation", () => {
+test("production migrations require exact release quality, explicit confirmation, and paused writes", () => {
   const workflow = source("../../.github/workflows/production-migrations.yml");
   assert.match(workflow, /APPLY_PRODUCTION_MIGRATIONS/);
+  assert.match(workflow, /PRODUCTION_WRITES_PAUSED/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /head_sha=\$\{GITHUB_SHA\}/);
   assert.match(workflow, /conclusion == "success"/);
@@ -39,6 +40,8 @@ test("production migration restores and proves the exact pre-migration backup be
   assert.match(proof, /BillingPayment/);
   assert.match(proof, /BillingCheckoutConsent/);
   assert.match(proof, /BillingOperationsHeartbeat/);
+  assert.match(proof, /tableExists/);
+  assert.match(proof, /exists: false/);
   assert.match(proof, /ROW_TO_JSON/);
   assert.match(proof, /STRING_AGG/);
   assert.match(proof, /digest/);
@@ -47,7 +50,7 @@ test("production migration restores and proves the exact pre-migration backup be
   assert.match(proof, /_prisma_migrations/);
 });
 
-test("production migration proves critical row data is unchanged after deploy", () => {
+test("production migration proves pre-existing critical row data is unchanged after deploy", () => {
   const workflow = source("../../.github/workflows/production-migrations.yml");
   const proof = source("scripts/production-migration-data-proof.ts");
   const capture = "migration:production-data-proof -- --capture";
@@ -62,6 +65,7 @@ test("production migration proves critical row data is unchanged after deploy", 
   assert.match(proof, /fingerprint/);
   assert.match(proof, /BillingPayment/);
   assert.match(proof, /BillingOperationsHeartbeat/);
+  assert.match(proof, /if \(!before\.exists\) continue/);
   assert.match(proof, /Critical data changed during production migration/);
 });
 
