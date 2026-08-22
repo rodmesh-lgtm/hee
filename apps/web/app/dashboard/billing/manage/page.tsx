@@ -64,9 +64,10 @@ export default async function BillingManagePage({ searchParams }: { searchParams
       && subscription.endsAt
       && subscription.endsAt.getTime() > now.getTime(),
   );
-  const effectivePlanName = subscriptionStillEffective
-    ? subscription?.plan.name
-    : business.plan?.name ?? "Free";
+  // Never display Business.plan as the effective paid entitlement by itself. The worker
+  // may be late reconciling an expired/past-due row; customer-facing billing must match
+  // the same live-subscription invariant used by premium authorization.
+  const effectivePlanName = subscriptionStillEffective ? subscription?.plan.name ?? "Free" : "Free";
   const effectivePaidThrough = subscriptionStillEffective ? subscription?.endsAt ?? null : null;
   const staleExpiredSubscription = Boolean(subscription?.status === "active" && subscription.endsAt && subscription.endsAt.getTime() <= now.getTime());
 
