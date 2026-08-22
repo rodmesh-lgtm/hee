@@ -39,16 +39,21 @@ test("production preflight proves the exact managed worker rollback baseline bef
   assert.ok(attestation > proof, "worker rollback baseline must be proven before preflight attestation is written");
 });
 
-test("worker baseline portion of preflight remains read-only", () => {
+test("remote worker baseline proof remains read-only", () => {
   const workflow = workflowSource();
-  const start = workflow.indexOf("Verify Hetzner worker rollback baseline and prerequisites read-only");
-  const end = workflow.indexOf("Write exact-SHA scoped Production configuration attestation", start);
-  const workerStep = workflow.slice(start, end);
+  const stepStart = workflow.indexOf("Verify Hetzner worker rollback baseline and prerequisites read-only");
+  const remoteStartMarker = "<<'REMOTE'";
+  const remoteStart = workflow.indexOf(remoteStartMarker, stepStart);
+  const remoteBodyStart = remoteStart + remoteStartMarker.length;
+  const remoteEnd = workflow.indexOf("\n          REMOTE", remoteBodyStart);
+  const remoteBody = workflow.slice(remoteBodyStart, remoteEnd);
 
-  assert.ok(start >= 0 && end > start);
-  assert.match(workerStep, /sudo -n cmp -s/);
-  assert.match(workerStep, /sudo -n systemctl cat/);
-  assert.doesNotMatch(workerStep, /systemctl\s+(?:start|stop|restart|enable|disable|daemon-reload)/);
-  assert.doesNotMatch(workerStep, /\b(?:rm|mv|cp|install|touch|tee|ln)\b/);
-  assert.doesNotMatch(workerStep, /maintenance\.lock[^\n]*(?:rm|touch)/);
+  assert.ok(stepStart >= 0);
+  assert.ok(remoteStart > stepStart);
+  assert.ok(remoteEnd > remoteBodyStart);
+  assert.match(remoteBody, /sudo -n cmp -s/);
+  assert.match(remoteBody, /sudo -n systemctl cat/);
+  assert.doesNotMatch(remoteBody, /systemctl\s+(?:start|stop|restart|enable|disable|daemon-reload)/);
+  assert.doesNotMatch(remoteBody, /\b(?:rm|mv|cp|install|touch|tee|ln)\b/);
+  assert.doesNotMatch(remoteBody, /maintenance\.lock[^\n]*(?:rm|touch)/);
 });
