@@ -11,11 +11,17 @@ const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
 const recordHeartbeat = process.argv.includes("--record-heartbeat");
 const HEARTBEAT_MAX_AGE_MINUTES = 90;
+const releaseSha = String(process.env.RELEASE_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "").trim().toLowerCase();
+const validReleaseSha = /^[0-9a-f]{40}$/.test(releaseSha);
 
 type DriftRow = { businessId: string; detail: string };
 
 async function main() {
   const drifts: DriftRow[] = [];
+
+  if (production && !validReleaseSha) {
+    throw new Error("Production billing audit requires RELEASE_SHA for exact worker/web provenance");
+  }
 
   const planPriceDrift = await db.$queryRaw<DriftRow[]>`
     SELECT 'plan:' || p."code" AS "businessId",
@@ -37,6 +43,8 @@ async function main() {
       const staleBefore = Date.now() - HEARTBEAT_MAX_AGE_MINUTES * 60_000;
       if (!heartbeat || heartbeat.lastSucceededAt.getTime() < staleBefore) {
         drifts.push({ businessId: "operations:billing", detail: "billing operations heartbeat is missing or older than 90 minutes" });
+      } else if (String(heartbeat.releaseSha ?? "").trim().toLowerCase() !== releaseSha) {
+        drifts.push({ businessId: "operations:billing", detail: "billing operations worker release SHA does not match the audited web release" });
       }
     }
   }
@@ -119,8 +127,8 @@ async function main() {
   if (recordHeartbeat) {
     await db.billingOperationsHeartbeat.upsert({
       where: { id: "billing-operations" },
-      create: { id: "billing-operations", lastSucceededAt: new Date() },
-      update: { lastSucceededAt: new Date() },
+      create: { id: "billing-operations", lastSucceededAt: new Date(), releaseSha: validReleaseSha ? releaseSha : null },
+      update: { lastSucceededAt: new Date(), releaseSha: validReleaseSha ? releaseSha : null },
     });
     console.log("billing-state-audit: recorded successful billing operations heartbeat");
   }
