@@ -1,0 +1,156 @@
+name: Production Billing Worker Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DEPLOY_EXACT_BILLING_WORKER to continue"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: production-billing-worker-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ inputs.confirmation == 'DEPLOY_EXACT_BILLING_WORKER' && github.ref == 'refs/heads/hee-v6-rc' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    env:
+      HETZNER_HOST: ${{ vars.PRODUCTION_HETZNER_HOST }}
+      HETZNER_USER: ${{ vars.PRODUCTION_HETZNER_USER }}
+      HETZNER_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_HETZNER_SSH_PRIVATE_KEY }}
+      HETZNER_KNOWN_HOSTS: ${{ secrets.PRODUCTION_HETZNER_KNOWN_HOSTS }}
+
+    steps:
+      - name: Checkout exact release revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Require exact-SHA RC, Production Preflight and web deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rc_runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/rc-quality.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "push" and .head_branch == "hee-v6-rc")] | length')"
+          preflight_runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
+          web_runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-deploy.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
+          test "$rc_runs" -ge 1 || (echo "Exact SHA has no green RC Quality run" && exit 1)
+          test "$preflight_runs" -ge 1 || (echo "Exact SHA has no green Production Preflight run" && exit 1)
+          test "$web_runs" -ge 1 || (echo "Exact SHA has no successful Production Web Deploy run" && exit 1)
+
+      - name: Validate pinned SSH configuration
+        run: |
+          set -euo pipefail
+          test -n "$HETZNER_HOST" || (echo "PRODUCTION_HETZNER_HOST is not configured" && exit 1)
+          test -n "$HETZNER_USER" || (echo "PRODUCTION_HETZNER_USER is not configured" && exit 1)
+          test -n "$HETZNER_SSH_PRIVATE_KEY" || (echo "PRODUCTION_HETZNER_SSH_PRIVATE_KEY is not configured" && exit 1)
+          test -n "$HETZNER_KNOWN_HOSTS" || (echo "PRODUCTION_HETZNER_KNOWN_HOSTS is not configured" && exit 1)
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$HETZNER_SSH_PRIVATE_KEY" > "$HOME/.ssh/hee-production"
+          chmod 0600 "$HOME/.ssh/hee-production"
+          printf '%s\n' "$HETZNER_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/known_hosts"
+
+      - name: Package exact repository tree
+        run: |
+          set -euo pipefail
+          git archive --format=tar "$GITHUB_SHA" | gzip -9 > "/tmp/hee-worker-${GITHUB_SHA}.tar.gz"
+          test -s "/tmp/hee-worker-${GITHUB_SHA}.tar.gz"
+
+      - name: Upload exact release archive
+        run: |
+          set -euo pipefail
+          scp -q -i "$HOME/.ssh/hee-production" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "/tmp/hee-worker-${GITHUB_SHA}.tar.gz" \
+            "${HETZNER_USER}@${HETZNER_HOST}:/tmp/hee-worker-${GITHUB_SHA}.tar.gz"
+
+      - name: Prepare and atomically activate exact worker release
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/hee-production" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "${HETZNER_USER}@${HETZNER_HOST}" \
+            'bash -s --' "$GITHUB_SHA" <<'REMOTE'
+          set -euo pipefail
+          sha="$1"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid release SHA"; exit 1; }
+          archive="/tmp/hee-worker-${sha}.tar.gz"
+          stage="/tmp/hee-worker-stage-${sha}"
+          release="/srv/hee/releases/${sha}"
+
+          test -s "$archive"
+          command -v node >/dev/null
+          command -v npm >/dev/null
+          command -v sudo >/dev/null
+          test "$(node -p 'process.versions.node.split(`.`)[0]')" = "24" || { echo "Worker host must run Node 24"; exit 1; }
+          sudo -n test -r /etc/hee/production.env || { echo "/etc/hee/production.env is missing or unreadable"; exit 1; }
+          sudo -n true || { echo "Deploy user requires restricted non-interactive sudo"; exit 1; }
+
+          rm -rf "$stage"
+          mkdir -p "$stage"
+          tar -xzf "$archive" -C "$stage"
+          cd "$stage/apps/web"
+          npm ci
+          npx prisma generate
+          npm run typecheck
+          printf 'RELEASE_SHA=%s\n' "$sha" > "$stage/release.env"
+
+          sudo -n install -d -o root -g hee -m 0755 /srv/hee /srv/hee/releases
+          if ! sudo -n test -d "$release"; then
+            sudo -n mv "$stage" "$release"
+            sudo -n chown -R root:hee "$release"
+          else
+            rm -rf "$stage"
+          fi
+          sudo -n chmod 0644 "$release/release.env"
+
+          # Stop future timer activations, but never terminate a running billing cycle.
+          sudo -n systemctl stop hee-billing-renew.timer 2>/dev/null || true
+          restart_timer() { sudo -n systemctl start hee-billing-renew.timer >/dev/null 2>&1 || true; }
+          trap restart_timer EXIT
+          for _ in $(seq 1 120); do
+            if ! sudo -n systemctl is-active --quiet hee-billing-renew.service; then break; fi
+            sleep 10
+          done
+          if sudo -n systemctl is-active --quiet hee-billing-renew.service; then
+            echo "Existing billing cycle did not finish within 20 minutes; refusing cutover"
+            exit 1
+          fi
+
+          sudo -n ln -sfn "releases/${sha}" /srv/hee/current.next
+          sudo -n mv -Tf /srv/hee/current.next /srv/hee/current
+          sudo -n install -o root -g root -m 0644 /srv/hee/current/ops/systemd/hee-billing-renew.service /etc/systemd/system/hee-billing-renew.service
+          sudo -n install -o root -g root -m 0644 /srv/hee/current/ops/systemd/hee-billing-renew.timer /etc/systemd/system/hee-billing-renew.timer
+          sudo -n systemctl daemon-reload
+          sudo -n systemctl enable hee-billing-renew.timer >/dev/null
+          sudo -n systemctl start hee-billing-renew.timer
+          trap - EXIT
+
+          test "$(readlink -f /srv/hee/current)" = "$release"
+          grep -qx "RELEASE_SHA=${sha}" /srv/hee/current/release.env
+          sudo -n systemctl cat hee-billing-renew.service | grep -q 'WorkingDirectory=/srv/hee/current/apps/web'
+          sudo -n systemctl is-active --quiet hee-billing-renew.timer
+          rm -f "$archive"
+          REMOTE
+
+      - name: Verify worker release symlink and timer remotely
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/hee-production" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "${HETZNER_USER}@${HETZNER_HOST}" \
+            "test \"\$(cat /srv/hee/current/release.env)\" = 'RELEASE_SHA=${GITHUB_SHA}' && sudo -n systemctl is-active --quiet hee-billing-renew.timer"
+
+      - name: Remove local SSH material and release archive
+        if: always()
+        run: rm -f "$HOME/.ssh/hee-production" "$HOME/.ssh/known_hosts" "/tmp/hee-worker-${GITHUB_SHA}.tar.gz"
