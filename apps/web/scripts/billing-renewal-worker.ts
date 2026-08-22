@@ -16,6 +16,7 @@ import {
 const MAX_ATTEMPTS = 3;
 const FAILURE_RETRY_MS = 24 * 60 * 60 * 1000;
 const RECONCILE_RETRY_MS = 15 * 60 * 1000;
+const PROVIDER_NOT_FOUND_GRACE_MS = 24 * 60 * 60 * 1000;
 const DUE_WINDOW_MS = 0;
 
 type DueSubscription = {
@@ -241,15 +242,23 @@ async function expireIneligibleDueRenewals() {
 
 async function dueSubscriptions() {
   const horizon = new Date(Date.now() + DUE_WINDOW_MS);
-  // Deliberately include due subscriptions whose account eligibility changed after a
-  // provider request was claimed. New charges are still blocked in create/claim below,
-  // but an initiated/authorized payment must remain recoverable until it is activated or
-  // reversed; filtering it out here could strand real customer money at the provider.
+  // In-flight provider money remains reconcilable even after the customer disables
+  // auto-renew or account eligibility changes. The autoRenew predicate applies only to
+  // creating a new provider request; it must never hide an already initiated payment.
   return db.$queryRaw<DueSubscription[]>`
     SELECT s."id", s."businessId", s."planId", s."status", s."endsAt"
     FROM "Subscription" s
     WHERE s."status" IN ('active','past_due')
-      AND s."autoRenew" = true
+      AND (
+        s."autoRenew" = true
+        OR EXISTS (
+          SELECT 1 FROM "BillingPayment" bp
+          WHERE bp."subscriptionId" = s."id"
+            AND bp."businessId" = s."businessId"
+            AND bp."kind" = 'renewal'
+            AND bp."status" IN ('initiated','authorized')
+        )
+      )
       AND s."provider" = 'moyasar'
       AND s."endsAt" IS NOT NULL
       AND s."endsAt" <= ${horizon}
@@ -375,7 +384,10 @@ async function setAttemptState(
           "nextRetryAt" = ${nextRetryAt},
           "updatedAt" = CURRENT_TIMESTAMP
       WHERE "id" = ${billingId}
-        AND "status" IN ('created','initiated','authorized','failed')
+        AND (
+          "status" IN ('created','initiated','authorized','failed')
+          OR ("status" = 'canceled' AND ${status} IN ('refunded','voided'))
+        )
     `;
   });
 }
@@ -638,15 +650,35 @@ async function processSubscription(sub: DueSubscription) {
       const resolved = await resolveProviderState(sub, latest, payment);
       if (resolved === "done" || resolved === "pending") return;
     } catch (error) {
+      const errorCode = error instanceof Error ? error.message : "unknown";
       console.error("[billing-renewal] reconciliation_failed", {
         subscriptionId: sub.id,
         attempt: latest.attempt,
-        error: error instanceof Error ? error.message : "unknown",
+        error: errorCode,
       });
+
+      // A provider 404 immediately after an ambiguous POST is not enough evidence to
+      // declare that no charge exists: allow a full day for delayed visibility/recovery.
+      // After that grace period a still-missing payment is terminally absent, so close
+      // the local attempt rather than leaving an initiated row forever.
+      if (
+        errorCode === "MOYASAR_HTTP_404"
+        && Date.now() - latest.createdAt.getTime() >= PROVIDER_NOT_FOUND_GRACE_MS
+      ) {
+        await setAttemptState(latest.id, "canceled", null, null);
+        await expireAfterFailedRenewal(sub);
+        return;
+      }
+
       // Retrying POST with the exact same given_id is provider-supported idempotent
-      // recovery. claimAttemptForProviderSubmission re-checks cancellation and account
-      // eligibility before another provider call can occur.
-      await submitAttempt(sub, latest);
+      // recovery, but only while the subscription is still eligible for a provider call.
+      // If cancellation or another eligibility change won meanwhile, keep polling the
+      // already initiated ID instead of creating a new charge.
+      const retried = await submitAttempt(sub, latest);
+      if (retried === "stale") {
+        await markAmbiguous(latest.id, providerPaymentId);
+        await markPastDue(sub);
+      }
       return;
     }
   }
