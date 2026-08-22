@@ -21,7 +21,7 @@ test("production gates require an explicit reviewed PostgreSQL connection budget
   const audit = source("scripts/launch-config-audit.ts");
   const ready = source("app/api/health/ready/route.ts");
   const launch = source("../../.github/workflows/production-launch-readiness.yml");
-  const preflight = source("../../.github/workflows/production-preflight.yml");
+  const preflight = source("../../.github/workflows/production-preflight-v2.yml");
 
   assert.match(audit, /required\("PG_POOL_MAX"\)/);
   assert.match(audit, /PG_POOL_MAX must be between 1 and 5/);
