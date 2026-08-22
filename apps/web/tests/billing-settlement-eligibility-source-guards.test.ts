@@ -26,6 +26,20 @@ test("settled checkout activation re-proves a live verified owner and active pla
   assert.doesNotMatch(ownedQuery, /b\."deletedAt" IS NULL/);
 });
 
+test("checkout rendering and consent both re-prove current eligibility before a provider form can open", () => {
+  const page = source("app/dashboard/billing/checkout/page.tsx");
+  const consent = source("app/lib/billing-consent.ts");
+
+  assert.match(page, /if \(!user\.emailVerifiedAt\) redirect/);
+  assert.match(page, /id: billing\.businessId, ownerId: user\.id, deletedAt: null/);
+  assert.match(page, /id: billing\.planId, isActive: true/);
+
+  assert.match(consent, /JOIN "User" u ON u\."id" = b\."ownerId"/);
+  assert.match(consent, /u\."emailVerifiedAt" IS NOT NULL/);
+  assert.match(consent, /p\."isActive" = true/);
+  assert.match(consent, /FOR UPDATE OF bp, b, u, p/);
+});
+
 test("all customer and durable reconciliation paths reverse verified settled money when activation cannot complete", () => {
   const callback = source("app/api/billing/moyasar/callback/route.ts");
   const created = source("app/api/billing/moyasar/created/route.ts");
