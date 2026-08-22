@@ -17,6 +17,15 @@ test("production checkout remains closed until recurring billing operations are 
   assert.match(audit, /recurring billing\/webhook recovery schedule/);
 });
 
+test("scheduled billing operations recover webhooks, renew, then audit state", () => {
+  const pkg = source("package.json");
+  const runbook = source("../../docs/HETZNER_BILLING_RUNBOOK.md");
+  assert.match(pkg, /billing:webhooks && npm run billing:renew-only && npm run billing:state-audit/);
+  assert.match(runbook, /BILLING_OPERATIONS_READY=true/);
+  assert.match(runbook, /durable Moyasar webhook inbox/);
+  assert.match(runbook, /Treat a non-zero exit from `npm run billing:renew` as an operational alert/);
+});
+
 test("billing state audit treats expired paid subscriptions as drift instead of live entitlement", () => {
   const audit = source("scripts/billing-state-audit.ts");
   assert.match(audit, /paid business plan without matching unexpired live subscription/);
