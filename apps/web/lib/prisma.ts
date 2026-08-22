@@ -25,8 +25,14 @@ function validatedDatabaseUrl() {
 }
 
 function poolSize() {
-  const configured = Number.parseInt(String(process.env.PG_POOL_MAX ?? "5"), 10);
-  return Number.isFinite(configured) ? Math.max(1, Math.min(20, configured)) : 5;
+  // A Vercel/other horizontally scaled Node runtime can have many warm isolates. A
+  // large pool per isolate multiplies quickly and can exhaust PostgreSQL long before
+  // request CPU is saturated. Keep the production fallback deliberately small; the
+  // reviewed production environment must set PG_POOL_MAX explicitly for its DB budget.
+  const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
+  const fallback = production ? "2" : "5";
+  const configured = Number.parseInt(String(process.env.PG_POOL_MAX ?? fallback), 10);
+  return Number.isFinite(configured) ? Math.max(1, Math.min(20, configured)) : Number(fallback);
 }
 
 function getPool() {
