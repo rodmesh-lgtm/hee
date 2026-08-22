@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getCurrentUserForWrites } from "../../../lib/auth";
+import { getCurrentUserForApiWrite } from "../../../lib/auth";
 import { recordBillingCheckoutConsent } from "../../../lib/billing-consent";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
 
 type Payload = { billingId?: unknown };
 
 export async function POST(request: Request) {
-  const user = await getCurrentUserForWrites();
+  const user = await getCurrentUserForApiWrite();
   if (!user) return NextResponse.json({ ok: false }, { status: 401 });
 
   let body: Payload;
