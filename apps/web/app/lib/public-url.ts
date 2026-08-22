@@ -30,6 +30,12 @@ export function isValidPublicSlug(value: string) {
 export function getCanonicalPublicBaseUrl() { return "https://hee.sa"; }
 export function getPublicBusinessUrl(slug: string) { return `${getCanonicalPublicBaseUrl()}/${normalizePublicSlug(slug)}`; }
 
+function isProductionRuntime() {
+  const appEnv = String(process.env.APP_ENV ?? "").trim().toLowerCase();
+  const vercelEnv = String(process.env.VERCEL_ENV ?? "").trim().toLowerCase();
+  return appEnv === "production" || vercelEnv === "production";
+}
+
 function safePreviewOrigin(rawHost: string, rawProto: string | null) {
   const host = rawHost.trim().toLowerCase();
   if (!host || /[\s\\/@]/.test(host)) return null;
@@ -42,11 +48,23 @@ function safePreviewOrigin(rawHost: string, rawProto: string | null) {
   return `${protocol}://${host}`;
 }
 
+export function resolvePublicBusinessUrl(
+  slug: string,
+  rawHost: string,
+  rawProto: string | null,
+  productionRuntime = isProductionRuntime(),
+) {
+  const normalized = normalizePublicSlug(slug);
+  if (productionRuntime) return `${getCanonicalPublicBaseUrl()}/${normalized}`;
+  const previewOrigin = safePreviewOrigin(rawHost, rawProto);
+  return `${previewOrigin ?? getCanonicalPublicBaseUrl()}/${normalized}`;
+}
+
 export async function getPublicBusinessUrlFromRequest(slug: string) {
+  if (isProductionRuntime()) return getPublicBusinessUrl(slug);
+
   const requestHeaders = await headers();
   const rawHost = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || "";
   const rawProto = requestHeaders.get("x-forwarded-proto")?.toLowerCase() ?? null;
-  const normalized = normalizePublicSlug(slug);
-  const previewOrigin = safePreviewOrigin(rawHost, rawProto);
-  return `${previewOrigin ?? getCanonicalPublicBaseUrl()}/${normalized}`;
+  return resolvePublicBusinessUrl(slug, rawHost, rawProto, false);
 }
