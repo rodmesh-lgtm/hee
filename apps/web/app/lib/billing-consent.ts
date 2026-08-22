@@ -42,6 +42,9 @@ export async function recordBillingCheckoutConsent(input: {
     FROM "BillingCheckoutConsent" c
     JOIN eligible e ON e."id" = c."billingPaymentId"
     WHERE c."userId" = ${input.userId}
+      AND c."termsVersion" = ${TERMS_VERSION}
+      AND c."privacyVersion" = ${PRIVACY_VERSION}
+      AND c."disclosureVersion" = ${BILLING_DISCLOSURE_VERSION}
     LIMIT 1
   `;
   return rows[0] ?? null;
@@ -56,9 +59,9 @@ export async function hasBillingCheckoutConsent(billingPaymentId: string) {
       JOIN "Business" b ON b."id" = bp."businessId"
       WHERE c."billingPaymentId" = ${billingPaymentId}
         AND c."userId" = b."ownerId"
-        AND LENGTH(BTRIM(c."termsVersion")) > 0
-        AND LENGTH(BTRIM(c."privacyVersion")) > 0
-        AND LENGTH(BTRIM(c."disclosureVersion")) > 0
+        AND c."termsVersion" = ${TERMS_VERSION}
+        AND c."privacyVersion" = ${PRIVACY_VERSION}
+        AND c."disclosureVersion" = ${BILLING_DISCLOSURE_VERSION}
     ) AS ok
   `;
   return Boolean(rows[0]?.ok);
