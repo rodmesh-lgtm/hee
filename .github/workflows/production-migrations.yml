@@ -96,8 +96,11 @@ jobs:
             -pass env:PRODUCTION_BACKUP_PASSPHRASE
           test -s /tmp/hee-production-backup-verify.dump
           pg_restore --list /tmp/hee-production-backup-verify.dump >/dev/null
+      - name: Reset isolated restore schema
+        run: |
+          psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
       - name: Restore exact pre-migration backup into isolated database
-        run: pg_restore --dbname="$RESTORE_DATABASE_URL" --clean --if-exists --no-owner --no-privileges /tmp/hee-production-backup-verify.dump
+        run: pg_restore --exit-on-error --dbname="$RESTORE_DATABASE_URL" --no-owner --no-privileges /tmp/hee-production-backup-verify.dump
       - name: Prove restored critical data matches paused production source
         env:
           SOURCE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
