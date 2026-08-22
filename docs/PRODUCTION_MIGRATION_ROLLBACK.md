@@ -7,7 +7,7 @@ This runbook is for a failed or unsafe production database migration only. It do
 - Treat rollback as an incident. Stop application writes before touching the production database.
 - Disable paid checkout and set `BILLING_OPERATIONS_READY=false` before restoring.
 - Stop the billing scheduler/worker and any other background writer.
-- Confirm there is no active `Production Database Migrations` workflow. The workflow is serialized with the `production-database-migrations` concurrency group.
+- Confirm there is no active production database maintenance workflow. Both `Production Database Migrations` and `Production Backup Restore Proof` are serialized with the shared `production-database-maintenance` concurrency group because both use the isolated restore database.
 - Identify the exact release SHA that ran the migration.
 - Download only the encrypted artifact named `hee-production-pre-migration-<SHA>` created by that same migration run.
 - Obtain `PRODUCTION_BACKUP_PASSPHRASE` through the production secret-management path. Never paste it into tickets, chat, shell history, or logs.
