@@ -34,8 +34,13 @@ function parseDatabaseUrl(name, role) {
   // Operational tooling (psql/pg_dump/pg_restore/Prisma CLI) consumes DATABASE_URL
   // directly and does not pass through the application's URL normalizer. Require the
   // strongest libpq mode here so maintenance traffic can never silently fall back to
-  // plaintext or skip hostname verification.
-  const sslMode = String(parsed.searchParams.get("sslmode") ?? "").trim().toLowerCase();
+  // plaintext or skip hostname verification. Reject duplicate sslmode parameters so
+  // different parsers cannot disagree about which value controls the connection.
+  const sslModes = parsed.searchParams.getAll("sslmode");
+  if (sslModes.length > 1) {
+    fail(`${name} must contain at most one sslmode parameter`);
+  }
+  const sslMode = String(sslModes[0] ?? "").trim().toLowerCase();
   if (sslMode !== "verify-full") {
     fail(`${name} must use sslmode=verify-full for production operational tooling`);
   }
