@@ -17,21 +17,21 @@ artifact_name="production-preflight-attestation-${GITHUB_SHA}"
 run_id="$(gh api \
   -H 'Accept: application/vnd.github+json' \
   -H 'X-GitHub-Api-Version: 2022-11-28' \
-  "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
+  "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
   --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | sort_by(.run_number) | last | .id // empty')"
 
-test -n "$run_id" || { echo "Exact SHA has no successful Production Preflight run" >&2; exit 1; }
+test -n "$run_id" || { echo "Exact SHA has no successful Production Preflight V2 run" >&2; exit 1; }
 
 tmpdir="$(mktemp -d)"
 cleanup() { rm -rf "$tmpdir"; }
 trap cleanup EXIT
 
 if ! gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$tmpdir"; then
-  echo "Successful Production Preflight run ${run_id} has no usable ${artifact_name} artifact" >&2
+  echo "Successful Production Preflight V2 run ${run_id} has no usable ${artifact_name} artifact" >&2
   exit 1
 fi
 
 attestation="$tmpdir/production-preflight-attestation.json"
-test -s "$attestation" || { echo "Downloaded Production Preflight attestation is missing or empty" >&2; exit 1; }
+test -s "$attestation" || { echo "Downloaded Production Preflight V2 attestation is missing or empty" >&2; exit 1; }
 
 node "$repo_root/.github/scripts/production-config-attestation.mjs" verify "$scope" "$attestation"
