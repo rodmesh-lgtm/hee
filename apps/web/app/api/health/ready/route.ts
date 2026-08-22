@@ -17,6 +17,11 @@ function isCanonical(value: string | undefined) {
   return String(value ?? "").trim().replace(/\/$/, "") === "https://hee.sa";
 }
 
+function runtimeReleaseSha() {
+  const value = String(process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.RELEASE_SHA ?? "").trim().toLowerCase();
+  return /^[0-9a-f]{40}$/.test(value) ? value : null;
+}
+
 function productionDatabaseTransportReady() {
   try {
     const parsed = new URL(String(process.env.DATABASE_URL ?? ""));
@@ -51,6 +56,8 @@ function storageReady() {
 
 async function runtimeReady() {
   if (String(process.env.APP_ENV ?? "").trim().toLowerCase() !== "production") return false;
+  const releaseSha = runtimeReleaseSha();
+  if (!releaseSha) return false;
   if (!isCanonical(process.env.APP_URL) || !isCanonical(process.env.AUTH_ORIGIN) || !isCanonical(process.env.NEXT_PUBLIC_APP_URL)) return false;
   if (!productionDatabaseTransportReady() || !productionPoolReady() || !configured("SESSION_SECRET")) return false;
   if (configured("QA_AUDIT_SECRET") || configured("QA_AUDIT_USER_EMAIL")) return false;
@@ -77,6 +84,7 @@ async function runtimeReady() {
 
   const heartbeat = await prisma.billingOperationsHeartbeat.findUnique({ where: { id: "billing-operations" } });
   if (!heartbeat || Date.now() - heartbeat.lastSucceededAt.getTime() > HEARTBEAT_MAX_AGE_MS) return false;
+  if (String(heartbeat.releaseSha ?? "").trim().toLowerCase() !== releaseSha) return false;
 
   return true;
 }
