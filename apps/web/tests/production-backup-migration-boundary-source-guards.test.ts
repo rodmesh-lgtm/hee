@@ -53,7 +53,7 @@ test("production migration restores and proves the exact pre-migration backup fr
   assert.match(proof, /_prisma_migrations/);
 });
 
-test("production migration proves pre-existing critical row data is unchanged after deploy", () => {
+test("production migration proves pre-existing critical column data is unchanged while permitting additive schema", () => {
   const workflow = source("../../.github/workflows/production-migrations.yml");
   const proof = source("scripts/production-migration-data-proof.ts");
   const capture = "migration:production-data-proof -- --capture";
@@ -64,7 +64,11 @@ test("production migration proves pre-existing critical row data is unchanged af
   assert.match(workflow, /Prove critical data unchanged after deploy/);
   assert.ok(workflow.indexOf(capture) < workflow.indexOf(deploy), "critical data fingerprint must be captured before deploy");
   assert.ok(workflow.indexOf(verify) > workflow.indexOf(deploy), "critical data fingerprint must be verified after deploy");
-  assert.match(proof, /row_to_json/);
+  assert.match(proof, /version: 3/);
+  assert.match(proof, /information_schema\.columns/);
+  assert.match(proof, /to_jsonb\(t\)/);
+  assert.match(proof, /Critical migration removed pre-existing columns/);
+  assert.match(proof, /pre-migration column inventory/);
   assert.match(proof, /fingerprint/);
   assert.match(proof, /BillingPayment/);
   assert.match(proof, /BillingOperationsHeartbeat/);
