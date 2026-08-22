@@ -126,7 +126,9 @@ test("production web deployment rebuilds the exact content-proven SHA with one r
   assert.match(workflow, /npx prisma migrate status/);
   assert.match(workflow, /deploy --prod --skip-domain --yes/);
   assert.doesNotMatch(workflow, /vercel@latest/);
-  assert.doesNotMatch(workflow, /node - <<'NODE'/);
+  assert.doesNotMatch(workflow, /const plainKeys = \[/);
+  assert.doesNotMatch(workflow, /const sensitiveKeys = \[/);
+  assert.doesNotMatch(workflow, /env\?upsert=true/);
   assert.match(workflow, /https:\/\/hee\.sa\/api\/release/);
   assert.match(workflow, /https:\/\/hee\.sa\/api\/maintenance\/status/);
   assert.match(workflow, /status\.maintenance !== false/);
