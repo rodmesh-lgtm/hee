@@ -14,7 +14,9 @@ test("production web and maintenance cutovers share one reviewed Vercel environm
 
   assert.match(deploy, /node \.github\/scripts\/sync-vercel-production-env\.mjs/);
   assert.match(maintenance, /node \.github\/scripts\/sync-vercel-production-env\.mjs/);
-  assert.doesNotMatch(deploy, /node - <<'NODE'/);
+  assert.doesNotMatch(deploy, /api\.vercel\.com\/v10\/projects\/\$\{process\.env\.VERCEL_PROJECT_ID\}\/env\?upsert=true/);
+  assert.doesNotMatch(deploy, /const plainKeys = \[/);
+  assert.doesNotMatch(deploy, /const sensitiveKeys = \[/);
   assert.match(sync, /PRODUCTION_MAINTENANCE_MODE must remain deployment-scoped/);
   assert.doesNotMatch(sync, /"PRODUCTION_MAINTENANCE_MODE"\s*,\s*target/);
 });
