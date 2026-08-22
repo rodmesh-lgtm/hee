@@ -51,15 +51,15 @@ test("Moyasar form loads only after explicit renewal, cancellation and refund di
   assert.match(form, /href="\/privacy"/);
 });
 
-test("checkout acceptance is stored as immutable versioned evidence and required before paid activation", () => {
+test("checkout acceptance is stored as immutable current-version evidence and required before paid activation", () => {
   const migration = source("prisma/migrations/20260821203500_billing_checkout_consent/migration.sql");
   const consent = source("app/lib/billing-consent.ts");
   const endpoint = source("app/api/billing/consent/route.ts");
   assert.match(migration, /CREATE TABLE "BillingCheckoutConsent"/);
   assert.match(migration, /PRIMARY KEY \("billingPaymentId"\)/);
-  assert.match(consent, /TERMS_VERSION/);
-  assert.match(consent, /PRIVACY_VERSION/);
-  assert.match(consent, /BILLING_DISCLOSURE_VERSION/);
+  assert.match(consent, /c\."termsVersion" = \$\{TERMS_VERSION\}/);
+  assert.match(consent, /c\."privacyVersion" = \$\{PRIVACY_VERSION\}/);
+  assert.match(consent, /c\."disclosureVersion" = \$\{BILLING_DISCLOSURE_VERSION\}/);
   assert.match(endpoint, /recordBillingCheckoutConsent/);
 
   for (const path of [
