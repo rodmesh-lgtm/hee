@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUserForWrites } from "../../../../lib/auth";
+import { getCurrentUserForApiWrite } from "../../../../lib/auth";
 import { hasBillingCheckoutConsent } from "../../../../lib/billing-consent";
 import { providerPaymentCreatedWithinBillingWindow } from "../../../../lib/billing-checkout-integrity";
 import { activateVerifiedMoyasarPayment, getOwnedBillingPayment, markBillingPaymentState } from "../../../../lib/billing-ledger";
@@ -10,7 +10,7 @@ import { readBoundedJson, RequestBodyTooLargeError } from "../../../../lib/reque
 type Payload = { billingId?: unknown; paymentId?: unknown };
 
 export async function POST(request: Request) {
-  const user = await getCurrentUserForWrites();
+  const user = await getCurrentUserForApiWrite();
   if (!user) return NextResponse.json({ ok: false }, { status: 401 });
 
   let body: Payload;
