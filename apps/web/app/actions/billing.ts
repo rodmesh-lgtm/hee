@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { getCurrentUserForWrites } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
+import { paidCheckoutEntryAllowed } from "../lib/billing";
 import { createBillingIntent } from "../lib/billing-ledger";
 import { paidBillingTaxReady } from "../lib/billing-tax";
 import { moyasarConfigured } from "../lib/moyasar";
@@ -18,6 +19,7 @@ export async function startPaidCheckoutAction(formData: FormData) {
   if (!business) redirect("/onboarding");
 
   if (!user.emailVerifiedAt) redirect("/dashboard/settings?billing=email-verification-required");
+  if (!paidCheckoutEntryAllowed(user.email)) redirect("/dashboard/branding?billing=unavailable");
   if (!moyasarConfigured()) redirect("/dashboard/branding?billing=unavailable");
   // Payment must not precede the seller's legal/tax invoicing posture. In particular,
   // a VAT-registered Saudi seller is blocked until the compliant ZATCA path exists.
