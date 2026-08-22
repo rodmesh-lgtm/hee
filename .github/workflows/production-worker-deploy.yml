@@ -40,15 +40,44 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Require exact-SHA Production Preflight and web deployment
+      - name: Resolve exact-SHA Production lifecycle evidence
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          preflight_runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
-          web_runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-deploy.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
+          count_green_dispatches() {
+            workflow="$1"
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
+              --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length'
+          }
+          preflight_runs="$(count_green_dispatches production-preflight.yml)"
+          web_runs="$(count_green_dispatches production-deploy.yml)"
+          maintenance_runs="$(count_green_dispatches production-enter-maintenance.yml)"
+          migration_runs="$(count_green_dispatches production-migrations.yml)"
           test "$preflight_runs" -ge 1 || (echo "Exact SHA has no green Production Preflight run" && exit 1)
           test "$web_runs" -ge 1 || (echo "Exact SHA has no successful Production Web Deploy run" && exit 1)
+          {
+            echo "HEE_MAINTENANCE_RUNS=${maintenance_runs}"
+            echo "HEE_MIGRATION_RUNS=${migration_runs}"
+          } >> "$GITHUB_ENV"
+          echo "release-lifecycle-evidence: preflight=${preflight_runs} web=${web_runs} maintenance=${maintenance_runs} migrations=${migration_runs}"
+
+      - name: Prove canonical web is exact-SHA and out of maintenance before worker cutover
+        run: |
+          set -euo pipefail
+          release_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/release)"
+          status_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
+          node - <<'NODE' "$release_json" "$status_json"
+          const release = JSON.parse(process.argv[2]);
+          const status = JSON.parse(process.argv[3]);
+          const sha = process.env.GITHUB_SHA;
+          if (release.releaseSha !== sha || release.environment !== "production") {
+            throw new Error("Canonical /api/release does not prove the exact Production SHA");
+          }
+          if (status.releaseSha !== sha || status.environment !== "production" || status.maintenance !== false) {
+            throw new Error("Canonical maintenance status is not exact-SHA non-maintenance Production");
+          }
+          NODE
 
       - name: Validate pinned SSH configuration
         run: |
@@ -62,6 +91,27 @@ jobs:
           chmod 0600 "$HOME/.ssh/hee-production"
           printf '%s\n' "$HETZNER_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 0600 "$HOME/.ssh/known_hosts"
+
+      - name: Prove maintenance lifecycle before any possible worker unlock
+        id: lifecycle
+        run: |
+          set -euo pipefail
+          lock_state="$(ssh -i "$HOME/.ssh/hee-production" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "${HETZNER_USER}@${HETZNER_HOST}" \
+            'if test -f /etc/hee/maintenance.lock; then printf true; else printf false; fi')"
+          case "$lock_state" in true|false) ;; *) echo "Invalid maintenance lock state: ${lock_state}"; exit 1 ;; esac
+
+          if [ "$lock_state" = "true" ]; then
+            test "${HEE_MAINTENANCE_RUNS:-0}" -ge 1 || (echo "Maintenance lock exists but exact SHA has no successful maintenance entry run" && exit 1)
+            test "${HEE_MIGRATION_RUNS:-0}" -ge 1 || (echo "Maintenance lock exists but exact SHA has no fully successful Production Migrations run; refusing unlock" && exit 1)
+          elif [ "${HEE_MAINTENANCE_RUNS:-0}" -ge 1 ] && [ "${HEE_MIGRATION_RUNS:-0}" -lt 1 ]; then
+            echo "Exact SHA has a successful maintenance entry but no successful migration run, while the maintenance lock is absent"
+            exit 1
+          fi
+
+          echo "maintenance_lock=${lock_state}" >> "$GITHUB_OUTPUT"
+          echo "worker-lifecycle-proof: PASS maintenance_lock=${lock_state} maintenance_runs=${HEE_MAINTENANCE_RUNS:-0} migration_runs=${HEE_MIGRATION_RUNS:-0}"
 
       - name: Package exact repository tree
         run: |
@@ -83,10 +133,12 @@ jobs:
           ssh -i "$HOME/.ssh/hee-production" \
             -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "${HETZNER_USER}@${HETZNER_HOST}" \
-            'bash -s --' "$GITHUB_SHA" <<'REMOTE'
+            'bash -s --' "$GITHUB_SHA" "${{ steps.lifecycle.outputs.maintenance_lock }}" <<'REMOTE'
           set -euo pipefail
           sha="$1"
+          expected_lock="$2"
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid release SHA"; exit 1; }
+          case "$expected_lock" in true|false) ;; *) echo "Invalid expected maintenance lock state"; exit 1 ;; esac
           archive="/tmp/hee-worker-${sha}.tar.gz"
           stage="/tmp/hee-worker-stage-${sha}"
           release="/srv/hee/releases/${sha}"
@@ -98,6 +150,9 @@ jobs:
           test "$(node -p 'process.versions.node.split(`.`)[0]')" = "24" || { echo "Worker host must run Node 24"; exit 1; }
           sudo -n test -r /etc/hee/production.env || { echo "/etc/hee/production.env is missing or unreadable"; exit 1; }
           sudo -n true || { echo "Deploy user requires restricted non-interactive sudo"; exit 1; }
+          if [ "$expected_lock" = "true" ]; then
+            test -f /etc/hee/maintenance.lock || { echo "Maintenance lock disappeared before worker preparation"; exit 1; }
+          fi
 
           rm -rf "$stage"
           mkdir -p "$stage"
@@ -144,6 +199,9 @@ jobs:
           grep -qx "RELEASE_SHA=${sha}" /srv/hee/current/release.env
           sudo -n systemctl cat hee-billing-renew.service | grep -q 'WorkingDirectory=/srv/hee/current/apps/web'
           sudo -n systemctl cat hee-billing-renew.service | grep -q 'ConditionPathExists=!/etc/hee/maintenance.lock'
+          if [ "$expected_lock" = "true" ]; then
+            test -f /etc/hee/maintenance.lock || { echo "Maintenance lock disappeared before guarded unlock"; exit 1; }
+          fi
 
           # Only now may this exact worker release clear the maintenance interlock.
           sudo -n rm -f /etc/hee/maintenance.lock
@@ -165,6 +223,12 @@ jobs:
             -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "${HETZNER_USER}@${HETZNER_HOST}" \
             "test \"\$(cat /srv/hee/current/release.env)\" = 'RELEASE_SHA=${GITHUB_SHA}' && test ! -e /etc/hee/maintenance.lock && sudo -n systemctl is-active --quiet hee-billing-renew.timer"
+
+      - name: Re-prove canonical exact-SHA non-maintenance after worker unlock
+        run: |
+          set -euo pipefail
+          status_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
+          node -e 'const b=JSON.parse(process.argv[1]);if(b.releaseSha!==process.env.GITHUB_SHA||b.environment!=="production"||b.maintenance!==false)process.exit(1);' "$status_json"
 
       - name: Remove local SSH material and release archive
         if: always()
