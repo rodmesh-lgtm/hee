@@ -17,10 +17,49 @@ test("production checkout remains closed until recurring billing operations are 
   assert.match(audit, /recurring billing\/webhook recovery schedule/);
 });
 
-test("scheduled billing operations recover webhooks, renew, then audit state", () => {
+test("production live rehearsal is isolated from general paid checkout", () => {
+  const billing = source("app/lib/billing.ts");
+  const branding = source("app/dashboard/branding/page.tsx");
+  const request = source("app/actions/subscription-request.ts");
+  const direct = source("app/actions/billing.ts");
+  const audit = source("scripts/launch-config-audit.ts");
+  const ready = source("app/api/health/ready/route.ts");
+
+  assert.match(billing, /PAID_CHECKOUT_PUBLIC_ENABLED/);
+  assert.match(billing, /BILLING_REHEARSAL_USER_EMAIL/);
+  assert.match(billing, /paidCheckoutEntryAllowed/);
+  assert.match(branding, /paidCheckoutEntryAllowed\(user\.email\)/);
+  assert.match(request, /paidCheckoutEntryAllowed\(owner\.email\)/);
+  assert.match(direct, /paidCheckoutEntryAllowed\(user\.email\)/);
+  assert.match(audit, /PAID_CHECKOUT_PUBLIC_ENABLED must be true only after the controlled live subscription rehearsal passes/);
+  assert.match(audit, /BILLING_REHEARSAL_USER_EMAIL must be removed before general paid launch/);
+  assert.match(ready, /PAID_CHECKOUT_PUBLIC_ENABLED/);
+  assert.match(ready, /BILLING_REHEARSAL_USER_EMAIL/);
+});
+
+test("scheduled billing operations recover webhooks, renew, audit state, then record exact-release liveness", () => {
   const pkg = source("package.json");
+  const audit = source("scripts/billing-state-audit.ts");
+  const baseMigration = source("prisma/migrations/20260822050000_billing_operations_heartbeat/migration.sql");
+  const releaseMigration = source("prisma/migrations/20260822111500_billing_worker_release_provenance/migration.sql");
+  const schema = source("prisma/schema.prisma");
+  const ready = source("app/api/health/ready/route.ts");
+  const launch = source("../../.github/workflows/production-launch-readiness.yml");
   const runbook = source("../../docs/HETZNER_BILLING_RUNBOOK.md");
-  assert.match(pkg, /billing:webhooks && npm run billing:renew-only && npm run billing:state-audit/);
+
+  assert.match(pkg, /billing:webhooks && npm run billing:renew-only && npm run billing:state-audit -- --record-heartbeat/);
+  assert.match(audit, /HEARTBEAT_MAX_AGE_MINUTES = 90/);
+  assert.match(audit, /Production billing audit requires RELEASE_SHA/);
+  assert.match(audit, /billing operations heartbeat is missing or older than 90 minutes/);
+  assert.match(audit, /billing operations worker release SHA does not match the audited web release/);
+  assert.match(audit, /billingOperationsHeartbeat\.upsert/);
+  assert.match(audit, /releaseSha: validReleaseSha \? releaseSha : null/);
+  assert.match(baseMigration, /BillingOperationsHeartbeat/);
+  assert.match(releaseMigration, /ADD COLUMN "releaseSha" TEXT/);
+  assert.match(schema, /releaseSha String\?/);
+  assert.match(ready, /heartbeat\.releaseSha/);
+  assert.match(ready, /runtimeReleaseSha/);
+  assert.match(launch, /RELEASE_SHA: \$\{\{ github\.sha \}\}/);
   assert.match(runbook, /BILLING_OPERATIONS_READY=true/);
   assert.match(runbook, /durable Moyasar webhook inbox/);
   assert.match(runbook, /Treat a non-zero exit from `npm run billing:renew` as an operational alert/);

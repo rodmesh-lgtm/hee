@@ -49,6 +49,20 @@ function productionDatabaseUrl() {
   if (/\b(?:test|ci|dev|local)\b/i.test(parsed.pathname.replace(/^\//, ""))) {
     throw new Error("DATABASE_URL appears to reference a non-production database");
   }
+
+  const sslMode = parsed.searchParams.get("sslmode")?.trim().toLowerCase();
+  if (!sslMode || !new Set(["verify-full", "verify-ca", "require", "prefer"]).has(sslMode)) {
+    throw new Error("DATABASE_URL must explicitly enable PostgreSQL TLS with sslmode=verify-full (legacy strict modes are normalized to verify-full at runtime)");
+  }
+}
+
+function productionPoolBudget() {
+  const raw = required("PG_POOL_MAX");
+  if (!/^\d+$/.test(raw)) throw new Error("PG_POOL_MAX must be an integer between 1 and 5 for the production web runtime");
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 1 || value > 5) {
+    throw new Error("PG_POOL_MAX must be between 1 and 5 for the production web runtime; start at 2 unless the PostgreSQL connection budget proves a higher value is safe");
+  }
 }
 
 function billingTaxReadiness() {
@@ -74,6 +88,7 @@ function main() {
 
   strongSecret("SESSION_SECRET", 32);
   productionDatabaseUrl();
+  productionPoolBudget();
 
   const resend = required("RESEND_API_KEY");
   if (/replace|example|dummy|placeholder/i.test(resend)) throw new Error("RESEND_API_KEY must be a real production credential");
@@ -92,6 +107,12 @@ function main() {
   }
   if (String(process.env.BILLING_OPERATIONS_READY ?? "").trim().toLowerCase() !== "true") {
     throw new Error("BILLING_OPERATIONS_READY must be true only after the recurring billing/webhook recovery schedule has been installed and observed running successfully");
+  }
+  if (String(process.env.PAID_CHECKOUT_PUBLIC_ENABLED ?? "").trim().toLowerCase() !== "true") {
+    throw new Error("PAID_CHECKOUT_PUBLIC_ENABLED must be true only after the controlled live subscription rehearsal passes");
+  }
+  if (String(process.env.BILLING_REHEARSAL_USER_EMAIL ?? "").trim()) {
+    throw new Error("BILLING_REHEARSAL_USER_EMAIL must be removed before general paid launch");
   }
 
   if (String(process.env.QA_AUDIT_SECRET ?? "").trim() || String(process.env.QA_AUDIT_USER_EMAIL ?? "").trim()) {

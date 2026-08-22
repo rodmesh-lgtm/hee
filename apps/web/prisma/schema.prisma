@@ -420,6 +420,13 @@ model BillingWebhookEvent {
   @@unique([provider, providerEventId], map: "BillingWebhookEvent_provider_event_unique")
   @@index([createdAt])
 }
+model BillingOperationsHeartbeat {
+  id String @id
+  lastSucceededAt DateTime
+  releaseSha String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 model AnalyticsEvent {
   id String @id @default(uuid())
   businessId String

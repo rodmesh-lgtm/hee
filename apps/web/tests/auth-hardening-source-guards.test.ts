@@ -19,6 +19,24 @@ test("registration does not expose whether an email already exists", () => {
   assert.match(auth, /GENERIC_REGISTRATION_ERROR/);
 });
 
+test("registration automatically starts mailbox verification but keeps a recoverable onboarding path if delivery fails", () => {
+  const auth = source("app/actions/auth.ts");
+  const onboarding = source("app/onboarding/page.tsx");
+  const verification = source("app/lib/email-verification.ts");
+
+  const sessionIndex = auth.indexOf("await createSession(user.id)");
+  const verificationIndex = auth.indexOf("issueEmailVerification(user.id, parsed.data.email)");
+  assert.ok(sessionIndex >= 0 && verificationIndex > sessionIndex, "registration should establish the account/session before best-effort email delivery");
+  assert.match(auth, /verification-sent/);
+  assert.match(auth, /verification-send-failed/);
+  assert.match(auth, /verification-unavailable/);
+  assert.match(onboarding, /أرسلنا رابط تأكيد البريد تلقائيًا/);
+  assert.match(onboarding, /تم إنشاء حسابك بنجاح، لكن تعذر إرسال رسالة تأكيد البريد الآن/);
+  assert.match(verification, /if \(!sent\) \{/);
+  assert.match(verification, /oAuthState\.deleteMany/);
+  assert.match(verification, /return "send-failed" as const/);
+});
+
 test("oauth login failures do not expose account existence", () => {
   const callback = source("app/api/auth/oauth/[provider]/callback/route.ts");
   assert.doesNotMatch(callback, /account-not-found/);

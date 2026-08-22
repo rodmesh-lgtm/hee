@@ -100,10 +100,6 @@ async function reconcileVerifiedCheckoutPayment(billing: BillingPaymentRow, paym
     return `activation-${result}-reversed` as const;
   }
 
-  // A provider authorization that survives for a full day without settling should not
-  // hold the customer's funds or permanently occupy HEE's one-open-checkout constraint.
-  // Reversal is idempotent: if Moyasar has already voided/refunded it, the current state
-  // is fetched and returned by reverseMoyasarPayment.
   if (payment.status === "authorized" && Date.now() - billing.createdAt.getTime() >= OPEN_AUTHORIZATION_MAX_AGE_MS) {
     await reverseAndRecord(billing, payment);
     return "stale-authorization-reversed" as const;
@@ -137,12 +133,7 @@ export async function processMoyasarWebhookEvent(eventRowId: string) {
     }
 
     if (!billing.providerPaymentId && !providerPaymentCreatedWithinBillingWindow(billing.createdAt, payment)) {
-      console.error("[moyasar-webhook-worker] stale_checkout_payment", {
-        eventId: event.id,
-        billingId: billing.id,
-        providerPaymentId: payment.id,
-        providerStatus: payment.status,
-      });
+      console.error("[moyasar-webhook-worker] stale_checkout_payment", { eventId: event.id, billingId: billing.id, providerPaymentId: payment.id, providerStatus: payment.status });
       if (["paid", "captured", "authorized"].includes(payment.status)) await reverseAndRecord(billing, payment);
       await completeEvent(event.id, billing.id, "stale_checkout_payment");
       return "stale" as const;
@@ -158,16 +149,10 @@ export async function processMoyasarWebhookEvent(eventRowId: string) {
       return result.includes("reversed") ? "reversed" as const : "processed" as const;
     }
 
-    // Renewal webhooks still use the shared ledger activation path. The dedicated
-    // renewal worker additionally owns provider idempotency/retry timing.
     if (payment.status === "paid") {
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
       if (result !== "activated" && result !== "already-paid") {
-        console.error("[moyasar-webhook-worker] settled_payment_not_activatable", {
-          eventId: event.id,
-          billingId: billing.id,
-          result,
-        });
+        console.error("[moyasar-webhook-worker] settled_payment_not_activatable", { eventId: event.id, billingId: billing.id, result });
         await reverseAndRecord(billing, payment);
         await completeEvent(event.id, billing.id, `activation_${result}_reversed`);
         return "reversed" as const;
@@ -202,11 +187,13 @@ export async function recoverPendingMoyasarWebhookEvents(limit = 50) {
   `;
 
   let processed = 0;
+  let retries = 0;
   for (const row of rows) {
     const result = await processMoyasarWebhookEvent(row.id);
     if (result !== "not-claimed") processed += 1;
+    if (result === "retry") retries += 1;
   }
-  return { checked: rows.length, processed };
+  return { checked: rows.length, processed, retries, errors: retries };
 }
 
 export async function recoverOpenMoyasarCheckoutPayments(limit = 50) {
@@ -240,10 +227,7 @@ export async function recoverOpenMoyasarCheckoutPayments(limit = 50) {
       reconciled += 1;
     } catch (error) {
       errors += 1;
-      console.error("[moyasar-checkout-recovery] reconciliation_failed", {
-        billingId: row.id,
-        error: error instanceof Error ? error.message : "unknown",
-      });
+      console.error("[moyasar-checkout-recovery] reconciliation_failed", { billingId: row.id, error: error instanceof Error ? error.message : "unknown" });
     }
   }
   return { checked: rows.length, reconciled, errors };

@@ -83,7 +83,7 @@ test.describe.serial("launch customer journey", () => {
         await page.locator('input[name="confirmPassword"]').fill(password);
         await page.getByRole("checkbox").check();
         await page.getByRole("button", { name: "إنشاء الحساب والمتابعة" }).click();
-        await page.waitForURL("**/onboarding", { timeout: 20_000 });
+        await page.waitForURL(/\/onboarding(?:\?email=verification-(?:sent|unavailable))?$/, { timeout: 20_000 });
         const user = await db.user.findUnique({ where: { email }, select: { id: true, emailVerifiedAt: true } });
         expect(user?.id).toBeTruthy();
         expect(user?.emailVerifiedAt).toBeNull();
