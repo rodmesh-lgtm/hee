@@ -57,7 +57,7 @@ test("all customer and durable reconciliation paths reverse verified settled mon
 test("renewal charging and settlement both re-prove account eligibility and reverse terminal paid races", () => {
   const worker = source("scripts/billing-renewal-worker.ts");
 
-  assert.match(worker, /JOIN "User" u ON u\."id" = b\."ownerId" AND u\."deletedAt" IS NULL AND u\."emailVerifiedAt" IS NOT NULL/);
+  assert.match(worker, /JOIN "User" u ON u\."id"=b\."ownerId" AND u\."deletedAt" IS NULL AND u\."emailVerifiedAt" IS NOT NULL/);
   assert.match(worker, /FOR UPDATE OF s, b, u, p/);
   assert.match(worker, /FOR KEY SHARE OF b, u, p/);
   assert.match(worker, /reverseUnactivatableRenewal/);
@@ -85,4 +85,41 @@ test("expired subscriptions cannot remain live merely because renewal became ine
 
   assert.match(worker, /payment\.status === "voided" \|\| payment\.status === "refunded"/);
   assert.match(worker, /setAttemptState\(billing\.id, payment\.status, payment\.id, null\)/);
+});
+
+test("in-flight renewals stay reconcilable after eligibility changes without permitting a new charge", () => {
+  const worker = source("scripts/billing-renewal-worker.ts");
+
+  const expireStart = worker.indexOf("async function expireIneligibleDueRenewals");
+  const dueStart = worker.indexOf("async function dueSubscriptions", expireStart);
+  const expire = worker.slice(expireStart, dueStart);
+  assert.match(expire, /NOT EXISTS \([\s\S]*bp\."status" IN \('initiated','authorized'\)/);
+  assert.match(expire, /AS "inFlight"/);
+  assert.match(expire, /if \(!current \|\| current\.inFlight\) return/);
+  assert.match(expire, /AND "status" IN \('created','failed'\)/);
+
+  const dueEnd = worker.indexOf("async function latestAttempt", dueStart);
+  const due = worker.slice(dueStart, dueEnd);
+  assert.match(due, /FROM "Subscription" s/);
+  assert.match(due, /s\."autoRenew" = true/);
+  assert.match(due, /s\."provider" = 'moyasar'/);
+  assert.doesNotMatch(due, /JOIN "User"/);
+  assert.doesNotMatch(due, /JOIN "BillingPaymentMethod"/);
+
+  const createStart = worker.indexOf("async function createAttempt");
+  const claimStart = worker.indexOf("async function claimAttemptForProviderSubmission", createStart);
+  const createAttempt = worker.slice(createStart, claimStart);
+  assert.match(createAttempt, /SELECT s\."id", p\."monthlyPrice"/);
+  assert.match(createAttempt, /const amount = eligible\[0\]\.monthlyPrice \* 100/);
+
+  const claimEnd = worker.indexOf("async function setAttemptState", claimStart);
+  const claim = worker.slice(claimStart, claimEnd);
+  assert.match(claim, /SELECT s\."id", pm\."encryptedToken"/);
+  assert.match(claim, /FOR UPDATE OF s, b, u, p, pm/);
+  assert.match(claim, /return claimed\[0\] \? eligible\[0\]\.encryptedToken : null/);
+
+  assert.match(worker, /const encryptedToken = await claimAttemptForProviderSubmission\(sub, billing\)/);
+  assert.match(worker, /token: decryptProviderToken\(encryptedToken\)/);
+  assert.match(worker, /const preClosed = await expireIneligibleDueRenewals\(\)/);
+  assert.match(worker, /const postClosed = await expireIneligibleDueRenewals\(\)/);
 });
