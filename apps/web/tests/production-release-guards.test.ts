@@ -35,3 +35,26 @@ test("production migrations verify and restore an encrypted recovery backup befo
   assert.match(workflow, /npm run backup:production-proof/);
   assert.match(workflow, /retention-days: 14/);
 });
+
+test("production launch readiness proves exact RC, configuration, database, billing liveness and canonical surfaces", () => {
+  const workflow = source("../../.github/workflows/production-launch-readiness.yml");
+  assert.match(workflow, /VERIFY_PRODUCTION_READINESS/);
+  assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
+  assert.match(workflow, /environment: production/);
+  assert.match(workflow, /head_sha=\$\{GITHUB_SHA\}/);
+  assert.match(workflow, /conclusion == "success"/);
+  assert.match(workflow, /npm run launch:config-audit/);
+  assert.match(workflow, /npx prisma migrate status/);
+  assert.match(workflow, /npm run billing:state-audit/);
+  assert.doesNotMatch(workflow, /--record-heartbeat/);
+  assert.match(workflow, /https:\/\/hee\.sa/);
+  assert.match(workflow, /\/register/);
+  assert.match(workflow, /\/login/);
+  assert.match(workflow, /\/demo/);
+  assert.match(workflow, /strict-transport-security/);
+  assert.match(workflow, /content-security-policy/);
+  assert.match(workflow, /noindex/);
+  assert.doesNotMatch(workflow, /prisma db push/);
+  assert.doesNotMatch(workflow, /prisma migrate deploy/);
+  assert.doesNotMatch(workflow, /billing:renew/);
+});
