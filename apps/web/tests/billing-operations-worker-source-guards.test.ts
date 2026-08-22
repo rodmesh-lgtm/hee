@@ -22,10 +22,11 @@ test("billing operations fail closed when webhook recovery schedules a retry", (
   assert.match(pkg, /billing:state-audit/);
 });
 
-test("production billing scheduler is versioned, single-shot, release-pinned and runs every 30 minutes", () => {
+test("production billing scheduler is versioned, single-shot, release-pinned, maintenance-interlocked and runs every 30 minutes", () => {
   const service = source("../../ops/systemd/hee-billing-renew.service");
   const timer = source("../../ops/systemd/hee-billing-renew.timer");
 
+  assert.match(service, /ConditionPathExists=!\/etc\/hee\/maintenance\.lock/);
   assert.match(service, /Type=oneshot/);
   assert.match(service, /User=hee/);
   assert.match(service, /WorkingDirectory=\/srv\/hee\/current\/apps\/web/);
@@ -39,7 +40,7 @@ test("production billing scheduler is versioned, single-shot, release-pinned and
   assert.match(timer, /Unit=hee-billing-renew\.service/);
 });
 
-test("production worker deploy requires content-proven RC plus exact downstream release gates and performs an atomic cutover without killing a running cycle", () => {
+test("production worker deploy keeps maintenance locked until exact release cutover is installed", () => {
   const workflow = source("../../.github/workflows/production-worker-deploy.yml");
   assert.match(workflow, /DEPLOY_EXACT_BILLING_WORKER/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
@@ -61,5 +62,18 @@ test("production worker deploy requires content-proven RC plus exact downstream 
   assert.match(workflow, /ln -sfn "releases\/\$\{sha\}" \/srv\/hee\/current\.next/);
   assert.match(workflow, /mv -Tf \/srv\/hee\/current\.next \/srv\/hee\/current/);
   assert.match(workflow, /RELEASE_SHA=%s/);
+  assert.match(workflow, /ConditionPathExists=!\/etc\/hee\/maintenance\.lock/);
+  assert.match(workflow, /restore_timer_if_safe/);
+  assert.match(workflow, /if ! sudo -n test -f \/etc\/hee\/maintenance\.lock/);
+  assert.match(workflow, /rm -f \/etc\/hee\/maintenance\.lock/);
+  assert.match(workflow, /test ! -e \/etc\/hee\/maintenance\.lock/);
   assert.match(workflow, /systemctl is-active --quiet hee-billing-renew\.timer/);
+
+  const activate = workflow.indexOf('mv -Tf /srv/hee/current.next /srv/hee/current');
+  const unitProof = workflow.indexOf("ConditionPathExists=!/etc/hee/maintenance.lock");
+  const unlock = workflow.indexOf("rm -f /etc/hee/maintenance.lock");
+  const timerStart = workflow.indexOf("systemctl start hee-billing-renew.timer", unlock);
+  assert.ok(activate >= 0 && unitProof > activate, "exact worker release and maintenance-aware unit must be installed before unlock");
+  assert.ok(unlock > unitProof, "maintenance lock must be removed only after exact worker unit proof");
+  assert.ok(timerStart > unlock, "billing timer may start only after maintenance lock removal");
 });
