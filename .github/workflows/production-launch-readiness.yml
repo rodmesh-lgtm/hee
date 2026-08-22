@@ -78,6 +78,9 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
+      - name: Require verify-full PostgreSQL transport before final database checks
+        run: node ../../.github/scripts/require-production-database-safety.mjs DATABASE_URL
+
       - name: Install dependencies
         run: npm ci
 
