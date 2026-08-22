@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "rm -rf .next && prisma generate && next build",
+    "build": "node scripts/preview-migration-diagnostic.mjs && rm -rf .next && prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "rm -rf .next && prisma generate && next typegen && tsc --noEmit --pretty false",
