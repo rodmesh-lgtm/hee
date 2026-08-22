@@ -97,6 +97,8 @@ jobs:
           SOURCE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
         run: npm run backup:production-proof
+      - name: Capture pre-migration critical data fingerprint
+        run: npm run migration:production-data-proof -- --capture /tmp/hee-production-pre-migration-proof.json
       - name: Preserve encrypted recovery backup
         uses: actions/upload-artifact@v4
         with:
@@ -108,6 +110,8 @@ jobs:
         run: npx prisma migrate deploy
       - name: Verify migration status after deploy
         run: npx prisma migrate status
+      - name: Prove critical data unchanged after deploy
+        run: npm run migration:production-data-proof -- --verify /tmp/hee-production-pre-migration-proof.json
       - name: Remove local backup copies
         if: always()
-        run: rm -f /tmp/hee-production-pre-migration.dump /tmp/hee-production-pre-migration.dump.enc /tmp/hee-production-backup-verify.dump
+        run: rm -f /tmp/hee-production-pre-migration.dump /tmp/hee-production-pre-migration.dump.enc /tmp/hee-production-backup-verify.dump /tmp/hee-production-pre-migration-proof.json
