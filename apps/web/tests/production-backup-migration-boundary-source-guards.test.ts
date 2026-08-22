@@ -28,10 +28,13 @@ test("all production restore-database maintenance is serialized through one lock
   }
 });
 
-test("production migration restores and proves the exact pre-migration backup before deploy", () => {
+test("production migration restores and proves the exact pre-migration backup from a clean isolated schema before deploy", () => {
   const workflow = source("../../.github/workflows/production-migrations.yml");
   const proof = source("scripts/production-backup-restore-proof.ts");
   assert.match(workflow, /PRODUCTION_RESTORE_DATABASE_URL/);
+  assert.match(workflow, /Reset isolated restore schema/);
+  assert.match(workflow, /DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public/);
+  assert.match(workflow, /pg_restore --exit-on-error --dbname="\$RESTORE_DATABASE_URL" --no-owner --no-privileges/);
   assert.match(workflow, /Restore exact pre-migration backup into isolated database/);
   assert.match(workflow, /npm run backup:production-proof/);
   assert.ok(workflow.indexOf("npm run backup:production-proof") < workflow.indexOf("npx prisma migrate deploy"));
@@ -69,12 +72,13 @@ test("production migration proves pre-existing critical row data is unchanged af
   assert.match(proof, /Critical data changed during production migration/);
 });
 
-test("scheduled production backups are encrypted, retained, restore-tested, and reject local sources", () => {
+test("scheduled production backups are encrypted, retained, clean-schema restore-tested, and reject local sources", () => {
   const workflow = source("../../.github/workflows/production-backup-proof.yml");
   assert.match(workflow, /cron: "17 2 \* \* \*"/);
   assert.match(workflow, /pg_dump/);
   assert.match(workflow, /openssl enc -aes-256-cbc -pbkdf2/);
-  assert.match(workflow, /pg_restore --dbname="\$RESTORE_DATABASE_URL" --clean --if-exists/);
+  assert.match(workflow, /DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public/);
+  assert.match(workflow, /pg_restore --exit-on-error --dbname="\$RESTORE_DATABASE_URL" --no-owner --no-privileges/);
   assert.match(workflow, /npm run backup:production-proof/);
   assert.match(workflow, /retention-days: 14/);
   assert.match(workflow, /Production source must not be local/);
