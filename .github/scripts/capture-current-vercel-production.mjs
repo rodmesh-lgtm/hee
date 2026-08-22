@@ -40,7 +40,8 @@ if (!/^dpl_[A-Za-z0-9]+$/.test(id)) throw new Error("Canonical production deploy
 if (!url.endsWith(".vercel.app")) throw new Error("Canonical production deployment returned an invalid Vercel URL");
 if (state !== "READY") throw new Error(`Canonical production deployment is not READY (state=${state || "unknown"})`);
 if (target !== "production") throw new Error(`Canonical deployment is not a production target (target=${target || "unknown"})`);
-if (resolvedProjectId && resolvedProjectId !== projectId) throw new Error("Canonical deployment belongs to an unexpected Vercel project");
+if (!resolvedProjectId) throw new Error("Canonical production deployment did not expose a project identity");
+if (resolvedProjectId !== projectId) throw new Error("Canonical deployment belongs to an unexpected Vercel project");
 if (!aliases.includes(canonicalHost)) throw new Error(`Canonical host ${canonicalHost} is not assigned to the resolved deployment`);
 
 const record = {
