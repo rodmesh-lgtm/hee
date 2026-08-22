@@ -51,8 +51,8 @@ function productionDatabaseUrl() {
   }
 
   const sslMode = parsed.searchParams.get("sslmode")?.trim().toLowerCase();
-  if (!sslMode || !new Set(["verify-full", "verify-ca", "require", "prefer"]).has(sslMode)) {
-    throw new Error("DATABASE_URL must explicitly enable PostgreSQL TLS with sslmode=verify-full (legacy strict modes are normalized to verify-full at runtime)");
+  if (sslMode !== "verify-full") {
+    throw new Error("DATABASE_URL must use sslmode=verify-full so the web runtime and all production operational tooling enforce certificate and hostname verification consistently");
   }
 }
 
