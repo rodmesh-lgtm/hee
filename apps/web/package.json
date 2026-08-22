@@ -24,6 +24,7 @@
     "billing:state-audit": "tsx scripts/billing-state-audit.ts",
     "backup:audit-seed": "tsx scripts/backup-restore-audit.ts",
     "backup:audit-verify": "tsx scripts/backup-restore-audit.ts --verify",
+    "backup:production-proof": "tsx scripts/production-backup-restore-proof.ts",
     "launch:config-audit": "tsx scripts/launch-config-audit.ts",
     "billing:webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/billing-webhook-recovery-worker.ts",
     "billing:renew-only": "tsx scripts/billing-renewal-worker.ts",
