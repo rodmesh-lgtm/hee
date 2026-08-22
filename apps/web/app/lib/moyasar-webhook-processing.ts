@@ -124,7 +124,21 @@ export async function processMoyasarWebhookEvent(eventRowId: string) {
       }
 
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
-      if (result !== "activated" && result !== "already-paid") throw new Error(`ACTIVATION_${result}`);
+      if (result !== "activated" && result !== "already-paid") {
+        // Metadata, amount and currency have already been re-fetched and verified above.
+        // If the locked entitlement transaction cannot prove a safe target anymore, the
+        // payment is real customer money with nowhere valid to grant it. Reverse instead
+        // of retrying activation indefinitely or retaining funds without entitlement.
+        console.error("[moyasar-webhook-worker] settled_payment_not_activatable", {
+          eventId: event.id,
+          billingId: billing.id,
+          result,
+        });
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+        await completeEvent(event.id, billing.id, `activation_${result}_reversed`);
+        return "reversed" as const;
+      }
     } else {
       await markBillingPaymentState(billing.id, payment);
     }
