@@ -15,7 +15,8 @@ test("Preflight writes an exact-SHA scoped HMAC attestation after read-only exte
   const vercelProof = workflow.indexOf("Verify Vercel credential and HEE project read-only");
   const resendProof = workflow.indexOf("Verify Resend hee.sa domain and API credential");
   const moyasarProof = workflow.indexOf("Verify Moyasar live secret credential read-only");
-  const workerProof = workflow.indexOf("Verify Hetzner worker host identity and prerequisites read-only");
+  const workerProof = workflow.indexOf("Verify Hetzner worker rollback baseline and prerequisites read-only");
+  const workerBaselineProof = workflow.indexOf("worker-rollback-baseline-preflight: PASS", workerProof);
   const write = workflow.indexOf("Write exact-SHA scoped Production configuration attestation");
   const upload = workflow.indexOf("Preserve exact-SHA Production Preflight attestation");
 
@@ -24,7 +25,8 @@ test("Preflight writes an exact-SHA scoped HMAC attestation after read-only exte
   assert.ok(resendProof > vercelProof);
   assert.ok(moyasarProof > resendProof);
   assert.ok(workerProof > moyasarProof);
-  assert.ok(write > workerProof);
+  assert.ok(workerBaselineProof > workerProof);
+  assert.ok(write > workerBaselineProof);
   assert.ok(upload > write);
 
   assert.match(workflow, /actions\/upload-artifact@v4/);
@@ -32,6 +34,7 @@ test("Preflight writes an exact-SHA scoped HMAC attestation after read-only exte
   assert.match(workflow, /retention-days: 14/);
   assert.match(workflow, /StrictHostKeyChecking=yes/);
   assert.match(workflow, /sudo -n test -r \/etc\/hee\/production\.env/);
+  assert.match(workflow, /worker-rollback-baseline-preflight: PASS/);
   assert.doesNotMatch(workflow, /systemctl (?:start|stop|restart|enable|disable)/);
   assert.doesNotMatch(workflow, /vercel(?:@[^ ]+)? deploy/);
   assert.doesNotMatch(workflow, /prisma migrate deploy/);
