@@ -13,8 +13,9 @@ async function main() {
 
   const webhook = await recoverPendingMoyasarWebhookEvents(50);
   const checkout = await recoverOpenMoyasarCheckoutPayments(50);
+  if (webhook.errors > 0) throw new Error(`WEBHOOK_RECOVERY_ERRORS_${webhook.errors}`);
   if (checkout.errors > 0) throw new Error(`OPEN_CHECKOUT_RECONCILIATION_ERRORS_${checkout.errors}`);
-  console.log(`billing-webhook-recovery-worker: PASS (${webhook.checked} pending webhook events checked, ${webhook.processed} claimed; ${checkout.checked} open checkouts checked, ${checkout.reconciled} reconciled)`);
+  console.log(`billing-webhook-recovery-worker: PASS (${webhook.checked} pending webhook events checked, ${webhook.processed} processed, ${webhook.retries} scheduled for retry; ${checkout.checked} open checkouts checked, ${checkout.reconciled} reconciled)`);
 }
 
 main()
