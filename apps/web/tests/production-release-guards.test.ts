@@ -38,6 +38,7 @@ test("production migrations verify and restore an encrypted recovery backup befo
 
 test("production launch readiness proves exact RC, configuration, database, billing liveness and canonical surfaces", () => {
   const workflow = source("../../.github/workflows/production-launch-readiness.yml");
+  const audit = source("scripts/launch-config-audit.ts");
   assert.match(workflow, /VERIFY_PRODUCTION_READINESS/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
@@ -54,6 +55,8 @@ test("production launch readiness proves exact RC, configuration, database, bill
   assert.match(workflow, /strict-transport-security/);
   assert.match(workflow, /content-security-policy/);
   assert.match(workflow, /noindex/);
+  assert.match(audit, /sslmode=verify-full/);
+  assert.match(audit, /DATABASE_URL must explicitly enable PostgreSQL TLS/);
   assert.doesNotMatch(workflow, /prisma db push/);
   assert.doesNotMatch(workflow, /prisma migrate deploy/);
   assert.doesNotMatch(workflow, /billing:renew/);
