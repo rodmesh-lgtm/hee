@@ -33,11 +33,11 @@ test("billing launch mode promotion is exact-SHA staged, rollback-armed before m
   const capture = script.indexOf("capture-current-vercel-production.mjs");
   const baselineRelease = script.indexOf("previous_release_json=");
   const stage = script.indexOf("deploy --prod --skip-domain");
-  const stagedRelease = script.indexOf("curl /api/release --deployment");
-  const stagedMaintenance = script.indexOf("curl /api/maintenance/status --deployment");
-  const stagedLaunch = script.indexOf("curl /api/billing/launch-status --deployment");
-  const arm = script.indexOf("rollback_armed=true");
-  const promote = script.indexOf(" promote \"$deployment_url\"");
+  const stagedRelease = script.indexOf("curl /api/release --deployment", stage);
+  const stagedMaintenance = script.indexOf("curl /api/maintenance/status --deployment", stagedRelease);
+  const stagedLaunch = script.indexOf("curl /api/billing/launch-status --deployment", stagedMaintenance);
+  const arm = script.indexOf("rollback_armed=true", stagedLaunch);
+  const promote = script.indexOf(" promote \"$deployment_url\"", arm);
   const canonical = script.indexOf("https://${canonical_host}/api/billing/launch-status", promote);
   const disarm = script.indexOf("rollback_armed=false", canonical);
 
