@@ -1,26 +1,53 @@
 generator client {
-  provider = "prisma-client-js"
-  engineType = "client"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-enum UserRole { USER ADMIN }
 model User {
   id String @id @default(uuid())
+  name String
   email String @unique
   passwordHash String?
-  name String
-  role UserRole @default(USER)
   emailVerifiedAt DateTime?
-  deletedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  businesses Business[]
+  deletedAt DateTime?
   sessions Session[]
+  businesses Business[]
   authIdentities AuthIdentity[]
+  @@index([email])
+  @@index([emailVerifiedAt])
+  @@index([deletedAt])
+}
+model AuthIdentity {
+  id String @id @default(uuid())
+  userId String
+  provider String
+  providerSubject String
+  providerEmail String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@index([providerEmail])
+}
+model OAuthState {
+  id String @id @default(uuid())
+  state String @unique
+  provider String
+  nonce String
+  codeVerifier String?
+  redirectTo String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([provider])
+  @@index([expiresAt])
 }
 model Session {
   id String @id @default(uuid())
@@ -32,36 +59,14 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
 }
-model AuthIdentity {
-  id String @id @default(uuid())
-  userId String
-  provider String
-  providerUserId String
-  email String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  @@unique([provider, providerUserId])
-  @@index([userId])
-}
-model OAuthState {
-  id String @id @default(uuid())
-  state String @unique
-  provider String
-  nonce String?
-  redirectTo String?
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  @@index([provider])
-  @@index([expiresAt])
-}
 model BusinessPlan {
   id String @id @default(uuid())
   code String @unique
   name String
-  monthlyPrice Int @default(0)
-  maxBranches Int @default(1)
-  maxTeamMembers Int @default(1)
+  monthlyPrice Int
+  productLimit Int
+  aiEnabled Boolean @default(false)
+  onlinePay Boolean @default(false)
   isActive Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -74,78 +79,91 @@ model Business {
   ownerId String
   planId String?
   name String
+  nameEn String?
   slug String @unique
+  businessType String
   description String?
-  logoUrl String?
-  coverUrl String?
-  phone String?
-  whatsapp String?
+  shortDescription String?
+  entityType String?
+  businessCategory String?
+  onboardingCompleted Boolean @default(false)
+  onboardingStep String? @default("account_created")
   email String?
   website String?
+  country String?
   city String?
-  category String?
+  district String?
+  googleMapsLink String?
+  whatsapp String?
+  phone String?
+  address String?
+  logoUrl String?
+  coverUrl String?
+  primaryColor String @default("#5D43EF")
+  secondaryColor String?
+  buttonColor String?
+  buttonStyle String? @default("rounded")
+  cardStyle String? @default("glass")
+  pageModules Json?
+  workingHours String?
+  deliveryAvailable Boolean @default(false)
+  bookingAvailable Boolean @default(false)
+  acceptOnlineOrders Boolean @default(false)
+  xUrl String?
+  instagramUrl String?
+  snapchatUrl String?
+  tiktokUrl String?
+  facebookUrl String?
+  metaTitle String?
+  metaDescription String?
+  isVerified Boolean @default(false)
   isPublished Boolean @default(false)
   publishedAt DateTime?
-  isVerified Boolean @default(false)
-  onboardingCompleted Boolean @default(false)
-  deletedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  digitalDestinationType String?
+  companyProfileUrl String?
+  companyProfileTitle String?
+  licenseNumber String?
   owner User @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   plan BusinessPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
-  services Service[]
-  categories Category[]
   products Product[]
+  categories Category[]
+  offers Offer[]
+  services Service[]
   customers Customer[]
   orders Order[]
   bookings Booking[]
-  offers Offer[]
-  galleryItems GalleryItem[]
-  workingHours WorkingHours[]
+  openingHours WorkingHours[]
   socialLinks SocialLink[]
+  galleryItems GalleryItem[]
+  subscriptions Subscription[]
+  billingPaymentMethods BillingPaymentMethod[]
+  billingPayments BillingPayment[]
+  analytics AnalyticsEvent[]
   branches Branch[]
   departments Department[]
-  contacts ContactPerson[]
-  subscriptions Subscription[]
-  billingPayments BillingPayment[]
-  billingPaymentMethods BillingPaymentMethod[]
-  analyticsEvents AnalyticsEvent[]
+  contactPersons ContactPerson[]
   @@index([ownerId])
   @@index([planId])
+  @@index([slug])
   @@index([isPublished])
   @@index([deletedAt])
-}
-model Service {
-  id String @id @default(uuid())
-  businessId String
-  name String
-  description String?
-  price Int?
-  isActive Boolean @default(true)
-  sortOrder Int @default(0)
-  deletedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  @@index([businessId])
-  @@index([isActive])
-  @@index([sortOrder])
 }
 model Category {
   id String @id @default(uuid())
   businessId String
   name String
-  description String?
-  imageUrl String?
-  isActive Boolean @default(true)
   sortOrder Int @default(0)
-  deletedAt DateTime?
+  isActive Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   products Product[]
+  @@unique([businessId, name])
   @@index([businessId])
-  @@index([isActive])
   @@index([sortOrder])
 }
 model Product {
@@ -154,13 +172,16 @@ model Product {
   categoryId String?
   name String
   description String?
-  price Int?
+  unit String?
+  price Int
+  oldPrice Int?
   imageUrl String?
   isActive Boolean @default(true)
+  featured Boolean @default(false)
   sortOrder Int @default(0)
-  deletedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   orderItems OrderItem[]
@@ -173,31 +194,28 @@ model Customer {
   id String @id @default(uuid())
   businessId String
   name String
-  phone String?
-  email String?
+  phone String
   notes String?
-  deletedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   orders Order[]
   bookings Booking[]
   @@index([businessId])
+  @@index([phone])
 }
 model Order {
   id String @id @default(uuid())
   businessId String
-  customerId String?
-  status String @default("new")
-  total Int @default(0)
-  customerName String?
-  customerPhone String?
+  customerId String
   notes String?
-  deletedAt DateTime?
+  orderType String @default("استلام")
+  total Int @default(0)
+  status String @default("pending")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
   items OrderItem[]
   @@index([businessId])
   @@index([customerId])
@@ -209,50 +227,89 @@ model OrderItem {
   orderId String
   productId String?
   name String
+  unitPrice Int
   quantity Int @default(1)
-  unitPrice Int @default(0)
+  total Int @default(0)
   createdAt DateTime @default(now())
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   @@index([orderId])
   @@index([productId])
-}
-model Booking {
-  id String @id @default(uuid())
-  businessId String
-  customerId String?
-  customerName String
-  customerPhone String?
-  serviceName String?
-  scheduledAt DateTime
-  status String @default("new")
-  notes String?
-  deletedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  @@index([businessId])
-  @@index([customerId])
-  @@index([scheduledAt])
-  @@index([status])
 }
 model Offer {
   id String @id @default(uuid())
   businessId String
   title String
   description String?
+  discountLabel String?
   imageUrl String?
   startsAt DateTime?
   endsAt DateTime?
   isActive Boolean @default(true)
-  deletedAt DateTime?
+  sortOrder Int @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   @@index([businessId])
   @@index([isActive])
-  @@index([endsAt])
+  @@index([sortOrder])
+  @@index([startsAt, endsAt])
+}
+model Service {
+  id String @id @default(uuid())
+  businessId String
+  name String
+  description String?
+  price Int
+  durationMinutes Int?
+  imageUrl String?
+  bookingEnabled Boolean @default(true)
+  isActive Boolean @default(true)
+  sortOrder Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  bookings Booking[]
+  @@index([businessId])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+model Booking {
+  id String @id @default(uuid())
+  businessId String
+  customerId String
+  serviceId String?
+  bookingDate String
+  bookingTime String
+  notes String?
+  status String @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  @@index([businessId])
+  @@index([customerId])
+  @@index([serviceId])
+  @@index([bookingDate])
+}
+model WorkingHours {
+  id String @id @default(uuid())
+  businessId String
+  dayOfWeek Int
+  opensAt String?
+  closesAt String?
+  secondOpensAt String?
+  secondClosesAt String?
+  isClosed Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  @@unique([businessId, dayOfWeek])
+  @@index([businessId])
+  @@index([dayOfWeek])
 }
 model GalleryItem {
   id String @id @default(uuid())
@@ -260,23 +317,13 @@ model GalleryItem {
   imageUrl String
   caption String?
   sortOrder Int @default(0)
+  isActive Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   @@index([businessId])
   @@index([sortOrder])
-}
-model WorkingHours {
-  id String @id @default(uuid())
-  businessId String
-  dayOfWeek Int
-  isClosed Boolean @default(false)
-  opensAt String?
-  closesAt String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  @@unique([businessId, dayOfWeek])
+  @@index([isActive])
 }
 model SocialLink {
   id String @id @default(uuid())
@@ -284,21 +331,28 @@ model SocialLink {
   platform String
   url String
   sortOrder Int @default(0)
+  isActive Boolean @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  @@unique([businessId, platform])
   @@index([businessId])
   @@index([sortOrder])
+  @@index([isActive])
 }
 model Subscription {
   id String @id @default(uuid())
   businessId String
   planId String
   status String @default("active")
+  provider String?
+  providerCustomerId String?
+  providerSubscriptionId String?
+  autoRenew Boolean @default(false)
+  providerReference String?
+  paymentMethodId String?
   startsAt DateTime @default(now())
   endsAt DateTime?
-  autoRenew Boolean @default(false)
-  paymentMethodId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
@@ -308,13 +362,13 @@ model Subscription {
   @@index([businessId])
   @@index([planId])
   @@index([status])
-  @@index([endsAt])
+  @@index([paymentMethodId])
 }
 model BillingPaymentMethod {
   id String @id @default(uuid())
   businessId String
   provider String @default("moyasar")
-  providerTokenEncrypted String
+  encryptedToken String
   brand String?
   last4 String?
   status String @default("active")
@@ -323,7 +377,6 @@ model BillingPaymentMethod {
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   subscriptions Subscription[]
   @@index([businessId])
-  @@index([status])
 }
 model BillingPayment {
   id String @id @default(uuid())
@@ -331,18 +384,15 @@ model BillingPayment {
   planId String
   subscriptionId String?
   provider String @default("moyasar")
-  providerPaymentId String?
-  kind String
-  status String @default("created")
+  providerPaymentId String? @unique(map: "BillingPayment_provider_payment_unique")
+  providerGivenId String @unique(map: "BillingPayment_provider_given_unique")
+  kind String @default("initial")
   amount Int
-  monthlyPrice Int
-  retryCount Int @default(0)
+  currency String @default("SAR")
+  status String @default("created")
+  attempt Int @default(1)
   nextRetryAt DateTime?
-  initiatedAt DateTime?
-  providerCreatedAt DateTime?
   paidAt DateTime?
-  failedAt DateTime?
-  reversedAt DateTime?
   receiptSellerLegalName String?
   receiptSellerAddress String?
   receiptTaxStatus String?
@@ -364,9 +414,6 @@ model BillingWebhookEvent {
   providerEventId String
   eventType String
   billingPaymentId String?
-  attempts Int @default(0)
-  processingStartedAt DateTime?
-  lastError String?
   createdAt DateTime @default(now())
   processedAt DateTime?
   billingPayment BillingPayment? @relation(fields: [billingPaymentId], references: [id], onDelete: SetNull)
