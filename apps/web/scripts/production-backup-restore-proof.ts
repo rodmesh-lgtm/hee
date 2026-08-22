@@ -30,11 +30,29 @@ const tables = [
   "BillingOperationsHeartbeat",
 ] as const;
 
-type Signature = { count: string; minId: string | null; maxId: string | null };
+type Signature = {
+  count: string;
+  minId: string | null;
+  maxId: string | null;
+  digest: string | null;
+};
+
+type MigrationSignature = {
+  migration_name: string;
+  checksum: string;
+  finished_at: Date | null;
+  rolled_back_at: Date | null;
+};
 
 async function signature(client: Client, table: string): Promise<Signature> {
   const escaped = `"${table.replaceAll('"', '""')}"`;
-  const result = await client.query<Signature>(`SELECT COUNT(*)::text AS count, MIN("id")::text AS "minId", MAX("id")::text AS "maxId" FROM ${escaped}`);
+  const result = await client.query<Signature>(`
+    SELECT COUNT(*)::text AS count,
+           MIN("id")::text AS "minId",
+           MAX("id")::text AS "maxId",
+           MD5(COALESCE(STRING_AGG(MD5(ROW_TO_JSON(t)::text), '' ORDER BY "id"::text), '')) AS digest
+    FROM ${escaped} t
+  `);
   return result.rows[0];
 }
 
@@ -48,13 +66,22 @@ async function financialSignature(client: Client) {
   return result.rows[0];
 }
 
+async function migrationSignature(client: Client): Promise<MigrationSignature[]> {
+  const result = await client.query<MigrationSignature>(`
+    SELECT migration_name, checksum, finished_at, rolled_back_at
+    FROM "_prisma_migrations"
+    ORDER BY migration_name
+  `);
+  return result.rows;
+}
+
 async function main() {
   await source.connect();
   await restore.connect();
 
   for (const table of tables) {
     const [a, b] = await Promise.all([signature(source, table), signature(restore, table)]);
-    if (a.count !== b.count || a.minId !== b.minId || a.maxId !== b.maxId) {
+    if (JSON.stringify(a) !== JSON.stringify(b)) {
       throw new Error(`Backup restore signature mismatch for ${table}: source=${JSON.stringify(a)} restore=${JSON.stringify(b)}`);
     }
   }
@@ -64,14 +91,15 @@ async function main() {
     throw new Error(`Backup restore financial signature mismatch: source=${JSON.stringify(sourceFinancial)} restore=${JSON.stringify(restoreFinancial)}`);
   }
 
-  const migrationRows = await restore.query<{ migration_name: string; finished_at: Date | null; rolled_back_at: Date | null }>(`
-    SELECT migration_name, finished_at, rolled_back_at FROM "_prisma_migrations" ORDER BY migration_name
-  `);
-  if (!migrationRows.rows.length || migrationRows.rows.some((row) => !row.finished_at || row.rolled_back_at)) {
+  const [sourceMigrations, restoreMigrations] = await Promise.all([migrationSignature(source), migrationSignature(restore)]);
+  if (!restoreMigrations.length || restoreMigrations.some((row) => !row.finished_at || row.rolled_back_at)) {
     throw new Error("Restored database does not contain a clean applied Prisma migration history");
   }
+  if (JSON.stringify(sourceMigrations) !== JSON.stringify(restoreMigrations)) {
+    throw new Error("Backup restore Prisma migration history does not exactly match production source");
+  }
 
-  console.log(`production-backup-restore-proof: PASS (${tables.length} critical tables + financial ledger + migration history)`);
+  console.log(`production-backup-restore-proof: PASS (${tables.length} critical table fingerprints + financial ledger + exact migration history)`);
 }
 
 main().catch((error) => {
