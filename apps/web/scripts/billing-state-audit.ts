@@ -15,7 +15,7 @@ async function main() {
   const drifts: DriftRow[] = [];
 
   const paidWithoutLive = await db.$queryRaw<DriftRow[]>`
-    SELECT b."id" AS "businessId", 'paid business plan without matching live subscription' AS detail
+    SELECT b."id" AS "businessId", 'paid business plan without matching unexpired live subscription' AS detail
     FROM "Business" b
     JOIN "BusinessPlan" p ON p."id"=b."planId" AND p."code" IN ('BUSINESS','PRO')
     WHERE b."deletedAt" IS NULL
@@ -23,15 +23,28 @@ async function main() {
         SELECT 1 FROM "Subscription" s
         WHERE s."businessId"=b."id" AND s."planId"=b."planId"
           AND s."status" IN ('active','past_due')
+          AND (s."endsAt" IS NULL OR s."endsAt" > CURRENT_TIMESTAMP)
       )
   `;
   drifts.push(...paidWithoutLive);
+
+  const expiredLive = await db.$queryRaw<DriftRow[]>`
+    SELECT s."businessId" AS "businessId", 'expired subscription is still marked active/past_due' AS detail
+    FROM "Subscription" s
+    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO')
+    WHERE s."status" IN ('active','past_due')
+      AND s."endsAt" IS NOT NULL
+      AND s."endsAt" <= CURRENT_TIMESTAMP
+  `;
+  drifts.push(...expiredLive);
 
   const activeMismatch = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'live subscription plan differs from business entitlement plan' AS detail
     FROM "Subscription" s
     JOIN "Business" b ON b."id"=s."businessId" AND b."deletedAt" IS NULL
-    WHERE s."status"='active' AND b."planId" IS DISTINCT FROM s."planId"
+    WHERE s."status"='active'
+      AND (s."endsAt" IS NULL OR s."endsAt" > CURRENT_TIMESTAMP)
+      AND b."planId" IS DISTINCT FROM s."planId"
   `;
   drifts.push(...activeMismatch);
 
@@ -72,6 +85,7 @@ async function main() {
     SELECT s."businessId" AS "businessId", 'multiple live subscriptions exist for one business' AS detail
     FROM "Subscription" s
     WHERE s."status" IN ('active','past_due')
+      AND (s."endsAt" IS NULL OR s."endsAt" > CURRENT_TIMESTAMP)
     GROUP BY s."businessId"
     HAVING COUNT(*) > 1
   `;
