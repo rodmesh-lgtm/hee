@@ -81,6 +81,9 @@ test("GitHub launch-state remains attested closed baseline while live paid state
   const attestation = source("../../.github/scripts/production-config-attestation.mjs");
   const preflight = source("../../.github/workflows/production-preflight.yml");
   const sync = source("../../.github/scripts/sync-vercel-production-env.mjs");
+  const plainKeysStart = sync.indexOf("const plainKeys = [");
+  const sensitiveKeysStart = sync.indexOf("const sensitiveKeys = [");
+  const plainKeysBlock = sync.slice(plainKeysStart, sensitiveKeysStart);
 
   assert.match(attestation, /"PAID_CHECKOUT_PUBLIC_ENABLED"/);
   assert.match(attestation, /"BILLING_REHEARSAL_USER_EMAIL"/);
@@ -89,8 +92,10 @@ test("GitHub launch-state remains attested closed baseline while live paid state
   assert.match(preflight, /Public paid checkout must be closed during preflight\/migration preparation/);
   assert.match(preflight, /Rehearsal account must not be enabled during preflight\/migration preparation/);
 
+  assert.ok(plainKeysStart >= 0 && sensitiveKeysStart > plainKeysStart);
+  assert.doesNotMatch(plainKeysBlock, /PAID_CHECKOUT_PUBLIC_ENABLED/);
+  assert.doesNotMatch(plainKeysBlock, /BILLING_REHEARSAL_USER_EMAIL/);
   assert.match(sync, /key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false"/);
   assert.match(sync, /key: "BILLING_REHEARSAL_USER_EMAIL", value: ""/);
-  assert.doesNotMatch(sync, /plainKeys[\s\S]*"PAID_CHECKOUT_PUBLIC_ENABLED"/);
   assert.match(sync, /paid launch defaults closed/);
 });
