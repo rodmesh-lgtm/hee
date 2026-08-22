@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
+import { normalizePostgresDatabaseUrl } from "../lib/database-url";
 
 const script = resolve(process.cwd(), "../../.github/scripts/require-production-database-safety.mjs");
 
@@ -26,6 +27,25 @@ test("production database safety accepts only explicit verify-full source transp
     assert.notEqual(result.status, 0, `sslmode=${mode || "missing"} must fail`);
     assert.match(result.stderr, /must use sslmode=verify-full/);
   }
+});
+
+test("production database safety rejects ambiguous duplicate sslmode parameters", () => {
+  const result = run({
+    DATABASE_URL: "postgresql://user:secret@db.example.com:5432/hee_prod?sslmode=verify-full&sslmode=disable",
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /must contain at most one sslmode parameter/);
+});
+
+test("runtime database URL normalization also rejects duplicate sslmode parameters", () => {
+  assert.throws(
+    () => normalizePostgresDatabaseUrl("postgresql://user:secret@db.example.com:5432/hee_prod?sslmode=verify-full&sslmode=disable"),
+    /must contain at most one sslmode parameter/,
+  );
+  assert.match(
+    normalizePostgresDatabaseUrl("postgresql://user:secret@db.example.com:5432/hee_prod?sslmode=require"),
+    /sslmode=verify-full/,
+  );
 });
 
 test("production database safety validates isolated restore transport and naming", () => {
