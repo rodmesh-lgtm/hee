@@ -68,11 +68,15 @@ test("checkout acceptance is current-version evidence, refreshable only before p
   for (const path of [
     "app/api/billing/moyasar/created/route.ts",
     "app/api/billing/moyasar/callback/route.ts",
-    "app/lib/moyasar-webhook-processing.ts",
   ]) {
     const value = source(path);
     assert.match(value, /hasBillingCheckoutConsent\(billing\.id\)/);
     assert.match(value, /missing_checkout_consent/);
     assert.match(value, /reverseMoyasarPayment\(payment\.id\)/);
   }
+
+  const processor = source("app/lib/moyasar-webhook-processing.ts");
+  assert.match(processor, /hasBillingCheckoutConsent\(billing\.id\)/);
+  assert.match(processor, /missing-consent-reversed/);
+  assert.match(processor, /reverseAndRecord\(billing, payment\)/);
 });
