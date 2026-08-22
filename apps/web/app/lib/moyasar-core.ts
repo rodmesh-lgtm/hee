@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "node:crypto";
+import { isProductionRuntime } from "./runtime-environment";
 
 const MOYASAR_API_BASE = "https://api.moyasar.com/v1";
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -77,11 +78,10 @@ export function moyasarConfigured() {
   const encryption = String(process.env.BILLING_TOKEN_ENCRYPTION_KEY ?? "").trim();
   if (!publishable || !secret || !webhook || !encryption) return false;
 
-  const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
-  if (production) {
-    // Live checkout must not open until a recurring billing/recovery scheduler has been
-    // deliberately installed and verified. This prevents accepting subscriptions on a
-    // deployment where renewals or durable webhook retries would never run.
+  if (isProductionRuntime()) {
+    // Either APP_ENV or the hosting platform identifying Production is sufficient to
+    // enforce live credentials and worker readiness. Configuration drift must never
+    // downgrade a real Production runtime into test-payment behavior.
     if (String(process.env.BILLING_RENEWAL_ENABLED ?? "").trim().toLowerCase() !== "true") return false;
     if (String(process.env.BILLING_OPERATIONS_READY ?? "").trim().toLowerCase() !== "true") return false;
     return publishable.startsWith("pk_live_") && secret.startsWith("sk_live_");
