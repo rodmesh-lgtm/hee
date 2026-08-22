@@ -28,8 +28,8 @@ const tables = [
   "BillingOperationsHeartbeat",
 ] as const;
 
-type TableProof = { exists: boolean; count?: string; fingerprint?: string };
-type Proof = { version: 2; tables: Record<string, TableProof> };
+type TableProof = { exists: boolean; count?: string; fingerprint?: string; columns?: string[] };
+type Proof = { version: 3; tables: Record<string, TableProof> };
 
 function quoteIdentifier(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
@@ -43,30 +43,49 @@ async function tableExists(client: Client, table: string) {
   return result.rows[0]?.exists === true;
 }
 
-async function tableProof(client: Client, table: string): Promise<TableProof> {
+async function tableColumns(client: Client, table: string) {
+  const result = await client.query<{ column_name: string }>(
+    `SELECT column_name
+       FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = $1
+      ORDER BY ordinal_position`,
+    [table],
+  );
+  return result.rows.map((row) => row.column_name);
+}
+
+async function tableProof(client: Client, table: string, preserveColumns?: string[]): Promise<TableProof> {
   if (!(await tableExists(client, table))) return { exists: false };
   const escaped = quoteIdentifier(table);
+  const currentColumns = await tableColumns(client, table);
+  const columns = preserveColumns ?? currentColumns;
+  if (!columns.length || !columns.includes("id")) throw new Error(`Critical table ${table} must include id in its migration proof`);
+
+  const missing = columns.filter((column) => !currentColumns.includes(column));
+  if (missing.length) throw new Error(`Critical migration removed pre-existing columns from ${table}: ${missing.join(", ")}`);
+
+  const extra = currentColumns.filter((column) => !columns.includes(column));
+  const rowExpression = extra.length ? `(to_jsonb(t) - $1::text[])` : `to_jsonb(t)`;
   const result = await client.query<{ count: string; fingerprint: string }>(`
     SELECT
       COUNT(*)::text AS count,
-      md5(COALESCE(string_agg(md5(row_to_json(t)::text), '' ORDER BY t."id"::text), '')) AS fingerprint
+      md5(COALESCE(string_agg(md5(${rowExpression}::text), '' ORDER BY t."id"::text), '')) AS fingerprint
     FROM ${escaped} t
-  `);
-  return { exists: true, ...result.rows[0] };
+  `, extra.length ? [extra] : []);
+  return { exists: true, ...result.rows[0], columns };
 }
 
 async function capture(client: Client): Promise<Proof> {
   const entries = await Promise.all(tables.map(async (table) => [table, await tableProof(client, table)] as const));
-  return { version: 2, tables: Object.fromEntries(entries) };
+  return { version: 3, tables: Object.fromEntries(entries) };
 }
 
 async function main() {
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
   try {
-    const current = await capture(client);
-
     if (mode === "--capture") {
+      const current = await capture(client);
       await writeFile(filePath, `${JSON.stringify(current, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
       const existing = Object.values(current.tables).filter((table) => table.exists).length;
       console.log(`production-migration-data-proof: CAPTURED ${existing}/${tables.length} existing critical tables`);
@@ -74,22 +93,26 @@ async function main() {
     }
 
     const expected = JSON.parse(await readFile(filePath, "utf8")) as Proof;
-    if (expected.version !== 2) throw new Error("Unsupported production migration proof version");
+    if (expected.version !== 3) throw new Error("Unsupported production migration proof version");
 
     for (const table of tables) {
       const before = expected.tables?.[table];
-      const after = current.tables[table];
-      if (!before || !after) throw new Error(`Missing critical table proof for ${table}`);
+      if (!before) throw new Error(`Missing critical table proof for ${table}`);
 
       // A migration may legitimately create a table that did not exist before it ran.
-      // Existing pre-migration tables, however, must retain every row byte-for-byte.
       if (!before.exists) continue;
+      if (!before.columns?.length) throw new Error(`Missing pre-migration column inventory for ${table}`);
+
+      // Fingerprint only the columns that existed at capture time. Additive nullable/defaulted
+      // schema changes therefore do not masquerade as customer-data mutations, while removed
+      // pre-existing columns, row count changes, and any old-column value changes still fail.
+      const after = await tableProof(client, table, before.columns);
       if (!after.exists || before.count !== after.count || before.fingerprint !== after.fingerprint) {
         throw new Error(`Critical data changed during production migration for ${table}: before=${JSON.stringify(before)} after=${JSON.stringify(after)}`);
       }
     }
 
-    console.log(`production-migration-data-proof: PASS (all pre-existing critical tables unchanged)`);
+    console.log("production-migration-data-proof: PASS (all pre-existing critical columns and rows unchanged)");
   } finally {
     await client.end();
   }
