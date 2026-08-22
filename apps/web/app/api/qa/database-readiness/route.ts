@@ -1,36 +1,17 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 import { isPreviewQaEnvironment } from "../../../lib/qa-audit";
+import { EXPECTED_PREVIEW_LATEST_MIGRATION, EXPECTED_PREVIEW_MIGRATIONS } from "../../../lib/qa-database-contract";
 
-const EXPECTED_MIGRATIONS = [
-  "20260808052423_init",
-  "20260809033945_add_product_unit",
-  "20260809035147_add_page_modules",
-  "20260809070559_add_onboarding_fields",
-  "20260809080000_add_onboarding_step_column",
-  "20260811113000_add_stored_object",
-  "20260814183000_hee_v3_smart_business_profile",
-  "20260815100000_add_social_auth",
-  "20260815113000_portable_storage_backend",
-  "20260815120000_public_write_rate_limit",
-  "20260816120000_preserve_business_slug_aliases",
-  "20260819053000_enforce_tenant_relation_integrity",
-  "20260819054500_enforce_single_active_designations",
-  "20260819061500_prevent_accidental_customer_data_cascade",
-  "20260819064000_optimize_analytics_access",
-  "20260819104500_protect_customer_history",
-  "20260820090000_convert_analytics_metadata_to_jsonb",
-  "20260820100000_freeze_tenant_record_ownership",
-  "20260820103000_unique_pending_admin_requests",
-  "20260820110000_legal_consent_audit",
-  "20260820113000_public_transactions_integrity",
-  "20260820124500_booking_duration_snapshot",
-] as const;
-const EXPECTED_LATEST_MIGRATION = EXPECTED_MIGRATIONS.at(-1)!;
-const EXPECTED_MIGRATION_COUNT = EXPECTED_MIGRATIONS.length;
+const EXPECTED_MIGRATION_COUNT = EXPECTED_PREVIEW_MIGRATIONS.length;
 
 type ReadinessRow = {
+  currentDatabase: string;
   migrationApplied: boolean;
+  legalConsentTableExists: boolean;
+  emailVerifiedAtColumnExists: boolean;
+  billingOperationsHeartbeatTableExists: boolean;
   snapshotTableExists: boolean;
   durationRangeConstraintExists: boolean;
   bookingForeignKeyExists: boolean;
@@ -54,18 +35,31 @@ type ReadinessRow = {
 
 export const dynamic = "force-dynamic";
 
+function databaseFingerprint(databaseName: string) {
+  return createHash("sha256").update(databaseName).digest("hex").slice(0, 16);
+}
+
 export async function GET() {
   if (!isPreviewQaEnvironment()) return new NextResponse(null, { status: 404 });
 
   try {
     const rows = await db.$queryRaw<ReadinessRow[]>`
       SELECT
+        current_database()::text AS "currentDatabase",
         EXISTS (
           SELECT 1 FROM "_prisma_migrations"
-          WHERE "migration_name" = ${EXPECTED_LATEST_MIGRATION}
+          WHERE "migration_name" = ${EXPECTED_PREVIEW_LATEST_MIGRATION}
             AND "finished_at" IS NOT NULL
             AND "rolled_back_at" IS NULL
         ) AS "migrationApplied",
+        to_regclass('public."LegalConsent"') IS NOT NULL AS "legalConsentTableExists",
+        EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema()
+            AND table_name = 'User'
+            AND column_name = 'emailVerifiedAt'
+        ) AS "emailVerifiedAtColumnExists",
+        to_regclass('public."BillingOperationsHeartbeat"') IS NOT NULL AS "billingOperationsHeartbeatTableExists",
         to_regclass('public."BookingDurationSnapshot"') IS NOT NULL AS "snapshotTableExists",
         EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BookingDurationSnapshot_duration_range') AS "durationRangeConstraintExists",
         EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BookingDurationSnapshot_booking_fkey') AS "bookingForeignKeyExists",
@@ -134,7 +128,11 @@ export async function GET() {
     `;
 
     const checks = rows[0] ?? {
+      currentDatabase: "",
       migrationApplied: false,
+      legalConsentTableExists: false,
+      emailVerifiedAtColumnExists: false,
+      billingOperationsHeartbeatTableExists: false,
       snapshotTableExists: false,
       durationRangeConstraintExists: false,
       bookingForeignKeyExists: false,
@@ -173,19 +171,29 @@ export async function GET() {
       duplicatePrimaryContacts: checks.duplicatePrimaryContacts,
     };
     const appliedSet = new Set(checks.appliedMigrationNames);
-    const expectedSet = new Set<string>(EXPECTED_MIGRATIONS);
-    const pendingExpected = EXPECTED_MIGRATIONS.filter((name) => !appliedSet.has(name));
+    const expectedSet = new Set<string>(EXPECTED_PREVIEW_MIGRATIONS);
+    const pendingExpected = EXPECTED_PREVIEW_MIGRATIONS.filter((name) => !appliedSet.has(name));
     const unexpectedApplied = checks.appliedMigrationNames.filter((name) => !expectedSet.has(name));
     const blockerFree = Object.values(blockers).every((value) => value === 0);
     const migrationSetCurrent = pendingExpected.length === 0;
-    const ready = blockerFree && migrationSetCurrent && checks.snapshotTableExists && checks.durationRangeConstraintExists && checks.bookingForeignKeyExists;
+    const criticalSchemaCurrent = checks.migrationApplied
+      && checks.legalConsentTableExists
+      && checks.emailVerifiedAtColumnExists
+      && checks.billingOperationsHeartbeatTableExists
+      && checks.snapshotTableExists
+      && checks.durationRangeConstraintExists
+      && checks.bookingForeignKeyExists
+      && checks.analyticsMetadataType === "jsonb";
+    const ready = blockerFree && migrationSetCurrent && criticalSchemaCurrent;
+    const { currentDatabase, ...publicChecks } = checks;
 
     return NextResponse.json({
       ready,
       migrationSafeToAttempt: blockerFree,
-      expected: { latestMigration: EXPECTED_LATEST_MIGRATION, migrationCount: EXPECTED_MIGRATION_COUNT },
+      databaseFingerprint: databaseFingerprint(currentDatabase),
+      expected: { latestMigration: EXPECTED_PREVIEW_LATEST_MIGRATION, migrationCount: EXPECTED_MIGRATION_COUNT },
       migrationHistory: { pendingExpected, unexpectedApplied },
-      checks,
+      checks: publicChecks,
       blockers,
       normalizationCandidates,
     }, { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } });
