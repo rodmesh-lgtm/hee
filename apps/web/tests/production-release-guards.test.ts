@@ -47,8 +47,10 @@ test("production preflight proves external prerequisites read-only before mainte
   assert.match(workflow, /head_sha=\$\{GITHUB_SHA\}/);
   assert.match(workflow, /PRODUCTION_DATABASE_URL/);
   assert.match(workflow, /PRODUCTION_RESTORE_DATABASE_URL/);
+  assert.match(workflow, /PRODUCTION_VERCEL_TOKEN/);
   assert.match(workflow, /RESTORE_DATABASE_URL must name hee_restore/);
   assert.match(workflow, /must explicitly enable TLS/);
+  assert.match(workflow, /api\.vercel\.com\/v9\/projects/);
   assert.match(workflow, /api\.resend\.com\/domains\?limit=100/);
   assert.match(workflow, /api\.moyasar\.com\/v1\/payments\?page=1/);
   assert.match(workflow, /PAID_CHECKOUT_PUBLIC_ENABLED/);
@@ -57,6 +59,7 @@ test("production preflight proves external prerequisites read-only before mainte
 
   // The preflight may only prove reachability/configuration. It must never become a
   // deployment, migration, backup/restore, billing worker, or SQL mutation path.
+  assert.doesNotMatch(workflow, /vercel(?:@latest)? deploy/);
   assert.doesNotMatch(workflow, /prisma migrate deploy/);
   assert.doesNotMatch(workflow, /prisma db push/);
   assert.doesNotMatch(workflow, /billing:renew/);
@@ -66,6 +69,31 @@ test("production preflight proves external prerequisites read-only before mainte
   assert.doesNotMatch(workflow, /\bDELETE\s+FROM\b/i);
   assert.doesNotMatch(workflow, /\bUPDATE\s+[^\n]+\s+SET\b/i);
   assert.doesNotMatch(workflow, /\bINSERT\s+INTO\b/i);
+});
+
+test("production web deployment rebuilds the exact green SHA with Production environment and proves canonical provenance", () => {
+  const workflow = source("../../.github/workflows/production-deploy.yml");
+  assert.match(workflow, /DEPLOY_EXACT_RELEASE_TO_PRODUCTION/);
+  assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
+  assert.match(workflow, /environment: production/);
+  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /head_sha=\$\{GITHUB_SHA\}/);
+  assert.match(workflow, /conclusion == "success"/);
+  assert.match(workflow, /PRODUCTION_VERCEL_TOKEN/);
+  assert.match(workflow, /VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph/);
+  assert.match(workflow, /VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg/);
+  assert.match(workflow, /npx prisma migrate status/);
+  assert.match(workflow, /vercel@latest deploy --prod --yes/);
+  assert.match(workflow, /https:\/\/hee\.sa\/api\/release/);
+  assert.match(workflow, /release_sha/);
+  assert.match(workflow, /"\$release_sha" = "\$GITHUB_SHA"/);
+  assert.match(workflow, /release_env/);
+  assert.match(workflow, /\/register/);
+  assert.match(workflow, /\/demo/);
+  assert.doesNotMatch(workflow, /prisma migrate deploy/);
+  assert.doesNotMatch(workflow, /prisma db push/);
+  assert.doesNotMatch(workflow, /billing:renew/);
+  assert.doesNotMatch(workflow, /pg_restore/);
 });
 
 test("production launch readiness proves exact RC, deployed SHA, verified email domain, live runtime, database, billing liveness and canonical surfaces", () => {
