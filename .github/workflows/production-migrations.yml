@@ -46,17 +46,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Require successful Production Preflight for exact release SHA
+      - name: Require successful Production Preflight V2 for exact release SHA
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           preflight_runs="$(gh api \
             -H 'Accept: application/vnd.github+json' \
             -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
             --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
           if [ "$preflight_runs" -lt 1 ]; then
-            echo "Refusing production migration: exact release SHA ${GITHUB_SHA} has no successful Production Preflight run."
+            echo "Refusing production migration: exact release SHA ${GITHUB_SHA} has no successful Production Preflight V2 run."
             exit 1
           fi
 
