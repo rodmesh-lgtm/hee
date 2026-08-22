@@ -17,11 +17,14 @@ test("production migrations require exact release quality and explicit confirmat
   assert.doesNotMatch(workflow, /prisma db push/);
 });
 
-test("production migration executions are serialized", () => {
-  const workflow = source("../../.github/workflows/production-migrations.yml");
-  assert.match(workflow, /concurrency:/);
-  assert.match(workflow, /group: production-database-migrations/);
-  assert.match(workflow, /cancel-in-progress: false/);
+test("all production restore-database maintenance is serialized through one lock", () => {
+  const migration = source("../../.github/workflows/production-migrations.yml");
+  const backup = source("../../.github/workflows/production-backup-proof.yml");
+  for (const workflow of [migration, backup]) {
+    assert.match(workflow, /concurrency:/);
+    assert.match(workflow, /group: production-database-maintenance/);
+    assert.match(workflow, /cancel-in-progress: false/);
+  }
 });
 
 test("production migration restores and proves the exact pre-migration backup before deploy", () => {
@@ -62,7 +65,7 @@ test("production migration proves critical row data is unchanged after deploy", 
   assert.match(proof, /Critical data changed during production migration/);
 });
 
-test("scheduled production backups are encrypted, retained, and restore-tested", () => {
+test("scheduled production backups are encrypted, retained, restore-tested, and reject local sources", () => {
   const workflow = source("../../.github/workflows/production-backup-proof.yml");
   assert.match(workflow, /cron: "17 2 \* \* \*"/);
   assert.match(workflow, /pg_dump/);
@@ -70,4 +73,5 @@ test("scheduled production backups are encrypted, retained, and restore-tested",
   assert.match(workflow, /pg_restore --dbname="\$RESTORE_DATABASE_URL" --clean --if-exists/);
   assert.match(workflow, /npm run backup:production-proof/);
   assert.match(workflow, /retention-days: 14/);
+  assert.match(workflow, /Production source must not be local/);
 });
