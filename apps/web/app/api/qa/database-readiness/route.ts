@@ -109,7 +109,7 @@ export async function GET() {
         (SELECT COUNT(*)::int FROM "Order" WHERE "status" NOT IN ('pending','confirmed','processing','completed','cancelled')) AS "invalidOrderStatuses",
         (SELECT COUNT(*)::int FROM "Booking" WHERE "status" NOT IN ('pending','confirmed','completed','cancelled','no_show')) AS "invalidBookingStatuses",
         (SELECT COUNT(*)::int FROM "Order" WHERE "orderType" NOT IN ('استلام','pickup','delivery','request')) AS "invalidOrderTypes",
-        (SELECT COUNT(*)::int FROM "OrderItem" WHERE "quantity" <= 0 OR "total" < 0 OR "unitPrice" < 0) AS "invalidOrderItemQuantities",
+        (SELECT COUNT(*)::int FROM "OrderItem" WHERE "quantity" <= 0 OR "quantity" > 1000) AS "invalidOrderItemQuantities",
         (
           (SELECT COUNT(*) FROM "OrderItem" WHERE "unitPrice" < 0 OR "total" < 0) +
           (SELECT COUNT(*) FROM "Order" WHERE "total" < 0)
