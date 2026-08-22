@@ -24,7 +24,7 @@ test("release quality provenance accepts only exact green RC or a tree-identical
   assert.match(script, /exact_runs="\$\(green_runs_for_sha "\$sha"\)"/);
   assert.match(script, /git\/commits\/\$\{sha\}/);
   assert.match(script, /release_tree/);
-  assert.match(script, /parents\.length/);
+  assert.match(script, /mapfile -t parents/);
   assert.match(script, /if \[ "\$\{#parents\[@\]\}" -lt 2 \]/);
   assert.match(script, /git\/commits\/\$\{parent\}/);
   assert.match(script, /\[ "\$parent_tree" = "\$release_tree" \] \|\| continue/);
