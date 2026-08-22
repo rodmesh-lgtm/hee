@@ -28,31 +28,59 @@ test("ordinary Vercel Production sync can only persist the closed paid-launch ba
   assert.doesNotMatch(sync, /String\(process\.env\.BILLING_REHEARSAL_USER_EMAIL/);
 });
 
-test("billing launch mode promotion is exact-SHA staged, proven, promoted and rollback protected", () => {
+test("every workflow that may move canonical Production shares one non-canceling serialization lock", () => {
+  const workflows = [
+    "../../.github/workflows/production-deploy.yml",
+    "../../.github/workflows/production-enter-maintenance.yml",
+    "../../.github/workflows/production-billing-rehearsal.yml",
+    "../../.github/workflows/production-open-paid-checkout.yml",
+    "../../.github/workflows/production-close-paid-checkout.yml",
+  ];
+  for (const path of workflows) {
+    const workflow = source(path);
+    assert.match(workflow, /concurrency:\s*\n\s*group: production-billing-launch-transition\s*\n\s*cancel-in-progress: false/);
+  }
+});
+
+test("billing launch mode promotion is exact-SHA staged, rollback-armed before mutation, canonically proven, and only then disarmed", () => {
   const script = source("../../.github/scripts/promote-production-billing-launch-mode.sh");
   const capture = script.indexOf("capture-current-vercel-production.mjs");
+  const baselineRelease = script.indexOf("previous_release_json=");
   const stage = script.indexOf("deploy --prod --skip-domain");
-  const stagedRelease = script.indexOf("curl /api/release --deployment");
-  const stagedMaintenance = script.indexOf("curl /api/maintenance/status --deployment");
-  const stagedLaunch = script.indexOf("curl /api/billing/launch-status --deployment");
-  const promote = script.indexOf(" promote \"$deployment_url\"");
-  const canonical = script.indexOf("https://${canonical_host}/api/billing/launch-status");
+  const stagedRelease = script.indexOf("curl /api/release --deployment", stage);
+  const stagedMaintenance = script.indexOf("curl /api/maintenance/status --deployment", stagedRelease);
+  const stagedLaunch = script.indexOf("curl /api/billing/launch-status --deployment", stagedMaintenance);
+  const arm = script.indexOf("rollback_armed=true", stagedLaunch);
+  const promote = script.indexOf(" promote \"$deployment_url\"", arm);
+  const canonical = script.indexOf("https://${canonical_host}/api/billing/launch-status", promote);
+  const disarm = script.indexOf("rollback_armed=false", canonical);
 
   assert.ok(capture >= 0);
-  assert.ok(stage > capture);
+  assert.ok(baselineRelease > capture, "captured rollback baseline must be runtime-proven before staging");
+  assert.ok(stage > baselineRelease);
   assert.ok(stagedRelease > stage);
   assert.ok(stagedMaintenance > stagedRelease);
   assert.ok(stagedLaunch > stagedMaintenance);
-  assert.ok(promote > stagedLaunch);
-  assert.ok(canonical > promote);
+  assert.ok(arm > stagedLaunch, "rollback must arm only after staged proof succeeds");
+  assert.ok(promote > arm, "rollback must be armed before the first canonical mutation command");
+  assert.ok(canonical > promote, "canonical target state must be proved after promotion");
+  assert.ok(disarm > canonical, "rollback may be disarmed only after canonical convergence proof");
+
+  assert.match(script, /targetMode === 'rehearsal' && previousMode !== 'closed'/);
+  assert.match(script, /targetMode === 'public' && previousMode !== 'rehearsal'/);
   assert.match(script, /--env RELEASE_SHA="\$GITHUB_SHA"/);
   assert.match(script, /--env PAID_CHECKOUT_PUBLIC_ENABLED="\$public_enabled"/);
   assert.match(script, /--env BILLING_REHEARSAL_USER_EMAIL="\$rehearsal_email"/);
   assert.match(script, /release\.releaseSha !== sha/);
   assert.match(script, /maintenance\.maintenance !== false/);
   assert.match(script, /launch\.mode !== mode/);
-  assert.match(script, /rollback "\$previous_url"/);
   assert.match(script, /trap rollback_if_needed EXIT/);
+  assert.match(script, /trap - EXIT/);
+  assert.match(script, /rollback "\$previous_url"/);
+  assert.match(script, /current_id.*previous_id/);
+  assert.match(script, /billing-launch-rollback-proof: PASS/);
+  assert.match(script, /exit 70/);
+  assert.doesNotMatch(script, /rollback "\$previous_url"[^\n]*\|\| true/);
 });
 
 test("rehearsal requires exact release web and worker cutover before opening one account", () => {
