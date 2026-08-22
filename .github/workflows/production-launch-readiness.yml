@@ -108,6 +108,14 @@ jobs:
           test "$release_sha" = "$GITHUB_SHA" || (echo "Canonical hee.sa serves ${release_sha:-unknown}, expected exact release ${GITHUB_SHA}" && exit 1)
           test "$release_env" = "production" || (echo "Canonical release endpoint is not reporting production environment" && exit 1)
 
+      - name: Verify live runtime configuration and database readiness
+        working-directory: .
+        run: |
+          set -euo pipefail
+          readiness_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/health/ready)"
+          ready="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.ready === true));' "$readiness_json")"
+          test "$ready" = "true" || (echo "Canonical production runtime reports not ready" && exit 1)
+
       - name: Verify canonical HTTPS customer surfaces
         working-directory: .
         run: |
