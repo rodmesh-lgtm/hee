@@ -29,13 +29,26 @@ try {
   `);
   const applied = history.rows.filter((row) => row.finished_at && !row.rolled_back_at).map((row) => row.migration_name);
   const failed = history.rows.filter((row) => !row.finished_at && !row.rolled_back_at).map((row) => row.migration_name);
+  const counts = await client.query(`
+    SELECT
+      (SELECT COUNT(*)::int FROM "User") AS users,
+      (SELECT COUNT(*)::int FROM "Business") AS businesses,
+      (SELECT COUNT(*)::int FROM "Customer") AS customers,
+      (SELECT COUNT(*)::int FROM "Order") AS orders,
+      (SELECT COUNT(*)::int FROM "Booking") AS bookings
+  `);
   console.log(`[preview-migration-diagnostic] databaseFingerprint=${fingerprint}`);
   console.log(`[preview-migration-diagnostic] appliedMigrationCount=${applied.length}`);
   console.log(`[preview-migration-diagnostic] appliedMigrations=${JSON.stringify(applied)}`);
   console.log(`[preview-migration-diagnostic] failedMigrations=${JSON.stringify(failed)}`);
+  console.log(`[preview-migration-diagnostic] nonSensitiveRowCounts=${JSON.stringify(counts.rows[0] ?? {})}`);
 } finally {
   await client.end();
 }
+
+const pgDump = spawnSync("pg_dump", ["--version"], { encoding: "utf8" });
+console.log(`[preview-migration-diagnostic] pgDumpAvailable=${pgDump.status === 0}`);
+if (pgDump.status === 0) console.log(`[preview-migration-diagnostic] pgDumpVersion=${String(pgDump.stdout ?? "").trim()}`);
 
 const status = spawnSync(process.platform === "win32" ? "npx.cmd" : "npx", ["prisma", "migrate", "status"], {
   cwd: process.cwd(),
