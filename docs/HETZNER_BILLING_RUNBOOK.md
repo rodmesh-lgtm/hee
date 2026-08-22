@@ -29,45 +29,71 @@ Use a strong `shared_secret` and configure the same value as `MOYASAR_WEBHOOK_SE
 
 ## Billing operations worker on Hetzner
 
-The operations command is a normal Node process and can run from a systemd timer or cron. It deliberately performs three phases in order:
+The operations command is a normal Node process and deliberately performs three phases in order:
 
 1. recover durable Moyasar webhook inbox events;
 2. reconcile/renew eligible subscriptions;
 3. run the billing state drift audit after reconciliation and record a durable successful-run heartbeat.
 
-Example cron cadence after deployment:
+The production scheduler is versioned in the repository:
 
-```cron
-*/30 * * * * cd /srv/hee/apps/web && /usr/bin/npm run billing:renew >> /var/log/hee-billing-renewal.log 2>&1
+- `ops/systemd/hee-billing-renew.service`
+- `ops/systemd/hee-billing-renew.timer`
+
+The timer runs every 30 minutes and the service is `Type=oneshot`, which prevents a second systemd activation from starting while the current invocation is still active. The service reads secrets only from `/etc/hee/production.env` and sends logs to journald.
+
+### Install or update the versioned systemd units
+
+Run as an administrator on the worker host after the exact production release has been checked out at `/srv/hee`:
+
+```bash
+install -o root -g root -m 0644 /srv/hee/ops/systemd/hee-billing-renew.service /etc/systemd/system/hee-billing-renew.service
+install -o root -g root -m 0644 /srv/hee/ops/systemd/hee-billing-renew.timer /etc/systemd/system/hee-billing-renew.timer
+install -d -o root -g hee -m 0750 /etc/hee
+# Create /etc/hee/production.env through the production secret-management path.
+# Never copy secrets into this repository or the systemd unit files.
+chown root:hee /etc/hee/production.env
+chmod 0640 /etc/hee/production.env
+systemctl daemon-reload
+systemctl enable --now hee-billing-renew.timer
+systemctl list-timers hee-billing-renew.timer
 ```
 
-Use the same deployed release and EnvironmentFile as the web application. Do not place secrets in the crontab. Prefer an EnvironmentFile readable only by the service account. Ensure NTP/time synchronization is enabled because subscription periods and retry timing are time-sensitive.
+Before marking billing operations ready, execute one controlled cycle and inspect it:
 
-Run only one scheduled worker per production database. Database/advisory locking and uniqueness constraints protect critical renewal transitions, but operations should still avoid intentionally launching concurrent schedulers.
+```bash
+systemctl start hee-billing-renew.service
+systemctl status hee-billing-renew.service --no-pager
+journalctl -u hee-billing-renew.service -n 200 --no-pager
+systemctl list-timers hee-billing-renew.timer --no-pager
+```
 
-Treat a non-zero exit from `npm run billing:renew` as an operational alert. In particular, webhook recovery now exits non-zero when an event must be retried, and `billing:state-audit` fails when it detects plan-price drift, expired paid entitlements still marked live, inconsistent plan/subscription lineage, missing payment methods for auto-renew, invalid receipt snapshots, exhausted webhook retries or stuck webhook processing leases. The heartbeat is written only after all three phases complete successfully.
+Do not use both cron and the systemd timer. Exactly one scheduler should own the production database. Database/advisory locking and uniqueness constraints protect critical renewal transitions, but operations should still avoid intentionally launching concurrent schedulers.
 
-With `BILLING_OPERATIONS_READY=true`, a standalone `npm run billing:state-audit` also verifies that the last successful heartbeat is no older than 90 minutes. Because the recommended scheduler runs every 30 minutes, this permits one delayed/missed run while still detecting a stopped scheduler. A stale or missing heartbeat is a paid-checkout incident: set `BILLING_OPERATIONS_READY=false`, restart the web application, investigate the scheduler, and do not re-enable readiness until a complete `npm run billing:renew` succeeds and a following standalone state audit passes.
+Treat a non-zero exit from `npm run billing:renew` as an operational alert. In particular, webhook recovery exits non-zero when an event must be retried, and `billing:state-audit` fails when it detects plan-price drift, expired paid entitlements still marked live, inconsistent plan/subscription lineage, missing payment methods for auto-renew, invalid receipt snapshots, exhausted webhook retries or stuck webhook processing leases. The heartbeat is written only after all three phases complete successfully.
+
+With `BILLING_OPERATIONS_READY=true`, a standalone `npm run billing:state-audit` also verifies that the last successful heartbeat is no older than 90 minutes. Because the scheduler runs every 30 minutes, this permits one delayed/missed run while still detecting a stopped scheduler. A stale or missing heartbeat is a paid-checkout incident: set `BILLING_OPERATIONS_READY=false`, restart the web application, investigate the scheduler, and do not re-enable readiness until a complete `npm run billing:renew` succeeds and a following standalone state audit passes.
 
 ## Network and secrets
 
-Allow outbound HTTPS to `api.moyasar.com`. The public reverse proxy needs inbound 443 only (plus controlled SSH administration). Keep PostgreSQL and Redis private, bind them to localhost/private networking, and do not expose database ports publicly. Store live API keys and the token-encryption key outside Git. Restrict `.env`/EnvironmentFile permissions to the application service user.
+Allow outbound HTTPS to `api.moyasar.com`. PostgreSQL should be reachable only over its trusted private/TLS path and must not expose a public unauthenticated database port. Store live API keys and the token-encryption key outside Git. Restrict `/etc/hee/production.env` to root and the `hee` service group. Keep NTP/time synchronization enabled because subscription periods, retry leases and heartbeat freshness are time-sensitive.
 
-## Migration sequence
+## Migration and launch sequence
 
-1. Take and verify a PostgreSQL backup.
-2. Deploy application code without switching DNS if doing the initial Vercel-to-Hetzner migration.
-3. Run `npx prisma migrate deploy` exactly once against the intended production database.
-4. Start the web service behind HTTPS and test health/auth/public reads while paid checkout remains closed.
-5. Verify the Moyasar webhook reaches the new host and that an authenticated sandbox/test event is durably accepted before changing production traffic.
-6. Install the billing operations schedule with `BILLING_RENEWAL_ENABLED=true` but keep `BILLING_OPERATIONS_READY=false` until the controlled rehearsal is complete.
-7. Verify one controlled subscription purchase, callback, durable webhook processing, entitlement activation, cancellation and one controlled renewal/reconciliation path.
-8. Observe successful scheduled `npm run billing:renew` execution, confirm its heartbeat was recorded, and run standalone `npm run billing:state-audit` after setting readiness true.
-9. Set `BILLING_OPERATIONS_READY=true`, restart the application, then run `npm run launch:config-audit` and `npm run billing:state-audit`.
-10. Only after both audits pass should paid production checkout be enabled for general traffic.
+1. Keep production traffic and workers paused for schema migration.
+2. Run the guarded `Production Database Migrations` workflow from the exact green `hee-v6-rc` SHA. It requires explicit migration and write-pause confirmations, creates an encrypted recovery artifact, restores it into `hee_restore*`, proves critical data, applies migrations once, then verifies pre-existing critical data did not change.
+3. Deploy/promote that same release SHA to the production web runtime while paid checkout remains closed.
+4. Verify `https://hee.sa`, registration, login, policies and a public demo/business page over HTTPS.
+5. Configure the Moyasar live webhook at `https://hee.sa/api/billing/moyasar/webhook` using the same production shared secret.
+6. Install the versioned systemd worker with `BILLING_RENEWAL_ENABLED=true` but keep `BILLING_OPERATIONS_READY=false` until the controlled rehearsal is complete.
+7. Verify one controlled subscription purchase, callback, durable webhook processing, entitlement activation, cancellation and one controlled renewal/reconciliation path using the authorized production rehearsal procedure.
+8. Observe a successful `hee-billing-renew.service` cycle and confirm the heartbeat was recorded.
+9. Set `BILLING_OPERATIONS_READY=true`, restart/redeploy the production application with that value, then run `npm run launch:config-audit` and standalone `npm run billing:state-audit`.
+10. Run the GitHub `Production Launch Readiness` workflow on the exact production SHA. It must pass configuration, migration state, billing heartbeat/state, canonical HTTPS surfaces and security/indexing headers.
+11. Only after all gates pass should paid production checkout be enabled for general traffic.
 
 Never use `prisma db push` for production deployment. Never make schema changes from two application hosts at the same time.
 
 ## Incident controls
 
-To stop new paid checkouts without touching customer data, set `PAYMENT_PROVIDER` away from `moyasar` or set `BILLING_OPERATIONS_READY=false`, then restart the application. To stop automatic renewals while keeping existing paid periods intact, set `BILLING_RENEWAL_ENABLED=false` and stop the timer/cron. Preserve payment ledger, subscriptions, checkout-consent evidence and webhook inbox rows during an incident; reconcile them instead of deleting financial history.
+To stop new paid checkouts without touching customer data, set `BILLING_OPERATIONS_READY=false`, redeploy/restart the application, and stop the worker if reconciliation itself is unsafe. To stop automatic renewals while keeping existing paid periods intact, set `BILLING_RENEWAL_ENABLED=false` and stop the timer. Preserve payment ledger, subscriptions, checkout-consent evidence and webhook inbox rows during an incident; reconcile them instead of deleting financial history.
