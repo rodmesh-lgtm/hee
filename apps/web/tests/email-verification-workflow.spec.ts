@@ -166,10 +166,20 @@ test.describe.serial("email ownership verification", () => {
       await expect(page.getByText("منشورة", { exact: true })).toBeVisible({ timeout: 20_000 });
       expect((await db.business.findUnique({ where: { id: business.id }, select: { isPublished: true } }))?.isPublished).toBe(true);
 
-      await page.goto(`${baseUrl}/verify-email?token=${rawToken}`, { waitUntil: "domcontentloaded" });
-      await page.getByRole("button", { name: "تأكيد ملكية البريد" }).click();
-      await page.waitForURL("**/verify-email?status=invalid", { timeout: 20_000 });
-      await expect(page.getByText(/غير صالح أو انتهت صلاحيته/)).toBeVisible();
+      // A consumed verification token must remain invalid independently of an authenticated verified session.
+      // Use a fresh unauthenticated page so the app's normal verified-user dashboard redirect cannot race this assertion.
+      const consumedTokenPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+      try {
+        const consumedResponse = await consumedTokenPage.goto(`${baseUrl}/verify-email?token=${rawToken}`, { waitUntil: "domcontentloaded" });
+        expect(consumedResponse?.headers()["x-robots-tag"]).toContain("noindex");
+        expect(consumedResponse?.headers()["cache-control"]).toContain("no-store");
+        expect(consumedResponse?.headers()["referrer-policy"]).toContain("no-referrer");
+        await consumedTokenPage.getByRole("button", { name: "تأكيد ملكية البريد" }).click();
+        await consumedTokenPage.waitForURL("**/verify-email?status=invalid", { timeout: 20_000 });
+        await expect(consumedTokenPage.getByText(/غير صالح أو انتهت صلاحيته/)).toBeVisible();
+      } finally {
+        await consumedTokenPage.close();
+      }
       expect((await db.user.findUnique({ where: { id: user.id }, select: { emailVerifiedAt: true } }))?.emailVerifiedAt?.getTime()).toBe(verifiedAt?.getTime());
     } finally {
       await page.close();
