@@ -9,7 +9,9 @@ import { consumePublicWriteLimit } from "../../../../lib/rate-limit";
 
 function safeOrigin() {
   const configured = String(process.env.AUTH_ORIGIN ?? process.env.APP_URL ?? "").trim().replace(/\/$/, "");
-  if (String(process.env.APP_ENV ?? "").toLowerCase() === "production") return "https://hee.sa";
+  const appEnv = String(process.env.APP_ENV ?? "").trim().toLowerCase();
+  const vercelEnv = String(process.env.VERCEL_ENV ?? "").trim().toLowerCase();
+  if (appEnv === "production" || vercelEnv === "production") return "https://hee.sa";
   try {
     const url = new URL(configured || "http://localhost:3000");
     if (url.protocol === "http:" || url.protocol === "https:") return url.origin;
@@ -66,10 +68,6 @@ export async function GET(request: Request) {
       }
       const result = await activateVerifiedMoyasarPayment(billing.id, payment);
       if (result !== "activated" && result !== "already-paid") {
-        // The provider settled real money but the locked HEE transaction could no longer
-        // prove a safe entitlement target (for example deleted business/owner, unverified
-        // owner, disabled plan or a terminal/stale billing state). Never keep the money
-        // while denying the entitlement: reverse first, then persist the provider state.
         console.error("[billing-callback] settled_payment_not_activatable", { billingId, result });
         const reversed = await reverseMoyasarPayment(payment.id);
         await markBillingPaymentState(billing.id, reversed);
