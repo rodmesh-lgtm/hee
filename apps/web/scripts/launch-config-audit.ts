@@ -49,6 +49,11 @@ function productionDatabaseUrl() {
   if (/\b(?:test|ci|dev|local)\b/i.test(parsed.pathname.replace(/^\//, ""))) {
     throw new Error("DATABASE_URL appears to reference a non-production database");
   }
+
+  const sslMode = parsed.searchParams.get("sslmode")?.trim().toLowerCase();
+  if (!sslMode || !new Set(["verify-full", "verify-ca", "require", "prefer"]).has(sslMode)) {
+    throw new Error("DATABASE_URL must explicitly enable PostgreSQL TLS with sslmode=verify-full (legacy strict modes are normalized to verify-full at runtime)");
+  }
 }
 
 function billingTaxReadiness() {
