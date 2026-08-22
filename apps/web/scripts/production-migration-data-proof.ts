@@ -28,27 +28,36 @@ const tables = [
   "BillingOperationsHeartbeat",
 ] as const;
 
-type TableProof = { count: string; fingerprint: string };
-type Proof = { version: 1; tables: Record<string, TableProof> };
+type TableProof = { exists: boolean; count?: string; fingerprint?: string };
+type Proof = { version: 2; tables: Record<string, TableProof> };
 
 function quoteIdentifier(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
 }
 
+async function tableExists(client: Client, table: string) {
+  const result = await client.query<{ exists: boolean }>(
+    `SELECT to_regclass($1) IS NOT NULL AS exists`,
+    [`public.${quoteIdentifier(table)}`],
+  );
+  return result.rows[0]?.exists === true;
+}
+
 async function tableProof(client: Client, table: string): Promise<TableProof> {
+  if (!(await tableExists(client, table))) return { exists: false };
   const escaped = quoteIdentifier(table);
-  const result = await client.query<TableProof>(`
+  const result = await client.query<{ count: string; fingerprint: string }>(`
     SELECT
       COUNT(*)::text AS count,
       md5(COALESCE(string_agg(md5(row_to_json(t)::text), '' ORDER BY t."id"::text), '')) AS fingerprint
     FROM ${escaped} t
   `);
-  return result.rows[0];
+  return { exists: true, ...result.rows[0] };
 }
 
 async function capture(client: Client): Promise<Proof> {
   const entries = await Promise.all(tables.map(async (table) => [table, await tableProof(client, table)] as const));
-  return { version: 1, tables: Object.fromEntries(entries) };
+  return { version: 2, tables: Object.fromEntries(entries) };
 }
 
 async function main() {
@@ -59,22 +68,28 @@ async function main() {
 
     if (mode === "--capture") {
       await writeFile(filePath, `${JSON.stringify(current, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-      console.log(`production-migration-data-proof: CAPTURED ${tables.length} critical tables`);
+      const existing = Object.values(current.tables).filter((table) => table.exists).length;
+      console.log(`production-migration-data-proof: CAPTURED ${existing}/${tables.length} existing critical tables`);
       return;
     }
 
     const expected = JSON.parse(await readFile(filePath, "utf8")) as Proof;
-    if (expected.version !== 1) throw new Error("Unsupported production migration proof version");
+    if (expected.version !== 2) throw new Error("Unsupported production migration proof version");
 
     for (const table of tables) {
       const before = expected.tables?.[table];
       const after = current.tables[table];
-      if (!before || before.count !== after.count || before.fingerprint !== after.fingerprint) {
+      if (!before || !after) throw new Error(`Missing critical table proof for ${table}`);
+
+      // A migration may legitimately create a table that did not exist before it ran.
+      // Existing pre-migration tables, however, must retain every row byte-for-byte.
+      if (!before.exists) continue;
+      if (!after.exists || before.count !== after.count || before.fingerprint !== after.fingerprint) {
         throw new Error(`Critical data changed during production migration for ${table}: before=${JSON.stringify(before)} after=${JSON.stringify(after)}`);
       }
     }
 
-    console.log(`production-migration-data-proof: PASS (${tables.length} critical tables unchanged)`);
+    console.log(`production-migration-data-proof: PASS (all pre-existing critical tables unchanged)`);
   } finally {
     await client.end();
   }
