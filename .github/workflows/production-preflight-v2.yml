@@ -1,0 +1,236 @@
+name: Production Preflight V2
+run-name: Production Preflight V2 — ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type VERIFY_PRODUCTION_PREFLIGHT to continue"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: production-preflight
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: ${{ inputs.confirmation == 'VERIFY_PRODUCTION_PREFLIGHT' && github.ref == 'refs/heads/hee-v6-rc' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
+      PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
+      PRODUCTION_BACKUP_PASSPHRASE: ${{ secrets.PRODUCTION_BACKUP_PASSPHRASE }}
+      SESSION_SECRET: ${{ secrets.PRODUCTION_SESSION_SECRET }}
+      RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+      HEE_FROM_EMAIL: ${{ vars.PRODUCTION_HEE_FROM_EMAIL }}
+      MOYASAR_PUBLISHABLE_KEY: ${{ secrets.PRODUCTION_MOYASAR_PUBLISHABLE_KEY }}
+      MOYASAR_SECRET_KEY: ${{ secrets.PRODUCTION_MOYASAR_SECRET_KEY }}
+      MOYASAR_WEBHOOK_SECRET: ${{ secrets.PRODUCTION_MOYASAR_WEBHOOK_SECRET }}
+      BILLING_TOKEN_ENCRYPTION_KEY: ${{ secrets.PRODUCTION_BILLING_TOKEN_ENCRYPTION_KEY }}
+      BILLING_SELLER_LEGAL_NAME_AR: ${{ vars.PRODUCTION_BILLING_SELLER_LEGAL_NAME_AR }}
+      BILLING_SELLER_ADDRESS_AR: ${{ vars.PRODUCTION_BILLING_SELLER_ADDRESS_AR }}
+      BILLING_TAX_STATUS: ${{ vars.PRODUCTION_BILLING_TAX_STATUS }}
+      BILLING_RENEWAL_ENABLED: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED }}
+      BILLING_OPERATIONS_READY: ${{ vars.PRODUCTION_BILLING_OPERATIONS_READY }}
+      PAID_CHECKOUT_PUBLIC_ENABLED: ${{ vars.PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED }}
+      BILLING_REHEARSAL_USER_EMAIL: ${{ vars.PRODUCTION_BILLING_REHEARSAL_USER_EMAIL }}
+      STORAGE_DRIVER: ${{ vars.PRODUCTION_STORAGE_DRIVER }}
+      S3_ENDPOINT: ${{ vars.PRODUCTION_S3_ENDPOINT }}
+      S3_REGION: ${{ vars.PRODUCTION_S3_REGION }}
+      S3_BUCKET: ${{ vars.PRODUCTION_S3_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.PRODUCTION_S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.PRODUCTION_S3_SECRET_ACCESS_KEY }}
+      S3_FORCE_PATH_STYLE: ${{ vars.PRODUCTION_S3_FORCE_PATH_STYLE }}
+      GOOGLE_CLIENT_ID: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_SECRET }}
+      APPLE_CLIENT_ID: ${{ secrets.PRODUCTION_APPLE_CLIENT_ID }}
+      APPLE_TEAM_ID: ${{ secrets.PRODUCTION_APPLE_TEAM_ID }}
+      APPLE_KEY_ID: ${{ secrets.PRODUCTION_APPLE_KEY_ID }}
+      APPLE_PRIVATE_KEY: ${{ secrets.PRODUCTION_APPLE_PRIVATE_KEY }}
+      VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      HETZNER_HOST: ${{ vars.PRODUCTION_HETZNER_HOST }}
+      HETZNER_USER: ${{ vars.PRODUCTION_HETZNER_USER }}
+      HETZNER_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_HETZNER_SSH_PRIVATE_KEY }}
+      HETZNER_KNOWN_HOSTS: ${{ secrets.PRODUCTION_HETZNER_KNOWN_HOSTS }}
+
+    steps:
+      - name: Checkout exact release revision
+        uses: actions/checkout@v7
+
+      - name: Require content-proven RC Quality for release
+        uses: ./.github/actions/require-release-quality
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Require verify-full PostgreSQL transport before any database probe
+        run: node .github/scripts/require-production-database-safety.mjs DATABASE_URL RESTORE_DATABASE_URL
+
+      - name: Validate production prerequisites without mutating them
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          function required(name) {
+            const value = String(process.env[name] ?? '').trim();
+            if (!value) throw new Error(`${name} is required`);
+            return value;
+          }
+          function booleanValue(name) {
+            const value = required(name).toLowerCase();
+            if (!['true','false'].includes(value)) throw new Error(`${name} must be true or false`);
+            return value;
+          }
+          function database(name, restore) {
+            const parsed = new URL(required(name));
+            if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) throw new Error(`${name} must be PostgreSQL`);
+            if (['localhost','127.0.0.1','::1'].includes(parsed.hostname.toLowerCase())) throw new Error(`${name} must not be local`);
+            const db = parsed.pathname.replace(/^\//, '');
+            const sslModes = parsed.searchParams.getAll('sslmode');
+            if (sslModes.length > 1) throw new Error(`${name} must contain at most one sslmode parameter`);
+            const ssl = String(sslModes[0] ?? '').trim().toLowerCase();
+            if (ssl !== 'verify-full') throw new Error(`${name} must use sslmode=verify-full`);
+            if (restore && !/^hee_restore(?:_|$)/i.test(db)) throw new Error('RESTORE_DATABASE_URL must name hee_restore*');
+            if (!restore && /^(hee_ci|hee_restore(?:_|$))/i.test(db)) throw new Error('PRODUCTION_DATABASE_URL must target production');
+            return parsed.href;
+          }
+          const source = database('DATABASE_URL', false);
+          const restore = database('RESTORE_DATABASE_URL', true);
+          if (source === restore) throw new Error('Production and restore databases must differ');
+          const poolRaw = required('PG_POOL_MAX');
+          if (!/^\d+$/.test(poolRaw) || Number(poolRaw) < 1 || Number(poolRaw) > 5) throw new Error('PG_POOL_MAX must be an integer between 1 and 5');
+          if (required('PRODUCTION_BACKUP_PASSPHRASE').length < 32) throw new Error('PRODUCTION_BACKUP_PASSPHRASE must be at least 32 characters');
+          if (required('SESSION_SECRET').length < 32) throw new Error('SESSION_SECRET must be at least 32 characters');
+          if (!/@hee\.sa(?:>|\s|$)/i.test(required('HEE_FROM_EMAIL'))) throw new Error('HEE_FROM_EMAIL must use hee.sa');
+          if (!required('MOYASAR_PUBLISHABLE_KEY').startsWith('pk_live_')) throw new Error('Moyasar publishable key must be live');
+          if (!required('MOYASAR_SECRET_KEY').startsWith('sk_live_')) throw new Error('Moyasar secret key must be live');
+          if (required('MOYASAR_WEBHOOK_SECRET').length < 24) throw new Error('MOYASAR_WEBHOOK_SECRET is too short');
+          const encoded = required('BILLING_TOKEN_ENCRYPTION_KEY');
+          const raw = Buffer.from(encoded, 'base64');
+          if (raw.length !== 32 || raw.toString('base64') !== encoded) throw new Error('BILLING_TOKEN_ENCRYPTION_KEY must be canonical base64 for 32 bytes');
+          required('BILLING_SELLER_LEGAL_NAME_AR');
+          required('BILLING_SELLER_ADDRESS_AR');
+          if (required('BILLING_TAX_STATUS').toLowerCase() !== 'not_registered') throw new Error('Paid launch is blocked until the configured seller tax posture is supported');
+          booleanValue('BILLING_RENEWAL_ENABLED');
+          booleanValue('BILLING_OPERATIONS_READY');
+          if (String(process.env.PAID_CHECKOUT_PUBLIC_ENABLED ?? '').trim().toLowerCase() === 'true') throw new Error('Public paid checkout must be closed during preflight/migration preparation');
+          if (String(process.env.BILLING_REHEARSAL_USER_EMAIL ?? '').trim()) throw new Error('Rehearsal account must not be enabled during preflight/migration preparation');
+          const storage = String(process.env.STORAGE_DRIVER ?? 'database').trim().toLowerCase();
+          if (!['database','s3'].includes(storage)) throw new Error('STORAGE_DRIVER must be database or s3');
+          if (storage === 's3') {
+            if (!required('S3_ENDPOINT').startsWith('https://')) throw new Error('S3 endpoint must use HTTPS');
+            required('S3_BUCKET'); required('S3_ACCESS_KEY_ID'); required('S3_SECRET_ACCESS_KEY');
+            const forcePath = String(process.env.S3_FORCE_PATH_STYLE ?? '').trim().toLowerCase();
+            if (forcePath && !['true','false'].includes(forcePath)) throw new Error('S3_FORCE_PATH_STYLE must be true, false, or empty');
+          }
+          const google = [String(process.env.GOOGLE_CLIENT_ID ?? '').trim(), String(process.env.GOOGLE_CLIENT_SECRET ?? '').trim()];
+          if (google.some(Boolean) && !google.every(Boolean)) throw new Error('Google OAuth must be fully configured or fully disabled');
+          const apple = ['APPLE_CLIENT_ID','APPLE_TEAM_ID','APPLE_KEY_ID','APPLE_PRIVATE_KEY'].map((name) => String(process.env[name] ?? '').trim());
+          if (apple.some(Boolean) && !apple.every(Boolean)) throw new Error('Apple OAuth must be fully configured or fully disabled');
+          required('VERCEL_TOKEN');
+          required('HETZNER_HOST'); required('HETZNER_USER'); required('HETZNER_SSH_PRIVATE_KEY'); required('HETZNER_KNOWN_HOSTS');
+          NODE
+
+      - name: Prove production PostgreSQL is reachable read-only
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'SELECT 1'
+
+      - name: Prove isolated restore PostgreSQL is reachable read-only
+        run: psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'SELECT 1'
+
+      - name: Prove production Prisma migration history is readable
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'SELECT COUNT(*) FROM "_prisma_migrations"'
+
+      - name: Verify Vercel credential and HEE project read-only
+        run: |
+          set -euo pipefail
+          project_json="$(curl --silent --show-error --fail --max-time 20 \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}?teamId=${VERCEL_ORG_ID}")"
+          node -e '
+            const body = JSON.parse(process.argv[1]);
+            if (String(body.id ?? "") !== process.env.VERCEL_PROJECT_ID) throw new Error("Vercel credential resolved an unexpected project");
+            if (String(body.accountId ?? "") !== process.env.VERCEL_ORG_ID) throw new Error("Vercel project belongs to an unexpected team");
+          ' "$project_json"
+
+      - name: Verify Resend hee.sa domain and API credential
+        run: |
+          set -euo pipefail
+          domains_json="$(curl --silent --show-error --fail --max-time 20 \
+            -H "Authorization: Bearer ${RESEND_API_KEY}" \
+            'https://api.resend.com/domains?limit=100')"
+          node -e '
+            const body = JSON.parse(process.argv[1]);
+            const domains = Array.isArray(body.data) ? body.data : [];
+            const domain = domains.find((item) => String(item?.name ?? "").toLowerCase() === "hee.sa");
+            if (!domain || String(domain.status ?? "").toLowerCase() !== "verified") process.exit(1);
+            if (String(domain?.capabilities?.sending ?? "enabled").toLowerCase() !== "enabled") process.exit(1);
+          ' "$domains_json"
+
+      - name: Verify Moyasar live secret credential read-only
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --fail --max-time 20 \
+            --user "${MOYASAR_SECRET_KEY}:" \
+            --output /dev/null \
+            'https://api.moyasar.com/v1/payments?page=1'
+
+      - name: Verify Hetzner worker rollback baseline and prerequisites read-only
+        run: |
+          set -euo pipefail
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$HETZNER_SSH_PRIVATE_KEY" > "$HOME/.ssh/hee-production"
+          chmod 0600 "$HOME/.ssh/hee-production"
+          printf '%s\n' "$HETZNER_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "${HETZNER_USER}@${HETZNER_HOST}" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          command -v node >/dev/null
+          command -v npm >/dev/null
+          command -v sudo >/dev/null
+          command -v systemctl >/dev/null
+          test "$(node -p 'process.versions.node.split(`.`)[0]')" = 24
+          sudo -n test -r /etc/hee/production.env
+          sudo -n true
+
+          current_release="$(readlink -f /srv/hee/current 2>/dev/null || true)"
+          [[ "$current_release" == /srv/hee/releases/* ]] || { echo "Hetzner worker current symlink is not a managed rollback release"; exit 1; }
+          test -d "$current_release/apps/web" || { echo "Managed worker release is missing apps/web"; exit 1; }
+          test -r "$current_release/release.env" || { echo "Managed worker release is missing release.env"; exit 1; }
+          grep -Eq '^RELEASE_SHA=[0-9a-f]{40}$' "$current_release/release.env" || { echo "Managed worker release.env does not contain an exact release SHA"; exit 1; }
+          test -r "$current_release/ops/systemd/hee-billing-renew.service" || { echo "Managed worker release is missing its service unit"; exit 1; }
+          test -r "$current_release/ops/systemd/hee-billing-renew.timer" || { echo "Managed worker release is missing its timer unit"; exit 1; }
+          sudo -n test -r /etc/systemd/system/hee-billing-renew.service
+          sudo -n test -r /etc/systemd/system/hee-billing-renew.timer
+          sudo -n cmp -s "$current_release/ops/systemd/hee-billing-renew.service" /etc/systemd/system/hee-billing-renew.service || { echo "Installed worker service unit has drifted from the managed rollback release"; exit 1; }
+          sudo -n cmp -s "$current_release/ops/systemd/hee-billing-renew.timer" /etc/systemd/system/hee-billing-renew.timer || { echo "Installed worker timer unit has drifted from the managed rollback release"; exit 1; }
+          sudo -n systemctl cat hee-billing-renew.service >/dev/null
+          sudo -n systemctl cat hee-billing-renew.timer >/dev/null
+          echo "worker-rollback-baseline-preflight: PASS release=${current_release}"
+          REMOTE
+
+      - name: Write exact-SHA scoped Production configuration attestation
+        run: node .github/scripts/production-config-attestation.mjs write /tmp/production-preflight-attestation.json
+
+      - name: Preserve exact-SHA Production Preflight attestation
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-preflight-attestation-${{ github.sha }}
+          path: /tmp/production-preflight-attestation.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove runner-local SSH material and attestation
+        if: always()
+        run: rm -f "$HOME/.ssh/hee-production" "$HOME/.ssh/known_hosts" /tmp/production-preflight-attestation.json
+
+      - name: Preflight summary
+        run: echo "production-preflight: PASS for ${GITHUB_SHA}; read-only prerequisites and worker rollback baseline attested; no production mutation performed"
