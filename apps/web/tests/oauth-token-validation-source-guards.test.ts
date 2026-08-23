@@ -20,7 +20,8 @@ test("Google authorization uses PKCE and both providers use bounded one-time sta
   assert.match(oauth, /oauth-state-reused/);
 });
 
-test("OAuth refuses unsafe password-account auto-linking", () => {
-  assert.match(oauth, /if \(user\?\.passwordHash\) throw new Error\("oauth-password-account-link-required"\)/);
+test("OAuth refuses unsafe unverified password-account auto-linking", () => {
+  assert.match(oauth, /passwordHash\?: string \| null; emailVerifiedAt\?: Date \| null/);
+  assert.match(oauth, /if \(user\?\.passwordHash && !user\.emailVerifiedAt\) throw new Error\("oauth-password-account-link-required"\)/);
   assert.match(oauth, /pg_advisory_xact_lock/);
 });
