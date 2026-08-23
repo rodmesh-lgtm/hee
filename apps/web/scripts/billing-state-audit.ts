@@ -59,10 +59,21 @@ async function main() {
   `;
   drifts.push(...paidWithoutLive);
 
+  // An expired active subscription is structural drift. An expired past_due subscription,
+  // however, is the worker's intentional collection state while an idempotent renewal is
+  // retried or reconciled. Customer entitlement is already fail-closed to FREE in that
+  // state, and paidWithoutLive above still catches any paid Business.plan leakage. Treating
+  // every legitimate past_due row as drift would stop the global billing heartbeat whenever
+  // one customer's card is declined or a provider request is temporarily ambiguous.
   const invalidLivePeriod = await db.$queryRaw<DriftRow[]>`
-    SELECT s."businessId" AS "businessId", CASE WHEN s."endsAt" IS NULL THEN 'paid subscription has no finite paid-through date' ELSE 'expired subscription is still marked active/past_due' END AS detail
+    SELECT s."businessId" AS "businessId",
+           CASE
+             WHEN s."endsAt" IS NULL THEN 'paid subscription has no finite paid-through date'
+             ELSE 'expired subscription is still marked active'
+           END AS detail
     FROM "Subscription" s JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO')
-    WHERE s."status" IN ('active','past_due') AND (s."endsAt" IS NULL OR s."endsAt" <= CURRENT_TIMESTAMP)
+    WHERE (s."status"='active' AND (s."endsAt" IS NULL OR s."endsAt" <= CURRENT_TIMESTAMP))
+       OR (s."status"='past_due' AND s."endsAt" IS NULL)
   `;
   drifts.push(...invalidLivePeriod);
 
