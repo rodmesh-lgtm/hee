@@ -81,10 +81,6 @@ function paymentValueMatchesBilling(billing: BillingPaymentRow, payment: Moyasar
   return payment.amount === billing.amount && payment.currency === billing.currency;
 }
 
-function paymentMatchesBilling(billing: BillingPaymentRow, payment: MoyasarPayment) {
-  return paymentIdentityMatchesBilling(billing, payment) && paymentValueMatchesBilling(billing, payment);
-}
-
 async function reverseAndRecord(billing: BillingPaymentRow, payment: MoyasarPayment) {
   const reversed = await reverseMoyasarPayment(payment.id);
   await markBillingPaymentState(billing.id, reversed);
@@ -135,6 +131,21 @@ export async function processMoyasarWebhookEvent(eventRowId: string) {
     }
 
     if (!billing) {
+      // A settled/authorized provider payment must never be acknowledged as terminally
+      // processed while HEE has no ledger row for it. The ledger may be temporarily
+      // unavailable because the provider webhook raced the checkout-created callback.
+      // Keep the durable inbox event recoverable; if the row never appears, the normal
+      // retry budget exhausts and billing-state-audit turns it into an operator-visible
+      // launch/heartbeat blocker instead of silently losing customer money.
+      if (["paid", "captured", "authorized"].includes(payment.status)) {
+        console.error("[moyasar-webhook-worker] settled_orphan_payment", {
+          eventId: event.id,
+          providerPaymentId: payment.id,
+          providerStatus: payment.status,
+        });
+        await releaseForRetry(event, "settled_orphan_payment");
+        return "retry" as const;
+      }
       await completeEvent(event.id, null, "unmatched_payment");
       return "unmatched" as const;
     }
