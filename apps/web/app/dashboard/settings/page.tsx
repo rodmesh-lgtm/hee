@@ -5,17 +5,45 @@ import { getCurrentUser } from "../../lib/auth";
 import { getActiveBusinessWithPlanForUser } from "../../lib/active-business";
 import { EmailVerificationCard } from "../../../components/dashboard/email-verification-card";
 
+function supportLink() {
+  return <Link href="/dashboard/support" className="font-black underline underline-offset-4">مركز الدعم</Link>;
+}
+
 function billingAlert(code: string | undefined) {
+  if (!code) return null;
+
   if (code === "email-verification-required") {
     return <div role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-900">أكد ملكية بريدك الإلكتروني قبل الانتقال إلى الدفع. لن نطلب منك سداد اشتراك مدفوع قبل ربط الحساب ببريد تملكه فعليًا.</div>;
-  }
-  if (code === "payment-reversed") {
-    return <div role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-7 text-amber-950"><b>لم يتم تفعيل الاشتراك المدفوع، وتم طلب عكس عملية الدفع تلقائيًا.</b><br />أثبتت بوابة الدفع العملية، لكن شروط تفعيل الاشتراك لم تعد مكتملة عند التسوية، لذلك لم تحتفظ HEE بالمبلغ مقابل اشتراك غير مفعّل. قد يستغرق ظهور الإلغاء أو الاسترداد في كشف البطاقة المدة التي يحددها البنك ومقدم الدفع. إذا بقيت العملية ظاهرة كمبلغ نهائي بعد مدة المعالجة البنكية، افتح طلبًا من <Link href="/dashboard/support" className="font-black underline underline-offset-4">مركز الدعم</Link>.</div>;
   }
   if (code === "paid") {
     return <div role="status" className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold leading-6 text-emerald-900">تم إثبات عملية الدفع وتحديث حالة الاشتراك.</div>;
   }
-  return null;
+  if (code === "pending") {
+    return <div role="status" className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-3 text-sm font-bold leading-7 text-blue-950"><b>عملية الدفع ما زالت قيد التحقق.</b><br />لا تعِد الدفع الآن. ستواصل HEE مطابقة حالة العملية مع مزود الدفع، ويمكنك متابعة النتيجة من إدارة الاشتراك والفوترة.</div>;
+  }
+  if (code === "payment-reversed") {
+    return <div role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold leading-7 text-amber-950"><b>لم يتم تفعيل الاشتراك المدفوع، وتم طلب عكس عملية الدفع تلقائيًا.</b><br />أثبتت بوابة الدفع العملية، لكن شروط تفعيل الاشتراك لم تعد مكتملة عند التسوية، لذلك لم تحتفظ HEE بالمبلغ مقابل اشتراك غير مفعّل. قد يستغرق ظهور الإلغاء أو الاسترداد في كشف البطاقة المدة التي يحددها البنك ومقدم الدفع. إذا بقيت العملية ظاهرة كمبلغ نهائي بعد مدة المعالجة البنكية، افتح طلبًا من {supportLink()}.</div>;
+  }
+  if (code === "checkout-expired") {
+    return <div role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold leading-7 text-amber-950"><b>انتهت صلاحية جلسة الدفع القديمة ولم يتم تفعيل الاشتراك منها.</b><br />إذا كانت بوابة الدفع قد أثبتت مبلغًا على الجلسة المنتهية، فقد طلب النظام عكسه تلقائيًا. لا تعتمد على الرابط القديم؛ ابدأ عملية دفع جديدة من صفحة إدارة الاشتراك بعد التأكد من حالة العملية السابقة.</div>;
+  }
+  if (code === "checkout-consent-missing") {
+    return <div role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold leading-7 text-amber-950"><b>لم يتم تفعيل الاشتراك لأن إثبات الموافقة على شروط الدفع لم يكن صالحًا وقت التسوية.</b><br />إذا كانت العملية قد سُددت، فقد طلب النظام عكسها تلقائيًا. ابدأ من جديد من صفحة الباقات بعد قراءة الشروط والموافقة عليها.</div>;
+  }
+  if (code === "rate-limited") {
+    return <div role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold leading-7 text-amber-950"><b>تم إيقاف التحقق مؤقتًا بسبب كثرة المحاولات.</b><br />انتظر قليلًا ولا تعِد الدفع. يمكنك الرجوع إلى سجل الفوترة ثم المحاولة لاحقًا.</div>;
+  }
+  if (code === "verification-unavailable") {
+    return <div role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold leading-7 text-amber-950"><b>تعذر التحقق من حالة الدفع مؤقتًا.</b><br />لا تعِد الدفع حتى تتضح حالة العملية في سجل الفوترة. إذا استمر التعذر أو ظهر المبلغ نهائيًا دون تحديث الاشتراك، افتح طلبًا من {supportLink()}.</div>;
+  }
+  if (code === "verification-failed" || code === "invalid-callback") {
+    return <div role="alert" className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold leading-7 text-rose-900"><b>لم نتمكن من مطابقة عملية الدفع بهذه الجلسة، ولم يتم تفعيل اشتراك منها.</b><br />راجع سجل الفوترة ولا تعِد السداد إذا كانت هناك عملية قائمة. عند وجود خصم غير واضح، تواصل عبر {supportLink()}.</div>;
+  }
+  if (code === "failed") {
+    return <div role="alert" className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold leading-7 text-rose-900"><b>لم تنجح عملية الدفع ولم يتم تفعيل الاشتراك.</b><br />تحقق من سجل الفوترة قبل إعادة المحاولة. إذا ظهر مبلغ مخصوم أو معلّق رغم هذه النتيجة، لا تنشئ عملية أخرى حتى تتضح حالة العملية السابقة.</div>;
+  }
+
+  return <div role="alert" className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold leading-7 text-slate-700">تعذر عرض نتيجة الدفع بصورة كاملة. راجع سجل الفوترة، ولا تعِد الدفع إذا كانت هناك عملية قائمة. عند الحاجة تواصل عبر {supportLink()}.</div>;
 }
 
 export default async function DashboardSettingsPage({ searchParams }: { searchParams: Promise<{ billing?: string }> }) {
