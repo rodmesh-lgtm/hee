@@ -151,7 +151,16 @@ export async function processMoyasarWebhookEvent(eventRowId: string) {
     }
 
     if (!paymentIdentityMatchesBilling(billing, payment)) {
-      console.error("[moyasar-webhook-worker] payment_identity_mismatch", { eventId: event.id, billingId: billing.id });
+      console.error("[moyasar-webhook-worker] payment_identity_mismatch", { eventId: event.id, billingId: billing.id, providerStatus: payment.status });
+      // Do not mutate or reverse money when the provider identity metadata conflicts
+      // with HEE's ledger: the intended owner is not trustworthy enough to choose a
+      // financial action automatically. Settled/authorized funds must also never be
+      // acknowledged as terminally processed. Keep the durable inbox event retriable;
+      // exhausted retries are surfaced by billing-state-audit for operator resolution.
+      if (["paid", "captured", "authorized"].includes(payment.status)) {
+        await releaseForRetry(event, "payment_identity_mismatch");
+        return "retry" as const;
+      }
       await completeEvent(event.id, billing.id, "payment_identity_mismatch");
       return "mismatch" as const;
     }

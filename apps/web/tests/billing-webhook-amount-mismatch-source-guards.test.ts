@@ -18,14 +18,19 @@ test("identity-bound webhook amount or currency mismatches are reversed when fun
   assert.match(worker, /payment_amount_currency_mismatch_reversed/);
 });
 
-test("identity mismatches stay non-mutating", () => {
+test("identity mismatches stay non-mutating and settled funds remain recoverable", () => {
   const worker = source("app/lib/moyasar-webhook-processing.ts");
-  const identityGuard = worker.indexOf("if (!paymentIdentityMatchesBilling(billing, payment))");
-  const valueGuard = worker.indexOf("if (!paymentValueMatchesBilling(billing, payment))");
+  const identityGuard = worker.indexOf("if (!paymentIdentityMatchesBilling(billing, payment))", worker.indexOf("processMoyasarWebhookEvent"));
+  const valueGuard = worker.indexOf("if (!paymentValueMatchesBilling(billing, payment))", identityGuard);
+  const identityBlock = worker.slice(identityGuard, valueGuard);
   const reversal = worker.indexOf("await reverseAndRecord(billing, payment)", valueGuard);
 
   assert.notEqual(identityGuard, -1);
   assert.notEqual(valueGuard, -1);
   assert.ok(identityGuard < valueGuard);
+  assert.match(identityBlock, /\["paid", "captured", "authorized"\]\.includes\(payment\.status\)/);
+  assert.match(identityBlock, /await releaseForRetry\(event, "payment_identity_mismatch"\)/);
+  assert.match(identityBlock, /return "retry" as const/);
+  assert.doesNotMatch(identityBlock, /reverseAndRecord/);
   assert.ok(reversal > valueGuard);
 });
