@@ -29,6 +29,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260821213000_durable_moyasar_webhook_inbox",
   "20260822050000_billing_operations_heartbeat",
   "20260822111500_billing_worker_release_provenance",
+  "20260823055500_scrub_revoked_payment_tokens",
 ] as const;
 
 export const EXPECTED_PREVIEW_LATEST_MIGRATION = EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;
