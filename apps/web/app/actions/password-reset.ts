@@ -112,8 +112,13 @@ export async function requestPasswordResetAction(_previous: PasswordResetState, 
   try { sent = await sendResetEmail(email, token); }
   catch (error) { console.error("[password-reset] failed to send reset email", error); }
   if (!sent) {
+    // Do not expose delivery failure only for an existing local-password account: doing
+    // so would turn a transient mail-provider outage into an account-enumeration oracle.
+    // Remove the unusable token and keep the customer-facing response indistinguishable
+    // from unknown, OAuth-only and rate-limited accounts. Operators still get the log.
     await db.oAuthState.deleteMany({ where: { state: tokenHash, provider: PROVIDER } });
-    return { error: "تعذر إرسال رسالة الاستعادة الآن. حاول مرة أخرى لاحقًا." };
+    console.error("[password-reset] reset email was not accepted by provider", { userId: user.id });
+    return { success: GENERIC_RESET_MESSAGE };
   }
   return { success: GENERIC_RESET_MESSAGE };
 }
