@@ -104,6 +104,22 @@ async function main() {
   `;
   drifts.push(...strandedPastDue);
 
+  // Initiated/authorized renewal rows represent provider money that must converge.
+  // They are intentionally allowed to survive transient ambiguity and provider 404s,
+  // but not forever: the renewal worker's provider-not-found grace is 24 hours. Give
+  // operations a small margin beyond that window, then fail the audit/heartbeat so a
+  // structural identity mismatch or permanently ambiguous provider state cannot remain
+  // invisible while billing operations continue to advertise healthy liveness.
+  const staleRenewalReconciliation = await db.$queryRaw<DriftRow[]>`
+    SELECT bp."businessId" AS "businessId", 'renewal provider payment remained unresolved beyond reconciliation window' AS detail
+    FROM "BillingPayment" bp
+    WHERE bp."provider"='moyasar'
+      AND bp."kind"='renewal'
+      AND bp."status" IN ('initiated','authorized')
+      AND bp."createdAt" < CURRENT_TIMESTAMP - INTERVAL '26 hours'
+  `;
+  drifts.push(...staleRenewalReconciliation);
+
   const activeMismatch = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'live subscription plan differs from business entitlement plan' AS detail
     FROM "Subscription" s JOIN "Business" b ON b."id"=s."businessId" AND b."deletedAt" IS NULL
