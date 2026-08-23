@@ -8,9 +8,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(readFileSync(join(here, "../package.json"), "utf8")) as { scripts?: Record<string, string> };
 const source = readFileSync(join(here, "../scripts/assert-rc-preview-schema-current.mjs"), "utf8");
 
-test("production build runs the RC Preview schema gate before compiling", () => {
+test("production build syncs then runs the RC Preview schema gate before compiling", () => {
   const build = packageJson.scripts?.build ?? "";
-  assert.match(build, /^node scripts\/assert-rc-preview-schema-current\.mjs && /);
+  assert.match(build, /^node scripts\/sync-rc-preview-schema\.mjs && node scripts\/assert-rc-preview-schema-current\.mjs && /);
 });
 
 test("RC Preview schema gate is scoped to Vercel Preview and hee-v6-rc", () => {
