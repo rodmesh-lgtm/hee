@@ -71,10 +71,13 @@ test("active business cookie is never trusted without an owner-bound database lo
 
 test("active business cookie stays Secure in every real production runtime", () => {
   const switchAction = source("app/actions/active-business.ts");
+  const runtime = source("app/lib/runtime-environment.ts");
+  assert.match(switchAction, /import \{ isExplicitTestRuntime \} from "\.\.\/lib\/runtime-environment"/);
   assert.match(
     switchAction,
-    /process\.env\.NODE_ENV\s*===\s*"production"\s*&&\s*process\.env\.APP_ENV\s*!==\s*"test"/,
-    "Only the explicit CI test environment may relax Secure for local HTTP integration tests",
+    /process\.env\.NODE_ENV\s*===\s*"production"\s*&&\s*!isExplicitTestRuntime\(\)/,
+    "Only the explicit CI test runtime may relax Secure for local HTTP integration tests",
   );
+  assert.match(runtime, /appEnvironment\(\) === "test" && vercelEnvironment\(\) !== "production"/);
   assert.match(switchAction, /secure:\s*activeBusinessCookieSecure\(\)/);
 });
