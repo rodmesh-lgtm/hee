@@ -48,7 +48,16 @@ export async function GET(request: Request) {
     const metadataBilling = String(payment.metadata?.hee_billing_id ?? "");
     const metadataBusiness = String(payment.metadata?.hee_business_id ?? "");
     if (metadataBilling !== billing.id || metadataBusiness !== billing.businessId) return back("verification-failed");
-    if (payment.amount !== billing.amount || payment.currency !== "SAR") return back("verification-failed");
+    if (payment.amount !== billing.amount || payment.currency !== "SAR") {
+      console.error("[billing-callback] identity_bound_payment_amount_mismatch", { billingId, providerPaymentId: payment.id, providerStatus: payment.status });
+      if (["paid", "captured", "authorized"].includes(payment.status)) {
+        const reversed = await reverseMoyasarPayment(payment.id);
+        await markBillingPaymentState(billing.id, reversed);
+        return back("payment-reversed");
+      }
+      await markBillingPaymentState(billing.id, payment);
+      return back("verification-failed");
+    }
 
     if (!billing.providerPaymentId && !providerPaymentCreatedWithinBillingWindow(billing.createdAt, payment)) {
       console.error("[billing-callback] stale_checkout_payment", { billingId, providerPaymentId: payment.id, providerStatus: payment.status });
