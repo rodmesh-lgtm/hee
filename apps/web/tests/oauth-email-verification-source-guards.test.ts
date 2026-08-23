@@ -7,7 +7,7 @@ const callback = readFileSync(new URL("../app/api/auth/oauth/[provider]/callback
 
 test("OAuth requires provider-verified email before resolving an account", () => {
   assert.match(oauth, /claims\.email_verified === true \|\| claims\.email_verified === "true"/);
-  assert.ok(oauth.includes('if (!subject || !email || !verified) throw new Error("verified-email-required")'));
+  assert.ok(oauth.includes('if (!subject || subject.length > 512 || !email || email.length > 254 || !verified) throw new Error("verified-email-required")'));
 });
 
 test("only a successfully verified OAuth callback marks HEE email verified", () => {
