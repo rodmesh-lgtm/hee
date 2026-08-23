@@ -72,11 +72,17 @@ async function releaseForRetry(event: ClaimedEvent, code: string) {
   `;
 }
 
-function paymentMatchesBilling(billing: BillingPaymentRow, payment: MoyasarPayment) {
+function paymentIdentityMatchesBilling(billing: BillingPaymentRow, payment: MoyasarPayment) {
   return String(payment.metadata?.hee_business_id ?? "") === billing.businessId
-    && String(payment.metadata?.hee_billing_id ?? "") === billing.id
-    && payment.amount === billing.amount
-    && payment.currency === billing.currency;
+    && String(payment.metadata?.hee_billing_id ?? "") === billing.id;
+}
+
+function paymentValueMatchesBilling(billing: BillingPaymentRow, payment: MoyasarPayment) {
+  return payment.amount === billing.amount && payment.currency === billing.currency;
+}
+
+function paymentMatchesBilling(billing: BillingPaymentRow, payment: MoyasarPayment) {
+  return paymentIdentityMatchesBilling(billing, payment) && paymentValueMatchesBilling(billing, payment);
 }
 
 async function reverseAndRecord(billing: BillingPaymentRow, payment: MoyasarPayment) {
@@ -87,7 +93,14 @@ async function reverseAndRecord(billing: BillingPaymentRow, payment: MoyasarPaym
 
 async function reconcileVerifiedCheckoutPayment(billing: BillingPaymentRow, payment: MoyasarPayment) {
   if (billing.kind === "renewal") return "renewal-owned-by-renewal-worker" as const;
-  if (!paymentMatchesBilling(billing, payment)) return "mismatch" as const;
+  if (!paymentIdentityMatchesBilling(billing, payment)) return "identity-mismatch" as const;
+  if (!paymentValueMatchesBilling(billing, payment)) {
+    if (["paid", "captured", "authorized"].includes(payment.status)) {
+      await reverseAndRecord(billing, payment);
+      return "amount-currency-mismatch-reversed" as const;
+    }
+    return "amount-currency-mismatch" as const;
+  }
 
   if (payment.status === "paid") {
     if (!(await hasBillingCheckoutConsent(billing.id))) {
@@ -126,9 +139,20 @@ export async function processMoyasarWebhookEvent(eventRowId: string) {
       return "unmatched" as const;
     }
 
-    if (!paymentMatchesBilling(billing, payment)) {
-      console.error("[moyasar-webhook-worker] payment_mismatch", { eventId: event.id, billingId: billing.id });
-      await completeEvent(event.id, billing.id, "payment_mismatch");
+    if (!paymentIdentityMatchesBilling(billing, payment)) {
+      console.error("[moyasar-webhook-worker] payment_identity_mismatch", { eventId: event.id, billingId: billing.id });
+      await completeEvent(event.id, billing.id, "payment_identity_mismatch");
+      return "mismatch" as const;
+    }
+
+    if (!paymentValueMatchesBilling(billing, payment)) {
+      console.error("[moyasar-webhook-worker] payment_amount_currency_mismatch", { eventId: event.id, billingId: billing.id, providerStatus: payment.status });
+      if (["paid", "captured", "authorized"].includes(payment.status)) {
+        await reverseAndRecord(billing, payment);
+        await completeEvent(event.id, billing.id, "payment_amount_currency_mismatch_reversed");
+        return "reversed" as const;
+      }
+      await completeEvent(event.id, billing.id, "payment_amount_currency_mismatch");
       return "mismatch" as const;
     }
 
@@ -141,8 +165,8 @@ export async function processMoyasarWebhookEvent(eventRowId: string) {
 
     if (billing.kind !== "renewal") {
       const result = await reconcileVerifiedCheckoutPayment(billing, payment);
-      if (result === "mismatch") {
-        await completeEvent(event.id, billing.id, "payment_mismatch");
+      if (result === "identity-mismatch" || result === "amount-currency-mismatch") {
+        await completeEvent(event.id, billing.id, result.replaceAll("-", "_"));
         return "mismatch" as const;
       }
       await completeEvent(event.id, billing.id, result.includes("reversed") ? result : null);
@@ -219,8 +243,8 @@ export async function recoverOpenMoyasarCheckoutPayments(limit = 50) {
       if (!billing || !["initiated", "authorized"].includes(billing.status) || billing.providerPaymentId !== row.providerPaymentId) continue;
       const payment = await fetchMoyasarPayment(row.providerPaymentId);
       const result = await reconcileVerifiedCheckoutPayment(billing, payment);
-      if (result === "mismatch") {
-        console.error("[moyasar-checkout-recovery] payment_mismatch", { billingId: billing.id });
+      if (result === "identity-mismatch" || result === "amount-currency-mismatch") {
+        console.error("[moyasar-checkout-recovery] payment_mismatch", { billingId: billing.id, result });
         errors += 1;
         continue;
       }
