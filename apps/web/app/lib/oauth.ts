@@ -160,13 +160,12 @@ function assertActiveUser<T extends { deletedAt?: Date | null }>(user: T | null)
   return user;
 }
 
-function assertOauthEmailAutoLinkSafe<T extends { passwordHash?: string | null }>(user: T | null) {
-  // Password registration currently does not prove ownership of the supplied email.
-  // Never silently attach a verified Google/Apple identity to such an account based
-  // on email equality alone: an earlier email squatter would retain password access
-  // after the legitimate mailbox owner signs in with OAuth. Existing provider links
-  // remain valid because they are resolved by provider+subject before this check.
-  if (user?.passwordHash) throw new Error("oauth-password-account-link-required");
+function assertOauthEmailAutoLinkSafe<T extends { passwordHash?: string | null; emailVerifiedAt?: Date | null }>(user: T | null) {
+  // Password accounts may be linked by email only after HEE has independently
+  // recorded mailbox ownership. This prevents a pre-registered email squatter from
+  // retaining password access when the legitimate mailbox owner later uses OAuth,
+  // while allowing an already verified local account to add Google/Apple safely.
+  if (user?.passwordHash && !user.emailVerifiedAt) throw new Error("oauth-password-account-link-required");
   return user;
 }
 
