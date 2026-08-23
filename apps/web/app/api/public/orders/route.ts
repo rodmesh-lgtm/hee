@@ -145,6 +145,27 @@ export async function POST(request: Request) {
       `;
       if (previous[0]?.targetId) return { id: previous[0].targetId, replayed: true };
 
+      // The public page may be unpublished, the owner's mailbox ownership may be revoked,
+      // or ordering/delivery may be disabled after the fast preflight above. Re-prove those
+      // launch invariants in the write transaction and hold SHARE row locks until commit so a
+      // concurrent settings change cannot turn an already-rejected state into a committed order.
+      const eligible = await tx.$queryRaw<Array<{ acceptOnlineOrders: boolean; deliveryAvailable: boolean }>>`
+        SELECT b."acceptOnlineOrders", b."deliveryAvailable"
+        FROM "Business" b
+        JOIN "User" u ON u."id" = b."ownerId"
+        WHERE b."id" = ${business.id}
+          AND b."slug" = ${slug}
+          AND b."deletedAt" IS NULL
+          AND b."isPublished" = true
+          AND u."deletedAt" IS NULL
+          AND u."emailVerifiedAt" IS NOT NULL
+        FOR SHARE OF b, u
+      `;
+      const currentBusiness = eligible[0];
+      if (!currentBusiness) throw new Error("PUBLIC_ORDER_BUSINESS_UNAVAILABLE");
+      if (items.length > 0 && !currentBusiness.acceptOnlineOrders) throw new Error("PUBLIC_ORDER_DISABLED");
+      if (items.length > 0 && orderType === "delivery" && !currentBusiness.deliveryAvailable) throw new Error("PUBLIC_ORDER_DELIVERY_DISABLED");
+
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`customer:${business.id}:${phone}`}))`;
       let customer = await tx.customer.findFirst({
         where: { businessId: business.id, phone },
@@ -218,6 +239,15 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "PUBLIC_ORDER_PRODUCT_INVALID") {
       return NextResponse.json({ ok: false, error: "أحد المنتجات غير متاح" }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PUBLIC_ORDER_BUSINESS_UNAVAILABLE") {
+      return NextResponse.json({ ok: false, error: "هذه الصفحة لم تعد متاحة لاستقبال الطلبات" }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PUBLIC_ORDER_DISABLED") {
+      return NextResponse.json({ ok: false, error: "الطلبات الإلكترونية لم تعد مفعلة لهذا النشاط" }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PUBLIC_ORDER_DELIVERY_DISABLED") {
+      return NextResponse.json({ ok: false, error: "التوصيل لم يعد متاحًا لهذا النشاط" }, { status: 409 });
     }
     console.error("[public-order] write_failed", error);
     return NextResponse.json({ ok: false, error: "تعذر تسجيل الطلب الآن" }, { status: 503, headers: { "Retry-After": "30" } });
