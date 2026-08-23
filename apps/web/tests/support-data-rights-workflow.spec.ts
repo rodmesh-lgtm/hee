@@ -1,11 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 const adminEmail = "rc-platform-admin@hee.test";
-let pool: Pool;
 let db: PrismaClient;
 
 async function setSession(page: import("@playwright/test").Page, token: string) {
@@ -17,13 +14,11 @@ test.describe.serial("customer support and data rights", () => {
   test.beforeAll(async () => {
     const connectionString = String(process.env.DATABASE_URL ?? "").trim();
     if (!connectionString) throw new Error("DATABASE_URL is required");
-    pool = new Pool({ connectionString, max: 4 });
-    db = new PrismaClient({ adapter: new PrismaPg(pool) });
+    db = new PrismaClient({ datasourceUrl: connectionString });
   });
 
   test.afterAll(async () => {
     await db?.$disconnect();
-    await pool?.end();
   });
 
   test("owner can open support, export own data, and admin can resolve the ticket", async ({ page }) => {
@@ -69,13 +64,16 @@ test.describe.serial("customer support and data rights", () => {
       await expect(page.getByRole("heading", { name: "دعم العملاء" })).toBeVisible();
       const ticket = page.locator("article").filter({ hasText: "مشكلة اختبار الدعم" });
       await expect(ticket).toContainText("منشأة دعم الاختبار");
-      await ticket.getByRole("button", { name: "تمت المعالجة" }).click();
+      const resolutionNote = "تم التحقق من طلب الاختبار ومعالجته وإبلاغ العميل بالنتيجة.";
+      await ticket.getByRole("textbox", { name: "نتيجة المعالجة للعميل" }).fill(resolutionNote);
+      await ticket.getByRole("button", { name: "حفظ النتيجة وإغلاق الطلب" }).click();
       await expect(page).toHaveURL(/done=resolved/);
 
       await setSession(page, ownerToken);
       await page.goto(`${baseUrl}/dashboard/support`, { waitUntil: "domcontentloaded" });
       const ownerTicket = page.locator("article").filter({ hasText: "مشكلة اختبار الدعم" });
       await expect(ownerTicket.getByText("تمت المعالجة")).toBeVisible();
+      await expect(ownerTicket.getByText(resolutionNote)).toBeVisible();
     } finally {
       await db.analyticsEvent.deleteMany({ where: { businessId: business.id } });
       await db.service.deleteMany({ where: { businessId: business.id } });

@@ -69,7 +69,8 @@ export async function createSupportRequestAction(formData: FormData) {
 export async function resolveSupportRequestAdminAction(formData: FormData) {
   const admin = await requireAdmin();
   const eventId = String(formData.get("eventId") ?? "").trim();
-  if (!eventId) redirect("/admin/support?error=invalid");
+  const resolutionNote = text(formData, "resolutionNote", 2000);
+  if (!eventId || !resolutionNote) redirect("/admin/support?error=resolution-note-required");
 
   const result = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`support:${eventId}`}))`;
@@ -83,6 +84,7 @@ export async function resolveSupportRequestAdminAction(formData: FormData) {
         metadata: {
           ...metadata,
           status: "resolved",
+          resolutionNote,
           resolvedAt: new Date().toISOString(),
           resolvedByUserId: admin.id,
           resolvedByEmail: admin.email,
