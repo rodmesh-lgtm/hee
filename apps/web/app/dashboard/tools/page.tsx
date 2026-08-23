@@ -2,14 +2,17 @@ import Link from "next/link";
 import { ArrowLeft, Lock, Sparkles, WandSparkles } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../lib/auth";
-import { db } from "../../lib/db";
+import { getActiveBusinessWithPlanForUser } from "../../lib/active-business";
 import { getPlanEntitlements } from "../../lib/plan-entitlements";
 
 export default async function DashboardToolsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, include: { plan: true } });
+  // Tool availability and branding must follow the same active tenant selected by the
+  // dashboard shell. Picking an arbitrary business by ownerId can leak another owned
+  // business's plan state into the current tenant UI when one account manages several.
+  const business = await getActiveBusinessWithPlanForUser(user.id);
   const entitlements = getPlanEntitlements(business?.plan?.code);
   const designerAvailable = Boolean(business && entitlements.offerDesigner);
 
