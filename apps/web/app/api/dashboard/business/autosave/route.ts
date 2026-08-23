@@ -37,12 +37,6 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات غير صالحة" }, { status: 400 });
   const fields = parsed.data.fields;
 
-  if (business.isPublished) {
-    const nextWhatsapp = typeof fields.whatsapp === "string" ? fields.whatsapp.trim() : business.whatsapp?.trim();
-    const nextPhone = typeof fields.phone === "string" ? fields.phone.trim() : business.phone?.trim();
-    if (!Boolean(nextWhatsapp || nextPhone || business.email?.trim() || business.website?.trim())) return NextResponse.json({ error: "لا يمكن حذف آخر وسيلة تواصل من صفحة منشورة. أضف وسيلة أخرى أو ألغِ النشر أولاً." }, { status: 400 });
-  }
-
   const updates: Prisma.BusinessUpdateInput = {};
   const changedKeys: string[] = [];
   if (typeof fields.name === "string" && fields.name !== business.name) { updates.name = fields.name; changedKeys.push("name"); }
@@ -56,8 +50,34 @@ export async function POST(request: Request) {
   if (!changedKeys.length) return NextResponse.json({ ok: true, changedKeys: [] });
 
   try {
-    const updated = await db.business.updateMany({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, data: updates });
-    if (updated.count !== 1) return NextResponse.json({ error: "تعذر العثور على النشاط أو لم يعد متاحًا للتعديل" }, { status: 409 });
+    const result = await db.$transaction(async (tx) => {
+      // Publication/contact availability is a commit-time invariant. Two autosave
+      // requests can otherwise both pass a stale pre-check and independently remove
+      // phone + WhatsApp, leaving a published page with no usable contact method.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`business-autosave:${business.id}`}))`;
+      const current = await tx.business.findFirst({
+        where: { id: business.id, ownerId: business.ownerId, deletedAt: null },
+        select: { isPublished: true, whatsapp: true, phone: true, email: true, website: true },
+      });
+      if (!current) return "missing" as const;
+
+      const writesWhatsapp = Object.prototype.hasOwnProperty.call(updates, "whatsapp");
+      const writesPhone = Object.prototype.hasOwnProperty.call(updates, "phone");
+      const nextWhatsapp = writesWhatsapp ? (fields.whatsapp?.trim() || null) : current.whatsapp?.trim();
+      const nextPhone = writesPhone ? (fields.phone?.trim() || null) : current.phone?.trim();
+      if (current.isPublished && !Boolean(nextWhatsapp || nextPhone || current.email?.trim() || current.website?.trim())) {
+        return "contact-required" as const;
+      }
+
+      const updated = await tx.business.updateMany({
+        where: { id: business.id, ownerId: business.ownerId, deletedAt: null },
+        data: updates,
+      });
+      return updated.count === 1 ? "updated" as const : "missing" as const;
+    });
+
+    if (result === "contact-required") return NextResponse.json({ error: "لا يمكن حذف آخر وسيلة تواصل من صفحة منشورة. أضف وسيلة أخرى أو ألغِ النشر أولاً." }, { status: 400 });
+    if (result !== "updated") return NextResponse.json({ error: "تعذر العثور على النشاط أو لم يعد متاحًا للتعديل" }, { status: 409 });
   } catch (error) {
     console.error("[business-autosave] write_failed", { businessId: business.id, changedKeys, error });
     return NextResponse.json({ error: "تعذر حفظ التعديل الآن. حاول مرة أخرى بعد قليل." }, { status: 503, headers: { "Retry-After": "30" } });
