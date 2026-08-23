@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "../../../lib/db";
+import { getCurrentUser } from "../../../lib/auth";
 import { ensurePersistentStorageReady, readPersistentObject } from "../../../lib/storage";
 
 const SAFE_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -46,6 +47,35 @@ async function publicCompanyProfileBusiness(storageKey: string, tenantId: string
   });
 }
 
+async function ownerCanReadObject(storageKey: string, tenantId: string | null, kind: "image" | "company-profile") {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  const url = `/api/storage/${storageKey}`;
+
+  const business = await db.business.findFirst({
+    where: {
+      ownerId: user.id,
+      deletedAt: null,
+      ...(tenantId ? { id: tenantId } : {}),
+      ...(kind === "company-profile"
+        ? { companyProfileUrl: url }
+        : {
+            OR: [
+              { logoUrl: url },
+              { coverUrl: url },
+              { products: { some: { imageUrl: url } } },
+              { services: { some: { imageUrl: url } } },
+              { offers: { some: { imageUrl: url } } },
+              { galleryItems: { some: { imageUrl: url } } },
+              { contactPersons: { some: { imageUrl: url } } },
+            ],
+          }),
+    },
+    select: { id: true },
+  });
+  return Boolean(business);
+}
+
 async function loadAuthorizedBytes(storageKey: string) {
   try { return await readPersistentObject(storageKey); }
   catch (error) {
@@ -69,7 +99,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
   const tenantId = tenantIdFromFolder(metadata.folder);
 
   if ((metadata.folder === "company-profiles" || metadata.folder.startsWith("company-profiles/")) && metadata.mimeType === "application/pdf") {
-    if (!(await publicCompanyProfileBusiness(metadata.id, tenantId))) {
+    const publiclyAvailable = Boolean(await publicCompanyProfileBusiness(metadata.id, tenantId));
+    if (!publiclyAvailable && !(await ownerCanReadObject(metadata.id, tenantId, "company-profile"))) {
       return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
     }
     const stored = await loadAuthorizedBytes(storageKey);
@@ -81,8 +112,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
         "Content-Type": "application/pdf",
         "Content-Length": String(metadata.size),
         "Content-Disposition": `inline; filename="${safeName}"`,
-        // Every file request re-checks current publication, owner verification and reference state.
-        // A CDN cache must never keep serving a file after the customer becomes non-public or replaces it.
+        // Every file request re-checks current publication or tenant-owner authorization.
+        // A CDN cache must never keep serving a file after access is revoked or the file is replaced.
         "Cache-Control": AUTHORIZED_FILE_CACHE_CONTROL,
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'none'; frame-ancestors 'self'; sandbox",
@@ -92,7 +123,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
 
   if (!SAFE_IMAGE_MIME.has(metadata.mimeType)) return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
   const referencingBusiness = await publicImageReferenceBusiness(metadata.id);
-  if (!referencingBusiness || (tenantId && referencingBusiness.id !== tenantId)) {
+  const publiclyAvailable = Boolean(referencingBusiness && (!tenantId || referencingBusiness.id === tenantId));
+  if (!publiclyAvailable && !(await ownerCanReadObject(metadata.id, tenantId, "image"))) {
     return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
   }
 
