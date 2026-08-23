@@ -16,6 +16,6 @@ test("OAuth start binds state to a short-lived secure provider callback cookie",
 test("OAuth callback rejects browser-state mismatch before consuming provider code", () => {
   const callback = read("../app/api/auth/oauth/[provider]/callback/route.ts");
   assert.match(callback, /timingSafeEqual/);
-  assert.ok(callback.includes('if (!browserState || !input.state || !safeEqual(browserState, input.state)) return errorRedirect(request, "invalid-state")'));
+  assert.ok(callback.includes('if (!browserState || browserState.length > 256 || !safeEqual(browserState, input.state)) return errorRedirect(request, "invalid-state")'));
   assert.match(callback, /consumeOAuthState\(provider, input\.state\)/);
 });
