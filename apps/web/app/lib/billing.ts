@@ -1,4 +1,5 @@
 import "server-only";
+import { isExplicitTestRuntime, isProductionRuntime } from "./runtime-environment";
 
 const paidCodes = new Set(["BUSINESS", "PRO"]);
 
@@ -16,11 +17,10 @@ export function isPaidPlanCode(value: string | null | undefined) {
 
 export function paidPlanActivationAllowed() {
   const provider = billingProvider();
-  const appEnv = String(process.env.APP_ENV ?? "").trim().toLowerCase();
 
-  // Legacy manual activation remains a CI-only fixture. Production paid entitlement
-  // changes are performed exclusively by the provider-verified Moyasar billing ledger.
-  return appEnv === "test" && provider === "mock";
+  // Legacy manual activation remains a CI-only fixture. A Vercel Production signal
+  // always wins over a drifting APP_ENV=test value.
+  return isExplicitTestRuntime() && provider === "mock";
 }
 
 export function paidUpgradeRequestsEnabled() {
@@ -36,21 +36,14 @@ export function paidUpgradeRequestsEnabled() {
 
 /**
  * Controls whether a customer may create a new paid checkout intent.
- *
- * Production has three deliberately separate states:
- * 1. billing provider/worker prerequisites are configured;
- * 2. one verified rehearsal account may exercise the live path while public checkout is closed;
- * 3. PAID_CHECKOUT_PUBLIC_ENABLED=true opens new paid checkout intents to all eligible customers.
- *
- * Existing provider-started intents remain reconcilable even if the public switch is later
- * closed; this function is intentionally used only at the *entry* boundary.
+ * Production remains fail-closed when either the app or hosting platform identifies
+ * the runtime as Production; no config drift may downgrade those controls.
  */
 export function paidCheckoutEntryAllowed(userEmail: string | null | undefined) {
   if (paidPlanActivationAllowed()) return true;
   if (!paidUpgradeRequestsEnabled()) return false;
 
-  const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
-  if (!production) return true;
+  if (!isProductionRuntime()) return true;
   if (!enabled("BILLING_RENEWAL_ENABLED") || !enabled("BILLING_OPERATIONS_READY")) return false;
   if (enabled("PAID_CHECKOUT_PUBLIC_ENABLED")) return true;
 

@@ -1,3 +1,5 @@
+import { isProductionRuntime } from "./runtime-environment";
+
 export type BillingTaxStatus = "not_registered" | "vat_registered";
 
 function value(name: string) {
@@ -22,12 +24,11 @@ export function paidBillingTaxReady() {
 }
 
 export function receiptSnapshot(billingId: string, amount: number) {
-  const production = value("APP_ENV").toLowerCase() === "production";
   const status = billingTaxStatus();
   const legalName = value("BILLING_SELLER_LEGAL_NAME_AR");
   const address = value("BILLING_SELLER_ADDRESS_AR");
 
-  if (production && (!legalName || !address || status !== "not_registered")) {
+  if (isProductionRuntime() && (!legalName || !address || status !== "not_registered")) {
     throw new Error("BILLING_RECEIPT_TAX_CONFIGURATION_NOT_READY");
   }
 

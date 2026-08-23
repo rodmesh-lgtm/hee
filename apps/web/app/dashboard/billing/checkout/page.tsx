@@ -6,10 +6,11 @@ import { billingCheckoutExpired } from "../../../lib/billing-checkout-integrity"
 import { getOwnedBillingPayment } from "../../../lib/billing-ledger";
 import { db } from "../../../lib/db";
 import { moyasarConfigured, moyasarPublishableKey } from "../../../lib/moyasar";
+import { isProductionRuntime } from "../../../lib/runtime-environment";
 import { MoyasarCheckout } from "../../../../components/billing/moyasar-checkout";
 
 function publicOrigin() {
-  if (String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production") return "https://hee.sa";
+  if (isProductionRuntime()) return "https://hee.sa";
   const raw = String(process.env.AUTH_ORIGIN ?? process.env.APP_URL ?? "http://localhost:3000").trim();
   try { return new URL(raw).origin; } catch { return "http://localhost:3000"; }
 }
@@ -25,10 +26,6 @@ export default async function BillingCheckoutPage({ searchParams }: { searchPara
   const billing = await getOwnedBillingPayment(user.id, billingId);
   if (!billing) redirect("/dashboard/branding?billing=invalid");
 
-  // getOwnedBillingPayment intentionally preserves historical financial access after a
-  // business soft-delete. A checkout page is different: never render a provider form
-  // unless the exact business and target plan are still live right now. The consent and
-  // activation transactions re-prove the same invariants again at their write boundaries.
   const [liveBusiness, livePlan] = await Promise.all([
     db.business.findFirst({ where: { id: billing.businessId, ownerId: user.id, deletedAt: null }, select: { id: true } }),
     db.businessPlan.findFirst({ where: { id: billing.planId, isActive: true }, select: { id: true } }),

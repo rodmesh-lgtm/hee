@@ -4,6 +4,7 @@ import { db } from "../../../../lib/db";
 import { processMoyasarWebhookEvent } from "../../../../lib/moyasar-webhook-processing";
 import { verifyMoyasarWebhookSecret, type MoyasarWebhook } from "../../../../lib/moyasar";
 import { readBoundedText } from "../../../../lib/request-body";
+import { isProductionRuntime } from "../../../../lib/runtime-environment";
 
 const MAX_WEBHOOK_BYTES = 128 * 1024;
 
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
+  const production = isProductionRuntime();
   if ((production && event.live !== true) || (!production && event.live === true)) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
@@ -89,9 +90,6 @@ export async function POST(request: Request) {
   }
   if (persisted.processedAt) return NextResponse.json({ ok: true, duplicate: true });
 
-  // Moyasar explicitly requires a quick 2xx acknowledgement before complex logic.
-  // The event is already durable in PostgreSQL. `after` gives a fast best-effort pass;
-  // the billing operations worker retries any row left unprocessed after runtime loss.
   after(async () => {
     await processMoyasarWebhookEvent(persisted.id);
   });
