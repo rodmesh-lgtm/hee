@@ -81,6 +81,26 @@ function billingTaxReadiness() {
   }
 }
 
+function productionOauthReadiness() {
+  const googleId = required("GOOGLE_CLIENT_ID");
+  const googleSecret = strongSecret("GOOGLE_CLIENT_SECRET", 16);
+  if (!googleId.endsWith(".apps.googleusercontent.com")) {
+    throw new Error("GOOGLE_CLIENT_ID must be a Google OAuth web client id");
+  }
+  if (googleId === googleSecret) throw new Error("Google OAuth client id and secret must differ");
+
+  const appleClientId = required("APPLE_CLIENT_ID");
+  const appleTeamId = required("APPLE_TEAM_ID");
+  const appleKeyId = required("APPLE_KEY_ID");
+  const applePrivateKey = required("APPLE_PRIVATE_KEY").replace(/\\n/g, "\n");
+  if (!/^[A-Z0-9]{10}$/.test(appleTeamId)) throw new Error("APPLE_TEAM_ID must be a 10-character Apple Team ID");
+  if (!/^[A-Z0-9]{10}$/.test(appleKeyId)) throw new Error("APPLE_KEY_ID must be a 10-character Apple key ID");
+  if (!appleClientId.includes(".")) throw new Error("APPLE_CLIENT_ID must be an Apple Services ID");
+  if (!applePrivateKey.includes("-----BEGIN PRIVATE KEY-----") || !applePrivateKey.includes("-----END PRIVATE KEY-----")) {
+    throw new Error("APPLE_PRIVATE_KEY must contain a PKCS#8 private key");
+  }
+}
+
 function main() {
   if (String(process.env.APP_ENV ?? "").trim().toLowerCase() !== "production") {
     throw new Error("APP_ENV must be production for the launch audit");
@@ -133,12 +153,10 @@ function main() {
     if (String(process.env.S3_ALLOW_INSECURE ?? "").trim().toLowerCase() === "true") throw new Error("S3_ALLOW_INSECURE must not be true in production");
   }
 
-  const googleId = String(process.env.GOOGLE_CLIENT_ID ?? "").trim();
-  const googleSecret = String(process.env.GOOGLE_CLIENT_SECRET ?? "").trim();
-  if (Boolean(googleId) !== Boolean(googleSecret)) throw new Error("Google OAuth must be fully configured or fully disabled");
-
-  const appleValues = ["APPLE_CLIENT_ID", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY"].map((name) => String(process.env[name] ?? "").trim());
-  if (appleValues.some(Boolean) && !appleValues.every(Boolean)) throw new Error("Apple OAuth must be fully configured or fully disabled");
+  // Google and Apple are visible customer login options. A production release must
+  // therefore prove both providers are configured rather than silently shipping
+  // dead buttons that fail only after a customer clicks them.
+  productionOauthReadiness();
 
   console.log("launch-config-audit: PASS");
 }
