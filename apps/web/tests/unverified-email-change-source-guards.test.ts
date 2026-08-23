@@ -14,7 +14,7 @@ test("unverified email correction stays limited, serialized and revokes stale ma
   assert.match(action, /pg_advisory_xact_lock/);
   assert.match(action, /EMAIL_VERIFICATION_PROVIDER/);
   assert.match(action, /PASSWORD_RESET_PROVIDER/);
-  assert.match(action, /provider:\s*\{\s*in:\s*\[EMAIL_VERIFICATION_PROVIDER, PASSWORD_RESET_PROVIDER\]/s);
+  assert.match(action, /provider:\s*\{\s*in:\s*\[EMAIL_VERIFICATION_PROVIDER, PASSWORD_RESET_PROVIDER\][\s\S]*?\}/);
   assert.match(action, /oAuthState\.deleteMany/);
   assert.match(action, /issueEmailVerification\(user\.id, nextEmail\)/);
   assert.match(action, /P2002/);
