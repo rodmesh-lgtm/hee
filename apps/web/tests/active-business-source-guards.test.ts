@@ -12,6 +12,7 @@ const criticalDashboardFiles = [
   "app/dashboard/my-page/page.tsx",
   "app/dashboard/services/page.tsx",
   "app/dashboard/settings/page.tsx",
+  "app/dashboard/tools/page.tsx",
   "app/dashboard/working-hours/page.tsx",
   "app/preview/page.tsx",
 ];
@@ -29,6 +30,14 @@ test("tenant-private dashboard reads cannot fall back to owner-only findFirst se
       `${path} must resolve the active owned business instead of selecting an arbitrary business by ownerId`,
     );
   }
+});
+
+test("dashboard tools resolve plan entitlements from the active business", () => {
+  const tools = source("app/dashboard/tools/page.tsx");
+  assert.match(tools, /getActiveBusinessWithPlanForUser/);
+  assert.match(tools, /getActiveBusinessWithPlanForUser\(user\.id\)/);
+  assert.doesNotMatch(tools, /db\.business\.findFirst/);
+  assert.match(tools, /getPlanEntitlements\(business\?\.plan\?\.code\)/);
 });
 
 test("critical tenant writes continue to derive business scope from authenticated ownership", () => {
