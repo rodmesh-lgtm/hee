@@ -9,6 +9,8 @@ export type MoyasarPayment = {
   status: string;
   amount: number;
   currency: string;
+  refunded?: number;
+  captured?: number;
   created_at?: string | null;
   updated_at?: string | null;
   description?: string | null;
@@ -66,6 +68,36 @@ async function moyasarRequest<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+function validateMoyasarPaymentFinancialState(payment: MoyasarPayment) {
+  if (!Number.isSafeInteger(payment.amount) || payment.amount <= 0) {
+    throw new Error("MOYASAR_PAYMENT_AMOUNT_INVALID");
+  }
+
+  if (payment.refunded !== undefined) {
+    if (!Number.isSafeInteger(payment.refunded) || payment.refunded < 0 || payment.refunded > payment.amount) {
+      throw new Error("MOYASAR_REFUNDED_AMOUNT_INVALID");
+    }
+  }
+
+  if (payment.captured !== undefined) {
+    if (!Number.isSafeInteger(payment.captured) || payment.captured < 0 || payment.captured > payment.amount) {
+      throw new Error("MOYASAR_CAPTURED_AMOUNT_INVALID");
+    }
+  }
+
+  // HEE currently supports only full reversals/refunds. Moyasar can represent a partial
+  // refund with status=refunded while `refunded` is less than the original amount. If we
+  // treated that state as a full refund, entitlement rollback would cancel an entire paid
+  // period even though only part of the money was returned. Fail closed and force an
+  // operator-visible reconciliation instead of silently corrupting financial state.
+  if (payment.status === "refunded") {
+    if (payment.refunded === undefined) throw new Error("MOYASAR_REFUNDED_AMOUNT_MISSING");
+    if (payment.refunded !== payment.amount) throw new Error("MOYASAR_PARTIAL_REFUND_REQUIRES_OPERATOR");
+  }
+
+  return payment;
+}
+
 export function moyasarPublishableKey() {
   return String(process.env.MOYASAR_PUBLISHABLE_KEY ?? "").trim();
 }
@@ -91,7 +123,8 @@ export function moyasarConfigured() {
 
 export async function fetchMoyasarPayment(paymentId: string) {
   if (!/^[A-Za-z0-9_-]{8,128}$/.test(paymentId)) throw new Error("INVALID_MOYASAR_PAYMENT_ID");
-  return moyasarRequest<MoyasarPayment>(`/payments/${encodeURIComponent(paymentId)}`);
+  const payment = await moyasarRequest<MoyasarPayment>(`/payments/${encodeURIComponent(paymentId)}`);
+  return validateMoyasarPaymentFinancialState(payment);
 }
 
 export async function createMoyasarTokenPayment(input: {
@@ -102,7 +135,7 @@ export async function createMoyasarTokenPayment(input: {
   callbackUrl: string;
   metadata: Record<string, string>;
 }) {
-  return moyasarRequest<MoyasarPayment>("/payments", {
+  const payment = await moyasarRequest<MoyasarPayment>("/payments", {
     method: "POST",
     body: JSON.stringify({
       given_id: input.givenId,
@@ -114,6 +147,7 @@ export async function createMoyasarTokenPayment(input: {
       source: { type: "token", token: input.token },
     }),
   });
+  return validateMoyasarPaymentFinancialState(payment);
 }
 
 export async function reverseMoyasarPayment(paymentId: string) {
@@ -121,12 +155,14 @@ export async function reverseMoyasarPayment(paymentId: string) {
   const encoded = encodeURIComponent(paymentId);
 
   try {
-    return await moyasarRequest<MoyasarPayment>(`/payments/${encoded}/void`, { method: "POST" });
+    const reversed = await moyasarRequest<MoyasarPayment>(`/payments/${encoded}/void`, { method: "POST" });
+    return validateMoyasarPaymentFinancialState(reversed);
   } catch {
     const current = await fetchMoyasarPayment(paymentId);
     if (current.status === "voided" || current.status === "refunded") return current;
     if (current.status === "paid" || current.status === "captured") {
-      return moyasarRequest<MoyasarPayment>(`/payments/${encoded}/refund`, { method: "POST" });
+      const refunded = await moyasarRequest<MoyasarPayment>(`/payments/${encoded}/refund`, { method: "POST" });
+      return validateMoyasarPaymentFinancialState(refunded);
     }
     throw new Error(`MOYASAR_REVERSAL_UNRESOLVED_${current.status}`);
   }
