@@ -12,7 +12,8 @@ test("mock billing can never activate a paid plan outside test runtime", () => {
   const runtime = source("app/lib/runtime-environment.ts");
   assert.match(billing, /isExplicitTestRuntime\(\) && provider === "mock"/);
   assert.match(billing, /import \{ isExplicitTestRuntime, isProductionRuntime \} from "\.\/runtime-environment"/);
-  assert.match(runtime, /appEnvironment\(\) === "test" && !isProductionRuntime\(\)/);
+  assert.match(runtime, /return appEnvironment\(\) === "test" && vercelEnvironment\(\) !== "production"/);
+  assert.match(runtime, /return appEnvironment\(\) === "production" \|\| vercelEnvironment\(\) === "production"/);
   assert.match(billing, /PAID_BILLING_NOT_CONFIGURED/);
   assert.doesNotMatch(billing, /NODE_ENV\s*===\s*["']production["']\s*\?\s*true/);
 });
