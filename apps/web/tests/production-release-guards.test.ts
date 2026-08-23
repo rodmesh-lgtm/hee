@@ -188,7 +188,7 @@ test("production launch readiness proves content-qualified release, verified pub
   assert.match(launchStatus, /mode: launchMode\(\)/);
   assert.match(launchStatus, /billingOperationsReady/);
   assert.match(launchStatus, /renewalEnabled/);
-  assert.match(ready, /APP_ENV/);
+  assert.match(ready, /isProductionRuntime/);
   assert.match(ready, /pk_live_/);
   assert.match(ready, /sk_live_/);
   assert.match(ready, /PAID_CHECKOUT_PUBLIC_ENABLED/);
