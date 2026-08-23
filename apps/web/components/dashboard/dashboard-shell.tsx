@@ -20,9 +20,22 @@ const pageTitles: Record<string, string> = {
   "/dashboard/branding": "المظهر",
   "/dashboard/directory": "الفروع والفريق",
   "/dashboard/services": "الخدمات",
+  "/dashboard/products": "المنتجات",
+  "/dashboard/catalog": "المحتوى",
+  "/dashboard/gallery": "المعرض",
+  "/dashboard/offers": "العروض",
+  "/dashboard/contact-links": "روابط التواصل",
   "/dashboard/working-hours": "ساعات العمل",
+  "/dashboard/page-builder": "تحرير الصفحة",
+  "/dashboard/page-customization": "تخصيص الصفحة",
+  "/dashboard/preview": "معاينة الصفحة",
+  "/dashboard/share": "مشاركة الصفحة",
   "/dashboard/analytics": "الأداء",
+  "/dashboard/support": "الدعم والمساعدة",
   "/dashboard/settings": "الحساب والباقات",
+  "/dashboard/billing/manage": "إدارة الاشتراك والفوترة",
+  "/dashboard/billing/checkout": "إتمام الاشتراك",
+  "/dashboard/billing/receipt": "إيصال الدفع",
 };
 
 const MOBILE_DRAWER_ID = "hee-dashboard-mobile-drawer";
@@ -32,12 +45,17 @@ const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), select:not([disable
 
 function getCurrentPageTitle(pathname: string) {
   if (pageTitles[pathname]) return pageTitles[pathname];
-  const found = Object.entries(pageTitles).filter(([path]) => path !== "/dashboard").find(([path]) => pathname.startsWith(`${path}/`));
+  const found = Object.entries(pageTitles)
+    .filter(([path]) => path !== "/dashboard")
+    .sort(([left], [right]) => right.length - left.length)
+    .find(([path]) => pathname.startsWith(`${path}/`));
   return found?.[1] ?? "لوحة التحكم";
 }
 
-function isPathActive(pathname: string, href: string, exact = false) {
-  return exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+function isPathActive(pathname: string, href: string, exact = false, activePrefixes: string[] = []) {
+  if (exact) return pathname === href;
+  if (pathname === href || pathname.startsWith(`${href}/`)) return true;
+  return activePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 function BusinessSwitcher({ businesses, businessId, compact = false }: { businesses: BusinessOption[]; businessId: string | null; compact?: boolean }) {
@@ -108,14 +126,14 @@ export function DashboardShell({ children, businessId, businessName, businessSlu
 
   const nav = (mobile = false) => dashboardNavItems.map((item) => {
     const Icon = item.icon;
-    const active = isPathActive(pathname, item.href, item.exact);
+    const active = isPathActive(pathname, item.href, item.exact, item.activePrefixes);
     return <Link key={item.href} href={item.href} onClick={mobile ? () => setMobileOpen(false) : undefined} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-3 rounded-xl px-4 text-sm font-bold transition", mobile ? "py-3" : "h-11", active ? "bg-[#f1edff] text-[#5b3fd6]" : "text-slate-600 hover:bg-[#f8f6fc] hover:text-[#1f2552]")}><Icon className="h-4 w-4" />{item.label}</Link>;
   });
 
   const mobileQuickNav = [
-    { label: "الرئيسية", href: "/dashboard", icon: Home, exact: true },
-    { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound },
-    { label: "الطلبات", href: "/dashboard/inbox", icon: Inbox },
+    { label: "الرئيسية", href: "/dashboard", icon: Home, exact: true, activePrefixes: [] as string[] },
+    { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound, exact: false, activePrefixes: dashboardNavItems.find((item) => item.href === "/dashboard/my-page")?.activePrefixes ?? [] },
+    { label: "الطلبات", href: "/dashboard/inbox", icon: Inbox, exact: false, activePrefixes: [] as string[] },
   ];
 
   return (
@@ -141,7 +159,7 @@ export function DashboardShell({ children, businessId, businessName, businessSlu
           <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
             {mobileQuickNav.map((item) => {
               const Icon = item.icon;
-              const active = isPathActive(pathname, item.href, item.exact);
+              const active = isPathActive(pathname, item.href, item.exact, item.activePrefixes);
               return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn("flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black transition", active ? "bg-[#f3efff] text-[#5b3fd6]" : "text-slate-500 active:bg-slate-50")}><Icon className="h-4.5 w-4.5" /><span>{item.label}</span></Link>;
             })}
             <button id={MOBILE_MORE_BUTTON_ID} type="button" onClick={() => openMobileDrawer(MOBILE_MORE_BUTTON_ID)} aria-expanded={mobileOpen} aria-controls={MOBILE_DRAWER_ID} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black text-slate-500 transition active:bg-slate-50"><MoreHorizontal className="h-4.5 w-4.5" /><span>المزيد</span></button>
