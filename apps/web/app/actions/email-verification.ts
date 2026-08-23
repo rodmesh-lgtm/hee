@@ -11,6 +11,7 @@ import { consumePublicWriteLimit } from "../lib/rate-limit";
 
 export type EmailVerificationState = { error?: string; success?: string };
 const EMAIL_VERIFICATION_PROVIDER = "email-verification";
+const PASSWORD_RESET_PROVIDER = "password-reset";
 
 async function requestAddress() {
   const requestHeaders = await headers();
@@ -94,8 +95,14 @@ export async function changeUnverifiedEmailAction(_previous: EmailVerificationSt
       if (existing && existing.id !== current.id) throw new Error("email-already-in-use");
 
       await tx.user.update({ where: { id: current.id }, data: { email: nextEmail } });
-      // Any link issued for the mistyped address must become unusable immediately.
-      await tx.oAuthState.deleteMany({ where: { provider: EMAIL_VERIFICATION_PROVIDER, nonce: current.id } });
+      // Any ownership or password-reset link delivered to the mistyped mailbox must
+      // become unusable before this transaction commits the corrected address.
+      await tx.oAuthState.deleteMany({
+        where: {
+          nonce: current.id,
+          provider: { in: [EMAIL_VERIFICATION_PROVIDER, PASSWORD_RESET_PROVIDER] },
+        },
+      });
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
