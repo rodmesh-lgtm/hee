@@ -74,12 +74,14 @@ test("scheduled billing operations recover webhooks, renew, audit state, then re
   assert.match(runbook, /Treat a non-zero exit from `npm run billing:renew` as an operational alert/);
 });
 
-test("billing state audit rejects expired or indefinite paid entitlements", () => {
+test("billing state audit rejects invalid paid entitlements without rejecting legitimate expired past-due collection", () => {
   const audit = source("scripts/billing-state-audit.ts");
   assert.match(audit, /paid business plan without matching unexpired live subscription/);
   assert.match(audit, /paid subscription has no finite paid-through date/);
-  assert.match(audit, /expired subscription is still marked active\/past_due/);
-  assert.match(audit, /s\."endsAt" IS NULL OR s\."endsAt" <= CURRENT_TIMESTAMP/);
+  assert.match(audit, /expired subscription is still marked active/);
+  assert.match(audit, /s\."status"='active' AND \(s\."endsAt" IS NULL OR s\."endsAt" <= CURRENT_TIMESTAMP\)/);
+  assert.match(audit, /s\."status"='past_due' AND s\."endsAt" IS NULL/);
+  assert.doesNotMatch(audit, /s\."status"='past_due' AND s\."endsAt" <= CURRENT_TIMESTAMP/);
   assert.match(audit, /s\."endsAt" > CURRENT_TIMESTAMP/);
   assert.match(audit, /bwe\."attempts" >= 12/);
   assert.match(audit, /processing lease is stuck/);
