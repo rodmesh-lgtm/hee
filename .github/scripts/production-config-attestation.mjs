@@ -37,21 +37,31 @@ const releaseCoreKeys = [
   "VERCEL_PROJECT_ID",
 ];
 
-const migrationCoreKeys = [
-  "DATABASE_URL",
-  "RESTORE_DATABASE_URL",
-];
-
-const workerHostKeys = [
-  "HETZNER_HOST",
-  "HETZNER_USER",
-  "HETZNER_KNOWN_HOSTS",
-];
+const migrationCoreKeys = ["DATABASE_URL", "RESTORE_DATABASE_URL"];
+const workerHostKeys = ["HETZNER_HOST", "HETZNER_USER", "HETZNER_KNOWN_HOSTS"];
 
 function required(name) {
   const value = String(process.env[name] ?? "").trim();
   if (!value) throw new Error(`${name} is required for Production configuration attestation`);
   return value;
+}
+
+function validateProductionOauth() {
+  const googleId = required("GOOGLE_CLIENT_ID");
+  const googleSecret = required("GOOGLE_CLIENT_SECRET");
+  if (!googleId.endsWith(".apps.googleusercontent.com")) throw new Error("GOOGLE_CLIENT_ID must be a Google OAuth web client id");
+  if (googleSecret.length < 16 || googleId === googleSecret) throw new Error("GOOGLE_CLIENT_SECRET must be a valid distinct production secret");
+
+  const appleClientId = required("APPLE_CLIENT_ID");
+  const appleTeamId = required("APPLE_TEAM_ID");
+  const appleKeyId = required("APPLE_KEY_ID");
+  const applePrivateKey = required("APPLE_PRIVATE_KEY").replace(/\\n/g, "\n");
+  if (!appleClientId.includes(".")) throw new Error("APPLE_CLIENT_ID must be an Apple Services ID");
+  if (!/^[A-Z0-9]{10}$/.test(appleTeamId)) throw new Error("APPLE_TEAM_ID must be a 10-character Apple Team ID");
+  if (!/^[A-Z0-9]{10}$/.test(appleKeyId)) throw new Error("APPLE_KEY_ID must be a 10-character Apple key ID");
+  if (!applePrivateKey.includes("-----BEGIN PRIVATE KEY-----") || !applePrivateKey.includes("-----END PRIVATE KEY-----")) {
+    throw new Error("APPLE_PRIVATE_KEY must contain a PKCS#8 private key");
+  }
 }
 
 function releaseSha() {
@@ -67,6 +77,9 @@ function canonicalPayload(scope, keys) {
 
 function digest(scope) {
   if (scope === "release-core") {
+    // Social login is customer-visible at launch. Both Preflight attestation creation and
+    // later release-core verification must fail closed rather than attesting dead buttons.
+    validateProductionOauth();
     return createHmac("sha256", required("SESSION_SECRET"))
       .update(canonicalPayload(scope, releaseCoreKeys))
       .digest("hex");
@@ -106,14 +119,10 @@ async function writeAttestation(path) {
 async function verifyAttestation(scope, path) {
   const body = JSON.parse(await readFile(path, "utf8"));
   if (body?.version !== VERSION) throw new Error("Unsupported Production attestation version");
-  if (String(body?.releaseSha ?? "").toLowerCase() !== releaseSha()) {
-    throw new Error("Production attestation belongs to a different release SHA");
-  }
+  if (String(body?.releaseSha ?? "").toLowerCase() !== releaseSha()) throw new Error("Production attestation belongs to a different release SHA");
   const expected = String(body?.digests?.[scope] ?? "").toLowerCase();
   const current = digest(scope);
-  if (!equalHex(expected, current)) {
-    throw new Error(`Production ${scope} configuration changed after the successful Preflight attestation`);
-  }
+  if (!equalHex(expected, current)) throw new Error(`Production ${scope} configuration changed after the successful Preflight attestation`);
   console.log(`production-config-attestation: VERIFY PASS scope=${scope} release=${releaseSha()}`);
 }
 
