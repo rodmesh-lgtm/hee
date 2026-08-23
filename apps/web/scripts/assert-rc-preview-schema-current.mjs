@@ -15,13 +15,44 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+function strictDatabaseUrl(raw) {
+  const parsed = new URL(raw);
+  if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
+    throw new Error("DATABASE_URL must use PostgreSQL");
+  }
+  const modes = parsed.searchParams.getAll("sslmode");
+  if (modes.length !== 1) {
+    throw new Error("DATABASE_URL must contain exactly one explicit sslmode");
+  }
+  const mode = String(modes[0] ?? "").trim().toLowerCase();
+  if (["prefer", "require", "verify-ca"].includes(mode)) {
+    // node-postgres currently treats these legacy values with verify-full semantics but
+    // pg v9 will adopt weaker libpq-compatible behavior. Canonicalize now so the RC
+    // database gate cannot silently lose hostname verification after a dependency bump.
+    parsed.searchParams.set("sslmode", "verify-full");
+  } else if (mode !== "verify-full") {
+    throw new Error("DATABASE_URL must use sslmode=verify-full");
+  }
+  return parsed.toString();
+}
+
+let connectionString;
+try {
+  connectionString = strictDatabaseUrl(process.env.DATABASE_URL);
+} catch (error) {
+  console.error("[rc-preview-schema] REFUSED — database transport is not strictly verified", {
+    error: error instanceof Error ? error.message : "invalid DATABASE_URL",
+  });
+  process.exit(1);
+}
+
 const migrationsDir = join(process.cwd(), "prisma", "migrations");
 const expected = readdirSync(migrationsDir)
   .filter((name) => /^\d{14}_[A-Za-z0-9_]+$/.test(name))
   .filter((name) => statSync(join(migrationsDir, name)).isDirectory())
   .sort();
 
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+const client = new pg.Client({ connectionString });
 await client.connect();
 try {
   const history = await client.query(`
