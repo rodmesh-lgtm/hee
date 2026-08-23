@@ -22,6 +22,21 @@ test("customer support reads are scoped to the active business", () => {
   assert.match(page, /businessId:\s*business\.id,\s*eventType:\s*"support_requested"/);
 });
 
+test("support tickets cannot be silently closed without a customer-visible resolution note", () => {
+  const support = source("app/actions/support.ts");
+  const admin = source("app/admin/support/page.tsx");
+  const customer = source("app/dashboard/support/page.tsx");
+  assert.match(support, /const resolutionNote = text\(formData, "resolutionNote", 2000\)/);
+  assert.match(support, /!eventId \|\| !resolutionNote/);
+  assert.match(support, /resolutionNote,/);
+  assert.match(support, /resolvedByUserId: admin\.id/);
+  assert.match(support, /resolvedByEmail: admin\.email/);
+  assert.match(admin, /name="resolutionNote"/);
+  assert.match(admin, /maxLength=\{2000\}/);
+  assert.match(customer, /meta\.resolutionNote/);
+  assert.match(customer, /نتيجة المعالجة/);
+});
+
 test("data export requires an authenticated owned active business and never exports credentials", () => {
   const route = source("app/api/dashboard/export/route.ts");
   assert.match(route, /getCurrentUser\(\)/);
