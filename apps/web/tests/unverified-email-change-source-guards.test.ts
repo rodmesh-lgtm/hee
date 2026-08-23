@@ -5,14 +5,16 @@ import assert from "node:assert/strict";
 const action = readFileSync(new URL("../app/actions/email-verification.ts", import.meta.url), "utf8");
 const card = readFileSync(new URL("../components/dashboard/email-verification-card.tsx", import.meta.url), "utf8");
 
-test("unverified email correction stays limited, serialized and revokes stale verification links", () => {
+test("unverified email correction stays limited, serialized and revokes stale mailbox credentials", () => {
   assert.match(action, /changeUnverifiedEmailAction/);
   assert.match(action, /emailVerifiedAt/);
   assert.match(action, /passwordHash/);
   assert.match(action, /unverified-email-change:/);
   assert.match(action, /unverified-email-target:/);
   assert.match(action, /pg_advisory_xact_lock/);
-  assert.match(action, /provider:\s*EMAIL_VERIFICATION_PROVIDER/);
+  assert.match(action, /EMAIL_VERIFICATION_PROVIDER/);
+  assert.match(action, /PASSWORD_RESET_PROVIDER/);
+  assert.match(action, /provider:\s*\{\s*in:\s*\[EMAIL_VERIFICATION_PROVIDER, PASSWORD_RESET_PROVIDER\]/s);
   assert.match(action, /oAuthState\.deleteMany/);
   assert.match(action, /issueEmailVerification\(user\.id, nextEmail\)/);
   assert.match(action, /P2002/);
