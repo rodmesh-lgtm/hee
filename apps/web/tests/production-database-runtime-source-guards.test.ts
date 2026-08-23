@@ -9,8 +9,9 @@ function source(path: string) {
 
 test("production web runtime uses a deliberately small per-isolate PostgreSQL pool", () => {
   const prisma = source("lib/prisma.ts");
-  assert.match(prisma, /const production = String\(process\.env\.APP_ENV/);
-  assert.match(prisma, /const fallback = production \? "2" : "5"/);
+  assert.match(prisma, /import \{ isProductionRuntime \} from "\.\.\/app\/lib\/runtime-environment"/);
+  assert.match(prisma, /const fallback = isProductionRuntime\(\) \? "2" : "5"/);
+  assert.doesNotMatch(prisma, /APP_ENV[^\n]*===\s*["']production["']/);
   assert.match(prisma, /process\.env\.PG_POOL_MAX/);
   assert.match(prisma, /Math\.max\(1, Math\.min\(20, configured\)\)/);
   assert.match(prisma, /idleTimeoutMillis: 30_000/);
