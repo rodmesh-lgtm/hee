@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { compare, hash } from "bcryptjs";
 import { db } from "./db";
 import { clearQaAuditSession, getQaAuditSessionUser, isQaAuditModeUser } from "./qa-audit";
+import { isExplicitTestRuntime } from "./runtime-environment";
 
 const SESSION_COOKIE = "__Host-hee_session";
 const LEGACY_SESSION_COOKIE = "hee_session";
@@ -16,7 +17,7 @@ function sessionStorageToken(rawToken: string) {
   return `${NORMAL_SESSION_STORAGE_PREFIX}${createHash("sha256").update(rawToken).digest("hex")}`;
 }
 function looksLikeStoredSessionToken(value: string) { return value.startsWith(NORMAL_SESSION_STORAGE_PREFIX); }
-function allowLegacyPlaintextSessions() { return process.env.APP_ENV === "test"; }
+function allowLegacyPlaintextSessions() { return isExplicitTestRuntime(); }
 
 export async function hashPassword(password: string) { return hash(password, 10); }
 export async function verifyPassword(password: string, passwordHash: string) { return compare(password, passwordHash); }
@@ -55,9 +56,9 @@ export async function getCurrentUser() {
   const token = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
 
   if (token && !token.startsWith(QA_TOKEN_PREFIX) && !looksLikeStoredSessionToken(token)) {
-    // Production authenticates only against SHA-256(token) rows. Plaintext legacy
-    // session rows are accepted solely by explicit CI tests so a database read cannot
-    // be replayed as a browser cookie in a real runtime.
+    // Real runtimes authenticate only against SHA-256(token) rows. Plaintext legacy
+    // session rows are accepted solely by the explicit CI test runtime, and a Vercel
+    // Production signal always wins over a drifting APP_ENV=test value.
     const hashedToken = sessionStorageToken(token);
     let session = await db.session.findUnique({ where: { token: hashedToken }, include: { user: true } });
     let storedToken = hashedToken;
