@@ -1,11 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 const adminEmail = "rc-platform-admin@hee.test";
-let pool: Pool;
 let db: PrismaClient;
 
 async function setSession(page: import("@playwright/test").Page, token: string) {
@@ -17,13 +14,11 @@ test.describe.serial("customer support and data rights", () => {
   test.beforeAll(async () => {
     const connectionString = String(process.env.DATABASE_URL ?? "").trim();
     if (!connectionString) throw new Error("DATABASE_URL is required");
-    pool = new Pool({ connectionString, max: 4 });
-    db = new PrismaClient({ adapter: new PrismaPg(pool) });
+    db = new PrismaClient({ datasourceUrl: connectionString });
   });
 
   test.afterAll(async () => {
     await db?.$disconnect();
-    await pool?.end();
   });
 
   test("owner can open support, export own data, and admin can resolve the ticket", async ({ page }) => {
