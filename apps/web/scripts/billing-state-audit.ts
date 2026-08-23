@@ -11,6 +11,7 @@ const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
 const recordHeartbeat = process.argv.includes("--record-heartbeat");
 const HEARTBEAT_MAX_AGE_MINUTES = 90;
+const MAX_RENEWAL_ATTEMPTS = 3;
 const releaseSha = String(process.env.RELEASE_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "").trim().toLowerCase();
 const validReleaseSha = /^[0-9a-f]{40}$/.test(releaseSha);
 
@@ -76,6 +77,32 @@ async function main() {
        OR (s."status"='past_due' AND s."endsAt" IS NULL)
   `;
   drifts.push(...invalidLivePeriod);
+
+  // Past-due is valid only while the renewal worker still has a recoverable collection
+  // state. Once the retry budget is exhausted, the worker must close the subscription.
+  // This catches a stranded past_due row if worker control-flow, data corruption or a
+  // partial operational failure ever leaves the subscription terminally uncollectable.
+  const strandedPastDue = await db.$queryRaw<DriftRow[]>`
+    SELECT s."businessId" AS "businessId", 'expired past_due subscription has no recoverable renewal attempt' AS detail
+    FROM "Subscription" s
+    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO')
+    WHERE s."status"='past_due'
+      AND s."endsAt" IS NOT NULL
+      AND s."endsAt" <= CURRENT_TIMESTAMP
+      AND NOT EXISTS (
+        SELECT 1
+        FROM "BillingPayment" bp
+        WHERE bp."subscriptionId"=s."id"
+          AND bp."businessId"=s."businessId"
+          AND bp."kind"='renewal'
+          AND bp."attempt" BETWEEN 1 AND ${MAX_RENEWAL_ATTEMPTS}
+          AND (
+            bp."status" IN ('created','initiated','authorized')
+            OR (bp."status"='failed' AND bp."attempt" < ${MAX_RENEWAL_ATTEMPTS} AND bp."nextRetryAt" IS NOT NULL)
+          )
+      )
+  `;
+  drifts.push(...strandedPastDue);
 
   const activeMismatch = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'live subscription plan differs from business entitlement plan' AS detail
