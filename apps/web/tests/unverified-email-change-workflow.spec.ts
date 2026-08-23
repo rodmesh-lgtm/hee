@@ -25,7 +25,7 @@ test.describe.serial("unverified email correction", () => {
     await pool?.end();
   });
 
-  test("lets a password owner correct a mistyped unverified email and revokes the old verification link", async ({ browser }) => {
+  test("lets a password owner correct a mistyped unverified email and revokes old mailbox credentials", async ({ browser }) => {
     test.setTimeout(90_000);
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const wrongEmail = `wrong-${suffix}@example.invalid`;
@@ -58,14 +58,24 @@ test.describe.serial("unverified email correction", () => {
 
     const staleRaw = randomBytes(32).toString("hex");
     const staleHash = hashToken(staleRaw);
-    await db.oAuthState.create({
-      data: {
-        state: staleHash,
-        provider: "email-verification",
-        nonce: user.id,
-        redirectTo: wrongEmail,
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-      },
+    const staleResetRaw = randomBytes(32).toString("hex");
+    const staleResetHash = hashToken(staleResetRaw);
+    await db.oAuthState.createMany({
+      data: [
+        {
+          state: staleHash,
+          provider: "email-verification",
+          nonce: user.id,
+          redirectTo: wrongEmail,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        },
+        {
+          state: staleResetHash,
+          provider: "password-reset",
+          nonce: user.id,
+          expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        },
+      ],
     });
 
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -79,7 +89,7 @@ test.describe.serial("unverified email correction", () => {
       await page.getByRole("button", { name: "تحديث البريد" }).click();
       await expect(page.getByRole("alert").filter({ hasText: "تعذر استخدام هذا البريد" })).toBeVisible({ timeout: 20_000 });
       expect((await db.user.findUnique({ where: { id: user.id }, select: { email: true } }))?.email).toBe(wrongEmail);
-      expect(await db.oAuthState.count({ where: { state: staleHash } })).toBe(1);
+      expect(await db.oAuthState.count({ where: { state: { in: [staleHash, staleResetHash] } } })).toBe(2);
 
       await page.locator('input[name="email"]').fill(correctedEmail);
       await page.getByRole("button", { name: "تحديث البريد" }).click();
@@ -88,9 +98,9 @@ test.describe.serial("unverified email correction", () => {
       const changed = await db.user.findUnique({ where: { id: user.id }, select: { email: true, emailVerifiedAt: true } });
       expect(changed?.email).toBe(correctedEmail);
       expect(changed?.emailVerifiedAt).toBeNull();
-      expect(await db.oAuthState.count({ where: { state: staleHash } })).toBe(0);
+      expect(await db.oAuthState.count({ where: { state: { in: [staleHash, staleResetHash] } } })).toBe(0);
 
-      // The previously issued link for the typo must remain unusable after the account email changes.
+      // The old email-verification link must remain unusable after the account email changes.
       const stalePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
       try {
         await stalePage.goto(`${baseUrl}/verify-email?token=${staleRaw}`, { waitUntil: "domcontentloaded" });
@@ -98,6 +108,18 @@ test.describe.serial("unverified email correction", () => {
         await stalePage.waitForURL("**/verify-email?status=invalid", { timeout: 20_000 });
       } finally {
         await stalePage.close();
+      }
+
+      // The password-reset credential delivered to the mistyped mailbox is revoked too.
+      const resetPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+      try {
+        await resetPage.goto(`${baseUrl}/reset-password?token=${staleResetRaw}`, { waitUntil: "domcontentloaded" });
+        await resetPage.locator('input[name="password"]').fill("Valid#Pass123");
+        await resetPage.locator('input[name="confirmPassword"]').fill("Valid#Pass123");
+        await resetPage.getByRole("button", { name: /تعيين|حفظ|تحديث/ }).click();
+        await expect(resetPage.getByText(/انتهت صلاحية رابط الاستعادة|غير صالح/)).toBeVisible({ timeout: 20_000 });
+      } finally {
+        await resetPage.close();
       }
       expect((await db.user.findUnique({ where: { id: user.id }, select: { emailVerifiedAt: true } }))?.emailVerifiedAt).toBeNull();
     } finally {
