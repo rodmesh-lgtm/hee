@@ -1,6 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { hash } from "bcryptjs";
 import { Prisma } from "@prisma/client";
 
 const QA_SESSION_COOKIE = "hee_qa_audit";
@@ -27,9 +26,19 @@ export async function resolveQaAuditUser() {
   const email = getQaAuditUserEmail(); if (!email) return null;
   const { db } = await import("./db"); const name = process.env.QA_AUDIT_USER_NAME?.trim() || "QA Audit Preview";
   const existing = await db.user.findUnique({ where: { email } });
-  if (existing) { if (existing.deletedAt) return null; if (existing.name !== name) return db.user.update({ where: { id: existing.id }, data: { name } }); return existing; }
-  const passwordHash = await hash("qa-preview-access", 10);
-  try { return await db.user.create({ data: { name, email, passwordHash } }); } catch (error) { if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return db.user.findFirst({ where: { email, deletedAt: null } }); throw error; }
+  if (existing) {
+    if (existing.deletedAt) return null;
+    // QA_AUDIT_USER_EMAIL is an operator-declared preview-only service identity. It must
+    // never retain an ordinary password credential: older preview builds created it with
+    // a deterministic password, which could bypass the one-time QA-link trust boundary.
+    // Scrubbing that legacy hash also makes password-reset requests indistinguishable from
+    // OAuth-only/no-password accounts and prevents this service identity being reused via /login.
+    if (existing.name !== name || existing.passwordHash !== null) {
+      return db.user.update({ where: { id: existing.id }, data: { name, passwordHash: null } });
+    }
+    return existing;
+  }
+  try { return await db.user.create({ data: { name, email, passwordHash: null } }); } catch (error) { if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return db.user.findFirst({ where: { email, deletedAt: null, passwordHash: null } }); throw error; }
 }
 
 export async function createQaAuditSession(userId: string) {
