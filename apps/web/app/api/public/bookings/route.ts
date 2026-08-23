@@ -24,6 +24,15 @@ type ExistingBookingRange = {
   durationMinutes: number;
 };
 
+type WorkingHoursState = {
+  dayOfWeek: number;
+  opensAt: string | null;
+  closesAt: string | null;
+  secondOpensAt: string | null;
+  secondClosesAt: string | null;
+  isClosed: boolean;
+};
+
 function text(value: unknown, max: number) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized.length <= max ? normalized : null;
@@ -209,6 +218,48 @@ export async function POST(request: Request) {
       // Serialize bookings per service, not per calendar day. Overnight services can
       // otherwise race across midnight (for example Monday 23:30 vs Tuesday 00:00).
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-service:${business.id}:${serviceId}`}))`;
+
+      // Re-prove every mutable public-booking invariant at commit time. SHARE locks keep
+      // publication, mailbox ownership, booking availability and service eligibility from
+      // changing between this decision and the insert. The preflight above remains only a
+      // fast user-facing rejection path; it is never the final authorization decision.
+      const eligibleTargets = await tx.$queryRaw<Array<{ serviceId: string; durationMinutes: number | null }>>`
+        SELECT s."id" AS "serviceId", s."durationMinutes"
+        FROM "Business" b
+        JOIN "User" u ON u."id" = b."ownerId"
+        JOIN "Service" s ON s."businessId" = b."id"
+        WHERE b."id" = ${business.id}
+          AND b."slug" = ${slug}
+          AND b."deletedAt" IS NULL
+          AND b."isPublished" = true
+          AND b."bookingAvailable" = true
+          AND u."deletedAt" IS NULL
+          AND u."emailVerifiedAt" IS NOT NULL
+          AND s."id" = ${serviceId}
+          AND s."deletedAt" IS NULL
+          AND s."isActive" = true
+          AND s."bookingEnabled" = true
+        FOR SHARE OF b, u, s
+      `;
+      const currentService = eligibleTargets[0];
+      if (!currentService) throw new Error("PUBLIC_BOOKING_TARGET_UNAVAILABLE");
+      const currentDurationMinutes = normalizedBookingDuration(currentService.durationMinutes);
+
+      const previousDayOfWeek = previousDay(dayOfWeek);
+      const currentHours = await tx.$queryRaw<WorkingHoursState[]>`
+        SELECT "dayOfWeek", "opensAt", "closesAt", "secondOpensAt", "secondClosesAt", "isClosed"
+        FROM "WorkingHours"
+        WHERE "businessId" = ${business.id}
+          AND "dayOfWeek" IN (${dayOfWeek}, ${previousDayOfWeek})
+        FOR SHARE
+      `;
+      const hoursByDay = new Map(currentHours.map((item) => [item.dayOfWeek, item]));
+      const currentSchedule = hoursByDay.get(dayOfWeek) ?? null;
+      const currentPreviousSchedule = hoursByDay.get(previousDayOfWeek) ?? null;
+      const currentInTodayWindow = bookingWithinWorkingHours(bookingTime, currentDurationMinutes, currentSchedule);
+      const currentInPreviousOvernightWindow = bookingWithinPreviousOvernightWorkingHours(bookingTime, currentDurationMinutes, currentPreviousSchedule);
+      if (!currentInTodayWindow && !currentInPreviousOvernightWindow) throw new Error("PUBLIC_BOOKING_SCHEDULE_CHANGED");
+
       const previousBookingDate = shiftBookingDate(bookingDate, -1);
       const nextBookingDate = shiftBookingDate(bookingDate, 1);
       const existingBookings = await tx.$queryRaw<ExistingBookingRange[]>`
@@ -236,7 +287,7 @@ export async function POST(request: Request) {
       const offsets = new Map([[previousBookingDate, -1440], [bookingDate, 0], [nextBookingDate, 1440]]);
       if (existingBookings.some((item) => {
         const existingStart = (offsets.get(item.bookingDate) ?? 0) + bookingMinutes(item.bookingTime);
-        return bookingIntervalsOverlap(requestedStart, durationMinutes, existingStart, normalizedBookingDuration(item.durationMinutes));
+        return bookingIntervalsOverlap(requestedStart, currentDurationMinutes, existingStart, normalizedBookingDuration(item.durationMinutes));
       })) {
         throw new Error("PUBLIC_BOOKING_SLOT_TAKEN");
       }
@@ -257,7 +308,7 @@ export async function POST(request: Request) {
         data: {
           businessId: business.id,
           customerId: customer.id,
-          serviceId: service.id,
+          serviceId: currentService.serviceId,
           bookingDate,
           bookingTime,
           notes: notes || null,
@@ -267,7 +318,7 @@ export async function POST(request: Request) {
       });
       await tx.$executeRaw`
         INSERT INTO "BookingDurationSnapshot" ("bookingId", "durationMinutes")
-        VALUES (${booking.id}, ${durationMinutes})
+        VALUES (${booking.id}, ${currentDurationMinutes})
       `;
       await tx.$executeRaw`
         INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId")
@@ -280,6 +331,12 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_SLOT_TAKEN") {
       return NextResponse.json({ ok: false, error: "هذا الوقت يتداخل مع حجز قائم للخدمة" }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PUBLIC_BOOKING_TARGET_UNAVAILABLE") {
+      return NextResponse.json({ ok: false, error: "الحجز أو الخدمة لم يعودا متاحين لهذا النشاط" }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PUBLIC_BOOKING_SCHEDULE_CHANGED") {
+      return NextResponse.json({ ok: false, error: "تغيرت ساعات العمل أو مدة الخدمة. اختر موعدًا متاحًا من جديد." }, { status: 409 });
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ ok: false, error: "هذا الموعد محجوز بالفعل" }, { status: 409 });
