@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isProductionRuntime } from "../../../lib/runtime-environment";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ function storageReady() {
 }
 
 async function runtimeReady() {
-  if (String(process.env.APP_ENV ?? "").trim().toLowerCase() !== "production") return false;
+  if (!isProductionRuntime()) return false;
   if (enabled("PRODUCTION_MAINTENANCE_MODE")) return false;
   const releaseSha = runtimeReleaseSha();
   if (!releaseSha) return false;

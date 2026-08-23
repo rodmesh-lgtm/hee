@@ -48,14 +48,35 @@ test("critical paid billing boundaries use the shared Production identity", () =
   assert.match(webhook, /const production = isProductionRuntime\(\)/);
 });
 
-test("critical paid billing runtime files no longer derive Production from APP_ENV alone", () => {
+test("critical auth, tenant, database and readiness boundaries use the shared Production identity", () => {
+  const auth = source("app/lib/auth.ts");
+  const activeBusiness = source("app/actions/active-business.ts");
+  const prisma = source("lib/prisma.ts");
+  const maintenance = source("app/api/maintenance/status/route.ts");
+  const ready = source("app/api/health/ready/route.ts");
+
+  assert.match(auth, /allowLegacyPlaintextSessions\(\) \{ return isExplicitTestRuntime\(\); \}/);
+  assert.match(activeBusiness, /!isExplicitTestRuntime\(\)/);
+  assert.match(prisma, /isProductionRuntime\(\) \? "2" : "5"/);
+  assert.match(maintenance, /return isProductionRuntime\(\)/);
+  assert.match(ready, /if \(!isProductionRuntime\(\)\) return false/);
+});
+
+test("critical runtime files no longer derive Production or test trust from APP_ENV alone", () => {
   for (const path of [
     "app/lib/billing.ts",
     "app/lib/moyasar-core.ts",
     "app/lib/billing-tax-core.ts",
     "app/dashboard/billing/checkout/page.tsx",
     "app/api/billing/moyasar/webhook/route.ts",
+    "app/lib/auth.ts",
+    "app/actions/active-business.ts",
+    "lib/prisma.ts",
+    "app/api/maintenance/status/route.ts",
+    "app/api/health/ready/route.ts",
   ]) {
     assert.doesNotMatch(source(path), /APP_ENV[^\n]*===\s*["']production["']/);
   }
+  assert.doesNotMatch(source("app/lib/auth.ts"), /APP_ENV\s*===\s*["']test["']/);
+  assert.doesNotMatch(source("app/actions/active-business.ts"), /APP_ENV\s*!==\s*["']test["']/);
 });

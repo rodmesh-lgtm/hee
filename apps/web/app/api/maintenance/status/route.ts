@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
+import { appEnvironment, isProductionRuntime, vercelEnvironment } from "../../../lib/runtime-environment";
 
 export const dynamic = "force-dynamic";
 
 function maintenanceEnabled() {
-  return String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production"
+  return isProductionRuntime()
     && String(process.env.PRODUCTION_MAINTENANCE_MODE ?? "").trim().toLowerCase() === "true";
 }
 
 function releaseSha() {
   return String(process.env.RELEASE_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "").trim() || null;
+}
+
+function environment() {
+  if (isProductionRuntime()) return "production";
+  return appEnvironment() || vercelEnvironment() || null;
 }
 
 export async function GET() {
@@ -17,7 +23,7 @@ export async function GET() {
       service: "hee-web",
       maintenance: maintenanceEnabled(),
       releaseSha: releaseSha(),
-      environment: String(process.env.APP_ENV ?? "").trim().toLowerCase() || null,
+      environment: environment(),
     },
     {
       status: 200,

@@ -50,16 +50,33 @@ test("maintenance control endpoints are read-only exceptions", async () => {
 });
 
 test("maintenance mode never activates outside production", async () => {
-  await withEnvironment({ APP_ENV: "test", PRODUCTION_MAINTENANCE_MODE: "true" }, async () => {
+  await withEnvironment({ APP_ENV: "test", VERCEL_ENV: "preview", PRODUCTION_MAINTENANCE_MODE: "true" }, async () => {
     const response = proxy(new NextRequest("https://hee.sa/register"));
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
   });
 });
 
+test("Vercel Production cannot be downgraded out of maintenance by APP_ENV drift", async () => {
+  const sha = "b".repeat(40);
+  await withEnvironment({ APP_ENV: "test", VERCEL_ENV: "production", PRODUCTION_MAINTENANCE_MODE: "true", RELEASE_SHA: sha }, async () => {
+    const page = proxy(new NextRequest("https://hee.sa/register"));
+    assert.equal(page.status, 503);
+
+    const response = await maintenanceStatus();
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      service: "hee-web",
+      maintenance: true,
+      releaseSha: sha,
+      environment: "production",
+    });
+  });
+});
+
 test("maintenance status reports exact deployment state without caching", async () => {
   const sha = "a".repeat(40);
-  await withEnvironment({ APP_ENV: "production", PRODUCTION_MAINTENANCE_MODE: "true", RELEASE_SHA: sha, VERCEL_GIT_COMMIT_SHA: undefined }, async () => {
+  await withEnvironment({ APP_ENV: "production", VERCEL_ENV: undefined, PRODUCTION_MAINTENANCE_MODE: "true", RELEASE_SHA: sha, VERCEL_GIT_COMMIT_SHA: undefined }, async () => {
     const response = await maintenanceStatus();
     assert.equal(response.status, 200);
     assert.match(String(response.headers.get("cache-control")), /no-store/);

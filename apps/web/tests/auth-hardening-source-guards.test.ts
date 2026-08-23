@@ -71,7 +71,10 @@ test("password reset links are canonical in production but preview-safe", () => 
 
 test("real runtimes do not authenticate plaintext legacy database sessions", () => {
   const auth = source("app/lib/auth.ts");
-  assert.match(auth, /function allowLegacyPlaintextSessions\(\) \{ return process\.env\.APP_ENV === "test"; \}/);
+  const runtime = source("app/lib/runtime-environment.ts");
+  assert.match(auth, /import \{ isExplicitTestRuntime \} from "\.\/runtime-environment"/);
+  assert.match(auth, /function allowLegacyPlaintextSessions\(\) \{ return isExplicitTestRuntime\(\); \}/);
+  assert.match(runtime, /appEnvironment\(\) === "test" && vercelEnvironment\(\) !== "production"/);
   assert.match(auth, /if \(!session && allowLegacyPlaintextSessions\(\)\)/);
   assert.match(auth, /NORMAL_SESSION_STORAGE_PREFIX/);
   assert.match(auth, /secure:\s*true/);

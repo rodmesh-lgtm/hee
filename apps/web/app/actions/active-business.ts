@@ -6,12 +6,12 @@ import { redirect } from "next/navigation";
 import { getCurrentUserForWrites } from "../lib/auth";
 import { ACTIVE_BUSINESS_COOKIE } from "../lib/active-business";
 import { db } from "../lib/db";
+import { isExplicitTestRuntime } from "../lib/runtime-environment";
 
 function activeBusinessCookieSecure() {
-  // CI exercises the production build over local HTTP. The only environment allowed
-  // to relax Secure is the explicit test environment; every real production runtime
-  // keeps this tenant-selection cookie HTTPS-only.
-  return process.env.NODE_ENV === "production" && process.env.APP_ENV !== "test";
+  // CI exercises the production build over local HTTP. Only the explicit CI test runtime
+  // may relax Secure; a Vercel Production signal always wins over APP_ENV drift.
+  return process.env.NODE_ENV === "production" && !isExplicitTestRuntime();
 }
 
 export async function switchActiveBusinessAction(formData: FormData) {
