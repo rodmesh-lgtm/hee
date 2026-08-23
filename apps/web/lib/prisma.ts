@@ -3,6 +3,7 @@ import "server-only";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
+import { isProductionRuntime } from "../app/lib/runtime-environment";
 import { normalizePostgresDatabaseUrl } from "./database-url";
 
 type GlobalPrisma = {
@@ -27,10 +28,9 @@ function validatedDatabaseUrl() {
 function poolSize() {
   // A Vercel/other horizontally scaled Node runtime can have many warm isolates. A
   // large pool per isolate multiplies quickly and can exhaust PostgreSQL long before
-  // request CPU is saturated. Keep the production fallback deliberately small; the
-  // reviewed production environment must set PG_POOL_MAX explicitly for its DB budget.
-  const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
-  const fallback = production ? "2" : "5";
+  // request CPU is saturated. The hosting platform Production signal must therefore
+  // preserve the conservative fallback even if APP_ENV drifts or is missing.
+  const fallback = isProductionRuntime() ? "2" : "5";
   const configured = Number.parseInt(String(process.env.PG_POOL_MAX ?? fallback), 10);
   return Number.isFinite(configured) ? Math.max(1, Math.min(20, configured)) : Number(fallback);
 }
