@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { db } from "./db";
 
 export function normalizeAccessCode(raw: unknown) {
@@ -36,11 +36,20 @@ export async function redeemSubscriptionAccessCode(userId: string, businessId: s
 
     const plan = await tx.businessPlan.findFirst({ where: { id: access.planId, isActive: true }, select: { id: true } });
     if (!plan) return "unavailable" as const;
+
     const prior = await tx.subscriptionAccessGrant.findUnique({ where: { codeId_businessId: { codeId: access.id, businessId } }, select: { revokedAt: true } });
     if (prior && !prior.revokedAt) return "already-active" as const;
     if (prior?.revokedAt) return "revoked" as const;
 
-    await tx.subscription.updateMany({ where: { businessId, status: { in: ["active", "past_due"] } }, data: { status: "replaced", autoRenew: false } });
+    // Access codes are an alternate entitlement source, not a billing mutation. Never
+    // replace/cancel a live paid or trial subscription implicitly: that can suppress
+    // renewal locally while leaving provider-side money movement or a valid paid term.
+    const currentSubscription = await tx.subscription.findFirst({
+      where: { businessId, status: { in: ["active", "trialing", "past_due"] } },
+      select: { id: true },
+    });
+    if (currentSubscription) return "subscription-conflict" as const;
+
     const subscription = await tx.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "access_code", providerReference: access.id, autoRenew: false, endsAt: null } });
     await tx.business.update({ where: { id: businessId }, data: { planId: plan.id } });
     await tx.subscriptionAccessGrant.create({ data: { codeId: access.id, businessId, planId: plan.id, subscriptionId: subscription.id, redeemedByUserId: userId } });
