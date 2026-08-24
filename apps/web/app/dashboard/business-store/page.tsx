@@ -4,7 +4,7 @@ import { BadgeCheck, ExternalLink, PackageCheck, QrCode, ShoppingBag, Sparkles }
 import { BusinessStoreDraftBuilder } from "../../../components/business-store/business-store-draft-builder";
 import { getActiveBusinessForUser } from "../../lib/active-business";
 import { getCurrentUser } from "../../lib/auth";
-import { BUSINESS_STORE_CATALOG } from "../../lib/business-store-catalog";
+import { listBusinessStoreCatalogItems } from "../../lib/business-store-catalog";
 
 export default async function BusinessStorePage() {
   const user = await getCurrentUser();
@@ -12,6 +12,7 @@ export default async function BusinessStorePage() {
   const business = await getActiveBusinessForUser(user.id);
   if (!business) redirect("/onboarding");
 
+  const [catalog] = await Promise.all([listBusinessStoreCatalogItems()]);
   const publicUrl = `https://hee.sa/${business.slug}`;
   const identityReady = Boolean(business.logoUrl && business.name && business.slug);
 
@@ -34,8 +35,8 @@ export default async function BusinessStorePage() {
     </section>
 
     <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><div className="flex items-center gap-2"><PackageCheck className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">منتجات البداية</h2></div><p className="mt-1 text-xs leading-6 text-slate-500">يمكنك الآن تكوين مسودة طلب فعلية وحفظ المنتجات والكميات. لا تُفتح أي عملية دفع قبل اكتمال مسار المراجعة والعنوان والدفع الآمن.</p></div><span className="rounded-full bg-[#f1edff] px-3 py-1.5 text-xs font-black text-[#6543ce]">مسودات الطلب مفعلة</span></div>
-      <div className="mt-5"><BusinessStoreDraftBuilder catalog={BUSINESS_STORE_CATALOG} /></div>
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><div className="flex items-center gap-2"><PackageCheck className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">منتجات متجر الأعمال</h2></div><p className="mt-1 text-xs leading-6 text-slate-500">يعرض هذا القسم المنتجات النشطة التي تديرها HEE مركزيًا. السعر والحد الأقصى للكمية يعاد التحقق منهما من الخادم عند كل حفظ.</p></div><span className="rounded-full bg-[#f1edff] px-3 py-1.5 text-xs font-black text-[#6543ce]">{catalog.length} منتج متاح</span></div>
+      <div className="mt-5">{catalog.length ? <BusinessStoreDraftBuilder catalog={catalog} /> : <div className="rounded-2xl border border-dashed border-[#dcd7ec] bg-[#faf9fd] p-8 text-center text-sm font-bold text-slate-500">لا توجد منتجات متاحة حاليًا في متجر الأعمال.</div>}</div>
     </section>
 
     <section className="grid gap-4 lg:grid-cols-2">
