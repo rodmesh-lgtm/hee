@@ -52,6 +52,14 @@ CREATE TABLE "BusinessStoreOrder" (
       "paymentStatus" IN ('unpaid', 'pending', 'paid', 'failed', 'refunded')
     ),
     CONSTRAINT "BusinessStoreOrder_currency_check" CHECK ("currency" = 'SAR'),
+    CONSTRAINT "BusinessStoreOrder_required_snapshot_text_check" CHECK (
+      btrim("idempotencyKey") <> '' AND
+      btrim("businessNameSnapshot") <> '' AND
+      btrim("businessSlugSnapshot") <> '' AND
+      btrim("publicUrlSnapshot") <> '' AND
+      btrim("primaryColorSnapshot") <> '' AND
+      btrim("shippingCountry") <> ''
+    ),
     CONSTRAINT "BusinessStoreOrder_payment_provider_pair_check" CHECK (
       ("paymentProvider" IS NULL AND "providerPaymentId" IS NULL)
       OR ("paymentProvider" IS NOT NULL AND "providerPaymentId" IS NOT NULL)
@@ -84,6 +92,9 @@ CREATE TABLE "BusinessStoreOrderItem" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "BusinessStoreOrderItem_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "BusinessStoreOrderItem_required_text_check" CHECK (
+      btrim("sku") <> '' AND btrim("nameSnapshot") <> ''
+    ),
     CONSTRAINT "BusinessStoreOrderItem_unit_price_check" CHECK ("unitPrice" >= 0),
     CONSTRAINT "BusinessStoreOrderItem_quantity_check" CHECK ("quantity" > 0),
     CONSTRAINT "BusinessStoreOrderItem_line_total_check" CHECK (
@@ -148,8 +159,13 @@ BEFORE UPDATE ON "BusinessStoreOrder"
 FOR EACH ROW EXECUTE FUNCTION "hee_protect_business_store_order_snapshot"();
 
 -- Prevent status rollback from reopening an immutable order or payment lifecycle.
+-- Draft submission also proves that the immutable subtotal matches real order items
+-- and that the minimum delivery snapshot exists before the order can leave draft.
 CREATE OR REPLACE FUNCTION "hee_validate_business_store_order_transition"()
 RETURNS trigger AS $$
+DECLARE
+  item_count INTEGER;
+  item_subtotal BIGINT;
 BEGIN
   IF NEW."status" IS DISTINCT FROM OLD."status" AND NOT (
     (OLD."status" = 'draft' AND NEW."status" IN ('submitted', 'cancelled')) OR
@@ -158,6 +174,28 @@ BEGIN
     (OLD."status" = 'shipped' AND NEW."status" = 'fulfilled')
   ) THEN
     RAISE EXCEPTION 'invalid business store order status transition: % -> %', OLD."status", NEW."status";
+  END IF;
+
+  IF OLD."status" = 'draft' AND NEW."status" = 'submitted' THEN
+    SELECT COUNT(*), COALESCE(SUM("lineTotal"), 0)
+      INTO item_count, item_subtotal
+    FROM "BusinessStoreOrderItem"
+    WHERE "orderId" = OLD."id";
+
+    IF item_count = 0 THEN
+      RAISE EXCEPTION 'business store order cannot be submitted without items';
+    END IF;
+
+    IF item_subtotal <> NEW."subtotal" THEN
+      RAISE EXCEPTION 'business store order subtotal does not match item totals';
+    END IF;
+
+    IF NULLIF(btrim(NEW."shippingName"), '') IS NULL
+      OR NULLIF(btrim(NEW."shippingPhone"), '') IS NULL
+      OR NULLIF(btrim(NEW."shippingAddressLine1"), '') IS NULL
+      OR NULLIF(btrim(NEW."shippingCity"), '') IS NULL THEN
+      RAISE EXCEPTION 'business store order shipping snapshot is incomplete';
+    END IF;
   END IF;
 
   IF NEW."paymentStatus" IS DISTINCT FROM OLD."paymentStatus" AND NOT (
@@ -203,7 +241,10 @@ BEGIN
     END IF;
   END IF;
 
-  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
