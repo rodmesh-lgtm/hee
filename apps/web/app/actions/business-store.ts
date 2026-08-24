@@ -116,7 +116,9 @@ export async function setBusinessStoreDraftItemAction(input: {
   const business = await getActiveBusinessForUser(user.id);
   if (!business) return { ok: false, code: "BUSINESS_NOT_FOUND" };
 
-  const catalogItem = getBusinessStoreCatalogItem(input?.sku);
+  // The browser supplies only the SKU/quantity. Product existence, active state,
+  // max quantity and price are always re-read from the central HEE catalog.
+  const catalogItem = await getBusinessStoreCatalogItem(input?.sku);
   if (!catalogItem) return { ok: false, code: "INVALID_SKU" };
   if (!Number.isSafeInteger(input?.quantity) || input.quantity < 1 || input.quantity > catalogItem.maxQuantity) {
     return { ok: false, code: "INVALID_QUANTITY" };
@@ -174,8 +176,6 @@ export async function setBusinessStoreDraftItemAction(input: {
           select: { id: true },
         });
 
-    // Older/manual data could contain duplicate SKU lines. Collapse extras while the
-    // database trigger still guarantees the parent is an editable draft.
     if (existing) {
       await tx.businessStoreOrderItem.deleteMany({
         where: { orderId: order.id, sku: catalogItem.sku, id: { not: item.id } },
