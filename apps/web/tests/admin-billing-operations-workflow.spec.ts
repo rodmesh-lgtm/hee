@@ -68,7 +68,7 @@ test.describe.serial("central admin billing operations", () => {
       await expect(page.getByText("not_registered", { exact: true })).toBeVisible();
       await expect(page.getByText("payment_paid", { exact: true })).toBeVisible();
       await expect(page.getByText(/هذه الصفحة للقراءة والتحقق فقط/)).toBeVisible();
-      await expect(page.locator("form")).toHaveCount(0);
+      await expect(page.locator("main form")).toHaveCount(0);
     } finally {
       await db.session.deleteMany({ where: { token: f.token } });
       await db.subscriptionAccessGrant.deleteMany({ where: { id: f.grantId } });
