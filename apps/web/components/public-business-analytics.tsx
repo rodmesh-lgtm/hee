@@ -30,7 +30,12 @@ export function PublicBusinessAnalytics({ slug }: { slug: string }) {
       if (!target) return;
       const href = target instanceof HTMLAnchorElement ? target.href : "";
       const label = `${target.getAttribute("aria-label") || ""} ${target.textContent || ""}`;
+      const analyticsEvent = target.getAttribute("data-analytics-event");
 
+      // Explicit product-surface events take precedence over generic external-link
+      // classification so the dashboard can distinguish a company-profile open from
+      // an ordinary website click without collecting the destination URL itself.
+      if (analyticsEvent === "company_profile_click" || analyticsEvent === "social_click") return send(slug, analyticsEvent);
       if (href.startsWith("tel:")) return send(slug, "phone_click");
       if (href.includes("wa.me/") || href.includes("whatsapp.com")) return send(slug, "whatsapp_click");
       if (/maps\.google|google\.com\/maps|maps\.app\.goo\.gl/i.test(href)) return send(slug, "map_click");
