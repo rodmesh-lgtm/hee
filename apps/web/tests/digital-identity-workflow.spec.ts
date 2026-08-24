@@ -69,6 +69,9 @@ test("company profile PDF, vCard and public access follow publication ownership 
     }
   } finally {
     await context.close();
+    // The public page intentionally records a page-view analytics event. Remove only
+    // this test tenant's telemetry before deleting the protected Business parent row.
+    await db.analyticsEvent.deleteMany({ where: { businessId: business.id } });
     await db.business.delete({ where: { id: business.id } });
     if (storageId) await db.storedObject.deleteMany({ where: { id: storageId } });
     await db.session.deleteMany({ where: { userId: user.id } });
