@@ -8,11 +8,6 @@ const adminEmail = "rc-platform-admin@hee.test";
 let pool: Pool;
 let db: PrismaClient;
 
-async function setSession(page: Parameters<typeof test>[0] extends never ? never : any, token: string) {
-  await page.context().clearCookies();
-  await page.context().addCookies([{ name: "hee_session", value: token, url: baseUrl }]);
-}
-
 async function seed() {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const admin = await db.user.upsert({ where: { email: adminEmail }, update: { deletedAt: null }, create: { name: "RC Platform Admin", email: adminEmail, passwordHash: "rc-only", emailVerifiedAt: new Date() } });
