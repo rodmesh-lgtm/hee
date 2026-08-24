@@ -58,6 +58,15 @@ CREATE TABLE "BusinessStoreOrder" (
     ),
     CONSTRAINT "BusinessStoreOrder_paid_timestamp_check" CHECK (
       "paymentStatus" NOT IN ('paid', 'refunded') OR "paidAt" IS NOT NULL
+    ),
+    CONSTRAINT "BusinessStoreOrder_submitted_timestamp_check" CHECK (
+      "status" NOT IN ('submitted', 'processing', 'shipped', 'fulfilled') OR "submittedAt" IS NOT NULL
+    ),
+    CONSTRAINT "BusinessStoreOrder_cancelled_timestamp_check" CHECK (
+      "status" <> 'cancelled' OR "cancelledAt" IS NOT NULL
+    ),
+    CONSTRAINT "BusinessStoreOrder_fulfilled_timestamp_check" CHECK (
+      "status" <> 'fulfilled' OR "fulfilledAt" IS NOT NULL
     )
 );
 
@@ -138,18 +147,62 @@ CREATE TRIGGER "BusinessStoreOrder_snapshot_immutable"
 BEFORE UPDATE ON "BusinessStoreOrder"
 FOR EACH ROW EXECUTE FUNCTION "hee_protect_business_store_order_snapshot"();
 
--- Items are editable only while their parent order is a draft.
+-- Prevent status rollback from reopening an immutable order or payment lifecycle.
+CREATE OR REPLACE FUNCTION "hee_validate_business_store_order_transition"()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW."status" IS DISTINCT FROM OLD."status" AND NOT (
+    (OLD."status" = 'draft' AND NEW."status" IN ('submitted', 'cancelled')) OR
+    (OLD."status" = 'submitted' AND NEW."status" IN ('processing', 'cancelled')) OR
+    (OLD."status" = 'processing' AND NEW."status" IN ('shipped', 'cancelled')) OR
+    (OLD."status" = 'shipped' AND NEW."status" = 'fulfilled')
+  ) THEN
+    RAISE EXCEPTION 'invalid business store order status transition: % -> %', OLD."status", NEW."status";
+  END IF;
+
+  IF NEW."paymentStatus" IS DISTINCT FROM OLD."paymentStatus" AND NOT (
+    (OLD."paymentStatus" = 'unpaid' AND NEW."paymentStatus" IN ('pending', 'paid', 'failed')) OR
+    (OLD."paymentStatus" = 'pending' AND NEW."paymentStatus" IN ('paid', 'failed')) OR
+    (OLD."paymentStatus" = 'failed' AND NEW."paymentStatus" IN ('pending', 'paid')) OR
+    (OLD."paymentStatus" = 'paid' AND NEW."paymentStatus" = 'refunded')
+  ) THEN
+    RAISE EXCEPTION 'invalid business store payment status transition: % -> %', OLD."paymentStatus", NEW."paymentStatus";
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "BusinessStoreOrder_valid_transition"
+BEFORE UPDATE ON "BusinessStoreOrder"
+FOR EACH ROW EXECUTE FUNCTION "hee_validate_business_store_order_transition"();
+
+-- Items are editable only while both the old and new parent order are drafts.
 CREATE OR REPLACE FUNCTION "hee_protect_business_store_order_items"()
 RETURNS trigger AS $$
 DECLARE
-  parent_status TEXT;
-  parent_id TEXT;
+  old_parent_status TEXT;
+  new_parent_status TEXT;
 BEGIN
-  parent_id := CASE WHEN TG_OP = 'DELETE' THEN OLD."orderId" ELSE NEW."orderId" END;
-  SELECT "status" INTO parent_status FROM "BusinessStoreOrder" WHERE "id" = parent_id;
-  IF parent_status IS DISTINCT FROM 'draft' THEN
-    RAISE EXCEPTION 'business store order items are immutable after submission';
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    SELECT "status" INTO old_parent_status
+    FROM "BusinessStoreOrder"
+    WHERE "id" = OLD."orderId";
+
+    IF old_parent_status IS DISTINCT FROM 'draft' THEN
+      RAISE EXCEPTION 'business store order items are immutable after submission';
+    END IF;
   END IF;
+
+  IF TG_OP IN ('INSERT', 'UPDATE') THEN
+    SELECT "status" INTO new_parent_status
+    FROM "BusinessStoreOrder"
+    WHERE "id" = NEW."orderId";
+
+    IF new_parent_status IS DISTINCT FROM 'draft' THEN
+      RAISE EXCEPTION 'business store order items are immutable after submission';
+    END IF;
+  END IF;
+
   RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END;
 $$ LANGUAGE plpgsql;
