@@ -79,7 +79,22 @@ test.describe.serial("launch customer journey", () => {
       });
       await test.step("public share fallback gives clear mobile feedback", async () => { await page.evaluate(() => { Object.defineProperty(navigator, "share", { configurable: true, value: undefined }); Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => undefined } }); }); const shareButton = page.getByRole("button", { name: "مشاركة الصفحة" }); await shareButton.click(); await expect(page.getByText("تم نسخ رابط الصفحة")).toBeVisible(); });
       await test.step("owner can share published page and safely cancel unpublish", async () => { await page.goto(`${baseUrl}/dashboard/share`, { waitUntil: "domcontentloaded" }); await page.waitForURL("**/dashboard/my-page#share", { timeout: 20_000 }); await page.evaluate(() => { Object.defineProperty(navigator, "share", { configurable: true, value: undefined }); Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => undefined } }); }); await page.getByRole("button", { name: "مشاركة الرابط" }).click(); await expect(page.getByText("تم نسخ رابط صفحتك.")).toBeVisible(); const cancel = page.getByRole("button", { name: "إلغاء النشر" }); page.once("dialog", async (d) => d.dismiss()); await cancel.click(); });
-      await test.step("logout protects dashboard and password login restores access", async () => { await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" }); await page.locator("#hee-dashboard-mobile-more-button").click(); await page.getByRole("dialog", { name: "قائمة لوحة التحكم" }).getByRole("button", { name: "تسجيل الخروج" }).click(); await page.waitForURL(`${baseUrl}/`, { timeout: 20_000 }); await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" }); await page.waitForURL("**/login", { timeout: 20_000 }); await page.getByLabel("البريد الإلكتروني").fill(email); await page.locator('input[name="password"]').fill(password); await page.getByRole("button", { name: "تسجيل الدخول" }).click(); await page.waitForURL("**/dashboard", { timeout: 20_000 }); });
+      await test.step("logout protects dashboard and password login restores access", async () => {
+        await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
+        await page.locator("#hee-dashboard-mobile-more-button").click();
+        const logoutButton = page.getByRole("dialog", { name: "قائمة لوحة التحكم" }).getByRole("button", { name: "تسجيل الخروج" });
+        const loggedOut = page.waitForURL((url) => url.origin === new URL(baseUrl).origin && url.pathname === "/", { timeout: 20_000 });
+        await logoutButton.click({ noWaitAfter: true });
+        await loggedOut;
+
+        await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
+        await page.waitForURL("**/login", { timeout: 20_000 });
+        await page.getByLabel("البريد الإلكتروني").fill(email);
+        await page.locator('input[name="password"]').fill(password);
+        const signedIn = page.waitForURL((url) => url.origin === new URL(baseUrl).origin && url.pathname === "/dashboard", { timeout: 20_000 });
+        await page.getByRole("button", { name: "تسجيل الدخول" }).click({ noWaitAfter: true });
+        await signedIn;
+      });
       expect(consoleErrors).toEqual([]);
     } finally { await page.close(); await cleanupByEmail(email); }
   });
