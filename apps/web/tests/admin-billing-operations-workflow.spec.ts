@@ -24,8 +24,19 @@ async function seed() {
   const accessBusiness = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: `منشأة منحة ${suffix}`, slug: `rc-grant-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
   const accessSubscription = await db.subscription.create({ data: { businessId: accessBusiness.id, planId: plan.id, status: "active", provider: "access_code", autoRenew: false } });
   const code = await db.subscriptionAccessCode.create({ data: { codeHash: `rc-hash-${suffix}`, label: `RC Grant ${suffix}`, planId: plan.id, createdByUserId: admin.id } });
-  await db.subscriptionAccessGrant.create({ data: { codeId: code.id, businessId: accessBusiness.id, planId: plan.id, subscriptionId: accessSubscription.id, redeemedByUserId: owner.id } });
-  return { token, ownerEmail: owner.email, paidBusinessId: paidBusiness.id, accessBusinessId: accessBusiness.id, paymentId: payment.id };
+  const grant = await db.subscriptionAccessGrant.create({ data: { codeId: code.id, businessId: accessBusiness.id, planId: plan.id, subscriptionId: accessSubscription.id, redeemedByUserId: owner.id } });
+  return {
+    token,
+    ownerId: owner.id,
+    ownerEmail: owner.email,
+    paidBusinessId: paidBusiness.id,
+    paidSubscriptionId: paidSubscription.id,
+    accessBusinessId: accessBusiness.id,
+    accessSubscriptionId: accessSubscription.id,
+    paymentId: payment.id,
+    codeId: code.id,
+    grantId: grant.id,
+  };
 }
 
 test.describe.serial("central admin billing operations", () => {
@@ -60,6 +71,13 @@ test.describe.serial("central admin billing operations", () => {
       await expect(page.locator("form")).toHaveCount(0);
     } finally {
       await db.session.deleteMany({ where: { token: f.token } });
+      await db.subscriptionAccessGrant.deleteMany({ where: { id: f.grantId } });
+      await db.subscriptionAccessCode.deleteMany({ where: { id: f.codeId } });
+      await db.billingWebhookEvent.deleteMany({ where: { billingPaymentId: f.paymentId } });
+      await db.billingPayment.deleteMany({ where: { id: f.paymentId } });
+      await db.subscription.deleteMany({ where: { id: { in: [f.paidSubscriptionId, f.accessSubscriptionId] } } });
+      await db.business.deleteMany({ where: { id: { in: [f.paidBusinessId, f.accessBusinessId] } } });
+      await db.user.deleteMany({ where: { id: f.ownerId } });
     }
   });
 });
