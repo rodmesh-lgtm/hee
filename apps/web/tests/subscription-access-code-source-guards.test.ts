@@ -9,6 +9,7 @@ test("access codes are stored only as hashes and serialized on redemption",()=>{
  const source=read("app/lib/subscription-access-code.ts");
  assert.match(source,/createHash\("sha256"\)/);
  assert.match(source,/pg_advisory_xact_lock/);
+ assert.match(source,/billing-business:/);
  assert.match(source,/codeHash/);
  assert.doesNotMatch(read("prisma/migrations/20260824110000_subscription_access_codes/migration.sql"),/"code" TEXT/);
 });
@@ -21,11 +22,23 @@ test("access code activation never fabricates a paid billing ledger entry",()=>{
  assert.match(source,/endsAt: null/);
 });
 
-test("access codes do not replace a live paid, trial, or past-due subscription",()=>{
+test("access codes do not replace a live paid, trial, past-due, or open paid checkout",()=>{
  const source=read("app/lib/subscription-access-code.ts");
  assert.match(source,/status: \{ in: \["active", "trialing", "past_due"\] \}/);
+ assert.match(source,/kind: \{ in: \["initial", "upgrade"\] \}/);
+ assert.match(source,/status: \{ in: \["created", "initiated", "authorized"\] \}/);
  assert.match(source,/return "subscription-conflict"/);
  assert.doesNotMatch(source,/subscription\.updateMany/);
+});
+
+test("database rejects paid checkout while an access-code entitlement is active",()=>{
+ const migration=read("prisma/migrations/20260824141000_serialize_access_codes_with_paid_checkout/migration.sql");
+ assert.match(migration,/prevent_paid_checkout_over_access_code/);
+ assert.match(migration,/NEW\."kind" IN \('initial', 'upgrade'\)/);
+ assert.match(migration,/s\."provider" = 'access_code'/);
+ assert.match(migration,/g\."revokedAt" IS NULL/);
+ assert.match(migration,/c\."isActive" = true/);
+ assert.match(migration,/BEFORE INSERT OR UPDATE/);
 });
 
 test("revoked grants cannot be silently redeemed again",()=>{
