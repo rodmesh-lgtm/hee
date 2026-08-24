@@ -86,8 +86,7 @@ CREATE UNIQUE INDEX "BusinessStoreOrder_business_idempotency_unique"
 ON "BusinessStoreOrder"("businessId", "idempotencyKey");
 
 CREATE UNIQUE INDEX "BusinessStoreOrder_provider_payment_unique"
-ON "BusinessStoreOrder"("paymentProvider", "providerPaymentId")
-WHERE "providerPaymentId" IS NOT NULL;
+ON "BusinessStoreOrder"("paymentProvider", "providerPaymentId");
 
 CREATE INDEX "BusinessStoreOrder_business_created_idx"
 ON "BusinessStoreOrder"("businessId", "createdAt");
