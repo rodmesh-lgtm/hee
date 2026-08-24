@@ -57,6 +57,8 @@ test("digital identity assets, presence and public access follow ownership and p
     // All digital-presence fields are optional for a private page and a no-op save must work.
     await page.getByRole("button", { name: "حفظ الحضور الرقمي" }).click();
     await expect(page.getByText("تم حفظ الحضور الرقمي.")).toBeVisible({ timeout: 20_000 });
+    // Clear the prior success query so the next assertion cannot pass on stale UI before the new save completes.
+    await page.goto(`${baseUrl}/dashboard/digital-identity`, { waitUntil: "domcontentloaded" });
 
     await page.getByLabel("الاسم بالإنجليزية").fill("Digital Identity Business");
     await page.getByLabel("البريد التجاري").fill(`business-${suffix}@example.com`);
