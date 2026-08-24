@@ -12,7 +12,10 @@ CREATE TABLE "SubscriptionAccessCode" (
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "SubscriptionAccessCode_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "SubscriptionAccessCode_redemption_bounds" CHECK ("redemptionCount" >= 0 AND ("maxRedemptions" IS NULL OR "maxRedemptions" > 0))
+  CONSTRAINT "SubscriptionAccessCode_redemption_bounds" CHECK (
+    "redemptionCount" >= 0
+    AND ("maxRedemptions" IS NULL OR ("maxRedemptions" > 0 AND "redemptionCount" <= "maxRedemptions"))
+  )
 );
 
 CREATE TABLE "SubscriptionAccessGrant" (
