@@ -20,17 +20,25 @@ test("Business Store is a real authenticated dashboard destination", () => {
   assert.match(page, /https:\/\/hee\.sa\/\$\{business\.slug\}/);
 });
 
-test("Business Store foundation does not mix HEE merchandise with tenant customer orders or subscription billing", () => {
+test("Business Store draft flow stays isolated from tenant customer orders and subscription billing", () => {
   const page = read("app/dashboard/business-store/page.tsx");
+  const actions = read("app/actions/business-store.ts");
   assert.doesNotMatch(page, /updateOrderStatusAction|createOrder|BillingPayment|billing\/checkout/);
+  assert.doesNotMatch(actions, /db\.order\.|billingPayment\.|subscription\.(create|update)/);
   assert.match(page, /مشترياتك هنا منفصلة تمامًا عن الطلبات/);
-  assert.match(page, /متجر HEE سيستخدم نماذج طلب ودفع مستقلة/);
+  assert.match(page, /مسودة متجر HEE مستقلة عن طلبات زبائن المنشأة وعن اشتراك HEE المتكرر/);
+  assert.match(actions, /businessStoreOrder\.create/);
+  assert.match(actions, /businessStoreOrderItem\.(create|update)/);
 });
 
-test("Business Store does not expose a fake purchase action before checkout exists", () => {
+test("Business Store exposes real draft actions but keeps checkout closed", () => {
   const page = read("app/dashboard/business-store/page.tsx");
-  assert.match(page, /disabled className=/);
-  assert.match(page, /الشراء مغلق أثناء التأسيس/);
-  assert.match(page, /سيتاح بعد اكتمال مسار الطلب/);
-  assert.doesNotMatch(page, /api\.qrserver\.com|chart\.googleapis\.com/);
+  const builder = read("components/business-store/business-store-draft-builder.tsx");
+  assert.match(page, /BusinessStoreDraftBuilder/);
+  assert.match(page, /لا تُفتح أي عملية دفع/);
+  assert.match(builder, /createBusinessStoreDraftAction/);
+  assert.match(builder, /setBusinessStoreDraftItemAction/);
+  assert.match(builder, /أضف لمسودة الطلب/);
+  assert.match(builder, /المسودة ليست طلب شراء نهائيًا ولا تنشئ أي عملية دفع/);
+  assert.doesNotMatch(page + builder, /billing\/checkout|providerPaymentId|api\.qrserver\.com|chart\.googleapis\.com/);
 });
