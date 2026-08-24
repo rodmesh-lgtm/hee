@@ -7,6 +7,7 @@ import {
   LifeBuoy,
   Palette,
   Settings2,
+  ShoppingBag,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -18,6 +19,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound, activePrefixes: ["/dashboard/services", "/dashboard/products", "/dashboard/catalog", "/dashboard/gallery", "/dashboard/offers", "/dashboard/contact-links", "/dashboard/working-hours", "/dashboard/page-builder", "/dashboard/page-customization", "/dashboard/preview", "/dashboard/share"] },
   { label: "الهوية الرقمية", href: "/dashboard/digital-identity", icon: BadgeCheck },
   { label: "الطلبات والحجوزات", href: "/dashboard/inbox", icon: Inbox },
+  { label: "متجر الأعمال", href: "/dashboard/business-store", icon: ShoppingBag },
   { label: "المظهر", href: "/dashboard/branding", icon: Palette },
   { label: "الفروع والفريق", href: "/dashboard/directory", icon: Building2 },
   { label: "الأداء", href: "/dashboard/analytics", icon: BarChart3 },
