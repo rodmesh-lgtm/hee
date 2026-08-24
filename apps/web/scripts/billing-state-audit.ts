@@ -50,22 +50,48 @@ async function main() {
     }
   }
 
+  // A paid-plan Business.planId is valid only when backed either by a finite provider
+  // subscription or by an explicit active administrative access-code grant. The access
+  // path is intentionally separate from the payment ledger and cannot satisfy any paid
+  // receipt/provider invariant below.
   const paidWithoutLive = await db.$queryRaw<DriftRow[]>`
-    SELECT b."id" AS "businessId", 'paid business plan without matching unexpired live subscription' AS detail
+    SELECT b."id" AS "businessId", 'paid business plan without matching live paid or access-code entitlement' AS detail
     FROM "Business" b JOIN "BusinessPlan" p ON p."id"=b."planId" AND p."code" IN ('BUSINESS','PRO')
     WHERE b."deletedAt" IS NULL AND NOT EXISTS (
-      SELECT 1 FROM "Subscription" s WHERE s."businessId"=b."id" AND s."planId"=b."planId"
-        AND s."status" IN ('active','past_due') AND s."endsAt" > CURRENT_TIMESTAMP
+      SELECT 1
+      FROM "Subscription" s
+      WHERE s."businessId"=b."id"
+        AND s."planId"=b."planId"
+        AND s."status"='active'
+        AND (
+          (s."provider" IS DISTINCT FROM 'access_code' AND s."endsAt" > CURRENT_TIMESTAMP)
+          OR (
+            s."provider"='access_code'
+            AND s."endsAt" IS NULL
+            AND s."autoRenew"=false
+            AND s."paymentMethodId" IS NULL
+            AND EXISTS (
+              SELECT 1
+              FROM "SubscriptionAccessGrant" g
+              JOIN "SubscriptionAccessCode" c ON c."id"=g."codeId"
+              WHERE g."subscriptionId"=s."id"
+                AND g."businessId"=s."businessId"
+                AND g."planId"=s."planId"
+                AND g."revokedAt" IS NULL
+                AND c."id"=s."providerReference"
+                AND c."planId"=s."planId"
+                AND c."isActive"=true
+                AND c."revokedAt" IS NULL
+            )
+          )
+        )
     )
   `;
   drifts.push(...paidWithoutLive);
 
-  // An expired active subscription is structural drift. An expired past_due subscription,
-  // however, is the worker's intentional collection state while an idempotent renewal is
-  // retried or reconciled. Customer entitlement is already fail-closed to FREE in that
-  // state, and paidWithoutLive above still catches any paid Business.plan leakage. Treating
-  // every legitimate past_due row as drift would stop the global billing heartbeat whenever
-  // one customer's card is declined or a provider request is temporarily ambiguous.
+  // Provider-backed paid subscriptions always have a finite paid-through timestamp.
+  // Access-code subscriptions deliberately have no paid-through timestamp because their
+  // lifetime is the active grant; they are audited separately below.
   const invalidLivePeriod = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId",
            CASE
@@ -73,20 +99,50 @@ async function main() {
              ELSE 'expired subscription is still marked active'
            END AS detail
     FROM "Subscription" s JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO')
-    WHERE (s."status"='active' AND (s."endsAt" IS NULL OR s."endsAt" <= CURRENT_TIMESTAMP))
-       OR (s."status"='past_due' AND s."endsAt" IS NULL)
+    WHERE s."provider" IS DISTINCT FROM 'access_code'
+      AND (
+        (s."status"='active' AND (s."endsAt" IS NULL OR s."endsAt" <= CURRENT_TIMESTAMP))
+        OR (s."status"='past_due' AND s."endsAt" IS NULL)
+      )
   `;
   drifts.push(...invalidLivePeriod);
 
+  const invalidAccessCodeEntitlement = await db.$queryRaw<DriftRow[]>`
+    SELECT s."businessId" AS "businessId", 'access-code subscription lacks a valid active grant/code lineage' AS detail
+    FROM "Subscription" s
+    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO')
+    WHERE s."provider"='access_code'
+      AND s."status"='active'
+      AND (
+        s."endsAt" IS NOT NULL
+        OR s."autoRenew"<>false
+        OR s."paymentMethodId" IS NOT NULL
+        OR s."providerReference" IS NULL
+        OR NOT EXISTS (
+          SELECT 1
+          FROM "SubscriptionAccessGrant" g
+          JOIN "SubscriptionAccessCode" c ON c."id"=g."codeId"
+          WHERE g."subscriptionId"=s."id"
+            AND g."businessId"=s."businessId"
+            AND g."planId"=s."planId"
+            AND g."revokedAt" IS NULL
+            AND c."id"=s."providerReference"
+            AND c."planId"=s."planId"
+            AND c."isActive"=true
+            AND c."revokedAt" IS NULL
+        )
+      )
+  `;
+  drifts.push(...invalidAccessCodeEntitlement);
+
   // Past-due is valid only while the renewal worker still has a recoverable collection
   // state. Once the retry budget is exhausted, the worker must close the subscription.
-  // This catches a stranded past_due row if worker control-flow, data corruption or a
-  // partial operational failure ever leaves the subscription terminally uncollectable.
   const strandedPastDue = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'expired past_due subscription has no recoverable renewal attempt' AS detail
     FROM "Subscription" s
     JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO')
     WHERE s."status"='past_due'
+      AND s."provider" IS DISTINCT FROM 'access_code'
       AND s."endsAt" IS NOT NULL
       AND s."endsAt" <= CURRENT_TIMESTAMP
       AND NOT EXISTS (
@@ -104,12 +160,6 @@ async function main() {
   `;
   drifts.push(...strandedPastDue);
 
-  // Initiated/authorized renewal rows represent provider money that must converge.
-  // They are intentionally allowed to survive transient ambiguity and provider 404s,
-  // but not forever: the renewal worker's provider-not-found grace is 24 hours. Give
-  // operations a small margin beyond that window, then fail the audit/heartbeat so a
-  // structural identity mismatch or permanently ambiguous provider state cannot remain
-  // invisible while billing operations continue to advertise healthy liveness.
   const staleRenewalReconciliation = await db.$queryRaw<DriftRow[]>`
     SELECT bp."businessId" AS "businessId", 'renewal provider payment remained unresolved beyond reconciliation window' AS detail
     FROM "BillingPayment" bp
@@ -123,7 +173,12 @@ async function main() {
   const activeMismatch = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'live subscription plan differs from business entitlement plan' AS detail
     FROM "Subscription" s JOIN "Business" b ON b."id"=s."businessId" AND b."deletedAt" IS NULL
-    WHERE s."status"='active' AND s."endsAt" > CURRENT_TIMESTAMP AND b."planId" IS DISTINCT FROM s."planId"
+    WHERE s."status"='active'
+      AND (
+        (s."provider" IS DISTINCT FROM 'access_code' AND s."endsAt" > CURRENT_TIMESTAMP)
+        OR (s."provider"='access_code' AND s."endsAt" IS NULL)
+      )
+      AND b."planId" IS DISTINCT FROM s."planId"
   `;
   drifts.push(...activeMismatch);
 
@@ -152,7 +207,9 @@ async function main() {
 
   const duplicateLive = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'multiple live subscriptions exist for one business' AS detail
-    FROM "Subscription" s WHERE s."status" IN ('active','past_due') AND s."endsAt" > CURRENT_TIMESTAMP
+    FROM "Subscription" s
+    WHERE s."status" IN ('active','past_due')
+      AND ((s."provider" IS DISTINCT FROM 'access_code' AND s."endsAt" > CURRENT_TIMESTAMP) OR (s."provider"='access_code' AND s."status"='active' AND s."endsAt" IS NULL))
     GROUP BY s."businessId" HAVING COUNT(*) > 1
   `;
   drifts.push(...duplicateLive);
