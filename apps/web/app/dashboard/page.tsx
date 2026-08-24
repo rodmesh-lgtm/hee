@@ -6,6 +6,9 @@ import { getActiveBusinessWithPlanForUser } from "../lib/active-business";
 import { db } from "../lib/db";
 import { getPublicBusinessUrlFromRequest } from "../lib/public-url";
 
+const actionableOrderStatuses = ["pending", "confirmed", "processing"] as const;
+const actionableBookingStatuses = ["pending", "confirmed"] as const;
+
 export default async function DashboardHomePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -16,14 +19,17 @@ export default async function DashboardHomePage() {
     return <section className="mx-auto max-w-2xl rounded-[26px] border border-[#e9e7f3] bg-white p-6 sm:p-8"><span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1edff] text-[#5b3fd6]"><Rocket className="h-5 w-5" /></span><h1 className="mt-4 text-2xl font-black text-[#1f2552]">ابدأ هويتك الرقمية</h1><p className="mt-2 text-sm leading-7 text-slate-500">أدخل بيانات نشاطك الأساسية، ثم ستنتقل مباشرة إلى صفحتك لإكمالها.</p><Link href="/onboarding" className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#6f3bd2] px-5 text-sm font-black text-white">إنشاء الصفحة</Link></section>;
   }
 
-  const [pendingOrders, pendingBookings, services, branches, contacts] = await Promise.all([
+  const [actionableOrders, actionableBookings, pendingOrders, pendingBookings, services, branches, contacts] = await Promise.all([
+    db.order.count({ where: { businessId: business.id, status: { in: [...actionableOrderStatuses] } } }),
+    db.booking.count({ where: { businessId: business.id, status: { in: [...actionableBookingStatuses] } } }),
     db.order.count({ where: { businessId: business.id, status: "pending" } }),
     db.booking.count({ where: { businessId: business.id, status: "pending" } }),
     db.service.count({ where: { businessId: business.id, isActive: true, deletedAt: null } }),
     db.branch.count({ where: { businessId: business.id, isActive: true } }),
     db.contactPerson.count({ where: { businessId: business.id, isActive: true } }),
   ]);
-  const pendingTransactions = pendingOrders + pendingBookings;
+  const actionableTransactions = actionableOrders + actionableBookings;
+  const newTransactions = pendingOrders + pendingBookings;
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
   // `isPublished` is a persisted intent flag. Effective public visibility also requires
   // mailbox ownership, so legacy rows never display a misleading "published/open" UI.
@@ -44,7 +50,7 @@ export default async function DashboardHomePage() {
 
     {!user.emailVerifiedAt ? <Link href="/dashboard/settings" className="flex items-center justify-between gap-3 rounded-[22px] border border-amber-200 bg-amber-50 p-4 transition hover:bg-amber-100/70"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-amber-700 shadow-sm"><MailWarning className="h-4 w-4" /></span><div><b className="block text-sm text-amber-900">أكد بريد حسابك قبل نشر الصفحة</b><span className="mt-0.5 block text-[10px] text-amber-700">يمكنك إكمال الإعداد الآن، ثم إرسال رابط التأكيد من الحساب والباقات.</span></div></div><span className="text-xs font-black text-amber-800">تأكيد</span></Link> : null}
 
-    {pendingTransactions ? <Link href="/dashboard/inbox" className="flex items-center justify-between gap-3 rounded-[22px] border border-amber-200 bg-amber-50 p-4 transition hover:bg-amber-100/70"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-amber-700 shadow-sm"><Inbox className="h-4 w-4" /></span><div><b className="block text-sm text-amber-900">لديك {pendingTransactions} عنصر جديد يحتاج المراجعة</b><span className="mt-0.5 block text-[10px] text-amber-700">{pendingOrders} طلب · {pendingBookings} حجز</span></div></div><span className="text-xs font-black text-amber-800">فتح</span></Link> : null}
+    {actionableTransactions ? <Link href="/dashboard/inbox" className="flex items-center justify-between gap-3 rounded-[22px] border border-amber-200 bg-amber-50 p-4 transition hover:bg-amber-100/70"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-amber-700 shadow-sm"><Inbox className="h-4 w-4" /></span><div><b className="block text-sm text-amber-900">لديك {actionableTransactions} عنصر يحتاج المتابعة</b><span className="mt-0.5 block text-[10px] text-amber-700">{newTransactions ? `${newTransactions} جديد · ` : ""}{actionableOrders} طلب · {actionableBookings} حجز</span></div></div><span className="text-xs font-black text-amber-800">فتح</span></Link> : null}
 
     <section className="rounded-[24px] border border-[#e9e7f3] bg-white p-4 sm:p-5">
       <div className="flex items-center justify-between gap-3"><div><h2 className="font-black text-[#1f2552]">إكمال الصفحة</h2><p className="mt-1 text-xs text-slate-500">أربع نقاط فقط تكفي لتجهيز هوية قوية.</p></div><span className="text-sm font-black text-[#6f3bd2]">{completed}/4</span></div>
