@@ -45,7 +45,7 @@ test.describe.serial("central admin billing operations", () => {
       await page.context().addCookies([{ name: "hee_session", value: f.token, url: baseUrl }]);
       await page.goto(`${baseUrl}/admin/billing?q=${encodeURIComponent(f.ownerEmail)}`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "الاشتراكات والفوترة" })).toBeVisible();
-      await expect(page.getByText("access_code", { exact: true })).toBeVisible();
+      await expect(page.getByRole("cell", { name: "access_code", exact: true })).toBeVisible();
       await expect(page.getByText("moyasar", { exact: true }).first()).toBeVisible();
       await expect(page.getByText(/لا تنشئ BillingPayment وهمية/)).toBeVisible();
       expect(await db.billingPayment.count({ where: { businessId: f.accessBusinessId } })).toBe(0);
