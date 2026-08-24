@@ -21,6 +21,16 @@ test("digital presence editor validates official social hosts and SEO bounds", (
   assert.match(action, /parsed\.password/);
 });
 
+test("digital presence validation reports the exact rejected field", () => {
+  const action = read("app/actions/digital-presence.ts");
+  const form = read("components/dashboard/digital-presence-form.tsx");
+  for (const status of ["invalid-email", "invalid-url", "invalid-instagram", "invalid-x", "invalid-tiktok", "invalid-snapchat", "invalid-facebook", "invalid-metaTitle", "invalid-metaDescription", "rate-limited"]) {
+    assert.match(action + form, new RegExp(status));
+  }
+  assert.match(form, /aria-invalid/);
+  assert.match(form, /جميع الحقول اختيارية/);
+});
+
 test("digital presence writes serialize with autosave and preserve published contact availability", () => {
   const action = read("app/actions/digital-presence.ts");
   assert.match(action, /business-autosave:/);
