@@ -87,7 +87,7 @@ test.describe.serial("customer dashboard functional surface", () => {
     try {
       const routes = [
         { path: "/dashboard", text: "منشأة تدقيق اللوحة", control: 'a[href="/dashboard/my-page"]' },
-        { path: "/dashboard/my-page", text: "صفحتي", control: 'input[aria-label="اسم المنشأة"]' },
+        { path: "/dashboard/my-page", text: "صفحتي", control: 'label:has-text("اسم المنشأة") input' },
         { path: "/dashboard/digital-identity", text: "الهوية الرقمية", control: 'input[name="profileFile"]' },
         { path: "/dashboard/inbox", text: "الطلبات والحجوزات", control: 'a[href^="tel:"]', optionalControl: true },
         { path: "/dashboard/branding", text: "المظهر", control: 'input[name="logoFile"]' },
