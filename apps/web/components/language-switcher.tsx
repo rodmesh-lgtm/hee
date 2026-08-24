@@ -11,9 +11,13 @@ export function LanguageSwitcher({ locale }: { locale: AppLocale }) {
   const query = search.toString();
   const returnTo = `${pathname || "/"}${query ? `?${query}` : ""}`;
   const messages = GLOBAL_MESSAGES[locale];
+  const hasMobileDashboardNav = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 
   return (
-    <details className="group fixed bottom-4 left-4 z-[90]" dir={LOCALE_META[locale].dir}>
+    <details
+      className={`group fixed left-4 z-[90] ${hasMobileDashboardNav ? "bottom-20 lg:bottom-4" : "bottom-4"}`}
+      dir={LOCALE_META[locale].dir}
+    >
       <summary
         aria-label={messages.changeLanguage}
         className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-xs font-bold text-slate-700 shadow-lg backdrop-blur transition hover:border-violet-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
