@@ -21,8 +21,21 @@ test("access code activation never fabricates a paid billing ledger entry",()=>{
  assert.match(source,/endsAt: null/);
 });
 
+test("access codes do not replace a live paid, trial, or past-due subscription",()=>{
+ const source=read("app/lib/subscription-access-code.ts");
+ assert.match(source,/status: \{ in: \["active", "trialing", "past_due"\] \}/);
+ assert.match(source,/return "subscription-conflict"/);
+ assert.doesNotMatch(source,/subscription\.updateMany/);
+});
+
 test("revoked grants cannot be silently redeemed again",()=>{
  const source=read("app/lib/subscription-access-code.ts");
  assert.match(source,/if \(prior\?\.revokedAt\) return "revoked"/);
  assert.match(source,/redemptionCount: \{ increment: 1 \}/);
+});
+
+test("admin revocation uses a database-allowed terminal subscription status",()=>{
+ const source=read("app/actions/admin-access-code.ts");
+ assert.match(source,/status:"canceled"/);
+ assert.doesNotMatch(source,/status:"revoked"/);
 });
