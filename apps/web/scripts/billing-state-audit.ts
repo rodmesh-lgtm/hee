@@ -55,18 +55,22 @@ async function main() {
   // path is intentionally separate from the payment ledger and cannot satisfy any paid
   // receipt/provider invariant below.
   const paidWithoutLive = await db.$queryRaw<DriftRow[]>`
-    SELECT b."id" AS "businessId", 'paid business plan without matching live paid or access-code entitlement' AS detail
+    SELECT b."id" AS "businessId", 'paid business plan without matching unexpired live subscription or active access-code entitlement' AS detail
     FROM "Business" b JOIN "BusinessPlan" p ON p."id"=b."planId" AND p."code" IN ('BUSINESS','PRO')
     WHERE b."deletedAt" IS NULL AND NOT EXISTS (
       SELECT 1
       FROM "Subscription" s
       WHERE s."businessId"=b."id"
         AND s."planId"=b."planId"
-        AND s."status"='active'
         AND (
-          (s."provider" IS DISTINCT FROM 'access_code' AND s."endsAt" > CURRENT_TIMESTAMP)
+          (
+            s."provider" IS DISTINCT FROM 'access_code'
+            AND s."status" IN ('active','past_due')
+            AND s."endsAt" > CURRENT_TIMESTAMP
+          )
           OR (
             s."provider"='access_code'
+            AND s."status"='active'
             AND s."endsAt" IS NULL
             AND s."autoRenew"=false
             AND s."paymentMethodId" IS NULL
