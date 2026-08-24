@@ -1,11 +1,20 @@
 "use server";
 import { randomBytes } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "../lib/admin";
 import { db } from "../lib/db";
 import { accessCodeHash } from "../lib/subscription-access-code";
 
-export async function createSubscriptionAccessCodeAdminAction(formData: FormData) {
+export type CreateSubscriptionAccessCodeState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "created"; code: string };
+
+export async function createSubscriptionAccessCodeAdminAction(
+  _previousState: CreateSubscriptionAccessCodeState,
+  formData: FormData,
+): Promise<CreateSubscriptionAccessCodeState> {
   const admin = await requireAdmin();
   const planCode = String(formData.get("plan") ?? "").trim().toUpperCase();
   const label = String(formData.get("label") ?? "").trim().slice(0, 120) || null;
@@ -13,19 +22,24 @@ export async function createSubscriptionAccessCodeAdminAction(formData: FormData
   const expiresRaw = String(formData.get("expiresAt") ?? "").trim();
   const maxRedemptions = maxRaw ? Number.parseInt(maxRaw, 10) : null;
   if (maxRedemptions !== null && (!Number.isSafeInteger(maxRedemptions) || maxRedemptions < 1 || maxRedemptions > 100000)) {
-    redirect("/admin/access-codes?access=invalid-limit");
+    return { status: "error", message: "حد الاستخدامات غير صالح." };
   }
   const expiresAt = expiresRaw ? new Date(expiresRaw) : null;
   if (expiresAt && (!Number.isFinite(expiresAt.getTime()) || expiresAt <= new Date())) {
-    redirect("/admin/access-codes?access=invalid-expiry");
+    return { status: "error", message: "يجب أن يكون تاريخ انتهاء إنشاء الاستخدامات في المستقبل." };
   }
   const plan = await db.businessPlan.findFirst({ where: { code: planCode, isActive: true }, select: { id: true, code: true } });
-  if (!plan || plan.code === "FREE") redirect("/admin/access-codes?access=invalid-plan");
+  if (!plan || plan.code === "FREE") return { status: "error", message: "الباقة المختارة غير صالحة لهذا النوع من الأكواد." };
+
   const plaintext = `HEE-${randomBytes(12).toString("hex").toUpperCase()}`;
   await db.subscriptionAccessCode.create({
     data: { codeHash: accessCodeHash(plaintext), label, planId: plan.id, createdByUserId: admin.id, maxRedemptions, expiresAt },
   });
-  redirect(`/admin/access-codes?access=created&newCode=${encodeURIComponent(plaintext)}`);
+  revalidatePath("/admin/access-codes");
+
+  // The plaintext is returned once in the action payload only. It is never persisted and
+  // never placed in a URL, avoiding browser-history, referrer, proxy and access-log leaks.
+  return { status: "created", code: plaintext };
 }
 
 export async function revokeSubscriptionAccessCodeAdminAction(formData: FormData) {
