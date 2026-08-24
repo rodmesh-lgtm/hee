@@ -18,6 +18,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard/my-page": "صفحتي",
   "/dashboard/digital-identity": "الهوية الرقمية",
   "/dashboard/inbox": "الطلبات والحجوزات",
+  "/dashboard/business-store": "متجر الأعمال",
   "/dashboard/branding": "المظهر",
   "/dashboard/directory": "الفروع والفريق",
   "/dashboard/services": "الخدمات",
