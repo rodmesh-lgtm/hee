@@ -24,6 +24,8 @@ test("HEE merchandise orders have an isolated tenant-owned Prisma domain", () =>
 test("database enforces commercial arithmetic and finite order/payment states", () => {
   assert.match(migration, /BusinessStoreOrder_amounts_nonnegative_check/);
   assert.match(migration, /"total" = "subtotal" \+ "shippingAmount" \+ "vatAmount"/);
+  assert.match(migration, /BusinessStoreOrder_required_snapshot_text_check/);
+  assert.match(migration, /BusinessStoreOrderItem_required_text_check/);
   assert.match(migration, /BusinessStoreOrderItem_quantity_check/);
   assert.match(migration, /"lineTotal" = "unitPrice" \* "quantity"/);
   assert.match(migration, /"status" IN \('draft', 'submitted', 'processing', 'shipped', 'fulfilled', 'cancelled'\)/);
@@ -33,6 +35,19 @@ test("database enforces commercial arithmetic and finite order/payment states", 
   assert.match(migration, /BusinessStoreOrder_submitted_timestamp_check/);
   assert.match(migration, /BusinessStoreOrder_cancelled_timestamp_check/);
   assert.match(migration, /BusinessStoreOrder_fulfilled_timestamp_check/);
+});
+
+test("draft submission proves cart subtotal and required delivery snapshot", () => {
+  assert.match(migration, /OLD\."status" = 'draft' AND NEW\."status" = 'submitted'/);
+  assert.match(migration, /SELECT COUNT\(\*\), COALESCE\(SUM\("lineTotal"\), 0\)/);
+  assert.match(migration, /business store order cannot be submitted without items/);
+  assert.match(migration, /item_subtotal <> NEW\."subtotal"/);
+  assert.match(migration, /business store order subtotal does not match item totals/);
+  assert.match(migration, /NULLIF\(btrim\(NEW\."shippingName"\), ''\) IS NULL/);
+  assert.match(migration, /NULLIF\(btrim\(NEW\."shippingPhone"\), ''\) IS NULL/);
+  assert.match(migration, /NULLIF\(btrim\(NEW\."shippingAddressLine1"\), ''\) IS NULL/);
+  assert.match(migration, /NULLIF\(btrim\(NEW\."shippingCity"\), ''\) IS NULL/);
+  assert.match(migration, /business store order shipping snapshot is incomplete/);
 });
 
 test("store order history cannot be silently reassigned, cascaded, re-priced, or reopened", () => {
@@ -50,6 +65,7 @@ test("store order history cannot be silently reassigned, cascaded, re-priced, or
   assert.match(migration, /old_parent_status IS DISTINCT FROM 'draft'/);
   assert.match(migration, /new_parent_status IS DISTINCT FROM 'draft'/);
   assert.match(migration, /business store order items are immutable after submission/);
+  assert.match(migration, /IF TG_OP = 'DELETE' THEN\s+RETURN OLD;/);
 });
 
 test("store order identity and design are durable snapshots rather than live business references", () => {
