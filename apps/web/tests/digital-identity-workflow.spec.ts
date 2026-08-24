@@ -25,7 +25,7 @@ test("company profile PDF, vCard and public access follow publication ownership 
 
   try {
     await page.goto(`${baseUrl}/dashboard/digital-identity`, { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "الهوية الرقمية" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "الهوية الرقمية", exact: true })).toBeVisible();
     await page.getByLabel("عنوان الملف").fill("الملف التعريفي الرسمي");
     await page.locator('input[name="profileFile"]').setInputFiles({ name: "company-profile.pdf", mimeType: "application/pdf", buffer: pdfFixture });
     await page.getByRole("button", { name: "رفع الملف التعريفي" }).click();
