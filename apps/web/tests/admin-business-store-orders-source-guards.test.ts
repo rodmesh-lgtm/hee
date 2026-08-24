@@ -16,7 +16,8 @@ test("admin Business Store order mutations stay server-authorized, locked and au
   assert.match(action, /BusinessStoreOrderAudit/);
   assert.match(action, /paymentStatus !== "paid"/);
   assert.doesNotMatch(action, /billingPayment\.(?:create|update|upsert)/i);
-  assert.doesNotMatch(action, /paymentStatus"\s*=|"paymentStatus"\s*=|data:\s*\{[^}]*paymentStatus/s);
+  assert.doesNotMatch(action, /SET\s+"paymentStatus"\s*=/i);
+  assert.doesNotMatch(action, /data:\s*\{[\s\S]*?paymentStatus/);
 });
 
 test("database blocks fulfillment lifecycle before paid and preserves an audit trail", () => {
