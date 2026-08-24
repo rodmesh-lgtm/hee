@@ -26,19 +26,6 @@ async function seed(): Promise<Fixture> {
   return { adminId: admin.id, adminToken, ownerId: owner.id, businessId: business.id, orderId: order.id };
 }
 
-async function cleanup(f: Fixture) {
-  await db.$executeRawUnsafe(`DELETE FROM "BusinessStoreOrderAudit" WHERE "orderId" = $1`, f.orderId);
-  await db.businessStoreOrderItem.deleteMany({ where: { orderId: f.orderId } });
-  await db.businessStoreOrder.delete({ where: { id: f.orderId } });
-  await db.business.delete({ where: { id: f.businessId } });
-  await db.session.deleteMany({ where: { userId: { in: [f.adminId, f.ownerId] } } });
-  await db.authIdentity.deleteMany({ where: { userId: f.ownerId } });
-  await db.user.delete({ where: { id: f.ownerId } });
-  const adminBusinesses = await db.business.count({ where: { ownerId: f.adminId } });
-  const adminAudits = await db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS "count" FROM "BusinessStoreOrderAudit" WHERE "actorUserId"=${f.adminId}`;
-  if (adminBusinesses === 0 && Number(adminAudits[0]?.count ?? 0) === 0) await db.user.delete({ where: { id: f.adminId } }).catch(() => undefined);
-}
-
 test.describe.serial("central admin Business Store orders", () => {
   test.beforeAll(async () => {
     const connectionString = String(process.env.DATABASE_URL ?? "").trim();
@@ -74,7 +61,9 @@ test.describe.serial("central admin Business Store orders", () => {
       await db.businessStoreOrder.update({ where: { id: f.orderId }, data: { paymentStatus: "refunded" } });
       await expect(db.businessStoreOrder.update({ where: { id: f.orderId }, data: { status: "shipped" } })).rejects.toThrow(/before payment is paid/);
     } finally {
-      await cleanup(f);
+      // Submitted/processing order lines are deliberately immutable, so this RC-only
+      // fixture is left in the ephemeral CI database and only its admin session is removed.
+      await db.session.deleteMany({ where: { token: f.adminToken } });
     }
   });
 });
