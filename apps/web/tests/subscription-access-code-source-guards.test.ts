@@ -17,7 +17,7 @@ test("access code activation never fabricates a paid billing ledger entry",()=>{
  const source=read("app/lib/subscription-access-code.ts");
  assert.match(source,/provider: "access_code"/);
  assert.match(source,/autoRenew: false/);
- assert.doesNotMatch(source,/billingPayment\.create|BillingPayment.*INSERT/is);
+ assert.doesNotMatch(source,/billingPayment\.create|BillingPayment[\s\S]*INSERT/i);
  assert.match(source,/endsAt: null/);
 });
 
