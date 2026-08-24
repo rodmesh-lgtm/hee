@@ -59,7 +59,7 @@ async function withEffectivePlan<T extends { id: string; plan: { id: string; cod
   });
   if (activeEntitlement) return business;
 
-  // Runtime authorization never trusts Business.planId on its own. Paid provider terms
+  // runtime authorization never trusts Business.planId on its own. Paid provider terms
   // require an unexpired finite period; administrative access-code terms require an
   // active grant whose code has not been revoked. If neither lineage exists, fail closed.
   const freePlan = await db.businessPlan.findUnique({ where: { code: "FREE" } });
