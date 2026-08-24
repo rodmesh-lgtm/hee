@@ -60,7 +60,6 @@ async function cleanup(fixture: Fixture) {
   await db.category.deleteMany({ where: { businessId: fixture.businessId } });
   await db.service.deleteMany({ where: { businessId: fixture.businessId } });
   await db.subscription.deleteMany({ where: { businessId: fixture.businessId } });
-  await db.adminRequest.deleteMany({ where: { businessId: fixture.businessId } });
   await db.business.delete({ where: { id: fixture.businessId } });
   await db.session.deleteMany({ where: { userId: fixture.userId } });
   await db.authIdentity.deleteMany({ where: { userId: fixture.userId } });
