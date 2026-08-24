@@ -10,7 +10,7 @@
     "typecheck": "rm -rf .next && prisma generate && next typegen && tsc --noEmit --pretty false",
     "test": "npm run test:unit",
     "test:unit": "tsx --test tests/*.test.ts",
-    "test:rc": "playwright test tests/launch-customer-journey.spec.ts tests/rc-owner-workflow.spec.ts tests/active-business-isolation.spec.ts tests/digital-identity-workflow.spec.ts",
+    "test:rc": "playwright test tests/launch-customer-journey.spec.ts tests/rc-owner-workflow.spec.ts tests/active-business-isolation.spec.ts tests/digital-identity-workflow.spec.ts tests/dashboard-functional-workflow.spec.ts",
     "test:admin": "playwright test tests/admin-workflow.spec.ts tests/admin-requests-workflow.spec.ts tests/support-data-rights-workflow.spec.ts",
     "test:directory": "playwright test tests/directory-workflow.spec.ts",
     "test:transactions": "playwright test tests/transactions-workflow.spec.ts tests/booking-duration-workflow.spec.ts tests/public-idempotency-workflow.spec.ts",
