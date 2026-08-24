@@ -18,6 +18,12 @@ test("dashboard home exposes real seven-day operating metrics", () => {
   assert.match(source, /db\.booking\.count/);
 });
 
+test("dashboard operating window uses the database clock", () => {
+  assert.match(source, /CURRENT_TIMESTAMP - INTERVAL '7 days'/);
+  assert.match(source, /AT TIME ZONE 'Asia\/Riyadh'/);
+  assert.doesNotMatch(source, /Date\.now\(/);
+});
+
 test("dashboard interaction pulse includes identity engagement", () => {
   assert.match(source, /company_profile_click/);
   assert.match(source, /social_click/);
