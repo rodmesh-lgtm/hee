@@ -35,7 +35,9 @@ test("Business Store exposes real draft actions but keeps checkout closed", () =
   const page = read("app/dashboard/business-store/page.tsx");
   const builder = read("components/business-store/business-store-draft-builder.tsx");
   assert.match(page, /BusinessStoreDraftBuilder/);
-  assert.match(page, /لا تُفتح أي عملية دفع/);
+  // Guard the product behavior rather than a fragile exact sentence: the customer
+  // surface must still say payment opens only after a separate safe store flow exists.
+  assert.match(page, /سيُفتح الدفع فقط بعد إضافة مسار متجر مستقل وآمن/);
   assert.match(builder, /createBusinessStoreDraftAction/);
   assert.match(builder, /setBusinessStoreDraftItemAction/);
   assert.match(builder, /أضف لمسودة الطلب/);
