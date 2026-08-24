@@ -20,10 +20,13 @@ model User {
   sessions Session[]
   businesses Business[]
   authIdentities AuthIdentity[]
+  createdAccessCodes SubscriptionAccessCode[] @relation("AccessCodeCreator")
+  redeemedAccessGrants SubscriptionAccessGrant[] @relation("AccessGrantRedeemer")
   @@index([email])
   @@index([emailVerifiedAt])
   @@index([deletedAt])
 }
+
 model AuthIdentity {
   id String @id @default(uuid())
   userId String
@@ -37,6 +40,7 @@ model AuthIdentity {
   @@index([userId])
   @@index([providerEmail])
 }
+
 model OAuthState {
   id String @id @default(uuid())
   state String @unique
@@ -49,6 +53,7 @@ model OAuthState {
   @@index([provider])
   @@index([expiresAt])
 }
+
 model Session {
   id String @id @default(uuid())
   token String @unique
@@ -59,6 +64,7 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
 }
+
 model BusinessPlan {
   id String @id @default(uuid())
   code String @unique
@@ -73,7 +79,10 @@ model BusinessPlan {
   businesses Business[]
   subscriptions Subscription[]
   billingPayments BillingPayment[]
+  accessCodes SubscriptionAccessCode[]
+  accessGrants SubscriptionAccessGrant[]
 }
+
 model Business {
   id String @id @default(uuid())
   ownerId String
@@ -142,6 +151,7 @@ model Business {
   billingPaymentMethods BillingPaymentMethod[]
   billingPayments BillingPayment[]
   businessStoreOrders BusinessStoreOrder[]
+  accessGrants SubscriptionAccessGrant[]
   analytics AnalyticsEvent[]
   branches Branch[]
   departments Department[]
@@ -152,6 +162,7 @@ model Business {
   @@index([isPublished])
   @@index([deletedAt])
 }
+
 model Category {
   id String @id @default(uuid())
   businessId String
@@ -167,6 +178,7 @@ model Category {
   @@index([businessId])
   @@index([sortOrder])
 }
+
 model Product {
   id String @id @default(uuid())
   businessId String
@@ -191,6 +203,7 @@ model Product {
   @@index([isActive])
   @@index([sortOrder])
 }
+
 model Customer {
   id String @id @default(uuid())
   businessId String
@@ -205,6 +218,7 @@ model Customer {
   @@index([businessId])
   @@index([phone])
 }
+
 model Order {
   id String @id @default(uuid())
   businessId String
@@ -223,6 +237,7 @@ model Order {
   @@index([status])
   @@index([createdAt])
 }
+
 model OrderItem {
   id String @id @default(uuid())
   orderId String
@@ -237,6 +252,7 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
 }
+
 model Offer {
   id String @id @default(uuid())
   businessId String
@@ -257,6 +273,7 @@ model Offer {
   @@index([sortOrder])
   @@index([startsAt, endsAt])
 }
+
 model Service {
   id String @id @default(uuid())
   businessId String
@@ -277,6 +294,7 @@ model Service {
   @@index([isActive])
   @@index([sortOrder])
 }
+
 model Booking {
   id String @id @default(uuid())
   businessId String
@@ -296,6 +314,7 @@ model Booking {
   @@index([serviceId])
   @@index([bookingDate])
 }
+
 model WorkingHours {
   id String @id @default(uuid())
   businessId String
@@ -312,6 +331,7 @@ model WorkingHours {
   @@index([businessId])
   @@index([dayOfWeek])
 }
+
 model GalleryItem {
   id String @id @default(uuid())
   businessId String
@@ -326,6 +346,7 @@ model GalleryItem {
   @@index([sortOrder])
   @@index([isActive])
 }
+
 model SocialLink {
   id String @id @default(uuid())
   businessId String
@@ -341,6 +362,7 @@ model SocialLink {
   @@index([sortOrder])
   @@index([isActive])
 }
+
 model Subscription {
   id String @id @default(uuid())
   businessId String
@@ -360,11 +382,52 @@ model Subscription {
   plan BusinessPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
   paymentMethod BillingPaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
   billingPayments BillingPayment[]
+  accessGrants SubscriptionAccessGrant[]
   @@index([businessId])
   @@index([planId])
   @@index([status])
   @@index([paymentMethodId])
 }
+
+model SubscriptionAccessCode {
+  id String @id @default(uuid())
+  codeHash String @unique
+  label String?
+  planId String
+  isActive Boolean @default(true)
+  maxRedemptions Int?
+  redemptionCount Int @default(0)
+  expiresAt DateTime?
+  createdByUserId String
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  plan BusinessPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  createdBy User @relation("AccessCodeCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  grants SubscriptionAccessGrant[]
+  @@index([isActive, expiresAt], map: "SubscriptionAccessCode_active_idx")
+}
+
+model SubscriptionAccessGrant {
+  id String @id @default(uuid())
+  codeId String
+  businessId String
+  planId String
+  subscriptionId String
+  redeemedByUserId String
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  code SubscriptionAccessCode @relation(fields: [codeId], references: [id], onDelete: Restrict)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  plan BusinessPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  redeemedBy User @relation("AccessGrantRedeemer", fields: [redeemedByUserId], references: [id], onDelete: Restrict)
+  @@unique([codeId, businessId])
+  @@index([businessId, revokedAt], map: "SubscriptionAccessGrant_business_active_idx")
+  @@index([subscriptionId], map: "SubscriptionAccessGrant_subscription_idx")
+}
+
 model BillingPaymentMethod {
   id String @id @default(uuid())
   businessId String
@@ -379,6 +442,7 @@ model BillingPaymentMethod {
   subscriptions Subscription[]
   @@index([businessId])
 }
+
 model BillingPayment {
   id String @id @default(uuid())
   businessId String
@@ -409,6 +473,7 @@ model BillingPayment {
   @@index([businessId, createdAt])
   @@index([status, nextRetryAt])
 }
+
 model BillingWebhookEvent {
   id String @id @default(uuid())
   provider String @default("moyasar")
@@ -421,6 +486,7 @@ model BillingWebhookEvent {
   @@unique([provider, providerEventId], map: "BillingWebhookEvent_provider_event_unique")
   @@index([createdAt])
 }
+
 model BillingOperationsHeartbeat {
   id String @id
   lastSucceededAt DateTime
@@ -428,6 +494,7 @@ model BillingOperationsHeartbeat {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
 model BusinessStoreOrder {
   id String @id @default(uuid())
   businessId String
@@ -472,6 +539,7 @@ model BusinessStoreOrder {
   @@index([status, createdAt], map: "BusinessStoreOrder_status_created_idx")
   @@index([paymentStatus, createdAt], map: "BusinessStoreOrder_payment_status_created_idx")
 }
+
 model BusinessStoreOrderItem {
   id String @id @default(uuid())
   orderId String
@@ -487,6 +555,7 @@ model BusinessStoreOrderItem {
   order BusinessStoreOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
   @@index([orderId], map: "BusinessStoreOrderItem_order_idx")
 }
+
 model AnalyticsEvent {
   id String @id @default(uuid())
   businessId String
@@ -498,6 +567,7 @@ model AnalyticsEvent {
   @@index([eventType])
   @@index([createdAt])
 }
+
 model Branch {
   id String @id @default(uuid())
   businessId String
@@ -519,6 +589,7 @@ model Branch {
   @@index([isActive])
   @@index([sortOrder])
 }
+
 model Department {
   id String @id @default(uuid())
   businessId String
@@ -535,6 +606,7 @@ model Department {
   @@index([isActive])
   @@index([sortOrder])
 }
+
 model ContactPerson {
   id String @id @default(uuid())
   businessId String
@@ -560,6 +632,7 @@ model ContactPerson {
   @@index([isActive])
   @@index([sortOrder])
 }
+
 model StoredObject {
   id String @id @default(uuid())
   objectKey String @unique

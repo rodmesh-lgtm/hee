@@ -15,5 +15,5 @@ test("billing state audit allows an expired past_due row while collection retrie
 
 test("paid entitlement leakage is still rejected while a past_due subscription is expired", () => {
   assert.match(audit, /paid business plan without matching unexpired live subscription/);
-  assert.match(audit, /s\."status" IN \('active','past_due'\) AND s\."endsAt" > CURRENT_TIMESTAMP/);
+  assert.match(audit, /s\."status" IN \('active','past_due'\)\s+AND s\."endsAt" > CURRENT_TIMESTAMP/);
 });

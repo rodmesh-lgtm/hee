@@ -37,16 +37,31 @@ export async function requestVerificationAction() {
     const currentEntitlements = getPlanEntitlements(currentBusiness.plan?.code);
     if (!currentEntitlements.verificationEligible) return "upgrade" as const;
 
-    // The persisted Business.planId may lag behind subscription expiry if a renewal
-    // worker is temporarily unavailable. A paid-only action must therefore re-prove
-    // the live entitlement inside the same transaction instead of trusting planId.
+    // Paid-only actions re-prove the entitlement inside the same transaction. Provider
+    // subscriptions require an unexpired finite term; an administrative access-code
+    // entitlement requires an active, unrevoked grant/code lineage and never a payment.
     if (currentBusiness.plan?.code && currentBusiness.plan.code !== "FREE") {
       const activePaidSubscription = await tx.subscription.findFirst({
         where: {
           businessId: currentBusiness.id,
           planId: currentBusiness.plan.id,
           status: "active",
-          endsAt: { gt: new Date() },
+          OR: [
+            { provider: { not: "access_code" }, endsAt: { gt: new Date() } },
+            {
+              provider: "access_code",
+              autoRenew: false,
+              endsAt: null,
+              accessGrants: {
+                some: {
+                  businessId: currentBusiness.id,
+                  planId: currentBusiness.plan.id,
+                  revokedAt: null,
+                  code: { isActive: true, revokedAt: null },
+                },
+              },
+            },
+          ],
         },
         select: { id: true },
       });

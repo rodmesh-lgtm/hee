@@ -17,6 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto px-4 py-2 sm:px-6">
           <Link href="/admin" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#514b63] hover:bg-[#f5f2ff]">نظرة عامة</Link>
           <Link href="/admin/requests" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#5d49cc] hover:bg-[#f5f2ff]">طلبات الإدارة</Link>
+          <Link href="/admin/access-codes" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#5d49cc] hover:bg-[#f5f2ff]">أكواد الاشتراك</Link>
           <Link href="/admin/support" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#5d49cc] hover:bg-[#f5f2ff]">دعم العملاء</Link>
           <Link href="/dashboard" className="mr-auto whitespace-nowrap rounded-xl border border-[#e3dfed] px-3 py-2 text-xs font-black text-[#5d49cc]">لوحة العميل</Link>
         </div>
