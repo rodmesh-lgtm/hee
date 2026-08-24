@@ -30,12 +30,15 @@ test("company profile upload is authenticated, rate limited and PDF-only through
   assert.match(storage, /mimeType !== "application\/pdf"/);
 });
 
-test("public sanitizer permits company profile URL and title but no private identity fields", () => {
-  const source = read("app/lib/public-business-sanitize.ts");
-  assert.match(source, /companyProfileUrl/);
-  assert.match(source, /companyProfileTitle/);
-  assert.doesNotMatch(source, /licenseNumber/);
-  assert.doesNotMatch(source, /ownerId/);
+test("public sanitizer and published page expose only the approved company profile fields", () => {
+  const sanitizer = read("app/lib/public-business-sanitize.ts");
+  const publicPage = read("app/[slug]/page.tsx");
+  assert.match(sanitizer, /companyProfileUrl/);
+  assert.match(sanitizer, /companyProfileTitle/);
+  assert.doesNotMatch(sanitizer, /licenseNumber/);
+  assert.doesNotMatch(sanitizer, /ownerId/);
+  assert.match(publicPage, /publicBusiness\.companyProfileUrl/);
+  assert.match(publicPage, /PDF رسمي للمنشأة/);
 });
 
 test("vCard export is authenticated and does not expose internal identifiers", () => {
