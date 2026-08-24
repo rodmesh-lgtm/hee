@@ -30,14 +30,25 @@ test("database enforces commercial arithmetic and finite order/payment states", 
   assert.match(migration, /"paymentStatus" IN \('unpaid', 'pending', 'paid', 'failed', 'refunded'\)/);
   assert.match(migration, /BusinessStoreOrder_currency_check/);
   assert.match(migration, /BusinessStoreOrder_payment_provider_pair_check/);
+  assert.match(migration, /BusinessStoreOrder_submitted_timestamp_check/);
+  assert.match(migration, /BusinessStoreOrder_cancelled_timestamp_check/);
+  assert.match(migration, /BusinessStoreOrder_fulfilled_timestamp_check/);
 });
 
-test("store order history cannot be silently reassigned, cascaded, or re-priced after submission", () => {
+test("store order history cannot be silently reassigned, cascaded, re-priced, or reopened", () => {
   assert.match(migration, /REFERENCES "Business"\("id"\) ON DELETE RESTRICT/);
   assert.match(migration, /REFERENCES "BusinessStoreOrder"\("id"\) ON DELETE RESTRICT/);
   assert.match(migration, /BusinessStoreOrder_snapshot_immutable/);
   assert.match(migration, /submitted business store order commercial snapshot is immutable/);
+  assert.match(migration, /BusinessStoreOrder_valid_transition/);
+  assert.match(migration, /OLD\."status" = 'draft' AND NEW\."status" IN \('submitted', 'cancelled'\)/);
+  assert.match(migration, /OLD\."status" = 'shipped' AND NEW\."status" = 'fulfilled'/);
+  assert.match(migration, /invalid business store order status transition/);
+  assert.match(migration, /OLD\."paymentStatus" = 'paid' AND NEW\."paymentStatus" = 'refunded'/);
+  assert.match(migration, /invalid business store payment status transition/);
   assert.match(migration, /BusinessStoreOrderItem_draft_only_update/);
+  assert.match(migration, /old_parent_status IS DISTINCT FROM 'draft'/);
+  assert.match(migration, /new_parent_status IS DISTINCT FROM 'draft'/);
   assert.match(migration, /business store order items are immutable after submission/);
 });
 
