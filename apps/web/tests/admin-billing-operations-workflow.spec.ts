@@ -18,7 +18,7 @@ async function seed() {
 
   const paidBusiness = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: `منشأة فوترة ${suffix}`, slug: `rc-billing-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
   const paidSubscription = await db.subscription.create({ data: { businessId: paidBusiness.id, planId: plan.id, status: "active", provider: "moyasar", autoRenew: true } });
-  const payment = await db.billingPayment.create({ data: { businessId: paidBusiness.id, planId: plan.id, subscriptionId: paidSubscription.id, provider: "moyasar", providerGivenId: `rc-given-${suffix}`, providerPaymentId: `rc-provider-${suffix}`, kind: "initial", amount: 19900, status: "paid", paidAt: new Date(), receiptSellerLegalName: "HEE RC", receiptTaxStatus: "test-evidence", receiptNetAmount: 17304, receiptVatAmount: 2596, receiptIssuedAt: new Date() } });
+  const payment = await db.billingPayment.create({ data: { businessId: paidBusiness.id, planId: plan.id, subscriptionId: paidSubscription.id, provider: "moyasar", providerGivenId: `rc-given-${suffix}`, providerPaymentId: `rc-provider-${suffix}`, kind: "initial", amount: 19900, status: "paid", paidAt: new Date(), receiptSellerLegalName: "HEE RC", receiptSellerAddress: "RC evidence address", receiptTaxStatus: "not_registered", receiptNetAmount: 19900, receiptVatAmount: 0, receiptIssuedAt: new Date() } });
   await db.billingWebhookEvent.create({ data: { provider: "moyasar", providerEventId: `rc-event-${suffix}`, eventType: "payment_paid", billingPaymentId: payment.id, processedAt: new Date() } });
 
   const accessBusiness = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: `منشأة منحة ${suffix}`, slug: `rc-grant-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
@@ -54,7 +54,7 @@ test.describe.serial("central admin billing operations", () => {
       await page.getByRole("link", { name: "فتح" }).click();
       await expect(page).toHaveURL(new RegExp(`/admin/billing/payments/${f.paymentId}`));
       await expect(page.getByRole("heading", { name: "تفاصيل الدفعة" })).toBeVisible();
-      await expect(page.getByText("test-evidence", { exact: true })).toBeVisible();
+      await expect(page.getByText("not_registered", { exact: true })).toBeVisible();
       await expect(page.getByText("payment_paid", { exact: true })).toBeVisible();
       await expect(page.getByText(/هذه الصفحة للقراءة والتحقق فقط/)).toBeVisible();
       await expect(page.locator("form")).toHaveCount(0);
