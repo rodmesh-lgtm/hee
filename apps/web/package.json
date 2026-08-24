@@ -11,7 +11,7 @@
     "test": "npm run test:unit",
     "test:unit": "tsx --test tests/*.test.ts",
     "test:rc": "playwright test tests/launch-customer-journey.spec.ts tests/rc-owner-workflow.spec.ts tests/active-business-isolation.spec.ts tests/digital-identity-workflow.spec.ts tests/dashboard-functional-workflow.spec.ts tests/business-store-workflow.spec.ts",
-    "test:admin": "playwright test tests/admin-workflow.spec.ts tests/admin-requests-workflow.spec.ts tests/support-data-rights-workflow.spec.ts tests/admin-access-code-workflow.spec.ts tests/admin-business-store-catalog-workflow.spec.ts",
+    "test:admin": "playwright test tests/admin-workflow.spec.ts tests/admin-requests-workflow.spec.ts tests/support-data-rights-workflow.spec.ts tests/admin-access-code-workflow.spec.ts tests/admin-business-store-catalog-workflow.spec.ts tests/admin-business-store-orders-workflow.spec.ts",
     "test:directory": "playwright test tests/directory-workflow.spec.ts",
     "test:transactions": "playwright test tests/transactions-workflow.spec.ts tests/booking-duration-workflow.spec.ts tests/public-idempotency-workflow.spec.ts",
     "test:email-verification": "playwright test tests/email-verification-workflow.spec.ts tests/unverified-email-change-workflow.spec.ts",
