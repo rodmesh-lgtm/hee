@@ -30,6 +30,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260822050000_billing_operations_heartbeat",
   "20260822111500_billing_worker_release_provenance",
   "20260823055500_scrub_revoked_payment_tokens",
+  "20260824123000_business_store_order_domain",
 ] as const;
 
 export const EXPECTED_PREVIEW_LATEST_MIGRATION = EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;
