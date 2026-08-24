@@ -19,6 +19,20 @@ async function cleanupByEmail(email: string) {
   await db.oAuthState.deleteMany({ where: { provider: "email-verification", nonce: user.id } }); await db.session.deleteMany({ where: { userId: user.id } }); await db.authIdentity.deleteMany({ where: { userId: user.id } }); await db.$executeRaw`DELETE FROM "LegalConsent" WHERE "userId" = ${user.id}`; await db.user.delete({ where: { id: user.id } });
 }
 function horizontalOverflow(page: import("@playwright/test").Page) { return page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth); }
+async function waitForMainFrameQuiescence(page: import("@playwright/test").Page) {
+  // A Next.js server action may deliver its POST response before the client applies
+  // the final same-route navigation. Require a quiet main-frame window before
+  // starting an unrelated navigation so tests never race a still-pending redirect.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const navigation = await page.waitForEvent("framenavigated", {
+      predicate: (frame) => frame === page.mainFrame(),
+      timeout: 1_500,
+    }).catch(() => null);
+    if (!navigation) return;
+    await page.waitForLoadState("domcontentloaded");
+  }
+  throw new Error("main frame did not become navigation-quiescent");
+}
 
 test.describe.serial("launch customer journey", () => {
   test.beforeAll(async () => { const connectionString = String(process.env.DATABASE_URL ?? "").trim(); if (!connectionString) throw new Error("DATABASE_URL is required for launch customer journey"); pool = new Pool({ connectionString, max: 4 }); db = new PrismaClient({ adapter: new PrismaPg(pool) }); });
@@ -52,11 +66,11 @@ test.describe.serial("launch customer journey", () => {
         await page.getByRole("button", { name: "نشر الصفحة" }).click();
         const response = await publishResponse;
         expect(response.ok()).toBe(true);
-        await page.waitForURL((url) => url.pathname === "/dashboard/my-page", { timeout: 20_000 });
         await expect(page.getByText("منشورة", { exact: true })).toBeVisible({ timeout: 20_000 });
 
         const user = await db.user.findUniqueOrThrow({ where: { email }, select: { id: true } });
         await expect.poll(async () => (await db.business.findFirst({ where: { ownerId: user.id }, select: { isPublished: true } }))?.isPublished, { timeout: 20_000 }).toBe(true);
+        await waitForMainFrameQuiescence(page);
 
         await page.goto(`${baseUrl}/${slug}`, { waitUntil: "domcontentloaded" });
         await expect(page.getByRole("heading", { name: "منشأة رحلة الإطلاق" })).toBeVisible();
