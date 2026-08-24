@@ -6,8 +6,8 @@ import { Pool } from "pg";
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 const pdfFixture = Buffer.from("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<<>>\n%%EOF\n", "utf8");
 
-test("company profile PDF, vCard and public access follow publication ownership rules", async ({ browser }) => {
-  test.setTimeout(120_000);
+test("digital identity assets, presence and public access follow ownership and publication rules", async ({ browser }) => {
+  test.setTimeout(150_000);
   const connectionString = String(process.env.DATABASE_URL ?? "").trim();
   if (!connectionString) throw new Error("DATABASE_URL is required");
   const pool = new Pool({ connectionString, max: 4 });
@@ -48,6 +48,31 @@ test("company profile PDF, vCard and public access follow publication ownership 
     expect(vcardText).toContain("منشأة الهوية الرقمية");
     expect(vcardText).toContain(`https://hee.sa/${business.slug}`);
 
+    await page.getByLabel("الاسم بالإنجليزية").fill("Digital Identity Business");
+    await page.getByLabel("البريد التجاري").fill(`business-${suffix}@example.com`);
+    await page.getByLabel("الموقع الإلكتروني").fill("example.com");
+    await page.getByLabel("العنوان").fill("الرياض، المملكة العربية السعودية");
+    await page.getByLabel("Instagram").fill("https://instagram.com/hee.test");
+    await page.getByLabel("X", { exact: true }).fill("https://x.com/hee_test");
+    await page.getByLabel("TikTok").fill("https://tiktok.com/@hee_test");
+    await page.getByLabel("Snapchat").fill("https://snapchat.com/add/hee_test");
+    await page.getByLabel("Facebook").fill("https://facebook.com/hee.test");
+    await page.getByLabel("عنوان SEO").fill("هوية رقمية تجريبية");
+    await page.getByLabel("وصف SEO").fill("وصف مخصص لاختبار ظهور المنشأة في محركات البحث ومنصات المشاركة.");
+    await page.getByRole("button", { name: "حفظ الحضور الرقمي" }).click();
+    await expect(page.getByText("تم حفظ الحضور الرقمي.")).toBeVisible({ timeout: 20_000 });
+
+    let presence = await db.business.findUnique({ where: { id: business.id }, select: { website: true, instagramUrl: true, metaTitle: true, metaDescription: true } });
+    expect(presence?.website).toBe("https://example.com/");
+    expect(presence?.instagramUrl).toBe("https://instagram.com/hee.test");
+    expect(presence?.metaTitle).toBe("هوية رقمية تجريبية");
+
+    await page.getByLabel("Instagram").fill("https://evil.example/profile");
+    await page.getByRole("button", { name: "حفظ الحضور الرقمي" }).click();
+    await expect(page.getByText("تعذر حفظ البيانات. تحقق من البريد والروابط والأطوال ثم حاول مرة أخرى.")).toBeVisible({ timeout: 20_000 });
+    presence = await db.business.findUnique({ where: { id: business.id }, select: { website: true, instagramUrl: true, metaTitle: true, metaDescription: true } });
+    expect(presence?.instagramUrl).toBe("https://instagram.com/hee.test");
+
     const anonymous = await browser.newContext();
     try {
       const anonymousPage = await anonymous.newPage();
@@ -56,10 +81,25 @@ test("company profile PDF, vCard and public access follow publication ownership 
 
       await db.business.update({ where: { id: business.id }, data: { isPublished: true, publishedAt: new Date() } });
       await anonymousPage.goto(`${baseUrl}/${business.slug}`, { waitUntil: "domcontentloaded" });
+      await expect(anonymousPage).toHaveTitle("هوية رقمية تجريبية");
       await expect(anonymousPage.getByText("الملف التعريفي الرسمي")).toBeVisible();
       await expect(anonymousPage.getByRole("link", { name: "فتح الملف" })).toBeVisible();
+      await expect(anonymousPage.getByText("حساباتنا الرسمية")).toBeVisible();
+      await expect(anonymousPage.getByRole("link", { name: "Instagram" })).toHaveAttribute("href", "https://instagram.com/hee.test");
       const publicPdf = await anonymousPage.request.get(`${baseUrl}${stored!.companyProfileUrl}`);
       expect(publicPdf.status()).toBe(200);
+
+      // Removing the last business contact method through the presence form must be
+      // rejected even while another dashboard editor can concurrently change phone/WhatsApp.
+      await db.business.update({ where: { id: business.id }, data: { phone: null, whatsapp: null } });
+      await page.goto(`${baseUrl}/dashboard/digital-identity`, { waitUntil: "domcontentloaded" });
+      await page.getByLabel("البريد التجاري").fill("");
+      await page.getByLabel("الموقع الإلكتروني").fill("");
+      await page.getByRole("button", { name: "حفظ الحضور الرقمي" }).click();
+      await expect(page.getByText("الصفحة منشورة؛ يجب الإبقاء على وسيلة تواصل واحدة على الأقل.")).toBeVisible({ timeout: 20_000 });
+      const contactPreserved = await db.business.findUnique({ where: { id: business.id }, select: { email: true, website: true } });
+      expect(contactPreserved?.email).toBe(`business-${suffix}@example.com`);
+      expect(contactPreserved?.website).toBe("https://example.com/");
 
       await db.business.update({ where: { id: business.id }, data: { isPublished: false, publishedAt: null } });
       const revokedPdf = await anonymousPage.request.get(`${baseUrl}${stored!.companyProfileUrl}`);
@@ -69,8 +109,6 @@ test("company profile PDF, vCard and public access follow publication ownership 
     }
   } finally {
     await context.close();
-    // The public page intentionally records a page-view analytics event. Remove only
-    // this test tenant's telemetry before deleting the protected Business parent row.
     await db.analyticsEvent.deleteMany({ where: { businessId: business.id } });
     await db.business.delete({ where: { id: business.id } });
     if (storageId) await db.storedObject.deleteMany({ where: { id: storageId } });
