@@ -108,7 +108,17 @@ test.describe.serial("Business Store real draft workflow", () => {
       expect(orders[0].subtotal).toBe(25800);
       expect(orders[0].total).toBe(25800);
       expect(await db.billingPayment.count({ where: { businessId: fixture.businessId } })).toBe(0);
-      await expect(page.locator("[data-store-subtotal]")).toContainText("258");
+
+      // Currency formatting follows the active Arabic locale and therefore uses
+      // Arabic-Indic digits in the rendered UI. Assert the formatted value rather
+      // than assuming Latin digits, while the exact integer total remains covered
+      // by the database assertions above.
+      const formattedSubtotal = new Intl.NumberFormat("ar-SA", {
+        style: "currency",
+        currency: "SAR",
+        maximumFractionDigits: 0,
+      }).format(258);
+      await expect(page.locator("[data-store-subtotal]")).toContainText(formattedSubtotal);
     } finally {
       await cleanup(fixture);
     }
