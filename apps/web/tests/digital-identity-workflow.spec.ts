@@ -54,6 +54,10 @@ test("digital identity assets, presence and public access follow ownership and p
     expect(vcardText).toContain("منشأة الهوية الرقمية");
     expect(vcardText).toContain(`https://hee.sa/${business.slug}`);
 
+    // All digital-presence fields are optional for a private page and a no-op save must work.
+    await page.getByRole("button", { name: "حفظ الحضور الرقمي" }).click();
+    await expect(page.getByText("تم حفظ الحضور الرقمي.")).toBeVisible({ timeout: 20_000 });
+
     await page.getByLabel("الاسم بالإنجليزية").fill("Digital Identity Business");
     await page.getByLabel("البريد التجاري").fill(`business-${suffix}@example.com`);
     await page.getByLabel("الموقع الإلكتروني").fill("example.com");
@@ -75,7 +79,8 @@ test("digital identity assets, presence and public access follow ownership and p
 
     await page.getByLabel("Instagram").fill("https://evil.example/profile");
     await page.getByRole("button", { name: "حفظ الحضور الرقمي" }).click();
-    await expect(page.getByText("تعذر حفظ البيانات. تحقق من البريد والروابط والأطوال ثم حاول مرة أخرى.")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("رابط Instagram يجب أن يكون من instagram.com فقط.")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByLabel("Instagram")).toHaveAttribute("aria-invalid", "true");
     presence = await db.business.findUnique({ where: { id: business.id }, select: { website: true, instagramUrl: true, metaTitle: true, metaDescription: true } });
     expect(presence?.instagramUrl).toBe("https://instagram.com/hee.test");
 
@@ -100,7 +105,7 @@ test("digital identity assets, presence and public access follow ownership and p
       await page.getByLabel("البريد التجاري").fill("");
       await page.getByLabel("الموقع الإلكتروني").fill("");
       await page.getByRole("button", { name: "حفظ الحضور الرقمي" }).click();
-      await expect(page.getByText("الصفحة منشورة؛ يجب الإبقاء على وسيلة تواصل واحدة على الأقل.")).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText("الصفحة منشورة؛ يجب الإبقاء على وسيلة تواصل واحدة على الأقل: هاتف أو واتساب أو بريد تجاري أو موقع إلكتروني.")).toBeVisible({ timeout: 20_000 });
       const contactPreserved = await db.business.findUnique({ where: { id: business.id }, select: { email: true, website: true } });
       expect(contactPreserved?.email).toBe(`business-${suffix}@example.com`);
       expect(contactPreserved?.website).toBe("https://example.com/");
