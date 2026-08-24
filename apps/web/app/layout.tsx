@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Suspense } from "react";
 import { IBM_Plex_Sans_Arabic, Inter } from "next/font/google";
+import { LanguageSwitcher } from "../components/language-switcher";
+import { LOCALE_META } from "./lib/i18n";
+import { getRequestLocale } from "./lib/i18n-server";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -32,10 +36,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = await getRequestLocale();
+  const localeMeta = LOCALE_META[locale];
+
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning className={`${inter.variable} ${ibmPlexSansArabic.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">{children}</body>
+    <html lang={localeMeta.htmlLang} dir={localeMeta.dir} suppressHydrationWarning className={`${inter.variable} ${ibmPlexSansArabic.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+        {children}
+        <Suspense fallback={null}><LanguageSwitcher locale={locale} /></Suspense>
+      </body>
     </html>
   );
 }
