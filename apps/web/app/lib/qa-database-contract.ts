@@ -34,6 +34,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260824123000_business_store_order_domain",
   "20260824141000_serialize_access_codes_with_paid_checkout",
   "20260824210500_central_business_store_catalog",
+  "20260824215500_business_store_order_admin_ops",
 ] as const;
 
 export const EXPECTED_PREVIEW_LATEST_MIGRATION = EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;
