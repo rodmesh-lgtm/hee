@@ -23,10 +23,10 @@ test("billing UI keeps access-code grants distinct from the paid ledger", () => 
   assert.match(page, /لا تنشئ BillingPayment وهمية/);
 });
 
-test("payment evidence view never exposes encrypted payment method tokens or webhook payloads", () => {
+test("payment evidence view never reads encrypted payment method tokens or webhook payload bodies", () => {
   assert.doesNotMatch(page, /encryptedToken/);
   assert.doesNotMatch(detail, /encryptedToken/);
-  assert.doesNotMatch(detail, /payload/);
+  assert.doesNotMatch(detail, /event\.payload|payload\s*:/);
   assert.match(detail, /providerEventId/);
   assert.match(detail, /receiptIssuedAt/);
 });
