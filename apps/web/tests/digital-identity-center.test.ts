@@ -11,12 +11,18 @@ const read = (path: string) => readFileSync(join(root, path), "utf8");
 test("dashboard exposes a dedicated digital identity center", () => {
   const nav = read("components/dashboard/dashboard-nav.ts");
   const page = read("app/dashboard/digital-identity/page.tsx");
+  const assets = read("components/dashboard/identity-assets.tsx");
   assert.match(nav, /الهوية الرقمية/);
   assert.match(nav, /\/dashboard\/digital-identity/);
   assert.match(page, /الملف التعريفي للشركة PDF/);
-  assert.match(page, /QR للصفحة الرقمية/);
-  assert.match(page, /بطاقة جهة الاتصال vCard/);
+  assert.match(page, /الرابط والاتصال/);
+  assert.match(page, /تنزيل vCard/);
+  assert.match(page, /IdentityAssets/);
   assert.match(page, /اكتمال الهوية الرقمية/);
+  assert.match(assets, /بطاقة الأعمال الرقمية/);
+  assert.match(assets, /توقيع البريد/);
+  assert.doesNotMatch(page, /api\.qrserver\.com/);
+  assert.doesNotMatch(assets, /api\.qrserver\.com/);
 });
 
 test("company profile upload is authenticated, rate limited and PDF-only through storage", () => {
