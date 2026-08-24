@@ -141,6 +141,7 @@ model Business {
   subscriptions Subscription[]
   billingPaymentMethods BillingPaymentMethod[]
   billingPayments BillingPayment[]
+  businessStoreOrders BusinessStoreOrder[]
   analytics AnalyticsEvent[]
   branches Branch[]
   departments Department[]
@@ -426,6 +427,65 @@ model BillingOperationsHeartbeat {
   releaseSha String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+model BusinessStoreOrder {
+  id String @id @default(uuid())
+  businessId String
+  idempotencyKey String
+  status String @default("draft")
+  paymentStatus String @default("unpaid")
+  currency String @default("SAR")
+  subtotal Int @default(0)
+  shippingAmount Int @default(0)
+  vatAmount Int @default(0)
+  total Int @default(0)
+  businessNameSnapshot String
+  businessSlugSnapshot String
+  publicUrlSnapshot String
+  logoUrlSnapshot String?
+  primaryColorSnapshot String
+  secondaryColorSnapshot String?
+  identitySnapshot Json
+  customizationSnapshot Json
+  shippingName String?
+  shippingPhone String?
+  shippingEmail String?
+  shippingAddressLine1 String?
+  shippingAddressLine2 String?
+  shippingCity String?
+  shippingDistrict String?
+  shippingPostalCode String?
+  shippingCountry String @default("SA")
+  paymentProvider String?
+  providerPaymentId String?
+  submittedAt DateTime?
+  paidAt DateTime?
+  cancelledAt DateTime?
+  fulfilledAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  items BusinessStoreOrderItem[]
+  @@unique([businessId, idempotencyKey], map: "BusinessStoreOrder_business_idempotency_unique")
+  @@unique([paymentProvider, providerPaymentId], map: "BusinessStoreOrder_provider_payment_unique")
+  @@index([businessId, createdAt], map: "BusinessStoreOrder_business_created_idx")
+  @@index([status, createdAt], map: "BusinessStoreOrder_status_created_idx")
+  @@index([paymentStatus, createdAt], map: "BusinessStoreOrder_payment_status_created_idx")
+}
+model BusinessStoreOrderItem {
+  id String @id @default(uuid())
+  orderId String
+  sku String
+  nameSnapshot String
+  descriptionSnapshot String?
+  unitPrice Int
+  quantity Int @default(1)
+  lineTotal Int
+  customizationSnapshot Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order BusinessStoreOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  @@index([orderId], map: "BusinessStoreOrderItem_order_idx")
 }
 model AnalyticsEvent {
   id String @id @default(uuid())
