@@ -4,7 +4,7 @@ import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate
 import { normalizePublicSlug } from "../../../lib/public-url";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
 
-const ALLOWED_EVENTS = new Set(["page_view", "whatsapp_click", "phone_click", "share_click", "website_click", "map_click"]);
+const ALLOWED_EVENTS = new Set(["page_view", "whatsapp_click", "phone_click", "share_click", "website_click", "map_click", "company_profile_click", "social_click"]);
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -33,8 +33,6 @@ export async function POST(request: Request) {
     });
     if (!business) return NextResponse.json({ ok: false }, { status: 404 });
 
-    // Missing proxy/IP headers must not disable throttling. Group such traffic into a
-    // conservative fallback bucket for this business/event instead of failing open.
     const rate = await consumePublicWriteLimit({
       scope: `public-analytics-${eventType}`,
       businessId: business.id,
@@ -52,9 +50,6 @@ export async function POST(request: Request) {
     await db.analyticsEvent.create({ data: { businessId: business.id, eventType } });
     return NextResponse.json({ ok: true });
   } catch (error) {
-    // A database/rate-limit outage is not a malformed visitor request. Preserve the
-    // distinction so runtime monitoring can detect infrastructure failures instead of
-    // hiding them inside a misleading 400 response.
     console.error("[public-analytics] write_failed", { slug, eventType, error });
     return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
   }
