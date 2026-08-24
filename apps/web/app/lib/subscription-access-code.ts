@@ -50,6 +50,19 @@ export async function redeemSubscriptionAccessCode(userId: string, businessId: s
     });
     if (currentSubscription) return "subscription-conflict" as const;
 
+    // The billing-business advisory lock makes this check race-safe with checkout creation.
+    // A provider-started checkout must be reconciled or canceled before an administrative
+    // entitlement can be introduced, otherwise settled money could race the free grant.
+    const openPaidCheckout = await tx.billingPayment.findFirst({
+      where: {
+        businessId,
+        kind: { in: ["initial", "upgrade"] },
+        status: { in: ["created", "initiated", "authorized"] },
+      },
+      select: { id: true },
+    });
+    if (openPaidCheckout) return "subscription-conflict" as const;
+
     const subscription = await tx.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "access_code", providerReference: access.id, autoRenew: false, endsAt: null } });
     await tx.business.update({ where: { id: businessId }, data: { planId: plan.id } });
     await tx.subscriptionAccessGrant.create({ data: { codeId: access.id, businessId, planId: plan.id, subscriptionId: subscription.id, redeemedByUserId: userId } });
