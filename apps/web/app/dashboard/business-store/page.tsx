@@ -1,28 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  BadgeCheck,
-  CreditCard,
-  ExternalLink,
-  Gift,
-  IdCard,
-  PackageCheck,
-  QrCode,
-  ShoppingBag,
-  Sparkles,
-  Sticker,
-} from "lucide-react";
-import { getCurrentUser } from "../../lib/auth";
+import { BadgeCheck, ExternalLink, PackageCheck, QrCode, ShoppingBag, Sparkles } from "lucide-react";
+import { BusinessStoreDraftBuilder } from "../../../components/business-store/business-store-draft-builder";
 import { getActiveBusinessForUser } from "../../lib/active-business";
-
-const catalog = [
-  { title: "لوحة اسم مكتبية للمدير", description: "لوحة مكتبية باسم المدير والمسمى الوظيفي وشعار المنشأة، مع QR اختياري لصفحة HEE.", icon: IdCard, badge: "مقترح الإطلاق الأول" },
-  { title: "كوب بهوية المنشأة + QR", description: "كوب مخصص يحمل شعار المنشأة وألوانها ورمز QR الذي يقود مباشرة إلى صفحة الأعمال.", icon: Gift, badge: "قابل للتخصيص" },
-  { title: "حامل QR للاستقبال والطاولات", description: "ستاند مكتبي يفتح صفحة المنشأة أو وسائل التواصل عبر QR واضح وسهل المسح.", icon: QrCode, badge: "للعملاء والزوار" },
-  { title: "بطاقة أعمال NFC + QR", description: "بطاقة أعمال ذكية للمدير أو الموظف تجمع NFC وQR للوصول إلى صفحة HEE ومعلومات التواصل.", icon: CreditCard, badge: "هوية رقمية + مادية" },
-  { title: "ملصقات QR للواجهة", description: "ملصقات للأبواب والكاشير والمركبات تربط الزائر مباشرة بصفحة الأعمال أو واتساب.", icon: Sticker, badge: "استخدام مرن" },
-  { title: "باقة هوية مكتبية", description: "حزمة تجمع لوحة الاسم والكوب وبطاقة NFC وحامل QR بتصميم موحد لهوية المنشأة.", icon: PackageCheck, badge: "باقة متكاملة" },
-];
+import { getCurrentUser } from "../../lib/auth";
+import { BUSINESS_STORE_CATALOG } from "../../lib/business-store-catalog";
 
 export default async function BusinessStorePage() {
   const user = await getCurrentUser();
@@ -52,13 +34,13 @@ export default async function BusinessStorePage() {
     </section>
 
     <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><div className="flex items-center gap-2"><PackageCheck className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">منتجات البداية</h2></div><p className="mt-1 text-xs leading-6 text-slate-500">نؤسس الآن دورة الطلب والتخصيص والدفع والشحن قبل فتح الشراء الفعلي.</p></div><span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">الشراء مغلق أثناء التأسيس</span></div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{catalog.map((product) => { const Icon = product.icon; return <article key={product.title} className="flex min-h-[220px] flex-col rounded-[22px] border border-[#e9eaf4] bg-[#fcfcff] p-4"><div className="flex items-start justify-between gap-3"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f1edff] text-[#6745cf]"><Icon className="h-5 w-5" /></div><span className="rounded-full border border-[#e5e0f7] bg-white px-2.5 py-1 text-[10px] font-black text-[#6a58bb]">{product.badge}</span></div><h3 className="mt-4 text-base font-black text-[#20264f]">{product.title}</h3><p className="mt-2 text-xs leading-6 text-slate-500">{product.description}</p><div className="mt-auto pt-4"><button type="button" disabled className="min-h-10 w-full cursor-not-allowed rounded-xl bg-slate-100 px-3 text-xs font-black text-slate-400">سيتاح بعد اكتمال مسار الطلب</button></div></article>; })}</div>
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><div className="flex items-center gap-2"><PackageCheck className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">منتجات البداية</h2></div><p className="mt-1 text-xs leading-6 text-slate-500">يمكنك الآن تكوين مسودة طلب فعلية وحفظ المنتجات والكميات. لا تُفتح أي عملية دفع قبل اكتمال مسار المراجعة والعنوان والدفع الآمن.</p></div><span className="rounded-full bg-[#f1edff] px-3 py-1.5 text-xs font-black text-[#6543ce]">مسودات الطلب مفعلة</span></div>
+      <div className="mt-5"><BusinessStoreDraftBuilder catalog={BUSINESS_STORE_CATALOG} /></div>
     </section>
 
     <section className="grid gap-4 lg:grid-cols-2">
-      <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><h2 className="font-black text-[#20264f]">دورة الطلب المخطط لها</h2><div className="mt-4 space-y-2 text-xs leading-6 text-slate-600"><p>1. اختيار المنتج والمقاس والخامة والكمية.</p><p>2. سحب اسم المنشأة والشعار والرابط والألوان من الهوية الرقمية.</p><p>3. معاينة التصميم ثم اعتماد نسخة ثابتة للطباعة.</p><p>4. العنوان والشحن والدفع ثم التجهيز والتسليم.</p></div></article>
-      <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><QrCode className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">فصل مالي وتشغيلي</h2></div><p className="mt-3 text-xs leading-6 text-slate-500">متجر HEE سيستخدم نماذج طلب ودفع مستقلة عن طلبات زبائن المنشأة وعن اشتراك HEE المتكرر. كما سيُنشأ QR داخل HEE بدل إرسال روابط العملاء إلى مولد خارجي.</p></article>
+      <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><h2 className="font-black text-[#20264f]">دورة الطلب</h2><div className="mt-4 space-y-2 text-xs leading-6 text-slate-600"><p>1. <b>مفعّل الآن:</b> اختيار المنتج والكمية وحفظها في مسودة مرتبطة بمنشأتك.</p><p>2. سحب اسم المنشأة والشعار والرابط والألوان من الهوية الرقمية.</p><p>3. معاينة التصميم ثم اعتماد نسخة ثابتة للطباعة.</p><p>4. العنوان والشحن والدفع ثم التجهيز والتسليم.</p></div></article>
+      <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><QrCode className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">فصل مالي وتشغيلي</h2></div><p className="mt-3 text-xs leading-6 text-slate-500">مسودة متجر HEE مستقلة عن طلبات زبائن المنشأة وعن اشتراك HEE المتكرر. حفظ المنتجات هنا لا ينشئ دفعة ولا يغيّر الباقة. سيُفتح الدفع فقط بعد إضافة مسار متجر مستقل وآمن.</p></article>
     </section>
   </div>;
 }
