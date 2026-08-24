@@ -47,9 +47,22 @@ export async function revokeSubscriptionAccessCodeAdminAction(formData: FormData
   const codeId = String(formData.get("codeId") ?? "").trim();
   if (!codeId) redirect("/admin/access-codes?access=invalid-code");
   await db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`subscription-access-admin:${codeId}`}))`;
+    const identity = await tx.subscriptionAccessCode.findUnique({ where: { id: codeId }, select: { codeHash: true } });
+    if (!identity) return;
+
+    // Redemption takes the same code lock before reading code state and then the same
+    // per-business billing lock before changing entitlement. Keeping this exact lock
+    // order prevents a redemption that started just before revocation from escaping the
+    // grant snapshot, and prevents checkout/settlement from racing the downgrade.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`subscription-access:${identity.codeHash}`}))`;
     const code = await tx.subscriptionAccessCode.findUnique({ where: { id: codeId }, include: { grants: { where: { revokedAt: null } } } });
     if (!code || !code.isActive) return;
+
+    const businessIds = [...new Set(code.grants.map((grant) => grant.businessId))].sort();
+    for (const businessId of businessIds) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing-business:${businessId}`}))`;
+    }
+
     const now = new Date();
     await tx.subscriptionAccessCode.update({ where: { id: code.id }, data: { isActive: false, revokedAt: now } });
     for (const grant of code.grants) {
