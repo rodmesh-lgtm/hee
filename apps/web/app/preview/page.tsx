@@ -4,6 +4,7 @@ import { getCurrentUser } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
 import { db } from "../lib/db";
 import { PublicBusinessPageV10Light } from "../../components/public-business-page-v10-light";
+import { PublicIdentityExtras } from "../../components/public/public-identity-extras";
 import { getPublicBusinessUrlFromRequest } from "../lib/public-url";
 import { sanitizePublicBusiness } from "../lib/public-business-sanitize";
 
@@ -34,5 +35,17 @@ export default async function OwnerPreviewPage() {
   });
   if (!business) redirect("/onboarding");
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
-  return <PublicBusinessPageV10Light business={sanitizePublicBusiness(business)} qrDataUrl={makeQrUrl(publicUrl)} publicUrl={publicUrl} />;
+  const publicBusiness = sanitizePublicBusiness(business);
+  return <>
+    <PublicBusinessPageV10Light business={publicBusiness} qrDataUrl={makeQrUrl(publicUrl)} publicUrl={publicUrl} />
+    <PublicIdentityExtras
+      companyProfileUrl={business.companyProfileUrl}
+      companyProfileTitle={business.companyProfileTitle}
+      instagramUrl={business.instagramUrl}
+      xUrl={business.xUrl}
+      tiktokUrl={business.tiktokUrl}
+      snapchatUrl={business.snapchatUrl}
+      facebookUrl={business.facebookUrl}
+    />
+  </>;
 }
