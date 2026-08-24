@@ -41,6 +41,17 @@ test("database rejects paid checkout while an access-code entitlement is active"
  assert.match(migration,/BEFORE INSERT OR UPDATE/);
 });
 
+test("admin revocation serializes against redemption and billing before disabling the code",()=>{
+ const source=read("app/actions/admin-access-code.ts");
+ assert.match(source,/subscription-access:\$\{identity\.codeHash\}/);
+ assert.match(source,/billing-business:\$\{businessId\}/);
+ const codeLock=source.indexOf("subscription-access:${identity.codeHash}");
+ const businessLock=source.indexOf("billing-business:${businessId}");
+ const disable=source.indexOf("subscriptionAccessCode.update");
+ assert.ok(codeLock >= 0 && businessLock > codeLock && disable > businessLock);
+ assert.match(source,/new Set\(code\.grants\.map\(\(grant\) => grant\.businessId\)\)\]\.sort\(\)/);
+});
+
 test("revoked grants cannot be silently redeemed again",()=>{
  const source=read("app/lib/subscription-access-code.ts");
  assert.match(source,/if \(prior\?\.revokedAt\) return "revoked"/);
