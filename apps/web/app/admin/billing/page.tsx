@@ -4,15 +4,15 @@ import { requireAdmin } from "../../lib/admin";
 import { db } from "../../lib/db";
 
 const PAGE_SIZE = 30;
-const SUBSCRIPTION_STATUSES = ["active", "past_due", "cancelled", "expired"] as const;
-const PAYMENT_STATUSES = ["created", "pending", "paid", "failed", "reversed", "refunded"] as const;
+const SUBSCRIPTION_STATUSES = ["active", "trialing", "past_due", "canceled", "replaced", "incomplete"] as const;
+const PAYMENT_STATUSES = ["created", "initiated", "paid", "failed", "refunded", "voided", "authorized", "canceled"] as const;
 
 function clean(value: unknown, max = 120) { return String(value ?? "").trim().slice(0, max); }
 function sar(halalas: number) {
   return new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR", maximumFractionDigits: 2 }).format(halalas / 100);
 }
 function dt(value: Date | null | undefined) {
-  return value ? new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(value) : "—";
+  return value ? new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" }).format(value) : "—";
 }
 
 export default async function AdminBillingPage({ searchParams }: { searchParams: Promise<{ q?: string; subscriptionStatus?: string; paymentStatus?: string; provider?: string; page?: string }> }) {
