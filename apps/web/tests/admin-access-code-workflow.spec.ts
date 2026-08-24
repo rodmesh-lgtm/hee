@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
@@ -98,7 +98,7 @@ async function cleanup(fixture: Fixture) {
   await db.user.deleteMany({ where: { id: { in: [fixture.adminId, fixture.customerId] } } });
 }
 
-async function setSession(page: Parameters<typeof test>[0] extends never ? never : any, token: string) {
+async function setSession(page: Page, token: string) {
   await page.context().clearCookies();
   await page.context().addCookies([{ name: "hee_session", value: token, url: baseUrl }]);
 }
