@@ -18,7 +18,8 @@ export async function createSubscriptionAccessCodeAdminAction(formData: FormData
 
 export async function revokeSubscriptionAccessCodeAdminAction(formData: FormData) {
  await requireAdmin();
- const codeId=String(formData.get("codeId")??"");
+ const codeId=String(formData.get("codeId")??"").trim();
+ if(!codeId) redirect("/admin?access=invalid-code");
  await db.$transaction(async tx=>{
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`subscription-access-admin:${codeId}`}))`;
   const code=await tx.subscriptionAccessCode.findUnique({where:{id:codeId},include:{grants:{where:{revokedAt:null}}}});
@@ -27,7 +28,7 @@ export async function revokeSubscriptionAccessCodeAdminAction(formData: FormData
   await tx.subscriptionAccessCode.update({where:{id:code.id},data:{isActive:false,revokedAt:now}});
   for(const grant of code.grants){
    await tx.subscriptionAccessGrant.update({where:{id:grant.id},data:{revokedAt:now}});
-   await tx.subscription.updateMany({where:{id:grant.subscriptionId,status:"active",provider:"access_code",providerReference:code.id},data:{status:"revoked",autoRenew:false,endsAt:now}});
+   await tx.subscription.updateMany({where:{id:grant.subscriptionId,status:"active",provider:"access_code",providerReference:code.id},data:{status:"canceled",autoRenew:false,endsAt:now}});
    const fallback=await tx.subscription.findFirst({where:{businessId:grant.businessId,status:"active",id:{not:grant.subscriptionId},OR:[{endsAt:null},{endsAt:{gt:now}}]},orderBy:{startsAt:"desc"},select:{planId:true}});
    const free=await tx.businessPlan.findUnique({where:{code:"FREE"},select:{id:true}});
    if(fallback?.planId||free?.id) await tx.business.update({where:{id:grant.businessId},data:{planId:fallback?.planId??free!.id}});
