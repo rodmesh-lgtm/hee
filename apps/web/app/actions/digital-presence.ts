@@ -31,6 +31,13 @@ const allowedSocialHosts: Record<SocialKey, string[]> = {
   snapchatUrl: ["snapchat.com"],
   facebookUrl: ["facebook.com", "fb.com"],
 };
+const socialStatus: Record<SocialKey, string> = {
+  instagramUrl: "invalid-instagram",
+  xUrl: "invalid-x",
+  tiktokUrl: "invalid-tiktok",
+  snapchatUrl: "invalid-snapchat",
+  facebookUrl: "invalid-facebook",
+};
 
 function formString(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
 function normalizeHttpUrl(raw: string, allowedHosts?: string[]) {
@@ -44,10 +51,17 @@ function normalizeHttpUrl(raw: string, allowedHosts?: string[]) {
     return parsed.toString();
   } catch { return null; }
 }
+function invalidSchemaStatus(error: z.ZodError) {
+  const field = String(error.issues[0]?.path[0] ?? "");
+  if (field === "email") return "invalid-email";
+  if (field === "website") return "invalid-url";
+  if (field in socialStatus) return socialStatus[field as SocialKey];
+  if (["nameEn", "address", "metaTitle", "metaDescription"].includes(field)) return `invalid-${field}`;
+  return "invalid";
+}
 
 export async function updateDigitalPresenceAction(formData: FormData) {
   const user = await getCurrentUserForWrites();
-  if (!user) redirect("/dashboard/digital-identity?presence=readonly");
   const business = await getActiveBusinessForUser(user.id);
   if (!business) redirect("/onboarding");
 
@@ -67,7 +81,7 @@ export async function updateDigitalPresenceAction(formData: FormData) {
     metaTitle: formString(formData, "metaTitle"), metaDescription: formString(formData, "metaDescription"),
   };
   const parsed = schema.safeParse(raw);
-  if (!parsed.success) redirect("/dashboard/digital-identity?presence=invalid");
+  if (!parsed.success) redirect(`/dashboard/digital-identity?presence=${invalidSchemaStatus(parsed.error)}`);
 
   const website = normalizeHttpUrl(parsed.data.website);
   if (parsed.data.website && !website) redirect("/dashboard/digital-identity?presence=invalid-url");
@@ -75,14 +89,12 @@ export async function updateDigitalPresenceAction(formData: FormData) {
   for (const key of Object.keys(allowedSocialHosts) as SocialKey[]) {
     const value = parsed.data[key];
     const normalized = normalizeHttpUrl(value, allowedSocialHosts[key]);
-    if (value && !normalized) redirect("/dashboard/digital-identity?presence=invalid-social");
+    if (value && !normalized) redirect(`/dashboard/digital-identity?presence=${socialStatus[key]}`);
     socials[key] = normalized;
   }
 
   try {
     const result = await db.$transaction(async (tx) => {
-      // Serialize with the main autosave route: contact availability is one invariant
-      // regardless of which dashboard form edits the published business.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`business-autosave:${business.id}`}))`;
       const current = await tx.business.findFirst({
         where: { id: business.id, ownerId: user.id, deletedAt: null },
@@ -108,7 +120,6 @@ export async function updateDigitalPresenceAction(formData: FormData) {
     if (result === "contact-required") redirect("/dashboard/digital-identity?presence=contact-required");
     if (result !== "updated") redirect("/dashboard/digital-identity?presence=missing");
   } catch (error) {
-    // Preserve framework redirects thrown after a successful transaction.
     if (error && typeof error === "object" && "digest" in error && String((error as { digest?: unknown }).digest ?? "").startsWith("NEXT_REDIRECT")) throw error;
     console.error("[digital-presence] write_failed", { businessId: business.id, error });
     redirect("/dashboard/digital-identity?presence=error");
