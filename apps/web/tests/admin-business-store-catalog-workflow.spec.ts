@@ -75,7 +75,7 @@ test.describe.serial("central admin Business Store catalog", () => {
       await page.getByLabel("الوصف", { exact: true }).first().fill("منتج اختبار يثبت أن إدارة HEE المركزية تتحكم في متجر جميع العملاء.");
       await page.getByRole("button", { name: "إنشاء ونشر المنتج" }).click();
       await page.waitForURL("**/admin/store-products?result=created", { timeout: 20_000 });
-      await expect(page.getByText(productTitle, { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: productTitle, exact: true })).toBeVisible();
 
       const rows = await db.$queryRaw<Array<{ id: string; unitPrice: number; maxQuantity: number; isActive: boolean }>>`SELECT "id","unitPrice","maxQuantity","isActive" FROM "BusinessStoreCatalogProduct" WHERE "sku"=${fixture.sku}`;
       expect(rows).toHaveLength(1);
