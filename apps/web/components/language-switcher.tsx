@@ -15,7 +15,7 @@ export function LanguageSwitcher({ locale }: { locale: AppLocale }) {
 
   return (
     <details
-      className={`group fixed left-4 z-[90] ${hasMobileDashboardNav ? "bottom-20 lg:bottom-4" : "bottom-4"}`}
+      className={`group fixed left-4 z-[90] ${hasMobileDashboardNav ? "bottom-24 lg:bottom-4" : "bottom-4"}`}
       dir={LOCALE_META[locale].dir}
     >
       <summary
