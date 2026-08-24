@@ -36,6 +36,6 @@ test("revoked grants cannot be silently redeemed again",()=>{
 
 test("admin revocation uses a database-allowed terminal subscription status",()=>{
  const source=read("app/actions/admin-access-code.ts");
- assert.match(source,/status:"canceled"/);
- assert.doesNotMatch(source,/status:"revoked"/);
+ assert.match(source,/status:\s*"canceled"/);
+ assert.doesNotMatch(source,/status:\s*"revoked"/);
 });
