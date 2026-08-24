@@ -10,12 +10,9 @@ const actionableOrderStatuses = ["pending", "confirmed", "processing"] as const;
 const actionableBookingStatuses = ["pending", "confirmed"] as const;
 const interactionEvents = ["whatsapp_click", "phone_click", "share_click", "website_click", "map_click", "company_profile_click", "social_click"] as const;
 
-function riyadhDateKey(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
-  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${value("year")}-${value("month")}-${value("day")}`;
-}
 function metricNumber(value: number) { return new Intl.NumberFormat("ar-SA").format(value); }
+
+type DashboardClock = { since7d: Date; today: string };
 
 export default async function DashboardHomePage() {
   const user = await getCurrentUser();
@@ -23,8 +20,16 @@ export default async function DashboardHomePage() {
   const business = await getActiveBusinessWithPlanForUser(user.id);
   if (!business) return <section className="mx-auto max-w-2xl rounded-[26px] border border-[#e9e7f3] bg-white p-6 sm:p-8"><span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f1edff] text-[#5b3fd6]"><Rocket className="h-5 w-5" /></span><h1 className="mt-4 text-2xl font-black text-[#1f2552]">ابدأ هويتك الرقمية</h1><p className="mt-2 text-sm leading-7 text-slate-500">أدخل بيانات نشاطك الأساسية، ثم ستنتقل مباشرة إلى صفحتك لإكمالها.</p><Link href="/onboarding" className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#6f3bd2] px-5 text-sm font-black text-white">إنشاء الصفحة</Link></section>;
 
-  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const today = riyadhDateKey();
+  // Use one authoritative PostgreSQL clock for both the rolling window and Riyadh
+  // calendar date. This avoids JS/server clock drift and keeps render deterministic.
+  const [clock] = await db.$queryRaw<DashboardClock[]>`
+    SELECT
+      CURRENT_TIMESTAMP - INTERVAL '7 days' AS "since7d",
+      to_char((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Riyadh')::date, 'YYYY-MM-DD') AS "today"
+  `;
+  if (!clock) throw new Error("dashboard clock unavailable");
+  const { since7d, today } = clock;
+
   const [actionableOrders, actionableBookings, pendingOrders, pendingBookings, services, branches, contacts, views7d, interactions7d, orders7d, bookings7d, nextBooking] = await Promise.all([
     db.order.count({ where: { businessId: business.id, status: { in: [...actionableOrderStatuses] } } }),
     db.booking.count({ where: { businessId: business.id, status: { in: [...actionableBookingStatuses] } } }),
