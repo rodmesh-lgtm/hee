@@ -26,6 +26,12 @@ test("digital identity assets, presence and public access follow ownership and p
   try {
     await page.goto(`${baseUrl}/dashboard/digital-identity`, { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "الهوية الرقمية", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "بطاقة الأعمال الرقمية" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "توقيع البريد" })).toBeVisible();
+    await expect(page.getByText("api.qrserver.com")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "تنزيل البطاقة PNG" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "نسخ التوقيع" })).toBeVisible();
+
     await page.getByLabel("عنوان الملف").fill("الملف التعريفي الرسمي");
     await page.locator('input[name="profileFile"]').setInputFiles({ name: "company-profile.pdf", mimeType: "application/pdf", buffer: pdfFixture });
     await page.getByRole("button", { name: "رفع الملف التعريفي" }).click();
@@ -89,8 +95,6 @@ test("digital identity assets, presence and public access follow ownership and p
       const publicPdf = await anonymousPage.request.get(`${baseUrl}${stored!.companyProfileUrl}`);
       expect(publicPdf.status()).toBe(200);
 
-      // Removing the last business contact method through the presence form must be
-      // rejected even while another dashboard editor can concurrently change phone/WhatsApp.
       await db.business.update({ where: { id: business.id }, data: { phone: null, whatsapp: null } });
       await page.goto(`${baseUrl}/dashboard/digital-identity`, { waitUntil: "domcontentloaded" });
       await page.getByLabel("البريد التجاري").fill("");
