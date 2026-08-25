@@ -24,3 +24,10 @@ test("preview QA access remains constrained to Vercel Preview and one-time prefi
   assert.match(qa, /pg_advisory_xact_lock/);
   assert.match(qa, /deleted\.count === 1/);
 });
+
+test("dashboard audit endpoint rejects long-lived QA credentials in every query URL", () => {
+  const route = source("app/api/qa/dashboard-audit/route.ts");
+  const queryTokenGuards = route.match(/searchParams\.has\(\"token\"\)/g) ?? [];
+  assert.equal(queryTokenGuards.length, 2);
+  assert.match(route, /auditId: searchParams\.get\(\"auditId\"\)/);
+});
