@@ -9,6 +9,10 @@ function metadataObject(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
+function supportDateTime(value: Date) {
+  return new Intl.DateTimeFormat("ar-SA", { timeZone: "Asia/Riyadh", dateStyle: "medium", timeStyle: "short" }).format(value);
+}
+
 const categoryLabel: Record<string, string> = {
   account: "الحساب",
   billing: "الباقات والفوترة",
@@ -57,7 +61,7 @@ export default async function DashboardSupportPage({ searchParams }: { searchPar
         const status = String(meta.status ?? "open");
         const category = String(meta.category ?? "other");
         const resolutionNote = String(meta.resolutionNote ?? "").trim();
-        return <article key={ticket.id} className="rounded-2xl border border-[#eeecf5] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><b className="text-sm text-[#252a4a]">{String(meta.subject ?? "طلب دعم")}</b><span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${status === "resolved" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{status === "resolved" ? "تمت المعالجة" : "مفتوح"}</span></div><div className="mt-1 flex gap-2 text-[10px] text-slate-400"><span>{categoryLabel[category] ?? categoryLabel.other}</span><span>·</span><time>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(ticket.createdAt)}</time></div>{status === "resolved" && resolutionNote ? <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3"><span className="block text-[10px] font-black text-emerald-700">نتيجة المعالجة</span><p className="mt-1 whitespace-pre-wrap text-xs leading-6 text-slate-700">{resolutionNote}</p></div> : null}</article>;
+        return <article key={ticket.id} className="rounded-2xl border border-[#eeecf5] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><b className="text-sm text-[#252a4a]">{String(meta.subject ?? "طلب دعم")}</b><span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${status === "resolved" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{status === "resolved" ? "تمت المعالجة" : "مفتوح"}</span></div><div className="mt-1 flex gap-2 text-[10px] text-slate-400"><span>{categoryLabel[category] ?? categoryLabel.other}</span><span>·</span><time>{supportDateTime(ticket.createdAt)}</time></div>{status === "resolved" && resolutionNote ? <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3"><span className="block text-[10px] font-black text-emerald-700">نتيجة المعالجة</span><p className="mt-1 whitespace-pre-wrap text-xs leading-6 text-slate-700">{resolutionNote}</p></div> : null}</article>;
       }) : <p className="text-sm text-slate-400">لا توجد طلبات دعم حتى الآن.</p>}</div>
     </section>
   </div>;
