@@ -21,9 +21,10 @@ export async function redeemSubscriptionAccessCodeAction(formData: FormData) {
   } catch (error) {
     // Access codes grant paid entitlements. If the shared limiter cannot prove that
     // this attempt is within policy, fail closed instead of bypassing protection or
-    // leaking an unhandled Server Action exception to the customer.
+    // leaking an unhandled Server Action exception to the customer. Reuse the safe
+    // temporary-throttle outcome so infrastructure details are not exposed.
     console.error("[subscription-access-code] rate_limit_failed", { businessId: business.id, error });
-    redirect("/dashboard/billing/manage?code=limiter-unavailable");
+    redirect("/dashboard/billing/manage?code=rate-limited");
   }
   if (!rateAllowed) redirect("/dashboard/billing/manage?code=rate-limited");
 
