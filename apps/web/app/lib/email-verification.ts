@@ -10,28 +10,44 @@ function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function trustedVerificationOrigin(candidate: string, allowedSuffixes: string[]) {
+  const raw = candidate.trim();
+  if (!raw) return null;
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const url = new URL(withProtocol);
+    if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) return null;
+    const hostname = url.hostname.toLowerCase();
+    const local = hostname === "localhost" || hostname === "127.0.0.1";
+    const trustedVercel = allowedSuffixes.includes("vercel.app") && (hostname === "vercel.app" || hostname.endsWith(".vercel.app"));
+    const trustedOther = allowedSuffixes.filter((suffix) => suffix !== "vercel.app").some((suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`));
+    const allowed = trustedVercel || trustedOther;
+    if ((local && url.protocol === "http:") || (allowed && url.protocol === "https:")) return url.origin;
+  } catch {
+    // Invalid or untrusted candidate.
+  }
+  return null;
+}
+
 function verificationOrigin() {
-  // Production links are canonical. Vercel preview runtimes also use NODE_ENV=production,
-  // so only fall back to that signal when VERCEL_ENV is absent (for non-Vercel hosting).
   const vercelEnv = String(process.env.VERCEL_ENV ?? "").toLowerCase();
   if (vercelEnv === "production" || (!vercelEnv && process.env.NODE_ENV === "production")) return "https://hee.sa";
+
+  // Verification links issued by Preview must remain on the Preview deployment.
+  // Shared NEXT_PUBLIC_SITE_URL/AUTH_ORIGIN values can point at Production and caused
+  // RC verification emails to open hee.sa, where the preview-only route returned 404.
+  if (vercelEnv === "preview") {
+    return trustedVerificationOrigin(String(process.env.VERCEL_URL ?? ""), ["vercel.app"])
+      || trustedVerificationOrigin(String(process.env.VERCEL_BRANCH_URL ?? ""), ["vercel.app"]);
+  }
+
   const candidate = String(
     process.env.NEXT_PUBLIC_SITE_URL
       || process.env.NEXT_PUBLIC_APP_URL
       || process.env.AUTH_ORIGIN
       || "http://localhost:3000",
-  ).trim();
-  try {
-    const url = new URL(candidate);
-    const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    const preview = url.hostname.endsWith(".vercel.app") || url.hostname.endsWith(".app.github.dev");
-    if ((url.protocol === "https:" && (preview || url.hostname === "hee.sa" || url.hostname === "www.hee.sa")) || (local && url.protocol === "http:")) {
-      return url.origin;
-    }
-  } catch {
-    // Fall through to the canonical origin.
-  }
-  return "https://hee.sa";
+  );
+  return trustedVerificationOrigin(candidate, ["vercel.app", "app.github.dev"]);
 }
 
 export function emailVerificationConfigured() {
@@ -41,9 +57,13 @@ export function emailVerificationConfigured() {
 async function sendVerificationEmail(email: string, token: string) {
   const apiKey = String(process.env.RESEND_API_KEY ?? "").trim();
   const from = String(process.env.HEE_FROM_EMAIL ?? "").trim();
-  if (!apiKey || !from) return false;
+  const origin = verificationOrigin();
+  if (!apiKey || !from || !origin) {
+    if (!origin) console.error("[email-verification] no trusted verification origin for current environment");
+    return false;
+  }
 
-  const verifyUrl = `${verificationOrigin()}/verify-email?token=${encodeURIComponent(token)}`;
+  const verifyUrl = `${origin}/verify-email?token=${encodeURIComponent(token)}`;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
