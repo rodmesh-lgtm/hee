@@ -10,6 +10,7 @@ import { consumePublicWriteLimit } from "../lib/rate-limit";
 
 const SUPPORT_EVENT = "support_requested";
 const categories = new Set(["account", "billing", "technical", "privacy", "other"]);
+const privacyResolutionOutcomes = new Set(["deletion_completed", "retention_exception"]);
 
 function metadataObject(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -70,6 +71,7 @@ export async function resolveSupportRequestAdminAction(formData: FormData) {
   const admin = await requireAdmin();
   const eventId = String(formData.get("eventId") ?? "").trim();
   const resolutionNote = text(formData, "resolutionNote", 2000);
+  const privacyOutcome = String(formData.get("privacyOutcome") ?? "").trim().toLowerCase();
   if (!eventId || !resolutionNote) redirect("/admin/support?error=resolution-note-required");
 
   const result = await db.$transaction(async (tx) => {
@@ -78,6 +80,15 @@ export async function resolveSupportRequestAdminAction(formData: FormData) {
     if (!event || event.eventType !== SUPPORT_EVENT) return "invalid" as const;
     const metadata = metadataObject(event.metadata);
     if (metadata.status !== "open") return "already" as const;
+
+    // Privacy/data-erasure tickets must never be closed by a generic free-text note.
+    // Until the full verified deletion lifecycle exists, require an explicit auditable
+    // outcome: either deletion/anonymization has actually completed, or a lawful
+    // retention exception is being recorded. This keeps the workflow fail-closed.
+    if (metadata.category === "privacy" && !privacyResolutionOutcomes.has(privacyOutcome)) {
+      return "privacy-outcome-required" as const;
+    }
+
     await tx.analyticsEvent.update({
       where: { id: event.id },
       data: {
@@ -85,6 +96,7 @@ export async function resolveSupportRequestAdminAction(formData: FormData) {
           ...metadata,
           status: "resolved",
           resolutionNote,
+          ...(metadata.category === "privacy" ? { privacyOutcome } : {}),
           resolvedAt: new Date().toISOString(),
           resolvedByUserId: admin.id,
           resolvedByEmail: admin.email,
@@ -97,5 +109,6 @@ export async function resolveSupportRequestAdminAction(formData: FormData) {
   revalidatePath("/dashboard/support");
   revalidatePath("/admin/support");
   if (result === "invalid") redirect("/admin/support?error=invalid");
+  if (result === "privacy-outcome-required") redirect("/admin/support?error=privacy-outcome-required");
   redirect(`/admin/support?done=${result}`);
 }
