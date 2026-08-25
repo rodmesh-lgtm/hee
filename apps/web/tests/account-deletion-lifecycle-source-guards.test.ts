@@ -9,6 +9,7 @@ const action = readFileSync(join(root, "app/actions/account-deletion.ts"), "utf8
 const page = readFileSync(join(root, "app/dashboard/account-deletion/page.tsx"), "utf8");
 const support = readFileSync(join(root, "app/actions/support.ts"), "utf8");
 const supportPage = readFileSync(join(root, "app/dashboard/support/page.tsx"), "utf8");
+const migration = readFileSync(join(root, "prisma/migrations/20260825163000_account_deletion_audit/migration.sql"), "utf8");
 
 test("self-service deletion requires authenticated verified ownership and explicit confirmation", () => {
   assert.match(action, /getCurrentUserForWrites\(\)/);
@@ -29,10 +30,12 @@ test("deletion revokes access, publication, renewals and reusable payment method
   assert.match(action, /passwordHash: null/);
 });
 
-test("deletion retains financial history and writes an audit event instead of hard deleting ledgers", () => {
+test("deletion retains financial history and writes independent audit evidence", () => {
   assert.match(action, /eventType: DELETION_EVENT/);
+  assert.match(action, /INSERT INTO "AccountDeletionAudit"/);
   assert.match(action, /retainedRecordClasses/);
   assert.match(action, /BillingPayment/);
+  assert.match(migration, /CREATE TABLE "AccountDeletionAudit"/);
   assert.doesNotMatch(action, /billingPayment\.delete/);
   assert.doesNotMatch(action, /subscription\.delete/);
   assert.doesNotMatch(action, /customer\.delete/);
@@ -43,7 +46,7 @@ test("privacy support cannot claim deletion completion without lifecycle proof",
   assert.match(support, /DELETION_EVENT = "account_deletion_completed"/);
   assert.match(support, /deletion-proof-required/);
   assert.match(support, /deletionLifecycleEventId/);
-  assert.match(support, /candidate.*userId/s);
+  assert.match(support, /metadataObject\(candidate\.metadata\)\.userId/);
 });
 
 test("customers can reach the deletion lifecycle from privacy support", () => {
