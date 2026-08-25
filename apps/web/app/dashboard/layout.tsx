@@ -29,6 +29,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     isPublished={effectivelyPublished}
     businesses={businesses.map(({ id, name, slug }) => ({ id, name, slug }))}
     showQaBadge={Boolean(qaAuditUser)}
-    showAdminLink={!qaAuditUser && isAdminEmail(user.email)}
+    showAdminLink={!qaAuditUser && Boolean(user.emailVerifiedAt) && isAdminEmail(user.email)}
   >{children}</DashboardShell>;
 }
