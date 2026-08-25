@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangle, ShieldCheck, Trash2 } from "lucide-react";
-import { deleteOwnAccountAction, ACCOUNT_DELETION_CONFIRMATION } from "../../actions/account-deletion";
+import { deleteOwnAccountAction } from "../../actions/account-deletion";
 import { getCurrentUser } from "../../lib/auth";
 import { getOwnedBusinessSummaries } from "../../lib/active-business";
 import { isAdminEmail } from "../../lib/admin";
+
+const ACCOUNT_DELETION_CONFIRMATION = "DELETE MY HEE ACCOUNT";
 
 export default async function AccountDeletionPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser();
