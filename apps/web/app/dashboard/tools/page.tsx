@@ -28,7 +28,7 @@ export default async function DashboardToolsPage() {
         <article className="rounded-[24px] border border-[#e9e7f3] bg-white p-5 shadow-[0_12px_30px_-28px_rgba(58,35,75,.35)]">
           <div className="flex items-start justify-between gap-3">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]">{designerAvailable ? <WandSparkles className="h-5 w-5" /> : <Lock className="h-5 w-5" />}</span>
-            <span className={`rounded-full px-3 py-1 text-[10px] font-black ${designerAvailable ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{designerAvailable ? "متاح" : `ضمن ${entitlements.label}`}</span>
+            <span className={`rounded-full px-3 py-1 text-[10px] font-black ${designerAvailable ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{designerAvailable ? "متاح" : "يتطلب Business"}</span>
           </div>
           <h2 className="mt-4 text-lg font-black text-[#1f2552]">مصمم العروض</h2>
           <p className="mt-2 text-sm leading-7 text-slate-500">أنشئ تصميم عرض مربع باستخدام اسم نشاطك وشعارك وألوان الهوية، ثم حمّله كصورة جاهزة للمشاركة.</p>
