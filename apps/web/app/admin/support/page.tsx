@@ -3,38 +3,18 @@ import { requireAdmin } from "../../lib/admin";
 import { db } from "../../lib/db";
 import { resolveSupportRequestAdminAction } from "../../actions/support";
 
-function metadataObject(value: unknown) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
-
-const categoryLabel: Record<string, string> = {
-  account: "الحساب",
-  billing: "الباقات والفوترة",
-  technical: "مشكلة تقنية",
-  privacy: "الخصوصية والبيانات",
-  other: "أخرى",
-};
+function metadataObject(value: unknown) { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+const categoryLabel: Record<string, string> = { account: "الحساب", billing: "الباقات والفوترة", technical: "مشكلة تقنية", privacy: "الخصوصية والبيانات", other: "أخرى" };
 
 export default async function AdminSupportPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   await requireAdmin();
-  const params = await searchParams;
-  const done = Array.isArray(params?.done) ? params.done[0] : params?.done;
-  const error = Array.isArray(params?.error) ? params.error[0] : params?.error;
-
-  const events = await db.analyticsEvent.findMany({
-    where: { eventType: "support_requested" },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: { id: true, businessId: true, createdAt: true, metadata: true, business: { select: { name: true, slug: true, owner: { select: { name: true, email: true } } } } },
-  });
+  const params = await searchParams; const done = Array.isArray(params?.done) ? params.done[0] : params?.done; const error = Array.isArray(params?.error) ? params.error[0] : params?.error;
+  const events = await db.analyticsEvent.findMany({ where: { eventType: "support_requested" }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, businessId: true, createdAt: true, metadata: true, business: { select: { name: true, slug: true, owner: { select: { name: true, email: true } } } } } });
   const tickets = events.filter((event) => String(metadataObject(event.metadata).status ?? "open") === "open");
-
-  return <main dir="rtl" className="min-h-screen bg-[#f7f8fb] px-4 py-8 text-slate-900 sm:px-6">
-    <div className="mx-auto w-full max-w-5xl">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-black text-[#1f2552]">دعم العملاء</h1><p className="mt-1 text-sm text-slate-500">طلبات الدعم المفتوحة المرتبطة بحسابات المنشآت.</p></div><Link href="/admin" className="rounded-xl border border-[#e1ddec] bg-white px-4 py-2.5 text-xs font-black text-[#5d49cc]">إدارة المنصة</Link></div>
-      {done ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">تم تحديث طلب الدعم وإظهار نتيجة المعالجة للعميل.</div> : null}
-      {error ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">{error === "resolution-note-required" ? "اكتب نتيجة المعالجة قبل إغلاق الطلب." : "تعذر تحديث الطلب."}</div> : null}
-      <section className="mt-5 space-y-3">{tickets.length ? tickets.map((ticket) => { const meta = metadataObject(ticket.metadata); const category = String(meta.category ?? "other"); return <article key={ticket.id} className="rounded-[22px] border border-[#e8e5f2] bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><b className="text-sm text-[#20264f]">{String(meta.subject ?? "طلب دعم")}</b><span className="rounded-full bg-[#f1edff] px-2.5 py-1 text-[10px] font-black text-[#5d49cc]">{categoryLabel[category] ?? categoryLabel.other}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{String(meta.message ?? "")}</p><div className="mt-3 text-[11px] leading-5 text-slate-400"><span>{ticket.business.name}</span><span> · </span><span>{ticket.business.owner.name}</span><span> · </span><span>{String(meta.requestedByEmail ?? ticket.business.owner.email)}</span><span> · </span><time>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(ticket.createdAt)}</time></div></div><form action={resolveSupportRequestAdminAction} className="w-full max-w-md rounded-2xl border border-[#ece9f4] bg-[#faf9fd] p-3"><input type="hidden" name="eventId" value={ticket.id} /><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>نتيجة المعالجة للعميل</span><textarea name="resolutionNote" maxLength={2000} required rows={4} className="rounded-xl border border-[#ddd9e8] bg-white px-3 py-2 text-sm leading-6" placeholder="اشرح ما تم عمله وما الذي يحتاجه العميل لاحقًا. لا تضع أسرارًا أو بيانات دفع حساسة." /></label><button className="mt-3 min-h-10 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white">حفظ النتيجة وإغلاق الطلب</button></form></div></article>; }) : <div className="rounded-[22px] border border-[#e8e5f2] bg-white p-6 text-center text-sm text-slate-400">لا توجد طلبات دعم مفتوحة.</div>}</section>
-    </div>
-  </main>;
+  return <main dir="rtl" className="min-h-screen bg-[#f7f8fb] px-4 py-8 text-slate-900 sm:px-6"><div className="mx-auto w-full max-w-5xl">
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-black text-[#1f2552]">دعم العملاء</h1><p className="mt-1 text-sm text-slate-500">طلبات الدعم المفتوحة المرتبطة بحسابات المنشآت.</p></div><Link href="/admin" className="rounded-xl border border-[#e1ddec] bg-white px-4 py-2.5 text-xs font-black text-[#5d49cc]">إدارة المنصة</Link></div>
+    {done ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">تم تحديث طلب الدعم وإظهار نتيجة المعالجة للعميل.</div> : null}
+    {error ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">{error === "resolution-note-required" ? "اكتب نتيجة المعالجة قبل إغلاق الطلب." : error === "privacy-outcome-required" ? "طلبات الخصوصية لا تُغلق بملاحظة عامة: سجّل اكتمال الحذف/إخفاء الهوية أو استثناء الاحتفاظ النظامي أولًا." : "تعذر تحديث الطلب."}</div> : null}
+    <section className="mt-5 space-y-3">{tickets.length ? tickets.map((ticket) => { const meta = metadataObject(ticket.metadata); const category = String(meta.category ?? "other"); const isPrivacy = category === "privacy"; return <article key={ticket.id} className="rounded-[22px] border border-[#e8e5f2] bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><b className="text-sm text-[#20264f]">{String(meta.subject ?? "طلب دعم")}</b><span className="rounded-full bg-[#f1edff] px-2.5 py-1 text-[10px] font-black text-[#5d49cc]">{categoryLabel[category] ?? categoryLabel.other}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{String(meta.message ?? "")}</p><div className="mt-3 text-[11px] leading-5 text-slate-400"><span>{ticket.business.name}</span><span> · </span><span>{ticket.business.owner.name}</span><span> · </span><span>{String(meta.requestedByEmail ?? ticket.business.owner.email)}</span><span> · </span><time>{new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(ticket.createdAt)}</time></div></div><form action={resolveSupportRequestAdminAction} className="w-full max-w-md rounded-2xl border border-[#ece9f4] bg-[#faf9fd] p-3"><input type="hidden" name="eventId" value={ticket.id} />{isPrivacy ? <label className="mb-3 grid gap-1.5 text-xs font-bold text-slate-600"><span>نتيجة دورة الخصوصية</span><select name="privacyOutcome" required defaultValue="" className="min-h-10 rounded-xl border border-[#ddd9e8] bg-white px-3 text-sm"><option value="" disabled>اختر نتيجة مثبتة</option><option value="deletion_completed">اكتمل الحذف/إخفاء الهوية المعتمد</option><option value="retention_exception">استثناء احتفاظ نظامي موثق</option></select><span className="text-[10px] font-medium leading-5 text-amber-700">لا تختَر اكتمال الحذف قبل تنفيذ دورة الحذف المعتمدة فعليًا؛ هذا الاختيار يُحفظ في أثر التدقيق.</span></label> : null}<label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>نتيجة المعالجة للعميل</span><textarea name="resolutionNote" maxLength={2000} required rows={4} className="rounded-xl border border-[#ddd9e8] bg-white px-3 py-2 text-sm leading-6" placeholder="اشرح ما تم عمله وما الذي يحتاجه العميل لاحقًا. لا تضع أسرارًا أو بيانات دفع حساسة." /></label><button className="mt-3 min-h-10 rounded-xl bg-emerald-600 px-4 text-xs font-black text-white">حفظ النتيجة وإغلاق الطلب</button></form></div></article>; }) : <div className="rounded-[22px] border border-[#e8e5f2] bg-white p-6 text-center text-sm text-slate-400">لا توجد طلبات دعم مفتوحة.</div>}</section>
+  </div></main>;
 }
