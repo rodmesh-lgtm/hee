@@ -17,13 +17,15 @@ export async function updateCompanyProfileAction(formData: FormData) {
   if (!user) redirect("/dashboard/digital-identity?profile=readonly");
   const business = await getActiveBusinessForUser(user.id);
   if (!business) redirect("/onboarding");
+  let rateAllowed = false;
   try {
     const rate = await consumePublicWriteLimit({ scope: "company-profile", businessId: business.id, identity: user.id, limit: 12, windowSeconds: 60 * 60 });
-    if (!rate.allowed) redirect("/dashboard/digital-identity?profile=rate-limited");
+    rateAllowed = rate.allowed;
   } catch (error) {
     console.error("[company-profile] rate_limit_failed", { businessId: business.id, error });
     redirect("/dashboard/digital-identity?profile=error");
   }
+  if (!rateAllowed) redirect("/dashboard/digital-identity?profile=rate-limited");
   const file = formData.get("profileFile");
   if (!(file instanceof File) || file.size <= 0) redirect("/dashboard/digital-identity?profile=missing");
   let uploaded: StorageUploadResult | null = null;
@@ -44,6 +46,7 @@ export async function updateCompanyProfileAction(formData: FormData) {
     }
     await removeReplacedPersistentUrl(result.previous, uploaded.url, PROFILE_FOLDER);
   } catch (error) {
+    if (error && typeof error === "object" && "digest" in error && String((error as { digest?: unknown }).digest ?? "").startsWith("NEXT_REDIRECT")) throw error;
     if (uploaded?.url) await removePersistentUrl(uploaded.url, PROFILE_FOLDER).catch(() => undefined);
     console.error("[company-profile] upload_failed", { businessId: business.id, error });
     redirect("/dashboard/digital-identity?profile=error");
