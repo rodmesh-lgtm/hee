@@ -8,9 +8,17 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 function source(path: string) { return readFileSync(join(root, path), "utf8"); }
 
 test("all public identity boundaries require an active verified owner", () => {
+  const publicBusiness = source("app/lib/public-business.ts");
+  assert.match(publicBusiness, /deletedAt:\s*null/);
+  assert.match(publicBusiness, /owner:\s*\{\s*deletedAt:\s*null,\s*emailVerifiedAt:\s*\{\s*not:\s*null\s*\}\s*\}/);
+
+  const canonicalPage = source("app/[slug]/page.tsx");
+  assert.match(canonicalPage, /getBusinessPublic/);
+
+  const legacyPage = source("app/b/[slug]/page.tsx");
+  assert.match(legacyPage, /redirect\(`\/\$\{normalizedSlug\}`\)/);
+
   for (const path of [
-    "app/[slug]/page.tsx",
-    "app/b/[slug]/page.tsx",
     "app/api/public/analytics/route.ts",
     "app/api/public/orders/route.ts",
     "app/api/public/bookings/route.ts",
@@ -23,6 +31,7 @@ test("all public identity boundaries require an active verified owner", () => {
 
 test("public identity protection has no test-environment bypass", () => {
   for (const path of [
+    "app/lib/public-business.ts",
     "app/[slug]/page.tsx",
     "app/b/[slug]/page.tsx",
     "app/api/public/analytics/route.ts",
@@ -40,7 +49,9 @@ test("owner UI uses effective public visibility rather than the raw persisted fl
   const publication = source("app/actions/publication.ts");
   assert.match(dashboard, /emailVerifiedAt/);
   assert.match(dashboard, /isPublished\s*&&\s*[\s\S]*emailVerifiedAt|emailVerifiedAt\s*&&\s*[\s\S]*isPublished/);
-  assert.match(publication, /emailVerifiedAt:\s*\{\s*not:\s*null\s*\}/);
+  assert.match(publication, /where:\s*\{\s*id:\s*business\.ownerId,\s*deletedAt:\s*null\s*\}/);
+  assert.match(publication, /select:\s*\{\s*emailVerifiedAt:\s*true\s*\}/);
+  assert.match(publication, /if\s*\(!owner\?\.emailVerifiedAt\)/);
 });
 
 test("published test fixtures declare verification explicitly", () => {
