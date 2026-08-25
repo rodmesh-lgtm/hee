@@ -25,10 +25,15 @@ function sameOrder(left: ManagedId[], right: ManagedId[]) {
 export function PageSectionOrderEditor({ initialOrder }: Props) {
   const normalizedInitial = useMemo(() => {
     const seen = new Set<ManagedId>();
-    const valid = initialOrder.filter((id): id is ManagedId => id in LABELS && !seen.has(id) && Boolean(seen.add(id)));
+    const valid = initialOrder.filter((id): id is ManagedId => {
+      if (!(id in LABELS) || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
     return [...valid, ...DEFAULT_ORDER.filter((id) => !seen.has(id))];
   }, [initialOrder]);
   const [order, setOrder] = useState<ManagedId[]>(normalizedInitial);
+  const orderRef = useRef<ManagedId[]>(normalizedInitial);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [message, setMessage] = useState("");
   const [dragging, setDragging] = useState<ManagedId | null>(null);
@@ -47,7 +52,7 @@ export function PageSectionOrderEditor({ initialOrder }: Props) {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "تعذر حفظ الترتيب");
-      lastSaved.current = next;
+      lastSaved.current = [...next];
       setSaveState("saved");
       window.setTimeout(() => setSaveState((current) => current === "saved" ? "idle" : current), 1600);
     } catch (error) {
@@ -56,21 +61,25 @@ export function PageSectionOrderEditor({ initialOrder }: Props) {
     }
   }
 
+  function applyOrder(next: ManagedId[]) {
+    orderRef.current = next;
+    setOrder(next);
+  }
+
   function move(activeId: ManagedId, targetId: ManagedId) {
     if (activeId === targetId) return;
-    setOrder((current) => {
-      const from = current.indexOf(activeId);
-      const to = current.indexOf(targetId);
-      if (from < 0 || to < 0 || from === to) return current;
-      const next = [...current];
-      next.splice(from, 1);
-      next.splice(to, 0, activeId);
-      return next;
-    });
+    const current = orderRef.current;
+    const from = current.indexOf(activeId);
+    const to = current.indexOf(targetId);
+    if (from < 0 || to < 0 || from === to) return;
+    const next = [...current];
+    next.splice(from, 1);
+    next.splice(to, 0, activeId);
+    applyOrder(next);
   }
 
   function pointerMove(activeId: ManagedId, clientY: number) {
-    for (const id of order) {
+    for (const id of orderRef.current) {
       if (id === activeId) continue;
       const node = itemRefs.current.get(id);
       if (!node) continue;
@@ -120,7 +129,7 @@ export function PageSectionOrderEditor({ initialOrder }: Props) {
           onPointerUp={(event) => {
             if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
             setDragging(null);
-            void persist(order);
+            void persist(orderRef.current);
           }}
           onPointerCancel={() => setDragging(null)}
         ><GripVertical className="h-5 w-5" /></button>
@@ -131,7 +140,7 @@ export function PageSectionOrderEditor({ initialOrder }: Props) {
 
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#eef0f7] pt-4">
       <p className="text-[11px] leading-5 text-slate-500">المقبض يدعم اللمس على الجوال والسحب بالماوس.</p>
-      <button type="button" onClick={() => { setOrder(DEFAULT_ORDER); void persist(DEFAULT_ORDER); }} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#e2def3] bg-white px-3 text-xs font-black text-[#5d49cc]"><RotateCcw className="h-4 w-4" />الترتيب المقترح</button>
+      <button type="button" onClick={() => { applyOrder(DEFAULT_ORDER); void persist(DEFAULT_ORDER); }} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#e2def3] bg-white px-3 text-xs font-black text-[#5d49cc]"><RotateCcw className="h-4 w-4" />الترتيب المقترح</button>
     </div>
   </section>;
 }
