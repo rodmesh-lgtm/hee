@@ -39,12 +39,14 @@ test("company profile upload is authenticated, rate limited and PDF-only through
 test("public sanitizer and published page expose only the approved company profile fields", () => {
   const sanitizer = read("app/lib/public-business-sanitize.ts");
   const publicPage = read("app/[slug]/page.tsx");
+  const highlights = read("components/public/public-identity-highlights.tsx");
   assert.match(sanitizer, /companyProfileUrl/);
   assert.match(sanitizer, /companyProfileTitle/);
   assert.doesNotMatch(sanitizer, /licenseNumber/);
   assert.doesNotMatch(sanitizer, /ownerId/);
   assert.match(publicPage, /publicBusiness\.companyProfileUrl/);
-  assert.match(publicPage, /PDF رسمي للمنشأة/);
+  assert.match(publicPage, /PublicIdentityHighlights/);
+  assert.match(highlights, /عرض الملف الرسمي للمنشأة/);
 });
 
 test("vCard export is authenticated and does not expose internal identifiers", () => {
