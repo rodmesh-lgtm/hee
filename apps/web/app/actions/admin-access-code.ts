@@ -16,7 +16,9 @@ export async function createSubscriptionAccessCodeAdminAction(
   formData: FormData,
 ): Promise<CreateSubscriptionAccessCodeState> {
   const admin = await requireAdmin();
-  const planCode = String(formData.get("plan") ?? "").trim().toUpperCase();
+  // BusinessPlan.code is a persisted identifier. Preserve the exact server-rendered
+  // select value: newer catalog identifiers (for example `dev-ai-offers`) are lowercase.
+  const planCode = String(formData.get("plan") ?? "").trim();
   const label = String(formData.get("label") ?? "").trim().slice(0, 120) || null;
   const maxRaw = String(formData.get("maxRedemptions") ?? "").trim();
   const expiresRaw = String(formData.get("expiresAt") ?? "").trim();
@@ -29,7 +31,7 @@ export async function createSubscriptionAccessCodeAdminAction(
     return { status: "error", message: "يجب أن يكون تاريخ انتهاء إنشاء الاستخدامات في المستقبل." };
   }
   const plan = await db.businessPlan.findFirst({ where: { code: planCode, isActive: true }, select: { id: true, code: true } });
-  if (!plan || plan.code === "FREE") return { status: "error", message: "الباقة المختارة غير صالحة لهذا النوع من الأكواد." };
+  if (!plan || plan.code.toUpperCase() === "FREE") return { status: "error", message: "الباقة المختارة غير صالحة لهذا النوع من الأكواد." };
 
   const plaintext = `HEE-${randomBytes(12).toString("hex").toUpperCase()}`;
   await db.subscriptionAccessCode.create({
