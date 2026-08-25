@@ -12,10 +12,10 @@ test("public identity extras are no longer rendered as a detached bottom block",
   assert.doesNotMatch(route, /mx-auto mb-20 w-full max-w-\[580px\]/);
 });
 
-test("identity highlights locate the public detail accordions and mount through the callback ref", () => {
+test("identity highlights mount before the public detail accordions", () => {
   const highlights = source("components/public/public-identity-highlights.tsx");
   assert.match(highlights, /const attachMount = useCallback/);
-  assert.match(highlights, /querySelectorAll<HTMLElement>\(\"section\"\)/);
+  assert.match(highlights, /details\.prepend\(mount\)/);
   assert.match(highlights, /setTarget\(mount\)/);
   assert.match(highlights, /عن المنشأة/);
   assert.match(highlights, /خدماتنا/);
