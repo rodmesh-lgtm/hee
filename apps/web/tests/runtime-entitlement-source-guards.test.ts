@@ -15,13 +15,17 @@ test("premium runtime authorization fails closed when the paid subscription has 
   assert.match(active, /runtime authorization/);
 });
 
-test("paid-only verification re-proves entitlement inside its transaction", () => {
+test("verification requests are tenant-owned, serialized and do not self-verify", () => {
   const verification = source("app/actions/verification.ts");
-  assert.match(verification, /activePaidSubscription/);
-  assert.match(verification, /planId: currentBusiness\.plan\.id/);
-  assert.match(verification, /status: "active"/);
-  assert.match(verification, /endsAt: \{ gt: new Date\(\) \}/);
-  assert.match(verification, /if \(!activePaidSubscription\) return "upgrade"/);
+  assert.match(verification, /getOwnedBusinessWithPlanForWrite/);
+  assert.match(verification, /pg_advisory_xact_lock/);
+  assert.match(verification, /ownerId: business\.ownerId/);
+  assert.match(verification, /isVerified: true/);
+  assert.match(verification, /verification_requested/);
+  assert.match(verification, /status: "pending"/);
+  assert.doesNotMatch(verification, /activePaidSubscription/);
+  assert.doesNotMatch(verification, /verificationEligible/);
+  assert.doesNotMatch(verification, /isVerified:\s*true\s*\}\s*\)/);
 });
 
 test("billing management labels the effective plan instead of an expired historical subscription", () => {

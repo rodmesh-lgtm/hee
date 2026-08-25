@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { getOwnedBusinessForRead, getOwnedBusinessWithPlanForWrite } from "../lib/ownership";
-import { getPlanEntitlements } from "../lib/plan-entitlements";
 
 const VERIFICATION_EVENT = "verification_requested";
 
@@ -23,50 +22,13 @@ async function hasPendingVerificationForBusiness(businessId: string) {
 export async function requestVerificationAction() {
   const business = await getOwnedBusinessWithPlanForWrite();
   if (!business) redirect("/login");
-  if (business.isVerified) redirect("/dashboard/branding?verification=verified");
-
-  const entitlements = getPlanEntitlements(business.plan?.code);
-  if (!entitlements.verificationEligible) redirect("/dashboard/branding?verification=upgrade");
+  if (business.isVerified) redirect("/dashboard/verification?verification=verified");
 
   const result = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`verification-request:${business.id}`}))`;
-    const currentBusiness = await tx.business.findFirst({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, include: { plan: true } });
+    const currentBusiness = await tx.business.findFirst({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, select: { id: true, ownerId: true, isVerified: true } });
     if (!currentBusiness) return "missing" as const;
     if (currentBusiness.isVerified) return "verified" as const;
-
-    const currentEntitlements = getPlanEntitlements(currentBusiness.plan?.code);
-    if (!currentEntitlements.verificationEligible) return "upgrade" as const;
-
-    // Paid-only actions re-prove the entitlement inside the same transaction. Provider
-    // subscriptions require an unexpired finite term; an administrative access-code
-    // entitlement requires an active, unrevoked grant/code lineage and never a payment.
-    if (currentBusiness.plan?.code && currentBusiness.plan.code !== "FREE") {
-      const activePaidSubscription = await tx.subscription.findFirst({
-        where: {
-          businessId: currentBusiness.id,
-          planId: currentBusiness.plan.id,
-          status: "active",
-          OR: [
-            { provider: { not: "access_code" }, endsAt: { gt: new Date() } },
-            {
-              provider: "access_code",
-              autoRenew: false,
-              endsAt: null,
-              accessGrants: {
-                some: {
-                  businessId: currentBusiness.id,
-                  planId: currentBusiness.plan.id,
-                  revokedAt: null,
-                  code: { isActive: true, revokedAt: null },
-                },
-              },
-            },
-          ],
-        },
-        select: { id: true },
-      });
-      if (!activePaidSubscription) return "upgrade" as const;
-    }
 
     const pending = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT "id"
@@ -76,15 +38,16 @@ export async function requestVerificationAction() {
         AND COALESCE("metadata"->>'status', 'pending') = 'pending'
       LIMIT 1
     `;
-    if (!pending.length) await tx.analyticsEvent.create({ data: { businessId: business.id, eventType: VERIFICATION_EVENT, metadata: { source: "dashboard_branding", status: "pending" } } });
+    if (!pending.length) await tx.analyticsEvent.create({ data: { businessId: business.id, eventType: VERIFICATION_EVENT, metadata: { source: "dashboard_verification", status: "pending", requestedAt: new Date().toISOString() } } });
     return "requested" as const;
   });
 
+  revalidatePath("/dashboard/verification");
   revalidatePath("/dashboard/branding");
+  revalidatePath("/admin");
   if (result === "missing") redirect("/login");
-  if (result === "verified") redirect("/dashboard/branding?verification=verified");
-  if (result === "upgrade") redirect("/dashboard/branding?verification=upgrade");
-  redirect("/dashboard/branding?verification=requested");
+  if (result === "verified") redirect("/dashboard/verification?verification=verified");
+  redirect("/dashboard/verification?verification=requested");
 }
 
 export async function hasPendingVerificationRequest() {

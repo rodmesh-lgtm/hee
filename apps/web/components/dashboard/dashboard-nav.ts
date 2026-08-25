@@ -19,6 +19,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "الرئيسية", href: "/dashboard", icon: Home, exact: true },
   { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound, activePrefixes: ["/dashboard/services", "/dashboard/products", "/dashboard/catalog", "/dashboard/gallery", "/dashboard/offers", "/dashboard/contact-links", "/dashboard/working-hours", "/dashboard/page-builder", "/dashboard/page-customization", "/dashboard/preview", "/dashboard/share"] },
   { label: "الهوية الرقمية", href: "/dashboard/digital-identity", icon: BadgeCheck },
+  { label: "توثيق الصفحة", href: "/dashboard/verification", icon: BadgeCheck },
   { label: "الطلبات والحجوزات", href: "/dashboard/inbox", icon: Inbox },
   { label: "متجر الأعمال", href: "/dashboard/business-store", icon: ShoppingBag },
   { label: "أدوات HEE", href: "/dashboard/tools", icon: Sparkles },
