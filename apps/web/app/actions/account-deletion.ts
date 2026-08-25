@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { getCurrentUserForWrites, logoutSession } from "../lib/auth";
@@ -95,7 +96,7 @@ export async function deleteOwnAccountAction(formData: FormData) {
             address: null,
             logoUrl: null,
             coverUrl: null,
-            pageModules: null,
+            pageModules: Prisma.DbNull,
             workingHours: null,
             deliveryAvailable: false,
             bookingAvailable: false,
