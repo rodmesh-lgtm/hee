@@ -108,11 +108,22 @@ test.describe.serial("platform admin workflow", () => {
     await pool?.end();
   });
 
-  test("admin can inspect every customer business while a normal customer cannot access admin", async ({ page }) => {
+  test("admin authority requires verified mailbox ownership and normal customers remain denied", async ({ page }) => {
     test.setTimeout(90_000);
     const seeded = await seed();
     try {
       await setSession(page, seeded.adminSessionToken);
+
+      // Being authenticated with an allowlisted email is not enough. Simulate the exact
+      // pre-verification state created by password registration and prove central admin
+      // authority and its dashboard entry stay unavailable until mailbox ownership is proven.
+      await db.user.update({ where: { id: seeded.adminUserId }, data: { emailVerifiedAt: null } });
+      await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("link", { name: "إدارة المنصة" })).toHaveCount(0);
+      const unverifiedAdminResponse = await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
+      expect(unverifiedAdminResponse?.status()).toBe(404);
+
+      await db.user.update({ where: { id: seeded.adminUserId }, data: { emailVerifiedAt: new Date() } });
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("link", { name: "إدارة المنصة" })).toBeVisible();
 
