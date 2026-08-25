@@ -22,6 +22,10 @@ export async function requireAdmin() {
   // QA audit access is intentionally read-only and must never inherit admin powers
   // even if environment variables are accidentally configured with the same email.
   if (await isQaAuditModeUser(user.id)) notFound();
-  if (!isAdminEmail(user.email)) notFound();
+  // The allowlist identifies which mailbox may hold platform-admin authority; it is not
+  // proof that the currently authenticated account controls that mailbox. Password
+  // registration intentionally creates a session before verification, so admin access
+  // must additionally require completed mailbox ownership verification.
+  if (!user.emailVerifiedAt || !isAdminEmail(user.email)) notFound();
   return user;
 }
