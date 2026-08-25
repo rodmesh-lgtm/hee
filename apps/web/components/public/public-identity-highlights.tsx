@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { BadgeCheck, FileText, Share2, type LucideIcon } from "lucide-react";
 
@@ -27,9 +27,11 @@ function Highlights({ companyProfileUrl, companyProfileTitle, socialLinks }: Pro
 }
 
 export function PublicIdentityHighlights(props: Props) {
-  const [target, setTarget] = useState<HTMLElement | null>(null);
+  const mountRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (!props.companyProfileUrl && !props.socialLinks.length) return;
+    const mount = mountRef.current;
+    if (!mount || (!props.companyProfileUrl && !props.socialLinks.length)) return;
     const main = document.querySelector<HTMLElement>("main[dir='rtl']");
     if (!main) return;
     const details = Array.from(main.querySelectorAll<HTMLElement>("section")).find((section) => {
@@ -38,13 +40,10 @@ export function PublicIdentityHighlights(props: Props) {
       return text.includes("عن المنشأة") || text.includes("خدماتنا");
     });
     if (!details) return;
-    const mount = document.createElement("div");
-    mount.dataset.publicIdentityMount = "true";
     details.prepend(mount);
-    setTarget(mount);
-    return () => { setTarget(null); mount.remove(); };
+    return () => { mount.remove(); };
   }, [props.companyProfileUrl, props.socialLinks]);
 
-  if (!target || (!props.companyProfileUrl && !props.socialLinks.length)) return null;
-  return createPortal(<Highlights {...props} />, target);
+  if (!props.companyProfileUrl && !props.socialLinks.length) return null;
+  return <><div ref={mountRef} data-public-identity-mount hidden />{mountRef.current ? createPortal(<Highlights {...props} />, mountRef.current) : null}</>;
 }
