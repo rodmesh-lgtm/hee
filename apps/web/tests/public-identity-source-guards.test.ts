@@ -39,7 +39,7 @@ test("owner UI uses effective public visibility rather than the raw persisted fl
   const dashboard = source("app/dashboard/page.tsx");
   const publication = source("app/actions/publication.ts");
   assert.match(dashboard, /emailVerifiedAt/);
-  assert.match(dashboard, /isPublished\s*&&\s*.*emailVerifiedAt|emailVerifiedAt\s*&&\s*.*isPublished/s);
+  assert.match(dashboard, /isPublished\s*&&\s*[\s\S]*emailVerifiedAt|emailVerifiedAt\s*&&\s*[\s\S]*isPublished/);
   assert.match(publication, /emailVerifiedAt:\s*\{\s*not:\s*null\s*\}/);
 });
 
