@@ -166,24 +166,6 @@ export async function deleteOwnAccountAction(formData: FormData) {
       }
     }
 
-    const deletionAuditMetadata = JSON.stringify({
-      userId: user.id,
-      businessIds,
-      completedAt: now.toISOString(),
-      requesterProof: "authenticated_session+verified_email+exact_email+explicit_phrase",
-      sessionsRevoked: true,
-      publicationRevoked: true,
-      renewalsStopped: true,
-      paymentMethodsRevoked: true,
-      accessGrantsRevoked: true,
-      retainedRecordClasses: ["Customer", "Order", "OrderItem", "Booking", "Subscription", "BillingPayment", "BillingPaymentMethod", "BillingWebhookEvent", "LegalConsent", "AnalyticsEvent"],
-      backupHandling: "production backups follow the documented retention schedule; any restore must re-apply deletion state before restored data is exposed",
-    });
-    await tx.$executeRaw`
-      INSERT INTO "AccountDeletionAudit" ("id", "deletionId", "userId", "completedAt", "metadata")
-      VALUES (${randomUUID()}, ${deletionId}, ${user.id}, ${now}, CAST(${deletionAuditMetadata} AS jsonb))
-    `;
-
     await tx.session.deleteMany({ where: { userId: user.id } });
     await tx.oAuthState.deleteMany({ where: { nonce: user.id } });
     await tx.authIdentity.updateMany({ where: { userId: user.id }, data: { providerEmail: null } });
