@@ -8,9 +8,9 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  // The long-lived QA_AUDIT_SECRET is deliberately never accepted from the URL.
-  // URLs can leak through browser history, proxy logs and referrers. Interactive
-  // browser handoff uses only the single-use auditId minted by an authorized POST.
+  if (searchParams.has("token")) {
+    return new NextResponse(null, { status: 404 });
+  }
   const redirectTarget = await requireQaAuditAccess({
     auditId: searchParams.get("auditId"),
     path: searchParams.get("path"),
@@ -25,9 +25,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
-  // Do not let the fallback query-token support in the shared helper become a
-  // credential transport for this endpoint. Use Authorization: Bearer or an
-  // already-established preview QA session instead.
   if (searchParams.has("token")) {
     return new NextResponse(null, { status: 404 });
   }
