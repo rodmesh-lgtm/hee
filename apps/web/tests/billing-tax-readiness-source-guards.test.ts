@@ -10,6 +10,7 @@ function source(path: string) {
 test("paid checkout is fail-closed and receipts render only immutable payment snapshots", () => {
   const policy = source("app/lib/billing-tax-core.ts");
   const action = source("app/actions/billing.ts");
+  const upgradeAction = source("app/actions/subscription-request.ts");
   const audit = source("scripts/launch-config-audit.ts");
   const stateAudit = source("scripts/billing-state-audit.ts");
   const receipt = source("app/dashboard/billing/receipt/[billingId]/page.tsx");
@@ -21,6 +22,9 @@ test("paid checkout is fail-closed and receipts render only immutable payment sn
   assert.match(policy, /return false;/);
   assert.match(action, /paidBillingTaxReady\(\)/);
   assert.match(action, /tax-setup-required/);
+  assert.match(upgradeAction, /paidBillingTaxReady\(\)/);
+  assert.match(upgradeAction, /tax-setup-required/);
+  assert.match(upgradeAction, /if \(billingProvider\(\) === "moyasar"\)[\s\S]*paidBillingTaxReady\(\)[\s\S]*createBillingIntent/);
   assert.match(audit, /BILLING_SELLER_LEGAL_NAME_AR/);
   assert.match(audit, /BILLING_SELLER_ADDRESS_AR/);
   assert.match(audit, /BILLING_TAX_STATUS/);
