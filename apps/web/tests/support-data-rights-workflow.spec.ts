@@ -31,7 +31,7 @@ test.describe.serial("customer support and data rights", () => {
     const ownerToken = crypto.randomUUID();
     await db.session.create({ data: { token: ownerToken, userId: owner.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
 
-    const admin = await db.user.upsert({ where: { email: adminEmail }, update: { name: "RC Platform Admin", deletedAt: null }, create: { name: "RC Platform Admin", email: adminEmail, passwordHash: "rc-only" } });
+    const admin = await db.user.upsert({ where: { email: adminEmail }, update: { name: "RC Platform Admin", deletedAt: null, emailVerifiedAt: new Date() }, create: { name: "RC Platform Admin", email: adminEmail, passwordHash: "rc-only", emailVerifiedAt: new Date() } });
     const adminToken = crypto.randomUUID();
     await db.session.create({ data: { token: adminToken, userId: admin.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
 
