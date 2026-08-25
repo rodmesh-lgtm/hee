@@ -8,9 +8,13 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  // The long-lived QA_AUDIT_SECRET is deliberately never accepted from the URL.
-  // URLs can leak through browser history, proxy logs and referrers. Interactive
-  // browser handoff uses only the single-use auditId minted by an authorized POST.
+  // Fail closed if the long-lived QA secret is ever placed in a browser URL. Ignoring
+  // the parameter is not enough: the URL may already be retained by browser history,
+  // proxies or request logs. Interactive browser handoff accepts only the short-lived,
+  // single-use auditId minted by the authorized POST endpoint.
+  if (searchParams.has("token")) {
+    return new NextResponse(null, { status: 404 });
+  }
   const redirectTarget = await requireQaAuditAccess({
     auditId: searchParams.get("auditId"),
     path: searchParams.get("path"),
