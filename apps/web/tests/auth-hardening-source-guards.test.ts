@@ -66,7 +66,11 @@ test("password reset links are canonical in production but preview-safe", () => 
   const reset = source("app/actions/password-reset.ts");
   assert.match(reset, /const vercelEnv = String\(process\.env\.VERCEL_ENV \?\? ""\)\.toLowerCase\(\)/);
   assert.match(reset, /vercelEnv === "production" \|\| \(!vercelEnv && process\.env\.NODE_ENV === "production"\)/);
-  assert.match(reset, /hostname\.endsWith\("\.vercel\.app"\)/);
+  assert.match(reset, /if \(vercelEnv === "preview"\)/);
+  assert.match(reset, /process\.env\.VERCEL_URL/);
+  assert.match(reset, /process\.env\.VERCEL_BRANCH_URL/);
+  assert.match(reset, /hostname === suffix \|\| hostname\.endsWith\(`\.\$\{suffix\}`\)/);
+  assert.match(reset, /trustedResetOrigin\(String\(process\.env\.VERCEL_URL \?\? ""\), \["vercel\.app"\]\)/);
   assert.match(reset, /return "https:\/\/hee\.sa"/);
 });
 

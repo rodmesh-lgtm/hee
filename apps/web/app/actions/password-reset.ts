@@ -16,27 +16,42 @@ const GENERIC_RESET_MESSAGE = "إذا كان البريد مرتبطًا بحس�
 function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
 function hashToken(token: string) { return createHash("sha256").update(token).digest("hex"); }
 
+function trustedResetOrigin(candidate: string, allowedSuffixes: string[]) {
+  const raw = candidate.trim();
+  if (!raw) return null;
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const url = new URL(withProtocol);
+    if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) return null;
+    const hostname = url.hostname.toLowerCase();
+    const local = hostname === "localhost" || hostname === "127.0.0.1";
+    const allowed = allowedSuffixes.some((suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`));
+    if ((local && url.protocol === "http:") || (allowed && url.protocol === "https:")) return url.origin;
+  } catch {
+    // Invalid or untrusted candidate.
+  }
+  return null;
+}
+
 function passwordResetOrigin() {
   const vercelEnv = String(process.env.VERCEL_ENV ?? "").toLowerCase();
   if (vercelEnv === "production" || (!vercelEnv && process.env.NODE_ENV === "production")) return "https://hee.sa";
+
+  // Preview recovery links must stay inside the preview that issued them. Do not use
+  // NEXT_PUBLIC_SITE_URL/AUTH_ORIGIN here: those are commonly shared with Production and
+  // previously caused Preview reset emails to point at hee.sa, where the RC route was absent.
+  if (vercelEnv === "preview") {
+    return trustedResetOrigin(String(process.env.VERCEL_URL ?? ""), ["vercel.app"])
+      || trustedResetOrigin(String(process.env.VERCEL_BRANCH_URL ?? ""), ["vercel.app"]);
+  }
 
   const candidate = String(
     process.env.NEXT_PUBLIC_SITE_URL
       || process.env.NEXT_PUBLIC_APP_URL
       || process.env.AUTH_ORIGIN
       || "http://localhost:3000",
-  ).trim();
-  try {
-    const url = new URL(candidate);
-    const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    const preview = url.hostname.endsWith(".vercel.app") || url.hostname.endsWith(".app.github.dev");
-    if ((url.protocol === "https:" && (preview || url.hostname === "hee.sa" || url.hostname === "www.hee.sa")) || (local && url.protocol === "http:")) {
-      return url.origin;
-    }
-  } catch {
-    // Fall through to the canonical origin.
-  }
-  return "https://hee.sa";
+  );
+  return trustedResetOrigin(candidate, ["vercel.app", "app.github.dev"]);
 }
 
 async function requestAddress() {
@@ -58,9 +73,13 @@ async function consumeResetLimit(scope: string, identity: string, limit: number,
 async function sendResetEmail(email: string, token: string) {
   const apiKey = String(process.env.RESEND_API_KEY ?? "").trim();
   const from = String(process.env.HEE_FROM_EMAIL ?? "").trim();
-  if (!apiKey || !from) return false;
+  const origin = passwordResetOrigin();
+  if (!apiKey || !from || !origin) {
+    if (!origin) console.error("[password-reset] no trusted reset origin for current environment");
+    return false;
+  }
 
-  const resetUrl = `${passwordResetOrigin()}/reset-password?token=${encodeURIComponent(token)}`;
+  const resetUrl = `${origin}/reset-password?token=${encodeURIComponent(token)}`;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {

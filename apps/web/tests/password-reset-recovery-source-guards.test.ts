@@ -26,8 +26,14 @@ test("successful password reset revokes existing sessions and stale ownership to
   assert.match(reset, /emailVerifiedAt: new Date\(\)/);
 });
 
-test("password reset links are canonical in production and provider calls are bounded", () => {
-  assert.match(reset, /return "https:\/\/hee\.sa"/);
+test("password reset links use a trusted environment-specific origin and provider calls are bounded", () => {
+  assert.match(reset, /vercelEnv === "production"[\s\S]*return "https:\/\/hee\.sa"/);
+  assert.match(reset, /vercelEnv === "preview"/);
+  assert.match(reset, /process\.env\.VERCEL_URL/);
+  assert.match(reset, /process\.env\.VERCEL_BRANCH_URL/);
+  assert.match(reset, /\["vercel\.app"\]/);
+  assert.match(reset, /url\.username \|\| url\.password \|\| url\.pathname !== "\/" \|\| url\.search \|\| url\.hash/);
+  assert.match(reset, /if \(!apiKey \|\| !from \|\| !origin\)/);
   assert.match(reset, /AbortSignal\.timeout\(10_000\)/);
   assert.match(reset, /cache: "no-store"/);
 });
