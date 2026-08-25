@@ -35,7 +35,7 @@ export default async function DashboardToolsPage() {
           {designerAvailable ? (
             <Link href="/dashboard/tools/offers" className="mt-5 inline-flex h-11 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-sm font-black text-white transition hover:bg-[#5e31b8]">فتح مصمم العروض <ArrowLeft className="h-4 w-4" /></Link>
           ) : (
-            <div className="mt-5 flex flex-wrap items-center gap-3"><Link href="/dashboard/branding" className="inline-flex h-11 items-center rounded-xl bg-[#6f3bd2] px-4 text-sm font-black text-white">عرض الباقات</Link><span className="text-xs text-slate-400">تتوفر الأداة عند تفعيل باقة مؤهلة.</span></div>
+            <div className="mt-5 flex flex-wrap items-center gap-3"><Link href="/dashboard/settings#plans" className="inline-flex h-11 items-center rounded-xl bg-[#6f3bd2] px-4 text-sm font-black text-white">عرض الباقات</Link><span className="text-xs text-slate-400">تتوفر الأداة عند تفعيل باقة مؤهلة.</span></div>
           )}
         </article>
 
