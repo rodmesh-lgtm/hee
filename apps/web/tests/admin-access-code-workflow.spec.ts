@@ -16,6 +16,7 @@ type Fixture = {
   businessId: string;
   freePlanId: string;
   paidPlanId: string;
+  paidPlanCode: string;
   label: string;
 };
 
@@ -26,10 +27,9 @@ async function seed(): Promise<Fixture> {
     update: { isActive: true },
     create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true },
   });
-  const paid = await db.businessPlan.upsert({
-    where: { code: "BUSINESS" },
-    update: { isActive: true, monthlyPrice: 99 },
-    create: { code: "BUSINESS", name: "Business", monthlyPrice: 99, productLimit: 100, isActive: true },
+  const paidPlanCode = `rc-lowercase-${suffix}`;
+  const paid = await db.businessPlan.create({
+    data: { code: paidPlanCode, name: "RC Lowercase Plan", monthlyPrice: 99, productLimit: 100, isActive: true },
   });
 
   const admin = await db.user.create({
@@ -77,6 +77,7 @@ async function seed(): Promise<Fixture> {
     businessId: business.id,
     freePlanId: free.id,
     paidPlanId: paid.id,
+    paidPlanCode,
     label: `RC access ${suffix}`,
   };
 }
@@ -96,6 +97,7 @@ async function cleanup(fixture: Fixture) {
   await db.session.deleteMany({ where: { userId: { in: [fixture.adminId, fixture.customerId] } } });
   await db.authIdentity.deleteMany({ where: { userId: { in: [fixture.adminId, fixture.customerId] } } });
   await db.user.deleteMany({ where: { id: { in: [fixture.adminId, fixture.customerId] } } });
+  await db.businessPlan.delete({ where: { id: fixture.paidPlanId } });
 }
 
 async function setSession(page: Page, token: string) {
@@ -116,7 +118,7 @@ test.describe.serial("subscription access-code lifecycle", () => {
     await pool?.end();
   });
 
-  test("admin creates a one-time secret, customer activates without payment, admin revokes entitlement", async ({ page }) => {
+  test("admin creates a one-time secret for a lowercase persisted plan, customer activates without payment, admin revokes entitlement", async ({ page }) => {
     test.setTimeout(120_000);
     const fixture = await seed();
 
@@ -124,7 +126,7 @@ test.describe.serial("subscription access-code lifecycle", () => {
       await setSession(page, fixture.adminToken);
       await page.goto(`${baseUrl}/admin/access-codes`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "أكواد تفعيل الاشتراكات" })).toBeVisible();
-      await page.locator('select[name="plan"]').selectOption("BUSINESS");
+      await page.locator('select[name="plan"]').selectOption(fixture.paidPlanCode);
       await page.locator('input[name="label"]').fill(fixture.label);
       await page.locator('input[name="maxRedemptions"]').fill("1");
       await page.getByRole("button", { name: "إنشاء كود آمن" }).click();
