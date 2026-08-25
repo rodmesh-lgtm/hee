@@ -89,4 +89,61 @@ test.describe.serial("platform admin request queue", () => {
       if (adminBusinesses === 0) await db.user.delete({ where: { id: admin.id } }).catch(() => undefined);
     }
   });
+
+  test("verification approval rejects a request whose paid entitlement expired while queued", async ({ page }) => {
+    test.setTimeout(90_000);
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const admin = await db.user.upsert({
+      where: { email: adminEmail },
+      update: { name: "RC Platform Admin", deletedAt: null, emailVerifiedAt: new Date() },
+      create: { name: "RC Platform Admin", email: adminEmail, passwordHash: "rc-only", emailVerifiedAt: new Date() },
+    });
+    const adminSessionToken = crypto.randomUUID();
+    await db.session.create({ data: { token: adminSessionToken, userId: admin.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
+    const owner = await db.user.create({ data: { name: "RC Verification Expiry Owner", email: `rc-verification-expiry-${suffix}@hee.test`, passwordHash: "rc-only", emailVerifiedAt: new Date() } });
+    const plan = await db.businessPlan.upsert({
+      where: { code: "BUSINESS" },
+      update: { name: "Business", isActive: true },
+      create: { code: "BUSINESS", name: "Business", monthlyPrice: 9900, productLimit: 10, isActive: true },
+    });
+    const business = await db.business.create({
+      data: { ownerId: owner.id, planId: plan.id, name: `منشأة انتهاء التوثيق ${suffix}`, slug: `rc-verification-expiry-${suffix}`, businessType: "خدمات أعمال", onboardingCompleted: true },
+    });
+    const subscription = await db.subscription.create({
+      data: { businessId: business.id, planId: plan.id, status: "active", provider: "moyasar", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 24 * 60 * 60 * 1000), autoRenew: false },
+    });
+    const event = await db.analyticsEvent.create({
+      data: { businessId: business.id, eventType: "verification_requested", metadata: { source: "rc_expiry_regression", status: "pending" } },
+    });
+
+    try {
+      // Model the legitimate request-time entitlement disappearing before an operator
+      // reviews the queue. Business.planId intentionally remains BUSINESS to prove it
+      // cannot act as authorization after the paid period itself is no longer current.
+      await db.subscription.update({ where: { id: subscription.id }, data: { endsAt: new Date(Date.now() - 60_000) } });
+      await page.context().addCookies([{ name: "hee_session", value: adminSessionToken, url: baseUrl }]);
+      await page.goto(`${baseUrl}/admin/requests?type=verification`, { waitUntil: "domcontentloaded" });
+      const requestCard = page.locator("article").filter({ hasText: business.name });
+      await expect(requestCard).toBeVisible();
+      await requestCard.getByRole("button", { name: "اعتماد التوثيق" }).click();
+      await expect(page).toHaveURL(/error=verification-ineligible/);
+
+      const [currentBusiness, currentEvent] = await Promise.all([
+        db.business.findUniqueOrThrow({ where: { id: business.id }, select: { isVerified: true, planId: true } }),
+        db.analyticsEvent.findUniqueOrThrow({ where: { id: event.id }, select: { metadata: true } }),
+      ]);
+      expect(currentBusiness.isVerified).toBe(false);
+      expect(currentBusiness.planId).toBe(plan.id);
+      expect(currentEvent.metadata).toMatchObject({ status: "obsolete", reason: "entitlement_expired_or_revoked" });
+    } finally {
+      await db.analyticsEvent.deleteMany({ where: { businessId: business.id } });
+      await db.subscription.deleteMany({ where: { businessId: business.id } });
+      await db.business.delete({ where: { id: business.id } });
+      await db.session.deleteMany({ where: { token: adminSessionToken } });
+      await db.authIdentity.deleteMany({ where: { userId: owner.id } });
+      await db.user.delete({ where: { id: owner.id } });
+      const adminBusinesses = await db.business.count({ where: { ownerId: admin.id } });
+      if (adminBusinesses === 0) await db.user.delete({ where: { id: admin.id } }).catch(() => undefined);
+    }
+  });
 });

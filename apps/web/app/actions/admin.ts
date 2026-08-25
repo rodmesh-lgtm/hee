@@ -18,12 +18,48 @@ async function lockAdminEvent(tx: Prisma.TransactionClient, eventId: string) {
 async function lockAdminBusiness(tx: Prisma.TransactionClient, businessId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`admin-business:${businessId}`}))`;
 }
+async function lockBillingBusiness(tx: Prisma.TransactionClient, businessId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`billing-business:${businessId}`}))`;
+}
 function reviewAudit(admin: { id: string; email: string }) {
   return {
     reviewedAt: new Date().toISOString(),
     reviewedByUserId: admin.id,
     reviewedByEmail: admin.email,
   };
+}
+
+async function hasCurrentPaidVerificationEntitlement(
+  tx: Prisma.TransactionClient,
+  business: { id: string; plan: { id: string; code: string } | null },
+) {
+  if (!business.plan || business.plan.code === "FREE") return false;
+  const now = new Date();
+  const active = await tx.subscription.findFirst({
+    where: {
+      businessId: business.id,
+      planId: business.plan.id,
+      status: "active",
+      OR: [
+        { provider: { not: "access_code" }, endsAt: { gt: now } },
+        {
+          provider: "access_code",
+          autoRenew: false,
+          endsAt: null,
+          accessGrants: {
+            some: {
+              businessId: business.id,
+              planId: business.plan.id,
+              revokedAt: null,
+              code: { isActive: true, revokedAt: null },
+            },
+          },
+        },
+      ],
+    },
+    select: { id: true },
+  });
+  return Boolean(active);
 }
 
 export async function approveVerificationAdminAction(formData: FormData) {
@@ -42,6 +78,10 @@ export async function approveVerificationAdminAction(formData: FormData) {
     if (!event || event.eventType !== "verification_requested" || metadata.status !== "pending") return "invalid-state" as const;
 
     await lockAdminBusiness(tx, event.businessId);
+    // Entitlement-changing billing/revocation paths serialize on this same lock. Admin
+    // approval must join that serialization domain so a grant cannot be revoked or a
+    // provider entitlement replaced between our eligibility proof and isVerified=true.
+    await lockBillingBusiness(tx, event.businessId);
     const business = await tx.business.findFirst({ where: { id: event.businessId, deletedAt: null }, include: { plan: true } });
     if (!business) return "missing-business" as const;
     const audit = reviewAudit(admin);
@@ -54,6 +94,14 @@ export async function approveVerificationAdminAction(formData: FormData) {
     const entitlements = getPlanEntitlements(business.plan?.code);
     if (!entitlements.verificationEligible) {
       await tx.analyticsEvent.update({ where: { id: event.id }, data: { metadata: { ...metadata, status: "obsolete", ...audit, reason: "plan_ineligible" } } });
+      return "ineligible" as const;
+    }
+
+    // Business.planId is only a cached/catalog pointer. It must never be sufficient to
+    // authorize a paid-only benefit: the customer may have lost the provider period or
+    // an access-code grant while this request waited in the admin queue.
+    if (!(await hasCurrentPaidVerificationEntitlement(tx, business))) {
+      await tx.analyticsEvent.update({ where: { id: event.id }, data: { metadata: { ...metadata, status: "obsolete", ...audit, reason: "entitlement_expired_or_revoked" } } });
       return "ineligible" as const;
     }
 
