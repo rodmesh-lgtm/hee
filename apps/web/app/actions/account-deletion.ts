@@ -52,26 +52,13 @@ export async function deleteOwnAccountAction(formData: FormData) {
     }
 
     if (businessIds.length) {
-      await tx.subscription.updateMany({
-        where: { businessId: { in: businessIds }, autoRenew: true },
-        data: { autoRenew: false },
-      });
+      await tx.subscription.updateMany({ where: { businessId: { in: businessIds }, autoRenew: true }, data: { autoRenew: false } });
       await tx.billingPayment.updateMany({
-        where: {
-          businessId: { in: businessIds },
-          kind: "renewal",
-          status: { in: ["created", "failed"] },
-        },
+        where: { businessId: { in: businessIds }, kind: "renewal", status: { in: ["created", "failed"] } },
         data: { status: "canceled", nextRetryAt: null },
       });
-      await tx.billingPaymentMethod.updateMany({
-        where: { businessId: { in: businessIds }, status: "active" },
-        data: { status: "revoked" },
-      });
-      await tx.subscriptionAccessGrant.updateMany({
-        where: { businessId: { in: businessIds }, revokedAt: null },
-        data: { revokedAt: now },
-      });
+      await tx.billingPaymentMethod.updateMany({ where: { businessId: { in: businessIds }, status: "active" }, data: { status: "revoked" } });
+      await tx.subscriptionAccessGrant.updateMany({ where: { businessId: { in: businessIds }, revokedAt: null }, data: { revokedAt: now } });
 
       await tx.branch.updateMany({
         where: { businessId: { in: businessIds } },
@@ -81,14 +68,8 @@ export async function deleteOwnAccountAction(formData: FormData) {
         where: { businessId: { in: businessIds } },
         data: { isActive: false, jobTitle: null, phone: null, whatsapp: null, email: null, imageUrl: null },
       });
-      await tx.socialLink.updateMany({
-        where: { businessId: { in: businessIds } },
-        data: { isActive: false, url: "about:blank" },
-      });
-      await tx.galleryItem.updateMany({
-        where: { businessId: { in: businessIds } },
-        data: { isActive: false, caption: null },
-      });
+      await tx.socialLink.updateMany({ where: { businessId: { in: businessIds } }, data: { isActive: false, url: "about:blank" } });
+      await tx.galleryItem.updateMany({ where: { businessId: { in: businessIds } }, data: { isActive: false, caption: null } });
 
       for (const business of businesses) {
         await tx.business.update({
@@ -207,5 +188,3 @@ export async function deleteOwnAccountAction(formData: FormData) {
   await logoutSession();
   redirect("/login?account=deleted");
 }
-
-export const ACCOUNT_DELETION_CONFIRMATION = CONFIRMATION;
