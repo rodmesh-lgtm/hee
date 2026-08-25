@@ -95,8 +95,6 @@ export async function changeUnverifiedEmailAction(_previous: EmailVerificationSt
       if (existing && existing.id !== current.id) throw new Error("email-already-in-use");
 
       await tx.user.update({ where: { id: current.id }, data: { email: nextEmail } });
-      // Any ownership or password-reset link delivered to the mistyped mailbox must
-      // become unusable before this transaction commits the corrected address.
       await tx.oAuthState.deleteMany({
         where: {
           nonce: current.id,
@@ -133,6 +131,7 @@ export async function verifyEmailAction(formData: FormData) {
   const token = String(formData.get("token") ?? "").trim();
   if (!/^[0-9a-f]{64}$/i.test(token)) redirect("/verify-email?status=invalid");
 
+  let rateAllowed = false;
   try {
     const address = await requestAddress();
     const rate = await consumePublicWriteLimit({
@@ -142,11 +141,12 @@ export async function verifyEmailAction(formData: FormData) {
       limit: 30,
       windowSeconds: 15 * 60,
     });
-    if (!rate.allowed) redirect("/verify-email?status=rate-limited");
+    rateAllowed = rate.allowed;
   } catch (error) {
     console.error("[email-verification] submit_rate_limit_failed", error);
     redirect("/verify-email?status=unavailable");
   }
+  if (!rateAllowed) redirect("/verify-email?status=rate-limited");
 
   const result = await consumeEmailVerificationToken(token);
   if (result !== "verified") redirect("/verify-email?status=invalid");
