@@ -9,6 +9,7 @@ import { getActiveBusinessForUser } from "../lib/active-business";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
 
 const SUPPORT_EVENT = "support_requested";
+const DELETION_EVENT = "account_deletion_completed";
 const categories = new Set(["account", "billing", "technical", "privacy", "other"]);
 const privacyResolutionOutcomes = new Set(["deletion_completed", "retention_exception"]);
 
@@ -76,17 +77,28 @@ export async function resolveSupportRequestAdminAction(formData: FormData) {
 
   const result = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`support:${eventId}`}))`;
-    const event = await tx.analyticsEvent.findUnique({ where: { id: eventId }, select: { id: true, eventType: true, metadata: true } });
+    const event = await tx.analyticsEvent.findUnique({ where: { id: eventId }, select: { id: true, businessId: true, eventType: true, metadata: true } });
     if (!event || event.eventType !== SUPPORT_EVENT) return "invalid" as const;
     const metadata = metadataObject(event.metadata);
     if (metadata.status !== "open") return "already" as const;
 
-    // Privacy/data-erasure tickets must never be closed by a generic free-text note.
-    // Until the full verified deletion lifecycle exists, require an explicit auditable
-    // outcome: either deletion/anonymization has actually completed, or a lawful
-    // retention exception is being recorded. This keeps the workflow fail-closed.
     if (metadata.category === "privacy" && !privacyResolutionOutcomes.has(privacyOutcome)) {
       return "privacy-outcome-required" as const;
+    }
+
+    let deletionLifecycleEventId: string | undefined;
+    if (metadata.category === "privacy" && privacyOutcome === "deletion_completed") {
+      const requesterId = String(metadata.requestedByUserId ?? "");
+      if (!requesterId) return "deletion-proof-required" as const;
+      const candidates = await tx.analyticsEvent.findMany({
+        where: { businessId: event.businessId, eventType: DELETION_EVENT },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: { id: true, metadata: true },
+      });
+      const proof = candidates.find((candidate) => String(metadataObject(candidate.metadata).userId ?? "") === requesterId);
+      if (!proof) return "deletion-proof-required" as const;
+      deletionLifecycleEventId = proof.id;
     }
 
     await tx.analyticsEvent.update({
@@ -97,6 +109,7 @@ export async function resolveSupportRequestAdminAction(formData: FormData) {
           status: "resolved",
           resolutionNote,
           ...(metadata.category === "privacy" ? { privacyOutcome } : {}),
+          ...(deletionLifecycleEventId ? { deletionLifecycleEventId } : {}),
           resolvedAt: new Date().toISOString(),
           resolvedByUserId: admin.id,
           resolvedByEmail: admin.email,
@@ -110,5 +123,6 @@ export async function resolveSupportRequestAdminAction(formData: FormData) {
   revalidatePath("/admin/support");
   if (result === "invalid") redirect("/admin/support?error=invalid");
   if (result === "privacy-outcome-required") redirect("/admin/support?error=privacy-outcome-required");
+  if (result === "deletion-proof-required") redirect("/admin/support?error=deletion-proof-required");
   redirect(`/admin/support?done=${result}`);
 }

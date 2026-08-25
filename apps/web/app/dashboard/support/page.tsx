@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CheckCircle2, LifeBuoy } from "lucide-react";
 import { createSupportRequestAction } from "../../actions/support";
@@ -52,6 +53,12 @@ export default async function DashboardSupportPage({ searchParams }: { searchPar
         <p className="text-[11px] leading-5 text-slate-400">لا تشارك كلمة المرور أو رموز الدخول أو بيانات بطاقات الدفع في طلب الدعم.</p>
         <button className="min-h-11 w-fit rounded-xl bg-[#6f3bd2] px-5 text-sm font-black text-white">إرسال الطلب</button>
       </form>
+    </section>
+
+    <section className="rounded-[24px] border border-rose-200 bg-rose-50/40 p-4 sm:p-5">
+      <h2 className="font-black text-rose-900">حذف الحساب والبيانات</h2>
+      <p className="mt-2 text-xs leading-6 text-slate-600">إذا كان طلبك متعلقًا بحذف حسابك بالكامل، استخدم دورة الحذف الموثقة بدل الاكتفاء بتذكرة دعم. سيُطلب منك إثبات جلسة حساب ببريد مؤكد وتأكيد صريح قبل التنفيذ.</p>
+      <Link href="/dashboard/account-deletion" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-rose-700 px-4 text-xs font-black text-white">فتح حذف الحساب والبيانات</Link>
     </section>
 
     <section className="rounded-[24px] border border-[#e8e5f2] bg-white p-4 sm:p-5">
