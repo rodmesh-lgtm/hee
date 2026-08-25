@@ -26,13 +26,16 @@ export default async function VerifyEmailPage({ searchParams }: Props) {
       <section className="w-full rounded-[28px] border border-[#e8e5f2] bg-white p-5 shadow-[0_24px_70px_-52px_rgba(73,48,125,.5)] sm:p-6">
         <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><MailCheck className="h-5 w-5" /></span>
         <h1 className="mt-4 text-2xl font-black">تأكيد البريد الإلكتروني</h1>
-        <p className="mt-2 text-sm leading-7 text-slate-500">نطلب هذه الخطوة قبل نشر صفحة المنشأة حتى لا يستطيع أحد إنشاء هوية عامة باستخدام بريد لا يملكه.</p>
+        <p className="mt-2 text-sm leading-7 text-slate-500">نطلب هذه الخطوة قبل نشر صفحة المنشأة وحتى لا تُمنح صلاحيات حساسة قبل إثبات ملكية البريد.</p>
 
         {message ? <p className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-bold leading-6 text-rose-700">{message}</p> : null}
-        {validTokenShape && !message ? <form action={verifyEmailAction} className="mt-5">
-          <input type="hidden" name="token" value={token} />
-          <button className="h-12 w-full rounded-2xl bg-[#5b3fd6] px-4 text-sm font-black text-white">تأكيد ملكية البريد</button>
-        </form> : null}
+        {validTokenShape && !message ? <>
+          <p role="status" className="mt-5 rounded-2xl border border-violet-200 bg-violet-50 px-3 py-3 text-sm font-bold leading-6 text-violet-800">تم التحقق من شكل الرابط، لكن البريد لم يُفعّل بعد. اضغط الزر التالي لإكمال التحقق بشكل آمن.</p>
+          <form action={verifyEmailAction} className="mt-3">
+            <input type="hidden" name="token" value={token} />
+            <button className="h-12 w-full rounded-2xl bg-[#5b3fd6] px-4 text-sm font-black text-white">تأكيد ملكية البريد</button>
+          </form>
+        </> : null}
         {!validTokenShape && !message ? <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-bold leading-6 text-amber-800">افتح رابط التأكيد الذي أرسلناه إلى بريد حسابك.</p> : null}
 
         <div className="mt-5 flex flex-wrap gap-3 text-sm">

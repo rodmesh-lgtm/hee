@@ -5,7 +5,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
-import { getCurrentUserForWrites } from "../lib/auth";
+import { getCurrentUser, getCurrentUserForWrites } from "../lib/auth";
+import { isAdminEmail } from "../lib/admin";
 import { consumeEmailVerificationToken, issueEmailVerification } from "../lib/email-verification";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
 
@@ -150,5 +151,11 @@ export async function verifyEmailAction(formData: FormData) {
 
   const result = await consumeEmailVerificationToken(token);
   if (result !== "verified") redirect("/verify-email?status=invalid");
+
+  // Re-read the authenticated account after the token transaction so the next route
+  // sees the newly persisted emailVerifiedAt. Verified allowlisted admins can continue
+  // directly into the central console; ordinary accounts keep the existing settings flow.
+  const verifiedSessionUser = await getCurrentUser();
+  if (verifiedSessionUser?.emailVerifiedAt && isAdminEmail(verifiedSessionUser.email)) redirect("/admin");
   redirect("/dashboard/settings?email=verified");
 }
