@@ -26,8 +26,8 @@ test.describe.serial("platform admin request queue", () => {
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const admin = await db.user.upsert({
       where: { email: adminEmail },
-      update: { name: "RC Platform Admin", deletedAt: null },
-      create: { name: "RC Platform Admin", email: adminEmail, passwordHash: "rc-only" },
+      update: { name: "RC Platform Admin", deletedAt: null, emailVerifiedAt: new Date() },
+      create: { name: "RC Platform Admin", email: adminEmail, passwordHash: "rc-only", emailVerifiedAt: new Date() },
     });
     const adminSessionToken = crypto.randomUUID();
     await db.session.create({ data: { token: adminSessionToken, userId: admin.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
