@@ -25,8 +25,8 @@ async function seed(): Promise<Seeded> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const admin = await db.user.upsert({
     where: { email: adminEmail },
-    update: { name: "RC Platform Admin", deletedAt: null },
-    create: { name: "RC Platform Admin", email: adminEmail, passwordHash: "rc-only" },
+    update: { name: "RC Platform Admin", deletedAt: null, emailVerifiedAt: new Date() },
+    create: { name: "RC Platform Admin", email: adminEmail, passwordHash: "rc-only", emailVerifiedAt: new Date() },
   });
   await db.session.deleteMany({ where: { userId: admin.id } });
   const adminSessionToken = crypto.randomUUID();
