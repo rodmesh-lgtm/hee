@@ -33,7 +33,7 @@ export default async function VerifyEmailPage({ searchParams }: Props) {
           <p role="status" className="mt-5 rounded-2xl border border-violet-200 bg-violet-50 px-3 py-3 text-sm font-bold leading-6 text-violet-800">تم التحقق من شكل الرابط، لكن البريد لم يُفعّل بعد. اضغط الزر التالي لإكمال التحقق بشكل آمن.</p>
           <form action={verifyEmailAction} className="mt-3">
             <input type="hidden" name="token" value={token} />
-            <button className="h-12 w-full rounded-2xl bg-[#5b3fd6] px-4 text-sm font-black text-white">تأكيد البريد والمتابعة</button>
+            <button className="h-12 w-full rounded-2xl bg-[#5b3fd6] px-4 text-sm font-black text-white">تأكيد ملكية البريد</button>
           </form>
         </> : null}
         {!validTokenShape && !message ? <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-bold leading-6 text-amber-800">افتح رابط التأكيد الذي أرسلناه إلى بريد حسابك.</p> : null}
