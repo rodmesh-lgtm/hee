@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import { BadgeCheck, FileText, Share2, type LucideIcon } from "lucide-react";
 
@@ -27,23 +27,22 @@ function Highlights({ companyProfileUrl, companyProfileTitle, socialLinks }: Pro
 }
 
 export function PublicIdentityHighlights(props: Props) {
-  const mountRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const mount = mountRef.current;
-    if (!mount || (!props.companyProfileUrl && !props.socialLinks.length)) return;
+  const [target, setTarget] = useState<HTMLDivElement | null>(null);
+  const attachMount = useCallback((mount: HTMLDivElement | null) => {
+    if (!mount) {
+      setTarget(null);
+      return;
+    }
     const main = document.querySelector<HTMLElement>("main[dir='rtl']");
-    if (!main) return;
-    const details = Array.from(main.querySelectorAll<HTMLElement>("section")).find((section) => {
+    const details = main ? Array.from(main.querySelectorAll<HTMLElement>("section")).find((section) => {
       const firstButton = section.querySelector(":scope > button");
       const text = firstButton?.textContent || "";
       return text.includes("عن المنشأة") || text.includes("خدماتنا");
-    });
-    if (!details) return;
-    details.prepend(mount);
-    return () => { mount.remove(); };
-  }, [props.companyProfileUrl, props.socialLinks]);
+    }) : null;
+    if (details) details.prepend(mount);
+    setTarget(mount);
+  }, []);
 
   if (!props.companyProfileUrl && !props.socialLinks.length) return null;
-  return <><div ref={mountRef} data-public-identity-mount hidden />{mountRef.current ? createPortal(<Highlights {...props} />, mountRef.current) : null}</>;
+  return <><div ref={attachMount} data-public-identity-mount />{target ? createPortal(<Highlights {...props} />, target) : null}</>;
 }
