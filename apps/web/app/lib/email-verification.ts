@@ -19,7 +19,9 @@ function trustedVerificationOrigin(candidate: string, allowedSuffixes: string[])
     if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) return null;
     const hostname = url.hostname.toLowerCase();
     const local = hostname === "localhost" || hostname === "127.0.0.1";
-    const allowed = allowedSuffixes.some((suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`));
+    const trustedVercel = allowedSuffixes.includes("vercel.app") && (hostname === "vercel.app" || hostname.endsWith(".vercel.app"));
+    const trustedOther = allowedSuffixes.filter((suffix) => suffix !== "vercel.app").some((suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`));
+    const allowed = trustedVercel || trustedOther;
     if ((local && url.protocol === "http:") || (allowed && url.protocol === "https:")) return url.origin;
   } catch {
     // Invalid or untrusted candidate.
