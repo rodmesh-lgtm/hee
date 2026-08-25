@@ -1,10 +1,10 @@
 import { cache } from "react";
-import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getBusinessPublic } from "../lib/public-business";
 import { PublicBusinessPageV10Light } from "../../components/public-business-page-v10-light";
 import { PublicBusinessAnalytics } from "../../components/public-business-analytics";
+import { PublicIdentityHighlights } from "../../components/public/public-identity-highlights";
 import { PublicTransactionLauncher } from "../../components/public/public-transaction-launcher";
 import { getPublicBusinessUrlFromRequest, isValidPublicSlug, normalizePublicSlug } from "../lib/public-url";
 import { sanitizePublicBusiness } from "../lib/public-business-sanitize";
@@ -30,23 +30,51 @@ function openingHoursSpecification(openingHours: Array<{ dayOfWeek: number; open
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { slug } = await params; const normalizedSlug = normalizePublicSlug(slug); if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) return {};
-  const resolved = await getBusinessOrAlias(normalizedSlug); const business = resolved?.business; if (!business || !business.isPublished) return {};
-  const canonicalUrl = `https://hee.sa/${business.slug}`; const title = business.metaTitle || `${business.name} | HEE`; const description = business.metaDescription || business.shortDescription || business.description || `صفحة ${business.name}`; const socialImageUrl = absolutePublicAssetUrl(business.coverUrl) || absolutePublicAssetUrl(business.logoUrl);
+  const { slug } = await params;
+  const normalizedSlug = normalizePublicSlug(slug);
+  if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) return {};
+  const resolved = await getBusinessOrAlias(normalizedSlug);
+  const business = resolved?.business;
+  if (!business || !business.isPublished) return {};
+  const canonicalUrl = `https://hee.sa/${business.slug}`;
+  const title = business.metaTitle || `${business.name} | HEE`;
+  const description = business.metaDescription || business.shortDescription || business.description || `صفحة ${business.name}`;
+  const socialImageUrl = absolutePublicAssetUrl(business.coverUrl) || absolutePublicAssetUrl(business.logoUrl);
   return { title: { absolute: title }, description, alternates: { canonical: canonicalUrl }, openGraph: { title, description, type: "website", url: canonicalUrl, siteName: "HEE", locale: "ar_SA", images: socialImageUrl ? [{ url: socialImageUrl, alt: business.name }] : undefined }, twitter: { card: socialImageUrl ? "summary_large_image" : "summary", title, description, images: socialImageUrl ? [socialImageUrl] : undefined }, ...(isPreviewQaEnvironment() ? { robots: { index: false, follow: false } } : { robots: { index: true, follow: true } }) };
 }
 
 export default async function PublicBusinessPageRoute({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params; const normalizedSlug = normalizePublicSlug(slug); if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) notFound();
-  const resolved = await getBusinessOrAlias(normalizedSlug); if (!resolved || !resolved.business.isPublished) notFound(); if (resolved.isAlias) permanentRedirect(`/${resolved.business.slug}`);
-  const business = resolved.business; const publicBusiness = sanitizePublicBusiness(business); const canonicalUrl = `https://hee.sa/${business.slug}`; const publicUrl = await getPublicBusinessUrlFromRequest(business.slug); const qrDataUrl = makeQrUrl(publicUrl);
+  const { slug } = await params;
+  const normalizedSlug = normalizePublicSlug(slug);
+  if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) notFound();
+  const resolved = await getBusinessOrAlias(normalizedSlug);
+  if (!resolved || !resolved.business.isPublished) notFound();
+  if (resolved.isAlias) permanentRedirect(`/${resolved.business.slug}`);
+
+  const business = resolved.business;
+  const publicBusiness = sanitizePublicBusiness(business);
+  const canonicalUrl = `https://hee.sa/${business.slug}`;
+  const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
+  const qrDataUrl = makeQrUrl(publicUrl);
   const socialLinks = [
-    ["Instagram", safeExternalUrl(business.instagramUrl)], ["X", safeExternalUrl(business.xUrl)], ["TikTok", safeExternalUrl(business.tiktokUrl)], ["Snapchat", safeExternalUrl(business.snapchatUrl)], ["Facebook", safeExternalUrl(business.facebookUrl)],
+    ["Instagram", safeExternalUrl(business.instagramUrl)],
+    ["X", safeExternalUrl(business.xUrl)],
+    ["TikTok", safeExternalUrl(business.tiktokUrl)],
+    ["Snapchat", safeExternalUrl(business.snapchatUrl)],
+    ["Facebook", safeExternalUrl(business.facebookUrl)],
   ].filter((item): item is [string, string] => Boolean(item[1]));
-  const socialUrls = [safeExternalUrl(business.website), ...socialLinks.map((item) => item[1])].filter((value): value is string => Boolean(value)); const logoUrl = absolutePublicAssetUrl(business.logoUrl); const imageUrl = absolutePublicAssetUrl(business.coverUrl) || logoUrl;
+  const socialUrls = [safeExternalUrl(business.website), ...socialLinks.map((item) => item[1])].filter((value): value is string => Boolean(value));
+  const logoUrl = absolutePublicAssetUrl(business.logoUrl);
+  const imageUrl = absolutePublicAssetUrl(business.coverUrl) || logoUrl;
   const hours = openingHoursSpecification(business.openingHours);
   const structuredData = { "@context": "https://schema.org", "@type": "LocalBusiness", "@id": `${canonicalUrl}#business`, name: business.name, ...(business.nameEn ? { alternateName: business.nameEn } : {}), url: canonicalUrl, ...(business.description || business.shortDescription ? { description: business.shortDescription || business.description } : {}), ...(logoUrl ? { logo: logoUrl } : {}), ...(imageUrl ? { image: imageUrl } : {}), ...(business.phone ? { telephone: business.phone } : {}), ...(business.email ? { email: business.email } : {}), ...(business.address || business.city || business.district ? { address: { "@type": "PostalAddress", ...(business.address ? { streetAddress: business.address } : {}), ...(business.district ? { addressLocality: business.district } : {}), ...(business.city ? { addressRegion: business.city } : {}), ...(business.country ? { addressCountry: business.country } : { addressCountry: "SA" }) } } : {}), ...(hours.length ? { openingHoursSpecification: hours } : {}), ...(socialUrls.length ? { sameAs: socialUrls } : {}) };
   const hasWorkingHours = publicBusiness.openingHours.some((item) => !item.isClosed && Boolean(item.opensAt && item.closesAt));
-  const hasIdentityExtras = Boolean(publicBusiness.companyProfileUrl || socialLinks.length);
-  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(structuredData) }} /><PublicBusinessAnalytics slug={business.slug} /><div className={hasIdentityExtras ? "pb-4" : "pb-20"}><PublicBusinessPageV10Light business={publicBusiness} qrDataUrl={qrDataUrl} publicUrl={publicUrl} /></div>{hasIdentityExtras ? <div dir="rtl" className="mx-auto mb-20 w-full max-w-[580px] space-y-2 px-3 sm:px-4">{publicBusiness.companyProfileUrl ? <div className="rounded-[18px] border border-[#e9e3ef] bg-white p-3 shadow-[0_8px_24px_rgba(55,35,70,.035)]"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><b className="block truncate text-sm text-[#302638]">{publicBusiness.companyProfileTitle || "الملف التعريفي للشركة"}</b><span className="mt-1 block text-[10px] text-[#786f7d]">PDF رسمي للمنشأة</span></div><Link href={publicBusiness.companyProfileUrl} target="_blank" rel="noreferrer" className="shrink-0 rounded-xl bg-[#6f3bd2] px-4 py-2.5 text-xs font-black text-white">فتح الملف</Link></div></div> : null}{socialLinks.length ? <div className="rounded-[18px] border border-[#e9e3ef] bg-white p-3 shadow-[0_8px_24px_rgba(55,35,70,.035)]"><b className="block text-sm text-[#302638]">حساباتنا الرسمية</b><div className="mt-2 flex flex-wrap gap-2">{socialLinks.map(([label, href]) => <Link key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-[#e7e1ef] bg-[#faf8fd] px-3 py-2 text-xs font-black text-[#5d49cc]">{label}</Link>)}</div></div> : null}</div> : null}<PublicTransactionLauncher slug={publicBusiness.slug} businessName={publicBusiness.name} whatsapp={publicBusiness.whatsapp} phone={publicBusiness.phone} bookingAvailable={publicBusiness.bookingAvailable} hasWorkingHours={hasWorkingHours} services={publicBusiness.services.map((service) => ({ id: service.id, name: service.name, bookingEnabled: service.bookingEnabled, durationMinutes: service.durationMinutes }))} /></>;
+
+  return <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(structuredData) }} />
+    <PublicBusinessAnalytics slug={business.slug} />
+    <div className="pb-20"><PublicBusinessPageV10Light business={publicBusiness} qrDataUrl={qrDataUrl} publicUrl={publicUrl} /></div>
+    <PublicIdentityHighlights companyProfileUrl={publicBusiness.companyProfileUrl} companyProfileTitle={publicBusiness.companyProfileTitle} socialLinks={socialLinks.map(([label, href]) => ({ label, href }))} />
+    <PublicTransactionLauncher slug={publicBusiness.slug} businessName={publicBusiness.name} whatsapp={publicBusiness.whatsapp} phone={publicBusiness.phone} bookingAvailable={publicBusiness.bookingAvailable} hasWorkingHours={hasWorkingHours} services={publicBusiness.services.map((service) => ({ id: service.id, name: service.name, bookingEnabled: service.bookingEnabled, durationMinutes: service.durationMinutes }))} />
+  </>;
 }

@@ -54,10 +54,8 @@ test("digital identity assets, presence and public access follow ownership and p
     expect(vcardText).toContain("منشأة الهوية الرقمية");
     expect(vcardText).toContain(`https://hee.sa/${business.slug}`);
 
-    // All digital-presence fields are optional for a private page and a no-op save must work.
     await page.getByRole("button", { name: "حفظ الحضور الرقمي" }).click();
     await expect(page.getByText("تم حفظ الحضور الرقمي.")).toBeVisible({ timeout: 20_000 });
-    // Clear the prior success query so the next assertion cannot pass on stale UI before the new save completes.
     await page.goto(`${baseUrl}/dashboard/digital-identity`, { waitUntil: "domcontentloaded" });
 
     await page.getByLabel("الاسم بالإنجليزية").fill("Digital Identity Business");
@@ -96,9 +94,9 @@ test("digital identity assets, presence and public access follow ownership and p
       await anonymousPage.goto(`${baseUrl}/${business.slug}`, { waitUntil: "domcontentloaded" });
       await expect(anonymousPage).toHaveTitle("هوية رقمية تجريبية");
       await expect(anonymousPage.getByText("الملف التعريفي الرسمي")).toBeVisible();
-      await expect(anonymousPage.getByRole("link", { name: "فتح الملف" })).toBeVisible();
+      await expect(anonymousPage.getByRole("link", { name: "فتح" })).toBeVisible();
       await expect(anonymousPage.getByText("حساباتنا الرسمية")).toBeVisible();
-      await expect(anonymousPage.getByRole("link", { name: "Instagram" })).toHaveAttribute("href", "https://instagram.com/hee.test");
+      await expect(anonymousPage.getByRole("link", { name: "حساب المنشأة على Instagram" })).toHaveAttribute("href", "https://instagram.com/hee.test");
       const publicPdf = await anonymousPage.request.get(`${baseUrl}${stored!.companyProfileUrl}`);
       expect(publicPdf.status()).toBe(200);
 

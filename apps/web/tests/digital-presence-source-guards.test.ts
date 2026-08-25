@@ -44,10 +44,12 @@ test("digital presence writes serialize with autosave and preserve published con
 test("identity center exposes editable business presence and public page surfaces official socials", () => {
   const form = read("components/dashboard/digital-presence-form.tsx");
   const page = read("app/[slug]/page.tsx");
+  const highlights = read("components/public/public-identity-highlights.tsx");
   for (const field of ["nameEn", "email", "website", "address", "instagramUrl", "xUrl", "tiktokUrl", "snapchatUrl", "facebookUrl", "metaTitle", "metaDescription"]) {
     assert.match(form, new RegExp(`name=\\"${field}\\"`));
   }
-  assert.match(page, /حساباتنا الرسمية/);
+  assert.match(page, /PublicIdentityHighlights/);
+  assert.match(highlights, /حساباتنا الرسمية/);
   assert.match(page, /business\.metaTitle/);
   assert.match(page, /business\.metaDescription/);
   assert.match(page, /sameAs/);
