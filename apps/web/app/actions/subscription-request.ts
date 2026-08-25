@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { billingProvider, paidCheckoutEntryAllowed, paidUpgradeRequestsEnabled } from "../lib/billing";
 import { createBillingIntent } from "../lib/billing-ledger";
+import { paidBillingTaxReady } from "../lib/billing-tax";
 import { moyasarConfigured } from "../lib/moyasar";
 import { getOwnedBusinessWithPlanForWrite } from "../lib/ownership";
 import { getPlanRank, normalizePlanCode } from "../lib/plan-entitlements";
@@ -23,6 +24,7 @@ export async function requestPlanUpgradeAction(formData: FormData) {
 
   if (billingProvider() === "moyasar") {
     if (!moyasarConfigured()) redirect("/dashboard/branding?upgrade=billing-unavailable");
+    if (!paidBillingTaxReady()) redirect("/dashboard/branding?billing=tax-setup-required");
     const owner = await db.user.findFirst({ where: { id: business.ownerId, deletedAt: null }, select: { email: true, emailVerifiedAt: true } });
     if (!owner?.emailVerifiedAt) redirect("/dashboard/settings?billing=email-verification-required");
     if (!paidCheckoutEntryAllowed(owner.email)) redirect("/dashboard/branding?upgrade=billing-unavailable");
