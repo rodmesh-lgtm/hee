@@ -4,14 +4,21 @@ import test from "node:test";
 
 function source(path: string) { return readFileSync(new URL(`../${path}`, import.meta.url), "utf8"); }
 
-test("customer dashboard exposes a dedicated verification request flow", () => {
+test("customer dashboard exposes verification requests to every customer", () => {
   const nav = source("components/dashboard/dashboard-nav.ts");
   const page = source("app/dashboard/verification/page.tsx");
+  const action = source("app/actions/verification.ts");
   assert.match(nav, /توثيق الصفحة/);
   assert.match(nav, /\/dashboard\/verification/);
   assert.match(page, /requestVerificationAction/);
   assert.match(page, /إرسال طلب التوثيق/);
   assert.match(page, /hasPendingVerificationRequest/);
+  assert.doesNotMatch(page, /verificationEligible/);
+  assert.doesNotMatch(page, /getPlanEntitlements/);
+  assert.doesNotMatch(action, /verificationEligible/);
+  assert.doesNotMatch(action, /getPlanEntitlements/);
+  assert.match(action, /dashboard_verification/);
+  assert.match(action, /\/dashboard\/verification\?verification=requested/);
 });
 
 test("central admin can directly change verification with an audit trail", () => {
