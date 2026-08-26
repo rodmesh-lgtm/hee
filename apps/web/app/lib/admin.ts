@@ -30,11 +30,11 @@ export function isAdminEmail(email?: string | null) {
 
 export function adminControlOrigin() {
   const productionOrigin = "https://admin.hee.sa";
+  if (isProductionRuntime()) return productionOrigin;
   const configured = String(process.env.HEE_ADMIN_ORIGIN ?? "").trim();
   if (configured) {
     try {
       const url = new URL(configured);
-      if (isProductionRuntime()) return url.origin === productionOrigin ? productionOrigin : productionOrigin;
       if (url.protocol === "https:" && url.hostname) return url.origin;
     } catch { /* use production default */ }
   }
