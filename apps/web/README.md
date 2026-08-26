@@ -102,4 +102,4 @@ npm run qa:handoff
 
 ## Canonical publication request
 
-The 2026-08-26 release is approved for guarded publication to `https://ir.sa` through the repository Production Canonical Cutover Orchestrator. This note is documentation-only and exists to place the explicit production-cutover marker on an RC-observed path.
+The 2026-08-26 release is approved for guarded publication to `https://ir.sa` through the repository Production Canonical Cutover Orchestrator. Production Environment secrets were re-entered under the workflow-owned `PRODUCTION_*` names before this publication attempt. This note is documentation-only and exists to place the explicit production-cutover marker on an RC-observed path.
