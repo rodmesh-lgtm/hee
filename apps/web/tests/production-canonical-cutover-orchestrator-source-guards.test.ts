@@ -15,7 +15,23 @@ test("canonical cutover runs only after green release-branch RC and explicit com
   assert.match(workflow, /github\.event\.workflow_run\.event == 'push'/);
   assert.match(workflow, /github\.event\.workflow_run\.head_branch == 'hee-v6-rc'/);
   assert.match(workflow, /\[production-cutover\]/);
-  assert.match(workflow, /branch_sha[^\n]*TARGET_SHA|test "\$branch_sha" = "\$TARGET_SHA"/);
+  assert.match(workflow, /test "\$branch_sha" = "\$TARGET_SHA"/);
+  assert.match(workflow, /environment: production/);
+});
+
+test("central admin domain is registered and proven ready before any Production dispatch", () => {
+  const adminGate = workflow.indexOf("Ensure central admin domain is registered and DNS-ready");
+  const preflightDispatch = workflow.indexOf("Dispatch exact-head Production Preflight V2");
+  assert.ok(adminGate >= 0);
+  assert.ok(preflightDispatch > adminGate);
+  assert.match(workflow, /PRODUCTION_VERCEL_TOKEN/);
+  assert.match(workflow, /\/v9\/projects\/\$\{VERCEL_PROJECT_ID\}\/domains\?teamId=\$\{VERCEL_ORG_ID\}/);
+  assert.match(workflow, /\/v10\/projects\/\$\{VERCEL_PROJECT_ID\}\/domains\?teamId=\$\{VERCEL_ORG_ID\}/);
+  assert.match(workflow, /\/v6\/domains\/\$\{ADMIN_CANONICAL_HOST\}\/config\?projectIdOrName=\$\{VERCEL_PROJECT_ID\}/);
+  assert.match(workflow, /body\.verified===true/);
+  assert.match(workflow, /body\.misconfigured===true/);
+  assert.match(workflow, /recommended CNAME/);
+  assert.match(workflow, /https:\/\/\$\{ADMIN_CANONICAL_HOST\}\//);
 });
 
 test("canonical cutover dispatches Preflight before Production Web Deploy and pins both to exact head", () => {
