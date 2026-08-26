@@ -2,16 +2,16 @@ import type { Metadata } from "next";
 import { HomepagePremium } from "../components/homepage-premium";
 import { HomeTrustFooter } from "../components/home-trust-footer";
 
-const description = "أنشئ هوية أعمال رقمية احترافية لمنشأتك في رابط واحد يعرض معلوماتها وخدماتها وفروعها وفريقها وطرق التواصل بوضوح.";
+const description = "أنشئ مع iR هوية أعمال رقمية احترافية لمنشأتك في رابط واحد على ir.sa يعرض معلوماتها وخدماتها وفروعها وفريقها وطرق التواصل بوضوح.";
 
 export const metadata: Metadata = {
-  title: "هوية أعمال رقمية لمنشأتك",
+  title: "iR | هوية أعمال رقمية لمنشأتك",
   description,
   openGraph: {
-    title: "HEE | هوية أعمال رقمية لمنشأتك",
+    title: "iR | هوية أعمال رقمية لمنشأتك",
     description,
     url: "/",
-    siteName: "HEE",
+    siteName: "iR",
     locale: "ar_SA",
     type: "website",
   },
