@@ -1,0 +1,68 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import test from "node:test";
+
+const workflow = readFileSync(
+  resolve(process.cwd(), "../../.github/workflows/production-canonical-cutover-orchestrator.yml"),
+  "utf8",
+);
+
+test("canonical cutover runs only after green release-branch RC and explicit commit marker", () => {
+  assert.match(workflow, /workflow_run:/);
+  assert.match(workflow, /workflows: \["RC Quality"\]/);
+  assert.match(workflow, /github\.event\.workflow_run\.conclusion == 'success'/);
+  assert.match(workflow, /github\.event\.workflow_run\.event == 'push'/);
+  assert.match(workflow, /github\.event\.workflow_run\.head_branch == 'hee-v6-rc'/);
+  assert.match(workflow, /\[production-cutover\]/);
+  assert.match(workflow, /test "\$branch_sha" = "\$TARGET_SHA"/);
+  assert.match(workflow, /environment: production/);
+});
+
+test("central admin domain is registered and proven ready before any Production dispatch", () => {
+  const adminGate = workflow.indexOf("Ensure central admin domain is registered and DNS-ready");
+  const preflightDispatch = workflow.indexOf("Dispatch exact-head Production Preflight V2");
+  assert.ok(adminGate >= 0);
+  assert.ok(preflightDispatch > adminGate);
+  assert.match(workflow, /PRODUCTION_VERCEL_TOKEN/);
+  assert.match(workflow, /\/v9\/projects\/\$\{VERCEL_PROJECT_ID\}\/domains\?teamId=\$\{VERCEL_ORG_ID\}/);
+  assert.match(workflow, /\/v10\/projects\/\$\{VERCEL_PROJECT_ID\}\/domains\?teamId=\$\{VERCEL_ORG_ID\}/);
+  assert.match(workflow, /\/v6\/domains\/\$\{ADMIN_CANONICAL_HOST\}\/config\?projectIdOrName=\$\{VERCEL_PROJECT_ID\}/);
+  assert.match(workflow, /body\.verified===true/);
+  assert.match(workflow, /body\.misconfigured===true/);
+  assert.match(workflow, /recommended CNAME/);
+  assert.match(workflow, /https:\/\/\$\{ADMIN_CANONICAL_HOST\}\//);
+});
+
+test("canonical cutover dispatches Preflight before Production Web Deploy and pins both to exact head", () => {
+  const preflightDispatch = workflow.indexOf("Dispatch exact-head Production Preflight V2");
+  const preflightProof = workflow.indexOf("Require successful exact-SHA Production Preflight V2");
+  const headProof = workflow.indexOf("Re-prove unchanged release head before Production mutation");
+  const deployDispatch = workflow.indexOf("Dispatch exact-head Production Web Deploy");
+  const deployProof = workflow.indexOf("Require successful exact-SHA Production Web Deploy");
+  const canonicalProof = workflow.indexOf("Verify canonical ir.sa exact release and security baseline");
+
+  assert.ok(preflightDispatch >= 0);
+  assert.ok(preflightProof > preflightDispatch);
+  assert.ok(headProof > preflightProof);
+  assert.ok(deployDispatch > headProof);
+  assert.ok(deployProof > deployDispatch);
+  assert.ok(canonicalProof > deployProof);
+  assert.match(workflow, /production-preflight-v2\.yml\/dispatches/);
+  assert.match(workflow, /VERIFY_PRODUCTION_PREFLIGHT/);
+  assert.match(workflow, /production-deploy\.yml\/dispatches/);
+  assert.match(workflow, /DEPLOY_EXACT_RELEASE_TO_PRODUCTION/);
+  assert.match(workflow, /head_sha===sha/);
+  assert.match(workflow, /head_branch==='hee-v6-rc'/);
+});
+
+test("canonical cutover does not open paid checkout or bypass official deployment rollback machinery", () => {
+  assert.doesNotMatch(workflow, /production-open-paid-checkout\.yml\/dispatches/);
+  assert.doesNotMatch(workflow, /PAID_CHECKOUT_PUBLIC_ENABLED.*true/);
+  assert.doesNotMatch(workflow, /vercel\s+(?:deploy|promote|alias|rollback)/);
+  assert.doesNotMatch(workflow, /prisma migrate deploy/);
+  assert.match(workflow, /https:\/\/ir\.sa\/api\/release/);
+  assert.match(workflow, /https:\/\/admin\.ir\.sa\//);
+  assert.match(workflow, /https:\/\/www\.ir\.sa\//);
+  assert.match(workflow, /Legacy canonical domain still appears on live homepage/);
+});
