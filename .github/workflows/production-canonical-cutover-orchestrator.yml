@@ -21,10 +21,15 @@ jobs:
       github.event.workflow_run.head_branch == 'hee-v6-rc'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    environment: production
     env:
       TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
       RELEASE_BRANCH: hee-v6-rc
       GH_TOKEN: ${{ github.token }}
+      VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      ADMIN_CANONICAL_HOST: admin.ir.sa
     steps:
       - name: Require explicit cutover marker and unchanged release head
         run: |
@@ -39,6 +44,75 @@ jobs:
           branch_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')"
           test "$branch_sha" = "$TARGET_SHA" || (echo "Release branch moved after RC Quality; refusing cutover" && exit 1)
           echo "CUTOVER_REQUESTED=true" >> "$GITHUB_ENV"
+
+      - name: Ensure central admin domain is registered and DNS-ready
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN" || (echo "PRODUCTION_VERCEL_TOKEN is missing" && exit 1)
+
+          domains_json="$(curl --silent --show-error --fail --max-time 20 \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_ORG_ID}&limit=100")"
+          domain_exists="$(node -e '
+            const body=JSON.parse(process.argv[1]);
+            const host=process.argv[2].toLowerCase();
+            process.stdout.write(String((body.domains??[]).some((d)=>String(d?.name??"").toLowerCase()===host)));
+          ' "$domains_json" "$ADMIN_CANONICAL_HOST")"
+
+          if test "$domain_exists" != "true"; then
+            echo "Registering ${ADMIN_CANONICAL_HOST} on Vercel project ${VERCEL_PROJECT_ID}"
+            curl --silent --show-error --fail --max-time 20 \
+              --request POST \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              -H 'Content-Type: application/json' \
+              --data "{\"name\":\"${ADMIN_CANONICAL_HOST}\"}" \
+              "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_ORG_ID}" \
+              >/tmp/admin-project-domain.json
+          fi
+
+          project_domain_json="$(curl --silent --show-error --fail --max-time 20 \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${ADMIN_CANONICAL_HOST}?teamId=${VERCEL_ORG_ID}")"
+
+          project_verified="$(node -e '
+            const body=JSON.parse(process.argv[1]);
+            process.stdout.write(String(body.verified===true));
+          ' "$project_domain_json")"
+          if test "$project_verified" != "true"; then
+            node - <<'NODE' "$project_domain_json"
+          const body=JSON.parse(process.argv[2]);
+          console.error('admin.ir.sa is registered but not verified for this Vercel project.');
+          const checks=Array.isArray(body.verification)?body.verification:[];
+          for(const item of checks){
+            console.error(`verification ${item.type??'record'} ${item.domain??''} ${item.value??''}`.trim());
+          }
+          NODE
+            exit 1
+          fi
+
+          config_json="$(curl --silent --show-error --fail --max-time 20 \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v6/domains/${ADMIN_CANONICAL_HOST}/config?projectIdOrName=${VERCEL_PROJECT_ID}&teamId=${VERCEL_ORG_ID}")"
+
+          node - <<'NODE' "$config_json"
+          const body=JSON.parse(process.argv[2]);
+          if(body.misconfigured===true){
+            console.error('admin.ir.sa DNS is not yet configured for Vercel.');
+            const cname=(body.recommendedCNAME??[]).sort((a,b)=>(a.rank??99)-(b.rank??99))[0];
+            const ipv4=(body.recommendedIPv4??[]).sort((a,b)=>(a.rank??99)-(b.rank??99))[0];
+            if(cname?.value) console.error(`recommended CNAME: admin -> ${cname.value}`);
+            if(Array.isArray(ipv4?.value)&&ipv4.value.length) console.error(`recommended A: admin -> ${ipv4.value.join(', ')}`);
+            process.exit(1);
+          }
+          NODE
+
+          admin_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 "https://${ADMIN_CANONICAL_HOST}/")"
+          case "$admin_code" in
+            200|301|302|303|307|308) ;;
+            *) echo "${ADMIN_CANONICAL_HOST} is not HTTPS-ready (HTTP ${admin_code})"; exit 1 ;;
+          esac
+          echo "central-admin-domain-precheck: PASS ${ADMIN_CANONICAL_HOST}"
 
       - name: Dispatch exact-head Production Preflight V2
         if: env.CUTOVER_REQUESTED == 'true'
