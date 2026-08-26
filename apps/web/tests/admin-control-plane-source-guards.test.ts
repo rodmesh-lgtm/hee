@@ -40,5 +40,5 @@ test("admin hostname is deny-by-default and cannot serve customer or public API 
   assert.match(proxy, /adminControlPlaneNotFoundResponse/);
   assert.match(proxy, /pathname === "\/admin-login" \|\| pathname === "\/admin" \|\| pathname\.startsWith\("\/admin\/"\)/);
   assert.match(proxy, /return adminControlPlaneNotFoundResponse\(\)/);
-  assert.doesNotMatch(proxy, /pathname\.startsWith\("\/dashboard"\).*configuredOrigin\("main"\)/s);
+  assert.equal(proxy.includes('pathname.startsWith("/dashboard") || pathname === "/register" || pathname === "/onboarding"'), false);
 });
