@@ -66,7 +66,7 @@ jobs:
       VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
       VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
       VERCEL_CLI_VERSION: 59.3.0
-      PRODUCTION_CANONICAL_HOST: hee.sa
+      PRODUCTION_CANONICAL_HOST: ir.sa
 
     steps:
       - name: Checkout exact release revision
@@ -98,9 +98,9 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          release_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/release)"
-          maintenance_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
-          launch_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/billing/launch-status)"
+          release_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/release)"
+          maintenance_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/maintenance/status)"
+          launch_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/billing/launch-status)"
           node - <<'NODE' "$release_json" "$maintenance_json" "$launch_json"
           const release=JSON.parse(process.argv[2]);
           const maintenance=JSON.parse(process.argv[3]);
