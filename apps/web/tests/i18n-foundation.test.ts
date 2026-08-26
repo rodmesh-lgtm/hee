@@ -9,11 +9,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
-test("HEE exposes the five requested locales", () => {
+test("iR exposes the five requested locales", () => {
   assert.deepEqual(SUPPORTED_LOCALES, ["ar", "en", "zh-CN", "es", "ur"]);
   for (const locale of SUPPORTED_LOCALES) {
     assert.ok(LOCALE_META[locale].nativeLabel.length > 0);
-    assert.ok(SITE_MESSAGES[locale].title.includes("HEE"));
+    assert.ok(SITE_MESSAGES[locale].title.includes("iR"));
+    assert.doesNotMatch(SITE_MESSAGES[locale].title, /\bHEE\b/);
     assert.ok(SITE_MESSAGES[locale].description.length > 20);
   }
 });
