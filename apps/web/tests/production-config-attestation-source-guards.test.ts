@@ -49,6 +49,27 @@ test("Preflight V2 writes an exact-SHA scoped HMAC attestation after read-only e
   assert.doesNotMatch(attestation, /console\.log\([^\n]*values/);
 });
 
+test("Vercel-only web preflight defers Hetzner until billing worker operations are enabled", () => {
+  const workflow = source("../../.github/workflows/production-preflight-v2.yml");
+  const attestation = source("../../.github/scripts/production-config-attestation.mjs");
+
+  assert.match(workflow, /const billingRenewalEnabled = booleanValue\('BILLING_RENEWAL_ENABLED'\) === 'true'/);
+  assert.match(workflow, /const billingOperationsReady = booleanValue\('BILLING_OPERATIONS_READY'\) === 'true'/);
+  assert.match(workflow, /if \(billingRenewalEnabled \|\| billingOperationsReady\) \{[\s\S]*required\('HETZNER_HOST'\)/);
+  assert.match(
+    workflow,
+    /if: \$\{\{ vars\.PRODUCTION_BILLING_RENEWAL_ENABLED == 'true' \|\| vars\.PRODUCTION_BILLING_OPERATIONS_READY == 'true' \}\}/,
+  );
+
+  assert.match(attestation, /function billingWorkerRequired\(\)/);
+  assert.match(attestation, /"BILLING_RENEWAL_ENABLED", "BILLING_OPERATIONS_READY"/);
+  assert.match(attestation, /if \(billingWorkerRequired\(\)\) digests\["worker-host"\] = digest\("worker-host"\)/);
+  assert.doesNotMatch(
+    attestation,
+    /digests:\s*\{[\s\S]*"worker-host":\s*digest\("worker-host"\)[\s\S]*\}/,
+  );
+});
+
 test("release quality gate centrally enforces explicit path-based Production attestation policy", () => {
   const action = source("../../.github/actions/require-release-quality/action.yml");
   const policy = source("../../.github/scripts/require-production-workflow-attestations.sh");
