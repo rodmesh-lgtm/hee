@@ -27,7 +27,7 @@ jobs:
       VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
       VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
       VERCEL_CLI_VERSION: 59.3.0
-      PRODUCTION_CANONICAL_HOST: hee.sa
+      PRODUCTION_CANONICAL_HOST: ir.sa
 
     steps:
       - name: Resolve currently served exact Production release and billing mode
@@ -35,9 +35,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          release_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/release)"
-          maintenance_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
-          launch_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/billing/launch-status)"
+          release_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/release)"
+          maintenance_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/maintenance/status)"
+          launch_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/billing/launch-status)"
           canonical_sha="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.releaseSha??""));' "$release_json")"
           test "$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.environment??""));' "$release_json")" = production
           [[ "$canonical_sha" =~ ^[0-9a-f]{40}$ ]] || (echo "Canonical release SHA is invalid" && exit 1)
@@ -102,7 +102,7 @@ jobs:
           npx --yes "vercel@${VERCEL_CLI_VERSION}" rollback "$HEE_CLOSED_BASELINE_URL" --yes --timeout 5m --token "$VERCEL_TOKEN"
           npx --yes "vercel@${VERCEL_CLI_VERSION}" rollback status --timeout 60s --token "$VERCEL_TOKEN"
           for attempt in $(seq 1 20); do
-            if launch_json="$(curl --silent --show-error --fail --max-time 10 https://hee.sa/api/billing/launch-status 2>/dev/null)" && \
+            if launch_json="$(curl --silent --show-error --fail --max-time 10 https://ir.sa/api/billing/launch-status 2>/dev/null)" && \
                node -e 'const b=JSON.parse(process.argv[1]);if(b.releaseSha!==process.env.HEE_CANONICAL_RELEASE_SHA||b.environment!=="production"||b.mode!=="closed")process.exit(1);' "$launch_json"; then
               echo "production-close-paid-checkout: PASS release=${HEE_CANONICAL_RELEASE_SHA} baseline=${HEE_CLOSED_BASELINE_ID}"
               exit 0
