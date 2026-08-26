@@ -10,7 +10,7 @@ import { isProductionRuntime } from "../../../lib/runtime-environment";
 import { MoyasarCheckout } from "../../../../components/billing/moyasar-checkout";
 
 function publicOrigin() {
-  if (isProductionRuntime()) return "https://hee.sa";
+  if (isProductionRuntime()) return "https://ir.sa";
   const raw = String(process.env.AUTH_ORIGIN ?? process.env.APP_URL ?? "http://localhost:3000").trim();
   try { return new URL(raw).origin; } catch { return "http://localhost:3000"; }
 }
