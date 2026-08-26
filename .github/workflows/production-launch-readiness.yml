@@ -188,4 +188,5 @@ jobs:
           rm -f "$headers"
 
       - name: Launch readiness summary
-        run: echo "production-launch-readiness: PASS exact release ${GITHUB_SHA}, verified public paid checkout, billing worker, database, email, HTTPS and indexing"
+        run: |
+          echo "production-launch-readiness: PASS exact release ${GITHUB_SHA}, verified public paid checkout, billing worker, database, email, HTTPS and indexing"
