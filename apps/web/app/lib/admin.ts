@@ -95,7 +95,8 @@ export async function logoutAdminSession() {
 export async function requireAdmin() {
   const user = await getCurrentAdminUser();
   if (!user) {
-    if (isExplicitTestRuntime()) redirect("/admin-login");
+    const vercelEnv = String(process.env.VERCEL_ENV ?? "").trim().toLowerCase();
+    if (isExplicitTestRuntime() || vercelEnv === "preview" || vercelEnv === "development") redirect("/admin-login");
     redirect(`${adminControlOrigin()}/login`);
   }
   if (!user.emailVerifiedAt || !isAdminEmail(user.email)) notFound();
