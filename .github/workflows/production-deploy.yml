@@ -161,7 +161,7 @@ jobs:
           printf '%s' "$deployment_url" > /tmp/hee-staged-production-deployment-url
           echo "Staged Production deployment created without canonical domain assignment"
 
-      - name: Verify staged exact-SHA non-maintenance Production before promotion
+      - name: Verify staged exact-SHA core web readiness before promotion
         id: stage_smoke
         working-directory: .
         run: |
@@ -169,17 +169,20 @@ jobs:
           deployment_url="$(cat /tmp/hee-staged-production-deployment-url)"
           release_json="$(npx --yes "vercel@${VERCEL_CLI_VERSION}" curl /api/release --deployment "$deployment_url" --token "$VERCEL_TOKEN")"
           status_json="$(npx --yes "vercel@${VERCEL_CLI_VERSION}" curl /api/maintenance/status --deployment "$deployment_url" --token "$VERCEL_TOKEN")"
-          node - <<'NODE' "$release_json" "$status_json"
+          web_ready_json="$(npx --yes "vercel@${VERCEL_CLI_VERSION}" curl /api/health/web-ready --deployment "$deployment_url" --token "$VERCEL_TOKEN")"
+          node - <<'NODE' "$release_json" "$status_json" "$web_ready_json"
           const release = JSON.parse(process.argv[2]);
           const status = JSON.parse(process.argv[3]);
+          const webReady = JSON.parse(process.argv[4]);
           const sha = process.env.GITHUB_SHA;
           if (release.releaseSha !== sha || release.environment !== "production") throw new Error("Staged release provenance mismatch");
           if (status.releaseSha !== sha || status.environment !== "production" || status.maintenance !== false) throw new Error("Staged Production must be exact-SHA and out of maintenance");
+          if (webReady.ready !== true) throw new Error("Staged Production core web runtime is not ready");
           NODE
           for path in / /register /login /terms /privacy /contact /demo; do
             npx --yes "vercel@${VERCEL_CLI_VERSION}" curl "$path" --deployment "$deployment_url" --token "$VERCEL_TOKEN" >/dev/null
           done
-          echo "staged-production-smoke: PASS for ${GITHUB_SHA}; canonical domain is still unchanged"
+          echo "staged-production-smoke: PASS for ${GITHUB_SHA}; core web runtime ready; canonical domain is still unchanged"
 
       - name: Promote verified staged deployment to Production domains
         id: promote
@@ -190,26 +193,29 @@ jobs:
           npx --yes "vercel@${VERCEL_CLI_VERSION}" promote "$deployment_url" --yes --timeout 5m --token "$VERCEL_TOKEN"
           npx --yes "vercel@${VERCEL_CLI_VERSION}" promote status --timeout 60s --token "$VERCEL_TOKEN"
 
-      - name: Verify canonical domain serves exact-SHA non-maintenance Production after promotion
+      - name: Verify canonical domain serves exact-SHA core-ready Production after promotion
         id: canonical_release
         working-directory: .
         run: |
           set -euo pipefail
           for attempt in $(seq 1 30); do
             if release_json="$(curl --silent --show-error --fail --max-time 10 https://ir.sa/api/release 2>/dev/null)" && \
-               status_json="$(curl --silent --show-error --fail --max-time 10 https://ir.sa/api/maintenance/status 2>/dev/null)"; then
-              if node - <<'NODE' "$release_json" "$status_json"
+               status_json="$(curl --silent --show-error --fail --max-time 10 https://ir.sa/api/maintenance/status 2>/dev/null)" && \
+               web_ready_json="$(curl --silent --show-error --fail --max-time 10 https://ir.sa/api/health/web-ready 2>/dev/null)"; then
+              if node - <<'NODE' "$release_json" "$status_json" "$web_ready_json"
           const release = JSON.parse(process.argv[2]);
           const status = JSON.parse(process.argv[3]);
+          const webReady = JSON.parse(process.argv[4]);
           const sha = process.env.GITHUB_SHA;
           if (release.releaseSha !== sha || release.environment !== "production") process.exit(1);
           if (status.releaseSha !== sha || status.environment !== "production" || status.maintenance !== false) process.exit(1);
+          if (webReady.ready !== true) process.exit(1);
           NODE
               then exit 0; fi
             fi
             sleep 10
           done
-          echo "ir.sa did not converge to exact non-maintenance production release ${GITHUB_SHA}"
+          echo "ir.sa did not converge to exact core-ready production release ${GITHUB_SHA}"
           exit 1
 
       - name: Verify baseline customer surfaces after canonical promotion
