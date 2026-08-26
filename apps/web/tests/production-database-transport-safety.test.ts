@@ -17,6 +17,7 @@ function run(env: Record<string, string>, args = ["DATABASE_URL"]) {
 
 const source = "postgresql://user:secret@db.example.com:5432/hee_prod?sslmode=verify-full";
 const restore = "postgresql://user:secret@restore.example.com:5432/hee_restore_prod?sslmode=verify-full";
+const managedHeeHost = "ep-delicate-wave-apf0pirn-pooler.c-7.us-east-1.aws.neon.tech";
 
 test("production database safety accepts only explicit verify-full source transport", () => {
   const ok = run({ DATABASE_URL: source });
@@ -76,7 +77,7 @@ test("managed HEE Neon host is forcibly isolated from unrelated neondb schema", 
   try {
     const result = run(
       {
-        DATABASE_URL: "postgresql://user:secret@ep-aged-breeze-ap1lcdcz-pooler.c-7.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require",
+        DATABASE_URL: `postgresql://user:secret@${managedHeeHost}/neondb?channel_binding=require&sslmode=require`,
         RESTORE_DATABASE_URL: "postgresql://ignored:ignored@restore.example.com/wrong?sslmode=prefer",
         GITHUB_ENV: githubEnv,
       },
@@ -85,13 +86,21 @@ test("managed HEE Neon host is forcibly isolated from unrelated neondb schema", 
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /production-database-routing: PASS source=hee_production restore=hee_restore_production/);
     const persisted = readFileSync(githubEnv, "utf8");
-    assert.match(persisted, /DATABASE_URL=postgresql:\/\/user:secret@ep-aged-breeze-ap1lcdcz-pooler\.c-7\.us-east-1\.aws\.neon\.tech\/hee_production\?/);
-    assert.match(persisted, /RESTORE_DATABASE_URL=postgresql:\/\/user:secret@ep-aged-breeze-ap1lcdcz-pooler\.c-7\.us-east-1\.aws\.neon\.tech\/hee_restore_production\?/);
+    assert.match(persisted, new RegExp(`DATABASE_URL=postgresql:\\/\\/user:secret@${managedHeeHost.replaceAll(".", "\\.")}\\/hee_production\\?`));
+    assert.match(persisted, new RegExp(`RESTORE_DATABASE_URL=postgresql:\\/\\/user:secret@${managedHeeHost.replaceAll(".", "\\.")}\\/hee_restore_production\\?`));
     assert.doesNotMatch(persisted, /\/neondb(?:\?|\n|$)/);
     assert.match(persisted, /sslmode=verify-full/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("legacy managed Neon endpoint is not silently canonicalized", () => {
+  const legacy = run({
+    DATABASE_URL: "postgresql://user:secret@ep-aged-breeze-ap1lcdcz-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require",
+  });
+  assert.notEqual(legacy.status, 0);
+  assert.match(legacy.stderr, /must use sslmode=verify-full/);
 });
 
 test("production database safety rejects local and restore-shaped production sources", () => {
