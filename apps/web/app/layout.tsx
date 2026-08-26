@@ -15,18 +15,18 @@ export async function generateMetadata(): Promise<Metadata> {
   const site = SITE_MESSAGES[locale];
   return {
     metadataBase: new URL("https://ir.sa"),
-    title: { default: site.title, template: "%s | HEE" },
+    title: { default: site.title, template: "%s | iR" },
     description: site.description,
     keywords: site.keywords,
-    authors: [{ name: "HEE" }],
-    creator: "HEE",
-    publisher: "HEE",
+    authors: [{ name: "iR" }],
+    creator: "iR",
+    publisher: "iR",
     robots: { index: true, follow: true },
     openGraph: {
       title: site.title,
       description: site.description,
       url: "https://ir.sa",
-      siteName: "HEE",
+      siteName: "iR",
       locale: site.ogLocale,
       type: "website",
     },
