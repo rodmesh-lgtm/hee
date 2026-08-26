@@ -132,3 +132,77 @@ jobs:
         run: npm run test:transactions
       - name: Run email ownership verification workflow
         run: npm run test:email-verification
+
+  production-first-bootstrap:
+    name: One-time Production database bootstrap
+    needs: unit-tests
+    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[first-production-bootstrap]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
+      BILLING_RENEWAL_ENABLED: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED }}
+      BILLING_OPERATIONS_READY: ${{ vars.PRODUCTION_BILLING_OPERATIONS_READY }}
+      PAID_CHECKOUT_PUBLIC_ENABLED: ${{ vars.PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED }}
+      BILLING_REHEARSAL_USER_EMAIL: ${{ vars.PRODUCTION_BILLING_REHEARSAL_USER_EMAIL }}
+      NODE_ENV: production
+      VERCEL_ENV: production
+      SEED_DEMO_BUSINESS: 'false'
+    steps:
+      - name: Checkout exact tested candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Require first-launch safety posture
+        run: |
+          set -euo pipefail
+          [[ "${BILLING_RENEWAL_ENABLED:-false}" == "false" ]]
+          [[ "${BILLING_OPERATIONS_READY:-false}" == "false" ]]
+          [[ "${PAID_CHECKOUT_PUBLIC_ENABLED:-false}" == "false" ]]
+          [[ -z "${BILLING_REHEARSAL_USER_EMAIL:-}" ]]
+          test -n "${DATABASE_URL:-}"
+          test -n "${RESTORE_DATABASE_URL:-}"
+          node .github/scripts/require-production-database-safety.mjs DATABASE_URL RESTORE_DATABASE_URL
+      - name: Prove both bootstrap databases are empty
+        run: |
+          set -euo pipefail
+          prod_tables="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")"
+          restore_tables="$(psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")"
+          [[ -z "$prod_tables" ]] || { echo "Production schema is not empty"; printf '%s\n' "$prod_tables"; exit 1; }
+          [[ -z "$restore_tables" ]] || { echo "Restore schema is not empty"; printf '%s\n' "$restore_tables"; exit 1; }
+          echo "first-bootstrap-empty-database-proof: PASS"
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install exact dependencies
+        working-directory: apps/web
+        run: npm ci
+      - name: Generate Prisma client
+        working-directory: apps/web
+        run: npx prisma generate
+      - name: Apply reviewed Prisma migrations
+        working-directory: apps/web
+        run: npx prisma migrate deploy
+      - name: Seed canonical plans only
+        working-directory: apps/web
+        run: npx prisma db seed
+      - name: Verify migration history and critical schema
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          expected="$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+          applied="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'SELECT COUNT(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL')"
+          [[ "$applied" == "$expected" ]] || { echo "Migration count mismatch expected=${expected} applied=${applied}"; exit 1; }
+          critical="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT COUNT(*) FROM (VALUES (to_regclass('public.\"User\"')), (to_regclass('public.\"LegalConsent\"')), (to_regclass('public.\"RequestRateLimit\"')), (to_regclass('public.\"BillingOperationsHeartbeat\"'))) AS t(r) WHERE r IS NOT NULL")"
+          [[ "$critical" == "4" ]] || { echo "Critical schema verification failed count=${critical}"; exit 1; }
+          plans="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'SELECT COUNT(*) FROM "BusinessPlan" WHERE code IN ('"'"'FREE'"'"','"'"'BUSINESS'"'"','"'"'PRO'"'"')')"
+          [[ "$plans" == "3" ]] || { echo "Canonical plan seed incomplete count=${plans}"; exit 1; }
+          demo="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT COUNT(*) FROM \"User\" WHERE email='demo.preview@hee.local'")"
+          [[ "$demo" == "0" ]] || { echo "Demo account must not exist in Production"; exit 1; }
+          echo "first-production-database-bootstrap: PASS migrations=${applied} plans=${plans} release=${GITHUB_SHA}"
