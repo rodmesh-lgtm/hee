@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LogOut } from "lucide-react";
+import { adminLogoutAction } from "../actions/admin-auth";
 import { requireAdmin } from "../lib/admin";
 
 export const metadata: Metadata = {
@@ -8,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   return (
     <div dir="rtl">
       <nav className="sticky top-0 z-40 border-b border-[#e7e4f0] bg-white/95 backdrop-blur" aria-label="تنقل إدارة المنصة">
@@ -21,7 +23,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/requests" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#5d49cc] hover:bg-[#f5f2ff]">طلبات الإدارة</Link>
           <Link href="/admin/access-codes" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#5d49cc] hover:bg-[#f5f2ff]">أكواد الاشتراك</Link>
           <Link href="/admin/support" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#5d49cc] hover:bg-[#f5f2ff]">دعم العملاء</Link>
-          <Link href="/dashboard" className="mr-auto whitespace-nowrap rounded-xl border border-[#e3dfed] px-3 py-2 text-xs font-black text-[#5d49cc]">لوحة العميل</Link>
+          <div className="mr-auto flex items-center gap-2 whitespace-nowrap border-r border-[#ebe7f1] pr-3">
+            <span className="hidden text-[10px] font-bold text-slate-400 lg:inline">{admin.email}</span>
+            <a href="https://hee.sa" target="_blank" rel="noreferrer" className="rounded-xl border border-[#e3dfed] px-3 py-2 text-xs font-black text-[#5d49cc]">منصة العملاء</a>
+            <form action={adminLogoutAction}><button className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700"><LogOut className="h-3.5 w-3.5" />خروج الإدارة</button></form>
+          </div>
         </div>
       </nav>
       {children}

@@ -64,9 +64,10 @@ test.describe.serial("central admin customer accounts", () => {
 
       await page.context().clearCookies();
       await page.context().addCookies([{ name: "hee_session", value: f.ownerToken, url: baseUrl }]);
-      const response = await page.goto(`${baseUrl}/admin/customers/${f.ownerId}`, { waitUntil: "domcontentloaded" });
-      expect(response?.status()).toBe(404);
+      await page.goto(`${baseUrl}/admin/customers/${f.ownerId}`, { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/admin-login$/);
       await expect(page.getByRole("heading", { name: "RC Account Owner" })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "إدارة المنصة المركزية" })).toBeVisible();
     } finally {
       await cleanup(f);
     }

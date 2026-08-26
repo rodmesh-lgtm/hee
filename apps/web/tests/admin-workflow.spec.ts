@@ -120,15 +120,16 @@ test.describe.serial("platform admin workflow", () => {
       await db.user.update({ where: { id: seeded.adminUserId }, data: { emailVerifiedAt: null } });
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("link", { name: "إدارة المنصة" })).toHaveCount(0);
-      const unverifiedAdminResponse = await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
-      expect(unverifiedAdminResponse?.status()).toBe(404);
+      await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/admin-login$/);
+      await expect(page.getByRole("heading", { name: "إدارة المنصة المركزية", exact: true })).toBeVisible();
 
       await db.user.update({ where: { id: seeded.adminUserId }, data: { emailVerifiedAt: new Date() } });
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("link", { name: "إدارة المنصة" })).toBeVisible();
 
       await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "إدارة المنصة" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "إدارة المنصة", exact: true })).toBeVisible();
       const businessRow = page.getByRole("row").filter({ hasText: "منشأة عميل لوحة الإدارة" });
       await expect(businessRow).toBeVisible();
       await expect(businessRow.getByText(/1 منتج · 1 خدمة · 1 عميل/)).toBeVisible();
@@ -145,9 +146,10 @@ test.describe.serial("platform admin workflow", () => {
       await expect(page.getByRole("link", { name: /فتح الصفحة العامة/ })).toHaveAttribute("href", `/${seeded.slug}`);
 
       await setSession(page, seeded.ownerSessionToken);
-      const response = await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
-      expect(response?.status()).toBe(404);
-      await expect(page.getByRole("heading", { name: "إدارة المنصة" })).toHaveCount(0);
+      await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/admin-login$/);
+      await expect(page.getByRole("heading", { name: "إدارة المنصة", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "إدارة المنصة المركزية", exact: true })).toBeVisible();
 
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/dashboard/);
