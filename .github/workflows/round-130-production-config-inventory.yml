@@ -1,0 +1,121 @@
+name: Round 130 Production Config Inventory
+
+on:
+  push:
+    branches: [round-130-production-config-inventory]
+    paths:
+      - ".github/workflows/round-130-production-config-inventory.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      PRODUCTION_RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
+      PRODUCTION_BACKUP_PASSPHRASE: ${{ secrets.PRODUCTION_BACKUP_PASSPHRASE }}
+      PRODUCTION_SESSION_SECRET: ${{ secrets.PRODUCTION_SESSION_SECRET }}
+      PRODUCTION_RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+      PRODUCTION_MOYASAR_PUBLISHABLE_KEY: ${{ secrets.PRODUCTION_MOYASAR_PUBLISHABLE_KEY }}
+      PRODUCTION_MOYASAR_SECRET_KEY: ${{ secrets.PRODUCTION_MOYASAR_SECRET_KEY }}
+      PRODUCTION_MOYASAR_WEBHOOK_SECRET: ${{ secrets.PRODUCTION_MOYASAR_WEBHOOK_SECRET }}
+      PRODUCTION_BILLING_TOKEN_ENCRYPTION_KEY: ${{ secrets.PRODUCTION_BILLING_TOKEN_ENCRYPTION_KEY }}
+      PRODUCTION_S3_ACCESS_KEY_ID: ${{ secrets.PRODUCTION_S3_ACCESS_KEY_ID }}
+      PRODUCTION_S3_SECRET_ACCESS_KEY: ${{ secrets.PRODUCTION_S3_SECRET_ACCESS_KEY }}
+      PRODUCTION_GOOGLE_CLIENT_ID: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_ID }}
+      PRODUCTION_GOOGLE_CLIENT_SECRET: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_SECRET }}
+      PRODUCTION_APPLE_CLIENT_ID: ${{ secrets.PRODUCTION_APPLE_CLIENT_ID }}
+      PRODUCTION_APPLE_TEAM_ID: ${{ secrets.PRODUCTION_APPLE_TEAM_ID }}
+      PRODUCTION_APPLE_KEY_ID: ${{ secrets.PRODUCTION_APPLE_KEY_ID }}
+      PRODUCTION_APPLE_PRIVATE_KEY: ${{ secrets.PRODUCTION_APPLE_PRIVATE_KEY }}
+      PRODUCTION_VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      PRODUCTION_HETZNER_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_HETZNER_SSH_PRIVATE_KEY }}
+      PRODUCTION_HETZNER_KNOWN_HOSTS: ${{ secrets.PRODUCTION_HETZNER_KNOWN_HOSTS }}
+      PRODUCTION_PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
+      PRODUCTION_HEE_FROM_EMAIL: ${{ vars.PRODUCTION_HEE_FROM_EMAIL }}
+      PRODUCTION_BILLING_SELLER_LEGAL_NAME_AR: ${{ vars.PRODUCTION_BILLING_SELLER_LEGAL_NAME_AR }}
+      PRODUCTION_BILLING_SELLER_ADDRESS_AR: ${{ vars.PRODUCTION_BILLING_SELLER_ADDRESS_AR }}
+      PRODUCTION_BILLING_TAX_STATUS: ${{ vars.PRODUCTION_BILLING_TAX_STATUS }}
+      PRODUCTION_BILLING_RENEWAL_ENABLED: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED }}
+      PRODUCTION_BILLING_OPERATIONS_READY: ${{ vars.PRODUCTION_BILLING_OPERATIONS_READY }}
+      PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED: ${{ vars.PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED }}
+      PRODUCTION_BILLING_REHEARSAL_USER_EMAIL: ${{ vars.PRODUCTION_BILLING_REHEARSAL_USER_EMAIL }}
+      PRODUCTION_STORAGE_DRIVER: ${{ vars.PRODUCTION_STORAGE_DRIVER }}
+      PRODUCTION_S3_ENDPOINT: ${{ vars.PRODUCTION_S3_ENDPOINT }}
+      PRODUCTION_S3_REGION: ${{ vars.PRODUCTION_S3_REGION }}
+      PRODUCTION_S3_BUCKET: ${{ vars.PRODUCTION_S3_BUCKET }}
+      PRODUCTION_S3_FORCE_PATH_STYLE: ${{ vars.PRODUCTION_S3_FORCE_PATH_STYLE }}
+      PRODUCTION_HETZNER_HOST: ${{ vars.PRODUCTION_HETZNER_HOST }}
+      PRODUCTION_HETZNER_USER: ${{ vars.PRODUCTION_HETZNER_USER }}
+    steps:
+      - name: Report missing Production configuration names only
+        run: |
+          set -euo pipefail
+          missing=()
+          required=(
+            PRODUCTION_DATABASE_URL
+            PRODUCTION_RESTORE_DATABASE_URL
+            PRODUCTION_BACKUP_PASSPHRASE
+            PRODUCTION_SESSION_SECRET
+            PRODUCTION_RESEND_API_KEY
+            PRODUCTION_MOYASAR_PUBLISHABLE_KEY
+            PRODUCTION_MOYASAR_SECRET_KEY
+            PRODUCTION_MOYASAR_WEBHOOK_SECRET
+            PRODUCTION_BILLING_TOKEN_ENCRYPTION_KEY
+            PRODUCTION_VERCEL_TOKEN
+            PRODUCTION_PG_POOL_MAX
+            PRODUCTION_HEE_FROM_EMAIL
+            PRODUCTION_BILLING_SELLER_LEGAL_NAME_AR
+            PRODUCTION_BILLING_SELLER_ADDRESS_AR
+            PRODUCTION_BILLING_TAX_STATUS
+            PRODUCTION_BILLING_RENEWAL_ENABLED
+            PRODUCTION_BILLING_OPERATIONS_READY
+            PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED
+            PRODUCTION_STORAGE_DRIVER
+          )
+          for name in "${required[@]}"; do
+            value="${!name:-}"
+            test -n "${value//[[:space:]]/}" || missing+=("$name")
+          done
+
+          storage="${PRODUCTION_STORAGE_DRIVER,,}"
+          if test "$storage" = "s3"; then
+            for name in PRODUCTION_S3_ENDPOINT PRODUCTION_S3_BUCKET PRODUCTION_S3_ACCESS_KEY_ID PRODUCTION_S3_SECRET_ACCESS_KEY; do
+              value="${!name:-}"
+              test -n "${value//[[:space:]]/}" || missing+=("$name")
+            done
+          fi
+
+          google_count=0
+          test -n "${PRODUCTION_GOOGLE_CLIENT_ID//[[:space:]]/}" && google_count=$((google_count+1))
+          test -n "${PRODUCTION_GOOGLE_CLIENT_SECRET//[[:space:]]/}" && google_count=$((google_count+1))
+          if test "$google_count" -eq 1; then
+            missing+=("PRODUCTION_GOOGLE_OAUTH_PAIR_INCOMPLETE")
+          fi
+
+          apple_count=0
+          for name in PRODUCTION_APPLE_CLIENT_ID PRODUCTION_APPLE_TEAM_ID PRODUCTION_APPLE_KEY_ID PRODUCTION_APPLE_PRIVATE_KEY; do
+            value="${!name:-}"
+            test -n "${value//[[:space:]]/}" && apple_count=$((apple_count+1))
+          done
+          if test "$apple_count" -gt 0 && test "$apple_count" -lt 4; then
+            missing+=("PRODUCTION_APPLE_OAUTH_SET_INCOMPLETE")
+          fi
+
+          renewal="${PRODUCTION_BILLING_RENEWAL_ENABLED,,}"
+          operations="${PRODUCTION_BILLING_OPERATIONS_READY,,}"
+          if test "$renewal" = "true" || test "$operations" = "true"; then
+            for name in PRODUCTION_HETZNER_HOST PRODUCTION_HETZNER_USER PRODUCTION_HETZNER_SSH_PRIVATE_KEY PRODUCTION_HETZNER_KNOWN_HOSTS; do
+              value="${!name:-}"
+              test -n "${value//[[:space:]]/}" || missing+=("$name")
+            done
+          fi
+
+          if test "${#missing[@]}" -gt 0; then
+            printf 'MISSING_PRODUCTION_CONFIG=%s\n' "$(IFS=,; echo "${missing[*]}")"
+            exit 1
+          fi
+          echo "production-config-inventory: PASS (all required names are populated; values were not printed)"
