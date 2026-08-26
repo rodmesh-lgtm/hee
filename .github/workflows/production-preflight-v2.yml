@@ -113,17 +113,20 @@ jobs:
           if (required('PRODUCTION_BACKUP_PASSPHRASE').length < 32) throw new Error('PRODUCTION_BACKUP_PASSPHRASE must be at least 32 characters');
           if (required('SESSION_SECRET').length < 32) throw new Error('SESSION_SECRET must be at least 32 characters');
           if (!/@ir\.sa(?:>|\s|$)/i.test(required('HEE_FROM_EMAIL'))) throw new Error('HEE_FROM_EMAIL must use ir.sa');
-          if (!required('MOYASAR_PUBLISHABLE_KEY').startsWith('pk_live_')) throw new Error('Moyasar publishable key must be live');
-          if (!required('MOYASAR_SECRET_KEY').startsWith('sk_live_')) throw new Error('Moyasar secret key must be live');
-          if (required('MOYASAR_WEBHOOK_SECRET').length < 24) throw new Error('MOYASAR_WEBHOOK_SECRET is too short');
           const encoded = required('BILLING_TOKEN_ENCRYPTION_KEY');
           const raw = Buffer.from(encoded, 'base64');
           if (raw.length !== 32 || raw.toString('base64') !== encoded) throw new Error('BILLING_TOKEN_ENCRYPTION_KEY must be canonical base64 for 32 bytes');
-          required('BILLING_SELLER_LEGAL_NAME_AR');
-          required('BILLING_SELLER_ADDRESS_AR');
-          if (required('BILLING_TAX_STATUS').toLowerCase() !== 'not_registered') throw new Error('Paid launch is blocked until the configured seller tax posture is supported');
           const billingRenewalEnabled = booleanValue('BILLING_RENEWAL_ENABLED') === 'true';
           const billingOperationsReady = booleanValue('BILLING_OPERATIONS_READY') === 'true';
+          const billingRequired = billingRenewalEnabled || billingOperationsReady;
+          if (billingRequired) {
+            if (!required('MOYASAR_PUBLISHABLE_KEY').startsWith('pk_live_')) throw new Error('Moyasar publishable key must be live');
+            if (!required('MOYASAR_SECRET_KEY').startsWith('sk_live_')) throw new Error('Moyasar secret key must be live');
+            if (required('MOYASAR_WEBHOOK_SECRET').length < 24) throw new Error('MOYASAR_WEBHOOK_SECRET is too short');
+            required('BILLING_SELLER_LEGAL_NAME_AR');
+            required('BILLING_SELLER_ADDRESS_AR');
+            if (required('BILLING_TAX_STATUS').toLowerCase() !== 'not_registered') throw new Error('Paid launch is blocked until the configured seller tax posture is supported');
+          }
           if (String(process.env.PAID_CHECKOUT_PUBLIC_ENABLED ?? '').trim().toLowerCase() === 'true') throw new Error('Public paid checkout must be closed during preflight/migration preparation');
           if (String(process.env.BILLING_REHEARSAL_USER_EMAIL ?? '').trim()) throw new Error('Rehearsal account must not be enabled during preflight/migration preparation');
           const storage = String(process.env.STORAGE_DRIVER ?? 'database').trim().toLowerCase();
@@ -180,6 +183,7 @@ jobs:
           ' "$domains_json"
 
       - name: Verify Moyasar live secret credential read-only
+        if: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED == 'true' || vars.PRODUCTION_BILLING_OPERATIONS_READY == 'true' }}
         run: |
           set -euo pipefail
           curl --silent --show-error --fail --max-time 20 \

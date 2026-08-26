@@ -179,4 +179,5 @@ jobs:
           echo "public-paid-rollback: PASS restored rehearsal-only deployment ${previous_id}"
 
       - name: Public paid launch summary
-        run: echo "production-open-paid-checkout: PASS release=${GITHUB_SHA} rehearsal_run=${HEE_REHEARSAL_RUN_ID} billing=${{ inputs.rehearsal_billing_id }}"
+        run: |
+          echo "production-open-paid-checkout: PASS release=${GITHUB_SHA} rehearsal_run=${HEE_REHEARSAL_RUN_ID} billing=${{ inputs.rehearsal_billing_id }}"

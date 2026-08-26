@@ -7,16 +7,10 @@ const required = [
   'PRODUCTION_BACKUP_PASSPHRASE',
   'SESSION_SECRET',
   'RESEND_API_KEY',
-  'MOYASAR_PUBLISHABLE_KEY',
-  'MOYASAR_SECRET_KEY',
-  'MOYASAR_WEBHOOK_SECRET',
   'BILLING_TOKEN_ENCRYPTION_KEY',
   'VERCEL_TOKEN',
   'PG_POOL_MAX',
   'HEE_FROM_EMAIL',
-  'BILLING_SELLER_LEGAL_NAME_AR',
-  'BILLING_SELLER_ADDRESS_AR',
-  'BILLING_TAX_STATUS',
   'BILLING_RENEWAL_ENABLED',
   'BILLING_OPERATIONS_READY',
   'PAID_CHECKOUT_PUBLIC_ENABLED',
@@ -43,10 +37,21 @@ export function assertProductionConfigPresence() {
   const apple = ['APPLE_CLIENT_ID', 'APPLE_TEAM_ID', 'APPLE_KEY_ID', 'APPLE_PRIVATE_KEY'].filter((name) => Boolean(value(name)));
   if (apple.length > 0 && apple.length < 4) missing.push('APPLE_OAUTH_CONFIGURATION_INCOMPLETE');
 
-  const workerRequired = ['BILLING_RENEWAL_ENABLED', 'BILLING_OPERATIONS_READY']
+  const billingRequired = ['BILLING_RENEWAL_ENABLED', 'BILLING_OPERATIONS_READY']
     .some((name) => value(name).toLowerCase() === 'true');
-  if (workerRequired) {
-    for (const name of ['HETZNER_HOST', 'HETZNER_USER', 'HETZNER_SSH_PRIVATE_KEY', 'HETZNER_KNOWN_HOSTS']) {
+  if (billingRequired) {
+    for (const name of [
+      'MOYASAR_PUBLISHABLE_KEY',
+      'MOYASAR_SECRET_KEY',
+      'MOYASAR_WEBHOOK_SECRET',
+      'BILLING_SELLER_LEGAL_NAME_AR',
+      'BILLING_SELLER_ADDRESS_AR',
+      'BILLING_TAX_STATUS',
+      'HETZNER_HOST',
+      'HETZNER_USER',
+      'HETZNER_SSH_PRIVATE_KEY',
+      'HETZNER_KNOWN_HOSTS',
+    ]) {
       if (!value(name)) missing.push(name);
     }
   }
