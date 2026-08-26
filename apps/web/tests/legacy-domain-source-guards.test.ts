@@ -29,7 +29,9 @@ test("operational source contains no legacy hee.sa production references", () =>
     ...collectFiles(resolve(webRoot, "components"), new Set([".ts", ".tsx", ".js", ".mjs"])),
     ...collectFiles(resolve(webRoot, "scripts"), new Set([".ts", ".tsx", ".js", ".mjs", ".sh"])),
     ...collectFiles(resolve(repoRoot, ".github"), new Set([".yml", ".yaml", ".js", ".mjs", ".sh"])),
+    ...collectFiles(resolve(repoRoot, "docs"), new Set([".md", ".txt", ".yml", ".yaml", ".sh"])),
     resolve(webRoot, "next.config.ts"),
+    resolve(webRoot, "README.md"),
     resolve(repoRoot, ".env.example"),
   ];
 
