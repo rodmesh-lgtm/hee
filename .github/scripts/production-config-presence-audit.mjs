@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { appendFileSync } from 'node:fs';
+
 // Report configuration names only; never print secret or variable values.
 const required = [
   'DATABASE_URL',
@@ -15,6 +17,8 @@ const required = [
   'PAID_CHECKOUT_PUBLIC_ENABLED',
   'STORAGE_DRIVER',
 ];
+
+const CANONICAL_FROM_EMAIL = 'HEE <no-reply@ir.sa>';
 
 function value(name) {
   return String(process.env[name] ?? '').trim();
@@ -59,6 +63,9 @@ export function assertProductionConfigPresence() {
     console.error(`production-config-presence: FAIL missing=${[...new Set(missing)].join(',')}`);
     process.exit(1);
   }
+
+  const githubEnv = String(process.env.GITHUB_ENV ?? '').trim();
+  if (githubEnv) appendFileSync(githubEnv, `HEE_FROM_EMAIL=${CANONICAL_FROM_EMAIL}\n`, { encoding: 'utf8' });
 
   console.log('production-config-presence: PASS');
 }
