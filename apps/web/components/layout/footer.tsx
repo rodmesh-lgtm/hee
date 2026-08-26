@@ -27,8 +27,8 @@ export function Footer() {
           <div className="mt-3 space-y-3 text-sm text-slate-600 dark:text-slate-300">
             <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> الرياض، السعودية</div>
             <a className="flex items-center gap-2 hover:text-indigo-700" href="tel:+966550000000"><Phone className="h-4 w-4" /> +966 55 000 0000</a>
-            <a className="flex items-center gap-2 hover:text-indigo-700" href="mailto:support@hee.sa"><MessageCircle className="h-4 w-4" /> support@hee.sa</a>
-            <a className="flex items-center gap-2 hover:text-indigo-700" href="https://hee.sa" target="_blank" rel="noreferrer"><Globe2 className="h-4 w-4" /> hee.sa</a>
+            <a className="flex items-center gap-2 hover:text-indigo-700" href="mailto:support@ir.sa"><MessageCircle className="h-4 w-4" /> support@ir.sa</a>
+            <a className="flex items-center gap-2 hover:text-indigo-700" href="https://ir.sa" target="_blank" rel="noreferrer"><Globe2 className="h-4 w-4" /> ir.sa</a>
           </div>
         </div>
       </Container>
