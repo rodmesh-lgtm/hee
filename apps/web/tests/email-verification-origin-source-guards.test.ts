@@ -11,8 +11,9 @@ test("preview verification emails stay on the Vercel preview that issued them", 
   assert.match(source, /trustedVerificationOrigin/);
 });
 
-test("production verification emails remain canonical on hee.sa", () => {
-  assert.match(source, /vercelEnv === "production"[\s\S]*return "https:\/\/hee\.sa"/);
+test("production verification emails remain canonical on ir.sa", () => {
+  assert.match(source, /vercelEnv === "production"[\s\S]*return "https:\/\/ir\.sa"/);
+  assert.doesNotMatch(source, /https:\/\/(?:www\.)?hee\.sa/);
 });
 
 test("preview origin selection does not fall through shared production site variables", () => {
