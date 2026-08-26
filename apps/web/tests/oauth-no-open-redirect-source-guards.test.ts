@@ -5,6 +5,7 @@ import test from "node:test";
 const start = readFileSync(new URL("../app/api/auth/oauth/[provider]/route.ts", import.meta.url), "utf8");
 const callback = readFileSync(new URL("../app/api/auth/oauth/[provider]/callback/route.ts", import.meta.url), "utf8");
 
+// Production is pinned to ir.sa while trusted Vercel previews remain usable for RC verification.
 test("OAuth HTTP redirects use an allowlisted app origin", () => {
   for (const source of [start, callback]) {
     assert.match(source, /host === "localhost"/);
