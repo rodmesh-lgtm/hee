@@ -8,7 +8,7 @@ function required(name: string) {
 
 function canonical(name: string) {
   const value = required(name).replace(/\/$/, "");
-  if (value !== "https://hee.sa") throw new Error(`${name} must equal https://hee.sa`);
+  if (value !== "https://ir.sa") throw new Error(`${name} must equal https://ir.sa`);
 }
 
 function liveKey(name: string, prefix: string) {
@@ -120,7 +120,7 @@ function main() {
   const resend = required("RESEND_API_KEY");
   if (/replace|example|dummy|placeholder/i.test(resend)) throw new Error("RESEND_API_KEY must be a real production credential");
   const from = required("HEE_FROM_EMAIL");
-  if (!/@hee\.sa(?:>|\s|$)/i.test(from)) throw new Error("HEE_FROM_EMAIL must use the verified hee.sa sending domain");
+  if (!/@ir\.sa(?:>|\s|$)/i.test(from)) throw new Error("HEE_FROM_EMAIL must use the verified ir.sa sending domain");
 
   const paymentProvider = required("PAYMENT_PROVIDER").toLowerCase();
   if (paymentProvider !== "moyasar") throw new Error("PAYMENT_PROVIDER must equal moyasar for paid production launch");
@@ -136,7 +136,7 @@ function main() {
     throw new Error("BILLING_OPERATIONS_READY must be true only after the recurring billing/webhook recovery schedule has been installed and observed running successfully");
   }
   // Public-vs-rehearsal billing state is deployment-scoped and is proved against
-  // canonical hee.sa by Production Launch Readiness, not by GitHub project variables.
+  // canonical ir.sa by Production Launch Readiness, not by GitHub project variables.
 
   if (String(process.env.QA_AUDIT_SECRET ?? "").trim() || String(process.env.QA_AUDIT_USER_EMAIL ?? "").trim()) {
     throw new Error("QA audit credentials must not be configured in production");
