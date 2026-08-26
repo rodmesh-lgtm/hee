@@ -3,7 +3,7 @@ import { writeFile } from "node:fs/promises";
 const token = String(process.env.VERCEL_TOKEN ?? "").trim();
 const teamId = String(process.env.VERCEL_ORG_ID ?? "").trim();
 const projectId = String(process.env.VERCEL_PROJECT_ID ?? "").trim();
-const canonicalHost = String(process.env.PRODUCTION_CANONICAL_HOST ?? "hee.sa").trim().toLowerCase();
+const canonicalHost = String(process.env.PRODUCTION_CANONICAL_HOST ?? "ir.sa").trim().toLowerCase();
 const outputPath = process.argv[2];
 
 if (!token) throw new Error("VERCEL_TOKEN is required");
