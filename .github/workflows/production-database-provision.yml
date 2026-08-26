@@ -1,0 +1,151 @@
+name: Production Database Provision
+
+on:
+  workflow_run:
+    workflows: ["RC Quality"]
+    types: [completed]
+    branches: [hee-v6-rc]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-provision
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'hee-v6-rc' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      VERCEL_TEAM_SLUG: rodmesh-2430s-projects
+      RESOURCE_NAME: ir-production-postgres
+      RESOURCE_PREFIX: IRDB_
+      FORBIDDEN_NEON_HOSTS: ep-delicate-wave-apf0pirn-pooler.c-7.us-east-1.aws.neon.tech,ep-aged-breeze-ap1lcdcz-pooler.c-7.us-east-1.aws.neon.tech
+    steps:
+      - name: Checkout exact RC-tested release
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+
+      - name: Require explicit one-time provisioning marker
+        id: marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          message="$(git log -1 --format=%B)"
+          if grep -Fq '[provision-ir-production-database]' <<<"$message"; then
+            echo 'active=true' >> "$GITHUB_OUTPUT"
+            echo 'production-database-provision-marker: PASS'
+          else
+            echo 'active=false' >> "$GITHUB_OUTPUT"
+            echo 'production-database-provision-marker: SKIP'
+          fi
+
+      - name: Require Vercel credential
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}" || { echo 'PRODUCTION_VERCEL_TOKEN is required'; exit 1; }
+
+      - name: Setup Node
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install pinned Vercel CLI
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        run: npm install --global vercel@59.5.0
+
+      - name: Link exact Vercel project locally
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
+      - name: Inspect existing Neon resources without exposing credentials
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        id: existing
+        shell: bash
+        run: |
+          set -euo pipefail
+          vercel integration list --all --integration neon --format=json --scope "$VERCEL_TEAM_SLUG" --token "$VERCEL_TOKEN" > /tmp/neon-resources.json
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const data = JSON.parse(fs.readFileSync('/tmp/neon-resources.json', 'utf8'));
+          const wanted = process.env.RESOURCE_NAME;
+          const matches = [];
+          const seen = new Set();
+          function walk(value) {
+            if (!value || typeof value !== 'object' || seen.has(value)) return;
+            seen.add(value);
+            if (!Array.isArray(value) && String(value.name || '') === wanted) matches.push(value);
+            for (const child of Object.values(value)) walk(child);
+          }
+          walk(data);
+          if (matches.length > 1) throw new Error(`Multiple Neon resources named ${wanted} exist; refusing to choose`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `exists=${matches.length === 1 ? 'true' : 'false'}\n`);
+          console.log(`production-neon-resource-presence: ${matches.length === 1 ? 'EXISTS' : 'ABSENT'}`);
+          NODE
+
+      - name: Provision isolated Neon resource through Vercel Marketplace
+        if: ${{ steps.marker.outputs.active == 'true' && steps.existing.outputs.exists != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          vercel integration add neon \
+            --name "$RESOURCE_NAME" \
+            --environment production \
+            --prefix "$RESOURCE_PREFIX" \
+            --no-env-pull \
+            --scope "$VERCEL_TEAM_SLUG" \
+            --token "$VERCEL_TOKEN"
+
+      - name: Verify isolated resource is connected and credentialized
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const forbidden = new Set(String(process.env.FORBIDDEN_NEON_HOSTS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean));
+          const prefix = process.env.RESOURCE_PREFIX;
+          const projectId = process.env.VERCEL_PROJECT_ID;
+          const teamId = process.env.VERCEL_ORG_ID;
+          const token = process.env.VERCEL_TOKEN;
+          const endpoint = `https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}/env?teamId=${encodeURIComponent(teamId)}&decrypt=true`;
+          const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+          if (!response.ok) throw new Error(`Unable to read Vercel Production environment (${response.status})`);
+          const body = await response.json();
+          const envs = Array.isArray(body.envs) ? body.envs : [];
+          const candidates = envs.filter(item => {
+            const targets = Array.isArray(item.target) ? item.target.map(v => String(v).toLowerCase()) : [];
+            const key = String(item.key || '');
+            return targets.includes('production') && key.startsWith(prefix) && /(?:DATABASE_URL|POSTGRES_URL)/.test(key) && typeof item.value === 'string';
+          });
+          if (!candidates.length) throw new Error(`No ${prefix} PostgreSQL credential was connected to Production`);
+          const hosts = new Set();
+          for (const item of candidates) {
+            let parsed;
+            try { parsed = new URL(item.value); } catch { continue; }
+            if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) continue;
+            const host = parsed.hostname.toLowerCase();
+            if (!host.endsWith('.neon.tech')) throw new Error(`Unexpected non-Neon host for ${item.key}`);
+            if (forbidden.has(host)) throw new Error(`New iR resource resolved to forbidden unrelated Neon host ${host}`);
+            hosts.add(host);
+            console.log(`::add-mask::${item.value}`);
+          }
+          if (hosts.size !== 1) throw new Error(`Expected exactly one isolated Neon host, found ${hosts.size}`);
+          const [host] = hosts;
+          console.log(`::add-mask::${host}`);
+          console.log('production-neon-resource-isolation: PASS new host differs from forbidden legacy project endpoints');
+          NODE
