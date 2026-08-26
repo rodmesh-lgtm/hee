@@ -124,7 +124,7 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
                         {isVerification ? <BadgeCheck className="h-4 w-4 text-blue-600" /> : <BriefcaseBusiness className="h-4 w-4 text-[#6f3bd2]" />}
                         <b className="text-sm">{row.businessName}</b>
                       </div>
-                      <span className="mt-1 block text-xs text-slate-500">hee.sa/{row.businessSlug} · {row.planName ?? row.planCode ?? "Free"}</span>
+                      <span className="mt-1 block text-xs text-slate-500">ir.sa/{row.businessSlug} · {row.planName ?? row.planCode ?? "Free"}</span>
                       <span className="mt-1 block text-[11px] text-slate-400">{new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(row.createdAt)}</span>
                       {!isVerification ? <span className="mt-1 block text-xs font-bold text-[#5d49cc]">الخطة المطلوبة: {requestedPlan}</span> : null}
                       {!isVerification && !planReady ? <span className="mt-1 block text-[11px] font-bold text-rose-600">الباقة {requestedPlan} غير مهيأة.</span> : null}
