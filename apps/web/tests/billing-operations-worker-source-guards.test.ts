@@ -55,8 +55,8 @@ test("production worker deploy keeps maintenance locked and rollback-armed until
   assert.match(workflow, /count_green_dispatches production-migrations\.yml/);
   assert.match(workflow, /PRODUCTION_HETZNER_KNOWN_HOSTS/);
   assert.match(workflow, /StrictHostKeyChecking=yes/);
-  assert.match(workflow, /https:\/\/hee\.sa\/api\/release/);
-  assert.match(workflow, /https:\/\/hee\.sa\/api\/maintenance\/status/);
+  assert.match(workflow, /https:\/\/ir\.sa\/api\/release/);
+  assert.match(workflow, /https:\/\/ir\.sa\/api\/maintenance\/status/);
   assert.match(workflow, /git archive --format=tar "\$GITHUB_SHA"/);
   assert.match(workflow, /node -p 'process\.versions\.node\.split/);
   assert.match(workflow, /npm ci/);

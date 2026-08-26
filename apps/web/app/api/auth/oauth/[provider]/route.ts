@@ -5,13 +5,13 @@ import { consumePublicWriteLimit, requestClientAddress } from "../../../../lib/r
 function asProvider(value: string): OAuthProvider | null { return value === "google" || value === "apple" ? value : null; }
 function stateCookieName(provider: OAuthProvider) { return `hee_oauth_state_${provider}`; }
 function safeAppOrigin(request: Request) {
-  if (process.env.VERCEL_ENV === "production") return "https://hee.sa";
+  if (process.env.VERCEL_ENV === "production") return "https://ir.sa";
   try {
     const origin = new URL(request.url);
     const host = origin.hostname.toLowerCase();
-    const allowed = host === "localhost" || host === "127.0.0.1" || host.endsWith(".vercel.app") || host.endsWith(".app.github.dev") || host === "hee.sa" || host === "www.hee.sa";
-    return allowed ? origin.origin : "https://hee.sa";
-  } catch { return "https://hee.sa"; }
+    const allowed = host === "localhost" || host === "127.0.0.1" || host.endsWith(".vercel.app") || host.endsWith(".app.github.dev") || host === "ir.sa" || host === "www.ir.sa";
+    return allowed ? origin.origin : "https://ir.sa";
+  } catch { return "https://ir.sa"; }
 }
 function redirectToApp(request: Request, path: string) { return NextResponse.redirect(new URL(path, safeAppOrigin(request))); }
 

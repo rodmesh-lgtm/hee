@@ -75,14 +75,14 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          status_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
+          status_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/maintenance/status)"
           maintenance="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.maintenance===true));' "$status_json")"
           release_sha="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.releaseSha??""));' "$status_json")"
           release_env="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.environment??""));' "$status_json")"
           test "$maintenance" = "true" || (echo "Canonical web is no longer in maintenance" && exit 1)
           test "$release_sha" = "$GITHUB_SHA" || (echo "Canonical maintenance SHA differs from migration SHA" && exit 1)
           test "$release_env" = "production" || (echo "Canonical maintenance endpoint is not production" && exit 1)
-          code="$(curl --silent --show-error --output /tmp/hee-migration-maintenance.html --write-out '%{http_code}' --max-time 20 https://hee.sa/)"
+          code="$(curl --silent --show-error --output /tmp/hee-migration-maintenance.html --write-out '%{http_code}' --max-time 20 https://ir.sa/)"
           test "$code" = "503" || (echo "Canonical customer traffic is not blocked (HTTP ${code})" && exit 1)
           grep -q 'صيانة مجدولة' /tmp/hee-migration-maintenance.html || (echo "Canonical maintenance response body is missing" && exit 1)
 
@@ -145,7 +145,7 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          status_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
+          status_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/maintenance/status)"
           node -e 'const b=JSON.parse(process.argv[1]);if(b.maintenance!==true||b.releaseSha!==process.env.GITHUB_SHA||b.environment!=="production")process.exit(1);' "$status_json"
           ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes "${HETZNER_USER}@${HETZNER_HOST}" \
             "test -f /etc/hee/maintenance.lock && ! sudo -n systemctl is-active --quiet hee-billing-renew.timer && ! sudo -n systemctl is-active --quiet hee-billing-renew.service"
@@ -206,7 +206,7 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          status_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
+          status_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/maintenance/status)"
           node -e 'const b=JSON.parse(process.argv[1]);if(b.maintenance!==true||b.releaseSha!==process.env.GITHUB_SHA||b.environment!=="production")process.exit(1);' "$status_json"
           ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes "${HETZNER_USER}@${HETZNER_HOST}" \
             "test -f /etc/hee/maintenance.lock && ! sudo -n systemctl is-active --quiet hee-billing-renew.timer && ! sudo -n systemctl is-active --quiet hee-billing-renew.service"

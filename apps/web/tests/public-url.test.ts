@@ -9,17 +9,17 @@ import {
 } from "../app/lib/public-url";
 
 test("uses the canonical root public URL for business pages", () => {
-  assert.equal(getPublicBusinessUrl("demo-store"), "https://hee.sa/demo-store");
+  assert.equal(getPublicBusinessUrl("demo-store"), "https://ir.sa/demo-store");
 });
 
 test("production public links ignore preview-looking and forwarded request hosts", () => {
   assert.equal(
     resolvePublicBusinessUrl("demo-store", "attacker.vercel.app", "https", true),
-    "https://hee.sa/demo-store",
+    "https://ir.sa/demo-store",
   );
   assert.equal(
     resolvePublicBusinessUrl("demo-store", "localhost:3000", "http", true),
-    "https://hee.sa/demo-store",
+    "https://ir.sa/demo-store",
   );
 });
 
@@ -34,7 +34,7 @@ test("non-production previews remain usable only on explicitly allowed preview h
   );
   assert.equal(
     resolvePublicBusinessUrl("demo-store", "evil.example", "https", false),
-    "https://hee.sa/demo-store",
+    "https://ir.sa/demo-store",
   );
 });
 

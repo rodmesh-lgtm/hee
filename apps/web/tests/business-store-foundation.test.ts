@@ -17,7 +17,7 @@ test("Business Store is a real authenticated dashboard destination", () => {
   assert.match(shell, /"\/dashboard\/business-store": "متجر الأعمال"/);
   assert.match(page, /getCurrentUser/);
   assert.match(page, /getActiveBusinessForUser/);
-  assert.match(page, /https:\/\/hee\.sa\/\$\{business\.slug\}/);
+  assert.match(page, /https:\/\/ir\.sa\/\$\{business\.slug\}/);
 });
 
 test("Business Store draft flow stays isolated from tenant customer orders and subscription billing", () => {

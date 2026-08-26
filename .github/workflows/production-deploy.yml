@@ -30,7 +30,7 @@ jobs:
       VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
       VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
       VERCEL_CLI_VERSION: 59.3.0
-      PRODUCTION_CANONICAL_HOST: hee.sa
+      PRODUCTION_CANONICAL_HOST: ir.sa
       RELEASE_SHA: ${{ github.sha }}
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
       PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
@@ -140,10 +140,10 @@ jobs:
         working-directory: .
         env:
           APP_ENV: production
-          APP_URL: https://hee.sa
-          AUTH_ORIGIN: https://hee.sa
-          NEXT_PUBLIC_APP_URL: https://hee.sa
-          API_URL: https://hee.sa
+          APP_URL: https://ir.sa
+          AUTH_ORIGIN: https://ir.sa
+          NEXT_PUBLIC_APP_URL: https://ir.sa
+          API_URL: https://ir.sa
           PAYMENT_PROVIDER: moyasar
           S3_ALLOW_INSECURE: "false"
         run: node .github/scripts/sync-vercel-production-env.mjs
@@ -196,8 +196,8 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in $(seq 1 30); do
-            if release_json="$(curl --silent --show-error --fail --max-time 10 https://hee.sa/api/release 2>/dev/null)" && \
-               status_json="$(curl --silent --show-error --fail --max-time 10 https://hee.sa/api/maintenance/status 2>/dev/null)"; then
+            if release_json="$(curl --silent --show-error --fail --max-time 10 https://ir.sa/api/release 2>/dev/null)" && \
+               status_json="$(curl --silent --show-error --fail --max-time 10 https://ir.sa/api/maintenance/status 2>/dev/null)"; then
               if node - <<'NODE' "$release_json" "$status_json"
           const release = JSON.parse(process.argv[2]);
           const status = JSON.parse(process.argv[3]);
@@ -209,7 +209,7 @@ jobs:
             fi
             sleep 10
           done
-          echo "hee.sa did not converge to exact non-maintenance production release ${GITHUB_SHA}"
+          echo "ir.sa did not converge to exact non-maintenance production release ${GITHUB_SHA}"
           exit 1
 
       - name: Verify baseline customer surfaces after canonical promotion
@@ -220,7 +220,7 @@ jobs:
           for path in / /register /login /terms /privacy /contact /demo; do
             passed=false
             for attempt in 1 2 3; do
-              code="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' --max-time 20 "https://hee.sa${path}" || true)"
+              code="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' --max-time 20 "https://ir.sa${path}" || true)"
               case "$code" in 200|301|302|303|307|308) passed=true; break ;; esac
               sleep 3
             done
@@ -242,7 +242,7 @@ jobs:
             "https://api.vercel.com/v13/deployments/${PRODUCTION_CANONICAL_HOST}?teamId=${VERCEL_ORG_ID}")"
           current_id="$(node -e 'const body=JSON.parse(process.argv[1]);process.stdout.write(String(body.id??""));' "$current_json")"
           test "$current_id" = "$previous_id" || (echo "Rollback resolved ${current_id:-unknown}, expected ${previous_id}" && exit 1)
-          curl --silent --show-error --fail --max-time 20 https://hee.sa/ >/dev/null
+          curl --silent --show-error --fail --max-time 20 https://ir.sa/ >/dev/null
           echo "production-rollback: PASS restored ${previous_id}"
 
       - name: Deployment summary

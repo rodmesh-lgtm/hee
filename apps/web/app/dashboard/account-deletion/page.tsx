@@ -39,7 +39,7 @@ export default async function AccountDeletionPage({ searchParams }: { searchPara
 
     <section className="rounded-[24px] border border-[#e8e5f2] bg-white p-4 sm:p-5">
       <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#6543ce]" /><h2 className="font-black text-[#1f2552]">المنشآت المشمولة</h2></div>
-      <div className="mt-3 space-y-2">{businesses.length ? businesses.map((business) => <div key={business.id} className="rounded-xl border border-[#eeecf5] bg-[#faf9fd] px-3 py-2"><b className="block text-sm text-[#252a4a]">{business.name}</b><span className="text-[11px] text-slate-400">hee.sa/{business.slug}{business.isPublished ? " · منشورة حاليًا" : " · غير منشورة"}</span></div>) : <p className="text-sm text-slate-400">لا توجد منشآت نشطة، وسيشمل الحذف حساب المستخدم نفسه.</p>}</div>
+      <div className="mt-3 space-y-2">{businesses.length ? businesses.map((business) => <div key={business.id} className="rounded-xl border border-[#eeecf5] bg-[#faf9fd] px-3 py-2"><b className="block text-sm text-[#252a4a]">{business.name}</b><span className="text-[11px] text-slate-400">ir.sa/{business.slug}{business.isPublished ? " · منشورة حاليًا" : " · غير منشورة"}</span></div>) : <p className="text-sm text-slate-400">لا توجد منشآت نشطة، وسيشمل الحذف حساب المستخدم نفسه.</p>}</div>
     </section>
 
     <section className="rounded-[24px] border border-rose-200 bg-white p-4 sm:p-5">

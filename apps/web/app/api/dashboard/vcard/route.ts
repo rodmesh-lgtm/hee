@@ -18,7 +18,7 @@ export async function GET() {
     business.phone ? `TEL;TYPE=WORK,VOICE:${escapeVCard(business.phone)}` : "",
     business.whatsapp ? `TEL;TYPE=CELL:${escapeVCard(business.whatsapp)}` : "",
     business.email ? `EMAIL;TYPE=WORK:${escapeVCard(business.email)}` : "",
-    `URL:https://hee.sa/${encodeURIComponent(business.slug)}`,
+    `URL:https://ir.sa/${encodeURIComponent(business.slug)}`,
     address.some(Boolean) ? `ADR;TYPE=WORK:;;${address[0]};${address[1]};${address[2]};;${address[3]}` : "",
     business.shortDescription ? `NOTE:${escapeVCard(business.shortDescription)}` : "",
     "END:VCARD",

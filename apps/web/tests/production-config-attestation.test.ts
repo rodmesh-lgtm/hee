@@ -19,7 +19,7 @@ function baseEnv() {
     RESTORE_DATABASE_URL: "postgresql://hee:secret@restore.example.com:5432/hee_restore?sslmode=verify-full",
     PG_POOL_MAX: "2",
     RESEND_API_KEY: "re_live_example",
-    HEE_FROM_EMAIL: "HEE <noreply@hee.sa>",
+    HEE_FROM_EMAIL: "HEE <noreply@ir.sa>",
     MOYASAR_PUBLISHABLE_KEY: "pk_live_example",
     MOYASAR_SECRET_KEY: "sk_live_example",
     MOYASAR_WEBHOOK_SECRET: "webhook-secret-example-123456789",
@@ -75,7 +75,7 @@ test("scoped Production attestation detects drift without exposing values", () =
       assert.equal(verified.status, 0, `${scope}: ${verified.stderr}`);
     }
 
-    const releaseDrift = { ...env, HEE_FROM_EMAIL: "Other <other@hee.sa>" };
+    const releaseDrift = { ...env, HEE_FROM_EMAIL: "Other <other@ir.sa>" };
     assert.notEqual(run(["verify", "release-core", path], releaseDrift).status, 0);
     assert.equal(run(["verify", "migration-core", path], releaseDrift).status, 0);
     assert.equal(run(["verify", "worker-host", path], releaseDrift).status, 0);

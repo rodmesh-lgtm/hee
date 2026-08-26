@@ -615,7 +615,7 @@ async function submitAttempt(sub: DueSubscription, billing: RenewalAttempt) {
       token: decryptProviderToken(encryptedToken),
       amount: billing.amount,
       description: "HEE subscription renewal",
-      callbackUrl: "https://hee.sa/dashboard/billing/manage",
+      callbackUrl: "https://ir.sa/dashboard/billing/manage",
       metadata: { hee_billing_id: billing.id, hee_business_id: sub.businessId },
     });
     return await resolveProviderState(sub, billing, payment);

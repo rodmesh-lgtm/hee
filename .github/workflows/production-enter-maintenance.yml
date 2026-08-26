@@ -30,7 +30,7 @@ jobs:
       VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
       VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
       VERCEL_CLI_VERSION: 59.3.0
-      PRODUCTION_CANONICAL_HOST: hee.sa
+      PRODUCTION_CANONICAL_HOST: ir.sa
       RELEASE_SHA: ${{ github.sha }}
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
       PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
@@ -111,10 +111,10 @@ jobs:
         working-directory: .
         env:
           APP_ENV: production
-          APP_URL: https://hee.sa
-          AUTH_ORIGIN: https://hee.sa
-          NEXT_PUBLIC_APP_URL: https://hee.sa
-          API_URL: https://hee.sa
+          APP_URL: https://ir.sa
+          AUTH_ORIGIN: https://ir.sa
+          NEXT_PUBLIC_APP_URL: https://ir.sa
+          API_URL: https://ir.sa
           PAYMENT_PROVIDER: moyasar
           S3_ALLOW_INSECURE: "false"
         run: node .github/scripts/sync-vercel-production-env.mjs
@@ -169,7 +169,7 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in $(seq 1 30); do
-            if status_json="$(curl --silent --show-error --fail --max-time 10 https://hee.sa/api/maintenance/status 2>/dev/null)"; then
+            if status_json="$(curl --silent --show-error --fail --max-time 10 https://ir.sa/api/maintenance/status 2>/dev/null)"; then
               maintenance="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.maintenance===true));' "$status_json")"
               release_sha="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.releaseSha??""));' "$status_json")"
               release_env="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.environment??""));' "$status_json")"
@@ -178,7 +178,7 @@ jobs:
             if [ "$attempt" = "30" ]; then echo "Canonical maintenance status did not converge"; exit 1; fi
             sleep 10
           done
-          code="$(curl --silent --show-error --output /tmp/hee-canonical-maintenance.html --write-out '%{http_code}' --max-time 20 https://hee.sa/)"
+          code="$(curl --silent --show-error --output /tmp/hee-canonical-maintenance.html --write-out '%{http_code}' --max-time 20 https://ir.sa/)"
           test "$code" = "503" || (echo "Canonical homepage is not blocked by maintenance (HTTP ${code})" && exit 1)
           grep -q 'صيانة مجدولة' /tmp/hee-canonical-maintenance.html || (echo "Canonical maintenance page body is missing" && exit 1)
 
@@ -245,7 +245,7 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          status_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/maintenance/status)"
+          status_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/maintenance/status)"
           node -e 'const b=JSON.parse(process.argv[1]);if(b.maintenance!==true||b.releaseSha!==process.env.GITHUB_SHA||b.environment!=="production")process.exit(1);' "$status_json"
           ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes "${HETZNER_USER}@${HETZNER_HOST}" \
             "test -f /etc/hee/maintenance.lock && ! sudo -n systemctl is-active --quiet hee-billing-renew.timer && ! sudo -n systemctl is-active --quiet hee-billing-renew.service"

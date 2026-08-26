@@ -24,13 +24,13 @@ function safeEqual(left: string, right: string) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 function safeAppOrigin(request: Request) {
-  if (process.env.VERCEL_ENV === "production") return "https://hee.sa";
+  if (process.env.VERCEL_ENV === "production") return "https://ir.sa";
   try {
     const origin = new URL(request.url);
     const host = origin.hostname.toLowerCase();
-    const allowed = host === "localhost" || host === "127.0.0.1" || host.endsWith(".vercel.app") || host.endsWith(".app.github.dev") || host === "hee.sa" || host === "www.hee.sa";
-    return allowed ? origin.origin : "https://hee.sa";
-  } catch { return "https://hee.sa"; }
+    const allowed = host === "localhost" || host === "127.0.0.1" || host.endsWith(".vercel.app") || host.endsWith(".app.github.dev") || host === "ir.sa" || host === "www.ir.sa";
+    return allowed ? origin.origin : "https://ir.sa";
+  } catch { return "https://ir.sa"; }
 }
 function errorRedirect(request: Request, code: string, registration = false) {
   return NextResponse.redirect(new URL(`/${registration ? "register" : "login"}?oauth=${encodeURIComponent(code)}`, safeAppOrigin(request)));

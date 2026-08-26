@@ -50,7 +50,7 @@ test("production maintenance is staged and proven before canonical promotion", (
   assert.match(workflow, /curl \/api\/public\/orders --deployment/);
   assert.match(workflow, /test "\$ui_code" = "503"/);
   assert.match(workflow, /test "\$write_code" = "503"/);
-  assert.match(workflow, /https:\/\/hee\.sa\/api\/maintenance\/status/);
+  assert.match(workflow, /https:\/\/ir\.sa\/api\/maintenance\/status/);
   assert.match(workflow, /test "\$code" = "503"/);
   assert.match(workflow, /ConditionPathExists=!\/etc\/hee\/maintenance\.lock/);
   assert.match(workflow, /systemctl disable --now hee-billing-renew\.timer/);
@@ -77,7 +77,7 @@ test("production migrations reject textual write-pause confirmation without live
 
   assert.match(workflow, /PRODUCTION_WRITES_PAUSED/);
   assert.match(workflow, /production-enter-maintenance\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
-  assert.match(workflow, /https:\/\/hee\.sa\/api\/maintenance\/status/);
+  assert.match(workflow, /https:\/\/ir\.sa\/api\/maintenance\/status/);
   assert.match(workflow, /release_sha" = "\$GITHUB_SHA/);
   assert.match(workflow, /test "\$code" = "503"/);
   assert.match(workflow, /test -f \/etc\/hee\/maintenance\.lock/);

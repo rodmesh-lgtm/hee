@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const site = SITE_MESSAGES[locale];
   return {
-    metadataBase: new URL("https://hee.sa"),
+    metadataBase: new URL("https://ir.sa"),
     title: { default: site.title, template: "%s | HEE" },
     description: site.description,
     keywords: site.keywords,
@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title: site.title,
       description: site.description,
-      url: "https://hee.sa",
+      url: "https://ir.sa",
       siteName: "HEE",
       locale: site.ogLocale,
       type: "website",

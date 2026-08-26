@@ -63,5 +63,5 @@ const demoBusiness: DemoBusiness = {
 };
 
 export default function DemoPage() {
-  return <PublicBusinessPageV10Light business={demoBusiness} qrDataUrl="" publicUrl="https://hee.sa/demo" demoMode />;
+  return <PublicBusinessPageV10Light business={demoBusiness} qrDataUrl="" publicUrl="https://ir.sa/demo" demoMode />;
 }

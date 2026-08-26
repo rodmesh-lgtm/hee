@@ -13,7 +13,7 @@ export default async function BusinessStorePage() {
   if (!business) redirect("/onboarding");
 
   const [catalog] = await Promise.all([listBusinessStoreCatalogItems()]);
-  const publicUrl = `https://hee.sa/${business.slug}`;
+  const publicUrl = `https://ir.sa/${business.slug}`;
   const identityReady = Boolean(business.logoUrl && business.name && business.slug);
 
   return <div className="space-y-4 pb-4">

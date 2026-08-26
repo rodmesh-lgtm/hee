@@ -27,10 +27,10 @@ jobs:
         working-directory: apps/web
     env:
       APP_ENV: production
-      APP_URL: https://hee.sa
-      AUTH_ORIGIN: https://hee.sa
-      NEXT_PUBLIC_APP_URL: https://hee.sa
-      API_URL: https://hee.sa
+      APP_URL: https://ir.sa
+      AUTH_ORIGIN: https://ir.sa
+      NEXT_PUBLIC_APP_URL: https://ir.sa
+      API_URL: https://ir.sa
       RELEASE_SHA: ${{ github.sha }}
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
       PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
@@ -102,7 +102,7 @@ jobs:
       - name: Audit immutable production launch configuration
         run: npm run launch:config-audit
 
-      - name: Verify Resend hee.sa sending domain
+      - name: Verify Resend ir.sa sending domain
         working-directory: .
         run: |
           set -euo pipefail
@@ -112,14 +112,14 @@ jobs:
           node -e '
             const body = JSON.parse(process.argv[1]);
             const domains = Array.isArray(body.data) ? body.data : [];
-            const domain = domains.find((item) => String(item?.name ?? "").toLowerCase() === "hee.sa");
+            const domain = domains.find((item) => String(item?.name ?? "").toLowerCase() === "ir.sa");
             if (!domain || String(domain.status ?? "").toLowerCase() !== "verified") {
-              console.error("Resend hee.sa domain is missing or not verified");
+              console.error("Resend ir.sa domain is missing or not verified");
               process.exit(1);
             }
             const sending = String(domain?.capabilities?.sending ?? "enabled").toLowerCase();
             if (sending !== "enabled") {
-              console.error("Resend hee.sa sending capability is not enabled");
+              console.error("Resend ir.sa sending capability is not enabled");
               process.exit(1);
             }
           ' "$domains_json"
@@ -134,17 +134,17 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          release_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/release)"
+          release_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/release)"
           release_sha="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.releaseSha ?? ""));' "$release_json")"
           release_env="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.environment ?? ""));' "$release_json")"
-          test "$release_sha" = "$GITHUB_SHA" || (echo "Canonical hee.sa serves ${release_sha:-unknown}, expected exact release ${GITHUB_SHA}" && exit 1)
+          test "$release_sha" = "$GITHUB_SHA" || (echo "Canonical ir.sa serves ${release_sha:-unknown}, expected exact release ${GITHUB_SHA}" && exit 1)
           test "$release_env" = "production" || (echo "Canonical release endpoint is not reporting production environment" && exit 1)
 
       - name: Verify canonical exact-SHA public paid launch state
         working-directory: .
         run: |
           set -euo pipefail
-          launch_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/billing/launch-status)"
+          launch_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/billing/launch-status)"
           node - <<'NODE' "$launch_json"
           const launch = JSON.parse(process.argv[2]);
           if (launch.releaseSha !== process.env.GITHUB_SHA) throw new Error("Canonical billing launch SHA differs from Final Readiness SHA");
@@ -157,7 +157,7 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          readiness_json="$(curl --silent --show-error --fail --max-time 20 https://hee.sa/api/health/ready)"
+          readiness_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/health/ready)"
           ready="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.ready === true));' "$readiness_json")"
           test "$ready" = "true" || (echo "Canonical production runtime reports not ready" && exit 1)
 
@@ -166,7 +166,7 @@ jobs:
         run: |
           set -euo pipefail
           for path in / /register /login /terms /privacy /contact /demo; do
-            code="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' --max-time 20 "https://hee.sa${path}")"
+            code="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' --max-time 20 "https://ir.sa${path}")"
             case "$code" in
               200|301|302|303|307|308) ;;
               *) echo "Canonical customer surface ${path} returned HTTP ${code}"; exit 1 ;;
@@ -178,7 +178,7 @@ jobs:
         run: |
           set -euo pipefail
           headers="$(mktemp)"
-          curl --silent --show-error --location --dump-header "$headers" --output /dev/null --max-time 20 https://hee.sa/
+          curl --silent --show-error --location --dump-header "$headers" --output /dev/null --max-time 20 https://ir.sa/
           grep -qi '^strict-transport-security:' "$headers" || (echo "Missing HSTS on canonical production origin" && exit 1)
           grep -qi '^content-security-policy:' "$headers" || (echo "Missing CSP on canonical production origin" && exit 1)
           if grep -qi '^x-robots-tag:.*noindex' "$headers"; then

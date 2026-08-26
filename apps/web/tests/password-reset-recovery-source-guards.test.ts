@@ -27,7 +27,7 @@ test("successful password reset revokes existing sessions and stale ownership to
 });
 
 test("password reset links use a trusted environment-specific origin and provider calls are bounded", () => {
-  assert.match(reset, /vercelEnv === "production"[\s\S]*return "https:\/\/hee\.sa"/);
+  assert.match(reset, /vercelEnv === "production"[\s\S]*return "https:\/\/ir\.sa"/);
   assert.match(reset, /vercelEnv === "preview"/);
   assert.match(reset, /process\.env\.VERCEL_URL/);
   assert.match(reset, /process\.env\.VERCEL_BRANCH_URL/);

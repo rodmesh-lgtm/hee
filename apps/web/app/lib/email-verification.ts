@@ -31,11 +31,8 @@ function trustedVerificationOrigin(candidate: string, allowedSuffixes: string[])
 
 function verificationOrigin() {
   const vercelEnv = String(process.env.VERCEL_ENV ?? "").toLowerCase();
-  if (vercelEnv === "production" || (!vercelEnv && process.env.NODE_ENV === "production")) return "https://hee.sa";
+  if (vercelEnv === "production" || (!vercelEnv && process.env.NODE_ENV === "production")) return "https://ir.sa";
 
-  // Verification links issued by Preview must remain on the Preview deployment.
-  // Shared NEXT_PUBLIC_SITE_URL/AUTH_ORIGIN values can point at Production and caused
-  // RC verification emails to open hee.sa, where the preview-only route returned 404.
   if (vercelEnv === "preview") {
     return trustedVerificationOrigin(String(process.env.VERCEL_URL ?? ""), ["vercel.app"])
       || trustedVerificationOrigin(String(process.env.VERCEL_BRANCH_URL ?? ""), ["vercel.app"]);

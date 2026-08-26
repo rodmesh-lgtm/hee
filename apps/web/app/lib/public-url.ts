@@ -27,7 +27,7 @@ export function isValidPublicSlug(value: string) {
   return true;
 }
 
-export function getCanonicalPublicBaseUrl() { return "https://hee.sa"; }
+export function getCanonicalPublicBaseUrl() { return "https://ir.sa"; }
 export function getPublicBusinessUrl(slug: string) { return `${getCanonicalPublicBaseUrl()}/${normalizePublicSlug(slug)}`; }
 
 function isProductionRuntime() {

@@ -109,7 +109,7 @@ jobs:
           if (!/^\d+$/.test(poolRaw) || Number(poolRaw) < 1 || Number(poolRaw) > 5) throw new Error('PG_POOL_MAX must be an integer between 1 and 5');
           if (required('PRODUCTION_BACKUP_PASSPHRASE').length < 32) throw new Error('PRODUCTION_BACKUP_PASSPHRASE must be at least 32 characters');
           if (required('SESSION_SECRET').length < 32) throw new Error('SESSION_SECRET must be at least 32 characters');
-          if (!/@hee\.sa(?:>|\s|$)/i.test(required('HEE_FROM_EMAIL'))) throw new Error('HEE_FROM_EMAIL must use hee.sa');
+          if (!/@ir\.sa(?:>|\s|$)/i.test(required('HEE_FROM_EMAIL'))) throw new Error('HEE_FROM_EMAIL must use ir.sa');
           if (!required('MOYASAR_PUBLISHABLE_KEY').startsWith('pk_live_')) throw new Error('Moyasar publishable key must be live');
           if (!required('MOYASAR_SECRET_KEY').startsWith('sk_live_')) throw new Error('Moyasar secret key must be live');
           if (required('MOYASAR_WEBHOOK_SECRET').length < 24) throw new Error('MOYASAR_WEBHOOK_SECRET is too short');
@@ -160,7 +160,7 @@ jobs:
             if (String(body.accountId ?? "") !== process.env.VERCEL_ORG_ID) throw new Error("Vercel project belongs to an unexpected team");
           ' "$project_json"
 
-      - name: Verify Resend hee.sa domain and API credential
+      - name: Verify Resend ir.sa domain and API credential
         run: |
           set -euo pipefail
           domains_json="$(curl --silent --show-error --fail --max-time 20 \
@@ -169,7 +169,7 @@ jobs:
           node -e '
             const body = JSON.parse(process.argv[1]);
             const domains = Array.isArray(body.data) ? body.data : [];
-            const domain = domains.find((item) => String(item?.name ?? "").toLowerCase() === "hee.sa");
+            const domain = domains.find((item) => String(item?.name ?? "").toLowerCase() === "ir.sa");
             if (!domain || String(domain.status ?? "").toLowerCase() !== "verified") process.exit(1);
             if (String(domain?.capabilities?.sending ?? "enabled").toLowerCase() !== "enabled") process.exit(1);
           ' "$domains_json"

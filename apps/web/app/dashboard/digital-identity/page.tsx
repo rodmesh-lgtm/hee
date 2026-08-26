@@ -11,7 +11,7 @@ export default async function DigitalIdentityPage({ searchParams }: { searchPara
   const user = await getCurrentUser(); if (!user) redirect("/login");
   const business = await getActiveBusinessForUser(user.id); if (!business) redirect("/onboarding");
   const params = await searchParams; const profile = Array.isArray(params?.profile) ? params?.profile[0] : params?.profile; const presence = Array.isArray(params?.presence) ? params?.presence[0] : params?.presence;
-  const publicUrl = `https://hee.sa/${business.slug}`; const socialReady = Boolean(business.instagramUrl || business.xUrl || business.tiktokUrl || business.snapchatUrl || business.facebookUrl);
+  const publicUrl = `https://ir.sa/${business.slug}`; const socialReady = Boolean(business.instagramUrl || business.xUrl || business.tiktokUrl || business.snapchatUrl || business.facebookUrl);
   const identityChecks = [
     { label: "شعار المنشأة", ok: Boolean(business.logoUrl) }, { label: "وصف واضح", ok: Boolean(business.shortDescription || business.description) }, { label: "وسيلة تواصل", ok: Boolean(business.whatsapp || business.phone || business.email || business.website) }, { label: "موقع المنشأة", ok: Boolean(business.city || business.address || business.googleMapsLink) }, { label: "موقع إلكتروني", ok: Boolean(business.website) }, { label: "شبكة اجتماعية", ok: socialReady }, { label: "تهيئة SEO", ok: Boolean(business.metaTitle || business.metaDescription) }, { label: "الملف التعريفي PDF", ok: Boolean(business.companyProfileUrl) }, { label: "الصفحة منشورة", ok: Boolean(business.isPublished && user.emailVerifiedAt) },
   ]; const complete = identityChecks.filter((item) => item.ok).length;
