@@ -2,7 +2,7 @@ name: Production First Database Bootstrap
 
 on:
   issues:
-    types: [opened]
+    types: [opened, reopened]
 
 permissions:
   contents: read
@@ -95,7 +95,8 @@ jobs:
           expected="$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
           applied="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'SELECT COUNT(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL')"
           [[ "$applied" == "$expected" ]] || { echo "Migration count mismatch expected=${expected} applied=${applied}"; exit 1; }
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT to_regclass('public.\"User\"'), to_regclass('public.\"LegalConsent\"'), to_regclass('public.\"RequestRateLimit\"'), to_regclass('public.\"BillingOperationsHeartbeat\"')" | grep -q 'User'
+          critical="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT COUNT(*) FROM (VALUES (to_regclass('public.\"User\"')), (to_regclass('public.\"LegalConsent\"')), (to_regclass('public.\"RequestRateLimit\"')), (to_regclass('public.\"BillingOperationsHeartbeat\"'))) AS t(r) WHERE r IS NOT NULL")"
+          [[ "$critical" == "4" ]] || { echo "Critical schema verification failed count=${critical}"; exit 1; }
           plans="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'SELECT COUNT(*) FROM "BusinessPlan" WHERE code IN ('"'"'FREE'"'"','"'"'BUSINESS'"'"','"'"'PRO'"'"')')"
           [[ "$plans" == "3" ]] || { echo "Canonical plan seed incomplete count=${plans}"; exit 1; }
           demo="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "SELECT COUNT(*) FROM \"User\" WHERE email='demo.preview@hee.local'")"
