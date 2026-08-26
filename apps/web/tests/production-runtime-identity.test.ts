@@ -53,13 +53,17 @@ test("critical auth, tenant, database and readiness boundaries use the shared Pr
   const activeBusiness = source("app/actions/active-business.ts");
   const prisma = source("lib/prisma.ts");
   const maintenance = source("app/api/maintenance/status/route.ts");
+  const webReadiness = source("app/lib/production-runtime-readiness.ts");
+  const webReadyRoute = source("app/api/health/web-ready/route.ts");
   const ready = source("app/api/health/ready/route.ts");
 
   assert.match(auth, /allowLegacyPlaintextSessions\(\) \{ return isExplicitTestRuntime\(\); \}/);
   assert.match(activeBusiness, /!isExplicitTestRuntime\(\)/);
   assert.match(prisma, /isProductionRuntime\(\) \? "2" : "5"/);
   assert.match(maintenance, /return isProductionRuntime\(\)/);
-  assert.match(ready, /if \(!isProductionRuntime\(\)\) return false/);
+  assert.match(webReadiness, /if \(!isProductionRuntime\(\)\) return null/);
+  assert.match(webReadyRoute, /productionWebRuntimeReleaseSha\(\)/);
+  assert.match(ready, /productionWebRuntimeReleaseSha\(\)/);
 });
 
 test("critical runtime files no longer derive Production or test trust from APP_ENV alone", () => {
@@ -73,6 +77,8 @@ test("critical runtime files no longer derive Production or test trust from APP_
     "app/actions/active-business.ts",
     "lib/prisma.ts",
     "app/api/maintenance/status/route.ts",
+    "app/lib/production-runtime-readiness.ts",
+    "app/api/health/web-ready/route.ts",
     "app/api/health/ready/route.ts",
   ]) {
     assert.doesNotMatch(source(path), /APP_ENV[^\n]*===\s*["']production["']/);

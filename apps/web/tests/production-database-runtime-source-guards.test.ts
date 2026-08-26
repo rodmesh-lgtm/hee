@@ -20,14 +20,16 @@ test("production web runtime uses a deliberately small per-isolate PostgreSQL po
 
 test("production gates require an explicit reviewed PostgreSQL connection budget", () => {
   const audit = source("scripts/launch-config-audit.ts");
+  const webReadiness = source("app/lib/production-runtime-readiness.ts");
   const ready = source("app/api/health/ready/route.ts");
   const launch = source("../../.github/workflows/production-launch-readiness.yml");
   const preflight = source("../../.github/workflows/production-preflight-v2.yml");
 
   assert.match(audit, /required\("PG_POOL_MAX"\)/);
   assert.match(audit, /PG_POOL_MAX must be between 1 and 5/);
-  assert.match(ready, /function productionPoolReady\(\)/);
-  assert.match(ready, /value >= 1 && value <= 5/);
+  assert.match(webReadiness, /function productionPoolReady\(\)/);
+  assert.match(webReadiness, /value >= 1 && value <= 5/);
+  assert.match(ready, /productionWebRuntimeReleaseSha\(\)/);
   assert.match(launch, /PG_POOL_MAX: \$\{\{ vars\.PRODUCTION_PG_POOL_MAX \}\}/);
   assert.match(preflight, /PG_POOL_MAX: \$\{\{ vars\.PRODUCTION_PG_POOL_MAX \}\}/);
   assert.match(preflight, /PG_POOL_MAX must be an integer between 1 and 5/);

@@ -52,6 +52,7 @@ test("scheduled billing operations recover webhooks, renew, audit state, then re
   const baseMigration = source("prisma/migrations/20260822050000_billing_operations_heartbeat/migration.sql");
   const releaseMigration = source("prisma/migrations/20260822111500_billing_worker_release_provenance/migration.sql");
   const schema = source("prisma/schema.prisma");
+  const webReadiness = source("app/lib/production-runtime-readiness.ts");
   const ready = source("app/api/health/ready/route.ts");
   const launch = source("../../.github/workflows/production-launch-readiness.yml");
   const runbook = source("../../docs/HETZNER_BILLING_RUNBOOK.md");
@@ -66,8 +67,11 @@ test("scheduled billing operations recover webhooks, renew, audit state, then re
   assert.match(baseMigration, /BillingOperationsHeartbeat/);
   assert.match(releaseMigration, /ADD COLUMN "releaseSha" TEXT/);
   assert.match(schema, /releaseSha String\?/);
+  assert.match(webReadiness, /function runtimeReleaseSha\(\)/);
+  assert.match(webReadiness, /VERCEL_GIT_COMMIT_SHA \?\? process\.env\.RELEASE_SHA/);
+  assert.match(ready, /productionWebRuntimeReleaseSha\(\)/);
   assert.match(ready, /heartbeat\.releaseSha/);
-  assert.match(ready, /runtimeReleaseSha/);
+  assert.match(ready, /!== releaseSha/);
   assert.match(launch, /RELEASE_SHA: \$\{\{ github\.sha \}\}/);
   assert.match(runbook, /BILLING_OPERATIONS_READY=true/);
   assert.match(runbook, /durable Moyasar webhook inbox/);

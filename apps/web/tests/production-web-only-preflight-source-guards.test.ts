@@ -7,6 +7,7 @@ import test from "node:test";
 const root = resolve(process.cwd(), "../..");
 const auditPath = resolve(root, ".github/scripts/production-config-presence-audit.mjs");
 const preflight = readFileSync(resolve(root, ".github/workflows/production-preflight-v2.yml"), "utf8");
+const sync = readFileSync(resolve(root, ".github/scripts/sync-vercel-production-env.mjs"), "utf8");
 const paid = readFileSync(resolve(root, ".github/workflows/production-open-paid-checkout.yml"), "utf8");
 
 function webOnlyEnv() {
@@ -65,6 +66,16 @@ test("Moyasar preflight probe is conditional with billing operations", () => {
   assert.match(segment, /PRODUCTION_BILLING_RENEWAL_ENABLED/);
   assert.match(segment, /PRODUCTION_BILLING_OPERATIONS_READY/);
   assert.match(preflight, /const billingRequired = billingRenewalEnabled \|\| billingOperationsReady/);
+});
+
+test("Vercel Production environment sync keeps billing credentials fail-closed but optional for web-only cutover", () => {
+  assert.match(sync, /const billingRequired = enabled\("BILLING_RENEWAL_ENABLED"\) \|\| enabled\("BILLING_OPERATIONS_READY"\)/);
+  assert.match(sync, /if \(billingRequired\) \{[\s\S]*required\("MOYASAR_PUBLISHABLE_KEY"\)[\s\S]*required\("BILLING_TAX_STATUS"\)/);
+  assert.doesNotMatch(sync, /required\("HEE_FROM_EMAIL"\)/);
+  assert.match(sync, /CANONICAL_FROM_EMAIL = "HEE <no-reply@ir\.sa>"/);
+  assert.match(sync, /key: "HEE_FROM_EMAIL", value: CANONICAL_FROM_EMAIL/);
+  assert.match(sync, /key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false"/);
+  assert.match(sync, /key: "BILLING_REHEARSAL_USER_EMAIL", value: ""/);
 });
 
 test("paid checkout summary uses YAML block scalar", () => {

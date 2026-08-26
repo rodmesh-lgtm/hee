@@ -4,6 +4,9 @@ const required = (name) => {
   return value;
 };
 
+const enabled = (name) => String(process.env[name] ?? "").trim().toLowerCase() === "true";
+const CANONICAL_FROM_EMAIL = "HEE <no-reply@ir.sa>";
+
 required("VERCEL_TOKEN");
 required("VERCEL_ORG_ID");
 required("VERCEL_PROJECT_ID");
@@ -13,17 +16,20 @@ required("DATABASE_URL");
 required("PG_POOL_MAX");
 required("SESSION_SECRET");
 required("RESEND_API_KEY");
-required("HEE_FROM_EMAIL");
-required("MOYASAR_PUBLISHABLE_KEY");
-required("MOYASAR_SECRET_KEY");
-required("MOYASAR_WEBHOOK_SECRET");
 required("BILLING_TOKEN_ENCRYPTION_KEY");
-required("BILLING_SELLER_LEGAL_NAME_AR");
-required("BILLING_SELLER_ADDRESS_AR");
-required("BILLING_TAX_STATUS");
 required("BILLING_RENEWAL_ENABLED");
 required("BILLING_OPERATIONS_READY");
 required("STORAGE_DRIVER");
+
+const billingRequired = enabled("BILLING_RENEWAL_ENABLED") || enabled("BILLING_OPERATIONS_READY");
+if (billingRequired) {
+  required("MOYASAR_PUBLISHABLE_KEY");
+  required("MOYASAR_SECRET_KEY");
+  required("MOYASAR_WEBHOOK_SECRET");
+  required("BILLING_SELLER_LEGAL_NAME_AR");
+  required("BILLING_SELLER_ADDRESS_AR");
+  required("BILLING_TAX_STATUS");
+}
 
 // Maintenance and paid-launch modes are deliberately NOT persisted as mutable
 // project-level state. Ordinary Production sync always restores the safe billing
@@ -35,7 +41,7 @@ if (Object.prototype.hasOwnProperty.call(process.env, "PRODUCTION_MAINTENANCE_MO
 
 const plainKeys = [
   "APP_ENV", "APP_URL", "AUTH_ORIGIN", "NEXT_PUBLIC_APP_URL", "API_URL", "RELEASE_SHA",
-  "PG_POOL_MAX", "HEE_FROM_EMAIL", "PAYMENT_PROVIDER",
+  "PG_POOL_MAX", "PAYMENT_PROVIDER",
   "BILLING_SELLER_LEGAL_NAME_AR", "BILLING_SELLER_ADDRESS_AR", "BILLING_TAX_STATUS",
   "BILLING_RENEWAL_ENABLED", "BILLING_OPERATIONS_READY",
   "STORAGE_DRIVER", "S3_ENDPOINT", "S3_REGION", "S3_BUCKET",
@@ -52,6 +58,7 @@ const sensitiveKeys = [
 const entries = [
   ...plainKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "plain", target: ["production"] })),
   ...sensitiveKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "sensitive", target: ["production"] })),
+  { key: "HEE_FROM_EMAIL", value: CANONICAL_FROM_EMAIL, type: "plain", target: ["production"] },
   { key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false", type: "plain", target: ["production"] },
   { key: "BILLING_REHEARSAL_USER_EMAIL", value: "", type: "plain", target: ["production"] },
   { key: "QA_AUDIT_SECRET", value: "", type: "sensitive", target: ["production"] },
@@ -78,4 +85,4 @@ const result = await response.json();
 if (Array.isArray(result?.failed) && result.failed.length) {
   throw new Error(`Vercel production environment sync reported ${result.failed.length} failed entries`);
 }
-console.log(`vercel-production-env-sync: PASS (${entries.length} keys, paid launch defaults closed; values not logged)`);
+console.log(`vercel-production-env-sync: PASS (${entries.length} keys, canonical sender pinned, paid launch defaults closed, billingRequired=${billingRequired}; values not logged)`);

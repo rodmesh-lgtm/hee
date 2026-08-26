@@ -22,7 +22,6 @@ test("Production presence audit enumerates release-critical configuration withou
     "BILLING_TOKEN_ENCRYPTION_KEY",
     "VERCEL_TOKEN",
     "PG_POOL_MAX",
-    "HEE_FROM_EMAIL",
     "BILLING_SELLER_LEGAL_NAME_AR",
     "BILLING_SELLER_ADDRESS_AR",
     "BILLING_TAX_STATUS",
@@ -33,6 +32,9 @@ test("Production presence audit enumerates release-critical configuration withou
   ]) {
     assert.match(audit, new RegExp(`['\"]${name}['\"]`));
   }
+  assert.doesNotMatch(audit, /required[\s\S]*['\"]HEE_FROM_EMAIL['\"]/);
+  assert.match(audit, /CANONICAL_FROM_EMAIL = 'HEE <no-reply@ir\.sa>'/);
+  assert.match(audit, /appendFileSync\(githubEnv, `HEE_FROM_EMAIL=\$\{CANONICAL_FROM_EMAIL\}\\n`/);
   assert.match(audit, /production-config-presence: FAIL missing=/);
   assert.doesNotMatch(audit, /console\.(?:log|error)\([^\n]*(?:process\.env|value\()/);
 });
