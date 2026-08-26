@@ -29,7 +29,7 @@ export function isAdminEmail(email?: string | null) {
 }
 
 export function adminControlOrigin() {
-  const productionOrigin = "https://admin.hee.sa";
+  const productionOrigin = "https://admin.ir.sa";
   if (isProductionRuntime()) return productionOrigin;
   const configured = String(process.env.HEE_ADMIN_ORIGIN ?? "").trim();
   if (configured) {
@@ -76,9 +76,6 @@ export async function getCurrentAdminUser() {
     if (session) await db.session.deleteMany({ where: { token: storedToken } }).catch(() => undefined);
   }
 
-  // Legacy admin workflow fixtures still create only the customer cookie. This
-  // compatibility branch exists solely in the explicit CI runtime. Production and
-  // previews never accept a customer session as administrator authority.
   if (isExplicitTestRuntime()) {
     const user = await getCurrentUser();
     if (user?.emailVerifiedAt && isAdminEmail(user.email) && !(await isQaAuditModeUser(user.id))) return user;
