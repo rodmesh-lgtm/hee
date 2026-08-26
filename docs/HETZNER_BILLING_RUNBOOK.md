@@ -5,9 +5,9 @@ The Moyasar integration is intentionally infrastructure-neutral. Billing uses HT
 ## Production prerequisites
 
 - `APP_ENV=production`
-- `APP_URL=https://hee.sa`
-- `AUTH_ORIGIN=https://hee.sa`
-- `NEXT_PUBLIC_APP_URL=https://hee.sa`
+- `APP_URL=https://ir.sa`
+- `AUTH_ORIGIN=https://ir.sa`
+- `NEXT_PUBLIC_APP_URL=https://ir.sa`
 - `PAYMENT_PROVIDER=moyasar`
 - Moyasar live publishable and secret API keys
 - a strong Moyasar webhook shared secret
@@ -17,7 +17,7 @@ The Moyasar integration is intentionally infrastructure-neutral. Billing uses HT
 - `PAID_CHECKOUT_PUBLIC_ENABLED=false` throughout the controlled live rehearsal
 - `BILLING_REHEARSAL_USER_EMAIL=<verified operator-controlled account>` only for the short rehearsal window
 - PostgreSQL backups and tested restore procedure
-- HTTPS/TLS for `hee.sa`
+- HTTPS/TLS for `ir.sa`
 
 The flags deliberately represent different facts. `BILLING_OPERATIONS_READY` means recovery/renewal operations are healthy. `PAID_CHECKOUT_PUBLIC_ENABLED` means new paid checkout intents are open to every eligible customer. Do not use one as a substitute for the other.
 
@@ -25,7 +25,7 @@ The flags deliberately represent different facts. `BILLING_OPERATIONS_READY` mea
 
 Configure exactly this HTTPS endpoint in the Moyasar dashboard:
 
-`https://hee.sa/api/billing/moyasar/webhook`
+`https://ir.sa/api/billing/moyasar/webhook`
 
 Use a strong `shared_secret` and configure the same value as `MOYASAR_WEBHOOK_SECRET`. Subscribe to payment lifecycle events used by HEE. HEE validates the shared secret and live/test environment before acknowledging payment events. Accepted events are first written to a durable PostgreSQL inbox, then processed asynchronously. Processing re-fetches each payment from Moyasar with the secret API key and checks amount, currency and HEE metadata before changing an entitlement. The recovery worker retries unprocessed inbox rows after transient runtime/provider failures.
 
@@ -113,7 +113,7 @@ The live rehearsal must not require opening payment to all customers.
 1. Set `PAID_CHECKOUT_PUBLIC_ENABLED=false`.
 2. Set `BILLING_REHEARSAL_USER_EMAIL` to one operator-controlled, verified HEE account only.
 3. Ensure `BILLING_RENEWAL_ENABLED=true`, deploy the exact-SHA worker, and run one successful `hee-billing-renew.service` cycle.
-4. Verify the heartbeat SHA exactly matches `https://hee.sa/api/release`.
+4. Verify the heartbeat SHA exactly matches `https://ir.sa/api/release`.
 5. After the heartbeat is fresh and matching, set `BILLING_OPERATIONS_READY=true` and restart/redeploy the production runtime. Only the configured rehearsal account can now create a new paid checkout intent.
 6. From that account, execute exactly one authorized live subscription rehearsal and verify callback, durable webhook inbox, provider re-fetch, entitlement activation, receipt snapshot, cancellation, and the intended renewal/reconciliation behavior.
 7. Confirm the payment ledger and subscription state with `npm run billing:state-audit` and inspect the worker logs.
@@ -131,9 +131,9 @@ Allow outbound HTTPS to `api.moyasar.com`. PostgreSQL should be reachable only o
 
 1. Run `Production Preflight` on the exact green `hee-v6-rc` SHA while paid checkout is closed. It is read-only and must prove Production/restore DB reachability, TLS, Resend, Moyasar, Vercel and required configuration before maintenance.
 2. Pause production writes/workers for schema migration and run the guarded `Production Database Migrations` workflow on that same SHA. It requires explicit migration and write-pause confirmations, creates an encrypted recovery artifact, restores it into a clean `hee_restore*`, proves critical data, applies migrations once, then verifies pre-existing critical data did not change.
-3. Run `Production Web Deploy` for that same SHA with `PAID_CHECKOUT_PUBLIC_ENABLED=false`; confirm `https://hee.sa/api/release` reports the exact SHA.
-4. Verify `https://hee.sa`, registration, login, policies and a public demo/business page over HTTPS.
-5. Configure the Moyasar live webhook at `https://hee.sa/api/billing/moyasar/webhook` using the same production shared secret.
+3. Run `Production Web Deploy` for that same SHA with `PAID_CHECKOUT_PUBLIC_ENABLED=false`; confirm `https://ir.sa/api/release` reports the exact SHA.
+4. Verify `https://ir.sa`, registration, login, policies and a public demo/business page over HTTPS.
+5. Configure the Moyasar live webhook at `https://ir.sa/api/billing/moyasar/webhook` using the same production shared secret.
 6. Run `Production Billing Worker Deploy` for the same SHA, then execute a controlled worker cycle and verify its heartbeat SHA equals the canonical web SHA.
 7. Set `BILLING_OPERATIONS_READY=true` while public checkout remains false and redeploy the same exact web SHA so Runtime sees the reviewed flag.
 8. Configure one temporary `BILLING_REHEARSAL_USER_EMAIL`, redeploy the same SHA, perform the controlled live subscription rehearsal described above, and reconcile its financial state.

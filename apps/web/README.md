@@ -79,7 +79,7 @@ QA audit access is preview-only and read-only. Configure `QA_AUDIT_SECRET` and `
 2. Confirm GitHub RC Quality is green.
 3. Back up the production database and apply pending migrations.
 4. Verify `DATABASE_URL`, OAuth credentials/callbacks, email/reset configuration, storage configuration, and `HEE_ADMIN_EMAILS`.
-5. Verify the canonical production domain is `https://hee.sa`.
+5. Verify the canonical production domain is `https://ir.sa`.
 6. Run `npm run storage:audit` and review orphaned files.
 7. Smoke-test register/login/logout/password reset/OAuth.
 8. Smoke-test onboarding, autosave, preview, publish/unpublish, branding images, services, branches/team, verification requests, upgrades, analytics, and public V10 rendering.
