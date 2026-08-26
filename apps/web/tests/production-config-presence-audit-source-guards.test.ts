@@ -5,6 +5,7 @@ import test from "node:test";
 
 const root = resolve(process.cwd(), "../..");
 const audit = readFileSync(resolve(root, ".github/scripts/production-config-presence-audit.mjs"), "utf8");
+const databaseSafety = readFileSync(resolve(root, ".github/scripts/require-production-database-safety.mjs"), "utf8");
 const preflight = readFileSync(resolve(root, ".github/workflows/production-preflight-v2.yml"), "utf8");
 const cutover = readFileSync(resolve(root, ".github/workflows/production-canonical-cutover-orchestrator.yml"), "utf8");
 
@@ -36,17 +37,19 @@ test("Production presence audit enumerates release-critical configuration withou
   assert.doesNotMatch(audit, /console\.(?:log|error)\([^\n]*(?:process\.env|value\()/);
 });
 
-test("Preflight reports complete missing configuration before database or external probes", () => {
+test("Preflight reaches complete config presence audit before database parsing and external probes", () => {
   const quality = preflight.indexOf("Require content-proven RC Quality for release");
-  const presence = preflight.indexOf("Report complete missing Production configuration before external probes");
-  const databaseSafety = preflight.indexOf("Require verify-full PostgreSQL transport before any database probe");
+  const databaseStep = preflight.indexOf("Require verify-full PostgreSQL transport before any database probe");
   const external = preflight.indexOf("Verify Vercel credential and HEE project read-only");
 
   assert.ok(quality >= 0);
-  assert.ok(presence > quality);
-  assert.ok(databaseSafety > presence);
-  assert.ok(external > databaseSafety);
-  assert.match(preflight, /production-config-presence-audit\.mjs/);
+  assert.ok(databaseStep > quality);
+  assert.ok(external > databaseStep);
+  assert.match(databaseSafety, /import "\.\/production-config-presence-audit\.mjs"/);
+  assert.ok(
+    databaseSafety.indexOf('import "./production-config-presence-audit.mjs"') < databaseSafety.indexOf("parseDatabaseUrl"),
+    "presence audit must execute before database URL parsing",
+  );
 });
 
 test("Canonical cutover completes read-only Preflight before admin-domain mutation and web deploy", () => {
