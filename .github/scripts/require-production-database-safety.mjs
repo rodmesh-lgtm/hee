@@ -6,6 +6,15 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const MANAGED_HEE_NEON_HOST = "ep-delicate-wave-apf0pirn-pooler.c-7.us-east-1.aws.neon.tech";
 const HEE_PRODUCTION_DATABASE = "hee_production";
 const HEE_RESTORE_DATABASE = "hee_restore_production";
+const MANAGED_DATABASE_KEYS = new Set([
+  "DATABASE_URL",
+  "POSTGRES_URL",
+  "POSTGRES_PRISMA_URL",
+  "POSTGRES_URL_NON_POOLING",
+  "POSTGRES_URL_NO_SSL",
+  "NEON_DATABASE_URL",
+  "NEON_POSTGRES_URL",
+]);
 
 function fail(message) {
   console.error(`production-database-safety: FAIL ${message}`);
@@ -38,21 +47,37 @@ function maskAndPersist(name, value) {
   if (githubEnv) fs.appendFileSync(githubEnv, `${name}=${value}\n`, "utf8");
 }
 
-function canonicalManagedUrl(raw, database) {
+function canonicalManagedUrl(raw, database, sourceLabel = "managed database source") {
   const parsed = tryUrl(raw);
   if (!parsed || !new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) {
-    fail("Vercel Production DATABASE_URL must be a PostgreSQL URL");
+    fail(`${sourceLabel} must be a PostgreSQL URL`);
   }
   if (parsed.hostname.toLowerCase() !== MANAGED_HEE_NEON_HOST) {
-    fail("Vercel Production DATABASE_URL does not target the isolated HEE Neon endpoint");
+    fail(`${sourceLabel} does not target the isolated HEE Neon endpoint`);
   }
   if (!parsed.username || !parsed.password) {
-    fail("Vercel Production DATABASE_URL must contain database credentials");
+    fail(`${sourceLabel} must contain database credentials`);
   }
   parsed.pathname = `/${database}`;
   parsed.searchParams.delete("sslmode");
   parsed.searchParams.set("sslmode", "verify-full");
   return parsed.toString();
+}
+
+function productionTarget(item) {
+  const targets = Array.isArray(item?.target) ? item.target.map((value) => String(value).toLowerCase()) : [];
+  return targets.includes("production");
+}
+
+function managedCandidate(item) {
+  const key = String(item?.key ?? "").trim();
+  if (!MANAGED_DATABASE_KEYS.has(key) || !productionTarget(item)) return null;
+  const raw = String(item?.value ?? "").trim();
+  const parsed = tryUrl(raw);
+  if (!parsed || !new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) return null;
+  if (parsed.hostname.toLowerCase() !== MANAGED_HEE_NEON_HOST) return null;
+  if (!parsed.username || !parsed.password) return null;
+  return { key, raw, identity: `${parsed.protocol}//${parsed.username}@${parsed.hostname}:${parsed.port || "5432"}` };
 }
 
 async function resolveProductionDatabaseFromVercel(sourceName, restoreName) {
@@ -70,20 +95,27 @@ async function resolveProductionDatabaseFromVercel(sourceName, restoreName) {
 
   const body = await response.json();
   const envs = Array.isArray(body?.envs) ? body.envs : [];
-  const candidates = envs.filter((item) => {
-    if (String(item?.key ?? "") !== "DATABASE_URL") return false;
-    const targets = Array.isArray(item?.target) ? item.target.map((value) => String(value).toLowerCase()) : [];
-    return targets.includes("production");
-  });
-  if (candidates.length !== 1) {
-    fail(`Vercel must expose exactly one Production DATABASE_URL (found ${candidates.length})`);
+  const candidates = envs.map(managedCandidate).filter(Boolean);
+  if (candidates.length === 0) {
+    const knownKeys = envs
+      .filter((item) => productionTarget(item) && MANAGED_DATABASE_KEYS.has(String(item?.key ?? "").trim()))
+      .map((item) => String(item.key))
+      .sort();
+    fail(`Vercel Production has no valid isolated HEE PostgreSQL credential among managed database keys${knownKeys.length ? ` (present: ${knownKeys.join(", ")})` : ""}`);
   }
 
-  const runtimeUrl = String(candidates[0]?.value ?? "").trim();
-  const source = canonicalManagedUrl(runtimeUrl, HEE_PRODUCTION_DATABASE);
+  const identities = new Set(candidates.map((candidate) => candidate.identity));
+  if (identities.size !== 1) {
+    fail(`Vercel Production exposes multiple distinct isolated HEE database credentials (${candidates.map((candidate) => candidate.key).join(", ")})`);
+  }
+
+  const priority = ["DATABASE_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL", "NEON_DATABASE_URL", "NEON_POSTGRES_URL", "POSTGRES_URL_NON_POOLING", "POSTGRES_URL_NO_SSL"];
+  candidates.sort((a, b) => priority.indexOf(a.key) - priority.indexOf(b.key));
+  const selected = candidates[0];
+  const source = canonicalManagedUrl(selected.raw, HEE_PRODUCTION_DATABASE, `Vercel Production ${selected.key}`);
   maskAndPersist(sourceName, source);
-  if (restoreName) maskAndPersist(restoreName, canonicalManagedUrl(runtimeUrl, HEE_RESTORE_DATABASE));
-  console.log("production-database-runtime-source: PASS Vercel Production environment");
+  if (restoreName) maskAndPersist(restoreName, canonicalManagedUrl(selected.raw, HEE_RESTORE_DATABASE, `Vercel Production ${selected.key}`));
+  console.log(`production-database-runtime-source: PASS key=${selected.key} candidates=${candidates.length}`);
 }
 
 function canonicalizeManagedHeeDatabases(sourceName, restoreName) {
