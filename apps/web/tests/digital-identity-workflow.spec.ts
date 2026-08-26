@@ -52,7 +52,7 @@ test("digital identity assets, presence and public access follow ownership and p
     const vcardText = await vcard.text();
     expect(vcardText).toContain("BEGIN:VCARD");
     expect(vcardText).toContain("منشأة الهوية الرقمية");
-    expect(vcardText).toContain(`https://hee.sa/${business.slug}`);
+    expect(vcardText).toContain(`https://ir.sa/${business.slug}`);
 
     await page.getByRole("button", { name: "حفظ الحضور الرقمي" }).click();
     await expect(page.getByText("تم حفظ الحضور الرقمي.")).toBeVisible({ timeout: 20_000 });
