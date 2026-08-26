@@ -1,0 +1,66 @@
+name: Round 130 Apply Production Readiness Patch
+
+on:
+  pull_request:
+    branches: [hee-v6-rc]
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.number == 142 && github.head_ref == 'round-130-production-config-inventory'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: round-130-production-config-inventory
+          fetch-depth: 1
+
+      - name: Patch release ordering and remove temporary workflows
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          preflight = Path('.github/workflows/production-preflight-v2.yml')
+          text = preflight.read_text()
+          anchor = '''      - name: Require verify-full PostgreSQL transport before any database probe\n'''
+          insertion = '''      - name: Report complete missing Production configuration before external probes\n        run: node .github/scripts/production-config-presence-audit.mjs\n\n'''
+          if insertion not in text:
+              if anchor not in text:
+                  raise SystemExit('preflight insertion anchor missing')
+              text = text.replace(anchor, insertion + anchor, 1)
+          preflight.write_text(text)
+
+          cutover = Path('.github/workflows/production-canonical-cutover-orchestrator.yml')
+          text = cutover.read_text()
+          admin_marker = '      - name: Ensure central admin domain is registered and DNS-ready\n'
+          preflight_dispatch = '      - name: Dispatch exact-head Production Preflight V2\n'
+          head_proof = '      - name: Re-prove unchanged release head before Production mutation\n'
+          admin_start = text.find(admin_marker)
+          dispatch_start = text.find(preflight_dispatch)
+          if admin_start < 0 or dispatch_start < 0 or admin_start > dispatch_start:
+              raise SystemExit('canonical cutover source no longer matches expected preflight/admin order')
+          admin_block = text[admin_start:dispatch_start]
+          text = text[:admin_start] + text[dispatch_start:]
+          insert_at = text.find(head_proof)
+          if insert_at < 0:
+              raise SystemExit('canonical cutover head-proof anchor missing')
+          text = text[:insert_at] + admin_block + text[insert_at:]
+          cutover.write_text(text)
+
+          Path('.github/workflows/round-130-production-config-inventory.yml').unlink()
+          Path('.github/workflows/round-130-apply.yml').unlink()
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/production-preflight-v2.yml \
+                  .github/workflows/production-canonical-cutover-orchestrator.yml \
+                  .github/workflows/round-130-production-config-inventory.yml \
+                  .github/workflows/round-130-apply.yml
+          git diff --cached --check
+          git commit -m "fix(production): audit config before cutover mutations"
+          git push origin HEAD:round-130-production-config-inventory
