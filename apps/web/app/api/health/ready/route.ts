@@ -15,7 +15,7 @@ function enabled(name: string) {
 }
 
 function isCanonical(value: string | undefined) {
-  return String(value ?? "").trim().replace(/\/$/, "") === "https://hee.sa";
+  return String(value ?? "").trim().replace(/\/$/, "") === "https://ir.sa";
 }
 
 function runtimeReleaseSha() {
@@ -63,7 +63,7 @@ async function runtimeReady() {
   if (!isCanonical(process.env.APP_URL) || !isCanonical(process.env.AUTH_ORIGIN) || !isCanonical(process.env.NEXT_PUBLIC_APP_URL)) return false;
   if (!productionDatabaseTransportReady() || !productionPoolReady() || !configured("SESSION_SECRET")) return false;
   if (configured("QA_AUDIT_SECRET") || configured("QA_AUDIT_USER_EMAIL")) return false;
-  if (!configured("RESEND_API_KEY") || !/@hee\.sa(?:>|\s|$)/i.test(String(process.env.HEE_FROM_EMAIL ?? ""))) return false;
+  if (!configured("RESEND_API_KEY") || !/@ir\.sa(?:>|\s|$)/i.test(String(process.env.HEE_FROM_EMAIL ?? ""))) return false;
   if (String(process.env.PAYMENT_PROVIDER ?? "").trim().toLowerCase() !== "moyasar") return false;
   if (!String(process.env.MOYASAR_PUBLISHABLE_KEY ?? "").trim().startsWith("pk_live_")) return false;
   if (!String(process.env.MOYASAR_SECRET_KEY ?? "").trim().startsWith("sk_live_")) return false;
