@@ -39,17 +39,17 @@ test("Production presence audit enumerates release-critical configuration withou
 
 test("Preflight reaches complete config presence audit before database parsing and external probes", () => {
   const quality = preflight.indexOf("Require content-proven RC Quality for release");
+  const presenceStep = preflight.indexOf("Require complete Production configuration presence");
+  const presenceRun = preflight.indexOf("node .github/scripts/production-config-presence-audit.mjs", presenceStep);
   const databaseStep = preflight.indexOf("Require verify-full PostgreSQL transport before any database probe");
   const external = preflight.indexOf("Verify Vercel credential and HEE project read-only");
 
   assert.ok(quality >= 0);
-  assert.ok(databaseStep > quality);
+  assert.ok(presenceStep > quality);
+  assert.ok(presenceRun > presenceStep);
+  assert.ok(databaseStep > presenceRun);
   assert.ok(external > databaseStep);
-  assert.match(databaseSafety, /import "\.\/production-config-presence-audit\.mjs"/);
-  assert.ok(
-    databaseSafety.indexOf('import "./production-config-presence-audit.mjs"') < databaseSafety.indexOf("parseDatabaseUrl"),
-    "presence audit must execute before database URL parsing",
-  );
+  assert.doesNotMatch(databaseSafety, /production-config-presence-audit/);
 });
 
 test("Canonical cutover completes read-only Preflight before admin-domain mutation and web deploy", () => {
