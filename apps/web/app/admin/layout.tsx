@@ -25,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/support" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#5d49cc] hover:bg-[#f5f2ff]">دعم العملاء</Link>
           <div className="mr-auto flex items-center gap-2 whitespace-nowrap border-r border-[#ebe7f1] pr-3">
             <span className="hidden text-[10px] font-bold text-slate-400 lg:inline">{admin.email}</span>
-            <a href="https://hee.sa" target="_blank" rel="noreferrer" className="rounded-xl border border-[#e3dfed] px-3 py-2 text-xs font-black text-[#5d49cc]">منصة العملاء</a>
+            <a href="https://ir.sa" target="_blank" rel="noreferrer" className="rounded-xl border border-[#e3dfed] px-3 py-2 text-xs font-black text-[#5d49cc]">منصة العملاء</a>
             <form action={adminLogoutAction}><button className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700"><LogOut className="h-3.5 w-3.5" />خروج الإدارة</button></form>
           </div>
         </div>
