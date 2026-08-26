@@ -34,3 +34,11 @@ test("production customer hostname redirects admin routes to the control-plane o
   assert.match(proxy, /pathname === "\/login"/);
   assert.match(proxy, /url\.pathname = "\/admin-login"/);
 });
+
+test("admin hostname is deny-by-default and cannot serve customer or public API surfaces", () => {
+  const proxy = source("proxy.ts");
+  assert.match(proxy, /adminControlPlaneNotFoundResponse/);
+  assert.match(proxy, /pathname === "\/admin-login" \|\| pathname === "\/admin" \|\| pathname\.startsWith\("\/admin\/"\)/);
+  assert.match(proxy, /return adminControlPlaneNotFoundResponse\(\)/);
+  assert.equal(proxy.includes('pathname.startsWith("/dashboard") || pathname === "/register" || pathname === "/onboarding"'), false);
+});

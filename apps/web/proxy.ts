@@ -52,6 +52,18 @@ function isAdminControlHost(request: NextRequest) {
   return requestHostname(request) === new URL(configuredOrigin("admin")).hostname.toLowerCase();
 }
 
+function adminControlPlaneNotFoundResponse() {
+  return new NextResponse(null, {
+    status: 404,
+    headers: {
+      "Cache-Control": "private, no-store, max-age=0",
+      "X-Robots-Tag": "noindex, nofollow, noarchive",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
+}
+
 function maintenanceResponse() {
   const html = `<!doctype html>
 <html lang="ar" dir="rtl">
@@ -107,9 +119,10 @@ export function proxy(request: NextRequest) {
   const host = requestHostname(request);
   const productionMainHost = host === "hee.sa" || host === "www.hee.sa";
 
-  // admin.hee.sa is a control plane, not an alternate customer hostname. The browser
-  // gets a clean root/login entry while the application keeps the audited /admin tree
-  // internally. Customer dashboard/auth routes are sent back to the customer plane.
+  // admin.hee.sa is a deny-by-default control plane, not an alternate customer
+  // hostname. Only the audited administration tree and its login entry are served
+  // here. This keeps customer pages, auth recovery flows and public/customer APIs
+  // outside the operator origin even though both planes currently share a deployment.
   if (adminHost) {
     if (pathname === "/") {
       const url = request.nextUrl.clone();
@@ -121,14 +134,15 @@ export function proxy(request: NextRequest) {
       url.pathname = "/admin-login";
       return withPrivateHeaders(NextResponse.rewrite(url));
     }
-    if (pathname.startsWith("/dashboard") || pathname === "/register" || pathname === "/onboarding") {
-      return NextResponse.redirect(new URL(pathname, configuredOrigin("main")));
+    if (pathname === "/admin-login" || pathname === "/admin" || pathname.startsWith("/admin/")) {
+      return withPrivateHeaders(NextResponse.next());
     }
+    return adminControlPlaneNotFoundResponse();
   }
 
   // Keep the operator control plane reachable while the customer plane is deliberately
   // in maintenance mode, so operators can inspect and recover the platform.
-  if (productionMaintenanceEnabled() && !adminHost && !isMaintenanceControlRead(request, pathname)) {
+  if (productionMaintenanceEnabled() && !isMaintenanceControlRead(request, pathname)) {
     return maintenanceResponse();
   }
 
@@ -145,11 +159,11 @@ export function proxy(request: NextRequest) {
   const isPreview = process.env.VERCEL_ENV?.toLowerCase() === "preview";
   const hasQaAuditSession = Boolean(request.cookies.get("hee_qa_audit")?.value);
   const sensitivePrivatePath = isSensitivePrivatePath(pathname);
-  const shouldMarkNoindex = isQaPath || sensitivePrivatePath || adminHost || (isPreview && hasQaAuditSession && pathname.startsWith("/dashboard"));
+  const shouldMarkNoindex = isQaPath || sensitivePrivatePath || (isPreview && hasQaAuditSession && pathname.startsWith("/dashboard"));
 
   const response = NextResponse.next();
   if (shouldMarkNoindex) response.headers.set("X-Robots-Tag", "noindex, nofollow");
-  if (isQaPath || sensitivePrivatePath || adminHost) {
+  if (isQaPath || sensitivePrivatePath) {
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
     response.headers.set("Pragma", "no-cache");
     response.headers.set("Expires", "0");
