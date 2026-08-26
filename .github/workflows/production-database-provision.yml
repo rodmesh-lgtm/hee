@@ -23,10 +23,7 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
       VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
       VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
-      VERCEL_TEAM_SLUG: rodmesh-2430s-projects
       RESOURCE_NAME: ir-production-postgres
-      RESOURCE_PREFIX: IRDB_
-      FORBIDDEN_NEON_HOSTS: ep-delicate-wave-apf0pirn-pooler.c-7.us-east-1.aws.neon.tech,ep-aged-breeze-ap1lcdcz-pooler.c-7.us-east-1.aws.neon.tech
     steps:
       - name: Checkout exact RC-tested release
         uses: actions/checkout@v7
@@ -34,18 +31,18 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 1
 
-      - name: Require explicit one-time provisioning marker
+      - name: Require explicit one-time REST provisioning marker
         id: marker
         shell: bash
         run: |
           set -euo pipefail
           message="$(git log -1 --format=%B)"
-          if grep -Fq '[provision-ir-production-database]' <<<"$message"; then
+          if grep -Fq '[provision-ir-production-database-rest]' <<<"$message"; then
             echo 'active=true' >> "$GITHUB_OUTPUT"
-            echo 'production-database-provision-marker: PASS'
+            echo 'production-database-rest-provision-marker: PASS'
           else
             echo 'active=false' >> "$GITHUB_OUTPUT"
-            echo 'production-database-provision-marker: SKIP'
+            echo 'production-database-rest-provision-marker: SKIP'
           fi
 
       - name: Require Vercel credential
@@ -61,91 +58,230 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install pinned Vercel CLI
-        if: ${{ steps.marker.outputs.active == 'true' }}
-        run: npm install --global vercel@59.5.0
-
-      - name: Link exact Vercel project locally
+      - name: Validate exact Vercel team project through REST
         if: ${{ steps.marker.outputs.active == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .vercel
-          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
-
-      - name: Inspect existing Neon resources without exposing credentials
-        if: ${{ steps.marker.outputs.active == 'true' }}
-        id: existing
-        shell: bash
-        run: |
-          set -euo pipefail
-          vercel integration list --all --integration neon --format=json --scope "$VERCEL_TEAM_SLUG" --token "$VERCEL_TOKEN" > /tmp/neon-resources.json
           node - <<'NODE'
-          const fs = require('node:fs');
-          const data = JSON.parse(fs.readFileSync('/tmp/neon-resources.json', 'utf8'));
-          const wanted = process.env.RESOURCE_NAME;
-          const matches = [];
-          const seen = new Set();
-          function walk(value) {
-            if (!value || typeof value !== 'object' || seen.has(value)) return;
-            seen.add(value);
-            if (!Array.isArray(value) && String(value.name || '') === wanted) matches.push(value);
-            for (const child of Object.values(value)) walk(child);
-          }
-          walk(data);
-          if (matches.length > 1) throw new Error(`Multiple Neon resources named ${wanted} exist; refusing to choose`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `exists=${matches.length === 1 ? 'true' : 'false'}\n`);
-          console.log(`production-neon-resource-presence: ${matches.length === 1 ? 'EXISTS' : 'ABSENT'}`);
+          const token = process.env.VERCEL_TOKEN;
+          const teamId = process.env.VERCEL_ORG_ID;
+          const projectId = process.env.VERCEL_PROJECT_ID;
+          const response = await fetch(`https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}?teamId=${encodeURIComponent(teamId)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(20_000),
+          });
+          if (!response.ok) throw new Error(`Vercel project identity lookup failed (${response.status})`);
+          const project = await response.json();
+          if (String(project.id ?? '') !== projectId) throw new Error('Unexpected Vercel project identity');
+          if (String(project.accountId ?? '') !== teamId) throw new Error('Unexpected Vercel team identity');
+          console.log('vercel-production-project-identity: PASS');
           NODE
 
-      - name: Provision isolated Neon resource through Vercel Marketplace
-        if: ${{ steps.marker.outputs.active == 'true' && steps.existing.outputs.exists != 'true' }}
+      - name: Resolve ready Neon Marketplace installation
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        id: neon_installation
         shell: bash
         run: |
           set -euo pipefail
-          vercel integration add neon \
-            --name "$RESOURCE_NAME" \
-            --environment production \
-            --prefix "$RESOURCE_PREFIX" \
-            --no-env-pull \
-            --scope "$VERCEL_TEAM_SLUG" \
-            --token "$VERCEL_TOKEN"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const token = process.env.VERCEL_TOKEN;
+          const teamId = process.env.VERCEL_ORG_ID;
+          const url = new URL('https://api.vercel.com/v1/integrations/configurations');
+          url.searchParams.set('view', 'account');
+          url.searchParams.set('installationType', 'marketplace');
+          url.searchParams.set('integrationIdOrSlug', 'neon');
+          url.searchParams.set('teamId', teamId);
+          const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(20_000),
+          });
+          if (!response.ok) throw new Error(`Neon integration configuration lookup failed (${response.status})`);
+          const body = await response.json();
+          const configurations = Array.isArray(body) ? body : Array.isArray(body?.configurations) ? body.configurations : [];
+          const usable = configurations.filter((item) => {
+            const slug = String(item?.slug ?? '').toLowerCase();
+            const owner = String(item?.teamId ?? item?.ownerId ?? '');
+            const status = String(item?.status ?? 'ready').toLowerCase();
+            return slug === 'neon' && owner === teamId && ['ready', 'resumed'].includes(status);
+          });
+          if (usable.length !== 1) throw new Error(`Expected exactly one ready Neon Marketplace installation for the Vercel team, found ${usable.length}`);
+          const id = String(usable[0].id ?? '').trim();
+          if (!id) throw new Error('Resolved Neon installation has no configuration id');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `configuration_id=${id}\n`);
+          console.log(`neon-marketplace-installation: PASS id=${id}`);
+          NODE
 
-      - name: Verify isolated resource is connected and credentialized
+      - name: Resolve unambiguous Neon PostgreSQL product
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        id: neon_product
+        env:
+          NEON_CONFIGURATION_ID: ${{ steps.neon_installation.outputs.configuration_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const token = process.env.VERCEL_TOKEN;
+          const id = process.env.NEON_CONFIGURATION_ID;
+          const response = await fetch(`https://api.vercel.com/v1/integrations/configuration/${encodeURIComponent(id)}/products`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(20_000),
+          });
+          if (!response.ok) throw new Error(`Neon product lookup failed (${response.status})`);
+          const body = await response.json();
+          const products = Array.isArray(body?.products) ? body.products : [];
+          const postgres = products.filter((item) => /postgres|database|neon/i.test(`${item?.slug ?? ''} ${item?.name ?? ''}`));
+          const candidates = postgres.length ? postgres : products;
+          if (candidates.length !== 1) throw new Error(`Expected one unambiguous Neon PostgreSQL product, found ${candidates.length}`);
+          const product = candidates[0];
+          const productRef = String(product?.slug ?? product?.id ?? '').trim();
+          if (!productRef) throw new Error('Resolved Neon product has no id or slug');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `product_ref=${productRef}\n`);
+          console.log(`neon-marketplace-product: PASS ref=${productRef}`);
+          NODE
+
+      - name: Snapshot project environment metadata before resource creation
         if: ${{ steps.marker.outputs.active == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
           node - <<'NODE'
-          const forbidden = new Set(String(process.env.FORBIDDEN_NEON_HOSTS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean));
-          const prefix = process.env.RESOURCE_PREFIX;
+          const fs = require('node:fs');
+          const token = process.env.VERCEL_TOKEN;
           const projectId = process.env.VERCEL_PROJECT_ID;
           const teamId = process.env.VERCEL_ORG_ID;
-          const token = process.env.VERCEL_TOKEN;
-          const endpoint = `https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}/env?teamId=${encodeURIComponent(teamId)}&decrypt=true`;
-          const response = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-          if (!response.ok) throw new Error(`Unable to read Vercel Production environment (${response.status})`);
-          const body = await response.json();
-          const envs = Array.isArray(body.envs) ? body.envs : [];
-          const candidates = envs.filter(item => {
-            const targets = Array.isArray(item.target) ? item.target.map(v => String(v).toLowerCase()) : [];
-            const key = String(item.key || '');
-            return targets.includes('production') && key.startsWith(prefix) && /(?:DATABASE_URL|POSTGRES_URL)/.test(key) && typeof item.value === 'string';
+          const response = await fetch(`https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}/env?teamId=${encodeURIComponent(teamId)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(20_000),
           });
-          if (!candidates.length) throw new Error(`No ${prefix} PostgreSQL credential was connected to Production`);
-          const hosts = new Set();
-          for (const item of candidates) {
-            let parsed;
-            try { parsed = new URL(item.value); } catch { continue; }
-            if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) continue;
-            const host = parsed.hostname.toLowerCase();
-            if (!host.endsWith('.neon.tech')) throw new Error(`Unexpected non-Neon host for ${item.key}`);
-            if (forbidden.has(host)) throw new Error(`New iR resource resolved to forbidden unrelated Neon host ${host}`);
-            hosts.add(host);
-            console.log(`::add-mask::${item.value}`);
+          if (!response.ok) throw new Error(`Unable to snapshot Vercel project environment (${response.status})`);
+          const body = await response.json();
+          const envs = Array.isArray(body?.envs) ? body.envs : [];
+          const metadata = envs.map((item) => ({ id: String(item?.id ?? ''), key: String(item?.key ?? ''), target: item?.target ?? null, gitBranch: item?.gitBranch ?? null }))
+            .sort((a, b) => `${a.key}:${a.id}`.localeCompare(`${b.key}:${b.id}`));
+          fs.writeFileSync('/tmp/vercel-env-before.json', JSON.stringify(metadata));
+          console.log(`vercel-project-environment-snapshot: PASS entries=${metadata.length}`);
+          NODE
+
+      - name: Inspect existing Neon resources
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        id: existing
+        env:
+          NEON_CONFIGURATION_ID: ${{ steps.neon_installation.outputs.configuration_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const token = process.env.VERCEL_TOKEN;
+          const configId = process.env.NEON_CONFIGURATION_ID;
+          const wanted = process.env.RESOURCE_NAME;
+          const response = await fetch(`https://api.vercel.com/v1/installations/${encodeURIComponent(configId)}/resources`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(20_000),
+          });
+          if (!response.ok) throw new Error(`Neon resource lookup failed (${response.status})`);
+          const body = await response.json();
+          const resources = Array.isArray(body?.resources) ? body.resources : Array.isArray(body) ? body : [];
+          const matches = resources.filter((item) => String(item?.name ?? '') === wanted);
+          if (matches.length > 1) throw new Error(`Multiple Neon resources named ${wanted} exist; refusing to choose`);
+          const existing = matches[0];
+          if (existing && String(existing.status ?? '').toLowerCase() === 'error') throw new Error(`${wanted} already exists in error state`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `exists=${existing ? 'true' : 'false'}\n`);
+          if (existing) {
+            const resourceId = String(existing.partnerId ?? existing.id ?? existing.internalId ?? '').trim();
+            if (!resourceId) throw new Error(`Existing ${wanted} has no resource id`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `resource_id=${resourceId}\n`);
           }
-          if (hosts.size !== 1) throw new Error(`Expected exactly one isolated Neon host, found ${hosts.size}`);
-          const [host] = hosts;
-          console.log(`::add-mask::${host}`);
-          console.log('production-neon-resource-isolation: PASS new host differs from forbidden legacy project endpoints');
+          console.log(`production-neon-resource-presence: ${existing ? 'EXISTS' : 'ABSENT'}`);
+          NODE
+
+      - name: Provision isolated Neon resource through Vercel Marketplace REST API
+        if: ${{ steps.marker.outputs.active == 'true' && steps.existing.outputs.exists != 'true' }}
+        id: create_resource
+        env:
+          NEON_CONFIGURATION_ID: ${{ steps.neon_installation.outputs.configuration_id }}
+          NEON_PRODUCT_REF: ${{ steps.neon_product.outputs.product_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const token = process.env.VERCEL_TOKEN;
+          const teamId = process.env.VERCEL_ORG_ID;
+          const requestBody = {
+            name: process.env.RESOURCE_NAME,
+            integrationConfigurationId: process.env.NEON_CONFIGURATION_ID,
+            integrationProductIdOrSlug: process.env.NEON_PRODUCT_REF,
+            metadata: { environment: 'production', project: 'web', purpose: 'iR isolated production PostgreSQL' },
+            source: 'marketplace',
+          };
+          const response = await fetch(`https://api.vercel.com/v1/storage/stores/integration/direct?teamId=${encodeURIComponent(teamId)}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+            signal: AbortSignal.timeout(60_000),
+          });
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`Neon Marketplace resource creation failed (${response.status}): ${text.slice(0, 300)}`);
+          }
+          const body = await response.json();
+          const store = body?.store ?? body;
+          const resourceId = String(store?.partnerId ?? store?.id ?? store?.internalId ?? '').trim();
+          if (!resourceId) throw new Error('Vercel created the Neon store but returned no resource id');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `resource_id=${resourceId}\n`);
+          console.log(`production-neon-resource-create: PASS name=${process.env.RESOURCE_NAME}`);
+          NODE
+
+      - name: Verify Neon resource exists without connecting it to web
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        env:
+          NEON_CONFIGURATION_ID: ${{ steps.neon_installation.outputs.configuration_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const token = process.env.VERCEL_TOKEN;
+          const configId = process.env.NEON_CONFIGURATION_ID;
+          const wanted = process.env.RESOURCE_NAME;
+          const response = await fetch(`https://api.vercel.com/v1/installations/${encodeURIComponent(configId)}/resources`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(20_000),
+          });
+          if (!response.ok) throw new Error(`Post-create Neon resource verification failed (${response.status})`);
+          const body = await response.json();
+          const resources = Array.isArray(body?.resources) ? body.resources : Array.isArray(body) ? body : [];
+          const matches = resources.filter((item) => String(item?.name ?? '') === wanted);
+          if (matches.length !== 1) throw new Error(`Expected exactly one ${wanted} resource after provisioning, found ${matches.length}`);
+          const status = String(matches[0]?.status ?? 'ready').toLowerCase();
+          if (status === 'error' || status === 'deleted') throw new Error(`${wanted} is not healthy after provisioning (status=${status})`);
+          console.log(`production-neon-resource-identity: PASS name=${wanted} status=${status}`);
+          NODE
+
+      - name: Prove resource creation did not mutate web environment variables
+        if: ${{ steps.marker.outputs.active == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const token = process.env.VERCEL_TOKEN;
+          const projectId = process.env.VERCEL_PROJECT_ID;
+          const teamId = process.env.VERCEL_ORG_ID;
+          const before = JSON.parse(fs.readFileSync('/tmp/vercel-env-before.json', 'utf8'));
+          const response = await fetch(`https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}/env?teamId=${encodeURIComponent(teamId)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(20_000),
+          });
+          if (!response.ok) throw new Error(`Unable to verify Vercel project environment (${response.status})`);
+          const body = await response.json();
+          const envs = Array.isArray(body?.envs) ? body.envs : [];
+          const after = envs.map((item) => ({ id: String(item?.id ?? ''), key: String(item?.key ?? ''), target: item?.target ?? null, gitBranch: item?.gitBranch ?? null }))
+            .sort((a, b) => `${a.key}:${a.id}`.localeCompare(`${b.key}:${b.id}`));
+          if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('Creating the team-level Neon resource unexpectedly changed web project environment metadata; refusing to continue');
+          console.log('vercel-web-environment-unchanged: PASS');
+          console.log('production-database-provision: PASS resource created/verified at team level only; no project connection, runtime URL mutation, schema migration, or DNS cutover performed');
           NODE
