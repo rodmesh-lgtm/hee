@@ -4,13 +4,49 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "node scripts/sync-rc-preview-schema.mjs && node scripts/assert-rc-preview-schema-current.mjs && rm -rf .next && prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "qa:handoff": "tsx scripts/generate-qa-handoff.ts"
+    "typecheck": "rm -rf .next && prisma generate && next typegen && tsc --noEmit --pretty false",
+    "test": "npm run test:unit",
+    "test:unit": "tsx --test tests/*.test.ts",
+    "test:rc": "playwright test tests/launch-customer-journey.spec.ts tests/rc-owner-workflow.spec.ts tests/active-business-isolation.spec.ts tests/digital-identity-workflow.spec.ts tests/dashboard-functional-workflow.spec.ts tests/business-store-workflow.spec.ts",
+    "test:admin": "playwright test tests/admin-workflow.spec.ts tests/admin-requests-workflow.spec.ts tests/support-data-rights-workflow.spec.ts tests/admin-access-code-workflow.spec.ts tests/admin-business-store-catalog-workflow.spec.ts tests/admin-business-store-orders-workflow.spec.ts tests/admin-billing-operations-workflow.spec.ts tests/admin-customer-accounts-workflow.spec.ts",
+    "test:directory": "playwright test tests/directory-workflow.spec.ts",
+    "test:transactions": "playwright test tests/transactions-workflow.spec.ts tests/booking-duration-workflow.spec.ts tests/public-idempotency-workflow.spec.ts",
+    "test:email-verification": "playwright test tests/email-verification-workflow.spec.ts tests/unverified-email-change-workflow.spec.ts",
+    "qa:handoff": "tsx scripts/generate-qa-handoff.ts",
+    "storage:audit": "tsx scripts/storage-audit.ts",
+    "storage:sweep": "tsx scripts/storage-audit.ts --delete",
+    "data:retention-audit": "tsx scripts/data-retention-audit.ts",
+    "retention:dry-run": "tsx scripts/prune-expired-operational-data.ts",
+    "retention:apply": "tsx scripts/prune-expired-operational-data.ts --apply",
+    "public:transactions-audit": "tsx scripts/public-transactions-audit.ts",
+    "billing:integrity-audit": "tsx scripts/billing-integrity-audit.ts",
+    "billing:state-audit": "tsx scripts/billing-state-audit.ts",
+    "backup:audit-seed": "tsx scripts/backup-restore-audit.ts",
+    "backup:audit-verify": "tsx scripts/backup-restore-audit.ts --verify",
+    "backup:production-proof": "tsx scripts/production-backup-restore-proof.ts",
+    "migration:production-data-proof": "tsx scripts/production-migration-data-proof.ts",
+    "launch:config-audit": "tsx scripts/launch-config-audit.ts",
+    "billing:webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/billing-webhook-recovery-worker.ts",
+    "billing:renew-only": "tsx scripts/billing-renewal-worker.ts",
+    "billing:renew": "npm run billing:webhooks && npm run billing:renew-only && npm run billing:state-audit -- --record-heartbeat"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "overrides": {
+    "nanoid": "3.3.18"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.2": true,
+    "fsevents@2.3.3": true,
+    "prisma@5.22.0": true,
+    "unrs-resolver@1.12.2": true
   },
   "dependencies": {
     "@prisma/adapter-pg": "^5.22.0",

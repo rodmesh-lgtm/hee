@@ -31,34 +31,15 @@ type PublicActionDialogFormErrors = Partial<Record<keyof PublicActionDialogFormS
 
 export function normalizeWhatsAppNumber(value: string | null | undefined) {
   if (!value) return null;
-
   const digits = value.replace(/\D/g, "").trim();
   if (!digits) return null;
-
-  if (digits.startsWith("966")) {
-    return digits;
-  }
-
-  if (digits.startsWith("0")) {
-    return `966${digits.slice(1)}`;
-  }
-
-  if (digits.length === 10 && digits.startsWith("5")) {
-    return `966${digits}`;
-  }
-
+  if (digits.startsWith("966")) return digits;
+  if (digits.startsWith("0")) return `966${digits.slice(1)}`;
+  if (digits.length === 10 && digits.startsWith("5")) return `966${digits}`;
   return digits;
 }
 
-function buildMessage({
-  mode,
-  businessName,
-  values,
-}: {
-  mode: PublicActionDialogMode;
-  businessName: string;
-  values: PublicActionDialogFormState;
-}) {
+function buildMessage({ mode, businessName, values }: { mode: PublicActionDialogMode; businessName: string; values: PublicActionDialogFormState }) {
   if (mode === "request") {
     return [
       `مرحبًا ${businessName}،`,
@@ -70,7 +51,6 @@ function buildMessage({
       `الملاحظات: ${values.notes?.trim() || "-"}`,
     ].join("\n");
   }
-
   return [
     `مرحبًا ${businessName}،`,
     "لدي الاستفسار التالي:",
@@ -80,54 +60,42 @@ function buildMessage({
   ].join("\n");
 }
 
-export function buildRequestWhatsAppUrl({
-  businessName,
-  whatsapp,
-  values,
-}: {
-  businessName: string;
-  whatsapp: string | null;
-  values: PublicActionDialogFormState;
-}) {
+export function buildRequestWhatsAppUrl({ businessName, whatsapp, values }: { businessName: string; whatsapp: string | null; values: PublicActionDialogFormState }) {
   const normalized = normalizeWhatsAppNumber(whatsapp);
   if (!normalized) return null;
-
   const message = buildMessage({ mode: "request", businessName, values });
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
-export function buildInquiryWhatsAppUrl({
-  businessName,
-  whatsapp,
-  values,
-}: {
-  businessName: string;
-  whatsapp: string | null;
-  values: PublicActionDialogFormState;
-}) {
+export function buildInquiryWhatsAppUrl({ businessName, whatsapp, values }: { businessName: string; whatsapp: string | null; values: PublicActionDialogFormState }) {
   const normalized = normalizeWhatsAppNumber(whatsapp);
   if (!normalized) return null;
-
   const message = buildMessage({ mode: "inquiry", businessName, values });
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
-export function PublicActionDialog({
-  open,
-  onClose,
-  mode,
-  businessName,
-  whatsapp,
-  phone,
-  title,
-  description,
-  triggerLabel,
-  ctaLabel,
-}: PublicActionDialogProps) {
+function currentPublicSlug() {
+  if (typeof window === "undefined") return "";
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  return parts.at(-1) ?? "";
+}
+
+function newRequestId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `request-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+export function PublicActionDialog({ open, onClose, mode, businessName, whatsapp, phone, title, description, ctaLabel }: PublicActionDialogProps) {
   const [values, setValues] = useState<PublicActionDialogFormState>({});
   const [errors, setErrors] = useState<PublicActionDialogFormErrors>({});
   const [mounted, setMounted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const requestIdRef = useRef<string | null>(null);
+  const submittingRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
+  const descriptionId = useId();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const firstInputRef = useRef<HTMLInputElement | null>(null);
   const firstTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -139,43 +107,64 @@ export function PublicActionDialog({
     return cleaned ? `tel:${cleaned}` : null;
   }, [phone]);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      requestIdRef.current = null;
+      submittingRef.current = false;
+      setSubmitting(false);
+      return;
+    }
 
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     const previousPaddingRight = document.body.style.paddingRight;
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
+    if (scrollbarWidth > 0) document.body.style.paddingRight = `${scrollbarWidth}px`;
 
     const timer = window.setTimeout(() => {
-      firstInputRef.current?.focus();
-      firstTextareaRef.current?.focus();
-      closeButtonRef.current?.focus();
+      if (mode === "request") firstInputRef.current?.focus();
+      else firstTextareaRef.current?.focus();
+      if (document.activeElement === document.body) closeButtonRef.current?.focus();
     }, 0);
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        if (!submittingRef.current) onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')).filter((element) => !element.hasAttribute("hidden"));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
     document.addEventListener("keydown", onKeyDown);
-
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
       document.body.style.paddingRight = previousPaddingRight;
+      previousFocusRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open, mode, onClose]);
+
+  const safeClose = () => {
+    if (!submittingRef.current) onClose();
+  };
 
   const setValue = (field: keyof PublicActionDialogFormState, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -184,107 +173,89 @@ export function PublicActionDialog({
 
   const validate = () => {
     const nextErrors: PublicActionDialogFormErrors = {};
-
     if (mode === "request") {
       if (!values.name?.trim()) nextErrors.name = "الاسم مطلوب";
-      if (!values.phone?.trim()) nextErrors.phone = "رقم الجوال مطلوب";
+      const phoneDigits = values.phone?.replace(/\D/g, "") ?? "";
+      if (!phoneDigits) nextErrors.phone = "رقم الجوال مطلوب";
+      else if (phoneDigits.length < 8 || phoneDigits.length > 15) nextErrors.phone = "رقم الجوال غير صالح";
       if (!values.service?.trim()) nextErrors.service = "الخدمة المطلوبة مطلوبة";
     }
-
-    if (mode === "inquiry" && !values.message?.trim()) {
-      nextErrors.message = "الاستفسار مطلوب";
-    }
-
+    if (mode === "inquiry" && !values.message?.trim()) nextErrors.message = "الاستفسار مطلوب";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submittingRef.current || !validate()) return;
 
-    if (!validate()) {
-      return;
-    }
-
-    const url = mode === "request"
-      ? buildRequestWhatsAppUrl({ businessName, whatsapp, values })
-      : buildInquiryWhatsAppUrl({ businessName, whatsapp, values });
-
-    if (!url) {
-      if (fallbackPhoneHref) {
-        window.location.assign(fallbackPhoneHref);
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      if (mode === "request") {
+        const requestId = requestIdRef.current ?? newRequestId();
+        requestIdRef.current = requestId;
+        const response = await fetch("/api/public/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": requestId },
+          body: JSON.stringify({ slug: currentPublicSlug(), name: values.name?.trim(), phone: values.phone?.trim(), serviceRequest: values.service?.trim(), notes: values.notes?.trim(), requestId }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null) as { error?: string } | null;
+          setErrors((current) => ({ ...current, service: payload?.error || "تعذر تسجيل الطلب الآن. حاول مرة أخرى." }));
+          return;
+        }
       }
-      return;
-    }
 
-    window.location.href = url;
+      const url = mode === "request"
+        ? buildRequestWhatsAppUrl({ businessName, whatsapp, values })
+        : buildInquiryWhatsAppUrl({ businessName, whatsapp, values });
+
+      if (!url) {
+        if (fallbackPhoneHref) window.location.assign(fallbackPhoneHref);
+        return;
+      }
+      window.location.href = url;
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   if (!open || !mounted) return null;
 
   const dialogContent = (
-    <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/75 p-3 sm:p-6" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="flex h-[min(100dvh-24px,560px)] w-full max-w-[560px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-slate-950 text-white shadow-2xl"
-        style={{ maxHeight: "calc(100dvh - 24px)" }}
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/75 p-3 sm:p-6" onClick={safeClose}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} className="flex h-[min(100dvh-24px,560px)] w-full max-w-[560px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-slate-950 text-white shadow-2xl" style={{ maxHeight: "calc(100dvh - 24px)" }} onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 bg-slate-950 px-4 py-4 sm:px-5">
           <div>
             <h3 id={titleId} className="text-lg font-black">{title ?? (mode === "request" ? "طلب / حجز" : "استفسار")}</h3>
-            <p className="mt-1 text-xs leading-6 text-slate-300">{description ?? (mode === "request" ? "أرسل تفاصيل الطلب وسيتم تجهيز الرسالة عبر واتساب." : "أرسل استفسارك وسيتم فتح واتساب مباشرة.")}</p>
+            <p id={descriptionId} className="mt-1 text-xs leading-6 text-slate-300">{description ?? (mode === "request" ? "سيتم تسجيل الطلب في HEE ثم تجهيز الرسالة عبر واتساب." : "أرسل استفسارك وسيتم فتح واتساب مباشرة.")}</p>
           </div>
-          <button ref={closeButtonRef} type="button" onClick={onClose} className="rounded-xl border border-white/15 p-2 text-slate-200" aria-label="إغلاق">
-            <X className="h-4 w-4" />
-          </button>
+          <button ref={closeButtonRef} type="button" disabled={submitting} onClick={safeClose} className="rounded-xl border border-white/15 p-2 text-slate-200 disabled:opacity-50" aria-label="إغلاق"><X className="h-4 w-4" /></button>
         </div>
 
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
             {mode === "request" ? (
               <div className="space-y-3">
-                <label className="grid gap-1.5 text-sm text-slate-200">
-                  <span>الاسم</span>
-                  <input ref={firstInputRef} value={values.name ?? ""} onChange={(event) => setValue("name", event.target.value)} className="h-11 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-400" placeholder="الاسم" />
-                  {errors.name ? <span className="text-[11px] text-rose-300">{errors.name}</span> : null}
-                </label>
-                <label className="grid gap-1.5 text-sm text-slate-200">
-                  <span>رقم الجوال</span>
-                  <input value={values.phone ?? ""} onChange={(event) => setValue("phone", event.target.value)} className="h-11 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-400" placeholder="05xxxxxxxx" dir="ltr" />
-                  {errors.phone ? <span className="text-[11px] text-rose-300">{errors.phone}</span> : null}
-                </label>
-                <label className="grid gap-1.5 text-sm text-slate-200">
-                  <span>الخدمة المطلوبة</span>
-                  <input value={values.service ?? ""} onChange={(event) => setValue("service", event.target.value)} className="h-11 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-400" placeholder="مثال: حجز طاولة" />
-                  {errors.service ? <span className="text-[11px] text-rose-300">{errors.service}</span> : null}
-                </label>
-                <label className="grid gap-1.5 text-sm text-slate-200">
-                  <span>ملاحظات</span>
-                  <textarea value={values.notes ?? ""} onChange={(event) => setValue("notes", event.target.value)} className="min-h-[84px] rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-400" placeholder="أضف ملاحظاتك هنا" />
-                </label>
+                <label className="grid gap-1.5 text-sm text-slate-200"><span>الاسم</span><input ref={firstInputRef} autoComplete="name" value={values.name ?? ""} onChange={(event) => setValue("name", event.target.value)} className="h-11 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-400" placeholder="الاسم" />{errors.name ? <span role="alert" className="text-[11px] text-rose-300">{errors.name}</span> : null}</label>
+                <label className="grid gap-1.5 text-sm text-slate-200"><span>رقم الجوال</span><input autoComplete="tel" inputMode="tel" value={values.phone ?? ""} onChange={(event) => setValue("phone", event.target.value)} className="h-11 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-400" placeholder="05xxxxxxxx" dir="ltr" />{errors.phone ? <span role="alert" className="text-[11px] text-rose-300">{errors.phone}</span> : null}</label>
+                <label className="grid gap-1.5 text-sm text-slate-200"><span>الخدمة المطلوبة</span><input value={values.service ?? ""} onChange={(event) => setValue("service", event.target.value)} className="h-11 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-400" placeholder="مثال: حجز طاولة" />{errors.service ? <span role="alert" className="text-[11px] text-rose-300">{errors.service}</span> : null}</label>
+                <label className="grid gap-1.5 text-sm text-slate-200"><span>ملاحظات</span><textarea value={values.notes ?? ""} onChange={(event) => setValue("notes", event.target.value)} className="min-h-[84px] rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-400" placeholder="أضف ملاحظاتك هنا" /></label>
               </div>
             ) : (
               <div className="space-y-3">
-                <label className="grid gap-1.5 text-sm text-slate-200">
-                  <span>الاسم (اختياري)</span>
-                  <input value={values.name ?? ""} onChange={(event) => setValue("name", event.target.value)} className="h-11 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-400" placeholder="الاسم" />
-                </label>
-                <label className="grid gap-1.5 text-sm text-slate-200">
-                  <span>الاستفسار</span>
-                  <textarea ref={firstTextareaRef} value={values.message ?? ""} onChange={(event) => setValue("message", event.target.value)} className="min-h-[84px] rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-400" placeholder="اكتب استفسارك هنا" />
-                  {errors.message ? <span className="text-[11px] text-rose-300">{errors.message}</span> : null}
-                </label>
+                <label className="grid gap-1.5 text-sm text-slate-200"><span>الاسم (اختياري)</span><input value={values.name ?? ""} onChange={(event) => setValue("name", event.target.value)} className="h-11 rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-slate-400" placeholder="الاسم" /></label>
+                <label className="grid gap-1.5 text-sm text-slate-200"><span>الاستفسار</span><textarea ref={firstTextareaRef} value={values.message ?? ""} onChange={(event) => setValue("message", event.target.value)} className="min-h-[84px] rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-400" placeholder="اكتب استفسارك هنا" />{errors.message ? <span role="alert" className="text-[11px] text-rose-300">{errors.message}</span> : null}</label>
               </div>
             )}
           </div>
 
           <div className="shrink-0 border-t border-white/10 bg-slate-950 px-4 py-3.5 sm:px-5" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-            <button type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 text-sm font-black text-white">
+            <button disabled={submitting} type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
               {normalizedWhatsApp ? <MessageCircle className="h-4 w-4" /> : <Phone className="h-4 w-4" />}
-              {ctaLabel ?? (mode === "request" ? "إرسال عبر واتساب" : "إرسال الاستفسار عبر واتساب")}
+              {submitting ? "جارٍ تسجيل الطلب..." : (ctaLabel ?? (mode === "request" ? "إرسال عبر واتساب" : "إرسال الاستفسار عبر واتساب"))}
             </button>
           </div>
         </form>

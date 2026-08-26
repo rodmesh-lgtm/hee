@@ -1,0 +1,192 @@
+name: Production Launch Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type VERIFY_PRODUCTION_READINESS to continue"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: production-launch-readiness
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: ${{ inputs.confirmation == 'VERIFY_PRODUCTION_READINESS' && github.ref == 'refs/heads/hee-v6-rc' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      APP_ENV: production
+      APP_URL: https://ir.sa
+      AUTH_ORIGIN: https://ir.sa
+      NEXT_PUBLIC_APP_URL: https://ir.sa
+      API_URL: https://ir.sa
+      RELEASE_SHA: ${{ github.sha }}
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
+      SESSION_SECRET: ${{ secrets.PRODUCTION_SESSION_SECRET }}
+      RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+      HEE_FROM_EMAIL: ${{ vars.PRODUCTION_HEE_FROM_EMAIL }}
+      PAYMENT_PROVIDER: moyasar
+      MOYASAR_PUBLISHABLE_KEY: ${{ secrets.PRODUCTION_MOYASAR_PUBLISHABLE_KEY }}
+      MOYASAR_SECRET_KEY: ${{ secrets.PRODUCTION_MOYASAR_SECRET_KEY }}
+      MOYASAR_WEBHOOK_SECRET: ${{ secrets.PRODUCTION_MOYASAR_WEBHOOK_SECRET }}
+      BILLING_TOKEN_ENCRYPTION_KEY: ${{ secrets.PRODUCTION_BILLING_TOKEN_ENCRYPTION_KEY }}
+      BILLING_SELLER_LEGAL_NAME_AR: ${{ vars.PRODUCTION_BILLING_SELLER_LEGAL_NAME_AR }}
+      BILLING_SELLER_ADDRESS_AR: ${{ vars.PRODUCTION_BILLING_SELLER_ADDRESS_AR }}
+      BILLING_TAX_STATUS: ${{ vars.PRODUCTION_BILLING_TAX_STATUS }}
+      BILLING_RENEWAL_ENABLED: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED }}
+      BILLING_OPERATIONS_READY: ${{ vars.PRODUCTION_BILLING_OPERATIONS_READY }}
+      # Paid launch mode is deployment-scoped. These GitHub values remain the safe
+      # Preflight baseline and are intentionally not used to prove canonical launch state.
+      PAID_CHECKOUT_PUBLIC_ENABLED: ${{ vars.PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED }}
+      BILLING_REHEARSAL_USER_EMAIL: ${{ vars.PRODUCTION_BILLING_REHEARSAL_USER_EMAIL }}
+      STORAGE_DRIVER: ${{ vars.PRODUCTION_STORAGE_DRIVER }}
+      S3_ENDPOINT: ${{ vars.PRODUCTION_S3_ENDPOINT }}
+      S3_BUCKET: ${{ vars.PRODUCTION_S3_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.PRODUCTION_S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.PRODUCTION_S3_SECRET_ACCESS_KEY }}
+      S3_ALLOW_INSECURE: "false"
+      GOOGLE_CLIENT_ID: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_SECRET }}
+      APPLE_CLIENT_ID: ${{ secrets.PRODUCTION_APPLE_CLIENT_ID }}
+      APPLE_TEAM_ID: ${{ secrets.PRODUCTION_APPLE_TEAM_ID }}
+      APPLE_KEY_ID: ${{ secrets.PRODUCTION_APPLE_KEY_ID }}
+      APPLE_PRIVATE_KEY: ${{ secrets.PRODUCTION_APPLE_PRIVATE_KEY }}
+
+    steps:
+      - name: Checkout exact release revision
+        uses: actions/checkout@v7
+
+      - name: Require content-proven RC Quality for release
+        uses: ./.github/actions/require-release-quality
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Require successful exact-SHA verified public paid checkout opening
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          open_runs="$(gh api \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-open-paid-checkout.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length')"
+          test "$open_runs" -ge 1 || (echo "Exact release SHA has no successful verified Production Open Paid Checkout run" && exit 1)
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Require verify-full PostgreSQL transport before final database checks
+        run: node ../../.github/scripts/require-production-database-safety.mjs DATABASE_URL
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Audit immutable production launch configuration
+        run: npm run launch:config-audit
+
+      - name: Verify Resend ir.sa sending domain
+        working-directory: .
+        run: |
+          set -euo pipefail
+          domains_json="$(curl --silent --show-error --fail --max-time 20 \
+            -H "Authorization: Bearer ${RESEND_API_KEY}" \
+            'https://api.resend.com/domains?limit=100')"
+          node -e '
+            const body = JSON.parse(process.argv[1]);
+            const domains = Array.isArray(body.data) ? body.data : [];
+            const domain = domains.find((item) => String(item?.name ?? "").toLowerCase() === "ir.sa");
+            if (!domain || String(domain.status ?? "").toLowerCase() !== "verified") {
+              console.error("Resend ir.sa domain is missing or not verified");
+              process.exit(1);
+            }
+            const sending = String(domain?.capabilities?.sending ?? "enabled").toLowerCase();
+            if (sending !== "enabled") {
+              console.error("Resend ir.sa sending capability is not enabled");
+              process.exit(1);
+            }
+          ' "$domains_json"
+
+      - name: Verify production database migration state
+        run: npx prisma migrate status
+
+      - name: Verify production billing state and scheduler liveness
+        run: npm run billing:state-audit
+
+      - name: Verify canonical release provenance
+        working-directory: .
+        run: |
+          set -euo pipefail
+          release_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/release)"
+          release_sha="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.releaseSha ?? ""));' "$release_json")"
+          release_env="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.environment ?? ""));' "$release_json")"
+          test "$release_sha" = "$GITHUB_SHA" || (echo "Canonical ir.sa serves ${release_sha:-unknown}, expected exact release ${GITHUB_SHA}" && exit 1)
+          test "$release_env" = "production" || (echo "Canonical release endpoint is not reporting production environment" && exit 1)
+
+      - name: Verify canonical exact-SHA public paid launch state
+        working-directory: .
+        run: |
+          set -euo pipefail
+          launch_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/billing/launch-status)"
+          node - <<'NODE' "$launch_json"
+          const launch = JSON.parse(process.argv[2]);
+          if (launch.releaseSha !== process.env.GITHUB_SHA) throw new Error("Canonical billing launch SHA differs from Final Readiness SHA");
+          if (launch.environment !== "production") throw new Error("Canonical billing launch endpoint is not Production");
+          if (launch.mode !== "public") throw new Error(`Canonical paid checkout mode is ${launch.mode ?? "unknown"}, expected public`);
+          if (launch.billingOperationsReady !== true || launch.renewalEnabled !== true) throw new Error("Canonical billing operations/renewal prerequisites are not ready");
+          NODE
+
+      - name: Verify live runtime configuration and database readiness
+        working-directory: .
+        run: |
+          set -euo pipefail
+          readiness_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/health/ready)"
+          ready="$(node -e 'const body=JSON.parse(process.argv[1]); process.stdout.write(String(body.ready === true));' "$readiness_json")"
+          test "$ready" = "true" || (echo "Canonical production runtime reports not ready" && exit 1)
+
+      - name: Verify canonical HTTPS customer surfaces
+        working-directory: .
+        run: |
+          set -euo pipefail
+          for path in / /register /login /terms /privacy /contact /demo; do
+            code="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' --max-time 20 "https://ir.sa${path}")"
+            case "$code" in
+              200|301|302|303|307|308) ;;
+              *) echo "Canonical customer surface ${path} returned HTTP ${code}"; exit 1 ;;
+            esac
+          done
+
+      - name: Verify canonical security and indexing headers
+        working-directory: .
+        run: |
+          set -euo pipefail
+          headers="$(mktemp)"
+          curl --silent --show-error --location --dump-header "$headers" --output /dev/null --max-time 20 https://ir.sa/
+          grep -qi '^strict-transport-security:' "$headers" || (echo "Missing HSTS on canonical production origin" && exit 1)
+          grep -qi '^content-security-policy:' "$headers" || (echo "Missing CSP on canonical production origin" && exit 1)
+          if grep -qi '^x-robots-tag:.*noindex' "$headers"; then
+            echo "Canonical production homepage is still noindex"
+            exit 1
+          fi
+          rm -f "$headers"
+
+      - name: Launch readiness summary
+        run: |
+          echo "production-launch-readiness: PASS exact release ${GITHUB_SHA}, verified public paid checkout, billing worker, database, email, HTTPS and indexing"

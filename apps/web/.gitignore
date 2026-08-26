@@ -10,8 +10,13 @@
 !.yarn/releases
 !.yarn/versions
 
+# generated clients/build artifacts
+/generated/
+
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
@@ -19,6 +24,11 @@
 
 # production
 /build
+
+# local databases and captured responses
+*.db
+*.db-journal
+/-w
 
 # misc
 .DS_Store

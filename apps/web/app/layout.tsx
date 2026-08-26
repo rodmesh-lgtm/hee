@@ -1,69 +1,53 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import { Suspense } from "react";
 import { IBM_Plex_Sans_Arabic, Inter } from "next/font/google";
+import { LanguageSwitcher } from "../components/language-switcher";
+import { LOCALE_META, SITE_MESSAGES } from "./lib/i18n";
+import { getRequestLocale } from "./lib/i18n-server";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
+const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({ variable: "--font-ibm-plex-sans-arabic", subsets: ["arabic"], weight: ["400", "500", "600", "700"] });
 
-const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
-  variable: "--font-ibm-plex-sans-arabic",
-  subsets: ["arabic"],
-  weight: ["400", "500", "600", "700"],
-});
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const site = SITE_MESSAGES[locale];
+  return {
+    metadataBase: new URL("https://ir.sa"),
+    title: { default: site.title, template: "%s | iR" },
+    description: site.description,
+    keywords: site.keywords,
+    authors: [{ name: "iR" }],
+    creator: "iR",
+    publisher: "iR",
+    robots: { index: true, follow: true },
+    openGraph: {
+      title: site.title,
+      description: site.description,
+      url: "https://ir.sa",
+      siteName: "iR",
+      locale: site.ogLocale,
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: site.title,
+      description: site.description,
+    },
+  };
+}
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://hee.sa"),
-  title: {
-    default: "HEE",
-    template: "%s | HEE",
-  },
-  description:
-    "منصة احترافية لإدارة النشاط التجاري، الطلبات، والعروض من واجهة واحدة، مع تجربة عربية غنية وتجهيز جاهز للتوسع.",
-  keywords: [
-    "HEE",
-    "منصة أعمال",
-    "إدارة نشاط",
-    "عيادات",
-    "مطاعم",
-    "متاجر",
-    "صفحة أعمال",
-    "السعودية",
-  ],
-  authors: [{ name: "HEE" }],
-  creator: "HEE",
-  publisher: "HEE",
-  robots: {
-    index: true,
-    follow: true,
-  },
-  openGraph: {
-    title: "HEE | المنصة الرقمية للأعمال",
-    description:
-      "منصة احترافية لإدارة النشاط التجاري، الطلبات، والعروض من واجهة واحدة، مع تجربة عربية غنية وتجهيز جاهز للتوسع.",
-    url: "https://hee.sa",
-    siteName: "HEE",
-    locale: "ar_SA",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "HEE | المنصة الرقمية للأعمال",
-    description:
-      "منصة احترافية لإدارة النشاط التجاري، الطلبات، والعروض من واجهة واحدة، مع تجربة عربية غنية وتجهيز جاهز للتوسع.",
-  },
-};
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = await getRequestLocale();
+  const localeMeta = LOCALE_META[locale];
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="ar"
-      dir="rtl"
-      suppressHydrationWarning
-      className={`${inter.variable} ${ibmPlexSansArabic.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">{children}</body>
+    <html lang={localeMeta.htmlLang} dir={localeMeta.dir} suppressHydrationWarning className={`${inter.variable} ${ibmPlexSansArabic.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+        {children}
+        <Suspense fallback={null}><LanguageSwitcher locale={locale} /></Suspense>
+      </body>
     </html>
   );
 }

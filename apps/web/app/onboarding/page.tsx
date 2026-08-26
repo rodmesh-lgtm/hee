@@ -1,205 +1,28 @@
-"use client";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "../lib/auth";
+import { db } from "../lib/db";
+import { OnboardingClient } from "../../components/onboarding-client";
 
-import { type FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-import { businessTypes } from "../lib/business-types";
+export const dynamic = "force-dynamic";
 
-const steps = [
-  "اختيار نوع النشاط",
-  "اسم النشاط",
-  "اسم الرابط",
-  "تفاصيل النشاط",
-  "إعدادات العلامة",
-  "مراجعة وإنشاء",
-];
+export default async function OnboardingPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
 
-export default function OnboardingPage() {
-  const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [error, setError] = useState("");
-  const [pending, setPending] = useState(false);
-  const [businessType, setBusinessType] = useState("Cafe");
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [description, setDescription] = useState("");
-  const [city, setCity] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
-  const [primaryColor, setPrimaryColor] = useState("#6366f1");
+  const existingBusiness = await db.business.findFirst({
+    where: { ownerId: user.id, deletedAt: null },
+    select: { id: true },
+  });
 
-  const onContinue = () => setCurrentStep((s) => Math.min(s + 1, steps.length - 1));
-  const onBack = () => setCurrentStep((s) => Math.max(s - 1, 0));
+  if (existingBusiness) redirect("/dashboard");
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const params = await searchParams;
+  const email = Array.isArray(params?.email) ? params.email[0] : params?.email;
 
-    if (pending) {
-      return;
-    }
-
-    setError("");
-    setPending(true);
-
-    try {
-      const response = await fetch("/api/business/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          slug,
-          businessType,
-          description,
-          city,
-          whatsapp,
-          phone,
-          address,
-          logoUrl,
-          primaryColor,
-        }),
-      });
-
-      const result = (await response.json()) as { error?: string; redirectTo?: string };
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push("/login");
-          return;
-        }
-
-        setError(result.error ?? "تعذر إنشاء النشاط");
-        return;
-      }
-
-      router.push(result.redirectTo ?? "/dashboard");
-    } catch {
-      setError("تعذر إنشاء النشاط");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-4xl px-4 py-10">
-        <div className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-5">
-          <div className="text-sm text-indigo-300">HEE · التأسيس السريع</div>
-          <h1 className="mt-2 text-3xl font-black">إنشاء نشاطك</h1>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-          <aside className="rounded-3xl border border-white/10 bg-white/5 p-5">
-            <div className="space-y-3">
-              {steps.map((item, index) => (
-                <div key={item} className={`rounded-2xl px-4 py-3 text-sm font-semibold ${index === currentStep ? "bg-indigo-500/20 text-indigo-200" : "bg-slate-900/60 text-slate-300"}`}>
-                  {index + 1}. {item}
-                </div>
-              ))}
-            </div>
-          </aside>
-
-          <form onSubmit={onSubmit} className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-            {currentStep === 0 && (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-black">اختر نوع النشاط</h2>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {businessTypes.map((type) => (
-                    <button key={type} type="button" onClick={() => { setBusinessType(type); onContinue(); }} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-right font-semibold hover:border-indigo-400">
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {currentStep === 1 && (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-black">اسم النشاط</h2>
-                <input name="name" value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" placeholder="مثال: Bean Point" required />
-                <div className="flex gap-3">
-                  <button type="button" onClick={onBack} className="rounded-2xl border border-white/10 px-4 py-3">رجوع</button>
-                  <button type="button" onClick={onContinue} className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 font-bold">متابعة</button>
-                </div>
-              </div>
-            )}
-
-            {currentStep === 2 && (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-black">اختر الرابط العام</h2>
-                <div className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-300">hee.sa/<span className="text-white">{slug || "your-slug"}</span></div>
-                <input name="slug" value={slug} onChange={(e) => setSlug(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" placeholder="bean-point" required />
-                <div className="flex gap-3">
-                  <button type="button" onClick={onBack} className="rounded-2xl border border-white/10 px-4 py-3">رجوع</button>
-                  <button type="button" onClick={onContinue} className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 font-bold">متابعة</button>
-                </div>
-              </div>
-            )}
-
-            {currentStep === 3 && (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-black">تفاصيل النشاط</h2>
-                <textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" placeholder="وصف النشاط" required />
-                <div className="grid gap-4 md:grid-cols-2">
-                  <input name="city" value={city} onChange={(e) => setCity(e.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" placeholder="المدينة" required />
-                  <input name="whatsapp" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" placeholder="واتساب" required />
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <input name="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" placeholder="الهاتف" required />
-                  <input name="address" value={address} onChange={(e) => setAddress(e.target.value)} className="rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" placeholder="العنوان" required />
-                </div>
-                <div className="flex gap-3">
-                  <button type="button" onClick={onBack} className="rounded-2xl border border-white/10 px-4 py-3">رجوع</button>
-                  <button type="button" onClick={onContinue} className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 font-bold">متابعة</button>
-                </div>
-              </div>
-            )}
-
-            {currentStep === 4 && (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-black">إعدادات العلامة</h2>
-                <input name="logoUrl" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3" placeholder="رابط الشعار" />
-                <input name="primaryColor" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} type="color" className="h-12 w-full rounded-2xl border border-white/10 bg-slate-900 px-2 py-2" />
-                <div className="flex gap-3">
-                  <button type="button" onClick={onBack} className="rounded-2xl border border-white/10 px-4 py-3">رجوع</button>
-                  <button type="button" onClick={onContinue} className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 font-bold">متابعة</button>
-                </div>
-              </div>
-            )}
-
-            {currentStep === 5 && (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-black">مراجعة وإنشاء</h2>
-                <div className="rounded-2xl bg-slate-900 p-4 text-sm text-slate-300">
-                  <div>الاسم: {name}</div>
-                  <div>النوع: {businessType}</div>
-                  <div>الرابط: hee.sa/{slug}</div>
-                </div>
-                {error ? <p className="rounded-2xl bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</p> : null}
-                <div className="flex gap-3">
-                  <button type="button" onClick={onBack} className="rounded-2xl border border-white/10 px-4 py-3">رجوع</button>
-                  <button type="submit" disabled={pending} className="rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 font-bold">
-                    {pending ? "جاري الإنشاء..." : "إنشاء النشاط"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <input type="hidden" name="name" value={name} readOnly />
-            <input type="hidden" name="slug" value={slug} readOnly />
-            <input type="hidden" name="description" value={description} readOnly />
-            <input type="hidden" name="city" value={city} readOnly />
-            <input type="hidden" name="whatsapp" value={whatsapp} readOnly />
-            <input type="hidden" name="phone" value={phone} readOnly />
-            <input type="hidden" name="address" value={address} readOnly />
-            <input type="hidden" name="logoUrl" value={logoUrl} readOnly />
-            <input type="hidden" name="primaryColor" value={primaryColor} readOnly />
-            <input type="hidden" name="businessType" value={businessType} readOnly />
-          </form>
-        </div>
-      </div>
-    </main>
-  );
+  return <div className="space-y-3">
+    {email === "verification-sent" ? <div role="status" className="mx-auto max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">أرسلنا رابط تأكيد البريد تلقائيًا. يمكنك إكمال إعداد نشاطك الآن، وافتح الرسالة خلال 24 ساعة قبل نشر الصفحة أو الاشتراك المدفوع.</div> : null}
+    {email === "verification-send-failed" ? <div role="alert" className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">تم إنشاء حسابك بنجاح، لكن تعذر إرسال رسالة تأكيد البريد الآن. أكمل إعداد النشاط، ثم استخدم «إعادة إرسال رسالة التأكيد» من الحساب والباقات.</div> : null}
+    {email === "verification-unavailable" ? <div role="alert" className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">تم إنشاء حسابك، لكن خدمة تأكيد البريد غير متاحة في هذه البيئة. لن يُسمح بالنشر أو الدفع قبل نجاح تأكيد البريد.</div> : null}
+    <OnboardingClient />
+  </div>;
 }

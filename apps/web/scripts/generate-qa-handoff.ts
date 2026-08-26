@@ -149,6 +149,11 @@ async function main() {
 
   try {
     const minted = await mintQaUrl(page, qaTarget);
+
+    if (!minted.url) {
+      throw new Error("QA URL mint response did not include a URL");
+    }
+
     const checks = await validateQaUrl(previewUrl, minted.url, qaTarget, productionUrl);
 
     if (!checks.targetReached || !checks.realPageVisible) {

@@ -1,57 +1,67 @@
-"use client";
+import { PublicBusinessPageV10Light } from "../../components/public-business-page-v10-light";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+export const dynamic = "force-dynamic";
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
+type DemoBusiness = Parameters<typeof PublicBusinessPageV10Light>[0]["business"];
+
+const demoBusiness: DemoBusiness = {
+  id: "hee-demo",
+  slug: "demo",
+  name: "شركة الرواد للمقاولات",
+  nameEn: "Al Rowad Contracting",
+  description: "شركة سعودية متخصصة في المقاولات العامة والتشطيبات وإدارة المشاريع، نقدم حلولاً متكاملة بمعايير جودة عالية وفريق متخصص.",
+  shortDescription: "شركة سعودية متخصصة في المقاولات العامة والتشطيبات وإدارة المشاريع بمعايير جودة عالية.",
+  businessCategory: "مقاولات عامة",
+  businessType: "شركة مقاولات",
+  city: "الرياض",
+  district: "حي العليا",
+  address: "طريق الملك فهد، حي العليا",
+  country: "SA",
+  phone: "+966500000001",
+  whatsapp: "+966500000001",
+  email: "info@example.sa",
+  website: "https://example.sa",
+  logoUrl: null,
+  coverUrl: null,
+  googleMapsLink: "https://maps.google.com/?q=Riyadh",
+  workingHours: "السبت - الخميس، 8:00 ص - 6:00 م",
+  isVerified: true,
+  services: [
+    { id: "s1", name: "المقاولات العامة", description: "تنفيذ مشاريع البناء والإنشاء من البداية حتى التسليم.", isActive: true },
+    { id: "s2", name: "التشطيبات الداخلية", description: "تشطيبات متكاملة للمشاريع السكنية والتجارية.", isActive: true },
+    { id: "s3", name: "إدارة المشاريع", description: "إدارة ومتابعة المشروع وفق الجداول الزمنية ومعايير الجودة.", isActive: true },
+    { id: "s4", name: "الترميم والصيانة", description: "أعمال ترميم وصيانة ورفع كفاءة المباني.", isActive: true },
+  ],
+  openingHours: [{ opensAt: "08:00", closesAt: "18:00", isClosed: false }],
+  galleryItems: [
+    { id: "g1", imageUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80" },
+    { id: "g2", imageUrl: "https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=900&q=80" },
+    { id: "g3", imageUrl: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5e?auto=format&fit=crop&w=900&q=80" },
+  ],
+  branches: [
+    { id: "b1", name: "الفرع الرئيسي", city: "الرياض", district: "العليا", address: "طريق الملك فهد", googleMapsLink: "https://maps.google.com/?q=Riyadh", isActive: true },
+    { id: "b2", name: "فرع شمال الرياض", city: "الرياض", district: "الياسمين", address: "طريق أنس بن مالك", googleMapsLink: "https://maps.google.com/?q=Riyadh", isActive: true },
+    { id: "b3", name: "فرع جدة", city: "جدة", district: "الروضة", address: "شارع الأمير سلطان", googleMapsLink: "https://maps.google.com/?q=Jeddah", isActive: true },
+  ],
+  contactPersons: [],
+  departments: [
+    { id: "d1", name: "المبيعات", isActive: true, contacts: [
+      { id: "c1", name: "محمد العتيبي", jobTitle: "ممثل مبيعات", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true },
+      { id: "c2", name: "سارة القحطاني", jobTitle: "علاقات العملاء", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true },
+    ]},
+    { id: "d2", name: "العمليات", isActive: true, contacts: [
+      { id: "c3", name: "خالد الحربي", jobTitle: "مدير العمليات", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true },
+      { id: "c4", name: "نورة الشهري", jobTitle: "خدمة العملاء", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true },
+    ]},
+  ],
+};
 
 export default function DemoPage() {
-  const router = useRouter();
-
-  return (
-    <main className="min-h-screen bg-slate-50 px-4 py-16 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
-      <div className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-8 text-right dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <nav className="text-xs text-slate-500 dark:text-slate-400">
-            <Link href="/" className="hover:text-indigo-700 dark:hover:text-indigo-300">
-              الرئيسية
-            </Link>
-            <span className="mx-2">/</span>
-            <span>المثال</span>
-          </nav>
-          <div className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
-            قيد التطوير
-          </div>
-        </div>
-
-        <h1 className="mt-4 text-3xl font-black">صفحة المثال</h1>
-        <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-          نعمل حالياً على تجهيز تجربة العرض التفاعلية. ستتوفر قريباً مع محتوى متكامل يوضح سيناريوهات الاستخدام داخل المنصة.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-indigo-400 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-400 dark:hover:text-indigo-300"
-        >
-          <ArrowRight className="h-4 w-4" />
-          رجوع
-        </button>
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-500"
-          >
-            العودة للرئيسية
-          </Link>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center justify-center rounded-2xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-indigo-400 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-400 dark:hover:text-indigo-300"
-          >
-            الذهاب إلى لوحة التحكم
-          </Link>
-        </div>
-      </div>
-    </main>
-  );
+  return <PublicBusinessPageV10Light business={demoBusiness} qrDataUrl="" publicUrl="https://ir.sa/demo" demoMode />;
 }

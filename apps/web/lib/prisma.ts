@@ -3,6 +3,8 @@ import "server-only";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
+import { isProductionRuntime } from "../app/lib/runtime-environment";
+import { normalizePostgresDatabaseUrl } from "./database-url";
 
 type GlobalPrisma = {
   prisma?: PrismaClient;
@@ -11,41 +13,56 @@ type GlobalPrisma = {
 
 const globalForPrisma = globalThis as unknown as GlobalPrisma;
 
-function getDatabaseUrl() {
-  const fallbackUrl = "postgresql://hee:hee123@127.0.0.1:5432/hee?schema=public";
-  const rawUrl = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.PRISMA_DATABASE_URL ?? fallbackUrl;
+function validatedDatabaseUrl() {
+  const configured = process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.PRISMA_DATABASE_URL;
+  const localFallback = "postgresql://hee:hee123@127.0.0.1:5432/hee?schema=public";
+  const rawUrl = configured?.trim() || (process.env.NODE_ENV === "production" ? "" : localFallback);
 
-  if (!rawUrl || rawUrl.trim() === "" || rawUrl === "base") {
-    return fallbackUrl;
+  if (!rawUrl) {
+    throw new Error("HEE database configuration is missing: set DATABASE_URL in this environment");
   }
 
-  try {
-    const parsed = new URL(rawUrl);
-    const hostname = parsed.hostname.toLowerCase();
-    if (!hostname || hostname === "base") {
-      return fallbackUrl;
-    }
-    return rawUrl;
-  } catch {
-    return fallbackUrl;
-  }
+  return normalizePostgresDatabaseUrl(rawUrl);
+}
+
+function poolSize() {
+  // A Vercel/other horizontally scaled Node runtime can have many warm isolates. A
+  // large pool per isolate multiplies quickly and can exhaust PostgreSQL long before
+  // request CPU is saturated. The hosting platform Production signal must therefore
+  // preserve the conservative fallback even if APP_ENV drifts or is missing.
+  const fallback = isProductionRuntime() ? "2" : "5";
+  const configured = Number.parseInt(String(process.env.PG_POOL_MAX ?? fallback), 10);
+  return Number.isFinite(configured) ? Math.max(1, Math.min(20, configured)) : Number(fallback);
 }
 
 function getPool() {
   if (!globalForPrisma.pgPool) {
-    globalForPrisma.pgPool = new Pool({ connectionString: getDatabaseUrl() });
+    globalForPrisma.pgPool = new Pool({
+      connectionString: validatedDatabaseUrl(),
+      max: poolSize(),
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
+    });
   }
-
   return globalForPrisma.pgPool;
 }
 
 function createPrismaClient() {
-  const adapter = new PrismaPg(getPool());
-  return new PrismaClient({ adapter });
+  return new PrismaClient({ adapter: new PrismaPg(getPool()) });
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+// Reuse one Prisma client and pg pool per warm Node.js isolate in development and production.
+globalForPrisma.prisma = prisma;
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+// Standalone cron/systemd workers must close both Prisma and the underlying pg Pool or
+// the Node process can remain alive after work completes. Application request handlers
+// never call this helper; it is intentionally reserved for one-shot operational scripts.
+export async function closePrismaForWorker() {
+  const client = globalForPrisma.prisma;
+  const pool = globalForPrisma.pgPool;
+  globalForPrisma.prisma = undefined;
+  globalForPrisma.pgPool = undefined;
+  if (client) await client.$disconnect();
+  if (pool) await pool.end();
 }

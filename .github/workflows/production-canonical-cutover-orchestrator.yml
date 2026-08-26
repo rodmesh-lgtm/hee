@@ -1,0 +1,243 @@
+name: Production Canonical Cutover Orchestrator
+
+on:
+  workflow_run:
+    workflows: ["RC Quality"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: production-canonical-cutover
+  cancel-in-progress: false
+
+jobs:
+  cutover:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'hee-v6-rc'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    env:
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+      RELEASE_BRANCH: hee-v6-rc
+      GH_TOKEN: ${{ github.token }}
+      VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      ADMIN_CANONICAL_HOST: admin.ir.sa
+    steps:
+      - name: Require explicit cutover marker and unchanged release head
+        run: |
+          set -euo pipefail
+          test "$TARGET_SHA" != "" && test "${#TARGET_SHA}" -eq 40
+          commit_json="$(gh api "/repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}")"
+          message="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.commit?.message??""));' "$commit_json")"
+          if ! grep -Fq '[production-cutover]' <<<"$message"; then
+            echo "No [production-cutover] marker on the green release commit; canonical Production remains unchanged."
+            exit 0
+          fi
+          branch_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')"
+          test "$branch_sha" = "$TARGET_SHA" || (echo "Release branch moved after RC Quality; refusing cutover" && exit 1)
+          echo "CUTOVER_REQUESTED=true" >> "$GITHUB_ENV"
+
+      - name: Dispatch exact-head Production Preflight V2
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          branch_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')"
+          test "$branch_sha" = "$TARGET_SHA" || (echo "Release branch moved before Preflight dispatch" && exit 1)
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/dispatches" \
+            -f ref="$RELEASE_BRANCH" \
+            -f 'inputs[confirmation]=VERIFY_PRODUCTION_PREFLIGHT'
+
+      - name: Require successful exact-SHA Production Preflight V2
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          run_id=""
+          for attempt in $(seq 1 180); do
+            runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20")"
+            run_json="$(node - <<'NODE' "$runs" "$TARGET_SHA"
+          const body=JSON.parse(process.argv[2]);
+          const sha=process.argv[3];
+          const run=(body.workflow_runs??[]).find((r)=>r.head_sha===sha&&r.event==='workflow_dispatch'&&r.head_branch==='hee-v6-rc');
+          process.stdout.write(run?JSON.stringify(run):'');
+          NODE
+            )"
+            if test -n "$run_json"; then
+              run_id="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.id));' "$run_json")"
+              status="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.status??""));' "$run_json")"
+              conclusion="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.conclusion??""));' "$run_json")"
+              if test "$status" = "completed"; then
+                test "$conclusion" = "success" || (echo "Production Preflight V2 failed: run=${run_id} conclusion=${conclusion}" && exit 1)
+                echo "PREFLIGHT_RUN_ID=${run_id}" >> "$GITHUB_ENV"
+                echo "production-preflight-v2: PASS run=${run_id} sha=${TARGET_SHA}"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for exact-SHA Production Preflight V2"
+          exit 1
+
+      - name: Ensure central admin domain is registered and DNS-ready
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN" || (echo "PRODUCTION_VERCEL_TOKEN is missing" && exit 1)
+
+          domains_json="$(curl --silent --show-error --fail --max-time 20 \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_ORG_ID}&limit=100")"
+          domain_exists="$(node -e '
+            const body=JSON.parse(process.argv[1]);
+            const host=process.argv[2].toLowerCase();
+            process.stdout.write(String((body.domains??[]).some((d)=>String(d?.name??"").toLowerCase()===host)));
+          ' "$domains_json" "$ADMIN_CANONICAL_HOST")"
+
+          if test "$domain_exists" != "true"; then
+            echo "Registering ${ADMIN_CANONICAL_HOST} on Vercel project ${VERCEL_PROJECT_ID}"
+            curl --silent --show-error --fail --max-time 20 \
+              --request POST \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              -H 'Content-Type: application/json' \
+              --data "{\"name\":\"${ADMIN_CANONICAL_HOST}\"}" \
+              "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_ORG_ID}" \
+              >/tmp/admin-project-domain.json
+          fi
+
+          project_domain_json="$(curl --silent --show-error --fail --max-time 20 \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${ADMIN_CANONICAL_HOST}?teamId=${VERCEL_ORG_ID}")"
+
+          project_verified="$(node -e '
+            const body=JSON.parse(process.argv[1]);
+            process.stdout.write(String(body.verified===true));
+          ' "$project_domain_json")"
+          if test "$project_verified" != "true"; then
+            node - <<'NODE' "$project_domain_json"
+          const body=JSON.parse(process.argv[2]);
+          console.error('admin.ir.sa is registered but not verified for this Vercel project.');
+          const checks=Array.isArray(body.verification)?body.verification:[];
+          for(const item of checks){
+            console.error(`verification ${item.type??'record'} ${item.domain??''} ${item.value??''}`.trim());
+          }
+          NODE
+            exit 1
+          fi
+
+          config_json="$(curl --silent --show-error --fail --max-time 20 \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v6/domains/${ADMIN_CANONICAL_HOST}/config?projectIdOrName=${VERCEL_PROJECT_ID}&teamId=${VERCEL_ORG_ID}")"
+
+          node - <<'NODE' "$config_json"
+          const body=JSON.parse(process.argv[2]);
+          if(body.misconfigured===true){
+            console.error('admin.ir.sa DNS is not yet configured for Vercel.');
+            const cname=(body.recommendedCNAME??[]).sort((a,b)=>(a.rank??99)-(b.rank??99))[0];
+            const ipv4=(body.recommendedIPv4??[]).sort((a,b)=>(a.rank??99)-(b.rank??99))[0];
+            if(cname?.value) console.error(`recommended CNAME: admin -> ${cname.value}`);
+            if(Array.isArray(ipv4?.value)&&ipv4.value.length) console.error(`recommended A: admin -> ${ipv4.value.join(', ')}`);
+            process.exit(1);
+          }
+          NODE
+
+          admin_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 "https://${ADMIN_CANONICAL_HOST}/")"
+          case "$admin_code" in
+            200|301|302|303|307|308) ;;
+            *) echo "${ADMIN_CANONICAL_HOST} is not HTTPS-ready (HTTP ${admin_code})"; exit 1 ;;
+          esac
+          echo "central-admin-domain-precheck: PASS ${ADMIN_CANONICAL_HOST}"
+
+      - name: Re-prove unchanged release head before Production mutation
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          branch_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')"
+          test "$branch_sha" = "$TARGET_SHA" || (echo "Release branch moved after Preflight; refusing Production deploy" && exit 1)
+
+      - name: Dispatch exact-head Production Web Deploy
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-deploy.yml/dispatches" \
+            -f ref="$RELEASE_BRANCH" \
+            -f 'inputs[confirmation]=DEPLOY_EXACT_RELEASE_TO_PRODUCTION'
+
+      - name: Require successful exact-SHA Production Web Deploy
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          run_id=""
+          for attempt in $(seq 1 240); do
+            runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-deploy.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20")"
+            run_json="$(node - <<'NODE' "$runs" "$TARGET_SHA"
+          const body=JSON.parse(process.argv[2]);
+          const sha=process.argv[3];
+          const run=(body.workflow_runs??[]).find((r)=>r.head_sha===sha&&r.event==='workflow_dispatch'&&r.head_branch==='hee-v6-rc');
+          process.stdout.write(run?JSON.stringify(run):'');
+          NODE
+            )"
+            if test -n "$run_json"; then
+              run_id="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.id));' "$run_json")"
+              status="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.status??""));' "$run_json")"
+              conclusion="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.conclusion??""));' "$run_json")"
+              if test "$status" = "completed"; then
+                test "$conclusion" = "success" || (echo "Production Web Deploy failed: run=${run_id} conclusion=${conclusion}" && exit 1)
+                echo "DEPLOY_RUN_ID=${run_id}" >> "$GITHUB_ENV"
+                echo "production-web-deploy: PASS run=${run_id} sha=${TARGET_SHA}"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for exact-SHA Production Web Deploy"
+          exit 1
+
+      - name: Verify canonical ir.sa exact release and security baseline
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          release_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/release)"
+          node - <<'NODE' "$release_json" "$TARGET_SHA"
+          const release=JSON.parse(process.argv[2]);
+          const sha=process.argv[3];
+          if(release.releaseSha!==sha)throw new Error(`ir.sa serves ${release.releaseSha??'unknown'}, expected ${sha}`);
+          if(release.environment!=='production')throw new Error('ir.sa release endpoint is not Production');
+          NODE
+          headers="$(mktemp)"
+          body="$(mktemp)"
+          curl --silent --show-error --fail --location --dump-header "$headers" --output "$body" --max-time 20 https://ir.sa/
+          grep -qi '^strict-transport-security:' "$headers"
+          grep -qi '^content-security-policy:' "$headers"
+          grep -Fq 'https://ir.sa' "$body" || (echo "Canonical homepage does not advertise ir.sa" && exit 1)
+          legacy_origin="https://hee"".""sa"
+          if grep -Fqi "$legacy_origin" "$body"; then
+            echo "Legacy canonical domain still appears on live homepage"
+            exit 1
+          fi
+          rm -f "$headers" "$body"
+
+      - name: Verify www and central admin entry points
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          www_headers="$(mktemp)"
+          curl --silent --show-error --head --dump-header "$www_headers" --output /dev/null --max-time 20 https://www.ir.sa/
+          grep -Eqi '^location: https://ir\.sa/?\r?$' "$www_headers" || (echo "www.ir.sa does not redirect canonically to ir.sa" && exit 1)
+          admin_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 https://admin.ir.sa/)"
+          case "$admin_code" in
+            200|301|302|303|307|308) ;;
+            *) echo "admin.ir.sa returned HTTP ${admin_code}"; exit 1 ;;
+          esac
+          rm -f "$www_headers"
+
+      - name: Cutover summary
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          echo "production-canonical-cutover: PASS sha=${TARGET_SHA} preflight=${PREFLIGHT_RUN_ID} deploy=${DEPLOY_RUN_ID} canonical=https://ir.sa admin=https://admin.ir.sa"

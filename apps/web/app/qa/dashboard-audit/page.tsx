@@ -26,9 +26,8 @@ export default async function QaDashboardAuditPage({
     notFound();
   }
 
-  const token = Array.isArray(resolvedSearchParams?.token)
-    ? resolvedSearchParams.token[0]
-    : resolvedSearchParams?.token ?? null;
+  // Browser URLs carry only short-lived, single-use audit IDs. The long-lived
+  // QA_AUDIT_SECRET is never copied into a query string.
   const auditId = Array.isArray(resolvedSearchParams?.auditId)
     ? resolvedSearchParams.auditId[0]
     : resolvedSearchParams?.auditId ?? null;
@@ -36,17 +35,12 @@ export default async function QaDashboardAuditPage({
     ? resolvedSearchParams.path[0]
     : resolvedSearchParams?.path ?? null;
 
-  if (!token && !auditId) {
+  if (!auditId) {
     redirect("/login");
   }
 
   const redirectUrl = new URL(`/api/qa/dashboard-audit`, "https://placeholder.local");
-  if (token) {
-    redirectUrl.searchParams.set("token", token);
-  }
-  if (auditId) {
-    redirectUrl.searchParams.set("auditId", auditId);
-  }
+  redirectUrl.searchParams.set("auditId", auditId);
   if (requestedPath) {
     redirectUrl.searchParams.set("path", requestedPath);
   }

@@ -32,13 +32,13 @@ function TeamCarousel({
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
 
-  if (members.length === 0) {
-    return null;
-  }
-
   useEffect(() => {
     const rail = railRef.current;
-    if (!rail) return;
+    if (!rail) {
+      setCanScrollPrev(false);
+      setCanScrollNext(false);
+      return;
+    }
 
     const updateScrollState = () => {
       const maxOffset = rail.scrollWidth - rail.clientWidth;
@@ -61,6 +61,10 @@ function TeamCarousel({
       window.removeEventListener("resize", updateScrollState);
     };
   }, [members.length]);
+
+  if (members.length === 0) {
+    return null;
+  }
 
   return (
     <div className={`space-y-2 rounded-2xl border p-3 ${darkMode ? "border-white/10 bg-white/5" : "border-[#e8ebf7] bg-white"}`}>

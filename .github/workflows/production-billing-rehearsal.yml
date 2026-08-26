@@ -1,0 +1,154 @@
+name: Production Billing Rehearsal
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type START_CONTROLLED_BILLING_REHEARSAL to continue"
+        required: true
+        type: string
+      rehearsal_user_email:
+        description: "Verified dedicated FREE-plan account allowed to perform the one live rehearsal checkout"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: production-billing-launch-transition
+  cancel-in-progress: false
+
+jobs:
+  rehearsal:
+    if: ${{ inputs.confirmation == 'START_CONTROLLED_BILLING_REHEARSAL' && github.ref == 'refs/heads/hee-v6-rc' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      APP_ENV: production
+      RELEASE_SHA: ${{ github.sha }}
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
+      SESSION_SECRET: ${{ secrets.PRODUCTION_SESSION_SECRET }}
+      RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+      HEE_FROM_EMAIL: ${{ vars.PRODUCTION_HEE_FROM_EMAIL }}
+      PAYMENT_PROVIDER: moyasar
+      MOYASAR_PUBLISHABLE_KEY: ${{ secrets.PRODUCTION_MOYASAR_PUBLISHABLE_KEY }}
+      MOYASAR_SECRET_KEY: ${{ secrets.PRODUCTION_MOYASAR_SECRET_KEY }}
+      MOYASAR_WEBHOOK_SECRET: ${{ secrets.PRODUCTION_MOYASAR_WEBHOOK_SECRET }}
+      BILLING_TOKEN_ENCRYPTION_KEY: ${{ secrets.PRODUCTION_BILLING_TOKEN_ENCRYPTION_KEY }}
+      BILLING_SELLER_LEGAL_NAME_AR: ${{ vars.PRODUCTION_BILLING_SELLER_LEGAL_NAME_AR }}
+      BILLING_SELLER_ADDRESS_AR: ${{ vars.PRODUCTION_BILLING_SELLER_ADDRESS_AR }}
+      BILLING_TAX_STATUS: ${{ vars.PRODUCTION_BILLING_TAX_STATUS }}
+      BILLING_RENEWAL_ENABLED: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED }}
+      BILLING_OPERATIONS_READY: ${{ vars.PRODUCTION_BILLING_OPERATIONS_READY }}
+      PAID_CHECKOUT_PUBLIC_ENABLED: ${{ vars.PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED }}
+      BILLING_REHEARSAL_USER_EMAIL: ${{ vars.PRODUCTION_BILLING_REHEARSAL_USER_EMAIL }}
+      STORAGE_DRIVER: ${{ vars.PRODUCTION_STORAGE_DRIVER }}
+      S3_ENDPOINT: ${{ vars.PRODUCTION_S3_ENDPOINT }}
+      S3_REGION: ${{ vars.PRODUCTION_S3_REGION }}
+      S3_BUCKET: ${{ vars.PRODUCTION_S3_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.PRODUCTION_S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.PRODUCTION_S3_SECRET_ACCESS_KEY }}
+      S3_FORCE_PATH_STYLE: ${{ vars.PRODUCTION_S3_FORCE_PATH_STYLE }}
+      GOOGLE_CLIENT_ID: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_SECRET }}
+      APPLE_CLIENT_ID: ${{ secrets.PRODUCTION_APPLE_CLIENT_ID }}
+      APPLE_TEAM_ID: ${{ secrets.PRODUCTION_APPLE_TEAM_ID }}
+      APPLE_KEY_ID: ${{ secrets.PRODUCTION_APPLE_KEY_ID }}
+      APPLE_PRIVATE_KEY: ${{ secrets.PRODUCTION_APPLE_PRIVATE_KEY }}
+      VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      VERCEL_CLI_VERSION: 59.3.0
+      PRODUCTION_CANONICAL_HOST: ir.sa
+
+    steps:
+      - name: Checkout exact release revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Require release quality and exact Preflight V2 configuration
+        uses: ./.github/actions/require-release-quality
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Require exact-SHA web and worker cutover before rehearsal
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          count_green_dispatches() {
+            workflow="$1"
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow}/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
+              --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | length'
+          }
+          test "$(count_green_dispatches production-preflight-v2.yml)" -ge 1 || (echo "Exact SHA has no successful Production Preflight V2" && exit 1)
+          test "$(count_green_dispatches production-deploy.yml)" -ge 1 || (echo "Exact SHA has no successful Production Web Deploy" && exit 1)
+          test "$(count_green_dispatches production-worker-deploy.yml)" -ge 1 || (echo "Exact SHA has no successful Production Billing Worker Deploy" && exit 1)
+
+      - name: Prove canonical Production is exact-SHA closed billing mode
+        working-directory: .
+        run: |
+          set -euo pipefail
+          release_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/release)"
+          maintenance_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/maintenance/status)"
+          launch_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/billing/launch-status)"
+          node - <<'NODE' "$release_json" "$maintenance_json" "$launch_json"
+          const release=JSON.parse(process.argv[2]);
+          const maintenance=JSON.parse(process.argv[3]);
+          const launch=JSON.parse(process.argv[4]);
+          const sha=process.env.GITHUB_SHA;
+          if(release.releaseSha!==sha||release.environment!=="production")throw new Error("canonical release mismatch");
+          if(maintenance.releaseSha!==sha||maintenance.environment!=="production"||maintenance.maintenance!==false)throw new Error("canonical maintenance state mismatch");
+          if(launch.releaseSha!==sha||launch.environment!=="production"||launch.mode!=="closed")throw new Error("billing launch must be closed before rehearsal");
+          if(launch.billingOperationsReady!==true||launch.renewalEnabled!==true)throw new Error("billing operations are not ready");
+          NODE
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Require verify-full PostgreSQL transport
+        run: node ../../.github/scripts/require-production-database-safety.mjs DATABASE_URL
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Re-prove billing database and worker state
+        run: npm run billing:state-audit
+
+      - name: Prove rehearsal account is a single verified FREE-plan candidate
+        run: npx tsx scripts/production-billing-launch-proof.ts candidate --email "${{ inputs.rehearsal_user_email }}"
+
+      - name: Stage and promote exact-SHA rehearsal-only billing mode
+        working-directory: .
+        env:
+          HEE_BILLING_LAUNCH_MODE: rehearsal
+          HEE_BILLING_REHEARSAL_EMAIL: ${{ inputs.rehearsal_user_email }}
+          HEE_PREVIOUS_DEPLOYMENT_FILE: /tmp/hee-paid-launch-closed-baseline.json
+          HEE_STAGED_DEPLOYMENT_FILE: /tmp/hee-paid-launch-rehearsal-url
+        run: bash .github/scripts/promote-production-billing-launch-mode.sh
+
+      - name: Preserve exact-SHA closed billing rollback baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: hee-paid-launch-closed-baseline-${{ github.sha }}
+          path: /tmp/hee-paid-launch-closed-baseline.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Rehearsal summary
+        run: |
+          echo "production-billing-rehearsal: PASS for ${GITHUB_SHA}"
+          echo "Only the explicitly supplied verified rehearsal account can create a new paid checkout; public paid checkout remains closed."

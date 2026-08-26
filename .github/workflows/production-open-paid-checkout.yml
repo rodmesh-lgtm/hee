@@ -1,0 +1,183 @@
+name: Production Open Paid Checkout
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type OPEN_VERIFIED_PUBLIC_PAID_CHECKOUT to continue"
+        required: true
+        type: string
+      rehearsal_user_email:
+        description: "The same verified rehearsal account used for the live rehearsal"
+        required: true
+        type: string
+      rehearsal_billing_id:
+        description: "HEE BillingPayment UUID from the successful live rehearsal"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: production-billing-launch-transition
+  cancel-in-progress: false
+
+jobs:
+  open:
+    if: ${{ inputs.confirmation == 'OPEN_VERIFIED_PUBLIC_PAID_CHECKOUT' && github.ref == 'refs/heads/hee-v6-rc' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      APP_ENV: production
+      RELEASE_SHA: ${{ github.sha }}
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
+      SESSION_SECRET: ${{ secrets.PRODUCTION_SESSION_SECRET }}
+      RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
+      HEE_FROM_EMAIL: ${{ vars.PRODUCTION_HEE_FROM_EMAIL }}
+      PAYMENT_PROVIDER: moyasar
+      MOYASAR_PUBLISHABLE_KEY: ${{ secrets.PRODUCTION_MOYASAR_PUBLISHABLE_KEY }}
+      MOYASAR_SECRET_KEY: ${{ secrets.PRODUCTION_MOYASAR_SECRET_KEY }}
+      MOYASAR_WEBHOOK_SECRET: ${{ secrets.PRODUCTION_MOYASAR_WEBHOOK_SECRET }}
+      BILLING_TOKEN_ENCRYPTION_KEY: ${{ secrets.PRODUCTION_BILLING_TOKEN_ENCRYPTION_KEY }}
+      BILLING_SELLER_LEGAL_NAME_AR: ${{ vars.PRODUCTION_BILLING_SELLER_LEGAL_NAME_AR }}
+      BILLING_SELLER_ADDRESS_AR: ${{ vars.PRODUCTION_BILLING_SELLER_ADDRESS_AR }}
+      BILLING_TAX_STATUS: ${{ vars.PRODUCTION_BILLING_TAX_STATUS }}
+      BILLING_RENEWAL_ENABLED: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED }}
+      BILLING_OPERATIONS_READY: ${{ vars.PRODUCTION_BILLING_OPERATIONS_READY }}
+      PAID_CHECKOUT_PUBLIC_ENABLED: ${{ vars.PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED }}
+      BILLING_REHEARSAL_USER_EMAIL: ${{ vars.PRODUCTION_BILLING_REHEARSAL_USER_EMAIL }}
+      STORAGE_DRIVER: ${{ vars.PRODUCTION_STORAGE_DRIVER }}
+      S3_ENDPOINT: ${{ vars.PRODUCTION_S3_ENDPOINT }}
+      S3_REGION: ${{ vars.PRODUCTION_S3_REGION }}
+      S3_BUCKET: ${{ vars.PRODUCTION_S3_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.PRODUCTION_S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.PRODUCTION_S3_SECRET_ACCESS_KEY }}
+      S3_FORCE_PATH_STYLE: ${{ vars.PRODUCTION_S3_FORCE_PATH_STYLE }}
+      GOOGLE_CLIENT_ID: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_SECRET }}
+      APPLE_CLIENT_ID: ${{ secrets.PRODUCTION_APPLE_CLIENT_ID }}
+      APPLE_TEAM_ID: ${{ secrets.PRODUCTION_APPLE_TEAM_ID }}
+      APPLE_KEY_ID: ${{ secrets.PRODUCTION_APPLE_KEY_ID }}
+      APPLE_PRIVATE_KEY: ${{ secrets.PRODUCTION_APPLE_PRIVATE_KEY }}
+      VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      VERCEL_CLI_VERSION: 59.3.0
+      PRODUCTION_CANONICAL_HOST: ir.sa
+
+    steps:
+      - name: Checkout exact release revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Require release quality and exact Preflight configuration
+        uses: ./.github/actions/require-release-quality
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Resolve successful exact-SHA rehearsal evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run_json="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-billing-rehearsal.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")][0] // empty')"
+          test -n "$run_json" || (echo "Exact SHA has no successful Production Billing Rehearsal" && exit 1)
+          rehearsal_run_id="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.id??""));' "$run_json")"
+          rehearsal_started_at="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.created_at??""));' "$run_json")"
+          test -n "$rehearsal_run_id" && test -n "$rehearsal_started_at" || (echo "Rehearsal run evidence is incomplete" && exit 1)
+          {
+            echo "HEE_REHEARSAL_RUN_ID=${rehearsal_run_id}"
+            echo "HEE_REHEARSAL_STARTED_AT=${rehearsal_started_at}"
+          } >> "$GITHUB_ENV"
+          echo "billing-rehearsal-evidence: run=${rehearsal_run_id} release=${GITHUB_SHA}"
+
+      - name: Prove canonical Production remains exact-SHA rehearsal-only mode
+        working-directory: .
+        run: |
+          set -euo pipefail
+          release_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/release)"
+          maintenance_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/maintenance/status)"
+          launch_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/billing/launch-status)"
+          node - <<'NODE' "$release_json" "$maintenance_json" "$launch_json"
+          const release=JSON.parse(process.argv[2]);
+          const maintenance=JSON.parse(process.argv[3]);
+          const launch=JSON.parse(process.argv[4]);
+          const sha=process.env.GITHUB_SHA;
+          if(release.releaseSha!==sha||release.environment!=="production")throw new Error("canonical release mismatch");
+          if(maintenance.releaseSha!==sha||maintenance.environment!=="production"||maintenance.maintenance!==false)throw new Error("canonical maintenance state mismatch");
+          if(launch.releaseSha!==sha||launch.environment!=="production"||launch.mode!=="rehearsal")throw new Error("canonical billing launch is not rehearsal-only");
+          if(launch.billingOperationsReady!==true||launch.renewalEnabled!==true)throw new Error("billing operations are not ready");
+          NODE
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Require verify-full PostgreSQL transport
+        run: node ../../.github/scripts/require-production-database-safety.mjs DATABASE_URL
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Re-prove billing database and worker state
+        run: npm run billing:state-audit
+
+      - name: Prove one complete live rehearsal across HEE ledger, webhook, receipt, renewal token and Moyasar
+        run: npx tsx scripts/production-billing-launch-proof.ts verify --billing-id "${{ inputs.rehearsal_billing_id }}" --email "${{ inputs.rehearsal_user_email }}" --rehearsal-started-at "$HEE_REHEARSAL_STARTED_AT"
+
+      - name: Stage and promote exact-SHA public paid checkout
+        id: promote_public
+        working-directory: .
+        env:
+          HEE_BILLING_LAUNCH_MODE: public
+          HEE_BILLING_REHEARSAL_EMAIL: ""
+          HEE_PREVIOUS_DEPLOYMENT_FILE: /tmp/hee-paid-launch-rehearsal-rollback.json
+          HEE_STAGED_DEPLOYMENT_FILE: /tmp/hee-paid-launch-public-url
+        run: bash .github/scripts/promote-production-billing-launch-mode.sh
+
+      - name: Prove final runtime readiness after opening public checkout
+        id: final_health
+        working-directory: .
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            if body="$(curl --silent --show-error --fail --max-time 15 https://ir.sa/api/health/ready 2>/dev/null)" && \
+               node -e 'const b=JSON.parse(process.argv[1]);if(b.ready!==true)process.exit(1);' "$body"; then
+              echo "public-paid-runtime-readiness: PASS"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Canonical runtime did not become fully ready after public paid checkout promotion"
+          exit 1
+
+      - name: Roll back to rehearsal-only mode if post-promotion readiness fails
+        if: ${{ failure() && steps.promote_public.outcome == 'success' && steps.final_health.outcome != 'success' }}
+        working-directory: .
+        run: |
+          set -euo pipefail
+          previous_id="$(node -e 'const r=require(process.argv[1]);process.stdout.write(String(r.id??""));' /tmp/hee-paid-launch-rehearsal-rollback.json)"
+          previous_url="$(node -e 'const r=require(process.argv[1]);process.stdout.write(String(r.url??""));' /tmp/hee-paid-launch-rehearsal-rollback.json)"
+          test -n "$previous_id" && test -n "$previous_url"
+          npx --yes "vercel@${VERCEL_CLI_VERSION}" rollback "$previous_url" --yes --timeout 5m --token "$VERCEL_TOKEN"
+          npx --yes "vercel@${VERCEL_CLI_VERSION}" rollback status --timeout 60s --token "$VERCEL_TOKEN"
+          launch_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/billing/launch-status)"
+          node -e 'const b=JSON.parse(process.argv[1]);if(b.releaseSha!==process.env.GITHUB_SHA||b.environment!=="production"||b.mode!=="rehearsal")process.exit(1);' "$launch_json"
+          echo "public-paid-rollback: PASS restored rehearsal-only deployment ${previous_id}"
+
+      - name: Public paid launch summary
+        run: |
+          echo "production-open-paid-checkout: PASS release=${GITHUB_SHA} rehearsal_run=${HEE_REHEARSAL_RUN_ID} billing=${{ inputs.rehearsal_billing_id }}"

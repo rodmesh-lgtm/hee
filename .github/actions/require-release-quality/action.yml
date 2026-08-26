@@ -1,0 +1,11 @@
+name: Require release quality provenance
+description: Prove the release SHA itself or a tree-identical direct merge parent passed RC Quality, then require any mapped Production configuration attestations.
+runs:
+  using: composite
+  steps:
+    - name: Prove content-qualified RC provenance
+      shell: bash
+      run: bash "${GITHUB_ACTION_PATH}/../../scripts/require-release-quality.sh"
+    - name: Require mapped Production Preflight attestations
+      shell: bash
+      run: bash "${GITHUB_ACTION_PATH}/../../scripts/require-production-workflow-attestations.sh"

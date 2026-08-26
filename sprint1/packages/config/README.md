@@ -1,3 +1,0 @@
-# config
-
-Reserved for implementation.

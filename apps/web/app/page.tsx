@@ -1,24 +1,26 @@
 import type { Metadata } from "next";
 import { HomepagePremium } from "../components/homepage-premium";
+import { HomeTrustFooter } from "../components/home-trust-footer";
+
+const description = "أنشئ مع iR هوية أعمال رقمية احترافية لمنشأتك في رابط واحد على ir.sa يعرض معلوماتها وخدماتها وفروعها وفريقها وطرق التواصل بوضوح.";
 
 export const metadata: Metadata = {
-  title: "صفحتك التجارية في رابط واحد",
-  description:
-    "أنشئ صفحة احترافية لنشاطك، اجمع روابطك وخدماتك ومنتجاتك وطرق التواصل في مكان واحد، وشاركها مع عملائك بسهولة.",
+  title: "iR | هوية أعمال رقمية لمنشأتك",
+  description,
   openGraph: {
-    title: "HEE | صفحتك التجارية في رابط واحد",
-    description:
-      "أنشئ صفحة احترافية لنشاطك، اجمع روابطك وخدماتك ومنتجاتك وطرق التواصل في مكان واحد، وشاركها مع عملائك بسهولة.",
+    title: "iR | هوية أعمال رقمية لمنشأتك",
+    description,
     url: "/",
-    siteName: "HEE",
+    siteName: "iR",
     locale: "ar_SA",
     type: "website",
   },
-  alternates: {
-    canonical: "/",
-  },
+  alternates: { canonical: "/" },
 };
 
 export default function Home() {
-  return <HomepagePremium />;
+  return <>
+    <HomepagePremium />
+    <HomeTrustFooter />
+  </>;
 }

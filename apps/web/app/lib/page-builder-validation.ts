@@ -1,12 +1,11 @@
 import { z } from "zod";
+import { isValidPublicSlug, normalizePublicSlug } from "./public-url";
 
 export const slugSchema = z
   .string()
   .trim()
-  .toLowerCase()
-  .regex(/^[a-z0-9-]+$/, "الرابط يجب أن يحتوي على أحرف إنجليزية صغيرة وأرقام وشرطة فقط")
-  .min(2, "الرابط قصير جداً")
-  .max(60, "الرابط طويل جداً");
+  .transform(normalizePublicSlug)
+  .refine((value) => value.length <= 60 && isValidPublicSlug(value), "الرابط غير صالح. استخدم 4 أحرف على الأقل، أحرف إنجليزية صغيرة وأرقام وشرطة فقط، وبلا كلمات محجوزة");
 
 export const identitySchema = z.object({
   name: z.string().trim().min(2, "اسم النشاط مطلوب"),

@@ -1,92 +1,255 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { db } from "../../../lib/db";
+import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
+import { normalizePublicSlug } from "../../../lib/public-url";
+import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
 
-const orderSchema = z.object({
-  slug: z.string().min(2),
-  customerName: z.string().min(2),
-  customerPhone: z.string().min(4),
-  notes: z.string().optional().default(""),
-  orderType: z.enum(["استلام", "توصيل"]).default("استلام"),
-  items: z
-    .array(
-      z.object({
-        productId: z.string().min(1),
-        quantity: z.number().int().positive(),
-      }),
-    )
-    .min(1),
-});
+type OrderItemInput = { productId?: unknown; quantity?: unknown };
+type OrderPayload = {
+  slug?: unknown;
+  name?: unknown;
+  phone?: unknown;
+  notes?: unknown;
+  orderType?: unknown;
+  items?: unknown;
+  serviceRequest?: unknown;
+  requestId?: unknown;
+};
+
+function text(value: unknown, max: number) {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return normalized.length <= max ? normalized : null;
+}
+
+function normalizedPhone(value: unknown) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  const digits = raw.replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15 ? digits : null;
+}
+
+function requestKey(value: unknown) {
+  const key = typeof value === "string" ? value.trim() : "";
+  return key.length >= 16 && key.length <= 128 && /^[A-Za-z0-9._:-]+$/.test(key) ? key : null;
+}
+
+function quantity(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100 ? parsed : null;
+}
+
+async function existingSubmission(businessId: string, idempotencyKey: string) {
+  const rows = await db.$queryRaw<Array<{ targetId: string | null }>>`
+    SELECT "targetId" FROM "PublicSubmission"
+    WHERE "businessId" = ${businessId} AND "scope" = 'order' AND "idempotencyKey" = ${idempotencyKey}
+    LIMIT 1
+  `;
+  return rows[0]?.targetId ?? null;
+}
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = orderSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "بيانات الطلب غير صالحة" }, { status: 400 });
+  let body: OrderPayload;
+  try {
+    body = (await readBoundedJson(request, 64 * 1024)) as OrderPayload;
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error instanceof RequestBodyTooLargeError ? "حجم الطلب أكبر من المسموح" : "بيانات غير صالحة" },
+      { status: error instanceof RequestBodyTooLargeError ? 413 : 400 },
+    );
   }
 
-  const business = await db.business.findUnique({ where: { slug: parsed.data.slug } });
-  if (!business || !business.isPublished) {
-    return NextResponse.json({ error: "النشاط غير متاح" }, { status: 404 });
+  const slug = normalizePublicSlug(String(body.slug ?? ""));
+  const name = text(body.name, 120);
+  const phone = normalizedPhone(body.phone);
+  const notes = text(body.notes, 1000);
+  const serviceRequest = text(body.serviceRequest, 240);
+  const idempotencyKey = requestKey(request.headers.get("idempotency-key") || body.requestId);
+  const orderTypeRaw = String(body.orderType ?? "pickup").trim();
+  const orderType = orderTypeRaw === "delivery" ? "delivery" : orderTypeRaw === "pickup" ? "pickup" : null;
+
+  if (!slug || !name || !phone || notes === null || serviceRequest === null || !idempotencyKey || !orderType) {
+    return NextResponse.json({ ok: false, error: "بيانات الطلب غير مكتملة" }, { status: 400 });
   }
 
-  if (!business.acceptOnlineOrders) {
-    return NextResponse.json({ error: "استقبال الطلبات غير مفعل حالياً" }, { status: 403 });
+  const rawItems = Array.isArray(body.items) ? body.items as OrderItemInput[] : [];
+  if (rawItems.length > 20) return NextResponse.json({ ok: false, error: "عدد عناصر الطلب كبير جداً" }, { status: 400 });
+
+  const items = rawItems.map((item) => ({
+    productId: text(item?.productId, 80),
+    quantity: quantity(item?.quantity),
+  }));
+  if (items.some((item) => !item.productId || !item.quantity)) {
+    return NextResponse.json({ ok: false, error: "عناصر الطلب غير صالحة" }, { status: 400 });
+  }
+  if (items.length === 0 && !serviceRequest) {
+    return NextResponse.json({ ok: false, error: "حدد منتجاً أو خدمة مطلوبة" }, { status: 400 });
   }
 
-  const productIds = [...new Set(parsed.data.items.map((item) => item.productId))];
-  const products = await db.product.findMany({
-    where: {
-      businessId: business.id,
-      isActive: true,
-      id: { in: productIds },
-    },
-  });
-
-  const productsById = new Map(products.map((product) => [product.id, product]));
-  const missingProduct = parsed.data.items.find((item) => !productsById.has(item.productId));
-  if (missingProduct) {
-    return NextResponse.json({ error: "بعض المنتجات غير متاحة الآن" }, { status: 400 });
-  }
-
-  const customer = await db.customer.create({
-    data: {
-      businessId: business.id,
-      name: parsed.data.customerName,
-      phone: parsed.data.customerPhone,
-      notes: parsed.data.notes,
-    },
-  });
-
-  const normalizedItems = parsed.data.items.map((item) => {
-    const product = productsById.get(item.productId)!;
-    return {
-      productId: product.id,
-      name: product.name,
-      unitPrice: product.price,
-      quantity: item.quantity,
-      total: product.price * item.quantity,
-    };
-  });
-
-  const total = normalizedItems.reduce((sum, item) => sum + item.total, 0);
-
-  const order = await db.order.create({
-    data: {
-      businessId: business.id,
-      customerId: customer.id,
-      notes: parsed.data.notes,
-      orderType: parsed.data.orderType,
-      total,
-      status: "pending",
-      items: {
-        create: normalizedItems,
+  let business: { id: string; acceptOnlineOrders: boolean; deliveryAvailable: boolean } | null;
+  try {
+    business = await db.business.findFirst({
+      where: {
+        slug,
+        deletedAt: null,
+        isPublished: true,
+        owner: { deletedAt: null, emailVerifiedAt: { not: null } },
       },
-    },
-  });
+      select: { id: true, acceptOnlineOrders: true, deliveryAvailable: true },
+    });
+  } catch (error) {
+    console.error("[public-order] business_lookup_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
+  if (!business) return NextResponse.json({ ok: false }, { status: 404 });
 
-  revalidatePath("/dashboard/orders");
+  try {
+    const replayTargetId = await existingSubmission(business.id, idempotencyKey);
+    if (replayTargetId) {
+      return NextResponse.json({ ok: true, orderId: replayTargetId, replayed: true }, { status: 200 });
+    }
+  } catch (error) {
+    console.error("[public-order] idempotency_lookup_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
 
-  return NextResponse.json({ success: true, orderId: order.id });
+  if (items.length > 0 && !business.acceptOnlineOrders) {
+    return NextResponse.json({ ok: false, error: "الطلبات الإلكترونية غير مفعلة لهذا النشاط" }, { status: 409 });
+  }
+  if (items.length > 0 && orderType === "delivery" && !business.deliveryAvailable) {
+    return NextResponse.json({ ok: false, error: "التوصيل غير متاح لهذا النشاط" }, { status: 409 });
+  }
+
+  try {
+    const address = requestClientAddress(request) || "unknown";
+    const [ipRate, phoneRate] = await Promise.all([
+      consumePublicWriteLimit({ scope: "public-order-ip", businessId: business.id, identity: address, limit: 12, windowSeconds: 600 }),
+      consumePublicWriteLimit({ scope: "public-order-phone", businessId: business.id, identity: phone, limit: 6, windowSeconds: 600 }),
+    ]);
+    if (!ipRate.allowed || !phoneRate.allowed) {
+      const retryAfter = Math.max(1, ipRate.retryAfterSeconds, phoneRate.retryAfterSeconds);
+      return NextResponse.json({ ok: false, error: "تم إرسال طلبات كثيرة. حاول لاحقاً." }, { status: 429, headers: { "Retry-After": String(retryAfter) } });
+    }
+  } catch (error) {
+    console.error("[public-order] rate_limit_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
+
+  try {
+    const result = await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`public-order:${business.id}:${idempotencyKey}`}))`;
+
+      const previous = await tx.$queryRaw<Array<{ targetId: string | null }>>`
+        SELECT "targetId" FROM "PublicSubmission"
+        WHERE "businessId" = ${business.id} AND "scope" = 'order' AND "idempotencyKey" = ${idempotencyKey}
+        LIMIT 1
+      `;
+      if (previous[0]?.targetId) return { id: previous[0].targetId, replayed: true };
+
+      // The public page may be unpublished, the owner's mailbox ownership may be revoked,
+      // or ordering/delivery may be disabled after the fast preflight above. Re-prove those
+      // launch invariants in the write transaction and hold SHARE row locks until commit so a
+      // concurrent settings change cannot turn an already-rejected state into a committed order.
+      const eligible = await tx.$queryRaw<Array<{ acceptOnlineOrders: boolean; deliveryAvailable: boolean }>>`
+        SELECT b."acceptOnlineOrders", b."deliveryAvailable"
+        FROM "Business" b
+        JOIN "User" u ON u."id" = b."ownerId"
+        WHERE b."id" = ${business.id}
+          AND b."slug" = ${slug}
+          AND b."deletedAt" IS NULL
+          AND b."isPublished" = true
+          AND u."deletedAt" IS NULL
+          AND u."emailVerifiedAt" IS NOT NULL
+        FOR SHARE OF b, u
+      `;
+      const currentBusiness = eligible[0];
+      if (!currentBusiness) throw new Error("PUBLIC_ORDER_BUSINESS_UNAVAILABLE");
+      if (items.length > 0 && !currentBusiness.acceptOnlineOrders) throw new Error("PUBLIC_ORDER_DISABLED");
+      if (items.length > 0 && orderType === "delivery" && !currentBusiness.deliveryAvailable) throw new Error("PUBLIC_ORDER_DELIVERY_DISABLED");
+
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`customer:${business.id}:${phone}`}))`;
+      let customer = await tx.customer.findFirst({
+        where: { businessId: business.id, phone },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, name: true },
+      });
+      if (!customer) {
+        customer = await tx.customer.create({ data: { businessId: business.id, name, phone }, select: { id: true, name: true } });
+      } else if (customer.name !== name) {
+        await tx.customer.update({ where: { id: customer.id }, data: { name } });
+      }
+
+      if (items.length === 0) {
+        const order = await tx.order.create({
+          data: {
+            businessId: business.id,
+            customerId: customer.id,
+            notes: notes || null,
+            orderType: "request",
+            total: 0,
+            status: "pending",
+            items: { create: [{ name: serviceRequest!, unitPrice: 0, quantity: 1, total: 0 }] },
+          },
+          select: { id: true },
+        });
+        await tx.$executeRaw`
+          INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId")
+          VALUES (${business.id}, 'order', ${idempotencyKey}, ${order.id})
+        `;
+        return { id: order.id, replayed: false };
+      }
+
+      const productIds = items.map((item) => item.productId!);
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds }, businessId: business.id, isActive: true, deletedAt: null },
+        select: { id: true, name: true, price: true },
+      });
+      const byId = new Map(products.map((product) => [product.id, product]));
+      if (products.length !== new Set(productIds).size || items.some((item) => !byId.has(item.productId!))) {
+        throw new Error("PUBLIC_ORDER_PRODUCT_INVALID");
+      }
+
+      const resolvedItems = items.map((item) => {
+        const product = byId.get(item.productId!)!;
+        const itemTotal = product.price * item.quantity!;
+        return { productId: product.id, name: product.name, unitPrice: product.price, quantity: item.quantity!, total: itemTotal };
+      });
+      const total = resolvedItems.reduce((sum, item) => sum + item.total, 0);
+      if (!Number.isSafeInteger(total) || total < 0) throw new Error("PUBLIC_ORDER_TOTAL_INVALID");
+
+      const order = await tx.order.create({
+        data: {
+          businessId: business.id,
+          customerId: customer.id,
+          notes: notes || null,
+          orderType,
+          total,
+          status: "pending",
+          items: { create: resolvedItems },
+        },
+        select: { id: true },
+      });
+      await tx.$executeRaw`
+        INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId")
+        VALUES (${business.id}, 'order', ${idempotencyKey}, ${order.id})
+      `;
+      return { id: order.id, replayed: false };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return NextResponse.json({ ok: true, orderId: result.id, replayed: result.replayed }, { status: result.replayed ? 200 : 201 });
+  } catch (error) {
+    if (error instanceof Error && error.message === "PUBLIC_ORDER_PRODUCT_INVALID") {
+      return NextResponse.json({ ok: false, error: "أحد المنتجات غير متاح" }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PUBLIC_ORDER_BUSINESS_UNAVAILABLE") {
+      return NextResponse.json({ ok: false, error: "هذه الصفحة لم تعد متاحة لاستقبال الطلبات" }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PUBLIC_ORDER_DISABLED") {
+      return NextResponse.json({ ok: false, error: "الطلبات الإلكترونية لم تعد مفعلة لهذا النشاط" }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PUBLIC_ORDER_DELIVERY_DISABLED") {
+      return NextResponse.json({ ok: false, error: "التوصيل لم يعد متاحًا لهذا النشاط" }, { status: 409 });
+    }
+    console.error("[public-order] write_failed", error);
+    return NextResponse.json({ ok: false, error: "تعذر تسجيل الطلب الآن" }, { status: 503, headers: { "Retry-After": "30" } });
+  }
 }

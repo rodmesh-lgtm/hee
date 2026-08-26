@@ -1,3 +1,0 @@
-# infrastructure
-
-Reserved for implementation.
