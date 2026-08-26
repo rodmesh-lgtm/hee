@@ -72,7 +72,7 @@ test("production verification links are canonical without breaking Vercel previe
   assert.match(verification, /vercelEnv === "production" \|\| \(!vercelEnv && process\.env\.NODE_ENV === "production"\)/);
   assert.match(verification, /trustedVerificationOrigin\(String\(process\.env\.VERCEL_URL \?\? ""\), \["vercel\.app"\]\)/);
   assert.match(verification, /hostname\.endsWith\(`\.\$\{suffix\}`\)/);
-  assert.match(verification, /return "https:\/\/hee\.sa"/);
+  assert.match(verification, /return "https:\/\/ir\.sa"/);
 
   const envExample = source("../../.env.example");
   assert.match(envExample, /RESEND_API_KEY=/);

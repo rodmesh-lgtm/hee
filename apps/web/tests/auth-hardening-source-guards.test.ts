@@ -58,7 +58,7 @@ test("first-time OAuth login links only an independently verified local password
 
 test("production OAuth redirect_uri is pinned to the canonical HEE origin", () => {
   const oauth = source("app/lib/oauth.ts");
-  assert.match(oauth, /if \(process\.env\.VERCEL_ENV === "production"\) return "https:\/\/hee\.sa"/);
+  assert.match(oauth, /if \(process\.env\.VERCEL_ENV === "production"\) return "https:\/\/ir\.sa"/);
   assert.match(oauth, /return `\$\{oauthOrigin\(\)\}\/api\/auth\/oauth\/\$\{provider\}\/callback`/);
 });
 
@@ -71,7 +71,7 @@ test("password reset links are canonical in production but preview-safe", () => 
   assert.match(reset, /process\.env\.VERCEL_BRANCH_URL/);
   assert.match(reset, /hostname === suffix \|\| hostname\.endsWith\(`\.\$\{suffix\}`\)/);
   assert.match(reset, /trustedResetOrigin\(String\(process\.env\.VERCEL_URL \?\? ""\), \["vercel\.app"\]\)/);
-  assert.match(reset, /return "https:\/\/hee\.sa"/);
+  assert.match(reset, /return "https:\/\/ir\.sa"/);
 });
 
 test("real runtimes do not authenticate plaintext legacy database sessions", () => {

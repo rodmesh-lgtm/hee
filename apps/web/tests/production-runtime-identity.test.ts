@@ -44,7 +44,7 @@ test("critical paid billing boundaries use the shared Production identity", () =
   assert.match(moyasar, /pk_live_/);
   assert.match(moyasar, /sk_live_/);
   assert.match(tax, /if \(isProductionRuntime\(\)/);
-  assert.match(checkout, /if \(isProductionRuntime\(\)\) return "https:\/\/hee\.sa"/);
+  assert.match(checkout, /if \(isProductionRuntime\(\)\) return "https:\/\/ir\.sa"/);
   assert.match(webhook, /const production = isProductionRuntime\(\)/);
 });
 

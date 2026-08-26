@@ -9,7 +9,7 @@ test("OAuth HTTP redirects use an allowlisted app origin", () => {
   for (const source of [start, callback]) {
     assert.match(source, /host === "localhost"/);
     assert.match(source, /host\.endsWith\("\.vercel\.app"\)/);
-    assert.match(source, /host === "hee\.sa"/);
-    assert.match(source, /return allowed \? origin\.origin : "https:\/\/hee\.sa"/);
+    assert.match(source, /host === "ir\.sa"/);
+    assert.match(source, /return allowed \? origin\.origin : "https:\/\/ir\.sa"/);
   }
 });

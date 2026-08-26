@@ -15,6 +15,6 @@ test("Google callback is GET while Apple form_post callback is POST", () => {
 });
 
 test("production OAuth callback origin is pinned to canonical HEE origin", () => {
-  assert.match(oauth, /if \(process\.env\.VERCEL_ENV === "production"\) return "https:\/\/hee\.sa"/);
+  assert.match(oauth, /if \(process\.env\.VERCEL_ENV === "production"\) return "https:\/\/ir\.sa"/);
   assert.match(oauth, /return `\$\{oauthOrigin\(\)\}\/api\/auth\/oauth\/\$\{provider\}\/callback`/);
 });

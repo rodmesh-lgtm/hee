@@ -11,5 +11,5 @@ test("billing callback redirects are pinned to the canonical origin in either Pr
   assert.match(source, /APP_ENV/);
   assert.match(source, /VERCEL_ENV/);
   assert.match(source, /appEnv === "production" \|\| vercelEnv === "production"/);
-  assert.match(source, /return "https:\/\/hee\.sa"/);
+  assert.match(source, /return "https:\/\/ir\.sa"/);
 });
