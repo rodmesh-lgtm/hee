@@ -19,11 +19,18 @@ test("canonical cutover runs only after green release-branch RC and explicit com
   assert.match(workflow, /environment: production/);
 });
 
-test("central admin domain is registered and proven ready before any Production dispatch", () => {
-  const adminGate = workflow.indexOf("Ensure central admin domain is registered and DNS-ready");
+test("central admin domain is registered only after read-only Preflight succeeds and before Production deploy", () => {
   const preflightDispatch = workflow.indexOf("Dispatch exact-head Production Preflight V2");
-  assert.ok(adminGate >= 0);
-  assert.ok(preflightDispatch > adminGate);
+  const preflightProof = workflow.indexOf("Require successful exact-SHA Production Preflight V2");
+  const adminGate = workflow.indexOf("Ensure central admin domain is registered and DNS-ready");
+  const headProof = workflow.indexOf("Re-prove unchanged release head before Production mutation");
+  const deployDispatch = workflow.indexOf("Dispatch exact-head Production Web Deploy");
+
+  assert.ok(preflightDispatch >= 0);
+  assert.ok(preflightProof > preflightDispatch);
+  assert.ok(adminGate > preflightProof);
+  assert.ok(headProof > adminGate);
+  assert.ok(deployDispatch > headProof);
   assert.match(workflow, /PRODUCTION_VERCEL_TOKEN/);
   assert.match(workflow, /\/v9\/projects\/\$\{VERCEL_PROJECT_ID\}\/domains\?teamId=\$\{VERCEL_ORG_ID\}/);
   assert.match(workflow, /\/v10\/projects\/\$\{VERCEL_PROJECT_ID\}\/domains\?teamId=\$\{VERCEL_ORG_ID\}/);

@@ -72,6 +72,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Require complete Production configuration presence
+        run: node .github/scripts/production-config-presence-audit.mjs
+
       - name: Require verify-full PostgreSQL transport before any database probe
         run: node .github/scripts/require-production-database-safety.mjs DATABASE_URL RESTORE_DATABASE_URL
 
