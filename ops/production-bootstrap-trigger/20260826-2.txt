@@ -1,0 +1,1 @@
+Second trigger: run the one-time Production database bootstrap after RC Quality succeeds.
