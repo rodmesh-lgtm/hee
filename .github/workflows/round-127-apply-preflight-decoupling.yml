@@ -1,11 +1,12 @@
 name: Round 127 Apply Preflight Decoupling
 on:
-  push:
-    branches: [round-127-preflight-vps-decoupling]
+  pull_request:
+    branches: [hee-v6-rc]
 permissions:
   contents: write
 jobs:
   patch:
+    if: github.head_ref == 'round-127-preflight-vps-decoupling'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
