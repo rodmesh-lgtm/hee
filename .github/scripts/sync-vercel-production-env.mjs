@@ -4,6 +4,7 @@ const required = (name) => {
   return value;
 };
 
+const enabled = (name) => String(process.env[name] ?? "").trim().toLowerCase() === "true";
 const CANONICAL_FROM_EMAIL = "HEE <no-reply@ir.sa>";
 
 required("VERCEL_TOKEN");
@@ -15,16 +16,20 @@ required("DATABASE_URL");
 required("PG_POOL_MAX");
 required("SESSION_SECRET");
 required("RESEND_API_KEY");
-required("MOYASAR_PUBLISHABLE_KEY");
-required("MOYASAR_SECRET_KEY");
-required("MOYASAR_WEBHOOK_SECRET");
 required("BILLING_TOKEN_ENCRYPTION_KEY");
-required("BILLING_SELLER_LEGAL_NAME_AR");
-required("BILLING_SELLER_ADDRESS_AR");
-required("BILLING_TAX_STATUS");
 required("BILLING_RENEWAL_ENABLED");
 required("BILLING_OPERATIONS_READY");
 required("STORAGE_DRIVER");
+
+const billingRequired = enabled("BILLING_RENEWAL_ENABLED") || enabled("BILLING_OPERATIONS_READY");
+if (billingRequired) {
+  required("MOYASAR_PUBLISHABLE_KEY");
+  required("MOYASAR_SECRET_KEY");
+  required("MOYASAR_WEBHOOK_SECRET");
+  required("BILLING_SELLER_LEGAL_NAME_AR");
+  required("BILLING_SELLER_ADDRESS_AR");
+  required("BILLING_TAX_STATUS");
+}
 
 // Maintenance and paid-launch modes are deliberately NOT persisted as mutable
 // project-level state. Ordinary Production sync always restores the safe billing
@@ -80,4 +85,4 @@ const result = await response.json();
 if (Array.isArray(result?.failed) && result.failed.length) {
   throw new Error(`Vercel production environment sync reported ${result.failed.length} failed entries`);
 }
-console.log(`vercel-production-env-sync: PASS (${entries.length} keys, canonical sender pinned, paid launch defaults closed; values not logged)`);
+console.log(`vercel-production-env-sync: PASS (${entries.length} keys, canonical sender pinned, paid launch defaults closed, billingRequired=${billingRequired}; values not logged)`);
