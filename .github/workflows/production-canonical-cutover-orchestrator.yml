@@ -239,4 +239,5 @@ jobs:
 
       - name: Cutover summary
         if: env.CUTOVER_REQUESTED == 'true'
-        run: echo "production-canonical-cutover: PASS sha=${TARGET_SHA} preflight=${PREFLIGHT_RUN_ID} deploy=${DEPLOY_RUN_ID} canonical=https://ir.sa admin=https://admin.ir.sa"
+        run: |
+          echo "production-canonical-cutover: PASS sha=${TARGET_SHA} preflight=${PREFLIGHT_RUN_ID} deploy=${DEPLOY_RUN_ID} canonical=https://ir.sa admin=https://admin.ir.sa"
