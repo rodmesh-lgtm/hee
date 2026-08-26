@@ -35,11 +35,8 @@ function trustedResetOrigin(candidate: string, allowedSuffixes: string[]) {
 
 function passwordResetOrigin() {
   const vercelEnv = String(process.env.VERCEL_ENV ?? "").toLowerCase();
-  if (vercelEnv === "production" || (!vercelEnv && process.env.NODE_ENV === "production")) return "https://hee.sa";
+  if (vercelEnv === "production" || (!vercelEnv && process.env.NODE_ENV === "production")) return "https://ir.sa";
 
-  // Preview recovery links must stay inside the preview that issued them. Do not use
-  // NEXT_PUBLIC_SITE_URL/AUTH_ORIGIN here: those are commonly shared with Production and
-  // previously caused Preview reset emails to point at hee.sa, where the RC route was absent.
   if (vercelEnv === "preview") {
     return trustedResetOrigin(String(process.env.VERCEL_URL ?? ""), ["vercel.app"])
       || trustedResetOrigin(String(process.env.VERCEL_BRANCH_URL ?? ""), ["vercel.app"]);
@@ -131,10 +128,6 @@ export async function requestPasswordResetAction(_previous: PasswordResetState, 
   try { sent = await sendResetEmail(email, token); }
   catch (error) { console.error("[password-reset] failed to send reset email", error); }
   if (!sent) {
-    // Do not expose delivery failure only for an existing local-password account: doing
-    // so would turn a transient mail-provider outage into an account-enumeration oracle.
-    // Remove the unusable token and keep the customer-facing response indistinguishable
-    // from unknown, OAuth-only and rate-limited accounts. Operators still get the log.
     await db.oAuthState.deleteMany({ where: { state: tokenHash, provider: PROVIDER } });
     console.error("[password-reset] reset email was not accepted by provider", { userId: user.id });
     return { success: GENERIC_RESET_MESSAGE };
@@ -159,8 +152,6 @@ export async function resetPasswordAction(_previous: PasswordResetState, formDat
   if (!ipRate || !tokenRate) return { error: "تعذر التحقق من رابط الاستعادة الآن. حاول مرة أخرى بعد قليل." };
   if (!ipRate.allowed || !tokenRate.allowed) return { error: "تمت محاولات كثيرة. اطلب رابط استعادة جديدًا أو حاول لاحقًا." };
 
-  // Reject invalid/expired tokens before doing expensive bcrypt work. The transaction below
-  // still re-checks and atomically consumes the token, so this preflight is only a DoS guard.
   const preflight = await db.oAuthState.findFirst({
     where: { state: tokenHash, provider: PROVIDER, expiresAt: { gt: new Date() } },
     select: { id: true },
@@ -186,8 +177,6 @@ export async function resetPasswordAction(_previous: PasswordResetState, formDat
     const consumed = await tx.oAuthState.deleteMany({ where: { id: state.id, state: tokenHash, provider: PROVIDER } });
     if (consumed.count !== 1) return "invalid" as const;
 
-    // A successful reset proves control of the mailbox because the single-use token was
-    // delivered to that account email, so it also satisfies the publication ownership gate.
     await tx.user.update({ where: { id: user.id }, data: { passwordHash, emailVerifiedAt: new Date() } });
     await tx.session.deleteMany({ where: { userId: user.id } });
     await tx.oAuthState.deleteMany({ where: { provider: PROVIDER, nonce: user.id } });
