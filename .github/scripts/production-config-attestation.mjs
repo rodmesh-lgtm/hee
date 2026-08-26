@@ -97,23 +97,30 @@ function digest(scope) {
   throw new Error(`Unsupported attestation scope: ${scope}`);
 }
 
+function billingWorkerRequired() {
+  return ["BILLING_RENEWAL_ENABLED", "BILLING_OPERATIONS_READY"].some(
+    (name) => String(process.env[name] ?? "").trim().toLowerCase() === "true",
+  );
+}
+
 function equalHex(left, right) {
   if (!/^[0-9a-f]{64}$/.test(left) || !/^[0-9a-f]{64}$/.test(right)) return false;
   return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
 }
 
 async function writeAttestation(path) {
+  const digests = {
+    "release-core": digest("release-core"),
+    "migration-core": digest("migration-core"),
+  };
+  if (billingWorkerRequired()) digests["worker-host"] = digest("worker-host");
   const body = {
     version: VERSION,
     releaseSha: releaseSha(),
-    digests: {
-      "release-core": digest("release-core"),
-      "migration-core": digest("migration-core"),
-      "worker-host": digest("worker-host"),
-    },
+    digests,
   };
   await writeFile(path, `${JSON.stringify(body)}\n`, { encoding: "utf8", mode: 0o600 });
-  console.log(`production-config-attestation: WRITE PASS release=${body.releaseSha} scopes=3`);
+  console.log(`production-config-attestation: WRITE PASS release=${body.releaseSha} scopes=${Object.keys(digests).length}`);
 }
 
 async function verifyAttestation(scope, path) {

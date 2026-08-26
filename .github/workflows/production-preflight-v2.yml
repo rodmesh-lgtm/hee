@@ -119,8 +119,8 @@ jobs:
           required('BILLING_SELLER_LEGAL_NAME_AR');
           required('BILLING_SELLER_ADDRESS_AR');
           if (required('BILLING_TAX_STATUS').toLowerCase() !== 'not_registered') throw new Error('Paid launch is blocked until the configured seller tax posture is supported');
-          booleanValue('BILLING_RENEWAL_ENABLED');
-          booleanValue('BILLING_OPERATIONS_READY');
+          const billingRenewalEnabled = booleanValue('BILLING_RENEWAL_ENABLED') === 'true';
+          const billingOperationsReady = booleanValue('BILLING_OPERATIONS_READY') === 'true';
           if (String(process.env.PAID_CHECKOUT_PUBLIC_ENABLED ?? '').trim().toLowerCase() === 'true') throw new Error('Public paid checkout must be closed during preflight/migration preparation');
           if (String(process.env.BILLING_REHEARSAL_USER_EMAIL ?? '').trim()) throw new Error('Rehearsal account must not be enabled during preflight/migration preparation');
           const storage = String(process.env.STORAGE_DRIVER ?? 'database').trim().toLowerCase();
@@ -136,7 +136,9 @@ jobs:
           const apple = ['APPLE_CLIENT_ID','APPLE_TEAM_ID','APPLE_KEY_ID','APPLE_PRIVATE_KEY'].map((name) => String(process.env[name] ?? '').trim());
           if (apple.some(Boolean) && !apple.every(Boolean)) throw new Error('Apple OAuth must be fully configured or fully disabled');
           required('VERCEL_TOKEN');
-          required('HETZNER_HOST'); required('HETZNER_USER'); required('HETZNER_SSH_PRIVATE_KEY'); required('HETZNER_KNOWN_HOSTS');
+          if (billingRenewalEnabled || billingOperationsReady) {
+            required('HETZNER_HOST'); required('HETZNER_USER'); required('HETZNER_SSH_PRIVATE_KEY'); required('HETZNER_KNOWN_HOSTS');
+          }
           NODE
 
       - name: Prove production PostgreSQL is reachable read-only
@@ -183,6 +185,7 @@ jobs:
             'https://api.moyasar.com/v1/payments?page=1'
 
       - name: Verify Hetzner worker rollback baseline and prerequisites read-only
+        if: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED == 'true' || vars.PRODUCTION_BILLING_OPERATIONS_READY == 'true' }}
         run: |
           set -euo pipefail
           install -d -m 0700 "$HOME/.ssh"
@@ -234,4 +237,4 @@ jobs:
 
       - name: Preflight summary
         run: |
-          echo "production-preflight: PASS for ${GITHUB_SHA}; read-only prerequisites and worker rollback baseline attested; no production mutation performed"
+          echo "production-preflight: PASS for ${GITHUB_SHA}; read-only prerequisites attested; worker rollback baseline required only when billing worker operations are enabled; no production mutation performed"

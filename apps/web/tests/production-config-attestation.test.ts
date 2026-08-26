@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -60,8 +60,8 @@ function run(args: string[], env: NodeJS.ProcessEnv) {
   });
 }
 
-test("scoped Production attestation detects drift without exposing values", () => {
-  const dir = mkdtempSync(join(tmpdir(), "hee-attestation-"));
+test("web-only Production attestation excludes worker-host while detecting release and migration drift", () => {
+  const dir = mkdtempSync(join(tmpdir(), "hee-attestation-web-"));
   const path = join(dir, "attestation.json");
   try {
     const env = baseEnv();
@@ -70,15 +70,18 @@ test("scoped Production attestation detects drift without exposing values", () =
     assert.doesNotMatch(written.stdout, /postgresql:\/\//);
     assert.doesNotMatch(written.stdout, /private-key-material/);
 
-    for (const scope of ["release-core", "migration-core", "worker-host"]) {
+    const body = JSON.parse(readFileSync(path, "utf8"));
+    assert.deepEqual(Object.keys(body.digests).sort(), ["migration-core", "release-core"]);
+
+    for (const scope of ["release-core", "migration-core"]) {
       const verified = run(["verify", scope, path], env);
       assert.equal(verified.status, 0, `${scope}: ${verified.stderr}`);
     }
+    assert.notEqual(run(["verify", "worker-host", path], env).status, 0);
 
     const releaseDrift = { ...env, HEE_FROM_EMAIL: "Other <other@ir.sa>" };
     assert.notEqual(run(["verify", "release-core", path], releaseDrift).status, 0);
     assert.equal(run(["verify", "migration-core", path], releaseDrift).status, 0);
-    assert.equal(run(["verify", "worker-host", path], releaseDrift).status, 0);
 
     const migrationDrift = {
       ...env,
@@ -86,6 +89,31 @@ test("scoped Production attestation detects drift without exposing values", () =
     };
     assert.notEqual(run(["verify", "migration-core", path], migrationDrift).status, 0);
     assert.equal(run(["verify", "release-core", path], migrationDrift).status, 0);
+
+    const shaDrift = { ...env, GITHUB_SHA: "b".repeat(40) };
+    for (const scope of ["release-core", "migration-core"]) {
+      assert.notEqual(run(["verify", scope, path], shaDrift).status, 0);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("billing-enabled Production attestation includes worker-host and detects worker drift", () => {
+  const dir = mkdtempSync(join(tmpdir(), "hee-attestation-worker-"));
+  const path = join(dir, "attestation.json");
+  try {
+    const env = { ...baseEnv(), BILLING_RENEWAL_ENABLED: "true" };
+    const written = run(["write", path], env);
+    assert.equal(written.status, 0, written.stderr);
+
+    const body = JSON.parse(readFileSync(path, "utf8"));
+    assert.deepEqual(Object.keys(body.digests).sort(), ["migration-core", "release-core", "worker-host"]);
+
+    for (const scope of ["release-core", "migration-core", "worker-host"]) {
+      const verified = run(["verify", scope, path], env);
+      assert.equal(verified.status, 0, `${scope}: ${verified.stderr}`);
+    }
 
     const workerDrift = { ...env, HETZNER_HOST: "other-worker.example.com" };
     assert.notEqual(run(["verify", "worker-host", path], workerDrift).status, 0);
