@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 const getPublicBusinessForRequest = cache((slug: string) => getBusinessPublic(slug));
 function makeQrUrl(url: string) { return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`; }
 function safeJsonLd(value: unknown) { return JSON.stringify(value).replace(/</g, "\\u003c"); }
-function absolutePublicAssetUrl(value?: string | null) { const raw = String(value ?? "").trim(); if (!raw) return null; if (/^https?:\/\//i.test(raw)) return raw; if (raw.startsWith("/")) return `https://hee.sa${raw}`; if (/^[\w@./-]+\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(raw)) return `https://hee.sa/${raw.replace(/^\/+/, "")}`; return null; }
+function absolutePublicAssetUrl(value?: string | null) { const raw = String(value ?? "").trim(); if (!raw) return null; if (/^https?:\/\//i.test(raw)) return raw; if (raw.startsWith("/")) return `https://ir.sa${raw}`; if (/^[\w@./-]+\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(raw)) return `https://ir.sa/${raw.replace(/^\/+/, "")}`; return null; }
 function safeExternalUrl(value?: string | null) { const raw = String(value ?? "").trim(); if (!raw) return null; try { const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`); return /^https?:$/.test(url.protocol) && url.hostname.includes(".") ? url.toString() : null; } catch { return null; } }
 async function getBusinessOrAlias(slug: string) { const direct = await getPublicBusinessForRequest(slug); if (direct) return { business: direct, isAlias: false } as const; const alias = await resolveBusinessSlugAlias(slug); if (!alias) return null; const business = await getPublicBusinessForRequest(alias.canonicalSlug); return business ? { business, isAlias: true } as const : null; }
 
@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const resolved = await getBusinessOrAlias(normalizedSlug);
   const business = resolved?.business;
   if (!business || !business.isPublished) return {};
-  const canonicalUrl = `https://hee.sa/${business.slug}`;
+  const canonicalUrl = `https://ir.sa/${business.slug}`;
   const title = business.metaTitle || `${business.name} | HEE`;
   const description = business.metaDescription || business.shortDescription || business.description || `صفحة ${business.name}`;
   const socialImageUrl = absolutePublicAssetUrl(business.coverUrl) || absolutePublicAssetUrl(business.logoUrl);
@@ -53,7 +53,7 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
 
   const business = resolved.business;
   const publicBusiness = sanitizePublicBusiness(business);
-  const canonicalUrl = `https://hee.sa/${business.slug}`;
+  const canonicalUrl = `https://ir.sa/${business.slug}`;
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
   const qrDataUrl = makeQrUrl(publicUrl);
   const socialLinks = [
