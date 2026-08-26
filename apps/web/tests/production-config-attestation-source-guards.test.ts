@@ -13,7 +13,7 @@ test("Preflight V2 writes an exact-SHA scoped HMAC attestation after read-only e
 
   const dbProof = workflow.indexOf("Prove production PostgreSQL is reachable read-only");
   const vercelProof = workflow.indexOf("Verify Vercel credential and HEE project read-only");
-  const resendProof = workflow.indexOf("Verify Resend hee.sa domain and API credential");
+  const resendProof = workflow.indexOf("Verify Resend ir.sa domain and API credential");
   const moyasarProof = workflow.indexOf("Verify Moyasar live secret credential read-only");
   const workerProof = workflow.indexOf("Verify Hetzner worker rollback baseline and prerequisites read-only");
   const workerBaselineProof = workflow.indexOf("worker-rollback-baseline-preflight: PASS", workerProof);
