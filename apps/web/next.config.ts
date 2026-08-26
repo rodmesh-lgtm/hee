@@ -33,7 +33,7 @@ const securityHeaders = [
 ];
 
 function serverActionOrigins() {
-  const origins = ["hee.sa", "www.hee.sa"];
+  const origins = ["ir.sa", "www.ir.sa"];
   if (process.env.VERCEL_ENV === "preview") origins.push("*.vercel.app");
   if (process.env.NODE_ENV !== "production") origins.push("localhost:3000", "127.0.0.1:3000", "*.app.github.dev");
   return origins;
@@ -46,7 +46,7 @@ const nextConfig: NextConfig = {
   // Future external image providers must be allow-listed explicitly.
   experimental: {
     serverActions: {
-      // Production accepts only canonical HEE origins. Preview/dev hosts are added
+      // Production accepts only canonical iR origins. Preview/dev hosts are added
       // only in their own environments instead of being trusted by production.
       allowedOrigins: serverActionOrigins(),
       bodySizeLimit: "8mb",
