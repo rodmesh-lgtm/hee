@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+// Report configuration names only; never print secret or variable values.
 const required = [
   'DATABASE_URL',
   'RESTORE_DATABASE_URL',
