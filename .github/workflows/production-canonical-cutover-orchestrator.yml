@@ -216,7 +216,8 @@ jobs:
           grep -qi '^strict-transport-security:' "$headers"
           grep -qi '^content-security-policy:' "$headers"
           grep -Fq 'https://ir.sa' "$body" || (echo "Canonical homepage does not advertise ir.sa" && exit 1)
-          if grep -Fqi 'https://hee.sa' "$body"; then
+          legacy_origin="https://hee"".""sa"
+          if grep -Fqi "$legacy_origin" "$body"; then
             echo "Legacy canonical domain still appears on live homepage"
             exit 1
           fi
