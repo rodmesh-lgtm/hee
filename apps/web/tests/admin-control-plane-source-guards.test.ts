@@ -37,9 +37,12 @@ test("production customer hostname redirects admin routes to the control-plane o
 
 test("production admin origin cannot be redirected to an arbitrary configured host", () => {
   const admin = source("app/lib/admin.ts");
+  const proxy = source("proxy.ts");
   assert.match(admin, /isProductionRuntime/);
   assert.match(admin, /const productionOrigin = "https:\/\/admin\.hee\.sa"/);
   assert.match(admin, /if \(isProductionRuntime\(\)\) return productionOrigin/);
+  assert.match(proxy, /const productionAdminOrigin = "https:\/\/admin\.hee\.sa"/);
+  assert.match(proxy, /if \(name === "admin" && isProduction\(\)\) return productionAdminOrigin/);
 });
 
 test("admin hostname is deny-by-default and cannot serve customer or public API surfaces", () => {
