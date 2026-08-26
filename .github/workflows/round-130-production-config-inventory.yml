@@ -5,6 +5,10 @@ on:
     branches: [round-130-production-config-inventory]
     paths:
       - ".github/workflows/round-130-production-config-inventory.yml"
+  pull_request:
+    branches: [hee-v6-rc]
+    paths:
+      - ".github/workflows/round-130-production-config-inventory.yml"
 
 permissions:
   contents: read
