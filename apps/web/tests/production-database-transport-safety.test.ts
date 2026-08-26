@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
 import test from "node:test";
 import { normalizePostgresDatabaseUrl } from "../lib/database-url";
 
@@ -66,6 +68,30 @@ test("production database safety validates isolated restore transport and naming
   );
   assert.notEqual(wrongRestoreName.status, 0);
   assert.match(wrongRestoreName.stderr, /restore database name must begin with hee_restore/);
+});
+
+test("managed HEE Neon host is forcibly isolated from unrelated neondb schema", () => {
+  const dir = mkdtempSync(join(tmpdir(), "hee-production-db-routing-"));
+  const githubEnv = join(dir, "github-env");
+  try {
+    const result = run(
+      {
+        DATABASE_URL: "postgresql://user:secret@ep-aged-breeze-ap1lcdcz-pooler.c-7.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require",
+        RESTORE_DATABASE_URL: "postgresql://ignored:ignored@restore.example.com/wrong?sslmode=prefer",
+        GITHUB_ENV: githubEnv,
+      },
+      ["DATABASE_URL", "RESTORE_DATABASE_URL"],
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /production-database-routing: PASS source=hee_production restore=hee_restore_production/);
+    const persisted = readFileSync(githubEnv, "utf8");
+    assert.match(persisted, /DATABASE_URL=postgresql:\/\/user:secret@ep-aged-breeze-ap1lcdcz-pooler\.c-7\.us-east-1\.aws\.neon\.tech\/hee_production\?/);
+    assert.match(persisted, /RESTORE_DATABASE_URL=postgresql:\/\/user:secret@ep-aged-breeze-ap1lcdcz-pooler\.c-7\.us-east-1\.aws\.neon\.tech\/hee_restore_production\?/);
+    assert.doesNotMatch(persisted, /\/neondb(?:\?|\n|$)/);
+    assert.match(persisted, /sslmode=verify-full/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("production database safety rejects local and restore-shaped production sources", () => {

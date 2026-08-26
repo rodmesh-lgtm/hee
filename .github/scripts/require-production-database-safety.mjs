@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
+import fs from "node:fs";
+
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const MANAGED_HEE_NEON_HOST = "ep-aged-breeze-ap1lcdcz-pooler.c-7.us-east-1.aws.neon.tech";
+const HEE_PRODUCTION_DATABASE = "hee_production";
+const HEE_RESTORE_DATABASE = "hee_restore_production";
 
 function fail(message) {
   console.error(`production-database-safety: FAIL ${message}`);
@@ -11,6 +16,43 @@ function requiredEnv(name) {
   const value = String(process.env[name] ?? "").trim();
   if (!value) fail(`${name} is required`);
   return value;
+}
+
+function tryUrl(value) {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
+function maskAndPersist(name, value) {
+  console.log(`::add-mask::${value}`);
+  process.env[name] = value;
+  const githubEnv = String(process.env.GITHUB_ENV ?? "").trim();
+  if (githubEnv) fs.appendFileSync(githubEnv, `${name}=${value}\n`, "utf8");
+}
+
+function canonicalizeManagedHeeDatabases(sourceName, restoreName) {
+  if (sourceName !== "DATABASE_URL") return;
+  const sourceRaw = String(process.env[sourceName] ?? "").trim();
+  const parsed = tryUrl(sourceRaw);
+  if (!parsed || parsed.hostname.toLowerCase() !== MANAGED_HEE_NEON_HOST) return;
+
+  parsed.pathname = `/${HEE_PRODUCTION_DATABASE}`;
+  parsed.searchParams.delete("sslmode");
+  parsed.searchParams.set("sslmode", "verify-full");
+  const canonicalSource = parsed.toString();
+  maskAndPersist(sourceName, canonicalSource);
+
+  if (restoreName) {
+    const restore = new URL(canonicalSource);
+    restore.pathname = `/${HEE_RESTORE_DATABASE}`;
+    const canonicalRestore = restore.toString();
+    maskAndPersist(restoreName, canonicalRestore);
+  }
+
+  console.log(`production-database-routing: PASS source=${HEE_PRODUCTION_DATABASE}${restoreName ? ` restore=${HEE_RESTORE_DATABASE}` : ""}`);
 }
 
 function parseDatabaseUrl(name, role) {
@@ -47,6 +89,15 @@ function parseDatabaseUrl(name, role) {
     fail(`${name} restore database name must begin with hee_restore`);
   }
 
+  if (parsed.hostname.toLowerCase() === MANAGED_HEE_NEON_HOST) {
+    if (role === "source" && database !== HEE_PRODUCTION_DATABASE) {
+      fail(`${name} must resolve to the isolated HEE production database`);
+    }
+    if (role === "restore" && database !== HEE_RESTORE_DATABASE) {
+      fail(`${name} must resolve to the isolated HEE restore database`);
+    }
+  }
+
   return {
     host: parsed.hostname.toLowerCase(),
     port: parsed.port || "5432",
@@ -55,6 +106,7 @@ function parseDatabaseUrl(name, role) {
 }
 
 const [sourceName = "DATABASE_URL", restoreName] = process.argv.slice(2);
+canonicalizeManagedHeeDatabases(sourceName, restoreName);
 const source = parseDatabaseUrl(sourceName, "source");
 
 if (restoreName) {
