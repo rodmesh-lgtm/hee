@@ -30,8 +30,10 @@ function isMaintenanceControlRead(request: NextRequest, pathname: string) {
 }
 
 function configuredOrigin(name: "admin" | "main") {
+  const productionAdminOrigin = "https://admin.hee.sa";
+  if (name === "admin" && isProduction()) return productionAdminOrigin;
   const raw = name === "admin" ? process.env.HEE_ADMIN_ORIGIN : process.env.APP_URL;
-  const fallback = name === "admin" ? "https://admin.hee.sa" : "https://hee.sa";
+  const fallback = name === "admin" ? productionAdminOrigin : "https://hee.sa";
   try {
     const value = String(raw ?? "").trim();
     if (!value) return fallback;
@@ -86,7 +88,7 @@ function maintenanceResponse() {
       Pragma: "no-cache",
       Expires: "0",
       "Retry-After": "300",
-      "X-Robots-Tag": "noindex, nofollow, noarchive",
+      "X-Robots-Tag": "noindex, nofollow,noarchive",
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
     },
@@ -98,14 +100,14 @@ function productionQaNotFoundResponse() {
     status: 404,
     headers: {
       "Cache-Control": "private, no-store, max-age=0",
-      "X-Robots-Tag": "noindex, nofollow, noarchive",
+      "X-Robots-Tag": "noindex, nofollow,noarchive",
       "X-Content-Type-Options": "nosniff",
     },
   });
 }
 
 function withPrivateHeaders(response: NextResponse) {
-  response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  response.headers.set("X-Robots-Tag", "noindex, nofollow,noarchive");
   response.headers.set("Cache-Control", "private, no-store, max-age=0");
   response.headers.set("Pragma", "no-cache");
   response.headers.set("Expires", "0");
@@ -119,10 +121,6 @@ export function proxy(request: NextRequest) {
   const host = requestHostname(request);
   const productionMainHost = host === "hee.sa" || host === "www.hee.sa";
 
-  // admin.hee.sa is a deny-by-default control plane, not an alternate customer
-  // hostname. Only the audited administration tree and its login entry are served
-  // here. This keeps customer pages, auth recovery flows and public/customer APIs
-  // outside the operator origin even though both planes currently share a deployment.
   if (adminHost) {
     if (pathname === "/") {
       const url = request.nextUrl.clone();
@@ -140,8 +138,6 @@ export function proxy(request: NextRequest) {
     return adminControlPlaneNotFoundResponse();
   }
 
-  // Keep the operator control plane reachable while the customer plane is deliberately
-  // in maintenance mode, so operators can inspect and recover the platform.
   if (productionMaintenanceEnabled() && !isMaintenanceControlRead(request, pathname)) {
     return maintenanceResponse();
   }
@@ -149,8 +145,6 @@ export function proxy(request: NextRequest) {
   const isQaPath = pathname === "/qa" || pathname.startsWith("/qa/");
   if (isProduction() && isQaPath) return productionQaNotFoundResponse();
 
-  // hee.sa itself no longer serves central administration. Localhost/CI are exempt so
-  // regression tests can still exercise internal routes without DNS dependencies.
   if (productionMainHost && (pathname === "/admin-login" || pathname === "/admin" || pathname.startsWith("/admin/"))) {
     const targetPath = pathname === "/admin-login" ? "/login" : pathname === "/admin" ? "/" : pathname;
     return NextResponse.redirect(new URL(targetPath, configuredOrigin("admin")));
