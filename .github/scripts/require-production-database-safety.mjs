@@ -3,7 +3,6 @@
 import fs from "node:fs";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-const MANAGED_HEE_NEON_HOST = "ep-delicate-wave-apf0pirn-pooler.c-7.us-east-1.aws.neon.tech";
 const HEE_PRODUCTION_DATABASE = "hee_production";
 const HEE_RESTORE_DATABASE = "hee_restore_production";
 const MANAGED_DATABASE_KEYS = new Set([
@@ -24,6 +23,12 @@ function fail(message) {
 function requiredEnv(name) {
   const value = String(process.env[name] ?? "").trim();
   if (!value) fail(`${name} is required`);
+  return value;
+}
+
+function expectedProductionHost({ required = false } = {}) {
+  const value = String(process.env.EXPECTED_PRODUCTION_DB_HOST ?? "").trim().toLowerCase();
+  if (required && !value) fail("EXPECTED_PRODUCTION_DB_HOST is required before resolving Production database credentials");
   return value;
 }
 
@@ -52,8 +57,9 @@ function canonicalManagedUrl(raw, database, sourceLabel = "managed database sour
   if (!parsed || !new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) {
     fail(`${sourceLabel} must be a PostgreSQL URL`);
   }
-  if (parsed.hostname.toLowerCase() !== MANAGED_HEE_NEON_HOST) {
-    fail(`${sourceLabel} does not target the isolated HEE Neon endpoint`);
+  const expectedHost = expectedProductionHost({ required: true });
+  if (parsed.hostname.toLowerCase() !== expectedHost) {
+    fail(`${sourceLabel} does not target the configured isolated HEE Production database host`);
   }
   if (!parsed.username || !parsed.password) {
     fail(`${sourceLabel} must contain database credentials`);
@@ -69,13 +75,13 @@ function productionTarget(item) {
   return targets.includes("production");
 }
 
-function managedCandidate(item) {
+function managedCandidate(item, expectedHost) {
   const key = String(item?.key ?? "").trim();
   if (!MANAGED_DATABASE_KEYS.has(key) || !productionTarget(item)) return null;
   const raw = String(item?.value ?? "").trim();
   const parsed = tryUrl(raw);
   if (!parsed || !new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) return null;
-  if (parsed.hostname.toLowerCase() !== MANAGED_HEE_NEON_HOST) return null;
+  if (parsed.hostname.toLowerCase() !== expectedHost) return null;
   if (!parsed.username || !parsed.password) return null;
   return { key, raw, identity: `${parsed.protocol}//${parsed.username}@${parsed.hostname}:${parsed.port || "5432"}` };
 }
@@ -83,6 +89,7 @@ function managedCandidate(item) {
 async function resolveProductionDatabaseFromVercel(sourceName, restoreName) {
   if (sourceName !== "DATABASE_URL" || isPostgresUrl(process.env[sourceName])) return;
 
+  const expectedHost = expectedProductionHost({ required: true });
   const token = requiredEnv("VERCEL_TOKEN");
   const projectId = requiredEnv("VERCEL_PROJECT_ID");
   const teamId = requiredEnv("VERCEL_ORG_ID");
@@ -95,13 +102,13 @@ async function resolveProductionDatabaseFromVercel(sourceName, restoreName) {
 
   const body = await response.json();
   const envs = Array.isArray(body?.envs) ? body.envs : [];
-  const candidates = envs.map(managedCandidate).filter(Boolean);
+  const candidates = envs.map((item) => managedCandidate(item, expectedHost)).filter(Boolean);
   if (candidates.length === 0) {
     const knownKeys = envs
       .filter((item) => productionTarget(item) && MANAGED_DATABASE_KEYS.has(String(item?.key ?? "").trim()))
       .map((item) => String(item.key))
       .sort();
-    fail(`Vercel Production has no valid isolated HEE PostgreSQL credential among managed database keys${knownKeys.length ? ` (present: ${knownKeys.join(", ")})` : ""}`);
+    fail(`Vercel Production has no valid isolated HEE PostgreSQL credential for EXPECTED_PRODUCTION_DB_HOST among managed database keys${knownKeys.length ? ` (present: ${knownKeys.join(", ")})` : ""}`);
   }
 
   const identities = new Set(candidates.map((candidate) => candidate.identity));
@@ -120,9 +127,12 @@ async function resolveProductionDatabaseFromVercel(sourceName, restoreName) {
 
 function canonicalizeManagedHeeDatabases(sourceName, restoreName) {
   if (sourceName !== "DATABASE_URL") return;
+  const expectedHost = expectedProductionHost();
+  if (!expectedHost) return;
+
   const sourceRaw = String(process.env[sourceName] ?? "").trim();
   const parsed = tryUrl(sourceRaw);
-  if (!parsed || parsed.hostname.toLowerCase() !== MANAGED_HEE_NEON_HOST) return;
+  if (!parsed || parsed.hostname.toLowerCase() !== expectedHost) return;
   if (!new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) return;
 
   parsed.pathname = `/${HEE_PRODUCTION_DATABASE}`;
@@ -151,6 +161,11 @@ function parseDatabaseUrl(name, role) {
   if (!new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) fail(`${name} must use PostgreSQL`);
   if (!parsed.hostname || LOCAL_HOSTS.has(parsed.hostname.toLowerCase())) fail(`${name} must not point to a local host`);
 
+  const expectedHost = expectedProductionHost();
+  if (expectedHost && parsed.hostname.toLowerCase() !== expectedHost) {
+    fail(`${name} must target EXPECTED_PRODUCTION_DB_HOST`);
+  }
+
   const database = decodeURIComponent(parsed.pathname.replace(/^\//, ""));
   if (!database) fail(`${name} must name a database`);
 
@@ -162,7 +177,7 @@ function parseDatabaseUrl(name, role) {
   if (role === "source" && /^(hee_ci|hee_restore(?:_|$))/i.test(database)) fail(`${name} must target the production database, not CI/restore`);
   if (role === "restore" && !/^hee_restore(?:_|$)/i.test(database)) fail(`${name} restore database name must begin with hee_restore`);
 
-  if (parsed.hostname.toLowerCase() === MANAGED_HEE_NEON_HOST) {
+  if (expectedHost) {
     if (role === "source" && database !== HEE_PRODUCTION_DATABASE) fail(`${name} must resolve to the isolated HEE production database`);
     if (role === "restore" && database !== HEE_RESTORE_DATABASE) fail(`${name} must resolve to the isolated HEE restore database`);
   }
