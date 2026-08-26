@@ -3,7 +3,7 @@
 import fs from "node:fs";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-const MANAGED_HEE_NEON_HOST = "ep-aged-breeze-ap1lcdcz-pooler.c-7.us-east-1.aws.neon.tech";
+const MANAGED_HEE_NEON_HOST = "ep-delicate-wave-apf0pirn-pooler.c-7.us-east-1.aws.neon.tech";
 const HEE_PRODUCTION_DATABASE = "hee_production";
 const HEE_RESTORE_DATABASE = "hee_restore_production";
 
