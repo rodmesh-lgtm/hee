@@ -8,13 +8,13 @@ test("extracts storage key from canonical relative URL", () => {
   assert.equal(extractStorageKeyFromUrl(`/api/storage/${uuid}`), uuid);
 });
 
-test("extracts storage key from absolute HEE URL", () => {
-  assert.equal(extractStorageKeyFromUrl(`https://hee.sa/api/storage/${uuid}?v=1`), uuid);
+test("extracts storage key from absolute iR URL", () => {
+  assert.equal(extractStorageKeyFromUrl(`https://ir.sa/api/storage/${uuid}?v=1`), uuid);
 });
 
 test("rejects malformed and unrelated URLs", () => {
   assert.equal(extractStorageKeyFromUrl(""), "");
-  assert.equal(extractStorageKeyFromUrl("https://hee.sa/logo.png"), "");
+  assert.equal(extractStorageKeyFromUrl("https://ir.sa/logo.png"), "");
   assert.equal(extractStorageKeyFromUrl("/api/storage/not-a-key"), "");
   assert.equal(extractStorageKeyFromUrl("not a url"), "");
 });
