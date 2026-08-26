@@ -45,6 +45,46 @@ jobs:
           test "$branch_sha" = "$TARGET_SHA" || (echo "Release branch moved after RC Quality; refusing cutover" && exit 1)
           echo "CUTOVER_REQUESTED=true" >> "$GITHUB_ENV"
 
+      - name: Dispatch exact-head Production Preflight V2
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          branch_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')"
+          test "$branch_sha" = "$TARGET_SHA" || (echo "Release branch moved before Preflight dispatch" && exit 1)
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/dispatches" \
+            -f ref="$RELEASE_BRANCH" \
+            -f 'inputs[confirmation]=VERIFY_PRODUCTION_PREFLIGHT'
+
+      - name: Require successful exact-SHA Production Preflight V2
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          run_id=""
+          for attempt in $(seq 1 180); do
+            runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20")"
+            run_json="$(node - <<'NODE' "$runs" "$TARGET_SHA"
+          const body=JSON.parse(process.argv[2]);
+          const sha=process.argv[3];
+          const run=(body.workflow_runs??[]).find((r)=>r.head_sha===sha&&r.event==='workflow_dispatch'&&r.head_branch==='hee-v6-rc');
+          process.stdout.write(run?JSON.stringify(run):'');
+          NODE
+            )"
+            if test -n "$run_json"; then
+              run_id="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.id));' "$run_json")"
+              status="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.status??""));' "$run_json")"
+              conclusion="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.conclusion??""));' "$run_json")"
+              if test "$status" = "completed"; then
+                test "$conclusion" = "success" || (echo "Production Preflight V2 failed: run=${run_id} conclusion=${conclusion}" && exit 1)
+                echo "PREFLIGHT_RUN_ID=${run_id}" >> "$GITHUB_ENV"
+                echo "production-preflight-v2: PASS run=${run_id} sha=${TARGET_SHA}"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for exact-SHA Production Preflight V2"
+          exit 1
+
       - name: Ensure central admin domain is registered and DNS-ready
         if: env.CUTOVER_REQUESTED == 'true'
         run: |
@@ -113,46 +153,6 @@ jobs:
             *) echo "${ADMIN_CANONICAL_HOST} is not HTTPS-ready (HTTP ${admin_code})"; exit 1 ;;
           esac
           echo "central-admin-domain-precheck: PASS ${ADMIN_CANONICAL_HOST}"
-
-      - name: Dispatch exact-head Production Preflight V2
-        if: env.CUTOVER_REQUESTED == 'true'
-        run: |
-          set -euo pipefail
-          branch_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')"
-          test "$branch_sha" = "$TARGET_SHA" || (echo "Release branch moved before Preflight dispatch" && exit 1)
-          gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/dispatches" \
-            -f ref="$RELEASE_BRANCH" \
-            -f 'inputs[confirmation]=VERIFY_PRODUCTION_PREFLIGHT'
-
-      - name: Require successful exact-SHA Production Preflight V2
-        if: env.CUTOVER_REQUESTED == 'true'
-        run: |
-          set -euo pipefail
-          run_id=""
-          for attempt in $(seq 1 180); do
-            runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20")"
-            run_json="$(node - <<'NODE' "$runs" "$TARGET_SHA"
-          const body=JSON.parse(process.argv[2]);
-          const sha=process.argv[3];
-          const run=(body.workflow_runs??[]).find((r)=>r.head_sha===sha&&r.event==='workflow_dispatch'&&r.head_branch==='hee-v6-rc');
-          process.stdout.write(run?JSON.stringify(run):'');
-          NODE
-            )"
-            if test -n "$run_json"; then
-              run_id="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.id));' "$run_json")"
-              status="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.status??""));' "$run_json")"
-              conclusion="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.conclusion??""));' "$run_json")"
-              if test "$status" = "completed"; then
-                test "$conclusion" = "success" || (echo "Production Preflight V2 failed: run=${run_id} conclusion=${conclusion}" && exit 1)
-                echo "PREFLIGHT_RUN_ID=${run_id}" >> "$GITHUB_ENV"
-                echo "production-preflight-v2: PASS run=${run_id} sha=${TARGET_SHA}"
-                exit 0
-              fi
-            fi
-            sleep 5
-          done
-          echo "Timed out waiting for exact-SHA Production Preflight V2"
-          exit 1
 
       - name: Re-prove unchanged release head before Production mutation
         if: env.CUTOVER_REQUESTED == 'true'
