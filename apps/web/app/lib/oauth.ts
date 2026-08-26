@@ -34,19 +34,17 @@ export function providerConfigured(provider: OAuthProvider) {
 }
 
 function oauthOrigin() {
-  // The redirect_uri registered with Google/Apple is an authentication boundary.
-  // Production must never drift because of a stale or compromised generic app URL env var.
-  if (process.env.VERCEL_ENV === "production") return "https://hee.sa";
+  if (process.env.VERCEL_ENV === "production") return "https://ir.sa";
   const candidate = String(process.env.AUTH_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim();
   try {
     const url = new URL(candidate);
     const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
     const preview = url.hostname.endsWith(".vercel.app") || url.hostname.endsWith(".app.github.dev");
-    if ((url.protocol === "https:" && (preview || url.hostname === "hee.sa" || url.hostname === "www.hee.sa")) || (local && url.protocol === "http:")) return url.origin;
+    if ((url.protocol === "https:" && (preview || url.hostname === "ir.sa" || url.hostname === "www.ir.sa")) || (local && url.protocol === "http:")) return url.origin;
   } catch {
-    // Fall through to a safe canonical origin.
+    // Fall through to the canonical origin.
   }
-  return "https://hee.sa";
+  return "https://ir.sa";
 }
 
 export function oauthCallbackUrl(provider: OAuthProvider) {
@@ -161,10 +159,6 @@ function assertActiveUser<T extends { deletedAt?: Date | null }>(user: T | null)
 }
 
 function assertOauthEmailAutoLinkSafe<T extends { passwordHash?: string | null; emailVerifiedAt?: Date | null }>(user: T | null) {
-  // Password accounts may be linked by email only after HEE has independently
-  // recorded mailbox ownership. This prevents a pre-registered email squatter from
-  // retaining password access when the legitimate mailbox owner later uses OAuth,
-  // while allowing an already verified local account to add Google/Apple safely.
   if (user?.passwordHash && !user.emailVerifiedAt) throw new Error("oauth-password-account-link-required");
   return user;
 }
@@ -183,10 +177,8 @@ export async function resolveOAuthUser(provider: OAuthProvider, claims: Identity
     return await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`oauth-user:${provider}:${subject}`}))`;
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`oauth-email:${email}`}))`;
-
       const existingIdentity = await tx.authIdentity.findUnique({ where: identityWhere, include: { user: true } });
       if (existingIdentity) return assertActiveUser(existingIdentity.user);
-
       const existingUser = await tx.user.findUnique({ where: { email } });
       if (existingUser?.deletedAt) throw new Error("oauth-account-unavailable");
       assertOauthEmailAutoLinkSafe(existingUser);
