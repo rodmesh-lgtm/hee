@@ -24,77 +24,41 @@ jobs:
           from pathlib import Path
 
           audit = Path('.github/scripts/production-config-presence-audit.mjs')
-          audit.write_text(r'''#!/usr/bin/env node
-
-// Report configuration names only; never print secret or variable values.
-const required = [
-  'DATABASE_URL',
-  'RESTORE_DATABASE_URL',
-  'PRODUCTION_BACKUP_PASSPHRASE',
-  'SESSION_SECRET',
-  'RESEND_API_KEY',
-  'BILLING_TOKEN_ENCRYPTION_KEY',
-  'VERCEL_TOKEN',
-  'PG_POOL_MAX',
-  'HEE_FROM_EMAIL',
-  'BILLING_RENEWAL_ENABLED',
-  'BILLING_OPERATIONS_READY',
-  'PAID_CHECKOUT_PUBLIC_ENABLED',
-  'STORAGE_DRIVER',
-];
-
-function value(name) {
-  return String(process.env[name] ?? '').trim();
-}
-
-export function assertProductionConfigPresence() {
-  const missing = required.filter((name) => !value(name));
-
-  const storage = value('STORAGE_DRIVER').toLowerCase();
-  if (storage === 's3') {
-    for (const name of ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY']) {
-      if (!value(name)) missing.push(name);
-    }
-  }
-
-  const google = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'].filter((name) => Boolean(value(name)));
-  if (google.length === 1) missing.push('GOOGLE_OAUTH_CONFIGURATION_INCOMPLETE');
-
-  const apple = ['APPLE_CLIENT_ID', 'APPLE_TEAM_ID', 'APPLE_KEY_ID', 'APPLE_PRIVATE_KEY'].filter((name) => Boolean(value(name)));
-  if (apple.length > 0 && apple.length < 4) missing.push('APPLE_OAUTH_CONFIGURATION_INCOMPLETE');
-
-  const billingRequired = ['BILLING_RENEWAL_ENABLED', 'BILLING_OPERATIONS_READY']
+          text = audit.read_text()
+          for line in [
+              "  'MOYASAR_PUBLISHABLE_KEY',\n", "  'MOYASAR_SECRET_KEY',\n", "  'MOYASAR_WEBHOOK_SECRET',\n",
+              "  'BILLING_SELLER_LEGAL_NAME_AR',\n", "  'BILLING_SELLER_ADDRESS_AR',\n", "  'BILLING_TAX_STATUS',\n",
+          ]:
+              if line not in text:
+                  raise SystemExit(f'presence list line missing: {line!r}')
+              text = text.replace(line, '', 1)
+          old = """  const workerRequired = ['BILLING_RENEWAL_ENABLED', 'BILLING_OPERATIONS_READY']
     .some((name) => value(name).toLowerCase() === 'true');
-  if (billingRequired) {
-    for (const name of [
-      'MOYASAR_PUBLISHABLE_KEY',
-      'MOYASAR_SECRET_KEY',
-      'MOYASAR_WEBHOOK_SECRET',
-      'BILLING_SELLER_LEGAL_NAME_AR',
-      'BILLING_SELLER_ADDRESS_AR',
-      'BILLING_TAX_STATUS',
-    ]) {
-      if (!value(name)) missing.push(name);
-    }
+  if (workerRequired) {
     for (const name of ['HETZNER_HOST', 'HETZNER_USER', 'HETZNER_SSH_PRIVATE_KEY', 'HETZNER_KNOWN_HOSTS']) {
       if (!value(name)) missing.push(name);
     }
   }
-
-  if (missing.length > 0) {
-    console.error(`production-config-presence: FAIL missing=${[...new Set(missing)].join(',')}`);
-    process.exit(1);
+"""
+          new = """  const billingRequired = ['BILLING_RENEWAL_ENABLED', 'BILLING_OPERATIONS_READY']
+    .some((name) => value(name).toLowerCase() === 'true');
+  if (billingRequired) {
+    for (const name of [
+      'MOYASAR_PUBLISHABLE_KEY', 'MOYASAR_SECRET_KEY', 'MOYASAR_WEBHOOK_SECRET',
+      'BILLING_SELLER_LEGAL_NAME_AR', 'BILLING_SELLER_ADDRESS_AR', 'BILLING_TAX_STATUS',
+      'HETZNER_HOST', 'HETZNER_USER', 'HETZNER_SSH_PRIVATE_KEY', 'HETZNER_KNOWN_HOSTS',
+    ]) {
+      if (!value(name)) missing.push(name);
+    }
   }
-
-  console.log('production-config-presence: PASS');
-}
-
-assertProductionConfigPresence();
-''')
+"""
+          if old not in text:
+              raise SystemExit('worker presence block missing')
+          audit.write_text(text.replace(old, new, 1))
 
           preflight = Path('.github/workflows/production-preflight-v2.yml')
           text = preflight.read_text()
-          old = r'''          if (!required('MOYASAR_PUBLISHABLE_KEY').startsWith('pk_live_')) throw new Error('Moyasar publishable key must be live');
+          old = """          if (!required('MOYASAR_PUBLISHABLE_KEY').startsWith('pk_live_')) throw new Error('Moyasar publishable key must be live');
           if (!required('MOYASAR_SECRET_KEY').startsWith('sk_live_')) throw new Error('Moyasar secret key must be live');
           if (required('MOYASAR_WEBHOOK_SECRET').length < 24) throw new Error('MOYASAR_WEBHOOK_SECRET is too short');
           const encoded = required('BILLING_TOKEN_ENCRYPTION_KEY');
@@ -105,8 +69,8 @@ assertProductionConfigPresence();
           if (required('BILLING_TAX_STATUS').toLowerCase() !== 'not_registered') throw new Error('Paid launch is blocked until the configured seller tax posture is supported');
           const billingRenewalEnabled = booleanValue('BILLING_RENEWAL_ENABLED') === 'true';
           const billingOperationsReady = booleanValue('BILLING_OPERATIONS_READY') === 'true';
-'''
-          new = r'''          const encoded = required('BILLING_TOKEN_ENCRYPTION_KEY');
+"""
+          new = """          const encoded = required('BILLING_TOKEN_ENCRYPTION_KEY');
           const raw = Buffer.from(encoded, 'base64');
           if (raw.length !== 32 || raw.toString('base64') !== encoded) throw new Error('BILLING_TOKEN_ENCRYPTION_KEY must be canonical base64 for 32 bytes');
           const billingRenewalEnabled = booleanValue('BILLING_RENEWAL_ENABLED') === 'true';
@@ -120,101 +84,30 @@ assertProductionConfigPresence();
             required('BILLING_SELLER_ADDRESS_AR');
             if (required('BILLING_TAX_STATUS').toLowerCase() !== 'not_registered') throw new Error('Paid launch is blocked until the configured seller tax posture is supported');
           }
-'''
+"""
           if old not in text:
-              raise SystemExit('expected billing validation block not found')
+              raise SystemExit('preflight billing validation block missing')
           text = text.replace(old, new, 1)
-          old_step = '''      - name: Verify Moyasar live secret credential read-only\n        run: |\n'''
-          new_step = '''      - name: Verify Moyasar live secret credential read-only\n        if: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED == 'true' || vars.PRODUCTION_BILLING_OPERATIONS_READY == 'true' }}\n        run: |\n'''
-          if old_step not in text:
-              raise SystemExit('expected Moyasar step not found')
-          preflight.write_text(text.replace(old_step, new_step, 1))
+          marker = "      - name: Verify Moyasar live secret credential read-only\n        run: |\n"
+          condition = "        if: $" + "{{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED == 'true' || vars.PRODUCTION_BILLING_OPERATIONS_READY == 'true' }}\n"
+          if marker not in text:
+              raise SystemExit('Moyasar probe step missing')
+          preflight.write_text(text.replace(marker, "      - name: Verify Moyasar live secret credential read-only\n" + condition + "        run: |\n", 1))
 
           paid = Path('.github/workflows/production-open-paid-checkout.yml')
-          ptext = paid.read_text()
-          old_summary = '''      - name: Public paid launch summary\n        run: echo "production-open-paid-checkout: PASS release=${GITHUB_SHA} rehearsal_run=${HEE_REHEARSAL_RUN_ID} billing=${{ inputs.rehearsal_billing_id }}"\n'''
-          new_summary = '''      - name: Public paid launch summary\n        run: |\n          echo "production-open-paid-checkout: PASS release=${GITHUB_SHA} rehearsal_run=${HEE_REHEARSAL_RUN_ID} billing=${{ inputs.rehearsal_billing_id }}"\n'''
-          if old_summary not in ptext:
-              raise SystemExit('expected paid summary not found')
-          paid.write_text(ptext.replace(old_summary, new_summary, 1))
+          lines = paid.read_text().splitlines()
+          for i, line in enumerate(lines):
+              if line.strip().startswith('run: echo "production-open-paid-checkout: PASS'):
+                  payload = line.split('run: ', 1)[1]
+                  lines[i] = '        run: |'
+                  lines.insert(i + 1, '          ' + payload)
+                  break
+          else:
+              raise SystemExit('paid summary inline run missing')
+          paid.write_text('\n'.join(lines) + '\n')
 
           test_path = Path('apps/web/tests/production-web-only-preflight-source-guards.test.ts')
-          test_path.write_text(r'''import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { spawnSync } from "node:child_process";
-import test from "node:test";
-
-const root = resolve(process.cwd(), "../..");
-const auditPath = resolve(root, ".github/scripts/production-config-presence-audit.mjs");
-const preflight = readFileSync(resolve(root, ".github/workflows/production-preflight-v2.yml"), "utf8");
-const paid = readFileSync(resolve(root, ".github/workflows/production-open-paid-checkout.yml"), "utf8");
-
-function webOnlyEnv() {
-  return {
-    ...process.env,
-    DATABASE_URL: "present",
-    RESTORE_DATABASE_URL: "present",
-    PRODUCTION_BACKUP_PASSPHRASE: "present",
-    SESSION_SECRET: "present",
-    RESEND_API_KEY: "present",
-    BILLING_TOKEN_ENCRYPTION_KEY: "present",
-    VERCEL_TOKEN: "present",
-    PG_POOL_MAX: "2",
-    HEE_FROM_EMAIL: "HEE <noreply@ir.sa>",
-    BILLING_RENEWAL_ENABLED: "false",
-    BILLING_OPERATIONS_READY: "false",
-    PAID_CHECKOUT_PUBLIC_ENABLED: "false",
-    STORAGE_DRIVER: "database",
-    MOYASAR_PUBLISHABLE_KEY: "",
-    MOYASAR_SECRET_KEY: "",
-    MOYASAR_WEBHOOK_SECRET: "",
-    BILLING_SELLER_LEGAL_NAME_AR: "",
-    BILLING_SELLER_ADDRESS_AR: "",
-    BILLING_TAX_STATUS: "",
-    HETZNER_HOST: "",
-    HETZNER_USER: "",
-    HETZNER_SSH_PRIVATE_KEY: "",
-    HETZNER_KNOWN_HOSTS: "",
-  };
-}
-
-test("web-only Production presence does not require future billing provider or worker configuration", () => {
-  const run = spawnSync(process.execPath, [auditPath], { env: webOnlyEnv(), encoding: "utf8" });
-  assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /production-config-presence: PASS/);
-});
-
-test("enabling billing operations restores provider, seller and worker fail-closed requirements", () => {
-  const run = spawnSync(process.execPath, [auditPath], {
-    env: { ...webOnlyEnv(), BILLING_OPERATIONS_READY: "true" },
-    encoding: "utf8",
-  });
-  assert.notEqual(run.status, 0);
-  for (const name of [
-    "MOYASAR_PUBLISHABLE_KEY", "MOYASAR_SECRET_KEY", "MOYASAR_WEBHOOK_SECRET",
-    "BILLING_SELLER_LEGAL_NAME_AR", "BILLING_SELLER_ADDRESS_AR", "BILLING_TAX_STATUS",
-    "HETZNER_HOST", "HETZNER_USER", "HETZNER_SSH_PRIVATE_KEY", "HETZNER_KNOWN_HOSTS",
-  ]) assert.match(run.stderr, new RegExp(name));
-});
-
-test("Preflight probes Moyasar only when billing worker operations are enabled", () => {
-  const moyasar = preflight.indexOf("Verify Moyasar live secret credential read-only");
-  const hetzner = preflight.indexOf("Verify Hetzner worker rollback baseline", moyasar);
-  const segment = preflight.slice(moyasar, hetzner);
-  assert.ok(moyasar >= 0 && hetzner > moyasar);
-  assert.match(segment, /if:.*PRODUCTION_BILLING_RENEWAL_ENABLED.*PRODUCTION_BILLING_OPERATIONS_READY/);
-  assert.match(preflight, /const billingRequired = billingRenewalEnabled \|\| billingOperationsReady/);
-});
-
-test("paid checkout workflow summary is YAML block scalar and cannot become an accidental push validation failure", () => {
-  const summary = paid.indexOf("Public paid launch summary");
-  const tail = paid.slice(summary);
-  assert.ok(summary >= 0);
-  assert.match(tail, /run: \|\n\s+echo "production-open-paid-checkout: PASS/);
-  assert.doesNotMatch(tail, /run: echo "production-open-paid-checkout: PASS/);
-});
-''')
+          test_path.write_text('''import assert from "node:assert/strict";\nimport { readFileSync } from "node:fs";\nimport { resolve } from "node:path";\nimport { spawnSync } from "node:child_process";\nimport test from "node:test";\n\nconst root = resolve(process.cwd(), "../..");\nconst auditPath = resolve(root, ".github/scripts/production-config-presence-audit.mjs");\nconst preflight = readFileSync(resolve(root, ".github/workflows/production-preflight-v2.yml"), "utf8");\nconst paid = readFileSync(resolve(root, ".github/workflows/production-open-paid-checkout.yml"), "utf8");\n\nfunction webOnlyEnv() {\n  return { ...process.env, DATABASE_URL: "present", RESTORE_DATABASE_URL: "present", PRODUCTION_BACKUP_PASSPHRASE: "present", SESSION_SECRET: "present", RESEND_API_KEY: "present", BILLING_TOKEN_ENCRYPTION_KEY: "present", VERCEL_TOKEN: "present", PG_POOL_MAX: "2", HEE_FROM_EMAIL: "HEE <noreply@ir.sa>", BILLING_RENEWAL_ENABLED: "false", BILLING_OPERATIONS_READY: "false", PAID_CHECKOUT_PUBLIC_ENABLED: "false", STORAGE_DRIVER: "database", MOYASAR_PUBLISHABLE_KEY: "", MOYASAR_SECRET_KEY: "", MOYASAR_WEBHOOK_SECRET: "", BILLING_SELLER_LEGAL_NAME_AR: "", BILLING_SELLER_ADDRESS_AR: "", BILLING_TAX_STATUS: "", HETZNER_HOST: "", HETZNER_USER: "", HETZNER_SSH_PRIVATE_KEY: "", HETZNER_KNOWN_HOSTS: "" };\n}\n\ntest("web-only Production presence defers provider, seller and worker config", () => {\n  const run = spawnSync(process.execPath, [auditPath], { env: webOnlyEnv(), encoding: "utf8" });\n  assert.equal(run.status, 0, run.stderr);\n  assert.match(run.stdout, /production-config-presence: PASS/);\n});\n\ntest("billing operations restore provider, seller and worker fail-closed requirements", () => {\n  const run = spawnSync(process.execPath, [auditPath], { env: { ...webOnlyEnv(), BILLING_OPERATIONS_READY: "true" }, encoding: "utf8" });\n  assert.notEqual(run.status, 0);\n  for (const name of ["MOYASAR_PUBLISHABLE_KEY", "MOYASAR_SECRET_KEY", "MOYASAR_WEBHOOK_SECRET", "BILLING_SELLER_LEGAL_NAME_AR", "BILLING_SELLER_ADDRESS_AR", "BILLING_TAX_STATUS", "HETZNER_HOST", "HETZNER_USER", "HETZNER_SSH_PRIVATE_KEY", "HETZNER_KNOWN_HOSTS"]) assert.match(run.stderr, new RegExp(name));\n});\n\ntest("Preflight makes the Moyasar read-only probe conditional with billing worker readiness", () => {\n  const start = preflight.indexOf("Verify Moyasar live secret credential read-only");\n  const end = preflight.indexOf("Verify Hetzner worker rollback baseline", start);\n  const segment = preflight.slice(start, end);\n  assert.ok(start >= 0 && end > start);\n  assert.match(segment, /PRODUCTION_BILLING_RENEWAL_ENABLED/);\n  assert.match(segment, /PRODUCTION_BILLING_OPERATIONS_READY/);\n  assert.match(preflight, /const billingRequired = billingRenewalEnabled \\|\\| billingOperationsReady/);\n});\n\ntest("paid checkout summary is a YAML block scalar", () => {\n  const start = paid.indexOf("Public paid launch summary");\n  const tail = paid.slice(start);\n  assert.ok(start >= 0);\n  assert.match(tail, /run: \\|\\n\\s+echo \\"production-open-paid-checkout: PASS/);\n  assert.doesNotMatch(tail, /run: echo \\"production-open-paid-checkout: PASS/);\n});\n''')
           PY
           git rm .github/workflows/round-131-apply.yml
           git config user.name github-actions[bot]
