@@ -120,8 +120,9 @@ test.describe.serial("platform admin workflow", () => {
       await db.user.update({ where: { id: seeded.adminUserId }, data: { emailVerifiedAt: null } });
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("link", { name: "إدارة المنصة" })).toHaveCount(0);
-      const unverifiedAdminResponse = await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
-      expect(unverifiedAdminResponse?.status()).toBe(404);
+      await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/admin-login$/);
+      await expect(page.getByRole("heading", { name: "إدارة المنصة المركزية" })).toBeVisible();
 
       await db.user.update({ where: { id: seeded.adminUserId }, data: { emailVerifiedAt: new Date() } });
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
@@ -145,9 +146,10 @@ test.describe.serial("platform admin workflow", () => {
       await expect(page.getByRole("link", { name: /فتح الصفحة العامة/ })).toHaveAttribute("href", `/${seeded.slug}`);
 
       await setSession(page, seeded.ownerSessionToken);
-      const response = await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
-      expect(response?.status()).toBe(404);
+      await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/admin-login$/);
       await expect(page.getByRole("heading", { name: "إدارة المنصة" })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "إدارة المنصة المركزية" })).toBeVisible();
 
       await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded" });
       await expect(page).toHaveURL(/\/dashboard/);
