@@ -29,6 +29,29 @@ function isMaintenanceControlRead(request: NextRequest, pathname: string) {
   return pathname === "/api/release" || pathname === "/api/maintenance/status";
 }
 
+function configuredOrigin(name: "admin" | "main") {
+  const raw = name === "admin" ? process.env.HEE_ADMIN_ORIGIN : process.env.APP_URL;
+  const fallback = name === "admin" ? "https://admin.hee.sa" : "https://hee.sa";
+  try {
+    const value = String(raw ?? "").trim();
+    if (!value) return fallback;
+    const url = new URL(value);
+    if (!/^https?:$/.test(url.protocol) || !url.hostname) return fallback;
+    if (name === "admin" && url.protocol !== "https:") return fallback;
+    return url.origin;
+  } catch {
+    return fallback;
+  }
+}
+
+function requestHostname(request: NextRequest) {
+  return String(request.headers.get("host") ?? "").split(":")[0]?.trim().toLowerCase();
+}
+
+function isAdminControlHost(request: NextRequest) {
+  return requestHostname(request) === new URL(configuredOrigin("admin")).hostname.toLowerCase();
+}
+
 function maintenanceResponse() {
   const html = `<!doctype html>
 <html lang="ar" dir="rtl">
@@ -69,26 +92,64 @@ function productionQaNotFoundResponse() {
   });
 }
 
+function withPrivateHeaders(response: NextResponse) {
+  response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  return response;
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const adminHost = isAdminControlHost(request);
+  const host = requestHostname(request);
+  const productionMainHost = host === "hee.sa" || host === "www.hee.sa";
 
-  if (productionMaintenanceEnabled() && !isMaintenanceControlRead(request, pathname)) {
+  // admin.hee.sa is a control plane, not an alternate customer hostname. The browser
+  // gets a clean root/login entry while the application keeps the audited /admin tree
+  // internally. Customer dashboard/auth routes are sent back to the customer plane.
+  if (adminHost) {
+    if (pathname === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin";
+      return withPrivateHeaders(NextResponse.rewrite(url));
+    }
+    if (pathname === "/login") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin-login";
+      return withPrivateHeaders(NextResponse.rewrite(url));
+    }
+    if (pathname.startsWith("/dashboard") || pathname === "/register" || pathname === "/onboarding") {
+      return NextResponse.redirect(new URL(pathname, configuredOrigin("main")));
+    }
+  }
+
+  // Keep the operator control plane reachable while the customer plane is deliberately
+  // in maintenance mode, so operators can inspect and recover the platform.
+  if (productionMaintenanceEnabled() && !adminHost && !isMaintenanceControlRead(request, pathname)) {
     return maintenanceResponse();
   }
 
   const isQaPath = pathname === "/qa" || pathname.startsWith("/qa/");
-  if (isProduction() && isQaPath) {
-    return productionQaNotFoundResponse();
+  if (isProduction() && isQaPath) return productionQaNotFoundResponse();
+
+  // hee.sa itself no longer serves central administration. Localhost/CI are exempt so
+  // regression tests can still exercise internal routes without DNS dependencies.
+  if (productionMainHost && (pathname === "/admin-login" || pathname === "/admin" || pathname.startsWith("/admin/"))) {
+    const targetPath = pathname === "/admin-login" ? "/login" : pathname === "/admin" ? "/" : pathname;
+    return NextResponse.redirect(new URL(targetPath, configuredOrigin("admin")));
   }
 
   const isPreview = process.env.VERCEL_ENV?.toLowerCase() === "preview";
   const hasQaAuditSession = Boolean(request.cookies.get("hee_qa_audit")?.value);
   const sensitivePrivatePath = isSensitivePrivatePath(pathname);
-  const shouldMarkNoindex = isQaPath || sensitivePrivatePath || (isPreview && hasQaAuditSession && pathname.startsWith("/dashboard"));
+  const shouldMarkNoindex = isQaPath || sensitivePrivatePath || adminHost || (isPreview && hasQaAuditSession && pathname.startsWith("/dashboard"));
 
   const response = NextResponse.next();
   if (shouldMarkNoindex) response.headers.set("X-Robots-Tag", "noindex, nofollow");
-  if (isQaPath || sensitivePrivatePath) {
+  if (isQaPath || sensitivePrivatePath || adminHost) {
     response.headers.set("Cache-Control", "private, no-store, max-age=0");
     response.headers.set("Pragma", "no-cache");
     response.headers.set("Expires", "0");
