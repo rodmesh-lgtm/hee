@@ -17,7 +17,8 @@ function run(env: Record<string, string>, args = ["DATABASE_URL"]) {
 
 const source = "postgresql://user:secret@db.example.com:5432/hee_prod?sslmode=verify-full";
 const restore = "postgresql://user:secret@restore.example.com:5432/hee_restore_prod?sslmode=verify-full";
-const managedHeeHost = "ep-delicate-wave-apf0pirn-pooler.c-7.us-east-1.aws.neon.tech";
+const managedHeeHost = "hee-prod.example.com";
+const unrelatedNeonHost = "ep-delicate-wave-apf0pirn-pooler.c-7.us-east-1.aws.neon.tech";
 
 test("production database safety accepts only explicit verify-full source transport", () => {
   const ok = run({ DATABASE_URL: source });
@@ -71,7 +72,7 @@ test("production database safety validates isolated restore transport and naming
   assert.match(wrongRestoreName.stderr, /restore database name must begin with hee_restore/);
 });
 
-test("managed HEE Neon host is forcibly isolated from unrelated neondb schema", () => {
+test("configured HEE Production host is forcibly isolated from unrelated neondb database", () => {
   const dir = mkdtempSync(join(tmpdir(), "hee-production-db-routing-"));
   const githubEnv = join(dir, "github-env");
   try {
@@ -79,6 +80,7 @@ test("managed HEE Neon host is forcibly isolated from unrelated neondb schema", 
       {
         DATABASE_URL: `postgresql://user:secret@${managedHeeHost}/neondb?channel_binding=require&sslmode=require`,
         RESTORE_DATABASE_URL: "postgresql://ignored:ignored@restore.example.com/wrong?sslmode=prefer",
+        EXPECTED_PRODUCTION_DB_HOST: managedHeeHost,
         GITHUB_ENV: githubEnv,
       },
       ["DATABASE_URL", "RESTORE_DATABASE_URL"],
@@ -93,6 +95,15 @@ test("managed HEE Neon host is forcibly isolated from unrelated neondb schema", 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("unrelated Neon project host is rejected even with verify-full", () => {
+  const unrelated = run({
+    DATABASE_URL: `postgresql://user:secret@${unrelatedNeonHost}/hee_production?sslmode=verify-full`,
+    EXPECTED_PRODUCTION_DB_HOST: managedHeeHost,
+  });
+  assert.notEqual(unrelated.status, 0);
+  assert.match(unrelated.stderr, /must target EXPECTED_PRODUCTION_DB_HOST/);
 });
 
 test("legacy managed Neon endpoint is not silently canonicalized", () => {

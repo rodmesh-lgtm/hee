@@ -142,7 +142,7 @@ jobs:
     environment: production
     env:
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-      EXPECTED_PRODUCTION_DB_HOST: ep-delicate-wave-apf0pirn-pooler.c-7.us-east-1.aws.neon.tech
+      EXPECTED_PRODUCTION_DB_HOST: ${{ vars.PRODUCTION_DATABASE_HOST }}
       BILLING_RENEWAL_ENABLED: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED }}
       BILLING_OPERATIONS_READY: ${{ vars.PRODUCTION_BILLING_OPERATIONS_READY }}
       PAID_CHECKOUT_PUBLIC_ENABLED: ${{ vars.PRODUCTION_PAID_CHECKOUT_PUBLIC_ENABLED }}
@@ -167,6 +167,7 @@ jobs:
           [[ -z "${BILLING_REHEARSAL_USER_EMAIL:-}" ]]
           test -n "${DATABASE_URL:-}"
           test -n "${RESTORE_DATABASE_URL:-}"
+          test -n "${EXPECTED_PRODUCTION_DB_HOST:-}"
           node .github/scripts/require-production-database-safety.mjs DATABASE_URL RESTORE_DATABASE_URL
       - name: Prove both bootstrap databases are empty
         run: |
