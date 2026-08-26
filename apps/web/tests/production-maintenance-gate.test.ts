@@ -23,12 +23,12 @@ async function withEnvironment(values: Record<string, string | undefined>, run: 
 
 test("production maintenance blocks customer UI and mutating API requests with 503", async () => {
   await withEnvironment({ APP_ENV: "production", PRODUCTION_MAINTENANCE_MODE: "true" }, async () => {
-    const page = proxy(new NextRequest("https://hee.sa/register"));
+    const page = proxy(new NextRequest("https://ir.sa/register"));
     assert.equal(page.status, 503);
     assert.equal(page.headers.get("retry-after"), "300");
     assert.match(await page.text(), /صيانة مجدولة/);
 
-    const write = proxy(new NextRequest("https://hee.sa/api/public/orders", { method: "POST", body: "{}" }));
+    const write = proxy(new NextRequest("https://ir.sa/api/public/orders", { method: "POST", body: "{}" }));
     assert.equal(write.status, 503);
     assert.match(await write.text(), /صيانة مجدولة/);
   });
@@ -36,22 +36,22 @@ test("production maintenance blocks customer UI and mutating API requests with 5
 
 test("maintenance control endpoints are read-only exceptions", async () => {
   await withEnvironment({ APP_ENV: "production", PRODUCTION_MAINTENANCE_MODE: "true" }, async () => {
-    const statusRead = proxy(new NextRequest("https://hee.sa/api/maintenance/status"));
+    const statusRead = proxy(new NextRequest("https://ir.sa/api/maintenance/status"));
     assert.equal(statusRead.status, 200);
     assert.equal(statusRead.headers.get("x-middleware-next"), "1");
 
-    const releaseRead = proxy(new NextRequest("https://hee.sa/api/release", { method: "HEAD" }));
+    const releaseRead = proxy(new NextRequest("https://ir.sa/api/release", { method: "HEAD" }));
     assert.equal(releaseRead.status, 200);
     assert.equal(releaseRead.headers.get("x-middleware-next"), "1");
 
-    const statusWrite = proxy(new NextRequest("https://hee.sa/api/maintenance/status", { method: "POST" }));
+    const statusWrite = proxy(new NextRequest("https://ir.sa/api/maintenance/status", { method: "POST" }));
     assert.equal(statusWrite.status, 503);
   });
 });
 
 test("maintenance mode never activates outside production", async () => {
   await withEnvironment({ APP_ENV: "test", VERCEL_ENV: "preview", PRODUCTION_MAINTENANCE_MODE: "true" }, async () => {
-    const response = proxy(new NextRequest("https://hee.sa/register"));
+    const response = proxy(new NextRequest("https://ir.sa/register"));
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
   });
@@ -60,7 +60,7 @@ test("maintenance mode never activates outside production", async () => {
 test("Vercel Production cannot be downgraded out of maintenance by APP_ENV drift", async () => {
   const sha = "b".repeat(40);
   await withEnvironment({ APP_ENV: "test", VERCEL_ENV: "production", PRODUCTION_MAINTENANCE_MODE: "true", RELEASE_SHA: sha }, async () => {
-    const page = proxy(new NextRequest("https://hee.sa/register"));
+    const page = proxy(new NextRequest("https://ir.sa/register"));
     assert.equal(page.status, 503);
 
     const response = await maintenanceStatus();
