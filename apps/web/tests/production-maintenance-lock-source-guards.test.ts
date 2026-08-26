@@ -100,12 +100,14 @@ test("Vercel environment sync never persists maintenance mode", () => {
 
 test("final launch and live readiness reject maintenance and require verify-full TLS", () => {
   const audit = source("scripts/launch-config-audit.ts");
+  const webReadiness = source("app/lib/production-runtime-readiness.ts");
   const ready = source("app/api/health/ready/route.ts");
   assert.match(audit, /PRODUCTION_MAINTENANCE_MODE must be false before general production launch/);
-  assert.match(ready, /enabled\("PRODUCTION_MAINTENANCE_MODE"\)/);
-  assert.match(ready, /getAll\("sslmode"\)/);
-  assert.match(ready, /sslModes\.length === 1/);
-  assert.match(ready, /verify-full/);
-  assert.doesNotMatch(ready, /verify-ca/);
-  assert.doesNotMatch(ready, /new Set\(\["verify-full", "verify-ca", "require", "prefer"\]\)/);
+  assert.match(webReadiness, /enabled\("PRODUCTION_MAINTENANCE_MODE"\)/);
+  assert.match(webReadiness, /getAll\("sslmode"\)/);
+  assert.match(webReadiness, /sslModes\.length === 1/);
+  assert.match(webReadiness, /verify-full/);
+  assert.doesNotMatch(webReadiness, /verify-ca/);
+  assert.doesNotMatch(webReadiness, /new Set\(\["verify-full", "verify-ca", "require", "prefer"\]\)/);
+  assert.match(ready, /productionWebRuntimeReleaseSha\(\)/);
 });
