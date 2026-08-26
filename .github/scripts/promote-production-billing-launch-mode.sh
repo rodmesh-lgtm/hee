@@ -4,7 +4,7 @@ set -euo pipefail
 mode="${HEE_BILLING_LAUNCH_MODE:-}"
 rehearsal_email="${HEE_BILLING_REHEARSAL_EMAIL:-}"
 cli_version="${VERCEL_CLI_VERSION:-59.3.0}"
-canonical_host="${PRODUCTION_CANONICAL_HOST:-hee.sa}"
+canonical_host="${PRODUCTION_CANONICAL_HOST:-ir.sa}"
 previous_file="${HEE_PREVIOUS_DEPLOYMENT_FILE:-/tmp/hee-billing-launch-previous.json}"
 staged_file="${HEE_STAGED_DEPLOYMENT_FILE:-/tmp/hee-billing-launch-staged-url}"
 
