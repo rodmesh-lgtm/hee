@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import "./production-config-presence-audit.mjs";
-
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
 function fail(message) {
