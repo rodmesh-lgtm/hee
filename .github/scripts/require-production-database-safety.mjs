@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+// Production cutover trigger comment: no runtime behavior change.
 import fs from "node:fs";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
