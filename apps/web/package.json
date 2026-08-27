@@ -31,7 +31,8 @@
     "launch:config-audit": "tsx scripts/launch-config-audit.ts",
     "billing:webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/billing-webhook-recovery-worker.ts",
     "billing:renew-only": "tsx scripts/billing-renewal-worker.ts",
-    "billing:renew": "npm run billing:webhooks && npm run billing:renew-only && npm run billing:state-audit -- --record-heartbeat"
+    "billing:renew": "npm run billing:webhooks && npm run billing:renew-only && npm run billing:state-audit -- --record-heartbeat",
+    "whatsapp:webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-webhook-worker.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -43,8 +44,8 @@
     "@prisma/client@5.22.0": true,
     "@prisma/engines@5.22.0": true,
     "esbuild@0.28.1": true,
-    "fsevents@2.3.2": true,
-    "fsevents@2.3.3": true,
+    "fsevents@0.28.1": true,
+    "fsevents@0.28.1": true,
     "prisma@5.22.0": true,
     "unrs-resolver@1.12.2": true
   },
