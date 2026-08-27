@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { HomepageConversion } from "../components/homepage-conversion";
+import { HomepageProfessional } from "../components/homepage-professional";
 
 const description = "أنشئ مع iR هوية أعمال رقمية احترافية لمنشأتك في رابط واحد على ir.sa يعرض معلوماتها وخدماتها وفروعها وفريقها وطرق التواصل بوضوح.";
 
@@ -18,5 +18,5 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <HomepageConversion />;
+  return <HomepageProfessional />;
 }

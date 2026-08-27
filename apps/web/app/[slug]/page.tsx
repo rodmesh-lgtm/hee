@@ -37,10 +37,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const business = resolved?.business;
   if (!business || !business.isPublished) return {};
   const canonicalUrl = `https://ir.sa/${business.slug}`;
-  const title = business.metaTitle || `${business.name} | HEE`;
+  const title = business.metaTitle || `${business.name} | iR`;
   const description = business.metaDescription || business.shortDescription || business.description || `صفحة ${business.name}`;
   const socialImageUrl = absolutePublicAssetUrl(business.coverUrl) || absolutePublicAssetUrl(business.logoUrl);
-  return { title: { absolute: title }, description, alternates: { canonical: canonicalUrl }, openGraph: { title, description, type: "website", url: canonicalUrl, siteName: "HEE", locale: "ar_SA", images: socialImageUrl ? [{ url: socialImageUrl, alt: business.name }] : undefined }, twitter: { card: socialImageUrl ? "summary_large_image" : "summary", title, description, images: socialImageUrl ? [socialImageUrl] : undefined }, ...(isPreviewQaEnvironment() ? { robots: { index: false, follow: false } } : { robots: { index: true, follow: true } }) };
+  return { title: { absolute: title }, description, alternates: { canonical: canonicalUrl }, openGraph: { title, description, type: "website", url: canonicalUrl, siteName: "iR", locale: "ar_SA", images: socialImageUrl ? [{ url: socialImageUrl, alt: business.name }] : undefined }, twitter: { card: socialImageUrl ? "summary_large_image" : "summary", title, description, images: socialImageUrl ? [socialImageUrl] : undefined }, ...(isPreviewQaEnvironment() ? { robots: { index: false, follow: false } } : { robots: { index: true, follow: true } }) };
 }
 
 export default async function PublicBusinessPageRoute({ params }: { params: Promise<{ slug: string }> }) {
