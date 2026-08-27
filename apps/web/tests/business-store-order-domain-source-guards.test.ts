@@ -9,16 +9,17 @@ const root = join(here, "..");
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 const schema = read("prisma/schema.prisma");
 const migration = read("prisma/migrations/20260824123000_business_store_order_domain/migration.sql");
+const businessStoreOrderModel = schema.match(/model BusinessStoreOrder \{[\s\S]*?\n\}/)?.[0] ?? "";
 
 test("HEE merchandise orders have an isolated tenant-owned Prisma domain", () => {
   assert.match(schema, /model BusinessStoreOrder \{/);
   assert.match(schema, /model BusinessStoreOrderItem \{/);
   assert.match(schema, /businessStoreOrders BusinessStoreOrder\[\]/);
-  assert.match(schema, /business Business @relation\(fields: \[businessId\], references: \[id\], onDelete: Restrict\)/);
-  assert.match(schema, /@@unique\(\[businessId, idempotencyKey\], map: "BusinessStoreOrder_business_idempotency_unique"\)/);
-  assert.match(schema, /@@unique\(\[paymentProvider, providerPaymentId\], map: "BusinessStoreOrder_provider_payment_unique"\)/);
-  assert.doesNotMatch(schema, /model BusinessStoreOrder[\s\S]*?customer Customer/);
-  assert.doesNotMatch(schema, /model BusinessStoreOrder[\s\S]*?subscription Subscription/);
+  assert.match(businessStoreOrderModel, /business Business @relation\(fields: \[businessId\], references: \[id\], onDelete: Restrict\)/);
+  assert.match(businessStoreOrderModel, /@@unique\(\[businessId, idempotencyKey\], map: "BusinessStoreOrder_business_idempotency_unique"\)/);
+  assert.match(businessStoreOrderModel, /@@unique\(\[paymentProvider, providerPaymentId\], map: "BusinessStoreOrder_provider_payment_unique"\)/);
+  assert.doesNotMatch(businessStoreOrderModel, /\bcustomer Customer/);
+  assert.doesNotMatch(businessStoreOrderModel, /\bsubscription Subscription/);
 });
 
 test("database enforces commercial arithmetic and finite order/payment states", () => {
@@ -69,17 +70,8 @@ test("store order history cannot be silently reassigned, cascaded, re-priced, or
 });
 
 test("store order identity and design are durable snapshots rather than live business references", () => {
-  for (const field of [
-    "businessNameSnapshot",
-    "businessSlugSnapshot",
-    "publicUrlSnapshot",
-    "logoUrlSnapshot",
-    "primaryColorSnapshot",
-    "secondaryColorSnapshot",
-    "identitySnapshot",
-    "customizationSnapshot",
-  ]) {
-    assert.match(schema, new RegExp(`\\b${field}\\b`));
+  for (const field of ["businessNameSnapshot", "businessSlugSnapshot", "publicUrlSnapshot", "logoUrlSnapshot", "primaryColorSnapshot", "secondaryColorSnapshot", "identitySnapshot", "customizationSnapshot"]) {
+    assert.match(businessStoreOrderModel, new RegExp(`\\b${field}\\b`));
     assert.match(migration, new RegExp(`"${field}"`));
   }
 });
