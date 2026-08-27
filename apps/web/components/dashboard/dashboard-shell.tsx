@@ -7,6 +7,7 @@ import { logoutAction } from "../../app/actions/auth";
 import { switchActiveBusinessAction } from "../../app/actions/active-business";
 import { Building2, ExternalLink, Home, Inbox, LogOut, Menu, MoreHorizontal, ShieldCheck, UserRound, X } from "lucide-react";
 import { Button } from "../ui/button";
+import { IrLogo } from "../brand/ir-logo";
 import { cn } from "../../lib/utils";
 import { dashboardNavItems } from "./dashboard-nav";
 
@@ -142,7 +143,7 @@ export function DashboardShell({ children, businessId, businessName, businessSlu
     <div data-dashboard-path={pathname} data-active-business={businessId ?? ""} className="min-h-screen bg-[#f8f9fd] text-slate-900">
       <div className="mx-auto flex min-h-screen w-full max-w-[1680px] lg:grid lg:grid-cols-[minmax(0,1fr)_252px] lg:[direction:ltr]">
         <aside className="order-2 hidden border-l border-[#edf0fb] bg-white px-4 py-6 lg:flex lg:flex-col lg:[direction:rtl]">
-          <Link href="/dashboard" className="mb-4 block px-2"><div className="text-[28px] font-black tracking-[-.06em] text-[#6f3bd2]">HEE</div><p className="mt-1 text-xs font-semibold text-slate-500">هوية أعمال رقمية</p>{businessName ? <p className="mt-3 truncate text-xs font-bold text-[#1f2552]">{businessName}</p> : null}</Link>
+          <Link href="/dashboard" className="mb-4 block px-2" aria-label="لوحة iR"><div className="flex items-center gap-2.5"><IrLogo className="h-11 w-11" /><div><div className="text-sm font-black text-[#1f2552]">iR</div><p className="text-[10px] font-semibold text-slate-500">هوية أعمال رقمية</p></div></div>{businessName ? <p className="mt-3 truncate text-xs font-bold text-[#1f2552]">{businessName}</p> : null}</Link>
           <BusinessSwitcher businesses={businesses} businessId={businessId} />
           <nav className="space-y-1">{nav()}</nav>
           {businessSlug ? <Link href={isPublished ? `/${businessSlug}` : "/preview"} target="_blank" className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-[#f5f1ff] px-4 py-3 text-center text-xs font-black text-[#6543ce]"><ExternalLink className="h-3.5 w-3.5" />{isPublished ? "فتح الصفحة" : "معاينة الصفحة"}</Link> : null}
@@ -169,7 +170,7 @@ export function DashboardShell({ children, businessId, businessName, businessSlu
         </nav>
 
         <aside ref={mobileDrawerRef} id={MOBILE_DRAWER_ID} role="dialog" aria-modal={mobileOpen ? "true" : undefined} aria-label="قائمة لوحة التحكم" aria-hidden={!mobileOpen} inert={!mobileOpen} className={cn("fixed inset-y-0 right-0 z-40 flex w-[86vw] max-w-[300px] flex-col border-l border-[#eceffc] bg-white p-4 shadow-[0_25px_60px_-35px_rgba(48,46,89,.55)] transition-transform duration-200 lg:hidden", mobileOpen ? "translate-x-0" : "translate-x-full")}>
-          <div className="mb-5 flex items-center justify-between"><Link href="/dashboard" onClick={() => setMobileOpen(false)}><div className="text-[28px] font-black tracking-[-.06em] text-[#6f3bd2]">HEE</div><div className="text-xs text-slate-500">هوية أعمال رقمية</div></Link><button ref={mobileCloseButtonRef} type="button" onClick={() => setMobileOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-[#eceffc] bg-white text-slate-600" aria-label="إغلاق القائمة"><X className="h-5 w-5" /></button></div>
+          <div className="mb-5 flex items-center justify-between"><Link href="/dashboard" onClick={() => setMobileOpen(false)} className="flex items-center gap-2.5" aria-label="لوحة iR"><IrLogo className="h-11 w-11" /><div><div className="text-sm font-black text-[#1f2552]">iR</div><div className="text-[10px] text-slate-500">هوية أعمال رقمية</div></div></Link><button ref={mobileCloseButtonRef} type="button" onClick={() => setMobileOpen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-[#eceffc] bg-white text-slate-600" aria-label="إغلاق القائمة"><X className="h-5 w-5" /></button></div>
           <BusinessSwitcher businesses={businesses} businessId={businessId} compact />
           {businessSlug ? <Link href={isPublished ? `/${businessSlug}` : "/preview"} target="_blank" onClick={() => setMobileOpen(false)} className="mb-4 inline-flex items-center justify-center gap-2 rounded-xl bg-[#f5f1ff] px-4 py-3 text-sm font-black text-[#6543ce]"><ExternalLink className="h-4 w-4" />معاينة صفحتي</Link> : null}
           {showAdminLink ? <Link href="/admin" onClick={() => setMobileOpen(false)} className="mb-3 inline-flex items-center justify-center gap-2 rounded-xl border border-[#ddd5fb] bg-white px-4 py-3 text-sm font-black text-[#5d49cc]"><ShieldCheck className="h-4 w-4" />إدارة المنصة</Link> : null}

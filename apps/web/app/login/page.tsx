@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LogIn } from "lucide-react";
+import { IrLogo } from "../../components/brand/ir-logo";
 import { loginAction } from "../actions/auth";
 
 const oauthMessages: Record<string, string> = {
@@ -33,11 +34,11 @@ function LoginContent() {
 
   return <main dir="rtl" className="min-h-screen bg-[linear-gradient(180deg,#fbfaff_0%,#fff_50%,#f8f6ff_100%)] text-[#1f2552]">
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-8">
-      <Link href="/" className="w-fit text-3xl font-black tracking-[-.08em] text-[#6f3bd2]">HEE</Link>
+      <Link href="/" className="w-fit" aria-label="العودة إلى iR"><IrLogo className="h-14 w-14" priority /></Link>
       <div className="mt-6 rounded-[28px] border border-[#e8e5f2] bg-white p-5 shadow-[0_24px_70px_-52px_rgba(73,48,125,.5)] sm:p-6">
         <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><LogIn className="h-5 w-5" /></span>
         <h1 className="mt-4 text-2xl font-black">تسجيل الدخول</h1>
-        <p className="mt-1 text-sm leading-6 text-slate-500">ادخل إلى هويتك الرقمية ولوحة الإدارة.</p>
+        <p className="mt-1 text-sm leading-6 text-slate-500">ادخل إلى هويتك الرقمية ولوحة الإدارة في iR.</p>
         {resetSuccess ? <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-700">تم تحديث كلمة المرور. يمكنك تسجيل الدخول الآن.</p> : null}
         {oauthMessage ? <p role="alert" className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-bold text-rose-700">{oauthMessage}</p> : null}
         <div className="mt-5 grid gap-3" aria-label="تسجيل الدخول عبر مزود خارجي">
