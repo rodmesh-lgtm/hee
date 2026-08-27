@@ -165,6 +165,7 @@ model Business {
   whatsappContactTags WhatsAppContactTag[]
   whatsappSegments WhatsAppSegment[]
   whatsappContactImports WhatsAppContactImport[]
+  whatsappTemplates WhatsAppTemplate[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -659,9 +660,11 @@ model WhatsAppConnection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  templates WhatsAppTemplate[]
   @@unique([businessId, provider], map: "WhatsAppConnection_business_provider_unique")
   @@unique([provider, wabaId], map: "WhatsAppConnection_provider_waba_unique")
   @@unique([provider, phoneNumberId], map: "WhatsAppConnection_provider_phone_unique")
+  @@unique([id, businessId], map: "WhatsAppConnection_id_business_unique")
   @@index([businessId, status], map: "WhatsAppConnection_business_status_idx")
 }
 
@@ -839,6 +842,33 @@ model WhatsAppContactImport {
   @@unique([businessId, fileSha256], map: "WhatsAppContactImport_business_file_unique")
   @@index([businessId, createdAt], map: "WhatsAppContactImport_business_created_idx")
   @@index([status, createdAt], map: "WhatsAppContactImport_status_created_idx")
+}
+
+model WhatsAppTemplate {
+  id String @id @default(uuid())
+  businessId String
+  connectionId String
+  provider String @default("meta")
+  providerTemplateId String
+  name String
+  language String
+  category String
+  status String
+  providerStatus String
+  parameterFormat String?
+  qualityScore String?
+  rejectedReason String?
+  components Json
+  rawPayload Json
+  lastSyncedAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  connection WhatsAppConnection @relation(fields: [connectionId, businessId], references: [id, businessId], onDelete: Restrict)
+  @@unique([provider, providerTemplateId], map: "WhatsAppTemplate_provider_id_unique")
+  @@unique([businessId, name, language], map: "WhatsAppTemplate_business_name_language_unique")
+  @@index([businessId, status], map: "WhatsAppTemplate_business_status_idx")
+  @@index([connectionId, lastSyncedAt], map: "WhatsAppTemplate_connection_sync_idx")
 }
 
 model StoredObject {
