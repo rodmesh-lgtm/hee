@@ -1,0 +1,51 @@
+/* Round 145 — iR floating business header refinement. Scoped to the public homepage only. */
+@media (max-width: 1023px) {
+  main#home > header.sticky {
+    top: 12px !important;
+    margin-inline: 14px !important;
+    border: 1px solid rgba(229,224,237,.92) !important;
+    border-radius: 26px !important;
+    background: rgba(255,255,255,.94) !important;
+    box-shadow: 0 12px 38px -24px rgba(31,24,52,.42), 0 2px 10px rgba(31,24,52,.05) !important;
+    overflow: hidden !important;
+    backdrop-filter: blur(18px) !important;
+  }
+  main#home > header.sticky > div {
+    height: 64px !important;
+    padding-inline: 14px !important;
+  }
+  main#home > header.sticky button[aria-label="فتح القائمة"] {
+    width: 42px !important;
+    height: 42px !important;
+    border-color: #e8e3ee !important;
+    background: #f8f7fa !important;
+    box-shadow: none !important;
+  }
+  main#home > header.sticky + div[role="dialog"] > div[dir="rtl"] {
+    top: 12px !important;
+    left: 14px !important;
+    right: 14px !important;
+    border: 1px solid #ebe6f0 !important;
+    border-radius: 28px !important;
+    max-height: calc(100dvh - 24px) !important;
+    box-shadow: 0 28px 90px rgba(28,20,55,.24) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  main#home > header.sticky {
+    top: 18px !important;
+    width: min(calc(100% - 48px), 1180px) !important;
+    margin-inline: auto !important;
+    border: 1px solid rgba(229,224,237,.9) !important;
+    border-radius: 30px !important;
+    background: rgba(255,255,255,.93) !important;
+    box-shadow: 0 18px 54px -30px rgba(31,24,52,.36), 0 3px 14px rgba(31,24,52,.04) !important;
+    overflow: hidden !important;
+    backdrop-filter: blur(20px) !important;
+  }
+  main#home > header.sticky > div {
+    height: 74px !important;
+    padding-inline: 22px !important;
+  }
+}
