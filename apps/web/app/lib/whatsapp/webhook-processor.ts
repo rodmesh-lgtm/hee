@@ -16,7 +16,7 @@ type ClaimedEvent = {
   payload: Prisma.JsonValue;
 };
 
-type ProcessorDb = Pick<PrismaClient, "$transaction">;
+type ProcessorDb = Pick<PrismaClient, "$transaction" | "whatsAppWebhookEvent">;
 
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -68,9 +68,19 @@ async function processInbound(tx: Tx, event: ClaimedEvent) {
     });
     if (conversation.businessId !== event.businessId) throw new Error("WHATSAPP_CONVERSATION_TENANT_MISMATCH");
 
-    await tx.whatsAppMessage.upsert({
+    const existing = await tx.whatsAppMessage.findUnique({
       where: { provider_providerMessageId: { provider: event.provider, providerMessageId: incoming.providerMessageId } },
-      create: {
+      select: { businessId: true, conversationId: true },
+    });
+    if (existing) {
+      if (existing.businessId !== event.businessId || existing.conversationId !== conversation.id) {
+        throw new Error("WHATSAPP_MESSAGE_ID_TENANT_COLLISION");
+      }
+      continue;
+    }
+
+    await tx.whatsAppMessage.create({
+      data: {
         id: randomUUID(),
         businessId: event.businessId,
         conversationId: conversation.id,
@@ -83,7 +93,6 @@ async function processInbound(tx: Tx, event: ClaimedEvent) {
         payload: incoming.payload as Prisma.InputJsonValue,
         providerTimestamp: incoming.providerTimestamp,
       },
-      update: {},
     });
   }
 }
@@ -126,11 +135,13 @@ async function claimNext(tx: Tx): Promise<ClaimedEvent | null> {
 }
 
 export async function processNextWhatsAppWebhookEvent(database: ProcessorDb = db) {
-  return database.$transaction(async (tx) => {
-    const event = await claimNext(tx);
-    if (!event) return { processed: false as const };
+  let claimedId: string | null = null;
+  try {
+    return await database.$transaction(async (tx) => {
+      const event = await claimNext(tx);
+      if (!event) return { processed: false as const };
+      claimedId = event.id;
 
-    try {
       if (event.eventType === "message_received") await processInbound(tx, event);
       else if (event.eventType === "message_status") await processStatuses(tx, event);
 
@@ -139,13 +150,15 @@ export async function processNextWhatsAppWebhookEvent(database: ProcessorDb = db
         data: { processedAt: new Date(), processingError: null },
       });
       return { processed: true as const, id: event.id, eventType: event.eventType };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "WHATSAPP_WEBHOOK_PROCESSING_FAILED";
-      await tx.whatsAppWebhookEvent.update({
-        where: { id: event.id },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "WHATSAPP_WEBHOOK_PROCESSING_FAILED";
+    if (claimedId) {
+      await database.whatsAppWebhookEvent.updateMany({
+        where: { id: claimedId, processedAt: null },
         data: { processingError: message.slice(0, 512) },
       });
-      return { processed: false as const, id: event.id, error: message };
     }
-  });
+    return { processed: false as const, id: claimedId, error: message };
+  }
 }
