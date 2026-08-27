@@ -6,10 +6,10 @@ const nav = readFileSync(new URL("../components/dashboard/dashboard-nav.ts", imp
 const tools = readFileSync(new URL("../app/dashboard/tools/page.tsx", import.meta.url), "utf8");
 const support = readFileSync(new URL("../app/dashboard/support/page.tsx", import.meta.url), "utf8");
 
-test("ready HEE tools are discoverable from dashboard navigation", () => {
+test("ready iR tools are discoverable from dashboard navigation", () => {
   assert.match(tools, /مصمم العروض/);
   assert.match(tools, /designerAvailable/);
-  assert.match(nav, /label: "أدوات HEE", href: "\/dashboard\/tools"/);
+  assert.match(nav, /label: "أدوات iR", href: "\/dashboard\/tools"/);
 });
 
 test("customer-facing support history uses the platform Riyadh timezone", () => {
