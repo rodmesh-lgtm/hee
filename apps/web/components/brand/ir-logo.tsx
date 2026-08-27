@@ -5,15 +5,16 @@ type IrLogoProps = {
   priority?: boolean;
 };
 
-export function IrLogo({ className = "h-12 w-12", priority = false }: IrLogoProps) {
+export function IrLogo({ className = "h-12", priority = false }: IrLogoProps) {
   return (
     <Image
       src="/brand/ir-logo.png"
       alt="iR"
-      width={128}
-      height={128}
+      width={1230}
+      height={1278}
       priority={priority}
-      className={`shrink-0 object-contain ${className}`}
+      sizes="(max-width: 640px) 56px, 72px"
+      className={`shrink-0 !w-auto object-contain ${className}`}
     />
   );
 }
