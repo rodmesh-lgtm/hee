@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
+import { appEnvironment, vercelEnvironment } from "../../lib/runtime-environment";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const releaseSha = String(process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.RELEASE_SHA ?? "").trim();
-  const appEnv = String(process.env.APP_ENV ?? "").trim().toLowerCase();
+  const environment = appEnvironment() || vercelEnvironment();
 
   const response = NextResponse.json(
     {
       service: "hee-web",
       releaseSha: releaseSha || null,
-      environment: appEnv || null,
+      environment: environment || null,
     },
     { status: releaseSha ? 200 : 503 },
   );
