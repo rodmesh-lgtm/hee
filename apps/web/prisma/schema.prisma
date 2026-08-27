@@ -161,6 +161,9 @@ model Business {
   whatsappWebhookEvents WhatsAppWebhookEvent[]
   whatsappConversations WhatsAppConversation[]
   whatsappMessages WhatsAppMessage[]
+  whatsappContacts WhatsAppContact[]
+  whatsappContactTags WhatsAppContactTag[]
+  whatsappSegments WhatsAppSegment[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -742,6 +745,79 @@ model WhatsAppMessage {
   @@index([businessId, createdAt], map: "WhatsAppMessage_business_created_idx")
   @@index([conversationId, createdAt], map: "WhatsAppMessage_conversation_created_idx")
   @@index([businessId, status, createdAt], map: "WhatsAppMessage_business_status_idx")
+}
+
+
+model WhatsAppContact {
+  id String @id @default(uuid())
+  businessId String
+  phoneE164 String
+  displayName String?
+  email String?
+  source String
+  attributes Json?
+  optedOutAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  tagMemberships WhatsAppContactTagMembership[]
+  segmentMemberships WhatsAppSegmentMembership[]
+  @@unique([businessId, phoneE164], map: "WhatsAppContact_business_phone_unique")
+  @@unique([id, businessId], map: "WhatsAppContact_id_business_unique")
+  @@index([businessId, optedOutAt], map: "WhatsAppContact_business_optout_idx")
+  @@index([businessId, createdAt], map: "WhatsAppContact_business_created_idx")
+}
+
+model WhatsAppContactTag {
+  id String @id @default(uuid())
+  businessId String
+  name String
+  normalizedName String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  memberships WhatsAppContactTagMembership[]
+  @@unique([businessId, normalizedName], map: "WhatsAppContactTag_business_name_unique")
+  @@unique([id, businessId], map: "WhatsAppContactTag_id_business_unique")
+  @@index([businessId, createdAt], map: "WhatsAppContactTag_business_created_idx")
+}
+
+model WhatsAppContactTagMembership {
+  businessId String
+  contactId String
+  tagId String
+  createdAt DateTime @default(now())
+  contact WhatsAppContact @relation(fields: [contactId, businessId], references: [id, businessId], onDelete: Restrict)
+  tag WhatsAppContactTag @relation(fields: [tagId, businessId], references: [id, businessId], onDelete: Restrict)
+  @@id([contactId, tagId])
+  @@index([businessId, tagId], map: "WhatsAppContactTagMembership_business_tag_idx")
+}
+
+model WhatsAppSegment {
+  id String @id @default(uuid())
+  businessId String
+  name String
+  normalizedName String
+  kind String @default("static")
+  definition Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  memberships WhatsAppSegmentMembership[]
+  @@unique([businessId, normalizedName], map: "WhatsAppSegment_business_name_unique")
+  @@unique([id, businessId], map: "WhatsAppSegment_id_business_unique")
+  @@index([businessId, kind], map: "WhatsAppSegment_business_kind_idx")
+}
+
+model WhatsAppSegmentMembership {
+  businessId String
+  contactId String
+  segmentId String
+  createdAt DateTime @default(now())
+  contact WhatsAppContact @relation(fields: [contactId, businessId], references: [id, businessId], onDelete: Restrict)
+  segment WhatsAppSegment @relation(fields: [segmentId, businessId], references: [id, businessId], onDelete: Restrict)
+  @@id([contactId, segmentId])
+  @@index([businessId, segmentId], map: "WhatsAppSegmentMembership_business_segment_idx")
 }
 
 model StoredObject {
