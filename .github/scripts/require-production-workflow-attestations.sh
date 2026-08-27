@@ -25,6 +25,9 @@ case "$workflow_ref" in
   */.github/workflows/production-worker-deploy.yml@*)
     verify_scope worker-host
     ;;
+  */.github/workflows/production-first-bootstrap.yml@*)
+    echo "production-workflow-attestation: first bootstrap intentionally precedes Production Preflight attestations"
+    ;;
   */.github/workflows/production-preflight-v2.yml@*|*/.github/workflows/production-launch-readiness.yml@*|*/.github/workflows/production-backup-proof.yml@*)
     echo "production-workflow-attestation: intentionally not required for ${workflow_ref}"
     ;;

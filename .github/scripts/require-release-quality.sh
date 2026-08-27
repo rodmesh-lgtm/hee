@@ -2,12 +2,13 @@
 set -euo pipefail
 
 repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
-sha="${GITHUB_SHA:?GITHUB_SHA is required}"
+default_sha="${GITHUB_SHA:?GITHUB_SHA is required}"
+sha="${RELEASE_QUALITY_SHA:-$default_sha}"
 expected_branch="${RELEASE_BRANCH:-hee-v6-rc}"
 workflow="${RC_WORKFLOW:-rc-quality.yml}"
 
 valid_sha() { [[ "$1" =~ ^[0-9a-f]{40}$ ]]; }
-valid_sha "$sha" || { echo "Invalid GITHUB_SHA"; exit 1; }
+valid_sha "$sha" || { echo "Invalid release quality SHA"; exit 1; }
 
 green_runs_for_sha() {
   local candidate="$1"
