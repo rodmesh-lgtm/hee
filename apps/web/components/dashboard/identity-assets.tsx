@@ -16,7 +16,7 @@ type Props = {
 };
 
 function safeFileName(value: string) {
-  return value.replace(/[^a-z0-9\u0600-\u06ff-]+/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "hee-business";
+  return value.replace(/[^a-z0-9\u0600-\u06ff-]+/gi, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "ir-business";
 }
 
 function validColor(value: string) {
@@ -63,7 +63,7 @@ export function IdentityAssets({ businessName, logoUrl, primaryColor, phone, wha
       <div className="flex items-center gap-2"><Share2 className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">بطاقة الأعمال الرقمية</h2></div>
       <p className="mt-2 text-xs leading-6 text-slate-500">بطاقة PNG تُنشأ داخل متصفحك من بيانات المنشأة الحالية، بدون إرسال بيانات الهوية إلى خدمة تصميم خارجية.</p>
       <div ref={cardRef} className="mt-4 overflow-hidden rounded-[24px] p-6 text-white" style={{ background: `linear-gradient(135deg, ${color}, #20264f)` }}>
-        <div className="flex items-center gap-3">{logoUrl ? <img src={logoUrl} alt="" className="h-14 w-14 rounded-2xl bg-white object-cover" /> : <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white/15 text-xl font-black">{businessName.slice(0, 1)}</div>}<div><div className="text-lg font-black">{businessName}</div><div className="mt-1 text-xs text-white/75">الهوية الرقمية على HEE</div></div></div>
+        <div className="flex items-center gap-3">{logoUrl ? <img src={logoUrl} alt="" className="h-14 w-14 rounded-2xl bg-white object-cover" /> : <div className="grid h-14 w-14 place-items-center rounded-2xl bg-white/15 text-xl font-black">{businessName.slice(0, 1)}</div>}<div><div className="text-lg font-black">{businessName}</div><div className="mt-1 text-xs text-white/75">الهوية الرقمية على iR</div></div></div>
         <div className="mt-6 space-y-1 text-xs" dir="ltr">{contact ? <div>{contact}</div> : null}{email ? <div>{email}</div> : null}<div className="break-all">{website || publicUrl}</div></div>
       </div>
       <button type="button" onClick={downloadCard} disabled={exporting} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white disabled:opacity-60">{exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}تنزيل البطاقة PNG</button>
