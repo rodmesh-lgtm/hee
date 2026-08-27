@@ -51,21 +51,17 @@ const plans = [
   },
 ];
 
-function BrandMark({ compact = false }: { compact?: boolean }) {
-  return <IrLogo className={compact ? "h-8 w-8" : "h-12 w-12"} priority={!compact} />;
+function BrandMark({ compact = false, header = false }: { compact?: boolean; header?: boolean }) {
+  return <IrLogo className={compact ? "h-8" : header ? "h-[58px] sm:h-[62px]" : "h-12"} priority={header} />;
 }
 
 export function HomepagePremium() {
   return (
     <main id="home" dir="rtl" className="min-h-screen bg-[radial-gradient(circle_at_15%_0%,rgba(124,84,225,.12),transparent_34%),linear-gradient(180deg,#fbfaff_0%,#ffffff_40%,#f8f6ff_100%)] text-[#1f2552]">
       <header className="sticky top-0 z-50 border-b border-[#e9e4f2]/90 bg-white/92 shadow-[0_10px_30px_-28px_rgba(44,29,82,.5)] backdrop-blur-xl">
-        <div dir="ltr" className="mx-auto grid min-h-[74px] max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 sm:px-6">
-          <Link href="/" className="inline-flex items-center gap-2.5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7146d9] focus-visible:ring-offset-2" aria-label="iR - منصة هوية أعمال رقمية">
-            <BrandMark />
-            <span className="hidden text-left sm:block">
-              <span className="block text-[11px] font-black text-[#40385a]">iR</span>
-              <span className="block text-[10px] font-bold text-[#8a8298]">Digital Business Identity</span>
-            </span>
+        <div dir="ltr" className="mx-auto grid min-h-[82px] max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:min-h-[86px] sm:px-6">
+          <Link href="/" className="inline-flex items-center rounded-2xl p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7146d9] focus-visible:ring-offset-2" aria-label="iR - منصة هوية أعمال رقمية">
+            <BrandMark header />
           </Link>
 
           <nav dir="rtl" aria-label="التنقل الرئيسي" className="hidden items-center justify-center gap-1 lg:flex">
