@@ -29,11 +29,11 @@ export function HomepageProfessional() {
   const [slug, setSlug] = useState("");
   const [availability, setAvailability] = useState<Availability>("idle");
   const normalized = useMemo(() => slug.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 60), [slug]);
-  const registerHref = normalized && availability === "available" ? `/register?slug=${encodeURIComponent(normalized)}` : "/register";
+  const effectiveAvailability: Availability = !slug.trim() ? "idle" : normalized.length < 4 ? "invalid" : availability;
+  const registerHref = normalized && effectiveAvailability === "available" ? `/register?slug=${encodeURIComponent(normalized)}` : "/register";
 
   useEffect(() => {
-    if (!slug.trim()) { setAvailability("idle"); return; }
-    if (normalized.length < 4) { setAvailability("invalid"); return; }
+    if (!slug.trim() || normalized.length < 4) return;
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setAvailability("checking");
@@ -49,11 +49,11 @@ export function HomepageProfessional() {
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [normalized, slug]);
 
-  const status = availability === "checking" ? { text: "جارٍ التحقق من الرابط…", cls: "text-[#6f6879]", icon: <Loader2 className="h-4 w-4 animate-spin" /> }
-    : availability === "available" ? { text: `رائع، ir.sa/${normalized} متاح الآن`, cls: "text-emerald-700", icon: <CheckCircle2 className="h-4 w-4" /> }
-    : availability === "taken" ? { text: "هذا الرابط مستخدم. جرّب اسمًا آخر مميزًا لمنشأتك.", cls: "text-rose-700", icon: <XCircle className="h-4 w-4" /> }
-    : availability === "invalid" ? { text: "اكتب 4 أحرف على الأقل باستخدام الإنجليزية والأرقام والشرطة -", cls: "text-amber-700", icon: <XCircle className="h-4 w-4" /> }
-    : availability === "error" ? { text: "تعذر التحقق الآن. حاول مرة أخرى بعد قليل.", cls: "text-amber-700", icon: <XCircle className="h-4 w-4" /> }
+  const status = effectiveAvailability === "checking" ? { text: "جارٍ التحقق من الرابط…", cls: "text-[#6f6879]", icon: <Loader2 className="h-4 w-4 animate-spin" /> }
+    : effectiveAvailability === "available" ? { text: `رائع، ir.sa/${normalized} متاح الآن`, cls: "text-emerald-700", icon: <CheckCircle2 className="h-4 w-4" /> }
+    : effectiveAvailability === "taken" ? { text: "هذا الرابط مستخدم. جرّب اسمًا آخر مميزًا لمنشأتك.", cls: "text-rose-700", icon: <XCircle className="h-4 w-4" /> }
+    : effectiveAvailability === "invalid" ? { text: "اكتب 4 أحرف على الأقل باستخدام الإنجليزية والأرقام والشرطة -", cls: "text-amber-700", icon: <XCircle className="h-4 w-4" /> }
+    : effectiveAvailability === "error" ? { text: "تعذر التحقق الآن. حاول مرة أخرى بعد قليل.", cls: "text-amber-700", icon: <XCircle className="h-4 w-4" /> }
     : null;
 
   return <main id="home" dir="rtl" className="min-h-screen overflow-hidden bg-white text-[#171a3d]">
@@ -80,7 +80,7 @@ export function HomepageProfessional() {
           <span className="inline-flex items-center gap-2 rounded-full bg-[#f1ebff] px-4 py-2 text-xs font-black text-[#6841d8]"><Sparkles className="h-4 w-4" />هوية أعمالك الرقمية</span>
           <h1 className="mx-auto mt-5 max-w-3xl text-[2.5rem] font-black leading-[1.18] tracking-tight sm:text-5xl lg:mx-0 lg:text-[4rem]">اسم منشأتك. هويتها.<br/><span className="text-[#6841d8]">رابط واحد يختصرها.</span></h1>
           <p className="mx-auto mt-5 max-w-2xl text-[15px] leading-8 text-[#686273] sm:text-lg lg:mx-0">أنشئ حضورًا رقميًا احترافيًا لمنشأتك على iR، واجمع معلوماتها وخدماتها وفروعها وفريقها وطرق التواصل في صفحة واحدة سهلة المشاركة.</p>
-          <div className={`mx-auto mt-7 max-w-2xl rounded-[24px] border bg-white p-2 shadow-[0_18px_45px_-25px_rgba(83,49,146,.35)] transition ${availability === "available" ? "border-emerald-300" : availability === "taken" ? "border-rose-300" : "border-[#ded5ee]"} lg:mx-0`}><div dir="ltr" className="flex flex-col gap-2 sm:flex-row"><span className="flex h-12 items-center px-3 text-lg font-black text-[#6841d8]">ir.sa/</span><input value={slug} onChange={e => setSlug(e.target.value)} dir="ltr" inputMode="url" autoComplete="off" spellCheck={false} placeholder="your-business" aria-label="تحقق من توفر اسم رابط منشأتك" className="h-12 min-w-0 flex-1 rounded-xl bg-[#faf9fc] px-4 text-left font-semibold outline-none ring-[#6841d8] focus:ring-2"/><Link aria-disabled={availability !== "available"} href={registerHref} className={`inline-flex h-12 items-center justify-center rounded-xl px-6 text-sm font-black text-white transition ${availability === "available" ? "bg-[#6841d8] hover:bg-[#5b34c9]" : "pointer-events-none bg-[#aaa2b8]"}`}>احجز هذا الرابط</Link></div></div>
+          <div className={`mx-auto mt-7 max-w-2xl rounded-[24px] border bg-white p-2 shadow-[0_18px_45px_-25px_rgba(83,49,146,.35)] transition ${effectiveAvailability === "available" ? "border-emerald-300" : effectiveAvailability === "taken" ? "border-rose-300" : "border-[#ded5ee]"} lg:mx-0`}><div dir="ltr" className="flex flex-col gap-2 sm:flex-row"><span className="flex h-12 items-center px-3 text-lg font-black text-[#6841d8]">ir.sa/</span><input value={slug} onChange={e => setSlug(e.target.value)} dir="ltr" inputMode="url" autoComplete="off" spellCheck={false} placeholder="your-business" aria-label="تحقق من توفر اسم رابط منشأتك" className="h-12 min-w-0 flex-1 rounded-xl bg-[#faf9fc] px-4 text-left font-semibold outline-none ring-[#6841d8] focus:ring-2"/><Link aria-disabled={effectiveAvailability !== "available"} href={registerHref} className={`inline-flex h-12 items-center justify-center rounded-xl px-6 text-sm font-black text-white transition ${effectiveAvailability === "available" ? "bg-[#6841d8] hover:bg-[#5b34c9]" : "pointer-events-none bg-[#aaa2b8]"}`}>احجز هذا الرابط</Link></div></div>
           <div className="mt-3 min-h-6">{status ? <p aria-live="polite" className={`inline-flex items-center gap-2 text-sm font-bold ${status.cls}`}>{status.icon}{status.text}</p> : <p className="text-xs font-bold text-[#817a8a]">اكتب اسم منشأتك بالإنجليزية وسنتحقق من توفره مباشرة.</p>}</div>
           <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center lg:justify-start"><Link href="/register" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#6841d8] px-7 font-black text-white">ابدأ صفحتك مجانًا <ArrowLeft className="h-4 w-4" /></Link><Link href="/demo" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-6 font-black text-[#554b67]"><Eye className="h-4 w-4" />شاهد صفحة نموذجية</Link></div>
         </div>
