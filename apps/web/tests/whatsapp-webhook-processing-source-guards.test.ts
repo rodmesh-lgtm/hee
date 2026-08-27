@@ -35,7 +35,8 @@ test("partial webhook mutations roll back before an error is persisted", () => {
   const catchAt = processor.indexOf("} catch (error)", transactionAt);
   const errorWriteAt = processor.indexOf("database.whatsAppWebhookEvent.updateMany", catchAt);
   assert.ok(transactionAt >= 0 && catchAt > transactionAt && errorWriteAt > catchAt);
-  assert.doesNotMatch(processor.slice(transactionAt, catchAt), /processingError:\s*(?!null\b)/);
+  assert.doesNotMatch(processor.slice(transactionAt, catchAt), /processingError:\s*message/);
+  assert.match(processor.slice(catchAt), /processingError:\s*message\.slice/);
 });
 
 test("webhook worker is bounded and stops on a poison event", () => {
