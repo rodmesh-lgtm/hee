@@ -38,6 +38,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260827143000_whatsapp_persistence",
   "20260827153000_whatsapp_messages",
   "20260827171500_whatsapp_contacts",
+  "20260827173000_whatsapp_contact_imports",
 ] as const;
 
 export const EXPECTED_PREVIEW_LATEST_MIGRATION = EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

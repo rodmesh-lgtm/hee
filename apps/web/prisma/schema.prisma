@@ -164,6 +164,7 @@ model Business {
   whatsappContacts WhatsAppContact[]
   whatsappContactTags WhatsAppContactTag[]
   whatsappSegments WhatsAppSegment[]
+  whatsappContactImports WhatsAppContactImport[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -818,6 +819,26 @@ model WhatsAppSegmentMembership {
   segment WhatsAppSegment @relation(fields: [segmentId, businessId], references: [id, businessId], onDelete: Restrict)
   @@id([contactId, segmentId])
   @@index([businessId, segmentId], map: "WhatsAppSegmentMembership_business_segment_idx")
+}
+
+model WhatsAppContactImport {
+  id String @id @default(uuid())
+  businessId String
+  format String
+  fileName String
+  fileSha256 String
+  status String @default("processing")
+  totalRows Int
+  importedRows Int @default(0)
+  duplicateRows Int @default(0)
+  rejectedRows Int @default(0)
+  errorSummary Json?
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  @@unique([businessId, fileSha256], map: "WhatsAppContactImport_business_file_unique")
+  @@index([businessId, createdAt], map: "WhatsAppContactImport_business_created_idx")
+  @@index([status, createdAt], map: "WhatsAppContactImport_status_created_idx")
 }
 
 model StoredObject {
