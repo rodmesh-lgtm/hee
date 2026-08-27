@@ -156,6 +156,9 @@ model Business {
   branches Branch[]
   departments Department[]
   contactPersons ContactPerson[]
+  whatsappConnections WhatsAppConnection[]
+  whatsappConsents WhatsAppConsent[]
+  whatsappWebhookEvents WhatsAppWebhookEvent[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -215,6 +218,7 @@ model Customer {
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   orders Order[]
   bookings Booking[]
+  whatsappConsents WhatsAppConsent[]
   @@index([businessId])
   @@index([phone])
 }
@@ -631,6 +635,65 @@ model ContactPerson {
   @@index([branchId])
   @@index([isActive])
   @@index([sortOrder])
+}
+
+model WhatsAppConnection {
+  id String @id @default(uuid())
+  businessId String
+  provider String @default("meta")
+  status String @default("pending")
+  wabaId String
+  phoneNumberId String
+  displayPhoneNumber String?
+  verifiedName String?
+  credentialEnvelope Json
+  connectedAt DateTime?
+  disabledAt DateTime?
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  @@unique([businessId, provider], map: "WhatsAppConnection_business_provider_unique")
+  @@unique([provider, wabaId], map: "WhatsAppConnection_provider_waba_unique")
+  @@unique([provider, phoneNumberId], map: "WhatsAppConnection_provider_phone_unique")
+  @@index([businessId, status], map: "WhatsAppConnection_business_status_idx")
+}
+
+model WhatsAppConsent {
+  id String @id @default(uuid())
+  businessId String
+  customerId String?
+  phoneE164 String
+  source String
+  evidence String
+  consentedAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  @@unique([businessId, phoneE164], map: "WhatsAppConsent_business_phone_unique")
+  @@index([businessId, revokedAt], map: "WhatsAppConsent_business_active_idx")
+  @@index([customerId], map: "WhatsAppConsent_customer_idx")
+}
+
+model WhatsAppWebhookEvent {
+  id String @id @default(uuid())
+  businessId String?
+  provider String @default("meta")
+  providerEventId String
+  wabaId String?
+  phoneNumberId String?
+  eventType String
+  payload Json
+  receivedAt DateTime @default(now())
+  processedAt DateTime?
+  processingError String?
+  business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  @@unique([provider, providerEventId], map: "WhatsAppWebhookEvent_provider_event_unique")
+  @@index([businessId, receivedAt], map: "WhatsAppWebhookEvent_business_received_idx")
+  @@index([phoneNumberId, receivedAt], map: "WhatsAppWebhookEvent_phone_received_idx")
+  @@index([processedAt, receivedAt], map: "WhatsAppWebhookEvent_processing_idx")
 }
 
 model StoredObject {
