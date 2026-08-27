@@ -22,7 +22,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "توثيق الصفحة", href: "/dashboard/verification", icon: BadgeCheck },
   { label: "الطلبات والحجوزات", href: "/dashboard/inbox", icon: Inbox },
   { label: "متجر الأعمال", href: "/dashboard/business-store", icon: ShoppingBag },
-  { label: "أدوات HEE", href: "/dashboard/tools", icon: Sparkles },
+  { label: "أدوات iR", href: "/dashboard/tools", icon: Sparkles },
   { label: "المظهر", href: "/dashboard/branding", icon: Palette },
   { label: "الفروع والفريق", href: "/dashboard/directory", icon: Building2 },
   { label: "الأداء", href: "/dashboard/analytics", icon: BarChart3 },
