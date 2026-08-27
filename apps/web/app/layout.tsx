@@ -44,6 +44,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang={localeMeta.htmlLang} dir={localeMeta.dir} suppressHydrationWarning className={`${inter.variable} ${ibmPlexSansArabic.variable} h-full antialiased`}>
+      <head><link rel="stylesheet" href="/brand/ir-floating-header.css" /></head>
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
         {children}
         <Suspense fallback={null}><LanguageSwitcher locale={locale} /></Suspense>
