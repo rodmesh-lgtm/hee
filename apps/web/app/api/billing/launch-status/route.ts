@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { appEnvironment, vercelEnvironment } from "../../../lib/runtime-environment";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export async function GET() {
   const response = NextResponse.json({
     service: "hee-web",
     releaseSha: releaseSha(),
-    environment: String(process.env.APP_ENV ?? "").trim().toLowerCase() || null,
+    environment: appEnvironment() || vercelEnvironment() || null,
     mode: launchMode(),
     billingOperationsReady: enabled("BILLING_OPERATIONS_READY"),
     renewalEnabled: enabled("BILLING_RENEWAL_ENABLED"),
