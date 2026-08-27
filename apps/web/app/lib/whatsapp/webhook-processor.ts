@@ -42,7 +42,7 @@ async function processInbound(tx: Tx, event: ClaimedEvent) {
   const messages = parseInboundMessages(webhookValue(event.payload));
 
   for (const incoming of messages) {
-    const conversation = await tx.whatsAppConversation.upsert({
+    const conversation: { id: string; businessId: string } = await tx.whatsAppConversation.upsert({
       where: {
         businessId_phoneNumberId_customerPhoneE164: {
           businessId: event.businessId,
