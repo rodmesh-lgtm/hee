@@ -50,10 +50,11 @@ export function parseStatusReceipts(value: unknown): ParsedStatusReceipt[] {
   const statuses = Array.isArray(root?.statuses) ? root.statuses : [];
   return statuses.flatMap((item) => {
     const status = record(item);
-    const id = text(status?.id);
-    const state = text(status?.status);
+    if (!status) return [];
+    const id = text(status.id);
+    const state = text(status.status);
     if (!id || !state || !["sent", "delivered", "read", "failed"].includes(state)) return [];
-    const errors = Array.isArray(status?.errors) ? status.errors : [];
+    const errors = Array.isArray(status.errors) ? status.errors : [];
     const firstError = record(errors[0]);
     return [{ providerMessageId: id, status: state as ParsedStatusReceipt["status"], providerTimestamp: metaTimestampToDate(status.timestamp), errorCode: firstError?.code == null ? null : String(firstError.code), errorMessage: text(firstError?.title) ?? text(firstError?.message) }];
   });
