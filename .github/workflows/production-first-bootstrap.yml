@@ -1,10 +1,9 @@
 name: Production First Database Bootstrap
 
 on:
-  push:
-    branches: [hee-v6-rc]
-    paths:
-      - "ops/production-bootstrap-trigger/**"
+  workflow_run:
+    workflows: ["RC Quality"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -16,12 +15,12 @@ concurrency:
 
 jobs:
   bootstrap:
-    if: ${{ contains(github.event.head_commit.message, '[first-production-bootstrap]') }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'hee-v6-rc' && github.event.workflow_run.event == 'push' && contains(github.event.workflow_run.head_commit.message, '[first-production-bootstrap]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
     env:
-      RELEASE_SHA: ccb9f05fa64af03179ad074c4cb9607109bf1622
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
       RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
       BILLING_RENEWAL_ENABLED: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED }}
@@ -37,11 +36,26 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 2
+
+      - name: Prove dedicated first-bootstrap trigger commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          mapfile -t changed < <(git diff-tree --no-commit-id --name-only -r "$RELEASE_SHA")
+          test "${#changed[@]}" -ge 1 || { echo "Bootstrap trigger commit changed no files"; exit 1; }
+          for path in "${changed[@]}"; do
+            [[ "$path" == ops/production-bootstrap-trigger/* ]] || { echo "Bootstrap trigger commit contains non-trigger path: $path"; exit 1; }
+          done
+          echo "first-bootstrap-trigger-scope: PASS release=${RELEASE_SHA}"
 
       - name: Require content-proven RC Quality
         uses: ./.github/actions/require-release-quality
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_QUALITY_SHA: ${{ env.RELEASE_SHA }}
 
       - name: Require first-launch safety posture
         shell: bash
