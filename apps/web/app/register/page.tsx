@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
+import { IrLogo } from "../../components/brand/ir-logo";
 import { registerAction } from "../actions/auth";
 
 function getPasswordCriteria(password: string) {
@@ -31,11 +32,11 @@ export default function RegisterPage() {
 
   return <main dir="rtl" className="min-h-screen bg-[linear-gradient(180deg,#fbfaff_0%,#fff_50%,#f8f6ff_100%)] text-[#1f2552]">
     <div className="mx-auto w-full max-w-md px-4 py-8 sm:py-10">
-      <Link href="/" className="w-fit text-3xl font-black tracking-[-.08em] text-[#6f3bd2]">HEE</Link>
+      <Link href="/" className="w-fit" aria-label="العودة إلى iR"><IrLogo className="h-14 w-14" priority /></Link>
       <div className="mt-6 rounded-[28px] border border-[#e8e5f2] bg-white p-5 shadow-[0_24px_70px_-52px_rgba(73,48,125,.5)] sm:p-6">
         <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><UserPlus className="h-5 w-5" /></span>
-        <h1 className="mt-4 text-2xl font-black">إنشاء حساب</h1>
-        <p className="mt-1 text-sm leading-6 text-slate-500">حسابك أولاً، ثم إعداد هوية منشأتك بخطوتين قصيرتين.</p>
+        <h1 className="mt-4 text-2xl font-black">إنشاء حساب iR</h1>
+        <p className="mt-1 text-sm leading-6 text-slate-500">حسابك أولاً، ثم إعداد هوية أعمال منشأتك بخطوتين قصيرتين.</p>
 
         <form action={action} className="mt-5 space-y-4" aria-label="نموذج إنشاء الحساب">
           <label className="block"><span className="mb-1.5 block text-sm font-black">الاسم الكامل</span><input name="name" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} className="h-12 w-full rounded-2xl border border-[#e5e3ec] bg-[#fbfbfd] px-4 text-sm outline-none focus:border-[#8b72dc] focus:bg-white" required /></label>
