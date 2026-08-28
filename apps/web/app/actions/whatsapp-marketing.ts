@@ -38,6 +38,7 @@ async function automationContext() {
 export async function createWhatsAppAutomationAction(form: FormData) {
   const context = await automationContext();
   const name = field(form, "name", 120), triggerType = field(form, "triggerType", 40), templateId = field(form, "templateId", 128);
+  const orderStatus = field(form, "orderStatus", 20) ?? undefined;
   const cooldownRaw = String(form.get("cooldownMinutes") ?? "").trim();
   if (!name || !triggerType || !templateId || !/^\d{1,6}$/.test(cooldownRaw)) redirect("/dashboard/whatsapp/automations?create=invalid");
   let destination: string;
@@ -49,6 +50,7 @@ export async function createWhatsAppAutomationAction(form: FormData) {
       triggerType,
       templateId,
       cooldownMinutes: Number(cooldownRaw),
+      orderStatus,
     });
     revalidatePath("/dashboard/whatsapp/automations");
     destination = `/dashboard/whatsapp/automations?create=complete&automation=${automation.id}`;

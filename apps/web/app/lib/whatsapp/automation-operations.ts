@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "./audit";
-import { normalizeAutomationTriggerType, readTemplateActionConfig, templateHasVariables } from "./automation-domain";
+import { buildAutomationTriggerConfig, normalizeAutomationTriggerType, readAutomationTriggerConfig, readTemplateActionConfig, templateHasVariables } from "./automation-domain";
 
 type AutomationOperationsDb = Pick<PrismaClient, "$transaction">;
 type AutomationOperation = "activate" | "pause" | "resume";
@@ -40,12 +40,13 @@ async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
 
 export async function createWhatsAppAutomation(input: {
   businessId: string; actorUserId: string; name: string; triggerType: string;
-  templateId: string; cooldownMinutes: number; database?: AutomationOperationsDb;
+  templateId: string; cooldownMinutes: number; orderStatus?: string; database?: AutomationOperationsDb;
 }) {
   const database = input.database ?? db;
   const name = input.name.trim();
   if (!name || name.length > 120) throw new Error("WHATSAPP_AUTOMATION_NAME_INVALID");
   const triggerType = normalizeAutomationTriggerType(input.triggerType);
+  const triggerConfig = buildAutomationTriggerConfig(triggerType, input.orderStatus);
   if (!Number.isSafeInteger(input.cooldownMinutes) || input.cooldownMinutes < 0 || input.cooldownMinutes > 525_600) {
     throw new Error("WHATSAPP_AUTOMATION_COOLDOWN_INVALID");
   }
@@ -64,7 +65,7 @@ export async function createWhatsAppAutomation(input: {
         name,
         status: "draft",
         triggerType,
-        triggerConfig: { version: 1 },
+        triggerConfig,
         actionType: "send_template",
         actionConfig: { templateId: template.id },
         cooldownMinutes: input.cooldownMinutes,
@@ -99,7 +100,7 @@ export async function operateWhatsAppAutomation(input: {
     await lockAutomation(tx, input.businessId, input.automationId);
     const automation = await tx.whatsAppAutomation.findFirst({
       where: { id: input.automationId, businessId: input.businessId },
-      select: { id: true, connectionId: true, status: true, actionType: true, actionConfig: true },
+      select: { id: true, connectionId: true, status: true, triggerType: true, triggerConfig: true, actionType: true, actionConfig: true },
     });
     if (!automation) throw new Error("WHATSAPP_AUTOMATION_NOT_FOUND");
     if (automation.actionType !== "send_template") throw new Error("WHATSAPP_AUTOMATION_ACTION_INVALID");
@@ -119,6 +120,7 @@ export async function operateWhatsAppAutomation(input: {
         connectionId: automation.connectionId,
         actionConfig: automation.actionConfig,
       });
+      readAutomationTriggerConfig(automation.triggerConfig, automation.triggerType);
       nextStatus = "active";
     }
 

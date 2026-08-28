@@ -2,10 +2,10 @@ import "server-only";
 
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
-import { automationIdempotencyKey, automationRetryAt, normalizeAutomationTriggerType, readTemplateActionConfig } from "./automation-domain";
+import { automationIdempotencyKey, automationMatchesEvent, automationRetryAt, normalizeAutomationTriggerType, readTemplateActionConfig } from "./automation-domain";
 import { writeWhatsAppAuditLog } from "./audit";
 
-type AutomationDb = Pick<PrismaClient, "$transaction" | "whatsAppAutomationEvent">;
+type AutomationDb = Pick<PrismaClient, "whatsAppAutomationEvent">;
 const MAX_EVENT_ATTEMPTS = 8;
 
 export async function ingestWhatsAppAutomationEvent(input: {
@@ -79,10 +79,11 @@ export async function processWhatsAppAutomationEvent(input: {
           ...(event.automationId ? { id: event.automationId } : {}),
           connection: { status: "connected" },
         },
-        select: { id: true, businessId: true, connectionId: true, actionType: true, actionConfig: true, cooldownMinutes: true },
+        select: { id: true, businessId: true, connectionId: true, triggerType: true, triggerConfig: true, actionType: true, actionConfig: true, cooldownMinutes: true },
       });
       let jobs = 0;
       for (const automation of automations) {
+        if (!automationMatchesEvent({ triggerType: automation.triggerType, triggerConfig: automation.triggerConfig, subjectType: event.subjectType })) continue;
         const key = automationIdempotencyKey({ businessId: event.businessId, automationId: automation.id, eventId: event.id, contactId: contact.id });
         const skipReason = contact.optedOutAt ? "contact_opted_out" : !consent || consent.revokedAt ? "marketing_consent_missing" : null;
         const cooldownSince = new Date(now.getTime() - automation.cooldownMinutes * 60_000);

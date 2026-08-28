@@ -1,8 +1,10 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
 import { getOwnedBusinessForWrite, ownsBusinessRecord } from "../lib/ownership";
+import { emitInternalWhatsAppAutomationEvent } from "../lib/whatsapp/automation-event-producer";
 
 const orderTransitions: Record<string, readonly string[]> = {
   pending: ["confirmed", "cancelled"],
@@ -38,13 +40,32 @@ export async function updateOrderStatusAction(formData: FormData) {
   const nextStatus = text(formData, "status");
   if (!id || !nextStatus || !(await ownsBusinessRecord("order", id, business.id))) return;
 
-  const order = await db.order.findFirst({ where: { id, businessId: business.id }, select: { status: true } });
-  if (!order || !(orderTransitions[order.status] ?? []).includes(nextStatus)) return;
-
-  await db.order.updateMany({
-    where: { id, businessId: business.id, status: order.status },
-    data: { status: nextStatus },
-  });
+  await db.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT "id" FROM "Order" WHERE "id" = ${id} AND "businessId" = ${business.id} FOR UPDATE
+    `);
+    if (!rows[0]) return;
+    const order = await tx.order.findFirst({
+      where: { id, businessId: business.id },
+      select: { id: true, status: true, customer: { select: { phone: true } } },
+    });
+    if (!order || !(orderTransitions[order.status] ?? []).includes(nextStatus)) return;
+    const updated = await tx.order.updateMany({
+      where: { id, businessId: business.id, status: order.status },
+      data: { status: nextStatus },
+    });
+    if (updated.count !== 1) throw new Error("ORDER_STATUS_CONFLICT");
+    await emitInternalWhatsAppAutomationEvent({
+      database: tx,
+      businessId: business.id,
+      source: "ir.order.status",
+      externalEventId: `${order.id}:${nextStatus}`,
+      triggerType: "order_update",
+      subjectType: `order.status.${nextStatus}`,
+      subjectId: order.id,
+      customerPhone: order.customer.phone,
+    });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   refresh();
 }
 
