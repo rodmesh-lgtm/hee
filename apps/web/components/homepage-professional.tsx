@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BarChart3, Building2, Check, CheckCircle2, Eye, Link2, Loader2, Menu, Palette, ShieldCheck, Sparkles, X, XCircle } from "lucide-react";
+import { ArrowLeft, BadgeCheck, BarChart3, Building2, Check, CheckCircle2, Eye, Link2, Loader2, Menu, MessageCircle, Palette, PhoneCall, ShieldCheck, Sparkles, X, XCircle } from "lucide-react";
 import { IrLogo } from "./brand/ir-logo";
 
 type Availability = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
@@ -62,6 +62,7 @@ export function HomepageProfessional() {
         <Link href="/" aria-label="iR" className="shrink-0"><Logo header /></Link>
         <nav dir="rtl" className="hidden items-center gap-1 lg:flex" aria-label="التنقل الرئيسي">
           <Link className="rounded-xl px-4 py-2 text-sm font-black text-[#6841d8]" href="#home">الرئيسية</Link>
+          <Link className="rounded-xl px-4 py-2 text-sm font-bold text-[#625d70] hover:bg-[#f7f4ff]" href="#about">عن iR</Link>
           <Link className="rounded-xl px-4 py-2 text-sm font-bold text-[#625d70] hover:bg-[#f7f4ff]" href="#features">المميزات</Link>
           <Link className="rounded-xl px-4 py-2 text-sm font-bold text-[#625d70] hover:bg-[#f7f4ff]" href="#samples">نماذج الصفحات</Link>
           <Link className="rounded-xl px-4 py-2 text-sm font-bold text-[#625d70] hover:bg-[#f7f4ff]" href="#pricing">الباقات</Link>
@@ -74,7 +75,7 @@ export function HomepageProfessional() {
       </div>
     </header>
 
-    {menuOpen && <div className="fixed inset-0 z-[100] lg:hidden"><button aria-label="إغلاق القائمة" className="absolute inset-0 bg-[#151027]/35 backdrop-blur-sm" onClick={() => setMenuOpen(false)} /><div className="absolute inset-x-2 top-2 rounded-[28px] bg-white p-4 shadow-2xl"><div dir="ltr" className="flex items-center justify-between"><Logo header /><button onClick={() => setMenuOpen(false)} className="grid h-10 w-10 place-items-center rounded-full bg-[#f5f2f8]" aria-label="إغلاق"><X className="h-5 w-5" /></button></div><nav className="mt-4 grid gap-1 text-right font-black">{[["#features","المميزات"],["#samples","نماذج الصفحات"],["#pricing","الباقات"]].map(([href,label]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)} className="rounded-2xl px-4 py-3 hover:bg-[#f8f5ff]">{label}</Link>)}</nav><div className="mt-4 grid grid-cols-2 gap-2"><Link href="/register" className="rounded-full bg-[#6841d8] px-4 py-3 text-center text-sm font-black text-white">ابدأ مجانًا</Link><Link href="/login" className="rounded-full border border-[#e3ddec] px-4 py-3 text-center text-sm font-black">تسجيل الدخول</Link></div></div></div>}
+    {menuOpen && <div className="fixed inset-0 z-[100] lg:hidden"><button aria-label="إغلاق القائمة" className="absolute inset-0 bg-[#151027]/35 backdrop-blur-sm" onClick={() => setMenuOpen(false)} /><div className="absolute inset-x-2 top-2 rounded-[28px] bg-white p-4 shadow-2xl"><div dir="ltr" className="flex items-center justify-between"><Logo header /><button onClick={() => setMenuOpen(false)} className="grid h-10 w-10 place-items-center rounded-full bg-[#f5f2f8]" aria-label="إغلاق"><X className="h-5 w-5" /></button></div><nav className="mt-4 grid gap-1 text-right font-black">{[["#about","عن iR"],["#features","المميزات"],["#samples","نماذج الصفحات"],["#pricing","الباقات"]].map(([href,label]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)} className="rounded-2xl px-4 py-3 hover:bg-[#f8f5ff]">{label}</Link>)}</nav><div className="mt-4 grid grid-cols-2 gap-2"><Link href="/register" className="rounded-full bg-[#6841d8] px-4 py-3 text-center text-sm font-black text-white">ابدأ مجانًا</Link><Link href="/login" className="rounded-full border border-[#e3ddec] px-4 py-3 text-center text-sm font-black">تسجيل الدخول</Link></div></div></div>}
 
     <section className="relative bg-[radial-gradient(circle_at_15%_20%,rgba(104,65,216,.14),transparent_30%),radial-gradient(circle_at_90%_5%,rgba(168,134,255,.13),transparent_28%),linear-gradient(180deg,#fcfbff_0%,#fff_100%)] px-4 pb-14 pt-10 sm:px-6 sm:pt-14 lg:pb-20 lg:pt-20">
       <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[.82fr_1.18fr] lg:gap-14">
@@ -102,6 +103,28 @@ export function HomepageProfessional() {
 
     <section id="features" className="mx-auto max-w-6xl px-4 pb-16 sm:px-6"><div className="grid overflow-hidden rounded-[26px] border border-[#ebe6f2] bg-white shadow-[0_18px_55px_-35px_rgba(44,29,78,.28)] sm:grid-cols-2 lg:grid-cols-4">{[[Link2,"رابط مختصر","سهل الحفظ والمشاركة"],[Palette,"هوية احترافية","تخصيص يناسب علامتك"],[BarChart3,"إحصاءات واضحة","افهم تفاعل زوارك"],[ShieldCheck,"حضور موثوق","واجهة أعمال منظمة"]].map(([Icon,title,text],i) => { const I=Icon as typeof Link2; return <div key={i} className="flex gap-3 border-b border-[#f0ecf4] p-4 last:border-0 sm:p-5 lg:border-b-0 lg:border-l"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f2edff] text-[#6841d8]"><I className="h-5 w-5"/></span><div><h3 className="text-sm font-black sm:text-base">{String(title)}</h3><p className="mt-1 text-xs leading-5 text-[#7b7583]">{String(text)}</p></div></div>})}</div></section>
 
+    <section id="about" aria-labelledby="about-title" className="scroll-mt-24 px-4 pb-16 sm:px-6 sm:pb-20">
+      <div className="mx-auto max-w-6xl overflow-hidden rounded-[32px] border border-[#e8e2f0] bg-[linear-gradient(135deg,#fbf9ff,#fff)] shadow-[0_24px_70px_-45px_rgba(68,42,112,.35)]">
+        <div className="grid gap-0 lg:grid-cols-[1.15fr_.85fr]">
+          <div className="p-6 sm:p-9 lg:p-11">
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#f1ebff] px-3 py-1.5 text-xs font-black text-[#6841d8]"><BadgeCheck className="h-4 w-4" />من نحن</span>
+            <h2 id="about-title" className="mt-4 text-2xl font-black leading-tight sm:text-4xl">iR لهوية الأعمال الرقمية</h2>
+            <p className="mt-4 max-w-3xl text-sm leading-8 text-[#686273] sm:text-base">iR مشروع تقني سعودي يساعد المنشآت على بناء هوية أعمال رقمية موثوقة ومنظمة في رابط واحد، تجمع التعريف بالنشاط والخدمات والمنتجات والفروع والفريق ووسائل التواصل، لتمنح العملاء صورة واضحة وتجربة وصول أسرع.</p>
+            <div className="mt-6 rounded-[24px] border border-[#e5def1] bg-white p-5">
+              <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600"><MessageCircle className="h-5 w-5" /></span><div><h3 className="font-black text-[#242044]">WhatsApp Business Platform الرسمي</h3><p className="mt-2 text-sm leading-7 text-[#706979]">تتضمن منظومة iR خدمة WhatsApp Marketing المبنية حصريًا على WhatsApp Business Platform / Cloud API الرسمي من Meta، لربط كل منشأة بحساب WABA ورقمها الخاص وإدارة القوالب والحملات والمحادثات، مع احترام موافقة العملاء والخصوصية وإلغاء الاشتراك.</p></div></div>
+            </div>
+          </div>
+          <aside className="flex flex-col justify-center bg-[#1b1530] p-6 text-white sm:p-9 lg:p-10" aria-label="بيانات التواصل">
+            <p className="text-xs font-black text-[#bdaaff]">التواصل والتحقق التجاري</p>
+            <h3 className="mt-2 text-2xl font-black">يسعدنا تواصلك</h3>
+            <p className="mt-3 text-sm leading-7 text-white/65">للاستفسارات المتعلقة بمنصة iR أو خدمات WhatsApp Business الرسمية، تواصل معنا عبر الرقم المسجل في بياناتنا الرسمية.</p>
+            <a href="tel:+966564212464" dir="ltr" className="mt-6 inline-flex min-h-13 items-center justify-center gap-2 rounded-full bg-white px-5 text-lg font-black text-[#241a3e]"><PhoneCall className="h-5 w-5" />0564212464</a>
+            <a href="https://wa.me/966564212464" className="mt-3 inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 px-5 text-sm font-black text-white hover:bg-white/10"><MessageCircle className="h-4 w-4" />التواصل عبر واتساب</a>
+          </aside>
+        </div>
+      </div>
+    </section>
+
     <section className="bg-[#17122a] px-4 py-16 text-white sm:px-6 sm:py-20"><div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-2"><div><p className="text-sm font-black text-[#bba7ff]">صفحة أعمال وليست مجرد روابط</p><h2 className="mt-3 text-3xl font-black leading-tight sm:text-4xl">اجعل عميلك يصل إلى المهم بسرعة.</h2><p className="mt-4 max-w-xl leading-8 text-white/70">من أول زيارة يستطيع العميل فهم نشاطك، رؤية خدماتك ومنتجاتك، الوصول لفروعك وفريقك، ثم التواصل أو تنفيذ الإجراء المناسب.</p></div><div className="grid grid-cols-2 gap-3">{[["الخدمات","اعرض ما تقدمه بوضوح"],["الفروع","المواقع وساعات العمل"],["الفريق","جهات الاتصال المناسبة"],["التحليلات","اعرف ما يهم زوارك"]].map(([t,d]) => <div key={t} className="rounded-[22px] border border-white/10 bg-white/5 p-4 sm:p-5"><h3 className="font-black">{t}</h3><p className="mt-2 text-xs leading-5 text-white/60">{d}</p></div>)}</div></div></section>
 
     <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20"><div className="text-center"><p className="text-sm font-black text-[#6841d8]">من الفكرة إلى رابطك</p><h2 className="mt-2 text-2xl font-black sm:text-3xl">ابدأ في 3 خطوات واضحة</h2></div><div className="mt-8 grid gap-4 md:grid-cols-3">{[["1","اختر اسم رابطك","تحقق من توفر اسم منشأتك واحجز رابطها."],["2","ابنِ هويتك","أضف الشعار والخدمات والفروع والفريق وبيانات التواصل."],["3","انشر وشارك","انشر صفحتك وشارك الرابط وQR في جميع قنواتك."]].map(([n,t,d]) => <div key={n} className="rounded-[24px] border border-[#e9e4ef] bg-white p-5 shadow-[0_16px_45px_-35px_rgba(38,24,68,.35)] sm:p-6"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#6841d8] text-sm font-black text-white">{n}</span><h3 className="mt-4 text-lg font-black sm:text-xl">{t}</h3><p className="mt-2 text-sm leading-7 text-[#746d7d] sm:text-base">{d}</p></div>)}</div></section>
@@ -114,6 +137,6 @@ export function HomepageProfessional() {
 
     <section className="px-4 pb-16 sm:px-6 sm:pb-20"><div className="mx-auto max-w-5xl rounded-[32px] border border-[#e8e2f0] bg-[linear-gradient(135deg,#faf7ff,#fff)] p-7 text-center sm:p-10"><Sparkles className="mx-auto h-8 w-8 text-[#6841d8]"/><h2 className="mt-3 text-2xl font-black sm:text-3xl">اسم منشأتك يستحق رابطًا يليق بها.</h2><p className="mx-auto mt-3 max-w-xl leading-7 text-[#746d7d]">تحقق من توفره الآن وابدأ بناء حضورك الرقمي على iR.</p><Link href="#home" className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#6841d8] px-7 font-black text-white">تحقق من اسم رابطك <ArrowLeft className="h-4 w-4"/></Link></div></section>
 
-    <footer className="bg-[#141027] px-4 py-10 text-white sm:px-6"><div className="mx-auto flex max-w-6xl flex-col gap-7 md:flex-row md:items-center md:justify-between"><div><Logo/><p className="mt-3 max-w-md text-sm leading-7 text-white/60">منصة سعودية لهوية الأعمال الرقمية. اجمع حضور منشأتك في رابط واحد احترافي.</p></div><div className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-bold text-white/70"><Link href="/privacy">سياسة الخصوصية</Link><Link href="/terms">الشروط والأحكام</Link><Link href="/contact">تواصل معنا</Link><Link href="/login">تسجيل الدخول</Link></div></div></footer>
+    <footer className="bg-[#141027] px-4 py-10 text-white sm:px-6"><div className="mx-auto flex max-w-6xl flex-col gap-7 md:flex-row md:items-center md:justify-between"><div><Logo/><p className="mt-3 max-w-md text-sm leading-7 text-white/60">منصة سعودية لهوية الأعمال الرقمية. اجمع حضور منشأتك في رابط واحد احترافي.</p></div><div className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-bold text-white/70"><Link href="#about">عن iR</Link><Link href="/privacy">سياسة الخصوصية</Link><Link href="/terms">الشروط والأحكام</Link><Link href="/contact">تواصل معنا</Link><Link href="/login">تسجيل الدخول</Link></div></div></footer>
   </main>;
 }
