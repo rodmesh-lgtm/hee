@@ -43,6 +43,19 @@ test("non-order triggers reject hidden trigger configuration", () => {
   assert.throws(() => readAutomationTriggerConfig({ version: 1, orderStatuses: ["confirmed"] }, "welcome"), /TRIGGER_CONFIG_INVALID/);
 });
 
+test("each automation trigger accepts only its trusted subject namespace", () => {
+  const config = { version: 1 };
+  assert.equal(automationMatchesEvent({ triggerType: "welcome", triggerConfig: config, subjectType: "contact.consent_granted" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "welcome", triggerConfig: config, subjectType: "contact.created" }), false);
+  assert.equal(automationMatchesEvent({ triggerType: "follow_up", triggerConfig: config, subjectType: "order.completed" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "follow_up", triggerConfig: config, subjectType: "booking.completed" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "follow_up", triggerConfig: config, subjectType: "order.confirmed" }), false);
+  assert.equal(automationMatchesEvent({ triggerType: "inactive_customer", triggerConfig: config, subjectType: "customer.inactive" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "abandoned_cart", triggerConfig: config, subjectType: "cart.abandoned" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "api_event", triggerConfig: config, subjectType: "api.event.custom" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "api_event", triggerConfig: config, subjectType: "order.completed" }), false);
+});
+
 test("automation UI accepts only well-formed templates without unresolved variables", () => {
   assert.equal(templateHasVariables([{ type: "BODY", text: "مرحبًا بك" }]), false);
   assert.equal(templateHasVariables([{ type: "BODY", text: "مرحبًا {{1}}" }]), true);

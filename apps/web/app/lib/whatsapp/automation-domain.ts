@@ -95,8 +95,13 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
 
 export function automationMatchesEvent(input: { triggerType: string; triggerConfig: unknown; subjectType: string }) {
   const config = readAutomationTriggerConfig(input.triggerConfig, input.triggerType);
+  if (input.triggerType === "welcome") return input.subjectType === "contact.consent_granted";
   if (input.triggerType === "appointment_reminder") return input.subjectType === "booking.reminder";
-  if (input.triggerType !== "order_update") return true;
+  if (input.triggerType === "follow_up") return input.subjectType === "order.completed" || input.subjectType === "booking.completed";
+  if (input.triggerType === "inactive_customer") return input.subjectType === "customer.inactive";
+  if (input.triggerType === "abandoned_cart") return input.subjectType === "cart.abandoned";
+  if (input.triggerType === "api_event") return input.subjectType.startsWith("api.event.");
+  if (input.triggerType !== "order_update") return false;
   const prefix = "order.status.";
   if (!input.subjectType.startsWith(prefix)) return false;
   return "orderStatuses" in config && Array.isArray(config.orderStatuses)

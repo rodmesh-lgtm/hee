@@ -131,6 +131,19 @@ export async function processNextWhatsAppAutomationDelivery(input: {
       return { processed: true as const, result: "booking_closed" as const, jobId: job.id };
     }
   }
+  if (context.run.event.triggerType === "follow_up") {
+    const subjectIsComplete = context.run.event.subjectType === "order.completed"
+      ? Boolean(await database.order.findFirst({
+        where: { id: context.run.event.subjectId, businessId: job.businessId, status: "completed" }, select: { id: true },
+      }))
+      : context.run.event.subjectType === "booking.completed" && Boolean(await database.booking.findFirst({
+        where: { id: context.run.event.subjectId, businessId: job.businessId, status: "completed" }, select: { id: true },
+      }));
+    if (!subjectIsComplete) {
+      await releaseAs(database, job, "cancelled", now, "FOLLOW_UP_SUBJECT_NOT_COMPLETED");
+      return { processed: true as const, result: "subject_not_completed" as const, jobId: job.id };
+    }
+  }
   const consent = await database.whatsAppConsent.findFirst({
     where: { businessId: job.businessId, phoneE164: context.contact.phoneE164, revokedAt: null, consentedAt: { lte: now } }, select: { id: true },
   });

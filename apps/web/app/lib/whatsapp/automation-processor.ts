@@ -8,13 +8,13 @@ import { writeWhatsAppAuditLog } from "./audit";
 type AutomationDb = Pick<PrismaClient, "whatsAppAutomationEvent">;
 const MAX_EVENT_ATTEMPTS = 8;
 
-export async function ingestWhatsAppAutomationEvent(input: {
+type AutomationEventInput = {
   businessId: string; source: string; externalEventId: string; triggerType: string;
   subjectType: string; subjectId: string; contactId?: string; occurredAt: Date; automationId?: string;
   processAt?: Date;
-  database?: AutomationDb;
-}) {
-  const database = input.database ?? db;
+};
+
+function automationEventData(input: AutomationEventInput): Prisma.WhatsAppAutomationEventCreateManyInput {
   const triggerType = normalizeAutomationTriggerType(input.triggerType);
   if (!/^[a-z0-9_.:-]{1,80}$/i.test(input.source) || !input.externalEventId || input.externalEventId.length > 160) {
     throw new Error("WHATSAPP_AUTOMATION_EVENT_ID_INVALID");
@@ -27,17 +27,36 @@ export async function ingestWhatsAppAutomationEvent(input: {
   if (!(processAt instanceof Date) || Number.isNaN(processAt.getTime()) || processAt < input.occurredAt || processAt.getTime() > input.occurredAt.getTime() + 366 * 24 * 60 * 60_000) {
     throw new Error("WHATSAPP_AUTOMATION_PROCESS_TIME_INVALID");
   }
+  return {
+    businessId: input.businessId, automationId: input.automationId, source: input.source,
+    externalEventId: input.externalEventId, triggerType, subjectType: input.subjectType,
+    subjectId: input.subjectId, contactId: input.contactId, occurredAt: input.occurredAt, nextAttemptAt: processAt,
+  };
+}
+
+export async function ingestWhatsAppAutomationEvent(input: AutomationEventInput & { database?: AutomationDb }) {
+  const database = input.database ?? db;
+  const data = automationEventData(input);
   return database.whatsAppAutomationEvent.upsert({
     where: { businessId_source_externalEventId: {
       businessId: input.businessId, source: input.source, externalEventId: input.externalEventId,
     } },
-    create: {
-      businessId: input.businessId, automationId: input.automationId, source: input.source,
-      externalEventId: input.externalEventId, triggerType, subjectType: input.subjectType,
-      subjectId: input.subjectId, contactId: input.contactId, occurredAt: input.occurredAt, nextAttemptAt: processAt,
-    },
+    create: data,
     update: {},
     select: { id: true, status: true },
+  });
+}
+
+export async function ingestWhatsAppAutomationEvents(input: {
+  events: AutomationEventInput[];
+  database?: AutomationDb;
+}) {
+  if (!input.events.length) return { count: 0 };
+  if (input.events.length > 500) throw new Error("WHATSAPP_AUTOMATION_EVENT_BATCH_TOO_LARGE");
+  const database = input.database ?? db;
+  return database.whatsAppAutomationEvent.createMany({
+    data: input.events.map(automationEventData),
+    skipDuplicates: true,
   });
 }
 

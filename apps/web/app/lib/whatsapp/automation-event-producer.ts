@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import { appointmentAtRiyadh, automationMatchesEvent, normalizeAutomationTriggerType, readAutomationTriggerConfig } from "./automation-domain";
-import { ingestWhatsAppAutomationEvent } from "./automation-processor";
+import { ingestWhatsAppAutomationEvent, ingestWhatsAppAutomationEvents } from "./automation-processor";
 import { normalizeE164 } from "./contact-domain";
 
 export async function emitInternalWhatsAppAutomationEvent(input: {
@@ -50,6 +50,46 @@ export async function emitInternalWhatsAppAutomationEvent(input: {
     database: input.database,
   });
   return { emitted: true as const, eventId: event.id };
+}
+
+export async function emitWhatsAppWelcomeEventsForConsentImport(input: {
+  database: Prisma.TransactionClient;
+  businessId: string;
+  importId: string;
+  contacts: Array<{ id: string; phoneE164: string }>;
+  occurredAt?: Date;
+}) {
+  if (!input.contacts.length) return { emitted: 0 };
+  const automations = await input.database.whatsAppAutomation.findMany({
+    where: { businessId: input.businessId, status: "active", triggerType: "welcome" },
+    select: { triggerType: true, triggerConfig: true },
+  });
+  const relevant = automations.some((automation) => {
+    try {
+      return automationMatchesEvent({
+        triggerType: automation.triggerType,
+        triggerConfig: automation.triggerConfig,
+        subjectType: "contact.consent_granted",
+      });
+    } catch { return false; }
+  });
+  if (!relevant) return { emitted: 0 };
+
+  const occurredAt = input.occurredAt ?? new Date();
+  const result = await ingestWhatsAppAutomationEvents({
+    events: input.contacts.map((contact) => ({
+      businessId: input.businessId,
+      source: "ir.contacts.consent-import",
+      externalEventId: `${input.importId}:${contact.phoneE164}`,
+      triggerType: "welcome",
+      subjectType: "contact.consent_granted",
+      subjectId: contact.id,
+      contactId: contact.id,
+      occurredAt,
+    })),
+    database: input.database,
+  });
+  return { emitted: result.count };
 }
 
 export async function scheduleWhatsAppAppointmentReminders(input: {
