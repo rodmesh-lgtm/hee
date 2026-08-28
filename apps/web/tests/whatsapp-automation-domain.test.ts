@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  automationMatchesEvent,
   automationIdempotencyKey,
   automationRetryAt,
+  buildAutomationTriggerConfig,
   normalizeAutomationTriggerType,
+  readAutomationTriggerConfig,
   readTemplateActionConfig,
   templateHasVariables,
 } from "../app/lib/whatsapp/automation-domain";
@@ -11,6 +14,22 @@ import {
 test("automation trigger validation is fail-closed", () => {
   assert.equal(normalizeAutomationTriggerType("welcome"), "welcome");
   assert.throws(() => normalizeAutomationTriggerType("arbitrary"), /TRIGGER_UNSUPPORTED/);
+});
+
+test("order update automations require an explicit finite status filter", () => {
+  const config = buildAutomationTriggerConfig("order_update", "confirmed");
+  assert.deepEqual(config, { version: 1, orderStatuses: ["confirmed"] });
+  assert.equal(automationMatchesEvent({ triggerType: "order_update", triggerConfig: config, subjectType: "order.status.confirmed" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "order_update", triggerConfig: config, subjectType: "order.status.cancelled" }), false);
+  assert.throws(() => buildAutomationTriggerConfig("order_update"), /ORDER_STATUS_INVALID/);
+  assert.throws(() => readAutomationTriggerConfig({ version: 1 }, "order_update"), /ORDER_STATUS_INVALID/);
+  assert.throws(() => readAutomationTriggerConfig({ version: 1, orderStatuses: ["confirmed", "confirmed"] }, "order_update"), /ORDER_STATUS_INVALID/);
+  assert.throws(() => readAutomationTriggerConfig({ version: 1, orderStatuses: ["refunded"] }, "order_update"), /ORDER_STATUS_INVALID/);
+});
+
+test("non-order triggers reject hidden trigger configuration", () => {
+  assert.deepEqual(buildAutomationTriggerConfig("welcome"), { version: 1 });
+  assert.throws(() => readAutomationTriggerConfig({ version: 1, orderStatuses: ["confirmed"] }, "welcome"), /TRIGGER_CONFIG_INVALID/);
 });
 
 test("automation UI accepts only well-formed templates without unresolved variables", () => {
