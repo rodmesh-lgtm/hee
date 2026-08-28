@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { AlertTriangle, CheckCheck, Clock3, Inbox, MessageCircle, Search, Send, UserRound } from "lucide-react";
 import { getOwnedBusinessForRead } from "../../../lib/ownership";
 import { getWhatsAppInbox } from "../../../lib/whatsapp/inbox";
+import { enqueueWhatsAppReplyAction } from "../../../actions/whatsapp";
 
-type SearchParams = Promise<{ conversation?: string | string[]; q?: string | string[] }>;
+type SearchParams = Promise<{ conversation?: string | string[]; q?: string | string[]; reply?: string | string[] }>;
 const value = (input?: string | string[]) => Array.isArray(input) ? input[0] : input;
 const formatDate = (input: Date | null) => input ? new Intl.DateTimeFormat("ar-SA", { timeZone: "Asia/Riyadh", dateStyle: "short", timeStyle: "short" }).format(input) : "—";
 const statusLabel: Record<string, string> = { received: "واردة", queued: "في الانتظار", sent: "مرسلة", delivered: "تم التسليم", read: "مقروءة", failed: "فشلت" };
@@ -25,6 +27,7 @@ export default async function WhatsAppInboxPage({ searchParams }: { searchParams
     selectedConversationId: value(params.conversation),
     query: value(params.q),
   });
+  const replyOutcome = value(params.reply);
 
   return <div className="space-y-4 pb-4">
     <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5">
@@ -53,7 +56,7 @@ export default async function WhatsAppInboxPage({ searchParams }: { searchParams
               return <article key={message.id} className={`flex ${outbound ? "justify-start" : "justify-end"}`}><div className={`max-w-[85%] rounded-[20px] px-4 py-3 shadow-sm sm:max-w-[72%] ${outbound ? "rounded-bl-md bg-[#6f3bd2] text-white" : "rounded-br-md border border-[#e8e6ef] bg-white text-[#20264f]"}`}><p className="whitespace-pre-wrap break-words text-sm leading-6">{message.textBody || typeLabel[message.messageType] || "رسالة غير نصية"}</p><div className={`mt-2 flex items-center gap-1.5 text-[9px] ${outbound ? "text-white/70" : "text-slate-400"}`}><span>{formatDate(message.providerTimestamp ?? message.createdAt)}</span><span>·</span><span>{statusLabel[message.status] || message.status}</span>{outbound && ["delivered", "read"].includes(message.status) ? <CheckCheck className={`h-3 w-3 ${message.status === "read" ? "text-cyan-200" : ""}`} /> : null}</div>{message.status === "failed" ? <p className={`mt-2 text-[10px] ${outbound ? "text-rose-100" : "text-rose-600"}`}>تعذر الإرسال{message.errorCode ? ` (${message.errorCode})` : ""}</p> : null}</div></article>;
             }) : <div className="grid h-full place-items-center text-center"><div><MessageCircle className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-2 text-xs text-slate-500">لا توجد رسائل محفوظة.</p></div></div>}
           </div>
-          <footer className="border-t border-[#eceaf3] bg-white p-3"><div className="flex items-center gap-2 rounded-2xl border border-dashed border-[#dcd8ea] bg-[#faf9fd] p-3 text-xs text-slate-500"><Send className="h-4 w-4 shrink-0 text-[#6f3bd2]" /><span>{inbox.selected.serviceWindow.open ? "عرض المحادثة جاهز. سيُفعّل الرد بعد ربطه بطابور إرسال durable في الجولة التالية." : "انتهت نافذة خدمة العميل؛ لا يجوز إرسال نص حر. يجب استخدام قالب Meta معتمد."}</span></div></footer></> : <div className="grid min-h-[620px] place-items-center p-8 text-center"><div><MessageCircle className="mx-auto h-10 w-10 text-slate-300" /><b className="mt-3 block text-sm text-[#303653]">اختر محادثة</b><p className="mt-1 text-xs text-slate-500">اختر عميلًا من القائمة لعرض الرسائل.</p></div></div>}
+          <footer className="border-t border-[#eceaf3] bg-white p-3">{replyOutcome === "queued" ? <p className="mb-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">تمت إضافة الرد إلى طابور الإرسال الآمن.</p> : replyOutcome ? <p className="mb-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">تعذر إضافة الرد: {replyOutcome === "window-closed" ? "انتهت نافذة الرد" : replyOutcome === "queue-full" ? "الطابور ممتلئ مؤقتًا" : "الخدمة غير متاحة الآن"}.</p> : null}{inbox.selected.serviceWindow.open ? <form action={enqueueWhatsAppReplyAction} className="space-y-2"><input type="hidden" name="conversationId" value={inbox.selected.id} /><input type="hidden" name="requestId" value={randomUUID()} /><label className="sr-only" htmlFor="whatsapp-reply-message">نص الرد</label><textarea id="whatsapp-reply-message" name="message" required maxLength={4096} rows={3} placeholder="اكتب ردك…" className="w-full resize-y rounded-2xl border border-[#e1ddec] bg-[#faf9fd] px-4 py-3 text-sm outline-none focus:border-[#8b72dc]" /><div className="flex items-center justify-between gap-3"><span className="text-[10px] text-slate-400">سيُرسل الرد بواسطة worker، وليس داخل الطلب الحالي.</span><button type="submit" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white"><Send className="h-4 w-4" />إضافة للطابور</button></div></form> : <div className="flex items-center gap-2 rounded-2xl border border-dashed border-[#dcd8ea] bg-[#faf9fd] p-3 text-xs text-slate-500"><AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" /><span>انتهت نافذة خدمة العميل؛ لا يجوز إرسال نص حر. يجب استخدام قالب Meta معتمد.</span></div>}</footer></> : <div className="grid min-h-[620px] place-items-center p-8 text-center"><div><MessageCircle className="mx-auto h-10 w-10 text-slate-300" /><b className="mt-3 block text-sm text-[#303653]">اختر محادثة</b><p className="mt-1 text-xs text-slate-500">اختر عميلًا من القائمة لعرض الرسائل.</p></div></div>}
       </div>
     </section>
   </div>;
