@@ -21,8 +21,8 @@ test("the dashboard inbox uses server reads and awaits Next.js search params", (
   assert.doesNotMatch(page, /fetch\(|dangerouslySetInnerHTML/);
 });
 
-test("expired customer service windows never present a free-form reply action", () => {
+test("free-form reply action is rendered only while the service window is open", () => {
   assert.match(page, /تتطلب رسالة قالب معتمد/);
   assert.match(page, /لا يجوز إرسال نص حر/);
-  assert.doesNotMatch(page, /<form[^>]+action=.*reply|sendReplyAction/);
+  assert.match(page, /serviceWindow\.open \? <form action=\{enqueueWhatsAppReplyAction\}/);
 });
