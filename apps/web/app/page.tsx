@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { HomepageProfessional } from "../components/homepage-professional";
 
-const description = "أنشئ مع iR هوية أعمال رقمية احترافية لمنشأتك في رابط واحد على ir.sa يعرض معلوماتها وخدماتها وفروعها وفريقها وطرق التواصل بوضوح.";
+const description = "iR منصة سعودية لهوية الأعمال الرقمية تجمع معلومات المنشأة وخدماتها وفروعها وطرق التواصل، وتطور حلول WhatsApp Business Platform الرسمية للأعمال.";
 
 export const metadata: Metadata = {
   title: "iR | هوية أعمال رقمية لمنشأتك",
