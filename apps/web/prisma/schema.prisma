@@ -184,6 +184,8 @@ model Business {
   whatsappAutomationRuns WhatsAppAutomationRun[]
   whatsappAutomationJobs WhatsAppAutomationJob[]
   whatsappAutomationApiKeys WhatsAppAutomationApiKey[]
+  whatsappAutomationCarts WhatsAppAutomationCart[]
+  whatsappAutomationCartEvents WhatsAppAutomationCartEvent[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -862,6 +864,8 @@ model WhatsAppContact {
   campaignRecipients WhatsAppCampaignRecipient[]
   automationRuns WhatsAppAutomationRun[]
   automationJobs WhatsAppAutomationJob[]
+  automationCarts WhatsAppAutomationCart[]
+  automationCartEvents WhatsAppAutomationCartEvent[]
   @@unique([businessId, phoneE164], map: "WhatsAppContact_business_phone_unique")
   @@unique([id, businessId], map: "WhatsAppContact_id_business_unique")
   @@index([businessId, optedOutAt], map: "WhatsAppContact_business_optout_idx")
@@ -1164,8 +1168,48 @@ model WhatsAppAutomationApiKey {
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   createdBy User @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  cartEvents WhatsAppAutomationCartEvent[]
   @@unique([id, businessId], map: "WhatsAppAutomationApiKey_id_business_unique")
   @@index([businessId, status, createdAt], map: "WhatsAppAutomationApiKey_business_status_idx")
+}
+
+model WhatsAppAutomationCart {
+  id String @id @default(uuid())
+  businessId String
+  cartId String
+  contactId String
+  state String
+  sourceEventId String
+  occurredAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  contact WhatsAppContact @relation(fields: [contactId, businessId], references: [id, businessId], onDelete: Restrict)
+  events WhatsAppAutomationCartEvent[]
+  @@unique([businessId, cartId], map: "WhatsAppAutomationCart_business_cart_unique")
+  @@unique([id, businessId], map: "WhatsAppAutomationCart_id_business_unique")
+  @@index([businessId, state, occurredAt], map: "WhatsAppAutomationCart_business_state_idx")
+}
+
+model WhatsAppAutomationCartEvent {
+  id String @id @default(uuid())
+  businessId String
+  apiKeyId String
+  cartId String
+  contactId String
+  externalEventId String
+  state String
+  occurredAt DateTime
+  outcome String
+  appliedAt DateTime?
+  createdAt DateTime @default(now())
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  apiKey WhatsAppAutomationApiKey @relation(fields: [apiKeyId, businessId], references: [id, businessId], onDelete: Restrict)
+  cart WhatsAppAutomationCart @relation(fields: [businessId, cartId], references: [businessId, cartId], onDelete: Restrict)
+  contact WhatsAppContact @relation(fields: [contactId, businessId], references: [id, businessId], onDelete: Restrict)
+  @@unique([businessId, externalEventId], map: "WhatsAppAutomationCartEvent_business_event_unique")
+  @@index([businessId, cartId, occurredAt], map: "WhatsAppAutomationCartEvent_business_cart_idx")
+  @@index([apiKeyId, createdAt], map: "WhatsAppAutomationCartEvent_key_created_idx")
 }
 
 model WhatsAppAutomationEvent {

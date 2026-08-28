@@ -97,6 +97,16 @@ export async function processWhatsAppAutomationEvent(input: {
         where: { businessId_phoneE164: { businessId: event.businessId, phoneE164: contact.phoneE164 } },
         select: { revokedAt: true },
       });
+      let eventSkipReason: string | null = null;
+      if (event.triggerType === "abandoned_cart") {
+        const cart = event.subjectType === "cart.abandoned" ? await tx.whatsAppAutomationCart.findUnique({
+          where: { businessId_cartId: { businessId: event.businessId, cartId: event.subjectId } },
+          select: { contactId: true, state: true, occurredAt: true },
+        }) : null;
+        if (!cart || cart.state !== "abandoned" || cart.contactId !== contact.id || cart.occurredAt.getTime() !== event.occurredAt.getTime()) {
+          eventSkipReason = "cart_no_longer_abandoned";
+        }
+      }
       const automations = await tx.whatsAppAutomation.findMany({
         where: {
           businessId: event.businessId, status: "active", triggerType: event.triggerType,
@@ -109,7 +119,7 @@ export async function processWhatsAppAutomationEvent(input: {
       for (const automation of automations) {
         if (!automationMatchesEvent({ triggerType: automation.triggerType, triggerConfig: automation.triggerConfig, subjectType: event.subjectType })) continue;
         const key = automationIdempotencyKey({ businessId: event.businessId, automationId: automation.id, eventId: event.id, contactId: contact.id });
-        const skipReason = contact.optedOutAt ? "contact_opted_out" : !consent || consent.revokedAt ? "marketing_consent_missing" : null;
+        const skipReason = eventSkipReason ?? (contact.optedOutAt ? "contact_opted_out" : !consent || consent.revokedAt ? "marketing_consent_missing" : null);
         const cooldownSince = new Date(now.getTime() - automation.cooldownMinutes * 60_000);
         const recentlyRun = automation.cooldownMinutes > 0 && await tx.whatsAppAutomationRun.findFirst({
           where: { businessId: event.businessId, automationId: automation.id, contactId: contact.id, createdAt: { gte: cooldownSince }, status: { in: ["queued", "completed"] } },

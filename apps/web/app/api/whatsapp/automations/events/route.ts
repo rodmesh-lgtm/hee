@@ -1,62 +1,19 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "../../../../lib/db";
-import { consumePublicWriteLimit, requestClientAddress } from "../../../../lib/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../../lib/request-body";
-import { hashWhatsAppAutomationApiKey } from "../../../../lib/whatsapp/automation-api-keys";
+import { authenticateWhatsAppAutomationApiRequest } from "../../../../lib/whatsapp/automation-api-auth";
 import { automationMatchesEvent, normalizeAutomationApiEventName } from "../../../../lib/whatsapp/automation-domain";
 import { ingestWhatsAppAutomationEvent } from "../../../../lib/whatsapp/automation-processor";
-import { hasActiveWhatsAppMarketingEntitlement } from "../../../../lib/whatsapp/feature-entitlement";
 
 type EventPayload = { eventId?: unknown; eventName?: unknown; subjectId?: unknown; contactId?: unknown; phoneE164?: unknown };
-const PREFIX = /^irwa_live_[0-9a-f]{16}$/;
-const SECRET = /^[A-Za-z0-9_-]{43}$/;
-
 function unauthorized() {
   return NextResponse.json({ error: "unauthorized" }, { status: 401, headers: { "WWW-Authenticate": "Bearer" } });
 }
 
-async function authenticate(request: Request) {
-  const authorization = request.headers.get("authorization") ?? "";
-  if (!authorization.startsWith("Bearer ") || authorization.includes(",")) return null;
-  const plaintext = authorization.slice(7);
-  const splitAt = plaintext.indexOf(".");
-  if (splitAt < 1 || plaintext.indexOf(".", splitAt + 1) !== -1) return null;
-  const prefix = plaintext.slice(0, splitAt), secret = plaintext.slice(splitAt + 1);
-  if (!PREFIX.test(prefix) || !SECRET.test(secret)) return null;
-  const key = await db.whatsAppAutomationApiKey.findUnique({
-    where: { keyPrefix: prefix },
-    select: { id: true, businessId: true, keyHash: true, status: true },
-  });
-  if (!key || key.status !== "active") return null;
-  const calculated = Buffer.from(hashWhatsAppAutomationApiKey(plaintext), "hex");
-  const expected = Buffer.from(key.keyHash, "hex");
-  if (calculated.length !== expected.length || !timingSafeEqual(calculated, expected)) return null;
-  return key;
-}
-
 export async function POST(request: Request) {
-  const address = requestClientAddress(request);
-  try {
-    const preAuthRate = await consumePublicWriteLimit({ scope: "whatsapp-automation-api-auth", businessId: "api-auth", identity: address, limit: 100, windowSeconds: 30 });
-    if (!preAuthRate.allowed) return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(Math.max(1, preAuthRate.retryAfterSeconds)) } });
-  } catch {
-    return NextResponse.json({ error: "rate_limit_unavailable" }, { status: 503, headers: { "Retry-After": "30" } });
-  }
-  const key = await authenticate(request);
-  if (!key) return unauthorized();
-  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: key.businessId })) {
-    return NextResponse.json({ error: "feature_not_entitled" }, { status: 403 });
-  }
-  try {
-    const keyRate = await consumePublicWriteLimit({ scope: "whatsapp-automation-api-key", businessId: key.businessId, identity: key.id, limit: 100, windowSeconds: 30 });
-    if (!keyRate.allowed) {
-      const retryAfter = Math.max(1, keyRate.retryAfterSeconds);
-      return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(retryAfter) } });
-    }
-  } catch {
-    return NextResponse.json({ error: "rate_limit_unavailable" }, { status: 503, headers: { "Retry-After": "30" } });
-  }
+  const auth = await authenticateWhatsAppAutomationApiRequest({ request, scope: "events" });
+  if (!auth.ok) return auth.status === 401 ? unauthorized() : NextResponse.json({ error: auth.error }, { status: auth.status, headers: auth.retryAfter ? { "Retry-After": String(auth.retryAfter) } : undefined });
+  const key = auth.key;
 
   let payload: EventPayload;
   try { payload = (await readBoundedJson(request, 16 * 1024)) as EventPayload; }

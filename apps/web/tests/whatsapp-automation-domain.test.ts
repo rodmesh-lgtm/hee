@@ -37,6 +37,16 @@ test("inactive customers require an explicit bounded inactivity window", () => {
   assert.throws(() => readAutomationTriggerConfig({ version: 1, inactiveDays: 1000 }, "inactive_customer"), /INACTIVE_DAYS_INVALID/);
 });
 
+test("abandoned carts require an explicit bounded send delay", () => {
+  const config = buildAutomationTriggerConfig("abandoned_cart", undefined, undefined, undefined, undefined, 60);
+  assert.deepEqual(config, { version: 1, delayMinutes: 60 });
+  assert.deepEqual(readAutomationTriggerConfig(config, "abandoned_cart"), config);
+  assert.equal(automationMatchesEvent({ triggerType: "abandoned_cart", triggerConfig: config, subjectType: "cart.abandoned" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "abandoned_cart", triggerConfig: config, subjectType: "cart.recovered" }), false);
+  assert.throws(() => buildAutomationTriggerConfig("abandoned_cart", undefined, undefined, undefined, undefined, 5), /CART_DELAY_INVALID/);
+  assert.throws(() => readAutomationTriggerConfig({ version: 1 }, "abandoned_cart"), /CART_DELAY_INVALID/);
+});
+
 test("order update automations require an explicit finite status filter", () => {
   const config = buildAutomationTriggerConfig("order_update", "confirmed");
   assert.deepEqual(config, { version: 1, orderStatuses: ["confirmed"] });
@@ -61,7 +71,7 @@ test("each automation trigger accepts only its trusted subject namespace", () =>
   assert.equal(automationMatchesEvent({ triggerType: "follow_up", triggerConfig: config, subjectType: "booking.completed" }), true);
   assert.equal(automationMatchesEvent({ triggerType: "follow_up", triggerConfig: config, subjectType: "order.confirmed" }), false);
   assert.equal(automationMatchesEvent({ triggerType: "inactive_customer", triggerConfig: { version: 1, inactiveDays: 90 }, subjectType: "customer.inactive" }), true);
-  assert.equal(automationMatchesEvent({ triggerType: "abandoned_cart", triggerConfig: config, subjectType: "cart.abandoned" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "abandoned_cart", triggerConfig: { version: 1, delayMinutes: 60 }, subjectType: "cart.abandoned" }), true);
   const apiConfig = buildAutomationTriggerConfig("api_event", undefined, undefined, undefined, "custom.order-ready");
   assert.equal(automationMatchesEvent({ triggerType: "api_event", triggerConfig: apiConfig, subjectType: "api.event.custom.order-ready" }), true);
   assert.equal(automationMatchesEvent({ triggerType: "api_event", triggerConfig: apiConfig, subjectType: "api.event.custom.other" }), false);

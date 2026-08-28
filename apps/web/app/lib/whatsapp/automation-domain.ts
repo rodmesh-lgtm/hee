@@ -7,13 +7,14 @@ export const WHATSAPP_AUTOMATION_TRIGGER_TYPES = [
 
 export type WhatsAppAutomationTriggerType = typeof WHATSAPP_AUTOMATION_TRIGGER_TYPES[number];
 export const WHATSAPP_CONFIGURABLE_TRIGGER_TYPES = [
-  "welcome", "appointment_reminder", "follow_up", "order_update", "inactive_customer", "api_event",
+  "welcome", "appointment_reminder", "follow_up", "order_update", "inactive_customer", "abandoned_cart", "api_event",
 ] as const satisfies readonly WhatsAppAutomationTriggerType[];
 
 export const WHATSAPP_ORDER_EVENT_STATUSES = ["pending", "confirmed", "processing", "completed", "cancelled"] as const;
 export type WhatsAppOrderEventStatus = typeof WHATSAPP_ORDER_EVENT_STATUSES[number];
 export const WHATSAPP_APPOINTMENT_LEAD_MINUTES = [30, 60, 180, 1440, 2880, 10080] as const;
 export const WHATSAPP_INACTIVE_CUSTOMER_DAYS = [30, 60, 90, 180, 365] as const;
+export const WHATSAPP_ABANDONED_CART_DELAY_MINUTES = [15, 30, 60, 180, 360, 1440] as const;
 
 export function normalizeAutomationTriggerType(value: string): WhatsAppAutomationTriggerType {
   if (!(WHATSAPP_AUTOMATION_TRIGGER_TYPES as readonly string[]).includes(value)) {
@@ -62,7 +63,7 @@ export function normalizeAutomationApiEventName(value: string) {
   return normalized;
 }
 
-export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStatus?: string, reminderLeadMinutes?: number, inactiveDays?: number, apiEventName?: string) {
+export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStatus?: string, reminderLeadMinutes?: number, inactiveDays?: number, apiEventName?: string, cartDelayMinutes?: number) {
   const triggerType = normalizeAutomationTriggerType(triggerTypeValue);
   if (triggerType === "appointment_reminder") {
     if (!Number.isSafeInteger(reminderLeadMinutes) || reminderLeadMinutes! < 15 || reminderLeadMinutes! > 10_080) {
@@ -75,6 +76,12 @@ export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStat
       throw new Error("WHATSAPP_AUTOMATION_INACTIVE_DAYS_INVALID");
     }
     return { version: 1, inactiveDays: inactiveDays! } as const;
+  }
+  if (triggerType === "abandoned_cart") {
+    if (!Number.isSafeInteger(cartDelayMinutes) || cartDelayMinutes! < 15 || cartDelayMinutes! > 10_080) {
+      throw new Error("WHATSAPP_AUTOMATION_CART_DELAY_INVALID");
+    }
+    return { version: 1, delayMinutes: cartDelayMinutes! } as const;
   }
   if (triggerType === "api_event") return { version: 1, eventName: normalizeAutomationApiEventName(apiEventName ?? "") } as const;
   if (triggerType !== "order_update") return { version: 1 } as const;
@@ -91,7 +98,8 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
   const allowedKeys = triggerType === "order_update" ? ["version", "orderStatuses"]
     : triggerType === "appointment_reminder" ? ["version", "leadMinutes"]
       : triggerType === "inactive_customer" ? ["version", "inactiveDays"]
-        : triggerType === "api_event" ? ["version", "eventName"] : ["version"];
+        : triggerType === "abandoned_cart" ? ["version", "delayMinutes"]
+          : triggerType === "api_event" ? ["version", "eventName"] : ["version"];
   if (Object.keys(record).some((key) => !allowedKeys.includes(key)) || record.version !== 1) {
     throw new Error("WHATSAPP_AUTOMATION_TRIGGER_CONFIG_INVALID");
   }
@@ -106,6 +114,12 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
       throw new Error("WHATSAPP_AUTOMATION_INACTIVE_DAYS_INVALID");
     }
     return { version: 1, inactiveDays: Number(record.inactiveDays) } as const;
+  }
+  if (triggerType === "abandoned_cart") {
+    if (!Number.isSafeInteger(record.delayMinutes) || Number(record.delayMinutes) < 15 || Number(record.delayMinutes) > 10_080) {
+      throw new Error("WHATSAPP_AUTOMATION_CART_DELAY_INVALID");
+    }
+    return { version: 1, delayMinutes: Number(record.delayMinutes) } as const;
   }
   if (triggerType === "api_event") return { version: 1, eventName: normalizeAutomationApiEventName(String(record.eventName ?? "")) } as const;
   if (triggerType !== "order_update") return { version: 1 } as const;
