@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 import { createWhatsAppAutomation, operateWhatsAppAutomation } from "../lib/whatsapp/automation-operations";
+import { createWhatsAppAutomationApiKey, revokeWhatsAppAutomationApiKey } from "../lib/whatsapp/automation-api-keys";
 import { cancelWhatsAppCampaign, pauseWhatsAppCampaign, resumeWhatsAppCampaign, scheduleWhatsAppCampaign } from "../lib/whatsapp/campaign-operations";
 import { snapshotWhatsAppCampaign } from "../lib/whatsapp/campaign-snapshot";
 import { enqueueContactImport, retryFailedContactImport } from "../lib/whatsapp/contact-import-processor";
@@ -43,6 +44,7 @@ export async function createWhatsAppAutomationAction(form: FormData) {
   const reminderLeadMinutes = /^\d{1,5}$/.test(reminderLeadRaw) ? Number(reminderLeadRaw) : undefined;
   const inactiveDaysRaw = String(form.get("inactiveDays") ?? "").trim();
   const inactiveDays = /^\d{1,3}$/.test(inactiveDaysRaw) ? Number(inactiveDaysRaw) : undefined;
+  const apiEventName = field(form, "apiEventName", 64) ?? undefined;
   const cooldownRaw = String(form.get("cooldownMinutes") ?? "").trim();
   if (!name || !triggerType || !templateId || !/^\d{1,6}$/.test(cooldownRaw)) redirect("/dashboard/whatsapp/automations?create=invalid");
   let destination: string;
@@ -57,6 +59,7 @@ export async function createWhatsAppAutomationAction(form: FormData) {
       orderStatus,
       reminderLeadMinutes,
       inactiveDays,
+      apiEventName,
     });
     revalidatePath("/dashboard/whatsapp/automations");
     destination = `/dashboard/whatsapp/automations?create=complete&automation=${automation.id}`;
@@ -82,6 +85,36 @@ export async function operateWhatsAppAutomationAction(form: FormData) {
     destination = `/dashboard/whatsapp/automations?operation=${operation}`;
   } catch {
     destination = "/dashboard/whatsapp/automations?operation=failed";
+  }
+  redirect(destination);
+}
+
+export type AutomationApiKeyActionState = { status: "idle" | "created" | "failed"; plaintext?: string; error?: string };
+
+export async function createWhatsAppAutomationApiKeyAction(_previous: AutomationApiKeyActionState, form: FormData): Promise<AutomationApiKeyActionState> {
+  const context = await automationContext();
+  const name = field(form, "name", 80);
+  if (!name) return { status: "failed", error: "أدخل اسمًا صالحًا للمفتاح." };
+  try {
+    const created = await createWhatsAppAutomationApiKey({ businessId: context.businessId, actorUserId: context.userId, name });
+    revalidatePath("/dashboard/whatsapp/automations");
+    return { status: "created", plaintext: created.plaintext };
+  } catch {
+    return { status: "failed", error: "تعذر إنشاء المفتاح. حاول مرة أخرى." };
+  }
+}
+
+export async function revokeWhatsAppAutomationApiKeyAction(form: FormData) {
+  const context = await automationContext();
+  const keyId = field(form, "keyId", 128);
+  if (!keyId) redirect("/dashboard/whatsapp/automations?apiKey=invalid");
+  let destination: string;
+  try {
+    await revokeWhatsAppAutomationApiKey({ businessId: context.businessId, actorUserId: context.userId, keyId });
+    revalidatePath("/dashboard/whatsapp/automations");
+    destination = "/dashboard/whatsapp/automations?apiKey=revoked";
+  } catch {
+    destination = "/dashboard/whatsapp/automations?apiKey=failed";
   }
   redirect(destination);
 }

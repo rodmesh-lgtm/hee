@@ -62,8 +62,11 @@ test("each automation trigger accepts only its trusted subject namespace", () =>
   assert.equal(automationMatchesEvent({ triggerType: "follow_up", triggerConfig: config, subjectType: "order.confirmed" }), false);
   assert.equal(automationMatchesEvent({ triggerType: "inactive_customer", triggerConfig: { version: 1, inactiveDays: 90 }, subjectType: "customer.inactive" }), true);
   assert.equal(automationMatchesEvent({ triggerType: "abandoned_cart", triggerConfig: config, subjectType: "cart.abandoned" }), true);
-  assert.equal(automationMatchesEvent({ triggerType: "api_event", triggerConfig: config, subjectType: "api.event.custom" }), true);
-  assert.equal(automationMatchesEvent({ triggerType: "api_event", triggerConfig: config, subjectType: "order.completed" }), false);
+  const apiConfig = buildAutomationTriggerConfig("api_event", undefined, undefined, undefined, "custom.order-ready");
+  assert.equal(automationMatchesEvent({ triggerType: "api_event", triggerConfig: apiConfig, subjectType: "api.event.custom.order-ready" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "api_event", triggerConfig: apiConfig, subjectType: "api.event.custom.other" }), false);
+  assert.equal(automationMatchesEvent({ triggerType: "api_event", triggerConfig: apiConfig, subjectType: "order.completed" }), false);
+  assert.throws(() => readAutomationTriggerConfig(config, "api_event"), /API_EVENT_NAME_INVALID/);
 });
 
 test("automation UI accepts only well-formed templates without unresolved variables", () => {
