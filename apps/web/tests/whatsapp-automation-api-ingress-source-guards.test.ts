@@ -6,6 +6,7 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 const schema = read("prisma/schema.prisma");
 const migration = read("prisma/migrations/20260828163000_whatsapp_automation_api_keys/migration.sql");
 const keys = read("app/lib/whatsapp/automation-api-keys.ts");
+const auth = read("app/lib/whatsapp/automation-api-auth.ts");
 const route = read("app/api/whatsapp/automations/events/route.ts");
 const actions = read("app/actions/whatsapp-marketing.ts");
 const page = read("app/dashboard/whatsapp/automations/page.tsx");
@@ -32,12 +33,13 @@ test("key lifecycle is protected by entitlement, automation RBAC and audit", () 
 });
 
 test("public ingress authenticates before tenant derivation and fails closed", () => {
-  assert.match(route, /timingSafeEqual/);
-  assert.match(route, /where: \{ keyPrefix: prefix \}/);
+  assert.match(auth, /timingSafeEqual/);
+  assert.match(auth, /where: \{ keyPrefix: prefix \}/);
+  assert.match(auth, /hasActiveWhatsAppMarketingEntitlement/);
+  assert.match(auth, /consumePublicWriteLimit/g);
+  assert.match(auth, /scope: "whatsapp-automation-api-auth"/);
+  assert.match(route, /authenticateWhatsAppAutomationApiRequest/);
   assert.match(route, /key\.businessId/);
-  assert.match(route, /hasActiveWhatsAppMarketingEntitlement/);
-  assert.match(route, /consumePublicWriteLimit/g);
-  assert.match(route, /scope: "whatsapp-automation-api-auth"/);
   assert.match(route, /readBoundedJson\(request, 16 \* 1024\)/);
   assert.match(route, /businessId: key\.businessId, optedOutAt: null/);
   assert.match(route, /!consent \|\| consent\.revokedAt/);

@@ -106,7 +106,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
       templateParameters: true,
       automation: { select: { status: true, triggerConfig: true } },
       run: { select: { event: { select: { triggerType: true, subjectType: true, subjectId: true, occurredAt: true } } } },
-      contact: { select: { phoneE164: true, displayName: true, optedOutAt: true } },
+      contact: { select: { id: true, phoneE164: true, displayName: true, optedOutAt: true } },
       template: { select: { provider: true, status: true, name: true, language: true } },
       connection: { select: { provider: true, status: true, phoneNumberId: true, credentialEnvelope: true } },
     },
@@ -169,6 +169,16 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     if (!customer || customer._count.orders > 0 || customer._count.bookings > 0) {
       await releaseAs(database, job, "cancelled", now, "CUSTOMER_ACTIVE_AGAIN");
       return { processed: true as const, result: "customer_active" as const, jobId: job.id };
+    }
+  }
+  if (context.run.event.triggerType === "abandoned_cart") {
+    const cart = context.run.event.subjectType === "cart.abandoned" ? await database.whatsAppAutomationCart.findUnique({
+      where: { businessId_cartId: { businessId: job.businessId, cartId: context.run.event.subjectId } },
+      select: { contactId: true, state: true, occurredAt: true },
+    }) : null;
+    if (!cart || cart.state !== "abandoned" || cart.contactId !== context.contact.id || cart.occurredAt.getTime() !== context.run.event.occurredAt.getTime()) {
+      await releaseAs(database, job, "cancelled", now, "CART_NO_LONGER_ABANDONED");
+      return { processed: true as const, result: "cart_closed" as const, jobId: job.id };
     }
   }
   const consent = await database.whatsAppConsent.findFirst({

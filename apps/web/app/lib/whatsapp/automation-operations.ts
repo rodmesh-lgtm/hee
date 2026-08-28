@@ -40,7 +40,7 @@ async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
 
 export async function createWhatsAppAutomation(input: {
   businessId: string; actorUserId: string; name: string; triggerType: string;
-  templateId: string; cooldownMinutes: number; orderStatus?: string; reminderLeadMinutes?: number; inactiveDays?: number; apiEventName?: string; database?: AutomationOperationsDb;
+  templateId: string; cooldownMinutes: number; orderStatus?: string; reminderLeadMinutes?: number; inactiveDays?: number; apiEventName?: string; cartDelayMinutes?: number; database?: AutomationOperationsDb;
 }) {
   const database = input.database ?? db;
   const name = input.name.trim();
@@ -49,7 +49,7 @@ export async function createWhatsAppAutomation(input: {
   if (!(WHATSAPP_CONFIGURABLE_TRIGGER_TYPES as readonly string[]).includes(triggerType)) {
     throw new Error("WHATSAPP_AUTOMATION_TRIGGER_SOURCE_UNAVAILABLE");
   }
-  const triggerConfig = buildAutomationTriggerConfig(triggerType, input.orderStatus, input.reminderLeadMinutes, input.inactiveDays, input.apiEventName);
+  const triggerConfig = buildAutomationTriggerConfig(triggerType, input.orderStatus, input.reminderLeadMinutes, input.inactiveDays, input.apiEventName, input.cartDelayMinutes);
   if (!Number.isSafeInteger(input.cooldownMinutes) || input.cooldownMinutes < 0 || input.cooldownMinutes > 525_600) {
     throw new Error("WHATSAPP_AUTOMATION_COOLDOWN_INVALID");
   }

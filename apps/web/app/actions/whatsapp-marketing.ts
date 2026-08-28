@@ -45,6 +45,8 @@ export async function createWhatsAppAutomationAction(form: FormData) {
   const inactiveDaysRaw = String(form.get("inactiveDays") ?? "").trim();
   const inactiveDays = /^\d{1,3}$/.test(inactiveDaysRaw) ? Number(inactiveDaysRaw) : undefined;
   const apiEventName = field(form, "apiEventName", 64) ?? undefined;
+  const cartDelayRaw = String(form.get("cartDelayMinutes") ?? "").trim();
+  const cartDelayMinutes = /^\d{1,5}$/.test(cartDelayRaw) ? Number(cartDelayRaw) : undefined;
   const cooldownRaw = String(form.get("cooldownMinutes") ?? "").trim();
   if (!name || !triggerType || !templateId || !/^\d{1,6}$/.test(cooldownRaw)) redirect("/dashboard/whatsapp/automations?create=invalid");
   let destination: string;
@@ -60,6 +62,7 @@ export async function createWhatsAppAutomationAction(form: FormData) {
       reminderLeadMinutes,
       inactiveDays,
       apiEventName,
+      cartDelayMinutes,
     });
     revalidatePath("/dashboard/whatsapp/automations");
     destination = `/dashboard/whatsapp/automations?create=complete&automation=${automation.id}`;
