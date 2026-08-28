@@ -5,6 +5,7 @@ import type { PrismaClient } from "@prisma/client";
 export const WHATSAPP_OPERATION_STAGES = [
   "whatsapp:contact-imports",
   "whatsapp:webhooks",
+  "whatsapp:shopify-webhooks",
   "whatsapp:campaigns",
   "whatsapp:deliveries",
   "whatsapp:replies",
