@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "../db";
 import { decryptWhatsAppCredential, encryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./credential-envelope";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl } from "./meta-config";
+import { writeWhatsAppAuditLog } from "./audit";
 
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const GRAPH_TIMEOUT_MS = 12_000;
@@ -84,10 +85,12 @@ export async function createEmbeddedSignupSession(input: { businessId: string; u
       where: { businessId: input.businessId, initiatedByUserId: input.userId, status: { in: ["created", "exchanging", "token_exchanged"] } },
       data: { status: "cancelled", consumedAt: now, lastErrorCode: "superseded" },
     });
-    return tx.whatsAppEmbeddedSignupSession.create({
+    const created = await tx.whatsAppEmbeddedSignupSession.create({
       data: { businessId: input.businessId, initiatedByUserId: input.userId, stateDigest: digestState(state), expiresAt },
       select: { id: true, expiresAt: true },
     });
+    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.userId, action: "connection.signup.start", targetType: "signup_session", targetId: created.id, outcome: "success", database: tx });
+    return created;
   });
   return { ...session, state };
 }
@@ -137,12 +140,13 @@ export async function completeEmbeddedSignup(input: {
         select: { id: true },
       });
       if (collision) throw new Error("WHATSAPP_ASSET_ALREADY_ASSIGNED");
-      await tx.whatsAppConnection.upsert({
+      const connection = await tx.whatsAppConnection.upsert({
         where: { businessId_provider: { businessId: input.businessId, provider: "meta" } },
         create: { businessId: input.businessId, provider: "meta", status: "connected", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, displayPhoneNumber: phone.displayPhoneNumber, verifiedName: phone.verifiedName, credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue, connectedAt: new Date() },
         update: { status: "connected", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, displayPhoneNumber: phone.displayPhoneNumber, verifiedName: phone.verifiedName, credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue, connectedAt: new Date(), disabledAt: null, lastErrorCode: null },
       });
       await tx.whatsAppEmbeddedSignupSession.update({ where: { id: session.id }, data: { status: "connected", consumedAt: new Date(), lastErrorCode: null, credentialEnvelope: Prisma.JsonNull } });
+      await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.userId, action: "connection.signup.complete", targetType: "connection", targetId: connection.id, outcome: "success", metadata: { provider: "meta" }, database: tx });
     });
   } catch (error) {
     const code = error instanceof Error && /^(META_|WHATSAPP_)[A-Z0-9_]+$/.test(error.message) ? error.message : "META_ASSET_VERIFICATION_FAILED";
