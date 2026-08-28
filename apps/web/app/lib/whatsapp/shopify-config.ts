@@ -44,3 +44,7 @@ export function shopifyAppOrigin(env: NodeJS.ProcessEnv = process.env) {
 export function shopifyOAuthCallbackUrl(env: NodeJS.ProcessEnv = process.env) {
   return `${shopifyAppOrigin(env)}/api/whatsapp/commerce/shopify/callback`;
 }
+
+export function shopifyWebhookCallbackUrl(env: NodeJS.ProcessEnv = process.env) {
+  return `${shopifyAppOrigin(env)}/api/whatsapp/commerce/shopify/webhook`;
+}

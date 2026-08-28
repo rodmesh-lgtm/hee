@@ -17,6 +17,7 @@ import { enqueueWhatsAppCampaign } from "../lib/whatsapp/delivery-queue";
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
 import { getWhatsAppWriteContext } from "../lib/whatsapp/rbac";
 import { createShopifyAuthorization } from "../lib/whatsapp/shopify-commerce";
+import { retryShopifyWebhookSubscriptionSync } from "../lib/whatsapp/shopify-webhook-subscriptions";
 import { syncMetaWhatsAppTemplates } from "../lib/whatsapp/template-sync";
 
 const field = (form: FormData, key: string, max: number) => {
@@ -89,6 +90,20 @@ export async function startShopifyCommerceOAuthAction(form: FormData) {
     redirect(`/dashboard/whatsapp/integrations?shopify=${result}`);
   }
   redirect(authorizationUrl!);
+}
+
+export async function retryShopifyWebhookSubscriptionsAction(form: FormData) {
+  const context = await integrationContext();
+  const integrationId = field(form, "integrationId", 128);
+  if (!integrationId) redirect("/dashboard/whatsapp/integrations?shopifySync=invalid");
+  let result = "queued";
+  try {
+    await retryShopifyWebhookSubscriptionSync({ businessId: context.businessId, actorUserId: context.userId, integrationId });
+    revalidatePath("/dashboard/whatsapp/integrations");
+  } catch {
+    result = "failed";
+  }
+  redirect(`/dashboard/whatsapp/integrations?shopifySync=${result}`);
 }
 
 export async function createWhatsAppAutomationAction(form: FormData) {
