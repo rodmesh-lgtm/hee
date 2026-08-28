@@ -40,19 +40,29 @@ try {
 }
 
 console.log("[rc-preview-schema-sync] Applying committed Prisma migrations to the isolated RC Preview database");
-const result = spawnSync(process.platform === "win32" ? "npx.cmd" : "npx", ["prisma", "migrate", "deploy"], {
-  cwd: process.cwd(),
-  env: { ...process.env, DATABASE_URL: databaseUrl },
-  stdio: "inherit",
-});
-
-if (result.error) {
-  console.error("[rc-preview-schema-sync] FAILED — unable to start prisma migrate deploy", result.error);
-  process.exit(1);
-}
-if (result.status !== 0) {
-  console.error(`[rc-preview-schema-sync] FAILED — prisma migrate deploy exited with ${result.status ?? "unknown"}`);
-  process.exit(result.status || 1);
+const maxAttempts = 3;
+for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+  const result = spawnSync(process.platform === "win32" ? "npx.cmd" : "npx", ["prisma", "migrate", "deploy"], {
+    cwd: process.cwd(),
+    env: { ...process.env, DATABASE_URL: databaseUrl },
+    encoding: "utf8",
+  });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.error) {
+    console.error("[rc-preview-schema-sync] FAILED — unable to start prisma migrate deploy", result.error);
+    process.exit(1);
+  }
+  if (result.status === 0) break;
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  const transientUnavailable = /P1001|Can't reach database server/i.test(output);
+  if (!transientUnavailable || attempt === maxAttempts) {
+    console.error(`[rc-preview-schema-sync] FAILED — prisma migrate deploy exited with ${result.status ?? "unknown"}`);
+    process.exit(result.status || 1);
+  }
+  const delayMs = attempt * 5_000;
+  console.warn(`[rc-preview-schema-sync] Database temporarily unavailable; retrying ${attempt + 1}/${maxAttempts} after ${delayMs}ms`);
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
 console.log("[rc-preview-schema-sync] PASS — committed migrations are applied");
