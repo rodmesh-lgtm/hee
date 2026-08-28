@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { db } from "../app/lib/db";
 import { processNextWhatsAppAutomationEvent } from "../app/lib/whatsapp/automation-processor";
 
 const batchSize = Math.max(1, Math.min(Number(process.env.WHATSAPP_AUTOMATION_BATCH_SIZE ?? 50), 200));
@@ -20,4 +21,6 @@ try {
     error: error instanceof Error ? error.message : "UNKNOWN",
   });
   process.exitCode = 1;
+} finally {
+  await db.$disconnect();
 }

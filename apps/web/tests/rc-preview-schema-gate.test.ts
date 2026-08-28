@@ -36,5 +36,6 @@ test("RC Preview schema gate rejects migration drift and critical registration s
   assert.match(source, /LegalConsent/);
   assert.match(source, /emailVerifiedAt/);
   assert.match(source, /BillingOperationsHeartbeat/);
+  assert.match(source, /WhatsAppOperationsHeartbeat/);
   assert.match(source, /analyticsMetadataType !== "jsonb"/);
 });

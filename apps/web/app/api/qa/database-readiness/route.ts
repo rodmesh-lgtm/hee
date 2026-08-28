@@ -12,6 +12,7 @@ type ReadinessRow = {
   legalConsentTableExists: boolean;
   emailVerifiedAtColumnExists: boolean;
   billingOperationsHeartbeatTableExists: boolean;
+  whatsappOperationsHeartbeatTableExists: boolean;
   snapshotTableExists: boolean;
   durationRangeConstraintExists: boolean;
   bookingForeignKeyExists: boolean;
@@ -60,6 +61,7 @@ export async function GET() {
             AND column_name = 'emailVerifiedAt'
         ) AS "emailVerifiedAtColumnExists",
         to_regclass('public."BillingOperationsHeartbeat"') IS NOT NULL AS "billingOperationsHeartbeatTableExists",
+        to_regclass('public."WhatsAppOperationsHeartbeat"') IS NOT NULL AS "whatsappOperationsHeartbeatTableExists",
         to_regclass('public."BookingDurationSnapshot"') IS NOT NULL AS "snapshotTableExists",
         EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BookingDurationSnapshot_duration_range') AS "durationRangeConstraintExists",
         EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BookingDurationSnapshot_booking_fkey') AS "bookingForeignKeyExists",
@@ -133,6 +135,7 @@ export async function GET() {
       legalConsentTableExists: false,
       emailVerifiedAtColumnExists: false,
       billingOperationsHeartbeatTableExists: false,
+      whatsappOperationsHeartbeatTableExists: false,
       snapshotTableExists: false,
       durationRangeConstraintExists: false,
       bookingForeignKeyExists: false,
@@ -180,6 +183,7 @@ export async function GET() {
       && checks.legalConsentTableExists
       && checks.emailVerifiedAtColumnExists
       && checks.billingOperationsHeartbeatTableExists
+      && checks.whatsappOperationsHeartbeatTableExists
       && checks.snapshotTableExists
       && checks.durationRangeConstraintExists
       && checks.bookingForeignKeyExists

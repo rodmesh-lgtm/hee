@@ -1,0 +1,28 @@
+[Unit]
+Description=iR production WhatsApp durable operations cycle
+Documentation=https://github.com/rodmesh-lgtm/hee/blob/hee-v6-rc/docs/WHATSAPP_OPERATIONS_RUNBOOK.md
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=!/etc/hee/maintenance.lock
+
+[Service]
+Type=oneshot
+User=hee
+Group=hee
+WorkingDirectory=/srv/hee/current/apps/web
+EnvironmentFile=/etc/hee/production.env
+EnvironmentFile=/srv/hee/current/release.env
+ExecStart=/usr/bin/npm run whatsapp:operations
+TimeoutStartSec=15min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+StandardOutput=journal
+StandardError=journal

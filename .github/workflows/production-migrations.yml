@@ -110,6 +110,8 @@ jobs:
           grep -qx 'ConditionPathExists=!/etc/hee/maintenance.lock' /etc/systemd/system/hee-billing-renew.service.d/maintenance.conf || { echo 'systemd maintenance condition is missing'; exit 1; }
           if sudo -n systemctl is-active --quiet hee-billing-renew.timer; then echo 'Billing timer is active'; exit 1; fi
           if sudo -n systemctl is-active --quiet hee-billing-renew.service; then echo 'Billing service is active'; exit 1; fi
+          if sudo -n systemctl is-active --quiet hee-whatsapp-operations.timer; then echo 'WhatsApp timer is active'; exit 1; fi
+          if sudo -n systemctl is-active --quiet hee-whatsapp-operations.service; then echo 'WhatsApp service is active'; exit 1; fi
           REMOTE
 
       - name: Setup Node
