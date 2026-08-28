@@ -14,6 +14,7 @@ const metaWhatsAppConfigSchema = z.object({
   META_WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().trim().min(24),
   META_WHATSAPP_GRAPH_VERSION: z.string().trim().regex(/^v\d+\.\d+$/),
   META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY: z.string().trim().min(32),
+  META_WHATSAPP_CREDENTIAL_KEY_VERSION: z.string().trim().regex(/^[A-Za-z0-9._-]{1,32}$/),
   META_WHATSAPP_BILLING_MODE: z.enum(billingModes),
 });
 
@@ -26,6 +27,22 @@ export const META_WHATSAPP_SECRET_NAMES = [
   "META_WHATSAPP_WEBHOOK_VERIFY_TOKEN",
   "META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY",
 ] as const;
+
+const publicEmbeddedSignupSchema = z.object({
+  META_APP_ID: z.string().trim().min(1),
+  META_WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID: z.string().trim().min(1),
+  META_WHATSAPP_GRAPH_VERSION: z.string().trim().regex(/^v\d+\.\d+$/),
+});
+
+export function getMetaEmbeddedSignupPublicConfig(env: NodeJS.ProcessEnv = process.env) {
+  const parsed = publicEmbeddedSignupSchema.safeParse(env);
+  if (!parsed.success) return null;
+  return {
+    appId: parsed.data.META_APP_ID,
+    configId: parsed.data.META_WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID,
+    graphVersion: parsed.data.META_WHATSAPP_GRAPH_VERSION,
+  };
+}
 
 /**
  * WhatsApp is an optional feature. Do not read or validate its secrets during a normal

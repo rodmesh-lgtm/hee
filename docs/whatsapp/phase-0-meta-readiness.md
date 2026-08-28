@@ -57,6 +57,7 @@ The future implementation must consume these through server-side environment/con
 - `META_WHATSAPP_WEBHOOK_VERIFY_TOKEN` — secret random verification token; server-only.
 - `META_WHATSAPP_GRAPH_VERSION` — deliberately pinned Graph API version; never silently follows latest.
 - `META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY` — dedicated key for encrypting tenant Meta credentials; must not reuse payment-token encryption material.
+- `META_WHATSAPP_CREDENTIAL_KEY_VERSION` — non-secret key label (for example `v1`) persisted in each AES-GCM envelope so rotations remain explicit and auditable.
 - `META_WHATSAPP_BILLING_MODE` — explicit operational mode; initially only accepted values should be `customer_meta` or `ir_pass_through` once the approved Meta onboarding model is known.
 
 Phase 0 intentionally does not invent production values for any of these.

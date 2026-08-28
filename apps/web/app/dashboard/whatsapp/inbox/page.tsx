@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
-import { AlertTriangle, CheckCheck, Clock3, Inbox, MessageCircle, Search, Send, UserRound } from "lucide-react";
+import { AlertTriangle, CheckCheck, Clock3, Inbox, Link2, MessageCircle, Search, Send, UserRound } from "lucide-react";
 import { getOwnedBusinessForRead } from "../../../lib/ownership";
 import { getWhatsAppInbox } from "../../../lib/whatsapp/inbox";
 import { enqueueWhatsAppReplyAction } from "../../../actions/whatsapp";
@@ -31,7 +31,7 @@ export default async function WhatsAppInboxPage({ searchParams }: { searchParams
 
   return <div className="space-y-4 pb-4">
     <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><span className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-50 text-emerald-600"><MessageCircle className="h-5 w-5" /></span><div><h1 className="text-xl font-black text-[#20264f]">صندوق واتساب</h1><p className="mt-1 text-sm text-slate-500">المحادثات الواردة والصادرة عبر WhatsApp Business Platform الرسمي.</p></div></div></div><span className="rounded-full bg-[#f3efff] px-3 py-1.5 text-xs font-black text-[#5d49cc]">{inbox.conversations.length} محادثة حديثة</span></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><span className="grid h-10 w-10 place-items-center rounded-2xl bg-emerald-50 text-emerald-600"><MessageCircle className="h-5 w-5" /></span><div><h1 className="text-xl font-black text-[#20264f]">صندوق واتساب</h1><p className="mt-1 text-sm text-slate-500">المحادثات الواردة والصادرة عبر WhatsApp Business Platform الرسمي.</p></div></div></div><div className="flex items-center gap-2"><Link href="/dashboard/whatsapp/setup" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#ded9ed] px-3 text-xs font-black text-[#5d49cc]"><Link2 className="h-4 w-4" />إعداد الربط</Link><span className="rounded-full bg-[#f3efff] px-3 py-1.5 text-xs font-black text-[#5d49cc]">{inbox.conversations.length} محادثة حديثة</span></div></div>
     </section>
 
     <section className="grid min-h-[620px] overflow-hidden rounded-[24px] border border-[#e7e9f4] bg-white lg:grid-cols-[340px_minmax(0,1fr)] lg:[direction:ltr]">
