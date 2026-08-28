@@ -190,6 +190,7 @@ model Business {
   whatsappCommerceIntegrations WhatsAppCommerceIntegration[]
   whatsappCommerceOAuthSessions WhatsAppCommerceOAuthSession[]
   whatsappShopifyWebhookEvents WhatsAppShopifyWebhookEvent[]
+  whatsappShopifyWebhookSyncs WhatsAppShopifyWebhookSync[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -1237,10 +1238,31 @@ model WhatsAppCommerceIntegration {
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   oauthSessions WhatsAppCommerceOAuthSession[]
   shopifyWebhookEvents WhatsAppShopifyWebhookEvent[]
+  shopifyWebhookSync WhatsAppShopifyWebhookSync?
   automationCartEvents WhatsAppAutomationCartEvent[]
   @@unique([businessId, provider, externalStoreId], map: "WhatsAppCommerceIntegration_tenant_store_unique")
   @@unique([id, businessId], map: "WhatsAppCommerceIntegration_id_business_unique")
   @@index([businessId, provider, status], map: "WhatsAppCommerceIntegration_business_status_idx")
+}
+
+model WhatsAppShopifyWebhookSync {
+  id String @id @default(uuid())
+  businessId String
+  integrationId String @unique
+  status String @default("pending")
+  attemptCount Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  leaseOwner String?
+  leaseExpiresAt DateTime?
+  syncedAt DateTime?
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  integration WhatsAppCommerceIntegration @relation(fields: [integrationId, businessId], references: [id, businessId], onDelete: Restrict)
+  @@unique([id, businessId], map: "WhatsAppShopifyWebhookSync_id_business_unique")
+  @@unique([integrationId, businessId], map: "WhatsAppShopifyWebhookSync_integration_business_unique")
+  @@index([status, nextAttemptAt], map: "WhatsAppShopifyWebhookSync_pending_idx")
 }
 
 model WhatsAppCommerceOAuthSession {

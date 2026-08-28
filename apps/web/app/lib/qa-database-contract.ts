@@ -54,6 +54,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260828191500_whatsapp_shopify_oauth_activation",
   "20260828200000_whatsapp_shopify_webhook_inbox",
   "20260828213000_shopify_webhook_processor",
+  "20260828223000_shopify_webhook_subscriptions",
 ] as const;
 
 export const EXPECTED_PREVIEW_LATEST_MIGRATION = EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

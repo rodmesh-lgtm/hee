@@ -169,6 +169,11 @@ export async function completeShopifyAuthorization(input: {
         },
       });
       if (updated.count !== 1) throw new Error("SHOPIFY_INTEGRATION_MISMATCH");
+      await tx.whatsAppShopifyWebhookSync.upsert({
+        where: { integrationId },
+        create: { businessId: input.businessId, integrationId, status: "pending", nextAttemptAt: now },
+        update: { businessId: input.businessId, status: "pending", attemptCount: 0, nextAttemptAt: now, leaseOwner: null, leaseExpiresAt: null, syncedAt: null, lastErrorCode: null },
+      });
       await tx.whatsAppCommerceOAuthSession.update({ where: { id: sessionId }, data: { status: "connected", consumedAt: now, lastErrorCode: null } });
       await writeWhatsAppAuditLog({
         businessId: input.businessId, actorUserId: input.userId, action: "commerce.shopify.oauth.complete",

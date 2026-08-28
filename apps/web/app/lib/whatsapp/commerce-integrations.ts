@@ -66,6 +66,10 @@ export async function disconnectWhatsAppCommerceIntegration(input: {
       where: { businessId: input.businessId, integrationId: integration.id, status: { in: ["created", "exchanging"] } },
       data: { status: "cancelled", consumedAt: now, lastErrorCode: "integration_disconnected" },
     });
+    await tx.whatsAppShopifyWebhookSync.updateMany({
+      where: { businessId: input.businessId, integrationId: integration.id },
+      data: { status: "failed", leaseOwner: null, leaseExpiresAt: null, lastErrorCode: "SHOPIFY_INTEGRATION_DISCONNECTED" },
+    });
     if (!alreadyDisconnected) await tx.whatsAppCommerceIntegration.updateMany({
       where: { id: integration.id, businessId: input.businessId, status: { in: ["draft", "active"] } },
       data: { status: "disconnected", credentialEnvelope: Prisma.DbNull, disconnectedAt: now, lastErrorCode: null },
