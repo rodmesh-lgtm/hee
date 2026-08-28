@@ -27,6 +27,14 @@ export function verifyShopifyOAuthHmac(searchParams: URLSearchParams, clientSecr
   return constantTimeHexEqual(expected, received);
 }
 
+export function verifyShopifyWebhookHmac(rawBody: string, received: string | null, clientSecret: string) {
+  if (!received || received.length > 256) return false;
+  let right: Buffer;
+  try { right = Buffer.from(received, "base64"); } catch { return false; }
+  const left = createHmac("sha256", clientSecret).update(rawBody, "utf8").digest();
+  return right.length === left.length && timingSafeEqual(left, right);
+}
+
 export function shopifyGrantedScopes(value: string) {
   return new Set(value.split(",").map((scope) => scope.trim()).filter(Boolean));
 }

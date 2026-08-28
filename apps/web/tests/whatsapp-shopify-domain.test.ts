@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { hasRequiredShopifyScopes, normalizeShopifyDomain, verifyShopifyOAuthHmac } from "../app/lib/whatsapp/shopify-domain";
+import { hasRequiredShopifyScopes, normalizeShopifyDomain, verifyShopifyOAuthHmac, verifyShopifyWebhookHmac } from "../app/lib/whatsapp/shopify-domain";
 
 test("Shopify domains and required scopes fail closed", () => {
   assert.equal(normalizeShopifyDomain(" Example-Store.MyShopify.Com "), "example-store.myshopify.com");
@@ -9,6 +9,14 @@ test("Shopify domains and required scopes fail closed", () => {
   assert.throws(() => normalizeShopifyDomain("evil.myshopify.com.attacker.test"), /SHOPIFY_SHOP_INVALID/);
   assert.equal(hasRequiredShopifyScopes("read_orders,read_customers", ["read_orders", "read_customers"]), true);
   assert.equal(hasRequiredShopifyScopes("read_orders", ["read_orders", "read_customers"]), false);
+});
+
+test("Shopify webhook HMAC verifies the exact raw body in base64", () => {
+  const secret = "test-client-secret-long-enough";
+  const raw = '{"id":123,"note":"raw body"}';
+  const signature = createHmac("sha256", secret).update(raw).digest("base64");
+  assert.equal(verifyShopifyWebhookHmac(raw, signature, secret), true);
+  assert.equal(verifyShopifyWebhookHmac(`${raw} `, signature, secret), false);
 });
 
 test("Shopify OAuth callback HMAC covers the canonical query and rejects changes", () => {
