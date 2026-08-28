@@ -33,6 +33,7 @@
     "billing:renew-only": "tsx scripts/billing-renewal-worker.ts",
     "billing:renew": "npm run billing:webhooks && npm run billing:renew-only && npm run billing:state-audit -- --record-heartbeat",
     "whatsapp:webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-webhook-worker.ts",
+    "whatsapp:shopify-webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-shopify-webhook-worker.ts",
     "whatsapp:deliveries": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-delivery-worker.ts",
     "whatsapp:campaigns": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-campaign-scheduler.ts",
     "whatsapp:replies": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-reply-worker.ts",
