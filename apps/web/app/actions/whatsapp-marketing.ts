@@ -8,6 +8,7 @@ import { db } from "../lib/db";
 import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 import { createWhatsAppAutomation, operateWhatsAppAutomation } from "../lib/whatsapp/automation-operations";
 import { createWhatsAppAutomationApiKey, revokeWhatsAppAutomationApiKey } from "../lib/whatsapp/automation-api-keys";
+import { disconnectWhatsAppCommerceIntegration, registerWhatsAppCommerceIntegration } from "../lib/whatsapp/commerce-integrations";
 import { cancelWhatsAppCampaign, pauseWhatsAppCampaign, resumeWhatsAppCampaign, scheduleWhatsAppCampaign } from "../lib/whatsapp/campaign-operations";
 import { snapshotWhatsAppCampaign } from "../lib/whatsapp/campaign-snapshot";
 import { enqueueContactImport, retryFailedContactImport } from "../lib/whatsapp/contact-import-processor";
@@ -34,6 +35,44 @@ async function automationContext() {
   if (!context) redirect("/dashboard/whatsapp?access=denied");
   if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   return context;
+}
+
+async function integrationContext() {
+  const context = await getWhatsAppWriteContext("connection.manage");
+  if (!context) redirect("/dashboard/whatsapp?access=denied");
+  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
+  return context;
+}
+
+export async function registerWhatsAppCommerceIntegrationAction(form: FormData) {
+  const context = await integrationContext();
+  const provider = field(form, "provider", 20), externalStoreId = field(form, "externalStoreId", 255);
+  const displayName = field(form, "displayName", 120) ?? undefined;
+  if (!provider || !externalStoreId) redirect("/dashboard/whatsapp/integrations?register=invalid");
+  let destination: string;
+  try {
+    const result = await registerWhatsAppCommerceIntegration({ businessId: context.businessId, actorUserId: context.userId, provider, externalStoreId, displayName });
+    revalidatePath("/dashboard/whatsapp/integrations");
+    destination = `/dashboard/whatsapp/integrations?register=${result.existing ? "existing" : "draft"}`;
+  } catch {
+    destination = "/dashboard/whatsapp/integrations?register=failed";
+  }
+  redirect(destination);
+}
+
+export async function disconnectWhatsAppCommerceIntegrationAction(form: FormData) {
+  const context = await integrationContext();
+  const integrationId = field(form, "integrationId", 128);
+  if (!integrationId) redirect("/dashboard/whatsapp/integrations?disconnect=invalid");
+  let destination: string;
+  try {
+    await disconnectWhatsAppCommerceIntegration({ businessId: context.businessId, actorUserId: context.userId, integrationId });
+    revalidatePath("/dashboard/whatsapp/integrations");
+    destination = "/dashboard/whatsapp/integrations?disconnect=complete";
+  } catch {
+    destination = "/dashboard/whatsapp/integrations?disconnect=failed";
+  }
+  redirect(destination);
 }
 
 export async function createWhatsAppAutomationAction(form: FormData) {

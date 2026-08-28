@@ -186,6 +186,7 @@ model Business {
   whatsappAutomationApiKeys WhatsAppAutomationApiKey[]
   whatsappAutomationCarts WhatsAppAutomationCart[]
   whatsappAutomationCartEvents WhatsAppAutomationCartEvent[]
+  whatsappCommerceIntegrations WhatsAppCommerceIntegration[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -1210,6 +1211,26 @@ model WhatsAppAutomationCartEvent {
   @@unique([businessId, externalEventId], map: "WhatsAppAutomationCartEvent_business_event_unique")
   @@index([businessId, cartId, occurredAt], map: "WhatsAppAutomationCartEvent_business_cart_idx")
   @@index([apiKeyId, createdAt], map: "WhatsAppAutomationCartEvent_key_created_idx")
+}
+
+model WhatsAppCommerceIntegration {
+  id String @id @default(uuid())
+  businessId String
+  provider String
+  externalStoreId String
+  displayName String?
+  status String @default("draft")
+  credentialEnvelope Json?
+  connectedAt DateTime?
+  disconnectedAt DateTime?
+  lastWebhookAt DateTime?
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  @@unique([businessId, provider, externalStoreId], map: "WhatsAppCommerceIntegration_tenant_store_unique")
+  @@unique([id, businessId], map: "WhatsAppCommerceIntegration_id_business_unique")
+  @@index([businessId, provider, status], map: "WhatsAppCommerceIntegration_business_status_idx")
 }
 
 model WhatsAppAutomationEvent {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ContactRound, FileText, Link2, MessageCircle, Megaphone, ShieldCheck, Workflow } from "lucide-react";
+import { ContactRound, FileText, Link2, MessageCircle, Megaphone, ShieldCheck, ShoppingBag, Workflow } from "lucide-react";
 import { db } from "../../lib/db";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../lib/whatsapp/rbac";
@@ -10,6 +10,7 @@ const cards = [
   { href: "/dashboard/whatsapp/templates", title: "قوالب Meta", text: "مزامنة القوالب الرسمية ومتابعة Approved وPending وRejected.", icon: FileText },
   { href: "/dashboard/whatsapp/campaigns", title: "الحملات الجماعية", text: "إنشاء الحملة وأخذ snapshot ثم الجدولة أو الإرسال عبر Queue وWorkers.", icon: Megaphone },
   { href: "/dashboard/whatsapp/automations", title: "الأتمتة الذكية", text: "تشغيل قوالب Meta من أحداث موثوقة عبر Queue مع إعادة فحص الموافقة وOpt-out.", icon: Workflow },
+  { href: "/dashboard/whatsapp/integrations", title: "تكاملات المتاجر", text: "سجل آمن لربط Salla وZid وShopify تمهيدًا لمزامنة السلة والأحداث الموثوقة.", icon: ShoppingBag },
   { href: "/dashboard/whatsapp/inbox", title: "خدمة العملاء", text: "إدارة المحادثات والرد ضمن نافذة الخدمة الرسمية.", icon: MessageCircle },
   { href: "/dashboard/whatsapp/setup", title: "ربط الرقم الرسمي", text: "Embedded Signup لربط WABA ورقم Meta الخاصين بالمنشأة.", icon: Link2 },
   { href: "/dashboard/whatsapp/audit", title: "الأمان والتدقيق", text: "مراجعة العمليات الحساسة دون عرض الرموز أو محتوى الرسائل.", icon: ShieldCheck },
