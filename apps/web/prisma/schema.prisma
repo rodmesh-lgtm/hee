@@ -25,6 +25,7 @@ model User {
   whatsappEmbeddedSignupSessions WhatsAppEmbeddedSignupSession[]
   businessMemberships BusinessMember[]
   whatsappAuditLogs WhatsAppAuditLog[]
+  whatsappAutomationsCreated WhatsAppAutomation[]
   @@index([email])
   @@index([emailVerifiedAt])
   @@index([deletedAt])
@@ -176,6 +177,10 @@ model Business {
   whatsappEmbeddedSignupSessions WhatsAppEmbeddedSignupSession[]
   members BusinessMember[]
   whatsappAuditLogs WhatsAppAuditLog[]
+  whatsappAutomations WhatsAppAutomation[]
+  whatsappAutomationEvents WhatsAppAutomationEvent[]
+  whatsappAutomationRuns WhatsAppAutomationRun[]
+  whatsappAutomationJobs WhatsAppAutomationJob[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -675,6 +680,8 @@ model WhatsAppConnection {
   deliveryJobs WhatsAppDeliveryJob[]
   rateBuckets WhatsAppSendRateBucket[]
   replyJobs WhatsAppReplyJob[]
+  automations WhatsAppAutomation[]
+  automationJobs WhatsAppAutomationJob[]
   @@unique([businessId, provider], map: "WhatsAppConnection_business_provider_unique")
   @@unique([provider, wabaId], map: "WhatsAppConnection_provider_waba_unique")
   @@unique([provider, phoneNumberId], map: "WhatsAppConnection_provider_phone_unique")
@@ -838,6 +845,8 @@ model WhatsAppContact {
   tagMemberships WhatsAppContactTagMembership[]
   segmentMemberships WhatsAppSegmentMembership[]
   campaignRecipients WhatsAppCampaignRecipient[]
+  automationRuns WhatsAppAutomationRun[]
+  automationJobs WhatsAppAutomationJob[]
   @@unique([businessId, phoneE164], map: "WhatsAppContact_business_phone_unique")
   @@unique([id, businessId], map: "WhatsAppContact_id_business_unique")
   @@index([businessId, optedOutAt], map: "WhatsAppContact_business_optout_idx")
@@ -938,6 +947,7 @@ model WhatsAppTemplate {
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   connection WhatsAppConnection @relation(fields: [connectionId, businessId], references: [id, businessId], onDelete: Restrict)
   campaigns WhatsAppCampaign[]
+  automationJobs WhatsAppAutomationJob[]
   @@unique([provider, providerTemplateId], map: "WhatsAppTemplate_provider_id_unique")
   @@unique([businessId, name, language], map: "WhatsAppTemplate_business_name_language_unique")
   @@unique([id, businessId], map: "WhatsAppTemplate_id_business_unique")
@@ -1069,6 +1079,117 @@ model WhatsAppReplyJob {
   @@index([status, nextAttemptAt], map: "WhatsAppReplyJob_ready_idx")
   @@index([businessId, conversationId, createdAt], map: "WhatsAppReplyJob_conversation_idx")
   @@index([leaseExpiresAt], map: "WhatsAppReplyJob_lease_idx")
+}
+
+model WhatsAppAutomation {
+  id String @id @default(uuid())
+  businessId String
+  connectionId String
+  name String
+  status String @default("draft")
+  triggerType String
+  triggerConfig Json
+  actionType String @default("send_template")
+  actionConfig Json
+  cooldownMinutes Int @default(1440)
+  createdByUserId String
+  activatedAt DateTime?
+  pausedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  connection WhatsAppConnection @relation(fields: [connectionId, businessId], references: [id, businessId], onDelete: Restrict)
+  createdBy User @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  events WhatsAppAutomationEvent[]
+  runs WhatsAppAutomationRun[]
+  jobs WhatsAppAutomationJob[]
+  @@unique([id, businessId], map: "WhatsAppAutomation_id_business_unique")
+  @@unique([id, businessId, connectionId], map: "WhatsAppAutomation_id_business_connection_unique")
+  @@index([businessId, status, triggerType], map: "WhatsAppAutomation_business_trigger_idx")
+}
+
+model WhatsAppAutomationEvent {
+  id String @id @default(uuid())
+  businessId String
+  automationId String?
+  source String
+  externalEventId String
+  triggerType String
+  subjectType String
+  subjectId String
+  contactId String?
+  occurredAt DateTime
+  status String @default("pending")
+  attemptCount Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  leaseOwner String?
+  leaseExpiresAt DateTime?
+  processingErrorCode String?
+  processedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  automation WhatsAppAutomation? @relation(fields: [automationId, businessId], references: [id, businessId], onDelete: Restrict)
+  runs WhatsAppAutomationRun[]
+  @@unique([businessId, source, externalEventId], map: "WhatsAppAutomationEvent_tenant_source_event_unique")
+  @@unique([id, businessId], map: "WhatsAppAutomationEvent_id_business_unique")
+  @@index([status, nextAttemptAt], map: "WhatsAppAutomationEvent_ready_idx")
+  @@index([businessId, triggerType, occurredAt], map: "WhatsAppAutomationEvent_tenant_trigger_idx")
+  @@index([leaseExpiresAt], map: "WhatsAppAutomationEvent_lease_idx")
+}
+
+model WhatsAppAutomationRun {
+  id String @id @default(uuid())
+  businessId String
+  automationId String
+  eventId String
+  contactId String
+  idempotencyKey String
+  status String @default("queued")
+  skipReason String?
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  automation WhatsAppAutomation @relation(fields: [automationId, businessId], references: [id, businessId], onDelete: Restrict)
+  event WhatsAppAutomationEvent @relation(fields: [eventId, businessId], references: [id, businessId], onDelete: Restrict)
+  contact WhatsAppContact @relation(fields: [contactId, businessId], references: [id, businessId], onDelete: Restrict)
+  job WhatsAppAutomationJob?
+  @@unique([automationId, eventId], map: "WhatsAppAutomationRun_automation_event_unique")
+  @@unique([id, businessId], map: "WhatsAppAutomationRun_id_business_unique")
+  @@unique([id, businessId, automationId], map: "WhatsAppAutomationRun_id_business_automation_unique")
+  @@unique([idempotencyKey], map: "WhatsAppAutomationRun_idempotency_unique")
+  @@index([businessId, automationId, contactId, createdAt], map: "WhatsAppAutomationRun_cooldown_idx")
+}
+
+model WhatsAppAutomationJob {
+  id String @id @default(uuid())
+  businessId String
+  automationId String
+  runId String @unique
+  connectionId String
+  contactId String
+  templateId String
+  idempotencyKey String @unique
+  templateParameters Json?
+  status String @default("queued")
+  attemptCount Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  leaseOwner String?
+  leaseExpiresAt DateTime?
+  providerMessageId String? @unique
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  automation WhatsAppAutomation @relation(fields: [automationId, businessId, connectionId], references: [id, businessId, connectionId], onDelete: Restrict)
+  run WhatsAppAutomationRun @relation(fields: [runId, businessId, automationId], references: [id, businessId, automationId], onDelete: Restrict)
+  connection WhatsAppConnection @relation(fields: [connectionId, businessId], references: [id, businessId], onDelete: Restrict)
+  contact WhatsAppContact @relation(fields: [contactId, businessId], references: [id, businessId], onDelete: Restrict)
+  template WhatsAppTemplate @relation(fields: [templateId, businessId, connectionId], references: [id, businessId, connectionId], onDelete: Restrict)
+  @@unique([runId, businessId, automationId], map: "WhatsAppAutomationJob_run_tenant_unique")
+  @@index([status, nextAttemptAt], map: "WhatsAppAutomationJob_ready_idx")
+  @@index([businessId, automationId, status], map: "WhatsAppAutomationJob_tenant_status_idx")
+  @@index([leaseExpiresAt], map: "WhatsAppAutomationJob_lease_idx")
 }
 
 model StoredObject {
