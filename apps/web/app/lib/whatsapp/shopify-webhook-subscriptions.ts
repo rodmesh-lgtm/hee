@@ -6,7 +6,7 @@ import { writeWhatsAppAuditLog } from "./audit";
 import { decryptCommerceCredential, type CommerceCredentialEnvelope } from "./commerce-credential-envelope";
 import { getShopifyConfig, shopifyWebhookCallbackUrl } from "./shopify-config";
 
-export const SHOPIFY_COMMERCE_WEBHOOK_TOPICS = ["CHECKOUTS_CREATE", "CHECKOUTS_UPDATE", "ORDERS_CREATE"] as const;
+export const SHOPIFY_COMMERCE_WEBHOOK_TOPICS = ["APP_UNINSTALLED", "CHECKOUTS_CREATE", "CHECKOUTS_UPDATE", "ORDERS_CREATE"] as const;
 const MAX_ATTEMPTS = 8;
 const LEASE_MS = 5 * 60_000;
 const FETCH_TIMEOUT_MS = 12_000;

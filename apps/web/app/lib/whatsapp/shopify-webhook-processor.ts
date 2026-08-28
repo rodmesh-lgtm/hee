@@ -65,6 +65,46 @@ async function fail(input: { database: PrismaClient; eventId: string; workerId: 
   return { processed: false as const, terminal, errorCode };
 }
 
+async function processAppUninstalled(input: {
+  database: PrismaClient;
+  eventId: string;
+  workerId: string;
+  businessId: string;
+  integrationId: string;
+  now: Date;
+}) {
+  return input.database.$transaction(async (tx) => {
+    const event = await tx.whatsAppShopifyWebhookEvent.findFirst({
+      where: { id: input.eventId, businessId: input.businessId, integrationId: input.integrationId, topic: "app/uninstalled", status: "processing", leaseOwner: input.workerId },
+      select: { id: true },
+    });
+    if (!event) throw new Error("WHATSAPP_SHOPIFY_WEBHOOK_LEASE_LOST");
+    const integration = await tx.whatsAppCommerceIntegration.updateMany({
+      where: { id: input.integrationId, businessId: input.businessId, provider: "shopify", status: { in: ["active", "disconnected"] } },
+      data: { status: "disconnected", credentialEnvelope: Prisma.DbNull, disconnectedAt: input.now, lastErrorCode: null },
+    });
+    if (integration.count !== 1) throw new Error("WHATSAPP_SHOPIFY_INTEGRATION_INACTIVE");
+    await tx.whatsAppShopifyWebhookSync.updateMany({
+      where: { integrationId: input.integrationId, businessId: input.businessId },
+      data: { status: "failed", leaseOwner: null, leaseExpiresAt: null, lastErrorCode: "SHOPIFY_APP_UNINSTALLED" },
+    });
+    await tx.whatsAppShopifyWebhookEvent.update({
+      where: { id: input.eventId },
+      data: { status: "processed", processedAt: input.now, leaseOwner: null, leaseExpiresAt: null, lastErrorCode: null },
+    });
+    await writeWhatsAppAuditLog({
+      businessId: input.businessId,
+      actorType: "worker",
+      action: "commerce.shopify.app.uninstalled",
+      targetType: "commerce_integration",
+      targetId: input.integrationId,
+      outcome: "success",
+      database: tx,
+    });
+    return { processed: true as const, ignored: false as const, disconnected: true as const };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
 export async function processShopifyWebhookEvent(input: {
   eventId: string;
   workerId: string;
@@ -79,9 +119,11 @@ export async function processShopifyWebhookEvent(input: {
       include: { integration: { select: { id: true, businessId: true, provider: true, status: true } } },
     });
     if (!event) throw new Error("WHATSAPP_SHOPIFY_WEBHOOK_LEASE_LOST");
-    if (event.integration.businessId !== event.businessId || event.integration.provider !== "shopify" || event.integration.status !== "active") {
+    if (event.integration.businessId !== event.businessId || event.integration.provider !== "shopify") {
       throw new Error("WHATSAPP_SHOPIFY_INTEGRATION_INACTIVE");
     }
+    if (event.topic === "app/uninstalled") return await processAppUninstalled({ database, eventId: event.id, workerId: input.workerId, businessId: event.businessId, integrationId: event.integrationId, now });
+    if (event.integration.status !== "active") throw new Error("WHATSAPP_SHOPIFY_INTEGRATION_INACTIVE");
     const mapping = mapShopifyCommerceWebhook({
       topic: event.topic,
       payload: event.payload,
