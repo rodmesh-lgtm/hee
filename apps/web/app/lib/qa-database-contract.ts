@@ -43,6 +43,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260827190000_whatsapp_campaign_snapshots",
   "20260827201500_whatsapp_delivery_queue",
   "20260828034500_whatsapp_reply_queue",
+  "20260828053000_whatsapp_embedded_signup",
 ] as const;
 
 export const EXPECTED_PREVIEW_LATEST_MIGRATION = EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

@@ -22,6 +22,7 @@ model User {
   authIdentities AuthIdentity[]
   createdAccessCodes SubscriptionAccessCode[] @relation("AccessCodeCreator")
   redeemedAccessGrants SubscriptionAccessGrant[] @relation("AccessGrantRedeemer")
+  whatsappEmbeddedSignupSessions WhatsAppEmbeddedSignupSession[]
   @@index([email])
   @@index([emailVerifiedAt])
   @@index([deletedAt])
@@ -170,6 +171,7 @@ model Business {
   whatsappDeliveryJobs WhatsAppDeliveryJob[]
   whatsappRateBuckets WhatsAppSendRateBucket[]
   whatsappReplyJobs WhatsAppReplyJob[]
+  whatsappEmbeddedSignupSessions WhatsAppEmbeddedSignupSession[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -675,6 +677,27 @@ model WhatsAppConnection {
   @@unique([id, businessId], map: "WhatsAppConnection_id_business_unique")
   @@unique([id, businessId, phoneNumberId], map: "WhatsAppConnection_id_business_phone_unique")
   @@index([businessId, status], map: "WhatsAppConnection_business_status_idx")
+}
+
+model WhatsAppEmbeddedSignupSession {
+  id String @id @default(uuid())
+  businessId String
+  initiatedByUserId String
+  stateDigest String @unique
+  status String @default("created")
+  wabaId String?
+  phoneNumberId String?
+  credentialEnvelope Json?
+  expiresAt DateTime
+  consumedAt DateTime?
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  initiatedBy User @relation(fields: [initiatedByUserId], references: [id], onDelete: Restrict)
+  @@unique([id, businessId], map: "WhatsAppEmbeddedSignupSession_id_business_unique")
+  @@index([businessId, status, expiresAt], map: "WhatsAppEmbeddedSignupSession_business_status_expiry_idx")
+  @@index([initiatedByUserId, createdAt], map: "WhatsAppEmbeddedSignupSession_user_created_idx")
 }
 
 model WhatsAppConsent {
