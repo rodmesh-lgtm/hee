@@ -5,14 +5,14 @@ import { ACTIVE_BUSINESS_COOKIE } from "../active-business";
 import { getCurrentUser, getCurrentUserForWrites } from "../auth";
 import { db } from "../db";
 
-export const WHATSAPP_PERMISSIONS = ["view", "reply", "campaign.manage", "connection.manage", "audit.view"] as const;
+export const WHATSAPP_PERMISSIONS = ["view", "reply", "campaign.manage", "automation.manage", "connection.manage", "audit.view"] as const;
 export type WhatsAppPermission = (typeof WHATSAPP_PERMISSIONS)[number];
 export type WhatsAppRole = "owner" | "admin" | "marketer" | "support" | "viewer";
 
 const ROLE_PERMISSIONS: Record<WhatsAppRole, ReadonlySet<WhatsAppPermission>> = {
   owner: new Set(WHATSAPP_PERMISSIONS),
   admin: new Set(WHATSAPP_PERMISSIONS),
-  marketer: new Set(["view", "reply", "campaign.manage"]),
+  marketer: new Set(["view", "reply", "campaign.manage", "automation.manage"]),
   support: new Set(["view", "reply"]),
   viewer: new Set(["view"]),
 };

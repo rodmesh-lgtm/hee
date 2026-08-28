@@ -5,11 +5,20 @@ import {
   automationRetryAt,
   normalizeAutomationTriggerType,
   readTemplateActionConfig,
+  templateHasVariables,
 } from "../app/lib/whatsapp/automation-domain";
 
 test("automation trigger validation is fail-closed", () => {
   assert.equal(normalizeAutomationTriggerType("welcome"), "welcome");
   assert.throws(() => normalizeAutomationTriggerType("arbitrary"), /TRIGGER_UNSUPPORTED/);
+});
+
+test("automation UI accepts only well-formed templates without unresolved variables", () => {
+  assert.equal(templateHasVariables([{ type: "BODY", text: "مرحبًا بك" }]), false);
+  assert.equal(templateHasVariables([{ type: "BODY", text: "مرحبًا {{1}}" }]), true);
+  assert.equal(templateHasVariables([{ type: "BODY", text: "مرحبًا {{customer_name}}" }]), true);
+  assert.equal(templateHasVariables({ type: "BODY", text: "malformed" }), true);
+  assert.equal(templateHasVariables(null), true);
 });
 
 test("automation idempotency includes tenant and event identity", () => {

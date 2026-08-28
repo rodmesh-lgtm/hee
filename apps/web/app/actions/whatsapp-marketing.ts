@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
+import { createWhatsAppAutomation, operateWhatsAppAutomation } from "../lib/whatsapp/automation-operations";
 import { cancelWhatsAppCampaign, pauseWhatsAppCampaign, resumeWhatsAppCampaign, scheduleWhatsAppCampaign } from "../lib/whatsapp/campaign-operations";
 import { snapshotWhatsAppCampaign } from "../lib/whatsapp/campaign-snapshot";
 import { enqueueContactImport, retryFailedContactImport } from "../lib/whatsapp/contact-import-processor";
@@ -25,6 +26,56 @@ async function campaignContext() {
   if (!context) redirect("/dashboard/whatsapp?access=denied");
   if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   return context;
+}
+
+async function automationContext() {
+  const context = await getWhatsAppWriteContext("automation.manage");
+  if (!context) redirect("/dashboard/whatsapp?access=denied");
+  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
+  return context;
+}
+
+export async function createWhatsAppAutomationAction(form: FormData) {
+  const context = await automationContext();
+  const name = field(form, "name", 120), triggerType = field(form, "triggerType", 40), templateId = field(form, "templateId", 128);
+  const cooldownRaw = String(form.get("cooldownMinutes") ?? "").trim();
+  if (!name || !triggerType || !templateId || !/^\d{1,6}$/.test(cooldownRaw)) redirect("/dashboard/whatsapp/automations?create=invalid");
+  let destination: string;
+  try {
+    const automation = await createWhatsAppAutomation({
+      businessId: context.businessId,
+      actorUserId: context.userId,
+      name,
+      triggerType,
+      templateId,
+      cooldownMinutes: Number(cooldownRaw),
+    });
+    revalidatePath("/dashboard/whatsapp/automations");
+    destination = `/dashboard/whatsapp/automations?create=complete&automation=${automation.id}`;
+  } catch {
+    destination = "/dashboard/whatsapp/automations?create=failed";
+  }
+  redirect(destination);
+}
+
+export async function operateWhatsAppAutomationAction(form: FormData) {
+  const context = await automationContext();
+  const automationId = field(form, "automationId", 128), operation = field(form, "operation", 20);
+  if (!automationId || !operation || !["activate", "pause", "resume"].includes(operation)) redirect("/dashboard/whatsapp/automations?operation=invalid");
+  let destination: string;
+  try {
+    await operateWhatsAppAutomation({
+      businessId: context.businessId,
+      actorUserId: context.userId,
+      automationId,
+      operation: operation as "activate" | "pause" | "resume",
+    });
+    revalidatePath("/dashboard/whatsapp/automations");
+    destination = `/dashboard/whatsapp/automations?operation=${operation}`;
+  } catch {
+    destination = "/dashboard/whatsapp/automations?operation=failed";
+  }
+  redirect(destination);
 }
 
 export async function importWhatsAppContactsAction(form: FormData) {
