@@ -110,15 +110,35 @@ async function processStatuses(tx: Tx, event: ClaimedEvent) {
     if (message.businessId !== event.businessId) throw new Error("WHATSAPP_STATUS_TENANT_MISMATCH");
 
     const next = nextWhatsAppMessageStatus(message.status as WhatsAppMessageStatus, receipt.status);
-    if (next === message.status) continue;
-    await tx.whatsAppMessage.update({
-      where: { id: message.id },
-      data: {
-        status: next,
-        ...statusTimestampPatch(next, receipt.providerTimestamp),
-        ...(next === "failed" ? { errorCode: receipt.errorCode, errorMessage: receipt.errorMessage } : {}),
-      },
+    if (next !== message.status) {
+      await tx.whatsAppMessage.update({
+        where: { id: message.id },
+        data: {
+          status: next,
+          ...statusTimestampPatch(next, receipt.providerTimestamp),
+          ...(next === "failed" ? { errorCode: receipt.errorCode, errorMessage: receipt.errorMessage } : {}),
+        },
+      });
+    }
+
+    const delivery = await tx.whatsAppDeliveryJob.findFirst({
+      where: { businessId: event.businessId, providerMessageId: receipt.providerMessageId },
+      select: { id: true, recipient: { select: { id: true, status: true } } },
     });
+    if (!delivery) continue;
+    const recipientNext = nextWhatsAppMessageStatus(delivery.recipient.status as WhatsAppMessageStatus, receipt.status);
+    if (recipientNext !== delivery.recipient.status) {
+      await tx.whatsAppCampaignRecipient.update({
+        where: { id: delivery.recipient.id },
+        data: { status: recipientNext, ...statusTimestampPatch(recipientNext, receipt.providerTimestamp) },
+      });
+    }
+    if (recipientNext === "failed") {
+      await tx.whatsAppDeliveryJob.update({
+        where: { id: delivery.id },
+        data: { status: "failed", lastErrorCode: receipt.errorCode, lastErrorMessage: receipt.errorMessage },
+      });
+    }
   }
 }
 

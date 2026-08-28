@@ -167,6 +167,8 @@ model Business {
   whatsappContactImports WhatsAppContactImport[]
   whatsappTemplates WhatsAppTemplate[]
   whatsappCampaigns WhatsAppCampaign[]
+  whatsappDeliveryJobs WhatsAppDeliveryJob[]
+  whatsappRateBuckets WhatsAppSendRateBucket[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -663,6 +665,8 @@ model WhatsAppConnection {
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   templates WhatsAppTemplate[]
   campaigns WhatsAppCampaign[]
+  deliveryJobs WhatsAppDeliveryJob[]
+  rateBuckets WhatsAppSendRateBucket[]
   @@unique([businessId, provider], map: "WhatsAppConnection_business_provider_unique")
   @@unique([provider, wabaId], map: "WhatsAppConnection_provider_waba_unique")
   @@unique([provider, phoneNumberId], map: "WhatsAppConnection_provider_phone_unique")
@@ -898,7 +902,9 @@ model WhatsAppCampaign {
   connection WhatsAppConnection @relation(fields: [connectionId, businessId], references: [id, businessId], onDelete: Restrict)
   template WhatsAppTemplate @relation(fields: [templateId, businessId, connectionId], references: [id, businessId, connectionId], onDelete: Restrict)
   recipients WhatsAppCampaignRecipient[]
+  deliveryJobs WhatsAppDeliveryJob[]
   @@unique([id, businessId], map: "WhatsAppCampaign_id_business_unique")
+  @@unique([id, businessId, connectionId], map: "WhatsAppCampaign_id_business_connection_unique")
   @@index([businessId, status, createdAt], map: "WhatsAppCampaign_business_status_idx")
   @@index([connectionId, status], map: "WhatsAppCampaign_connection_status_idx")
 }
@@ -922,9 +928,54 @@ model WhatsAppCampaignRecipient {
   updatedAt DateTime @updatedAt
   campaign WhatsAppCampaign @relation(fields: [campaignId, businessId], references: [id, businessId], onDelete: Restrict)
   contact WhatsAppContact @relation(fields: [contactId, businessId], references: [id, businessId], onDelete: Restrict)
+  deliveryJob WhatsAppDeliveryJob?
+  @@unique([id, businessId], map: "WhatsAppCampaignRecipient_id_business_unique")
+  @@unique([id, businessId, campaignId], map: "WhatsAppCampaignRecipient_id_business_campaign_unique")
   @@unique([campaignId, contactId], map: "WhatsAppCampaignRecipient_campaign_contact_unique")
   @@unique([campaignId, phoneE164], map: "WhatsAppCampaignRecipient_campaign_phone_unique")
   @@index([businessId, campaignId, status], map: "WhatsAppCampaignRecipient_business_status_idx")
+}
+
+model WhatsAppDeliveryJob {
+  id String @id @default(uuid())
+  businessId String
+  connectionId String
+  campaignId String
+  recipientId String
+  idempotencyKey String
+  status String @default("queued")
+  attemptCount Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  leaseOwner String?
+  leaseExpiresAt DateTime?
+  providerMessageId String?
+  lastErrorCode String?
+  lastErrorMessage String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  connection WhatsAppConnection @relation(fields: [connectionId, businessId], references: [id, businessId], onDelete: Restrict)
+  campaign WhatsAppCampaign @relation(fields: [campaignId, businessId, connectionId], references: [id, businessId, connectionId], onDelete: Restrict)
+  recipient WhatsAppCampaignRecipient @relation(fields: [recipientId, businessId, campaignId], references: [id, businessId, campaignId], onDelete: Restrict)
+  @@unique([recipientId], map: "WhatsAppDeliveryJob_recipient_unique")
+  @@unique([recipientId, businessId, campaignId], map: "WhatsAppDeliveryJob_recipient_tenant_campaign_unique")
+  @@unique([idempotencyKey], map: "WhatsAppDeliveryJob_idempotency_unique")
+  @@unique([providerMessageId], map: "WhatsAppDeliveryJob_provider_message_unique")
+  @@index([status, nextAttemptAt], map: "WhatsAppDeliveryJob_ready_idx")
+  @@index([businessId, campaignId, status], map: "WhatsAppDeliveryJob_campaign_status_idx")
+  @@index([leaseExpiresAt], map: "WhatsAppDeliveryJob_lease_idx")
+}
+
+model WhatsAppSendRateBucket {
+  connectionId String
+  businessId String
+  windowStart DateTime
+  sentCount Int @default(0)
+  updatedAt DateTime @updatedAt
+  connection WhatsAppConnection @relation(fields: [connectionId, businessId], references: [id, businessId], onDelete: Restrict)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  @@id([connectionId, windowStart])
+  @@index([businessId, windowStart], map: "WhatsAppSendRateBucket_business_window_idx")
 }
 
 model StoredObject {
