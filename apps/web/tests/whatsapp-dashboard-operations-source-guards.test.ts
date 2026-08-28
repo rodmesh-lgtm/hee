@@ -18,6 +18,9 @@ test("WhatsApp Marketing is a first-class customer dashboard section", () => {
   }
   assert.match(contacts, /accept="\.csv,\.xlsx/);
   assert.match(contacts, /10,000/);
+  assert.match(contacts, /ImportProgressRefresh/);
+  assert.match(contacts, /بانتظار المعالجة/);
+  assert.match(contacts, /retryWhatsAppContactImportAction/);
   assert.match(templates, /syncWhatsAppTemplatesAction/);
   assert.match(campaigns, /Queue وWorkers وRate Limiting/);
 });
@@ -36,9 +39,10 @@ test("campaign mutations are entitlement, RBAC and tenant scoped", () => {
 test("contact import never infers consent and preserves revoked evidence", () => {
   assert.match(contacts, /explicitConsent/);
   assert.match(contacts, /لا تحدد هذا الخيار لمجرد أن الأرقام لعملاء أو أصحاب طلبات/);
-  assert.match(actions, /consentConfirmed && evidence/);
-  assert.match(actions, /if \(existing\) continue/);
-  assert.match(actions, /source: "manual_import"/);
+  assert.match(actions, /consentConfirmed && !evidence/);
+  assert.match(actions, /consentEvidence: consentConfirmed \? evidence : null/);
+  assert.match(actions, /enqueueContactImport/);
+  assert.doesNotMatch(actions, /whatsAppConsent\.(create|upsert|update)/);
 });
 
 test("central admin gets a read-only credential-safe WhatsApp overview", () => {

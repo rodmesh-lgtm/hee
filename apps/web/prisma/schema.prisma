@@ -169,6 +169,7 @@ model Business {
   whatsappContactTags WhatsAppContactTag[]
   whatsappSegments WhatsAppSegment[]
   whatsappContactImports WhatsAppContactImport[]
+  whatsappContactImportBatches WhatsAppContactImportBatch[]
   whatsappTemplates WhatsAppTemplate[]
   whatsappCampaigns WhatsAppCampaign[]
   whatsappDeliveryJobs WhatsAppDeliveryJob[]
@@ -917,12 +918,39 @@ model WhatsAppContactImport {
   duplicateRows Int @default(0)
   rejectedRows Int @default(0)
   errorSummary Json?
+  consentConfirmed Boolean @default(false)
+  consentEvidence String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   completedAt DateTime?
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  batches WhatsAppContactImportBatch[]
   @@unique([businessId, fileSha256], map: "WhatsAppContactImport_business_file_unique")
+  @@unique([id, businessId], map: "WhatsAppContactImport_id_business_unique")
   @@index([businessId, createdAt], map: "WhatsAppContactImport_business_created_idx")
   @@index([status, createdAt], map: "WhatsAppContactImport_status_created_idx")
+}
+
+model WhatsAppContactImportBatch {
+  id String @id @default(uuid())
+  importId String
+  businessId String
+  batchIndex Int
+  rows Json
+  status String @default("queued")
+  attemptCount Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  leaseOwner String?
+  leaseExpiresAt DateTime?
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  contactImport WhatsAppContactImport @relation(fields: [importId, businessId], references: [id, businessId], onDelete: Restrict)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  @@unique([importId, batchIndex], map: "WhatsAppContactImportBatch_import_index_unique")
+  @@index([status, nextAttemptAt], map: "WhatsAppContactImportBatch_ready_idx")
+  @@index([businessId, importId, status], map: "WhatsAppContactImportBatch_tenant_status_idx")
+  @@index([leaseExpiresAt], map: "WhatsAppContactImportBatch_lease_idx")
 }
 
 model WhatsAppTemplate {
