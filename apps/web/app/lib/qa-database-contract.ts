@@ -52,6 +52,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260828180000_whatsapp_abandoned_cart_lifecycle",
   "20260828183000_whatsapp_commerce_integration_registry",
   "20260828191500_whatsapp_shopify_oauth_activation",
+  "20260828200000_whatsapp_shopify_webhook_inbox",
 ] as const;
 
 export const EXPECTED_PREVIEW_LATEST_MIGRATION = EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

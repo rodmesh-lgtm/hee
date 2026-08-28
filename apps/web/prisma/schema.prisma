@@ -189,6 +189,7 @@ model Business {
   whatsappAutomationCartEvents WhatsAppAutomationCartEvent[]
   whatsappCommerceIntegrations WhatsAppCommerceIntegration[]
   whatsappCommerceOAuthSessions WhatsAppCommerceOAuthSession[]
+  whatsappShopifyWebhookEvents WhatsAppShopifyWebhookEvent[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -1231,6 +1232,7 @@ model WhatsAppCommerceIntegration {
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   oauthSessions WhatsAppCommerceOAuthSession[]
+  shopifyWebhookEvents WhatsAppShopifyWebhookEvent[]
   @@unique([businessId, provider, externalStoreId], map: "WhatsAppCommerceIntegration_tenant_store_unique")
   @@unique([id, businessId], map: "WhatsAppCommerceIntegration_id_business_unique")
   @@index([businessId, provider, status], map: "WhatsAppCommerceIntegration_business_status_idx")
@@ -1254,6 +1256,27 @@ model WhatsAppCommerceOAuthSession {
   @@unique([id, businessId], map: "WhatsAppCommerceOAuthSession_id_business_unique")
   @@index([businessId, integrationId, status, expiresAt], map: "WhatsAppCommerceOAuthSession_integration_status_idx")
   @@index([initiatedByUserId, createdAt], map: "WhatsAppCommerceOAuthSession_user_created_idx")
+}
+
+model WhatsAppShopifyWebhookEvent {
+  id String @id @default(uuid())
+  businessId String
+  integrationId String
+  webhookId String @unique
+  topic String
+  eventId String?
+  apiVersion String
+  triggeredAt DateTime?
+  payload Json
+  receivedAt DateTime @default(now())
+  processedAt DateTime?
+  attemptCount Int @default(0)
+  lastErrorCode String?
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  integration WhatsAppCommerceIntegration @relation(fields: [integrationId, businessId], references: [id, businessId], onDelete: Restrict)
+  @@unique([id, businessId], map: "WhatsAppShopifyWebhookEvent_id_business_unique")
+  @@index([businessId, processedAt, receivedAt], map: "WhatsAppShopifyWebhookEvent_business_pending_idx")
+  @@index([integrationId, receivedAt], map: "WhatsAppShopifyWebhookEvent_integration_received_idx")
 }
 
 model WhatsAppAutomationEvent {
