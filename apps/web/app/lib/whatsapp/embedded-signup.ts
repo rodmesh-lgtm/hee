@@ -139,8 +139,8 @@ export async function completeEmbeddedSignup(input: {
       if (collision) throw new Error("WHATSAPP_ASSET_ALREADY_ASSIGNED");
       await tx.whatsAppConnection.upsert({
         where: { businessId_provider: { businessId: input.businessId, provider: "meta" } },
-        create: { businessId: input.businessId, provider: "meta", status: "active", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, displayPhoneNumber: phone.displayPhoneNumber, verifiedName: phone.verifiedName, credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue, connectedAt: new Date() },
-        update: { status: "active", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, displayPhoneNumber: phone.displayPhoneNumber, verifiedName: phone.verifiedName, credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue, connectedAt: new Date(), disabledAt: null, lastErrorCode: null },
+        create: { businessId: input.businessId, provider: "meta", status: "connected", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, displayPhoneNumber: phone.displayPhoneNumber, verifiedName: phone.verifiedName, credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue, connectedAt: new Date() },
+        update: { status: "connected", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, displayPhoneNumber: phone.displayPhoneNumber, verifiedName: phone.verifiedName, credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue, connectedAt: new Date(), disabledAt: null, lastErrorCode: null },
       });
       await tx.whatsAppEmbeddedSignupSession.update({ where: { id: session.id }, data: { status: "connected", consumedAt: new Date(), lastErrorCode: null, credentialEnvelope: Prisma.JsonNull } });
     });

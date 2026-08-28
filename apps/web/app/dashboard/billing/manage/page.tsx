@@ -48,7 +48,7 @@ function accessCodeMessage(code?: string) {
   return code ? map[code] : undefined;
 }
 
-export default async function BillingManagePage({ searchParams }: { searchParams: Promise<{ billing?: string; code?: string }> }) {
+export default async function BillingManagePage({ searchParams }: { searchParams: Promise<{ billing?: string; code?: string; feature?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const business = await getActiveBusinessWithPlanForUser(user.id);
@@ -93,6 +93,7 @@ export default async function BillingManagePage({ searchParams }: { searchParams
       {params.billing === "renewal-processing-future-canceled" ? <div role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-7 font-bold text-amber-950"><b>تم إيقاف التجديد للدورات المستقبلية الآن.</b><br />كانت دفعة التجديد الحالية قد بدأت بالفعل لدى مزود الدفع قبل طلب الإلغاء، لذلك قد تكتمل هذه العملية الجارية. لن تُستخدم وسيلة الدفع المحفوظة لدورة لاحقة. إذا اكتملت الدفعة الحالية فستُمنح الفترة التي دُفعت قيمتها، مع بقاء التجديد التالي متوقفًا.</div> : null}
       {codeMessage ? <div role="status" className={`mt-4 rounded-2xl border p-3 text-sm font-bold leading-6 ${codeMessage.tone}`}>{codeMessage.text}</div> : null}
       {staleExpiredSubscription ? <div role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 font-bold text-amber-950">انتهت الفترة المدفوعة المسجلة. يتم التعامل مع الصلاحيات الآن وفق الباقة الفعالة، حتى لو تأخرت مهمة التسوية الخلفية في تحديث السجل التاريخي.</div> : null}
+      {params.feature === "whatsapp-marketing" ? <div role="status" className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 p-3 text-sm leading-7 font-bold text-violet-900">ميزة WhatsApp Marketing تتطلب باقة iR مدفوعة وفعالة. اشتراك iR يغطي استخدام المنصة فقط؛ رسوم محادثات ورسائل Meta وأي رصيد مرتبط بها تحاسبها Meta بصورة مستقلة ولا تسجل كإيراد اشتراك iR.</div> : null}
     </section>
 
     <section className="grid gap-3 sm:grid-cols-2">

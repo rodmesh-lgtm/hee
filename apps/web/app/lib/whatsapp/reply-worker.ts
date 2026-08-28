@@ -6,6 +6,7 @@ import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./cr
 import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, retryDelayMs, WHATSAPP_DELIVERY_MAX_ATTEMPTS } from "./delivery-domain";
 import { whatsAppCustomerServiceWindow } from "./inbox-domain";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "./meta-config";
+import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
 
 type Job = { id: string; businessId: string; connectionId: string; conversationId: string; attemptCount: number };
 const record = (value: unknown) => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -27,6 +28,7 @@ export async function processNextWhatsAppReply(input: { database?: PrismaClient;
   const database = input.database ?? db, now = input.now ?? new Date(), env = input.env ?? process.env;
   assertOutboundEnabled(env);
   const job = await claim(database, input.workerId ?? randomUUID(), now); if (!job) return { processed: false as const };
+  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: job.businessId, database, now })) { await release(database, job.id, "cancelled", { lastErrorCode: "WHATSAPP_MARKETING_ENTITLEMENT_REQUIRED" }); return { processed: true as const, result: "entitlement_required" as const }; }
   const context = await database.whatsAppReplyJob.findFirst({ where: { id: job.id, businessId: job.businessId, connectionId: job.connectionId, conversationId: job.conversationId }, select: { id: true, textBody: true, conversation: { select: { id: true, customerPhoneE164: true, lastInboundAt: true } }, connection: { select: { provider: true, status: true, phoneNumberId: true, credentialEnvelope: true } } } });
   if (!context) throw new Error("WHATSAPP_REPLY_CONTEXT_MISSING");
   if (!whatsAppCustomerServiceWindow(context.conversation.lastInboundAt, now).open) { await release(database, job.id, "cancelled", { lastErrorCode: "CUSTOMER_SERVICE_WINDOW_CLOSED" }); return { processed: true as const, result: "window_closed" as const }; }
