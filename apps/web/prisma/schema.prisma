@@ -26,6 +26,7 @@ model User {
   businessMemberships BusinessMember[]
   whatsappAuditLogs WhatsAppAuditLog[]
   whatsappAutomationsCreated WhatsAppAutomation[]
+  whatsappAutomationApiKeysCreated WhatsAppAutomationApiKey[]
   @@index([email])
   @@index([emailVerifiedAt])
   @@index([deletedAt])
@@ -182,6 +183,7 @@ model Business {
   whatsappAutomationEvents WhatsAppAutomationEvent[]
   whatsappAutomationRuns WhatsAppAutomationRun[]
   whatsappAutomationJobs WhatsAppAutomationJob[]
+  whatsappAutomationApiKeys WhatsAppAutomationApiKey[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -1146,6 +1148,24 @@ model WhatsAppAutomation {
   @@unique([id, businessId], map: "WhatsAppAutomation_id_business_unique")
   @@unique([id, businessId, connectionId], map: "WhatsAppAutomation_id_business_connection_unique")
   @@index([businessId, status, triggerType], map: "WhatsAppAutomation_business_trigger_idx")
+}
+
+model WhatsAppAutomationApiKey {
+  id String @id @default(uuid())
+  businessId String
+  name String
+  keyPrefix String @unique
+  keyHash String
+  status String @default("active")
+  createdByUserId String
+  lastUsedAt DateTime?
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  createdBy User @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  @@unique([id, businessId], map: "WhatsAppAutomationApiKey_id_business_unique")
+  @@index([businessId, status, createdAt], map: "WhatsAppAutomationApiKey_business_status_idx")
 }
 
 model WhatsAppAutomationEvent {

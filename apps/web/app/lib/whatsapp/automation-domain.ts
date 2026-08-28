@@ -7,7 +7,7 @@ export const WHATSAPP_AUTOMATION_TRIGGER_TYPES = [
 
 export type WhatsAppAutomationTriggerType = typeof WHATSAPP_AUTOMATION_TRIGGER_TYPES[number];
 export const WHATSAPP_CONFIGURABLE_TRIGGER_TYPES = [
-  "welcome", "appointment_reminder", "follow_up", "order_update", "inactive_customer",
+  "welcome", "appointment_reminder", "follow_up", "order_update", "inactive_customer", "api_event",
 ] as const satisfies readonly WhatsAppAutomationTriggerType[];
 
 export const WHATSAPP_ORDER_EVENT_STATUSES = ["pending", "confirmed", "processing", "completed", "cancelled"] as const;
@@ -56,7 +56,13 @@ export function templateHasVariables(value: unknown) {
   }
 }
 
-export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStatus?: string, reminderLeadMinutes?: number, inactiveDays?: number) {
+export function normalizeAutomationApiEventName(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (!/^[a-z][a-z0-9_.:-]{0,63}$/.test(normalized)) throw new Error("WHATSAPP_AUTOMATION_API_EVENT_NAME_INVALID");
+  return normalized;
+}
+
+export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStatus?: string, reminderLeadMinutes?: number, inactiveDays?: number, apiEventName?: string) {
   const triggerType = normalizeAutomationTriggerType(triggerTypeValue);
   if (triggerType === "appointment_reminder") {
     if (!Number.isSafeInteger(reminderLeadMinutes) || reminderLeadMinutes! < 15 || reminderLeadMinutes! > 10_080) {
@@ -70,6 +76,7 @@ export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStat
     }
     return { version: 1, inactiveDays: inactiveDays! } as const;
   }
+  if (triggerType === "api_event") return { version: 1, eventName: normalizeAutomationApiEventName(apiEventName ?? "") } as const;
   if (triggerType !== "order_update") return { version: 1 } as const;
   if (!(WHATSAPP_ORDER_EVENT_STATUSES as readonly string[]).includes(orderStatus ?? "")) {
     throw new Error("WHATSAPP_AUTOMATION_ORDER_STATUS_INVALID");
@@ -83,7 +90,8 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
   const record = value as Record<string, unknown>;
   const allowedKeys = triggerType === "order_update" ? ["version", "orderStatuses"]
     : triggerType === "appointment_reminder" ? ["version", "leadMinutes"]
-      : triggerType === "inactive_customer" ? ["version", "inactiveDays"] : ["version"];
+      : triggerType === "inactive_customer" ? ["version", "inactiveDays"]
+        : triggerType === "api_event" ? ["version", "eventName"] : ["version"];
   if (Object.keys(record).some((key) => !allowedKeys.includes(key)) || record.version !== 1) {
     throw new Error("WHATSAPP_AUTOMATION_TRIGGER_CONFIG_INVALID");
   }
@@ -99,6 +107,7 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
     }
     return { version: 1, inactiveDays: Number(record.inactiveDays) } as const;
   }
+  if (triggerType === "api_event") return { version: 1, eventName: normalizeAutomationApiEventName(String(record.eventName ?? "")) } as const;
   if (triggerType !== "order_update") return { version: 1 } as const;
   if (!Array.isArray(record.orderStatuses) || record.orderStatuses.length < 1 || record.orderStatuses.length > WHATSAPP_ORDER_EVENT_STATUSES.length) {
     throw new Error("WHATSAPP_AUTOMATION_ORDER_STATUS_INVALID");
@@ -117,7 +126,7 @@ export function automationMatchesEvent(input: { triggerType: string; triggerConf
   if (input.triggerType === "follow_up") return input.subjectType === "order.completed" || input.subjectType === "booking.completed";
   if (input.triggerType === "inactive_customer") return input.subjectType === "customer.inactive";
   if (input.triggerType === "abandoned_cart") return input.subjectType === "cart.abandoned";
-  if (input.triggerType === "api_event") return input.subjectType.startsWith("api.event.");
+  if (input.triggerType === "api_event") return "eventName" in config && input.subjectType === `api.event.${config.eventName}`;
   if (input.triggerType !== "order_update") return false;
   const prefix = "order.status.";
   if (!input.subjectType.startsWith(prefix)) return false;

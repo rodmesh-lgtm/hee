@@ -54,9 +54,10 @@ test("durable operations runs schedules before event and delivery workers", () =
   assert.match(packageJson, /"whatsapp:automation-schedules"/);
 });
 
-test("UI and server reject triggers without a trusted source", () => {
+test("UI and server reject triggers that still lack a trusted source", () => {
   assert.match(page, /disabled=\{!configurableTriggers\.has\(trigger\)\}/);
-  assert.match(page, /السلة المتروكة وحدث API غير متاحين للإنشاء/);
+  assert.match(page, /السلة المتروكة تبقى معطلة حتى يتوفر مصدر موثوق/);
+  assert.match(page, /حدث API لا يقبل إلا اسم الحدث المضبوط/);
   assert.match(automationOperations, /WHATSAPP_AUTOMATION_TRIGGER_SOURCE_UNAVAILABLE/);
   assert.match(automationOperations, /WHATSAPP_CONFIGURABLE_TRIGGER_TYPES/);
 });
