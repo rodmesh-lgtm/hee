@@ -65,6 +65,18 @@ export async function updateOrderStatusAction(formData: FormData) {
       subjectId: order.id,
       customerPhone: order.customer.phone,
     });
+    if (nextStatus === "completed") {
+      await emitInternalWhatsAppAutomationEvent({
+        database: tx,
+        businessId: business.id,
+        source: "ir.order.follow-up",
+        externalEventId: `${order.id}:completed`,
+        triggerType: "follow_up",
+        subjectType: "order.completed",
+        subjectId: order.id,
+        customerPhone: order.customer.phone,
+      });
+    }
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   refresh();
 }
@@ -98,6 +110,18 @@ export async function updateBookingStatusAction(formData: FormData) {
       });
     } else {
       await cancelWhatsAppAppointmentReminders({ database: tx, businessId: business.id, bookingId: booking.id });
+      if (nextStatus === "completed") {
+        await emitInternalWhatsAppAutomationEvent({
+          database: tx,
+          businessId: business.id,
+          source: "ir.booking.follow-up",
+          externalEventId: `${booking.id}:completed`,
+          triggerType: "follow_up",
+          subjectType: "booking.completed",
+          subjectId: booking.id,
+          customerPhone: booking.customer.phone,
+        });
+      }
     }
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   refresh();

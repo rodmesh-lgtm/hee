@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "./audit";
+import { emitWhatsAppWelcomeEventsForConsentImport } from "./automation-event-producer";
 import type { ContactImportFormat, ParsedContactImport, ParsedContactImportRow } from "./contact-import";
 
 const IMPORT_CHUNK_SIZE = 500;
@@ -167,9 +168,35 @@ async function completeClaimedBatch(database: PrismaClient, claimed: ClaimedBatc
       return row.tags.flatMap((tag) => { const tagId = tagByName.get(tag); return tagId ? [{ businessId: claimed.businessId, contactId, tagId }] : []; });
     });
     if (memberships.length) await tx.whatsAppContactTagMembership.createMany({ data: memberships, skipDuplicates: true });
+    const existingConsents = batch.contactImport.consentConfirmed && batch.contactImport.consentEvidence
+      ? await tx.whatsAppConsent.findMany({
+        where: { businessId: claimed.businessId, phoneE164: { in: phones } },
+        select: { phoneE164: true },
+      })
+      : [];
+    const existingConsentPhones = new Set(existingConsents.map((consent) => consent.phoneE164));
+    const newConsentRows = rows.filter((row) => !existingConsentPhones.has(row.phoneE164));
+    const newConsentEntries = newConsentRows.map((row) => ({
+      id: randomUUID(), businessId: claimed.businessId, phoneE164: row.phoneE164,
+      source: "manual_import", evidence: batch.contactImport.consentEvidence!, consentedAt: now,
+    }));
     const consented = batch.contactImport.consentConfirmed && batch.contactImport.consentEvidence
-      ? await tx.whatsAppConsent.createMany({ data: rows.map((row) => ({ id: randomUUID(), businessId: claimed.businessId, phoneE164: row.phoneE164, source: "manual_import", evidence: batch.contactImport.consentEvidence!, consentedAt: now })), skipDuplicates: true })
+      ? await tx.whatsAppConsent.createMany({ data: newConsentEntries, skipDuplicates: true })
       : { count: 0 };
+    if (consented.count > 0) {
+      const insertedConsents = await tx.whatsAppConsent.findMany({
+        where: { businessId: claimed.businessId, id: { in: newConsentEntries.map((entry) => entry.id) } },
+        select: { phoneE164: true },
+      });
+      const welcomeContacts = insertedConsents.flatMap((consent) => {
+        const id = contactByPhone.get(consent.phoneE164);
+        return id ? [{ id, phoneE164: consent.phoneE164 }] : [];
+      });
+      await emitWhatsAppWelcomeEventsForConsentImport({
+        database: tx, businessId: claimed.businessId, importId: claimed.importId,
+        contacts: welcomeContacts, occurredAt: now,
+      });
+    }
     const duplicateRows = rows.length - created.count;
     await tx.whatsAppContactImportBatch.update({ where: { id: batch.id }, data: { status: "completed", leaseOwner: null, leaseExpiresAt: null, completedAt: now } });
     const contactImport = await tx.whatsAppContactImport.update({
