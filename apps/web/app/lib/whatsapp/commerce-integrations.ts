@@ -62,6 +62,10 @@ export async function disconnectWhatsAppCommerceIntegration(input: {
     const integration = rows[0];
     if (!integration) throw new Error("WHATSAPP_COMMERCE_INTEGRATION_NOT_FOUND");
     const alreadyDisconnected = integration.status === "disconnected";
+    await tx.whatsAppCommerceOAuthSession.updateMany({
+      where: { businessId: input.businessId, integrationId: integration.id, status: { in: ["created", "exchanging"] } },
+      data: { status: "cancelled", consumedAt: now, lastErrorCode: "integration_disconnected" },
+    });
     if (!alreadyDisconnected) await tx.whatsAppCommerceIntegration.updateMany({
       where: { id: integration.id, businessId: input.businessId, status: { in: ["draft", "active"] } },
       data: { status: "disconnected", credentialEnvelope: Prisma.DbNull, disconnectedAt: now, lastErrorCode: null },

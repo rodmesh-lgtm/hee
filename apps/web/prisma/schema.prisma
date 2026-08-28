@@ -23,6 +23,7 @@ model User {
   createdAccessCodes SubscriptionAccessCode[] @relation("AccessCodeCreator")
   redeemedAccessGrants SubscriptionAccessGrant[] @relation("AccessGrantRedeemer")
   whatsappEmbeddedSignupSessions WhatsAppEmbeddedSignupSession[]
+  whatsappCommerceOAuthSessions WhatsAppCommerceOAuthSession[]
   businessMemberships BusinessMember[]
   whatsappAuditLogs WhatsAppAuditLog[]
   whatsappAutomationsCreated WhatsAppAutomation[]
@@ -187,6 +188,7 @@ model Business {
   whatsappAutomationCarts WhatsAppAutomationCart[]
   whatsappAutomationCartEvents WhatsAppAutomationCartEvent[]
   whatsappCommerceIntegrations WhatsAppCommerceIntegration[]
+  whatsappCommerceOAuthSessions WhatsAppCommerceOAuthSession[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -1228,9 +1230,30 @@ model WhatsAppCommerceIntegration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  oauthSessions WhatsAppCommerceOAuthSession[]
   @@unique([businessId, provider, externalStoreId], map: "WhatsAppCommerceIntegration_tenant_store_unique")
   @@unique([id, businessId], map: "WhatsAppCommerceIntegration_id_business_unique")
   @@index([businessId, provider, status], map: "WhatsAppCommerceIntegration_business_status_idx")
+}
+
+model WhatsAppCommerceOAuthSession {
+  id String @id @default(uuid())
+  businessId String
+  integrationId String
+  initiatedByUserId String
+  stateDigest String @unique
+  status String @default("created")
+  expiresAt DateTime
+  consumedAt DateTime?
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  integration WhatsAppCommerceIntegration @relation(fields: [integrationId, businessId], references: [id, businessId], onDelete: Restrict)
+  initiatedBy User @relation(fields: [initiatedByUserId], references: [id], onDelete: Restrict)
+  @@unique([id, businessId], map: "WhatsAppCommerceOAuthSession_id_business_unique")
+  @@index([businessId, integrationId, status, expiresAt], map: "WhatsAppCommerceOAuthSession_integration_status_idx")
+  @@index([initiatedByUserId, createdAt], map: "WhatsAppCommerceOAuthSession_user_created_idx")
 }
 
 model WhatsAppAutomationEvent {

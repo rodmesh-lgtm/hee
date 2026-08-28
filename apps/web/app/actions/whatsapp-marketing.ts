@@ -16,6 +16,7 @@ import { MAX_CONTACT_IMPORT_BYTES, parseContactImport, type ContactImportFormat 
 import { enqueueWhatsAppCampaign } from "../lib/whatsapp/delivery-queue";
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
 import { getWhatsAppWriteContext } from "../lib/whatsapp/rbac";
+import { createShopifyAuthorization } from "../lib/whatsapp/shopify-commerce";
 import { syncMetaWhatsAppTemplates } from "../lib/whatsapp/template-sync";
 
 const field = (form: FormData, key: string, max: number) => {
@@ -73,6 +74,21 @@ export async function disconnectWhatsAppCommerceIntegrationAction(form: FormData
     destination = "/dashboard/whatsapp/integrations?disconnect=failed";
   }
   redirect(destination);
+}
+
+export async function startShopifyCommerceOAuthAction(form: FormData) {
+  const context = await integrationContext();
+  const integrationId = field(form, "integrationId", 128);
+  if (!integrationId) redirect("/dashboard/whatsapp/integrations?shopify=invalid");
+  let authorizationUrl: string;
+  try {
+    authorizationUrl = await createShopifyAuthorization({ businessId: context.businessId, userId: context.userId, integrationId });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    const result = code.startsWith("SHOPIFY_CONFIG_INVALID") ? "not-configured" : "start-failed";
+    redirect(`/dashboard/whatsapp/integrations?shopify=${result}`);
+  }
+  redirect(authorizationUrl!);
 }
 
 export async function createWhatsAppAutomationAction(form: FormData) {
