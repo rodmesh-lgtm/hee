@@ -35,7 +35,8 @@
     "whatsapp:webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-webhook-worker.ts",
     "whatsapp:deliveries": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-delivery-worker.ts",
     "whatsapp:campaigns": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-campaign-scheduler.ts",
-    "whatsapp:replies": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-reply-worker.ts"
+    "whatsapp:replies": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-reply-worker.ts",
+    "whatsapp:automations": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-automation-worker.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
