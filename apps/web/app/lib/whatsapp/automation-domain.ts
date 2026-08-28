@@ -9,6 +9,7 @@ export type WhatsAppAutomationTriggerType = typeof WHATSAPP_AUTOMATION_TRIGGER_T
 
 export const WHATSAPP_ORDER_EVENT_STATUSES = ["pending", "confirmed", "processing", "completed", "cancelled"] as const;
 export type WhatsAppOrderEventStatus = typeof WHATSAPP_ORDER_EVENT_STATUSES[number];
+export const WHATSAPP_APPOINTMENT_LEAD_MINUTES = [30, 60, 180, 1440, 2880, 10080] as const;
 
 export function normalizeAutomationTriggerType(value: string): WhatsAppAutomationTriggerType {
   if (!(WHATSAPP_AUTOMATION_TRIGGER_TYPES as readonly string[]).includes(value)) {
@@ -51,8 +52,14 @@ export function templateHasVariables(value: unknown) {
   }
 }
 
-export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStatus?: string) {
+export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStatus?: string, reminderLeadMinutes?: number) {
   const triggerType = normalizeAutomationTriggerType(triggerTypeValue);
+  if (triggerType === "appointment_reminder") {
+    if (!Number.isSafeInteger(reminderLeadMinutes) || reminderLeadMinutes! < 15 || reminderLeadMinutes! > 10_080) {
+      throw new Error("WHATSAPP_AUTOMATION_REMINDER_LEAD_INVALID");
+    }
+    return { version: 1, leadMinutes: reminderLeadMinutes! } as const;
+  }
   if (triggerType !== "order_update") return { version: 1 } as const;
   if (!(WHATSAPP_ORDER_EVENT_STATUSES as readonly string[]).includes(orderStatus ?? "")) {
     throw new Error("WHATSAPP_AUTOMATION_ORDER_STATUS_INVALID");
@@ -64,9 +71,16 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
   const triggerType = normalizeAutomationTriggerType(triggerTypeValue);
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("WHATSAPP_AUTOMATION_TRIGGER_CONFIG_INVALID");
   const record = value as Record<string, unknown>;
-  const allowedKeys = triggerType === "order_update" ? ["version", "orderStatuses"] : ["version"];
+  const allowedKeys = triggerType === "order_update" ? ["version", "orderStatuses"]
+    : triggerType === "appointment_reminder" ? ["version", "leadMinutes"] : ["version"];
   if (Object.keys(record).some((key) => !allowedKeys.includes(key)) || record.version !== 1) {
     throw new Error("WHATSAPP_AUTOMATION_TRIGGER_CONFIG_INVALID");
+  }
+  if (triggerType === "appointment_reminder") {
+    if (!Number.isSafeInteger(record.leadMinutes) || Number(record.leadMinutes) < 15 || Number(record.leadMinutes) > 10_080) {
+      throw new Error("WHATSAPP_AUTOMATION_REMINDER_LEAD_INVALID");
+    }
+    return { version: 1, leadMinutes: Number(record.leadMinutes) } as const;
   }
   if (triggerType !== "order_update") return { version: 1 } as const;
   if (!Array.isArray(record.orderStatuses) || record.orderStatuses.length < 1 || record.orderStatuses.length > WHATSAPP_ORDER_EVENT_STATUSES.length) {
@@ -81,9 +95,20 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
 
 export function automationMatchesEvent(input: { triggerType: string; triggerConfig: unknown; subjectType: string }) {
   const config = readAutomationTriggerConfig(input.triggerConfig, input.triggerType);
+  if (input.triggerType === "appointment_reminder") return input.subjectType === "booking.reminder";
   if (input.triggerType !== "order_update") return true;
   const prefix = "order.status.";
   if (!input.subjectType.startsWith(prefix)) return false;
   return "orderStatuses" in config && Array.isArray(config.orderStatuses)
     && config.orderStatuses.includes(input.subjectType.slice(prefix.length) as WhatsAppOrderEventStatus);
+}
+
+export function appointmentAtRiyadh(bookingDate: string, bookingTime: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(bookingDate);
+  if (!match || !/^([01]\d|2[0-3]):[0-5]\d$/.test(bookingTime)) return null;
+  const [year, month, day] = match.slice(1).map(Number);
+  const calendarDate = new Date(Date.UTC(year, month - 1, day));
+  if (calendarDate.getUTCFullYear() !== year || calendarDate.getUTCMonth() !== month - 1 || calendarDate.getUTCDate() !== day) return null;
+  const value = new Date(`${bookingDate}T${bookingTime}:00+03:00`);
+  return Number.isNaN(value.getTime()) ? null : value;
 }

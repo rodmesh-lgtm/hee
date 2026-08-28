@@ -16,6 +16,17 @@ test("automation trigger validation is fail-closed", () => {
   assert.throws(() => normalizeAutomationTriggerType("arbitrary"), /TRIGGER_UNSUPPORTED/);
 });
 
+test("appointment reminders require a bounded explicit lead time", () => {
+  const config = buildAutomationTriggerConfig("appointment_reminder", undefined, 1440);
+  assert.deepEqual(config, { version: 1, leadMinutes: 1440 });
+  assert.deepEqual(readAutomationTriggerConfig(config, "appointment_reminder"), config);
+  assert.equal(automationMatchesEvent({ triggerType: "appointment_reminder", triggerConfig: config, subjectType: "booking.reminder" }), true);
+  assert.equal(automationMatchesEvent({ triggerType: "appointment_reminder", triggerConfig: config, subjectType: "booking.confirmed" }), false);
+  assert.throws(() => buildAutomationTriggerConfig("appointment_reminder", undefined, 5), /REMINDER_LEAD_INVALID/);
+  assert.throws(() => readAutomationTriggerConfig({ version: 1 }, "appointment_reminder"), /REMINDER_LEAD_INVALID/);
+  assert.throws(() => readAutomationTriggerConfig({ version: 1, leadMinutes: 20000 }, "appointment_reminder"), /REMINDER_LEAD_INVALID/);
+});
+
 test("order update automations require an explicit finite status filter", () => {
   const config = buildAutomationTriggerConfig("order_update", "confirmed");
   assert.deepEqual(config, { version: 1, orderStatuses: ["confirmed"] });
