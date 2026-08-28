@@ -8,7 +8,7 @@ import { db } from "../lib/db";
 import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 import { cancelWhatsAppCampaign, pauseWhatsAppCampaign, resumeWhatsAppCampaign, scheduleWhatsAppCampaign } from "../lib/whatsapp/campaign-operations";
 import { snapshotWhatsAppCampaign } from "../lib/whatsapp/campaign-snapshot";
-import { persistContactImport } from "../lib/whatsapp/contact-import-processor";
+import { enqueueContactImport, retryFailedContactImport } from "../lib/whatsapp/contact-import-processor";
 import { MAX_CONTACT_IMPORT_BYTES, parseContactImport, type ContactImportFormat } from "../lib/whatsapp/contact-import";
 import { enqueueWhatsAppCampaign } from "../lib/whatsapp/delivery-queue";
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
@@ -39,23 +39,33 @@ export async function importWhatsAppContactsAction(form: FormData) {
   let destination: string;
   try {
     const parsed = await parseContactImport({ data: Buffer.from(await upload.arrayBuffer()), format, defaultCountryCallingCode: "966" });
-    const result = await persistContactImport({ businessId: context.businessId, fileName: upload.name, format, parsed });
-    let consented = 0;
-    if (consentConfirmed && evidence) {
-      for (const row of parsed.rows) {
-        const existing = await db.whatsAppConsent.findUnique({ where: { businessId_phoneE164: { businessId: context.businessId, phoneE164: row.phoneE164 } }, select: { id: true, revokedAt: true } });
-        if (existing) continue;
-        await db.whatsAppConsent.create({ data: { id: randomUUID(), businessId: context.businessId, phoneE164: row.phoneE164, source: "manual_import", evidence, consentedAt: new Date() } });
-        consented += 1;
-      }
-    }
-    await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "contacts.import", targetType: "contact_import", targetId: result.importId, outcome: "success", metadata: { totalRows: result.totalRows, importedRows: result.importedRows, duplicateRows: result.duplicateRows, rejectedRows: result.rejectedRows, consented } });
+    const result = await enqueueContactImport({ businessId: context.businessId, fileName: upload.name, format, parsed, consentEvidence: consentConfirmed ? evidence : null });
+    const rejectedRows = Math.max(0, parsed.totalRows - parsed.rows.length - parsed.duplicateRows);
+    await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "contacts.import.queue", targetType: "contact_import", targetId: result.importId, outcome: "success", metadata: { totalRows: parsed.totalRows, acceptedRows: parsed.rows.length, duplicateRows: parsed.duplicateRows, rejectedRows, alreadyQueued: result.alreadyQueued } });
     revalidatePath("/dashboard/whatsapp"); revalidatePath("/dashboard/whatsapp/contacts");
-    destination = `/dashboard/whatsapp/contacts?import=complete&imported=${result.importedRows}&duplicates=${result.duplicateRows}&rejected=${result.rejectedRows}&consented=${consented}`;
+    destination = `/dashboard/whatsapp/contacts?import=${result.alreadyQueued ? "existing" : "queued"}&id=${result.importId}`;
   } catch (error) {
     const code = error instanceof Error ? error.message : "UNKNOWN";
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "contacts.import", targetType: "contact_import", outcome: "failed", metadata: { reason: code } }).catch(() => undefined);
     destination = "/dashboard/whatsapp/contacts?import=failed";
+  }
+  redirect(destination);
+}
+
+export async function retryWhatsAppContactImportAction(form: FormData) {
+  const context = await campaignContext();
+  const importId = field(form, "importId", 128);
+  if (!importId) redirect("/dashboard/whatsapp/contacts?retry=invalid");
+  let destination: string;
+  try {
+    const result = await retryFailedContactImport({ businessId: context.businessId, importId });
+    await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "contacts.import.retry", targetType: "contact_import", targetId: importId, outcome: "success", metadata: { queuedBatches: result.queuedBatches } });
+    revalidatePath("/dashboard/whatsapp/contacts");
+    destination = "/dashboard/whatsapp/contacts?retry=queued";
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "UNKNOWN";
+    await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "contacts.import.retry", targetType: "contact_import", targetId: importId, outcome: "failed", metadata: { reason } }).catch(() => undefined);
+    destination = "/dashboard/whatsapp/contacts?retry=failed";
   }
   redirect(destination);
 }
