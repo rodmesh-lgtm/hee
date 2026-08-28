@@ -13,6 +13,7 @@ export type PlanEntitlements = {
   verificationEligible: boolean;
   offerDesigner: boolean;
   analytics: "basic" | "advanced";
+  whatsappMarketing: boolean;
 };
 
 export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
@@ -29,6 +30,7 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
     verificationEligible: false,
     offerDesigner: false,
     analytics: "basic",
+    whatsappMarketing: false,
   },
   BUSINESS: {
     code: "BUSINESS",
@@ -43,6 +45,7 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
     verificationEligible: true,
     offerDesigner: true,
     analytics: "advanced",
+    whatsappMarketing: true,
   },
   PRO: {
     code: "PRO",
@@ -57,6 +60,7 @@ export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
     verificationEligible: true,
     offerDesigner: true,
     analytics: "advanced",
+    whatsappMarketing: true,
   },
 };
 

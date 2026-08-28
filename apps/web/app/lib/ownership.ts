@@ -10,6 +10,12 @@ export async function getOwnedBusinessForRead() {
   return getActiveBusinessForUser(user.id);
 }
 
+export async function getOwnedBusinessWithPlanForRead() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  return getActiveBusinessWithPlanForUser(user.id);
+}
+
 export async function getOwnedBusinessForApiWrite() {
   const user = await getCurrentUserForApiWrite();
   if (!user) return null;

@@ -6,6 +6,7 @@ import { db } from "../db";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./credential-envelope";
 import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, retryDelayMs, WHATSAPP_DELIVERY_MAX_ATTEMPTS } from "./delivery-domain";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "./meta-config";
+import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
 
 type JsonRecord = Record<string, unknown>;
 type ClaimedJob = { id: string; businessId: string; connectionId: string; campaignId: string; recipientId: string; attemptCount: number };
@@ -83,6 +84,13 @@ export async function processNextWhatsAppDelivery(input: {
   assertOutboundEnabled(env);
   const job = await claimNext(database, input.workerId ?? randomUUID(), now);
   if (!job) return { processed: false as const };
+  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: job.businessId, database, now })) {
+    await database.$transaction([
+      database.whatsAppDeliveryJob.update({ where: { id: job.id }, data: { status: "cancelled", leaseOwner: null, leaseExpiresAt: null, lastErrorCode: "WHATSAPP_MARKETING_ENTITLEMENT_REQUIRED" } }),
+      database.whatsAppCampaignRecipient.update({ where: { id: job.recipientId }, data: { status: "cancelled" } }),
+    ]);
+    return { processed: true as const, result: "entitlement_required" as const, jobId: job.id };
+  }
 
   const context = await database.whatsAppDeliveryJob.findFirst({
     where: { id: job.id, businessId: job.businessId, campaignId: job.campaignId, connectionId: job.connectionId },

@@ -1,12 +1,14 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getOwnedBusinessForWrite } from "../lib/ownership";
+import { getOwnedBusinessWithPlanForWrite } from "../lib/ownership";
+import { planHasWhatsAppMarketing } from "../lib/whatsapp/feature-entitlement";
 import { completeEmbeddedSignup, createEmbeddedSignupSession } from "../lib/whatsapp/embedded-signup";
 import { enqueueWhatsAppReply } from "../lib/whatsapp/reply-queue";
 const text = (data: FormData, key: string, max: number) => { const value = String(data.get(key) ?? "").trim(); return value.length > 0 && value.length <= max ? value : null; };
 export async function enqueueWhatsAppReplyAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite(); if (!business) redirect("/login");
+  const business = await getOwnedBusinessWithPlanForWrite(); if (!business) redirect("/login");
+  if (!planHasWhatsAppMarketing(business.plan?.code)) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   const conversationId = text(formData, "conversationId", 128), requestId = text(formData, "requestId", 36), message = text(formData, "message", 4096);
   if (!conversationId || !requestId || !message) redirect("/dashboard/whatsapp/inbox?reply=invalid");
   let outcome = "queued";
@@ -17,8 +19,9 @@ export async function enqueueWhatsAppReplyAction(formData: FormData) {
 }
 
 export async function startWhatsAppEmbeddedSignupAction() {
-  const business = await getOwnedBusinessForWrite();
+  const business = await getOwnedBusinessWithPlanForWrite();
   if (!business) return { ok: false as const, error: "unauthorized" };
+  if (!planHasWhatsAppMarketing(business.plan?.code)) return { ok: false as const, error: "entitlement-required" };
   try {
     const session = await createEmbeddedSignupSession({ businessId: business.id, userId: business.ownerId });
     return { ok: true as const, state: session.state, expiresAt: session.expiresAt.toISOString() };
@@ -28,8 +31,9 @@ export async function startWhatsAppEmbeddedSignupAction() {
 }
 
 export async function completeWhatsAppEmbeddedSignupAction(input: { state: string; authorizationCode: string; wabaId: string; phoneNumberId: string }) {
-  const business = await getOwnedBusinessForWrite();
+  const business = await getOwnedBusinessWithPlanForWrite();
   if (!business) return { ok: false as const, error: "unauthorized" };
+  if (!planHasWhatsAppMarketing(business.plan?.code)) return { ok: false as const, error: "entitlement-required" };
   try {
     await completeEmbeddedSignup({ businessId: business.id, userId: business.ownerId, ...input });
     revalidatePath("/dashboard/whatsapp/setup");

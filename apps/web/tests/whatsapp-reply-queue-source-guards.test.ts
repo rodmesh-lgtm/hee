@@ -24,7 +24,8 @@ test("enqueue is serialized, idempotent and rechecks the service window", () => 
 });
 
 test("server action authenticates ownership and only enqueues", () => {
-  assert.match(action, /getOwnedBusinessForWrite/);
+  assert.match(action, /getOwnedBusinessWithPlanForWrite/);
+  assert.match(action, /planHasWhatsAppMarketing/);
   assert.match(action, /enqueueWhatsAppReply/);
   assert.doesNotMatch(action, /fetch\(|graph\.facebook\.com/);
 });

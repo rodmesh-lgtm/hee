@@ -2,7 +2,8 @@ import Link from "next/link";
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { AlertTriangle, CheckCheck, Clock3, Inbox, Link2, MessageCircle, Search, Send, UserRound } from "lucide-react";
-import { getOwnedBusinessForRead } from "../../../lib/ownership";
+import { getOwnedBusinessWithPlanForRead } from "../../../lib/ownership";
+import { planHasWhatsAppMarketing } from "../../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppInbox } from "../../../lib/whatsapp/inbox";
 import { enqueueWhatsAppReplyAction } from "../../../actions/whatsapp";
 
@@ -19,8 +20,9 @@ function messagePreview(message: { textBody: string | null; messageType: string;
 }
 
 export default async function WhatsAppInboxPage({ searchParams }: { searchParams: SearchParams }) {
-  const business = await getOwnedBusinessForRead();
+  const business = await getOwnedBusinessWithPlanForRead();
   if (!business) redirect("/onboarding");
+  if (!planHasWhatsAppMarketing(business.plan?.code)) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   const params = await searchParams;
   const inbox = await getWhatsAppInbox({
     businessId: business.id,
