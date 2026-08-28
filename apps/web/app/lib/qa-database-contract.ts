@@ -50,6 +50,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260828150000_whatsapp_operations_heartbeat",
   "20260828163000_whatsapp_automation_api_keys",
   "20260828180000_whatsapp_abandoned_cart_lifecycle",
+  "20260828183000_whatsapp_commerce_integration_registry",
 ] as const;
 
 export const EXPECTED_PREVIEW_LATEST_MIGRATION = EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

@@ -1,0 +1,38 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { PlugZap, Store } from "lucide-react";
+import { ConfirmSubmitButton } from "../../../../components/dashboard/confirm-submit-button";
+import { disconnectWhatsAppCommerceIntegrationAction, registerWhatsAppCommerceIntegrationAction } from "../../../actions/whatsapp-marketing";
+import { db } from "../../../lib/db";
+import { WHATSAPP_COMMERCE_PROVIDERS } from "../../../lib/whatsapp/commerce-integrations";
+import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
+import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
+
+const providerLabels: Record<(typeof WHATSAPP_COMMERCE_PROVIDERS)[number], string> = { salla: "سلة Salla", zid: "زد Zid", shopify: "Shopify" };
+const statusLabels: Record<string, string> = { draft: "بانتظار التحقق", active: "متصل", disconnected: "مفصول" };
+const storeHints: Record<(typeof WHATSAPP_COMMERCE_PROVIDERS)[number], string> = {
+  salla: "Merchant ID الرقمي من Salla",
+  zid: "Store ID بصيغة UUID من Zid",
+  shopify: "example.myshopify.com",
+};
+
+export default async function WhatsAppIntegrationsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const context = await getWhatsAppReadContext("connection.manage");
+  if (!context) redirect("/dashboard/whatsapp?access=denied");
+  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
+  const params = await searchParams;
+  const integrations = await db.whatsAppCommerceIntegration.findMany({
+    where: { businessId: context.businessId }, orderBy: { createdAt: "desc" }, take: 50,
+    select: { id: true, provider: true, externalStoreId: true, displayName: true, status: true, connectedAt: true, disconnectedAt: true, lastWebhookAt: true, lastErrorCode: true, createdAt: true },
+  });
+  const success = ["draft", "existing"].includes(params.register || "") || params.disconnect === "complete";
+  return <div className="space-y-4 pb-5">
+    <header className="flex flex-wrap items-start justify-between gap-3 rounded-[24px] border bg-white p-5"><div><div className="flex items-center gap-2"><PlugZap className="h-5 w-5 text-[#6543ce]" /><h1 className="text-xl font-black text-[#20264f]">تكاملات المتاجر</h1></div><p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">سجل tenant-scoped لربط متجر العميل بالأحداث الرسمية من Salla أو Zid أو Shopify. التسجيل هنا مسودة فقط؛ لا يصبح متصلًا ولا يستقبل webhooks قبل إثبات ملكية المتجر وإنشاء الأسرار المشفرة عبر lifecycle الخاص بالمزوّد.</p></div><Link href="/dashboard/whatsapp" className="rounded-xl border px-3 py-2 text-xs font-black text-[#5d49cc]">مركز واتساب</Link></header>
+    {params.register || params.disconnect ? <p aria-live="polite" className={`rounded-2xl p-3 text-xs font-bold ${success ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>{params.register === "draft" ? "سُجل المتجر كمسودة. لم يبدأ أي اتصال أو مزامنة بعد." : params.register === "existing" ? "هذا المتجر مسجل مسبقًا لهذا النشاط." : params.disconnect === "complete" ? "فُصل التكامل وأزيلت بيانات اعتماده القابلة للاستخدام." : "تعذرت العملية؛ تحقق من المزوّد ومعرّف المتجر."}</p> : null}
+    <section className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
+      <form action={registerWhatsAppCommerceIntegrationAction} className="rounded-[24px] border bg-white p-5"><h2 className="font-black text-[#20264f]">تسجيل متجر</h2><p className="mt-2 text-xs leading-6 text-slate-500">لا تدخل access token أو webhook secret هنا. سيُنشئ مسار OAuth/التوقيع الخاص بكل مزوّد بيانات الاعتماد لاحقًا دون عرضها.</p><label className="mt-4 block text-xs font-bold">المزوّد<select name="provider" required className="mt-1 h-11 w-full rounded-xl border px-3"><option value="">اختر المزوّد</option>{WHATSAPP_COMMERCE_PROVIDERS.map((provider) => <option key={provider} value={provider}>{providerLabels[provider]}</option>)}</select></label><label className="mt-3 block text-xs font-bold">معرّف المتجر<input name="externalStoreId" required maxLength={255} dir="ltr" className="mt-1 h-11 w-full rounded-xl border px-3" placeholder="123456 أو UUID أو example.myshopify.com" /></label><label className="mt-3 block text-xs font-bold">اسم توضيحي اختياري<input name="displayName" maxLength={120} className="mt-1 h-11 w-full rounded-xl border px-3" placeholder="المتجر الرئيسي" /></label><button className="mt-4 min-h-11 rounded-xl bg-[#6f3bd2] px-5 text-xs font-black text-white">تسجيل كمسودة</button></form>
+      <aside className="rounded-[24px] border border-sky-200 bg-sky-50 p-5 text-xs leading-7 text-sky-950"><b className="text-sm">عقود المزوّدين الحالية</b>{WHATSAPP_COMMERCE_PROVIDERS.map((provider) => <p key={provider} className="mt-2"><b>{providerLabels[provider]}:</b> {storeHints[provider]}</p>)}<p className="mt-3">Shopify HTTPS webhooks تتطلب HMAC-SHA256 على raw body وdelivery ID لمنع التكرار. Salla يدعم Signature/Token أو headers مخصصة. Zid يتيح headers مخصصة ولا نفترض له HMAC غير موثق.</p><p className="mt-2 font-black">هذه الجولة لا تدّعي أن OAuth أو webhooks أصبحت فعالة؛ حالة Active ستظل fail-closed حتى يكتمل adapter الرسمي لكل مزوّد.</p></aside>
+    </section>
+    <section className="space-y-3">{integrations.map((integration) => <article key={integration.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border bg-white p-4"><div className="flex items-start gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#f2eeff] text-[#6543ce]"><Store className="h-4 w-4" /></span><div><div className="flex flex-wrap items-center gap-2"><b className="text-sm text-[#20264f]">{integration.displayName || providerLabels[integration.provider as keyof typeof providerLabels] || integration.provider}</b><span className={`rounded-full px-2 py-1 text-[9px] font-black ${integration.status === "active" ? "bg-emerald-50 text-emerald-700" : integration.status === "disconnected" ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-700"}`}>{statusLabels[integration.status] || integration.status}</span></div><code dir="ltr" className="mt-1 block text-[10px] text-slate-500">{integration.externalStoreId}</code><span className="mt-1 block text-[10px] text-slate-400">سُجل: {integration.createdAt.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}{integration.lastWebhookAt ? ` · آخر webhook: ${integration.lastWebhookAt.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}` : ""}</span>{integration.lastErrorCode ? <span className="mt-1 block text-[10px] font-bold text-rose-600">{integration.lastErrorCode}</span> : null}</div></div>{integration.status !== "disconnected" ? <form action={disconnectWhatsAppCommerceIntegrationAction}><input type="hidden" name="integrationId" value={integration.id} /><ConfirmSubmitButton label="فصل" showIcon={false} className="rounded-lg bg-rose-50 px-3 py-2 text-[10px] font-black text-rose-700" confirmMessage="سيؤدي الفصل إلى إبطال بيانات الاعتماد وإيقاف webhooks لهذا المتجر. هل تريد المتابعة؟" /></form> : null}</article>)}{!integrations.length ? <div className="rounded-[24px] border border-dashed bg-white p-10 text-center text-sm text-slate-400">لا توجد تكاملات متاجر مسجلة بعد.</div> : null}</section>
+  </div>;
+}
