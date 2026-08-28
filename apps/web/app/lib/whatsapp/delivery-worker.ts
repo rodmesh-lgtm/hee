@@ -44,6 +44,9 @@ async function claimNext(database: PrismaClient, workerId: string, now: Date) {
       where: { id: job.id },
       data: { status: "processing", leaseOwner: workerId, leaseExpiresAt, attemptCount: { increment: 1 } },
     });
+    await tx.whatsAppCampaignRecipient.update({
+      where: { id: job.recipientId }, data: { status: "processing", processingAt: now },
+    });
     return { ...job, attemptCount: job.attemptCount + 1, leaseExpiresAt };
   });
 }
