@@ -1,7 +1,7 @@
 # WhatsApp Operations Runbook
 
 The WhatsApp worker runs the durable contact-import, webhook, campaign scheduling,
-delivery, customer-service reply, and automation queues. It never sends a bulk campaign
+delivery, customer-service reply, automation-event, and automation-delivery queues. It never sends a bulk campaign
 inside an HTTP request.
 
 ## Safety gates
@@ -40,7 +40,7 @@ sudo journalctl -u hee-whatsapp-operations.service --since '30 minutes ago'
 
 The central admin WhatsApp page shows the last start, last successful cycle, release SHA,
 and a bounded error code. A successful cycle updates the singleton
-`WhatsAppOperationsHeartbeat` row only after all six durable stages complete.
+`WhatsAppOperationsHeartbeat` row only after all seven durable stages complete.
 
 If a cycle fails, inspect the named stage and its durable queue state. Do not retry a Meta
 request whose network outcome is ambiguous; the delivery and reply workers preserve that
