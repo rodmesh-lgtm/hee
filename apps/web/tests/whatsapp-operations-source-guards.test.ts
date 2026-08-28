@@ -35,6 +35,7 @@ test("operations entrypoint is disabled by default and never logs provider error
   assert.match(entrypoint, /errorCode:/);
   assert.match(source("scripts/whatsapp-automation-worker.ts"), /await db\.\$disconnect\(\)/);
   assert.match(source("scripts/whatsapp-campaign-scheduler.ts"), /finally \{[\s\S]*await db\.\$disconnect\(\)/);
+  assert.match(source("scripts/whatsapp-automation-scheduler.ts"), /finally \{[\s\S]*await db\.\$disconnect\(\)/);
 });
 
 test("exact-SHA worker deployment installs, quiesces, verifies and rolls back WhatsApp units", () => {
