@@ -48,5 +48,7 @@ test("contact import never infers consent and preserves revoked evidence", () =>
 test("central admin gets a read-only credential-safe WhatsApp overview", () => {
   assert.match(admin, /requireAdmin\(\)/);
   assert.match(admin, /مراقبة قراءة فقط/);
+  assert.match(admin, /whatsAppOperationsHeartbeat/);
+  assert.match(admin, /عامل WhatsApp/);
   assert.doesNotMatch(admin, /credentialEnvelope|accessToken|textBody|rawPayload/);
 });

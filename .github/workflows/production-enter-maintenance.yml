@@ -227,6 +227,7 @@ jobs:
           sudo -n chmod 0644 /etc/systemd/system/hee-billing-renew.service.d/maintenance.conf
           sudo -n systemctl daemon-reload
           sudo -n systemctl disable --now hee-billing-renew.timer >/dev/null 2>&1 || true
+          sudo -n systemctl disable --now hee-whatsapp-operations.timer >/dev/null 2>&1 || true
           for _ in $(seq 1 120); do
             if ! sudo -n systemctl is-active --quiet hee-billing-renew.service; then break; fi
             sleep 10
@@ -235,9 +236,18 @@ jobs:
             echo 'Billing cycle did not finish within 20 minutes; maintenance remains active and migration is forbidden'
             exit 1
           fi
+          for _ in $(seq 1 90); do
+            if ! sudo -n systemctl is-active --quiet hee-whatsapp-operations.service; then break; fi
+            sleep 10
+          done
+          if sudo -n systemctl is-active --quiet hee-whatsapp-operations.service; then
+            echo 'WhatsApp operations cycle did not finish within 15 minutes; maintenance remains active and migration is forbidden'
+            exit 1
+          fi
           test -f /etc/hee/maintenance.lock
           grep -qx 'ConditionPathExists=!/etc/hee/maintenance.lock' /etc/systemd/system/hee-billing-renew.service.d/maintenance.conf
           if sudo -n systemctl is-active --quiet hee-billing-renew.timer; then echo 'Billing timer is still active'; exit 1; fi
+          if sudo -n systemctl is-active --quiet hee-whatsapp-operations.timer; then echo 'WhatsApp timer is still active'; exit 1; fi
           REMOTE
 
       - name: Final maintenance lock proof

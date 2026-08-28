@@ -26,4 +26,5 @@ test("Preview readiness contract includes registration and billing schema bounda
   assert.ok(EXPECTED_PREVIEW_MIGRATIONS.includes("20260820110000_legal_consent_audit"));
   assert.ok(EXPECTED_PREVIEW_MIGRATIONS.includes("20260821114500_user_email_verification"));
   assert.ok(EXPECTED_PREVIEW_MIGRATIONS.includes("20260822050000_billing_operations_heartbeat"));
+  assert.ok(EXPECTED_PREVIEW_MIGRATIONS.includes("20260828150000_whatsapp_operations_heartbeat"));
 });

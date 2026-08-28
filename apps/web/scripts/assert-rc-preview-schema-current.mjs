@@ -80,12 +80,13 @@ try {
         WHERE table_schema=current_schema() AND table_name='User' AND column_name='emailVerifiedAt'
       ) AS "emailVerifiedAt",
       to_regclass('public."BillingOperationsHeartbeat"') IS NOT NULL AS "billingHeartbeat",
+      to_regclass('public."WhatsAppOperationsHeartbeat"') IS NOT NULL AS "whatsappHeartbeat",
       (SELECT data_type FROM information_schema.columns
         WHERE table_schema=current_schema() AND table_name='AnalyticsEvent' AND column_name='metadata') AS "analyticsMetadataType"
   `);
   const critical = schema.rows[0] ?? {};
   const incompatible = failed.length > 0 || pending.length > 0 || unexpected.length > 0
-    || !critical.legalConsent || !critical.emailVerifiedAt || !critical.billingHeartbeat
+    || !critical.legalConsent || !critical.emailVerifiedAt || !critical.billingHeartbeat || !critical.whatsappHeartbeat
     || critical.analyticsMetadataType !== "jsonb";
 
   if (incompatible) {

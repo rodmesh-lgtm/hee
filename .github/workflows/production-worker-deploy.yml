@@ -162,6 +162,20 @@ jobs:
           sudo -n cmp -s "$previous_release/ops/systemd/hee-billing-renew.service" /etc/systemd/system/hee-billing-renew.service || { echo "Installed worker service unit has drifted from current release"; exit 1; }
           sudo -n cmp -s "$previous_release/ops/systemd/hee-billing-renew.timer" /etc/systemd/system/hee-billing-renew.timer || { echo "Installed worker timer unit has drifted from current release"; exit 1; }
           if sudo -n systemctl is-active --quiet hee-billing-renew.timer; then previous_timer_active=true; else previous_timer_active=false; fi
+          previous_whatsapp_units=false
+          if test -f "$previous_release/ops/systemd/hee-whatsapp-operations.service" && test -f "$previous_release/ops/systemd/hee-whatsapp-operations.timer"; then
+            sudo -n cmp -s "$previous_release/ops/systemd/hee-whatsapp-operations.service" /etc/systemd/system/hee-whatsapp-operations.service || { echo "Installed WhatsApp service has drifted from current release"; exit 1; }
+            sudo -n cmp -s "$previous_release/ops/systemd/hee-whatsapp-operations.timer" /etc/systemd/system/hee-whatsapp-operations.timer || { echo "Installed WhatsApp timer has drifted from current release"; exit 1; }
+            previous_whatsapp_units=true
+          elif sudo -n test -e /etc/systemd/system/hee-whatsapp-operations.service || sudo -n test -e /etc/systemd/system/hee-whatsapp-operations.timer; then
+            echo "Installed WhatsApp units have no managed rollback baseline"
+            exit 1
+          fi
+          if sudo -n systemctl is-active --quiet hee-whatsapp-operations.timer; then previous_whatsapp_timer_active=true; else previous_whatsapp_timer_active=false; fi
+          if [ "$previous_whatsapp_timer_active" = "true" ] && [ "$previous_whatsapp_units" != "true" ]; then
+            echo "Active WhatsApp timer has no managed rollback baseline"
+            exit 1
+          fi
           if test -f /etc/hee/maintenance.lock; then previous_lock_state=true; else previous_lock_state=false; fi
           test "$previous_lock_state" = "$expected_lock" || { echo "Maintenance lock changed before worker cutover baseline capture"; exit 1; }
           echo "worker-cutover-baseline: release=${previous_release} timer_active=${previous_timer_active} maintenance_lock=${previous_lock_state}"
@@ -194,10 +208,17 @@ jobs:
             echo "Worker cutover failed after mutation began; restoring ${previous_release}"
             rollback_failed=false
             sudo -n systemctl stop hee-billing-renew.timer >/dev/null 2>&1 || rollback_failed=true
+            sudo -n systemctl stop hee-whatsapp-operations.timer >/dev/null 2>&1 || true
             sudo -n ln -sfn "$previous_release" /srv/hee/current.rollback || rollback_failed=true
             sudo -n mv -Tf /srv/hee/current.rollback /srv/hee/current || rollback_failed=true
             sudo -n install -o root -g root -m 0644 "$previous_release/ops/systemd/hee-billing-renew.service" /etc/systemd/system/hee-billing-renew.service || rollback_failed=true
             sudo -n install -o root -g root -m 0644 "$previous_release/ops/systemd/hee-billing-renew.timer" /etc/systemd/system/hee-billing-renew.timer || rollback_failed=true
+            if [ "$previous_whatsapp_units" = "true" ]; then
+              sudo -n install -o root -g root -m 0644 "$previous_release/ops/systemd/hee-whatsapp-operations.service" /etc/systemd/system/hee-whatsapp-operations.service || rollback_failed=true
+              sudo -n install -o root -g root -m 0644 "$previous_release/ops/systemd/hee-whatsapp-operations.timer" /etc/systemd/system/hee-whatsapp-operations.timer || rollback_failed=true
+            else
+              sudo -n rm -f /etc/systemd/system/hee-whatsapp-operations.service /etc/systemd/system/hee-whatsapp-operations.timer || rollback_failed=true
+            fi
             if [ "$previous_lock_state" = "true" ]; then
               sudo -n install -d -o root -g hee -m 0750 /etc/hee || rollback_failed=true
               sudo -n touch /etc/hee/maintenance.lock || rollback_failed=true
@@ -217,11 +238,24 @@ jobs:
             else
               sudo -n systemctl stop hee-billing-renew.timer >/dev/null 2>&1 || rollback_failed=true
             fi
+            if [ "$previous_whatsapp_units" = "true" ] && [ "$previous_whatsapp_timer_active" = "true" ] && [ "$previous_lock_state" = "false" ]; then
+              sudo -n systemctl enable hee-whatsapp-operations.timer >/dev/null 2>&1 || rollback_failed=true
+              sudo -n systemctl start hee-whatsapp-operations.timer >/dev/null 2>&1 || rollback_failed=true
+            else
+              sudo -n systemctl disable --now hee-whatsapp-operations.timer >/dev/null 2>&1 || true
+            fi
 
             current_release="$(readlink -f /srv/hee/current 2>/dev/null || true)"
             [ "$current_release" = "$previous_release" ] || rollback_failed=true
             sudo -n cmp -s "$previous_release/ops/systemd/hee-billing-renew.service" /etc/systemd/system/hee-billing-renew.service || rollback_failed=true
             sudo -n cmp -s "$previous_release/ops/systemd/hee-billing-renew.timer" /etc/systemd/system/hee-billing-renew.timer || rollback_failed=true
+            if [ "$previous_whatsapp_units" = "true" ]; then
+              sudo -n cmp -s "$previous_release/ops/systemd/hee-whatsapp-operations.service" /etc/systemd/system/hee-whatsapp-operations.service || rollback_failed=true
+              sudo -n cmp -s "$previous_release/ops/systemd/hee-whatsapp-operations.timer" /etc/systemd/system/hee-whatsapp-operations.timer || rollback_failed=true
+            else
+              sudo -n test ! -e /etc/systemd/system/hee-whatsapp-operations.service || rollback_failed=true
+              sudo -n test ! -e /etc/systemd/system/hee-whatsapp-operations.timer || rollback_failed=true
+            fi
             if [ "$previous_lock_state" = "true" ]; then
               test -f /etc/hee/maintenance.lock || rollback_failed=true
               ! sudo -n systemctl is-active --quiet hee-billing-renew.timer || rollback_failed=true
@@ -232,6 +266,11 @@ jobs:
               else
                 ! sudo -n systemctl is-active --quiet hee-billing-renew.timer || rollback_failed=true
               fi
+            fi
+            if [ "$previous_whatsapp_units" = "true" ] && [ "$previous_whatsapp_timer_active" = "true" ] && [ "$previous_lock_state" = "false" ]; then
+              sudo -n systemctl is-active --quiet hee-whatsapp-operations.timer || rollback_failed=true
+            else
+              ! sudo -n systemctl is-active --quiet hee-whatsapp-operations.timer || rollback_failed=true
             fi
             if [ "$rollback_failed" = "true" ]; then
               echo "worker-cutover-rollback-proof: CRITICAL FAIL"
@@ -245,6 +284,7 @@ jobs:
           # Stop future activations and never kill an already-running billing cycle.
           rollback_armed=true
           sudo -n systemctl stop hee-billing-renew.timer
+          sudo -n systemctl stop hee-whatsapp-operations.timer >/dev/null 2>&1 || true
           ! sudo -n systemctl is-active --quiet hee-billing-renew.timer || { echo "Billing timer remained active after stop"; exit 1; }
           for _ in $(seq 1 120); do
             if ! sudo -n systemctl is-active --quiet hee-billing-renew.service; then break; fi
@@ -254,19 +294,33 @@ jobs:
             echo "Existing billing cycle did not finish within 20 minutes; refusing cutover"
             exit 1
           fi
+          for _ in $(seq 1 90); do
+            if ! sudo -n systemctl is-active --quiet hee-whatsapp-operations.service; then break; fi
+            sleep 10
+          done
+          if sudo -n systemctl is-active --quiet hee-whatsapp-operations.service; then
+            echo "Existing WhatsApp operations cycle did not finish within 15 minutes; refusing cutover"
+            exit 1
+          fi
 
           sudo -n ln -sfn "releases/${sha}" /srv/hee/current.next
           sudo -n mv -Tf /srv/hee/current.next /srv/hee/current
           sudo -n install -o root -g root -m 0644 /srv/hee/current/ops/systemd/hee-billing-renew.service /etc/systemd/system/hee-billing-renew.service
           sudo -n install -o root -g root -m 0644 /srv/hee/current/ops/systemd/hee-billing-renew.timer /etc/systemd/system/hee-billing-renew.timer
+          sudo -n install -o root -g root -m 0644 /srv/hee/current/ops/systemd/hee-whatsapp-operations.service /etc/systemd/system/hee-whatsapp-operations.service
+          sudo -n install -o root -g root -m 0644 /srv/hee/current/ops/systemd/hee-whatsapp-operations.timer /etc/systemd/system/hee-whatsapp-operations.timer
           sudo -n systemctl daemon-reload
 
           test "$(readlink -f /srv/hee/current)" = "$release"
           grep -qx "RELEASE_SHA=${sha}" /srv/hee/current/release.env
           sudo -n cmp -s "$release/ops/systemd/hee-billing-renew.service" /etc/systemd/system/hee-billing-renew.service
           sudo -n cmp -s "$release/ops/systemd/hee-billing-renew.timer" /etc/systemd/system/hee-billing-renew.timer
+          sudo -n cmp -s "$release/ops/systemd/hee-whatsapp-operations.service" /etc/systemd/system/hee-whatsapp-operations.service
+          sudo -n cmp -s "$release/ops/systemd/hee-whatsapp-operations.timer" /etc/systemd/system/hee-whatsapp-operations.timer
           sudo -n systemctl cat hee-billing-renew.service | grep -q 'WorkingDirectory=/srv/hee/current/apps/web'
           sudo -n systemctl cat hee-billing-renew.service | grep -q 'ConditionPathExists=!/etc/hee/maintenance.lock'
+          sudo -n systemctl cat hee-whatsapp-operations.service | grep -q 'WorkingDirectory=/srv/hee/current/apps/web'
+          sudo -n systemctl cat hee-whatsapp-operations.service | grep -q 'ConditionPathExists=!/etc/hee/maintenance.lock'
           if [ "$expected_lock" = "true" ]; then
             test -f /etc/hee/maintenance.lock || { echo "Maintenance lock disappeared before guarded unlock"; exit 1; }
           fi
@@ -277,14 +331,19 @@ jobs:
           sudo -n systemctl daemon-reload
           sudo -n systemctl enable hee-billing-renew.timer >/dev/null
           sudo -n systemctl start hee-billing-renew.timer
+          sudo -n systemctl enable hee-whatsapp-operations.timer >/dev/null
+          sudo -n systemctl start hee-whatsapp-operations.timer
 
           # Successful cutover proof. Rollback remains armed through every assertion here.
           test ! -e /etc/hee/maintenance.lock
           sudo -n systemctl is-active --quiet hee-billing-renew.timer
+          sudo -n systemctl is-active --quiet hee-whatsapp-operations.timer
           test "$(readlink -f /srv/hee/current)" = "$release"
           grep -qx "RELEASE_SHA=${sha}" /srv/hee/current/release.env
           sudo -n cmp -s "$release/ops/systemd/hee-billing-renew.service" /etc/systemd/system/hee-billing-renew.service
           sudo -n cmp -s "$release/ops/systemd/hee-billing-renew.timer" /etc/systemd/system/hee-billing-renew.timer
+          sudo -n cmp -s "$release/ops/systemd/hee-whatsapp-operations.service" /etc/systemd/system/hee-whatsapp-operations.service
+          sudo -n cmp -s "$release/ops/systemd/hee-whatsapp-operations.timer" /etc/systemd/system/hee-whatsapp-operations.timer
           rollback_armed=false
           trap - EXIT
           rm -f "$archive"
@@ -297,7 +356,7 @@ jobs:
           ssh -i "$HOME/.ssh/hee-production" \
             -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "${HETZNER_USER}@${HETZNER_HOST}" \
-            "test \"\$(cat /srv/hee/current/release.env)\" = 'RELEASE_SHA=${GITHUB_SHA}' && test ! -e /etc/hee/maintenance.lock && sudo -n systemctl is-active --quiet hee-billing-renew.timer"
+            "test \"\$(cat /srv/hee/current/release.env)\" = 'RELEASE_SHA=${GITHUB_SHA}' && test ! -e /etc/hee/maintenance.lock && sudo -n systemctl is-active --quiet hee-billing-renew.timer && sudo -n systemctl is-active --quiet hee-whatsapp-operations.timer"
 
       - name: Re-prove canonical exact-SHA non-maintenance after worker unlock
         run: |

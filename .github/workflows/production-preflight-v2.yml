@@ -224,6 +224,17 @@ jobs:
           sudo -n cmp -s "$current_release/ops/systemd/hee-billing-renew.timer" /etc/systemd/system/hee-billing-renew.timer || { echo "Installed worker timer unit has drifted from the managed rollback release"; exit 1; }
           sudo -n systemctl cat hee-billing-renew.service >/dev/null
           sudo -n systemctl cat hee-billing-renew.timer >/dev/null
+          if test -e "$current_release/ops/systemd/hee-whatsapp-operations.service" || test -e "$current_release/ops/systemd/hee-whatsapp-operations.timer"; then
+            test -r "$current_release/ops/systemd/hee-whatsapp-operations.service" || { echo "Managed WhatsApp service unit is incomplete"; exit 1; }
+            test -r "$current_release/ops/systemd/hee-whatsapp-operations.timer" || { echo "Managed WhatsApp timer unit is incomplete"; exit 1; }
+            sudo -n cmp -s "$current_release/ops/systemd/hee-whatsapp-operations.service" /etc/systemd/system/hee-whatsapp-operations.service || { echo "Installed WhatsApp service has drifted from the managed rollback release"; exit 1; }
+            sudo -n cmp -s "$current_release/ops/systemd/hee-whatsapp-operations.timer" /etc/systemd/system/hee-whatsapp-operations.timer || { echo "Installed WhatsApp timer has drifted from the managed rollback release"; exit 1; }
+            sudo -n systemctl cat hee-whatsapp-operations.service >/dev/null
+            sudo -n systemctl cat hee-whatsapp-operations.timer >/dev/null
+          elif sudo -n test -e /etc/systemd/system/hee-whatsapp-operations.service || sudo -n test -e /etc/systemd/system/hee-whatsapp-operations.timer; then
+            echo "Installed WhatsApp units have no managed rollback release"
+            exit 1
+          fi
           echo "worker-rollback-baseline-preflight: PASS release=${current_release}"
           REMOTE
 
