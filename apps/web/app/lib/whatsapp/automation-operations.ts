@@ -40,13 +40,13 @@ async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
 
 export async function createWhatsAppAutomation(input: {
   businessId: string; actorUserId: string; name: string; triggerType: string;
-  templateId: string; cooldownMinutes: number; orderStatus?: string; database?: AutomationOperationsDb;
+  templateId: string; cooldownMinutes: number; orderStatus?: string; reminderLeadMinutes?: number; database?: AutomationOperationsDb;
 }) {
   const database = input.database ?? db;
   const name = input.name.trim();
   if (!name || name.length > 120) throw new Error("WHATSAPP_AUTOMATION_NAME_INVALID");
   const triggerType = normalizeAutomationTriggerType(input.triggerType);
-  const triggerConfig = buildAutomationTriggerConfig(triggerType, input.orderStatus);
+  const triggerConfig = buildAutomationTriggerConfig(triggerType, input.orderStatus, input.reminderLeadMinutes);
   if (!Number.isSafeInteger(input.cooldownMinutes) || input.cooldownMinutes < 0 || input.cooldownMinutes > 525_600) {
     throw new Error("WHATSAPP_AUTOMATION_COOLDOWN_INVALID");
   }

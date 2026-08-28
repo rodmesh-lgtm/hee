@@ -11,6 +11,7 @@ const MAX_EVENT_ATTEMPTS = 8;
 export async function ingestWhatsAppAutomationEvent(input: {
   businessId: string; source: string; externalEventId: string; triggerType: string;
   subjectType: string; subjectId: string; contactId?: string; occurredAt: Date; automationId?: string;
+  processAt?: Date;
   database?: AutomationDb;
 }) {
   const database = input.database ?? db;
@@ -22,6 +23,10 @@ export async function ingestWhatsAppAutomationEvent(input: {
     throw new Error("WHATSAPP_AUTOMATION_SUBJECT_INVALID");
   }
   if (!(input.occurredAt instanceof Date) || Number.isNaN(input.occurredAt.getTime())) throw new Error("WHATSAPP_AUTOMATION_TIME_INVALID");
+  const processAt = input.processAt ?? input.occurredAt;
+  if (!(processAt instanceof Date) || Number.isNaN(processAt.getTime()) || processAt < input.occurredAt || processAt.getTime() > input.occurredAt.getTime() + 366 * 24 * 60 * 60_000) {
+    throw new Error("WHATSAPP_AUTOMATION_PROCESS_TIME_INVALID");
+  }
   return database.whatsAppAutomationEvent.upsert({
     where: { businessId_source_externalEventId: {
       businessId: input.businessId, source: input.source, externalEventId: input.externalEventId,
@@ -29,7 +34,7 @@ export async function ingestWhatsAppAutomationEvent(input: {
     create: {
       businessId: input.businessId, automationId: input.automationId, source: input.source,
       externalEventId: input.externalEventId, triggerType, subjectType: input.subjectType,
-      subjectId: input.subjectId, contactId: input.contactId, occurredAt: input.occurredAt,
+      subjectId: input.subjectId, contactId: input.contactId, occurredAt: input.occurredAt, nextAttemptAt: processAt,
     },
     update: {},
     select: { id: true, status: true },

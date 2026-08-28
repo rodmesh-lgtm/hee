@@ -104,6 +104,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     select: {
       templateParameters: true,
       automation: { select: { status: true } },
+      run: { select: { event: { select: { triggerType: true, subjectType: true, subjectId: true } } } },
       contact: { select: { phoneE164: true, displayName: true, optedOutAt: true } },
       template: { select: { provider: true, status: true, name: true, language: true } },
       connection: { select: { provider: true, status: true, phoneNumberId: true, credentialEnvelope: true } },
@@ -120,6 +121,15 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   if (context.automation.status !== "active" || context.connection.status !== "connected" || context.connection.provider !== "meta" || context.template.provider !== "meta" || context.template.status !== "approved") {
     await releaseAs(database, job, "cancelled", now, "AUTOMATION_OR_CONNECTION_NOT_ACTIVE");
     return { processed: true as const, result: "cancelled" as const, jobId: job.id };
+  }
+  if (context.run.event.triggerType === "appointment_reminder") {
+    const booking = context.run.event.subjectType === "booking.reminder" ? await database.booking.findFirst({
+      where: { id: context.run.event.subjectId, businessId: job.businessId, status: "confirmed" }, select: { id: true },
+    }) : null;
+    if (!booking) {
+      await releaseAs(database, job, "cancelled", now, "BOOKING_NO_LONGER_CONFIRMED");
+      return { processed: true as const, result: "booking_closed" as const, jobId: job.id };
+    }
   }
   const consent = await database.whatsAppConsent.findFirst({
     where: { businessId: job.businessId, phoneE164: context.contact.phoneE164, revokedAt: null, consentedAt: { lte: now } }, select: { id: true },
