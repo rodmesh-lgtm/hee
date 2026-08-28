@@ -28,8 +28,9 @@ test("RBAC derives business scope from authenticated owner or active membership"
   assert.doesNotMatch(rbac, /businessId:\s*requested\s*\}\)/);
 });
 
-test("connection administration, replies and audit viewing have separate permissions", () => {
-  assert.match(rbac, /"reply", "campaign\.manage", "connection\.manage", "audit\.view"/);
+test("connection, campaign, automation, reply and audit permissions are separated", () => {
+  assert.match(rbac, /"reply", "campaign\.manage", "automation\.manage", "connection\.manage", "audit\.view"/);
+  assert.match(rbac, /marketer: new Set\(\["view", "reply", "campaign\.manage", "automation\.manage"\]\)/);
   assert.match(actions, /getWhatsAppWriteContext\("reply"\)/);
   assert.match(actions, /getWhatsAppWriteContext\("connection\.manage"\)/g);
   assert.match(auditPage, /getWhatsAppReadContext\("audit\.view"\)/);

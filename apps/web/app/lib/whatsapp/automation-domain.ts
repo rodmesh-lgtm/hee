@@ -38,3 +38,12 @@ export function readTemplateActionConfig(value: unknown) {
   }
   return { templateId: record.templateId, parameters: record.parameters as unknown[] | undefined };
 }
+
+export function templateHasVariables(value: unknown) {
+  if (!Array.isArray(value)) return true;
+  try {
+    return /\{\{[^{}]+\}\}/.test(JSON.stringify(value));
+  } catch {
+    return true;
+  }
+}

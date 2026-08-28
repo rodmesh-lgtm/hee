@@ -8,12 +8,14 @@ const hub = source("app/dashboard/whatsapp/page.tsx");
 const contacts = source("app/dashboard/whatsapp/contacts/page.tsx");
 const templates = source("app/dashboard/whatsapp/templates/page.tsx");
 const campaigns = source("app/dashboard/whatsapp/campaigns/page.tsx");
+const automations = source("app/dashboard/whatsapp/automations/page.tsx");
 const actions = source("app/actions/whatsapp-marketing.ts");
+const automationOperations = source("app/lib/whatsapp/automation-operations.ts");
 const admin = source("app/admin/whatsapp/page.tsx");
 
 test("WhatsApp Marketing is a first-class customer dashboard section", () => {
   assert.match(navigation, /href: "\/dashboard\/whatsapp"/);
-  for (const route of ["contacts", "templates", "campaigns", "inbox", "setup", "audit"]) {
+  for (const route of ["contacts", "templates", "campaigns", "automations", "inbox", "setup", "audit"]) {
     assert.ok(hub.includes(`/dashboard/whatsapp/${route}`), `${route} missing from WhatsApp hub`);
   }
   assert.match(contacts, /accept="\.csv,\.xlsx/);
@@ -23,6 +25,22 @@ test("WhatsApp Marketing is a first-class customer dashboard section", () => {
   assert.match(contacts, /retryWhatsAppContactImportAction/);
   assert.match(templates, /syncWhatsAppTemplatesAction/);
   assert.match(campaigns, /Queue وWorkers وRate Limiting/);
+});
+
+test("automation management is explicit, tenant scoped and connected to durable delivery", () => {
+  assert.match(automations, /getWhatsAppReadContext\("automation\.manage"\)/);
+  assert.match(automations, /createWhatsAppAutomationAction/);
+  assert.match(automations, /operateWhatsAppAutomationAction/);
+  assert.match(automations, /الموافقة الصريحة/);
+  assert.match(automations, /ConfirmSubmitButton/);
+  assert.match(actions, /getWhatsAppWriteContext\("automation\.manage"\)/);
+  assert.match(automationOperations, /businessId: input\.businessId/g);
+  assert.match(automationOperations, /FOR UPDATE/);
+  assert.match(automationOperations, /TransactionIsolationLevel\.Serializable/g);
+  assert.match(automationOperations, /status: "approved"/);
+  assert.match(automationOperations, /status: "connected"/);
+  assert.match(automationOperations, /writeWhatsAppAuditLog/g);
+  assert.doesNotMatch(automationOperations, /graph\.facebook\.com|fetch\(/);
 });
 
 test("campaign mutations are entitlement, RBAC and tenant scoped", () => {

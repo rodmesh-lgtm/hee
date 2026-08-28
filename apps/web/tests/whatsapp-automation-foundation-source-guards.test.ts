@@ -8,6 +8,7 @@ const migration = readFileSync(
   "utf8",
 );
 const processor = readFileSync("app/lib/whatsapp/automation-processor.ts", "utf8");
+const operations = readFileSync("app/lib/whatsapp/automation-operations.ts", "utf8");
 const contract = readFileSync("app/lib/qa-database-contract.ts", "utf8");
 
 test("automation persistence and migration remain integrated", () => {
@@ -16,6 +17,16 @@ test("automation persistence and migration remain integrated", () => {
     assert.ok(migration.includes(`CREATE TABLE "${model}"`), `${model} is missing from migration`);
   }
   assert.ok(contract.includes("20260828103000_whatsapp_automation_foundation"));
+});
+
+test("automation activation revalidates tenant, connected Meta number and approved template", () => {
+  assert.ok(operations.includes('businessId: input.businessId'));
+  assert.ok(operations.includes('provider: "meta"'));
+  assert.ok(operations.includes('status: "approved"'));
+  assert.ok(operations.includes('status: "connected"'));
+  assert.ok(operations.includes('FOR UPDATE'));
+  assert.ok(operations.includes('templateHasVariables'));
+  assert.ok(operations.includes('database: tx'));
 });
 
 test("database constraints enforce tenant-safe automation associations", () => {
