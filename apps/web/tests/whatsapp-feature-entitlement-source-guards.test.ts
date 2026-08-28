@@ -32,10 +32,10 @@ test("runtime entitlement requires a live matching subscription, not raw Busines
 });
 
 test("dashboard, setup and server actions fail closed without entitlement", () => {
-  assert.match(actions, /getOwnedBusinessWithPlanForWrite/);
-  assert.match(actions, /planHasWhatsAppMarketing/g);
-  assert.match(inbox, /planHasWhatsAppMarketing/);
-  assert.match(setup, /planHasWhatsAppMarketing/);
+  assert.match(actions, /getWhatsAppWriteContext/);
+  assert.match(actions, /hasActiveWhatsAppMarketingEntitlement/g);
+  assert.match(inbox, /hasActiveWhatsAppMarketingEntitlement/);
+  assert.match(setup, /hasActiveWhatsAppMarketingEntitlement/);
   assert.match(inbox, /feature=whatsapp-marketing/);
   assert.match(setup, /feature=whatsapp-marketing/);
 });

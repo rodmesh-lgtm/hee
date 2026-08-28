@@ -3,9 +3,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { whatsAppCustomerServiceWindow } from "./inbox-domain";
+import { writeWhatsAppAuditLog } from "./audit";
 
 type ReplyQueueDb = Pick<PrismaClient, "$transaction">;
-export async function enqueueWhatsAppReply(input: { businessId: string; conversationId: string; requestId: string; textBody: string; database?: ReplyQueueDb; now?: Date }) {
+export async function enqueueWhatsAppReply(input: { businessId: string; actorUserId: string; conversationId: string; requestId: string; textBody: string; database?: ReplyQueueDb; now?: Date }) {
   const textBody = input.textBody.trim();
   if (!/^[0-9a-f-]{36}$/i.test(input.requestId) || textBody.length < 1 || textBody.length > 4096) throw new Error("WHATSAPP_REPLY_INVALID");
   const database = input.database ?? db, now = input.now ?? new Date();
@@ -22,6 +23,7 @@ export async function enqueueWhatsAppReply(input: { businessId: string; conversa
     const pending = await tx.whatsAppReplyJob.count({ where: { businessId: input.businessId, conversationId: conversation.id, status: { in: ["queued", "processing", "retry_scheduled"] } } });
     if (pending >= 20) throw new Error("WHATSAPP_REPLY_QUEUE_FULL");
     const job = await tx.whatsAppReplyJob.create({ data: { id: randomUUID(), businessId: input.businessId, connectionId: connection.id, conversationId: conversation.id, phoneNumberId: conversation.phoneNumberId, idempotencyKey, textBody, nextAttemptAt: now }, select: { id: true } });
+    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reply.enqueue", targetType: "reply_job", targetId: job.id, outcome: "success", metadata: { conversationId: conversation.id }, database: tx });
     return { jobId: job.id, alreadyQueued: false as const };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

@@ -23,6 +23,8 @@ model User {
   createdAccessCodes SubscriptionAccessCode[] @relation("AccessCodeCreator")
   redeemedAccessGrants SubscriptionAccessGrant[] @relation("AccessGrantRedeemer")
   whatsappEmbeddedSignupSessions WhatsAppEmbeddedSignupSession[]
+  businessMemberships BusinessMember[]
+  whatsappAuditLogs WhatsAppAuditLog[]
   @@index([email])
   @@index([emailVerifiedAt])
   @@index([deletedAt])
@@ -172,6 +174,8 @@ model Business {
   whatsappRateBuckets WhatsAppSendRateBucket[]
   whatsappReplyJobs WhatsAppReplyJob[]
   whatsappEmbeddedSignupSessions WhatsAppEmbeddedSignupSession[]
+  members BusinessMember[]
+  whatsappAuditLogs WhatsAppAuditLog[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
@@ -698,6 +702,39 @@ model WhatsAppEmbeddedSignupSession {
   @@unique([id, businessId], map: "WhatsAppEmbeddedSignupSession_id_business_unique")
   @@index([businessId, status, expiresAt], map: "WhatsAppEmbeddedSignupSession_business_status_expiry_idx")
   @@index([initiatedByUserId, createdAt], map: "WhatsAppEmbeddedSignupSession_user_created_idx")
+}
+
+model BusinessMember {
+  id String @id @default(uuid())
+  businessId String
+  userId String
+  role String
+  status String @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@unique([businessId, userId], map: "BusinessMember_business_user_unique")
+  @@index([userId, status], map: "BusinessMember_user_status_idx")
+  @@index([businessId, role, status], map: "BusinessMember_business_role_status_idx")
+}
+
+model WhatsAppAuditLog {
+  id String @id @default(uuid())
+  businessId String
+  actorUserId String?
+  actorType String @default("user")
+  action String
+  targetType String
+  targetId String?
+  outcome String
+  metadata Json?
+  createdAt DateTime @default(now())
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  actorUser User? @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  @@index([businessId, createdAt], map: "WhatsAppAuditLog_business_created_idx")
+  @@index([businessId, action, createdAt], map: "WhatsAppAuditLog_business_action_created_idx")
+  @@index([actorUserId, createdAt], map: "WhatsAppAuditLog_actor_created_idx")
 }
 
 model WhatsAppConsent {

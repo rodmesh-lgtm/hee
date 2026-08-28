@@ -1,18 +1,18 @@
 import { redirect } from "next/navigation";
 import { CheckCircle2, Link2, LockKeyhole, ShieldCheck } from "lucide-react";
 import { db } from "../../../lib/db";
-import { getOwnedBusinessWithPlanForRead } from "../../../lib/ownership";
-import { planHasWhatsAppMarketing } from "../../../lib/whatsapp/feature-entitlement";
+import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
+import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
 import { getMetaEmbeddedSignupPublicConfig } from "../../../lib/whatsapp/meta-config";
 import { EmbeddedSignupButton } from "./embedded-signup-button";
 
 export default async function WhatsAppSetupPage() {
-  const business = await getOwnedBusinessWithPlanForRead();
-  if (!business) redirect("/onboarding");
-  if (!planHasWhatsAppMarketing(business.plan?.code)) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
+  const context = await getWhatsAppReadContext("connection.manage");
+  if (!context) redirect("/dashboard/whatsapp/inbox?access=denied");
+  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   const [connection, latestSession] = await Promise.all([
-    db.whatsAppConnection.findFirst({ where: { businessId: business.id, provider: "meta" }, select: { status: true, wabaId: true, phoneNumberId: true, displayPhoneNumber: true, verifiedName: true, connectedAt: true, lastErrorCode: true } }),
-    db.whatsAppEmbeddedSignupSession.findFirst({ where: { businessId: business.id }, orderBy: { createdAt: "desc" }, select: { status: true, expiresAt: true, lastErrorCode: true } }),
+    db.whatsAppConnection.findFirst({ where: { businessId: context.businessId, provider: "meta" }, select: { status: true, wabaId: true, phoneNumberId: true, displayPhoneNumber: true, verifiedName: true, connectedAt: true, lastErrorCode: true } }),
+    db.whatsAppEmbeddedSignupSession.findFirst({ where: { businessId: context.businessId }, orderBy: { createdAt: "desc" }, select: { status: true, expiresAt: true, lastErrorCode: true } }),
   ]);
   const publicConfig = getMetaEmbeddedSignupPublicConfig();
   return <div className="space-y-4 pb-4">

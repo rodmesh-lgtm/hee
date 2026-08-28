@@ -16,8 +16,8 @@ test("inbox conversations and selected messages remain tenant scoped", () => {
 
 test("the dashboard inbox uses server reads and awaits Next.js search params", () => {
   assert.match(page, /const params = await searchParams/);
-  assert.match(page, /getOwnedBusinessWithPlanForRead/);
-  assert.match(page, /planHasWhatsAppMarketing/);
+  assert.match(page, /getWhatsAppReadContext\("view"\)/);
+  assert.match(page, /hasActiveWhatsAppMarketingEntitlement/);
   assert.match(page, /getWhatsAppInbox/);
   assert.doesNotMatch(page, /fetch\(|dangerouslySetInnerHTML/);
 });
