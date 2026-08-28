@@ -45,3 +45,21 @@ and a bounded error code. A successful cycle updates the singleton
 If a cycle fails, inspect the named stage and its durable queue state. Do not retry a Meta
 request whose network outcome is ambiguous; the delivery and reply workers preserve that
 fail-closed rule.
+
+## Shopify commerce activation
+
+Shopify activation is independent from the Meta connection and remains fail-closed unless
+all of these runtime values are valid: `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`,
+`SHOPIFY_ADMIN_API_VERSION`, `WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY` (a dedicated
+base64-encoded 32-byte key), and `WHATSAPP_COMMERCE_CREDENTIAL_KEY_VERSION`.
+
+Register the exact callback `/api/whatsapp/commerce/shopify/callback` for each allowed app
+origin. The authorization-code callback verifies Shopify's query HMAC and freshness,
+consumes a tenant/user-bound OAuth state once, verifies `shop.myshopifyDomain` through the
+Admin GraphQL API, and requires `read_orders` plus `read_customers` before marking the
+integration active. Tokens and refresh tokens are stored only inside a tenant- and
+integration-bound AES-256-GCM envelope. Do not print callback queries, token responses, or
+the envelope in logs.
+
+An active OAuth connection does not by itself enable Shopify webhooks. Signed webhook
+ingestion and GraphQL subscription reconciliation are a separate release gate.
