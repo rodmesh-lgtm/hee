@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "./audit";
-import { buildAutomationTriggerConfig, normalizeAutomationTriggerType, readAutomationTriggerConfig, readTemplateActionConfig, templateHasVariables } from "./automation-domain";
+import { buildAutomationTriggerConfig, normalizeAutomationTriggerType, readAutomationTriggerConfig, readTemplateActionConfig, templateHasVariables, WHATSAPP_CONFIGURABLE_TRIGGER_TYPES } from "./automation-domain";
 
 type AutomationOperationsDb = Pick<PrismaClient, "$transaction">;
 type AutomationOperation = "activate" | "pause" | "resume";
@@ -40,13 +40,16 @@ async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
 
 export async function createWhatsAppAutomation(input: {
   businessId: string; actorUserId: string; name: string; triggerType: string;
-  templateId: string; cooldownMinutes: number; orderStatus?: string; reminderLeadMinutes?: number; database?: AutomationOperationsDb;
+  templateId: string; cooldownMinutes: number; orderStatus?: string; reminderLeadMinutes?: number; inactiveDays?: number; database?: AutomationOperationsDb;
 }) {
   const database = input.database ?? db;
   const name = input.name.trim();
   if (!name || name.length > 120) throw new Error("WHATSAPP_AUTOMATION_NAME_INVALID");
   const triggerType = normalizeAutomationTriggerType(input.triggerType);
-  const triggerConfig = buildAutomationTriggerConfig(triggerType, input.orderStatus, input.reminderLeadMinutes);
+  if (!(WHATSAPP_CONFIGURABLE_TRIGGER_TYPES as readonly string[]).includes(triggerType)) {
+    throw new Error("WHATSAPP_AUTOMATION_TRIGGER_SOURCE_UNAVAILABLE");
+  }
+  const triggerConfig = buildAutomationTriggerConfig(triggerType, input.orderStatus, input.reminderLeadMinutes, input.inactiveDays);
   if (!Number.isSafeInteger(input.cooldownMinutes) || input.cooldownMinutes < 0 || input.cooldownMinutes > 525_600) {
     throw new Error("WHATSAPP_AUTOMATION_COOLDOWN_INVALID");
   }

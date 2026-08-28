@@ -6,10 +6,14 @@ export const WHATSAPP_AUTOMATION_TRIGGER_TYPES = [
 ] as const;
 
 export type WhatsAppAutomationTriggerType = typeof WHATSAPP_AUTOMATION_TRIGGER_TYPES[number];
+export const WHATSAPP_CONFIGURABLE_TRIGGER_TYPES = [
+  "welcome", "appointment_reminder", "follow_up", "order_update", "inactive_customer",
+] as const satisfies readonly WhatsAppAutomationTriggerType[];
 
 export const WHATSAPP_ORDER_EVENT_STATUSES = ["pending", "confirmed", "processing", "completed", "cancelled"] as const;
 export type WhatsAppOrderEventStatus = typeof WHATSAPP_ORDER_EVENT_STATUSES[number];
 export const WHATSAPP_APPOINTMENT_LEAD_MINUTES = [30, 60, 180, 1440, 2880, 10080] as const;
+export const WHATSAPP_INACTIVE_CUSTOMER_DAYS = [30, 60, 90, 180, 365] as const;
 
 export function normalizeAutomationTriggerType(value: string): WhatsAppAutomationTriggerType {
   if (!(WHATSAPP_AUTOMATION_TRIGGER_TYPES as readonly string[]).includes(value)) {
@@ -52,13 +56,19 @@ export function templateHasVariables(value: unknown) {
   }
 }
 
-export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStatus?: string, reminderLeadMinutes?: number) {
+export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStatus?: string, reminderLeadMinutes?: number, inactiveDays?: number) {
   const triggerType = normalizeAutomationTriggerType(triggerTypeValue);
   if (triggerType === "appointment_reminder") {
     if (!Number.isSafeInteger(reminderLeadMinutes) || reminderLeadMinutes! < 15 || reminderLeadMinutes! > 10_080) {
       throw new Error("WHATSAPP_AUTOMATION_REMINDER_LEAD_INVALID");
     }
     return { version: 1, leadMinutes: reminderLeadMinutes! } as const;
+  }
+  if (triggerType === "inactive_customer") {
+    if (!Number.isSafeInteger(inactiveDays) || inactiveDays! < 7 || inactiveDays! > 730) {
+      throw new Error("WHATSAPP_AUTOMATION_INACTIVE_DAYS_INVALID");
+    }
+    return { version: 1, inactiveDays: inactiveDays! } as const;
   }
   if (triggerType !== "order_update") return { version: 1 } as const;
   if (!(WHATSAPP_ORDER_EVENT_STATUSES as readonly string[]).includes(orderStatus ?? "")) {
@@ -72,7 +82,8 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("WHATSAPP_AUTOMATION_TRIGGER_CONFIG_INVALID");
   const record = value as Record<string, unknown>;
   const allowedKeys = triggerType === "order_update" ? ["version", "orderStatuses"]
-    : triggerType === "appointment_reminder" ? ["version", "leadMinutes"] : ["version"];
+    : triggerType === "appointment_reminder" ? ["version", "leadMinutes"]
+      : triggerType === "inactive_customer" ? ["version", "inactiveDays"] : ["version"];
   if (Object.keys(record).some((key) => !allowedKeys.includes(key)) || record.version !== 1) {
     throw new Error("WHATSAPP_AUTOMATION_TRIGGER_CONFIG_INVALID");
   }
@@ -81,6 +92,12 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
       throw new Error("WHATSAPP_AUTOMATION_REMINDER_LEAD_INVALID");
     }
     return { version: 1, leadMinutes: Number(record.leadMinutes) } as const;
+  }
+  if (triggerType === "inactive_customer") {
+    if (!Number.isSafeInteger(record.inactiveDays) || Number(record.inactiveDays) < 7 || Number(record.inactiveDays) > 730) {
+      throw new Error("WHATSAPP_AUTOMATION_INACTIVE_DAYS_INVALID");
+    }
+    return { version: 1, inactiveDays: Number(record.inactiveDays) } as const;
   }
   if (triggerType !== "order_update") return { version: 1 } as const;
   if (!Array.isArray(record.orderStatuses) || record.orderStatuses.length < 1 || record.orderStatuses.length > WHATSAPP_ORDER_EVENT_STATUSES.length) {

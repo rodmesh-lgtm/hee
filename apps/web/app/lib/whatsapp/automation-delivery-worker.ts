@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "./audit";
+import { readAutomationTriggerConfig } from "./automation-domain";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./credential-envelope";
 import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, retryDelayMs } from "./delivery-domain";
 import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
@@ -103,8 +104,8 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     where: { id: job.id, businessId: job.businessId, automationId: job.automationId, runId: job.runId, connectionId: job.connectionId },
     select: {
       templateParameters: true,
-      automation: { select: { status: true } },
-      run: { select: { event: { select: { triggerType: true, subjectType: true, subjectId: true } } } },
+      automation: { select: { status: true, triggerConfig: true } },
+      run: { select: { event: { select: { triggerType: true, subjectType: true, subjectId: true, occurredAt: true } } } },
       contact: { select: { phoneE164: true, displayName: true, optedOutAt: true } },
       template: { select: { provider: true, status: true, name: true, language: true } },
       connection: { select: { provider: true, status: true, phoneNumberId: true, credentialEnvelope: true } },
@@ -142,6 +143,32 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     if (!subjectIsComplete) {
       await releaseAs(database, job, "cancelled", now, "FOLLOW_UP_SUBJECT_NOT_COMPLETED");
       return { processed: true as const, result: "subject_not_completed" as const, jobId: job.id };
+    }
+  }
+  if (context.run.event.triggerType === "inactive_customer") {
+    let inactiveDays: number;
+    try {
+      const trigger = readAutomationTriggerConfig(context.automation.triggerConfig, "inactive_customer");
+      if (!("inactiveDays" in trigger) || !Number.isSafeInteger(trigger.inactiveDays)) throw new Error();
+      inactiveDays = Number(trigger.inactiveDays);
+    } catch {
+      await releaseAs(database, job, "cancelled", now, "INACTIVE_CUSTOMER_CONFIG_INVALID");
+      return { processed: true as const, result: "invalid_trigger" as const, jobId: job.id };
+    }
+    const previousActivityAt = new Date(context.run.event.occurredAt.getTime() - inactiveDays * 24 * 60 * 60_000);
+    const customer = context.run.event.subjectType === "customer.inactive" ? await database.customer.findFirst({
+      where: { id: context.run.event.subjectId, businessId: job.businessId },
+      select: {
+        id: true,
+        _count: { select: {
+          orders: { where: { businessId: job.businessId, status: "completed", updatedAt: { gt: previousActivityAt } } },
+          bookings: { where: { businessId: job.businessId, status: "completed", updatedAt: { gt: previousActivityAt } } },
+        } },
+      },
+    }) : null;
+    if (!customer || customer._count.orders > 0 || customer._count.bookings > 0) {
+      await releaseAs(database, job, "cancelled", now, "CUSTOMER_ACTIVE_AGAIN");
+      return { processed: true as const, result: "customer_active" as const, jobId: job.id };
     }
   }
   const consent = await database.whatsAppConsent.findFirst({

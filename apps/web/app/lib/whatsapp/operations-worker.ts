@@ -8,6 +8,7 @@ export const WHATSAPP_OPERATION_STAGES = [
   "whatsapp:campaigns",
   "whatsapp:deliveries",
   "whatsapp:replies",
+  "whatsapp:automation-schedules",
   "whatsapp:automations",
   "whatsapp:automation-deliveries",
 ] as const;
