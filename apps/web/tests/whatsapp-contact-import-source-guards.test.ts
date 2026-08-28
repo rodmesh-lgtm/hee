@@ -15,10 +15,12 @@ test("contact imports are bounded, auditable and idempotent per tenant file", ()
   assert.match(migration, /WhatsAppContactImport_business_file_unique/);
 });
 
-test("each accepted row is tenant-bound and does not create marketing consent", () => {
+test("accepted rows are batch-persisted, tenant-bound and do not create marketing consent", () => {
   const processor = source("app/lib/whatsapp/contact-import-processor.ts");
-  assert.match(processor, /businessId_phoneE164: \{ businessId: input\.businessId/);
-  assert.match(processor, /businessId: input\.businessId,\n\s+phoneE164: row\.phoneE164/);
+  assert.match(processor, /IMPORT_CHUNK_SIZE = 500/);
+  assert.match(processor, /where: \{ businessId, phoneE164: \{ in: phones \} \}/);
+  assert.match(processor, /createMany\(\{[\s\S]*businessId, phoneE164: row\.phoneE164/);
+  assert.match(processor, /skipDuplicates: true/);
   assert.doesNotMatch(processor, /whatsAppConsent\.(create|upsert|update)/);
   assert.match(processor, /database\.\$transaction\(async \(tx\)/);
 });

@@ -23,6 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/requests" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#5d49cc] hover:bg-[#f5f2ff]">طلبات الإدارة</Link>
           <Link href="/admin/access-codes" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#5d49cc] hover:bg-[#f5f2ff]">أكواد الاشتراك</Link>
           <Link href="/admin/support" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-[#5d49cc] hover:bg-[#f5f2ff]">دعم العملاء</Link>
+          <Link href="/admin/whatsapp" className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-black text-emerald-700 hover:bg-emerald-50">تشغيل واتساب</Link>
           <div className="mr-auto flex items-center gap-2 whitespace-nowrap border-r border-[#ebe7f1] pr-3">
             <span className="hidden text-[10px] font-bold text-slate-400 lg:inline">{admin.email}</span>
             <a href="https://ir.sa" target="_blank" rel="noreferrer" className="rounded-xl border border-[#e3dfed] px-3 py-2 text-xs font-black text-[#5d49cc]">منصة العملاء</a>

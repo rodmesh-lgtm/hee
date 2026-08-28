@@ -22,7 +22,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "الهوية الرقمية", href: "/dashboard/digital-identity", icon: BadgeCheck },
   { label: "توثيق الصفحة", href: "/dashboard/verification", icon: BadgeCheck },
   { label: "الطلبات والحجوزات", href: "/dashboard/inbox", icon: Inbox },
-  { label: "تسويق واتساب", href: "/dashboard/whatsapp/inbox", icon: MessageCircle, activePrefixes: ["/dashboard/whatsapp"] },
+  { label: "تسويق واتساب", href: "/dashboard/whatsapp", icon: MessageCircle, activePrefixes: ["/dashboard/whatsapp"] },
   { label: "متجر الأعمال", href: "/dashboard/business-store", icon: ShoppingBag },
   { label: "أدوات iR", href: "/dashboard/tools", icon: Sparkles },
   { label: "المظهر", href: "/dashboard/branding", icon: Palette },
