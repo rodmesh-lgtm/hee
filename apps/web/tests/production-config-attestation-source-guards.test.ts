@@ -100,7 +100,9 @@ test("release quality gate centrally enforces explicit path-based Production att
   assert.match(helper, /\.event == "workflow_dispatch"/);
   assert.match(helper, /\.head_branch == "hee-v6-rc"/);
   assert.match(helper, /production-preflight-attestation-\$\{GITHUB_SHA\}/);
-  assert.match(helper, /gh run download/);
+  assert.match(helper, /actions\/runs\/\$\{run_id\}\/artifacts/);
+  assert.match(helper, /sort_by\(\.created_at\) \| last/);
+  assert.match(helper, /actions\/artifacts\/\$\{artifact_id\}\/zip/);
   assert.match(helper, /production-config-attestation\.mjs" verify/);
 });
 
