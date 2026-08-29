@@ -151,12 +151,12 @@ jobs:
 
       - name: Stage exact checkout as Production deployment without assigning domains
         id: stage
-        working-directory: ../..
         env:
           VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
           VERCEL_GIT_COMMIT_REF: hee-v6-rc
         run: |
           set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
           deployment_url="$(npx --yes "vercel@${VERCEL_CLI_VERSION}" deploy --prod --skip-domain --yes --token "$VERCEL_TOKEN" \
             --env RELEASE_SHA="$GITHUB_SHA" --build-env RELEASE_SHA="$GITHUB_SHA")"
           test -n "$deployment_url" || (echo "Vercel did not return a staged Production deployment URL" && exit 1)
