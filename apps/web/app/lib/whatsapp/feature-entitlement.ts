@@ -17,7 +17,6 @@ export async function hasActiveWhatsAppMarketingEntitlement(input: { businessId:
   const business = await database.business.findFirst({
     where: { id: input.businessId, deletedAt: null },
     select: {
-      plan: { select: { id: true, code: true } },
       subscriptions: {
         where: {
           status: "active",
@@ -26,13 +25,24 @@ export async function hasActiveWhatsAppMarketingEntitlement(input: { businessId:
             { provider: "access_code", autoRenew: false, endsAt: null, accessGrants: { some: { businessId: input.businessId, revokedAt: null, code: { isActive: true, revokedAt: null } } } },
           ],
         },
-        select: { planId: true },
+        select: {
+          plan: { select: { code: true } },
+          provider: true,
+          accessGrants: {
+            where: { businessId: input.businessId, revokedAt: null, code: { isActive: true, revokedAt: null } },
+            select: { code: { select: { whatsappMarketingEnabled: true } } },
+            take: 1,
+          },
+        },
         take: 2,
       },
     },
   });
-  if (!business?.plan || !planHasWhatsAppMarketing(business.plan.code)) return false;
-  return business.subscriptions.some((subscription) => subscription.planId === business.plan?.id);
+  if (!business) return false;
+  return business.subscriptions.some((subscription) =>
+    planHasWhatsAppMarketing(subscription.plan.code)
+    || (subscription.provider === "access_code" && subscription.accessGrants.some((grant) => grant.code.whatsappMarketingEnabled)),
+  );
 }
 
 export async function assertActiveWhatsAppMarketingEntitlement(input: { businessId: string; database?: PrismaClient; now?: Date }) {
