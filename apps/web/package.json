@@ -34,6 +34,7 @@
     "billing:renew": "npm run billing:webhooks && npm run billing:renew-only && npm run billing:state-audit -- --record-heartbeat",
     "whatsapp:webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-webhook-worker.ts",
     "whatsapp:shopify-webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-shopify-webhook-worker.ts",
+    "whatsapp:shopify-abandoned-carts": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-shopify-abandoned-cart-worker.ts",
     "whatsapp:shopify-subscriptions": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-shopify-subscription-worker.ts",
     "whatsapp:deliveries": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-delivery-worker.ts",
     "whatsapp:campaigns": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-campaign-scheduler.ts",
