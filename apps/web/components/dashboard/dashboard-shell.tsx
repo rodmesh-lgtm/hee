@@ -5,14 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "../../app/actions/auth";
 import { switchActiveBusinessAction } from "../../app/actions/active-business";
-import { Building2, ExternalLink, Home, Inbox, LogOut, Menu, MoreHorizontal, ShieldCheck, UserRound, X } from "lucide-react";
+import { Building2, ExternalLink, Home, Inbox, LockKeyhole, LogOut, Menu, MoreHorizontal, ShieldCheck, UserRound, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { IrLogo } from "../brand/ir-logo";
 import { cn } from "../../lib/utils";
 import { dashboardNavItems } from "./dashboard-nav";
 
 type BusinessOption = { id: string; name: string; slug: string };
-type DashboardShellProps = { children: React.ReactNode; businessId: string | null; businessName: string; businessSlug: string | null; isPublished: boolean; businesses: BusinessOption[]; showQaBadge?: boolean; showAdminLink?: boolean };
+type DashboardShellProps = { children: React.ReactNode; businessId: string | null; businessName: string; businessSlug: string | null; isPublished: boolean; businesses: BusinessOption[]; showQaBadge?: boolean; showAdminLink?: boolean; hasWhatsAppMarketing?: boolean };
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "الرئيسية",
@@ -83,7 +83,7 @@ function BusinessSwitcher({ businesses, businessId, compact = false }: { busines
   );
 }
 
-export function DashboardShell({ children, businessId, businessName, businessSlug, isPublished, businesses, showQaBadge = false, showAdminLink = false }: DashboardShellProps) {
+export function DashboardShell({ children, businessId, businessName, businessSlug, isPublished, businesses, showQaBadge = false, showAdminLink = false, hasWhatsAppMarketing = false }: DashboardShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileDrawerRef = useRef<HTMLElement | null>(null);
@@ -137,7 +137,9 @@ export function DashboardShell({ children, businessId, businessName, businessSlu
   const nav = (mobile = false) => dashboardNavItems.map((item) => {
     const Icon = item.icon;
     const active = isPathActive(pathname, item.href, item.exact, item.activePrefixes);
-    return <Link key={item.href} href={item.href} onClick={mobile ? () => setMobileOpen(false) : undefined} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-3 rounded-xl px-4 text-sm font-bold transition", mobile ? "py-3" : "h-11", active ? "bg-[#f1edff] text-[#5b3fd6]" : "text-slate-600 hover:bg-[#f8f6fc] hover:text-[#1f2552]")}><Icon className="h-4 w-4" />{item.label}</Link>;
+    const isWhatsApp = item.href === "/dashboard/whatsapp";
+    const href = isWhatsApp && !hasWhatsAppMarketing ? "/dashboard/billing/manage?feature=whatsapp-marketing" : item.href;
+    return <Link key={item.href} href={href} onClick={mobile ? () => setMobileOpen(false) : undefined} aria-current={active ? "page" : undefined} className={cn("flex items-center gap-3 rounded-xl px-4 text-sm font-bold transition", mobile ? "py-3" : "h-11", active ? "bg-[#f1edff] text-[#5b3fd6]" : "text-slate-600 hover:bg-[#f8f6fc] hover:text-[#1f2552]")}><Icon className="h-4 w-4" />{item.label}{isWhatsApp && !hasWhatsAppMarketing ? <LockKeyhole className="mr-auto h-3.5 w-3.5 text-slate-400" aria-label="يتطلب تفعيل الباقة" /> : null}</Link>;
   });
 
   const mobileQuickNav = [
