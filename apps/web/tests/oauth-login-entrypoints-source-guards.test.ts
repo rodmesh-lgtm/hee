@@ -7,12 +7,15 @@ function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
-test("login page exposes both supported OAuth login entry points", () => {
+test("login page retains supported OAuth entry points and server routes fail closed when disabled", () => {
   const login = source("app/login/page.tsx");
+  const oauth = source("app/lib/oauth.ts");
   assert.match(login, /href="\/api\/auth\/oauth\/google"/);
   assert.match(login, /href="\/api\/auth\/oauth\/apple"/);
   assert.match(login, /المتابعة باستخدام Google/);
   assert.match(login, /المتابعة باستخدام Apple/);
+  assert.match(oauth, /export function providerConfigured/);
+  assert.match(oauth, /if \(!providerConfigured\(provider\)\)/);
 });
 
 test("OAuth start route remains login-only until consent-aware social registration exists", () => {
