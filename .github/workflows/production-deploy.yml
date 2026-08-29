@@ -71,11 +71,10 @@ jobs:
           fetch-depth: 1
 
       - name: Normalize attested release-core configuration before quality gate
-        working-directory: .
         run: |
           set -euo pipefail
           node .github/scripts/require-production-database-safety.mjs DATABASE_URL
-          echo "HEE_FROM_EMAIL=HEE <no-reply@ir.sa>" >> "$GITHUB_ENV"
+          echo 'HEE_FROM_EMAIL=HEE <no-reply@ir.sa>' >> "$GITHUB_ENV"
 
       - name: Require content-proven RC Quality for release
         uses: ./.github/actions/require-release-quality
