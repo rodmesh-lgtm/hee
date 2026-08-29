@@ -35,13 +35,20 @@ test("release quality provenance accepts only exact green RC or a tree-identical
 
 test("production migrations stay manually gated to the release branch with writes paused", () => {
   const workflow = source("../../.github/workflows/production-migrations.yml");
+  const preflight = workflow.indexOf("Ensure successful exact-SHA Production Preflight V2");
+  const quality = workflow.indexOf("Require content-proven RC Quality for release");
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /APPLY_PRODUCTION_MIGRATIONS/);
   assert.match(workflow, /PRODUCTION_WRITES_PAUSED/);
   assert.match(workflow, /inputs\.writes_paused_confirmation == 'PRODUCTION_WRITES_PAUSED'/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
+  assert.match(workflow, /actions: write/);
+  assert.match(workflow, /production-preflight-v2\.yml\/dispatches/);
+  assert.match(workflow, /VERIFY_PRODUCTION_PREFLIGHT/);
+  assert.match(workflow, /Timed out waiting for exact-SHA Production Preflight V2/);
   assertUsesContentProvenQualityGate(workflow);
+  assert.ok(preflight >= 0 && quality > preflight, "exact-SHA preflight must exist before the release-quality attestation gate");
   assert.match(workflow, /production-preflight-v2\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
   assert.match(workflow, /exact release SHA \$\{GITHUB_SHA\} has no successful Production Preflight V2 run/);
 });
