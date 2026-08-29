@@ -26,10 +26,21 @@ tmpdir="$(mktemp -d)"
 cleanup() { rm -rf "$tmpdir"; }
 trap cleanup EXIT
 
-if ! gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$tmpdir"; then
-  echo "Successful Production Preflight V2 run ${run_id} has no usable ${artifact_name} artifact" >&2
-  exit 1
-fi
+artifact_id="$(ARTIFACT_NAME="$artifact_name" gh api \
+  -H 'Accept: application/vnd.github+json' \
+  -H 'X-GitHub-Api-Version: 2022-11-28' \
+  "/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/artifacts?per_page=100" \
+  --jq '[.artifacts[] | select(.name == env.ARTIFACT_NAME and .expired == false)] | sort_by(.created_at) | last | .id // empty')"
+
+test -n "$artifact_id" || { echo "Successful Production Preflight V2 run ${run_id} has no usable ${artifact_name} artifact" >&2; exit 1; }
+
+archive="$tmpdir/production-preflight-attestation.zip"
+curl --silent --show-error --fail --location \
+  -H "Authorization: Bearer ${GH_TOKEN}" \
+  -H 'Accept: application/vnd.github+json' \
+  "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+  --output "$archive"
+unzip -q "$archive" -d "$tmpdir"
 
 attestation="$tmpdir/production-preflight-attestation.json"
 test -s "$attestation" || { echo "Downloaded Production Preflight V2 attestation is missing or empty" >&2; exit 1; }
