@@ -74,8 +74,14 @@ function canonicalPayload(scope, keys) {
   return JSON.stringify({ version: VERSION, scope, releaseSha: releaseSha(), values });
 }
 function digest(scope) {
-  if (scope === "release-core") validateProductionOauth();
-  return createHmac("sha256", signingKeyFor(scope)).update(canonicalPayload(scope, keysFor(scope))).digest("hex");
+  if (scope === "release-core") {
+    validateProductionOauth();
+    return createHmac("sha256", signingKeyFor(scope)).update(canonicalPayload(scope, keysFor(scope))).digest("hex");
+  }
+  if (scope === "migration-core" || scope === "worker-host") {
+    return createHmac("sha256", signingKeyFor(scope)).update(canonicalPayload(scope, keysFor(scope))).digest("hex");
+  }
+  throw new Error(`Unsupported attestation scope: ${scope}`);
 }
 function keyFingerprint(scope, key) {
   const value = String(process.env[key] ?? "").trim();
@@ -97,9 +103,12 @@ function equalHex(left, right) {
   return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
 }
 async function writeAttestation(path) {
-  const scopes = ["release-core", "migration-core"];
-  if (billingWorkerRequired()) scopes.push("worker-host");
-  const digests = Object.fromEntries(scopes.map((scope) => [scope, digest(scope)]));
+  const digests = {
+    "release-core": digest("release-core"),
+    "migration-core": digest("migration-core"),
+  };
+  if (billingWorkerRequired()) digests["worker-host"] = digest("worker-host");
+  const scopes = Object.keys(digests);
   const keyFingerprints = Object.fromEntries(scopes.map((scope) => [scope, fingerprints(scope)]));
   const body = { version: VERSION, releaseSha: releaseSha(), digests, keyFingerprints };
   await writeFile(path, `${JSON.stringify(body)}\n`, { encoding: "utf8", mode: 0o600 });
