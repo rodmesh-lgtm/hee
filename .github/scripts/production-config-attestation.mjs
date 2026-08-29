@@ -46,21 +46,37 @@ function required(name) {
   return value;
 }
 
-function validateProductionOauth() {
-  const googleId = required("GOOGLE_CLIENT_ID");
-  const googleSecret = required("GOOGLE_CLIENT_SECRET");
-  if (!googleId.endsWith(".apps.googleusercontent.com")) throw new Error("GOOGLE_CLIENT_ID must be a Google OAuth web client id");
-  if (googleSecret.length < 16 || googleId === googleSecret) throw new Error("GOOGLE_CLIENT_SECRET must be a valid distinct production secret");
+function optionalValues(names) {
+  return names.map((name) => String(process.env[name] ?? "").trim());
+}
 
-  const appleClientId = required("APPLE_CLIENT_ID");
-  const appleTeamId = required("APPLE_TEAM_ID");
-  const appleKeyId = required("APPLE_KEY_ID");
-  const applePrivateKey = required("APPLE_PRIVATE_KEY").replace(/\\n/g, "\n");
-  if (!appleClientId.includes(".")) throw new Error("APPLE_CLIENT_ID must be an Apple Services ID");
-  if (!/^[A-Z0-9]{10}$/.test(appleTeamId)) throw new Error("APPLE_TEAM_ID must be a 10-character Apple Team ID");
-  if (!/^[A-Z0-9]{10}$/.test(appleKeyId)) throw new Error("APPLE_KEY_ID must be a 10-character Apple key ID");
-  if (!applePrivateKey.includes("-----BEGIN PRIVATE KEY-----") || !applePrivateKey.includes("-----END PRIVATE KEY-----")) {
-    throw new Error("APPLE_PRIVATE_KEY must contain a PKCS#8 private key");
+function requireAllOrNone(label, names) {
+  const values = optionalValues(names);
+  const configured = values.some(Boolean);
+  if (configured && !values.every(Boolean)) {
+    throw new Error(`${label} OAuth must be either fully configured or fully disabled in Production configuration attestation`);
+  }
+  return configured ? values : null;
+}
+
+function validateProductionOauth() {
+  const google = requireAllOrNone("Google", ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]);
+  if (google) {
+    const [googleId, googleSecret] = google;
+    if (!googleId.endsWith(".apps.googleusercontent.com")) throw new Error("GOOGLE_CLIENT_ID must be a Google OAuth web client id");
+    if (googleSecret.length < 16 || googleId === googleSecret) throw new Error("GOOGLE_CLIENT_SECRET must be a valid distinct production secret");
+  }
+
+  const apple = requireAllOrNone("Apple", ["APPLE_CLIENT_ID", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY"]);
+  if (apple) {
+    const [appleClientId, appleTeamId, appleKeyId, rawApplePrivateKey] = apple;
+    const applePrivateKey = rawApplePrivateKey.replace(/\\n/g, "\n");
+    if (!appleClientId.includes(".")) throw new Error("APPLE_CLIENT_ID must be an Apple Services ID");
+    if (!/^[A-Z0-9]{10}$/.test(appleTeamId)) throw new Error("APPLE_TEAM_ID must be a 10-character Apple Team ID");
+    if (!/^[A-Z0-9]{10}$/.test(appleKeyId)) throw new Error("APPLE_KEY_ID must be a 10-character Apple key ID");
+    if (!applePrivateKey.includes("-----BEGIN PRIVATE KEY-----") || !applePrivateKey.includes("-----END PRIVATE KEY-----")) {
+      throw new Error("APPLE_PRIVATE_KEY must contain a PKCS#8 private key");
+    }
   }
 }
 
@@ -77,8 +93,8 @@ function canonicalPayload(scope, keys) {
 
 function digest(scope) {
   if (scope === "release-core") {
-    // Social login is customer-visible at launch. Both Preflight attestation creation and
-    // later release-core verification must fail closed rather than attesting dead buttons.
+    // OAuth is opt-in. Any partially configured provider must fail closed during both
+    // attestation creation and later release-core verification.
     validateProductionOauth();
     return createHmac("sha256", required("SESSION_SECRET"))
       .update(canonicalPayload(scope, releaseCoreKeys))
