@@ -47,7 +47,9 @@ test("admin revocation serializes against redemption and billing before disablin
  assert.match(source,/billing-business:\$\{businessId\}/);
  const codeLock=source.indexOf("subscription-access:${identity.codeHash}");
  const businessLock=source.indexOf("billing-business:${businessId}");
- const disable=source.indexOf("subscriptionAccessCode.update");
+ // The entitlement toggle is also an update. The revocation update must remain
+ // after both advisory locks, so inspect the final update in this action.
+ const disable=source.lastIndexOf("subscriptionAccessCode.update");
  assert.ok(codeLock >= 0 && businessLock > codeLock && disable > businessLock);
  assert.match(source,/new Set\(code\.grants\.map\(\(grant\) => grant\.businessId\)\)\]\.sort\(\)/);
 });

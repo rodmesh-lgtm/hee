@@ -20,6 +20,7 @@ export async function createSubscriptionAccessCodeAdminAction(
   // select value: newer catalog identifiers (for example `dev-ai-offers`) are lowercase.
   const planCode = String(formData.get("plan") ?? "").trim();
   const label = String(formData.get("label") ?? "").trim().slice(0, 120) || null;
+  const whatsappMarketingEnabled = formData.get("whatsappMarketingEnabled") === "on";
   const maxRaw = String(formData.get("maxRedemptions") ?? "").trim();
   const expiresRaw = String(formData.get("expiresAt") ?? "").trim();
   const maxRedemptions = maxRaw ? Number.parseInt(maxRaw, 10) : null;
@@ -35,13 +36,25 @@ export async function createSubscriptionAccessCodeAdminAction(
 
   const plaintext = `HEE-${randomBytes(12).toString("hex").toUpperCase()}`;
   await db.subscriptionAccessCode.create({
-    data: { codeHash: accessCodeHash(plaintext), label, planId: plan.id, createdByUserId: admin.id, maxRedemptions, expiresAt },
+    data: { codeHash: accessCodeHash(plaintext), label, planId: plan.id, createdByUserId: admin.id, maxRedemptions, expiresAt, whatsappMarketingEnabled },
   });
   revalidatePath("/admin/access-codes");
 
   // The plaintext is returned once in the action payload only. It is never persisted and
   // never placed in a URL, avoiding browser-history, referrer, proxy and access-log leaks.
   return { status: "created", code: plaintext };
+}
+
+export async function setSubscriptionAccessCodeWhatsAppEntitlementAdminAction(formData: FormData) {
+  await requireAdmin();
+  const codeId = String(formData.get("codeId") ?? "").trim();
+  const enabled = formData.get("whatsappMarketingEnabled") === "on";
+  if (!codeId) redirect("/admin/access-codes?access=invalid-code");
+  await db.subscriptionAccessCode.update({ where: { id: codeId }, data: { whatsappMarketingEnabled: enabled } });
+  revalidatePath("/admin/access-codes");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/whatsapp");
+  redirect(`/admin/access-codes?access=whatsapp-${enabled ? "enabled" : "disabled"}`);
 }
 
 export async function revokeSubscriptionAccessCodeAdminAction(formData: FormData) {

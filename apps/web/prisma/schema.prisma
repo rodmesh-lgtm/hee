@@ -433,6 +433,11 @@ model SubscriptionAccessCode {
   isActive Boolean @default(true)
   maxRedemptions Int?
   redemptionCount Int @default(0)
+  // An administrative access code can explicitly grant the WhatsApp add-on even
+  // when it is attached to a custom catalog plan (for example a launch offer).
+  // Keep this separate from BusinessPlan.code so a plan rename never changes a
+  // customer's already-issued entitlement unexpectedly.
+  whatsappMarketingEnabled Boolean @default(false)
   expiresAt DateTime?
   createdByUserId String
   revokedAt DateTime?

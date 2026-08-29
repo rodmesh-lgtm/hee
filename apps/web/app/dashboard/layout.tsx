@@ -4,6 +4,7 @@ import { getCurrentUser } from "../lib/auth";
 import { isAdminEmail } from "../lib/admin";
 import { getQaAuditSessionUser } from "../lib/qa-audit";
 import { getActiveBusinessForUser, getOwnedBusinessSummaries } from "../lib/active-business";
+import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
 import { DashboardShell } from "../../components/dashboard/dashboard-shell";
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     getActiveBusinessForUser(user.id),
     getOwnedBusinessSummaries(user.id),
   ]);
+  const hasWhatsAppMarketing = business ? await hasActiveWhatsAppMarketingEntitlement({ businessId: business.id }) : false;
   const effectivelyPublished = Boolean(business?.isPublished && user.emailVerifiedAt);
 
   return <DashboardShell
@@ -30,5 +32,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     businesses={businesses.map(({ id, name, slug }) => ({ id, name, slug }))}
     showQaBadge={Boolean(qaAuditUser)}
     showAdminLink={!qaAuditUser && Boolean(user.emailVerifiedAt) && isAdminEmail(user.email)}
+    hasWhatsAppMarketing={hasWhatsAppMarketing}
   >{children}</DashboardShell>;
 }
