@@ -76,7 +76,7 @@ export async function detectNextAbandonedShopifyCart(input: {
       return { processed: true as const, outcome: "stale" as const };
     }
 
-    const detectedAt = now;
+    const abandonedAt = new Date(current.occurredAt.getTime() + abandonmentMinutes * 60_000);
     const externalEventId = `shopify:abandoned:${candidate.cartId}:${current.occurredAt.toISOString()}`;
     const result = await applyWhatsAppAutomationCartTransitionInTransaction({
       businessId: candidate.businessId,
@@ -85,9 +85,9 @@ export async function detectNextAbandonedShopifyCart(input: {
       cartId: candidate.cartId,
       contactId: candidate.contactId,
       state: "abandoned",
-      occurredAt: detectedAt,
-      now: detectedAt,
-    }, tx, detectedAt);
+      occurredAt: abandonedAt,
+      now,
+    }, tx, now);
 
     return { processed: true as const, outcome: result.outcome, scheduled: result.scheduled, cartId: candidate.cartId };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
