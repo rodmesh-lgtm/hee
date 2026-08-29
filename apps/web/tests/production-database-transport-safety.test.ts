@@ -133,6 +133,19 @@ test("Prisma Postgres accepts only explicit direct source and restore credential
   }
 });
 
+test("Prisma production may use an isolated direct PostgreSQL restore host", () => {
+  const result = run(
+    {
+      DATABASE_URL: "postgresql://production_user:production_secret@db.prisma.io:5432/?sslmode=verify-full",
+      RESTORE_DATABASE_URL: "postgresql://restore_user:restore_secret@restore.example.com:5432/hee_restore_production?sslmode=verify-full",
+      EXPECTED_PRODUCTION_DB_HOST: "db.prisma.io",
+    },
+    ["DATABASE_URL", "RESTORE_DATABASE_URL"],
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /source \+ isolated restore/);
+});
+
 test("unrelated Neon project host is rejected even with verify-full", () => {
   const unrelated = run({
     DATABASE_URL: `postgresql://user:secret@${unrelatedNeonHost}/hee_production?sslmode=verify-full`,
