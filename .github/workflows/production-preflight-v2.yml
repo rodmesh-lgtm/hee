@@ -151,13 +151,13 @@ jobs:
           NODE
 
       - name: Prove production PostgreSQL is reachable read-only
-        run: psql "$DATABASE_URL&sslrootcert=system" -v ON_ERROR_STOP=1 -Atc 'SELECT 1'
+        run: PGSSLROOTCERT=system psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'SELECT 1'
 
       - name: Prove isolated restore PostgreSQL is reachable read-only
-        run: psql "$RESTORE_DATABASE_URL&sslrootcert=system" -v ON_ERROR_STOP=1 -Atc 'SELECT 1'
+        run: PGSSLROOTCERT=system psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'SELECT 1'
 
       - name: Prove production Prisma migration history is readable
-        run: psql "$DATABASE_URL&sslrootcert=system" -v ON_ERROR_STOP=1 -Atc 'SELECT COUNT(*) FROM "_prisma_migrations"'
+        run: PGSSLROOTCERT=system psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'SELECT COUNT(*) FROM "_prisma_migrations"'
 
       - name: Verify Vercel credential and HEE project read-only
         run: |
