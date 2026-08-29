@@ -106,6 +106,16 @@ test("release quality gate centrally enforces explicit path-based Production att
   assert.match(helper, /production-config-attestation\.mjs" verify/);
 });
 
+test("production deploy normalizes attested release-core inputs before attestation verification", () => {
+  const workflow = source("../../.github/workflows/production-deploy.yml");
+  const normalize = workflow.indexOf("Normalize attested release-core configuration before quality gate");
+  const qualityGate = workflow.indexOf("Require content-proven RC Quality for release");
+  assert.ok(normalize >= 0);
+  assert.ok(qualityGate > normalize);
+  assert.match(workflow, /require-production-database-safety\.mjs DATABASE_URL/);
+  assert.match(workflow, /HEE_FROM_EMAIL=HEE <no-reply@ir\.sa>/);
+});
+
 test("legacy Production Preflight V1 is removed so operators and gates have one canonical workflow", () => {
   assert.equal(existsSync(resolve(process.cwd(), "../../.github/workflows/production-preflight.yml")), false);
 });
