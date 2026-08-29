@@ -193,12 +193,16 @@ function parseDatabaseUrl(name, role) {
   if (!parsed.hostname || LOCAL_HOSTS.has(parsed.hostname.toLowerCase())) fail(`${name} must not point to a local host`);
 
   const expectedHost = expectedProductionHost();
-  if (expectedHost && parsed.hostname.toLowerCase() !== expectedHost) {
+  // The production source is pinned to its approved host. The restore target
+  // is deliberately isolated and may be hosted separately (for example, on
+  // the existing Neon restore database), so it must not be forced onto the
+  // production Prisma Postgres host.
+  if (expectedHost && role === "source" && parsed.hostname.toLowerCase() !== expectedHost) {
     fail(`${name} must target EXPECTED_PRODUCTION_DB_HOST`);
   }
 
   const database = decodeURIComponent(parsed.pathname.replace(/^\//, ""));
-  const prismaDirect = isPrismaPostgresDirectHost(expectedHost);
+  const prismaDirect = isPrismaPostgresDirectHost(parsed.hostname);
   if (!database && !prismaDirect) fail(`${name} must name a database`);
   if (prismaDirect && (!parsed.username || !parsed.password)) {
     fail(`${name} must contain a Prisma Postgres direct credential`);
