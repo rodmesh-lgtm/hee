@@ -34,6 +34,7 @@ test("runtime database URL normalization rejects ambiguous duplicate sslmode", (
 
 test("Preflight V2 requires verify-full before its first PostgreSQL probe", () => {
   const workflow = source("../../.github/workflows/production-preflight-v2.yml");
+  assert.match(workflow, /EXPECTED_PRODUCTION_DB_HOST: \$\{\{ vars\.PRODUCTION_DATABASE_HOST \}\}/);
   assert.match(workflow, /DATABASE_URL RESTORE_DATABASE_URL/);
   assert.match(workflow, /searchParams\.getAll\('sslmode'\)/);
   assert.match(workflow, /sslModes\.length > 1/);
@@ -50,6 +51,7 @@ test("scheduled backup requires verify-full before pg_dump and restore mutation"
 
 test("production migrations require verify-full before Prisma, backup and restore tooling", () => {
   const workflow = source("../../.github/workflows/production-migrations.yml");
+  assert.match(workflow, /EXPECTED_PRODUCTION_DB_HOST: \$\{\{ vars\.PRODUCTION_DATABASE_HOST \}\}/);
   assert.match(workflow, /DATABASE_URL RESTORE_DATABASE_URL/);
   assertGuardPrecedes(workflow, "npx prisma migrate status");
   assertGuardPrecedes(workflow, 'pg_dump "$DATABASE_URL"');
@@ -63,6 +65,7 @@ test("production web deploy and final readiness require verify-full before Prism
     "../../.github/workflows/production-launch-readiness.yml",
   ]) {
     const workflow = source(path);
+    assert.match(workflow, /EXPECTED_PRODUCTION_DB_HOST: \$\{\{ vars\.PRODUCTION_DATABASE_HOST \}\}/);
     assert.match(workflow, /require-production-database-safety\.mjs DATABASE_URL/);
     assertGuardPrecedes(workflow, "npx prisma migrate status");
   }
