@@ -8,8 +8,7 @@ const preflight = readFileSync(new URL("../../../.github/workflows/production-pr
 test("Production Preflight attestation permits disabled OAuth but rejects partial credentials", () => {
   assert.match(preflight, /production-config-attestation\.mjs write/);
   assert.match(attestation, /function requireAllOrNone\(label, names\)/);
-  assert.match(attestation, /Google OAuth must be either fully configured or fully disabled/);
-  assert.match(attestation, /Apple OAuth must be either fully configured or fully disabled/);
+  assert.match(attestation, /\$\{label\} OAuth must be either fully configured or fully disabled/);
   assert.match(attestation, /\["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"\]/);
   assert.match(attestation, /\["APPLE_CLIENT_ID", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY"\]/);
   assert.match(attestation, /if \(scope === "release-core"\) \{[\s\S]*validateProductionOauth\(\)/);
