@@ -70,6 +70,9 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
+      - name: Canonicalize verified Production database URL before release attestation
+        run: node ../../.github/scripts/require-production-database-safety.mjs DATABASE_URL
+
       - name: Require content-proven RC Quality for release
         uses: ./.github/actions/require-release-quality
         env:
@@ -122,9 +125,6 @@ jobs:
           set -euo pipefail
           cli_version="$(npx --yes "vercel@${VERCEL_CLI_VERSION}" --version | tr -d '\r' | tail -n 1)"
           case "$cli_version" in *"${VERCEL_CLI_VERSION}"*) ;; *) echo "Unexpected Vercel CLI version: ${cli_version}"; exit 1 ;; esac
-
-      - name: Require verify-full PostgreSQL transport before Prisma CLI
-        run: node ../../.github/scripts/require-production-database-safety.mjs DATABASE_URL
 
       - name: Install dependencies
         run: npm ci
