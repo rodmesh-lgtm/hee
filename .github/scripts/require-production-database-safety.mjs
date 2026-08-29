@@ -5,6 +5,7 @@ import fs from "node:fs";
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const HEE_PRODUCTION_DATABASE = "hee_production";
 const HEE_RESTORE_DATABASE = "hee_restore_production";
+const PRISMA_POSTGRES_DIRECT_HOST = "db.prisma.io";
 const MANAGED_DATABASE_KEYS = new Set([
   "DATABASE_URL",
   "POSTGRES_URL",
@@ -43,6 +44,10 @@ function tryUrl(value) {
 function isPostgresUrl(value) {
   const parsed = tryUrl(value);
   return Boolean(parsed && new Set(["postgres:", "postgresql:"]).has(parsed.protocol));
+}
+
+function isPrismaPostgresDirectHost(host) {
+  return String(host ?? "").trim().toLowerCase() === PRISMA_POSTGRES_DIRECT_HOST;
 }
 
 function maskAndPersist(name, value) {
@@ -90,6 +95,9 @@ async function resolveProductionDatabaseFromVercel(sourceName, restoreName) {
   if (sourceName !== "DATABASE_URL" || isPostgresUrl(process.env[sourceName])) return;
 
   const expectedHost = expectedProductionHost({ required: true });
+  if (isPrismaPostgresDirectHost(expectedHost)) {
+    fail("PRODUCTION_DATABASE_URL must contain the Prisma Postgres direct PostgreSQL connection string for db.prisma.io; Vercel runtime variables are pooled/application credentials and cannot be used for pg_dump, pg_restore, or migrations");
+  }
   const token = requiredEnv("VERCEL_TOKEN");
   const projectId = requiredEnv("VERCEL_PROJECT_ID");
   const teamId = requiredEnv("VERCEL_ORG_ID");
@@ -135,6 +143,13 @@ function canonicalizeManagedHeeDatabases(sourceName, restoreName) {
   if (!parsed || parsed.hostname.toLowerCase() !== expectedHost) return;
   if (!new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) return;
 
+  // Prisma Postgres direct credentials identify a provisioned database rather
+  // than a database-name route. Rewriting their pathname to HEE's historic
+  // Neon names would point operational tooling at a database that does not
+  // exist. The two explicit GitHub production secrets remain required and are
+  // canonicalised independently below.
+  if (isPrismaPostgresDirectHost(expectedHost)) return;
+
   parsed.pathname = `/${HEE_PRODUCTION_DATABASE}`;
   parsed.searchParams.delete("sslmode");
   parsed.searchParams.set("sslmode", "verify-full");
@@ -148,6 +163,22 @@ function canonicalizeManagedHeeDatabases(sourceName, restoreName) {
   }
 
   console.log(`production-database-routing: PASS source=${HEE_PRODUCTION_DATABASE}${restoreName ? ` restore=${HEE_RESTORE_DATABASE}` : ""}`);
+}
+
+function canonicalizePrismaPostgresDirectUrls(sourceName, restoreName) {
+  const expectedHost = expectedProductionHost();
+  if (!isPrismaPostgresDirectHost(expectedHost)) return;
+
+  for (const name of [sourceName, restoreName].filter(Boolean)) {
+    const parsed = tryUrl(String(process.env[name] ?? "").trim());
+    if (!parsed || parsed.hostname.toLowerCase() !== expectedHost) continue;
+    if (!new Set(["postgres:", "postgresql:"]).has(parsed.protocol)) continue;
+    parsed.searchParams.delete("sslmode");
+    parsed.searchParams.set("sslmode", "verify-full");
+    maskAndPersist(name, parsed.toString());
+  }
+
+  console.log("production-database-routing: PASS explicit Prisma Postgres direct source and restore credentials");
 }
 
 function parseDatabaseUrl(name, role) {
@@ -167,33 +198,48 @@ function parseDatabaseUrl(name, role) {
   }
 
   const database = decodeURIComponent(parsed.pathname.replace(/^\//, ""));
-  if (!database) fail(`${name} must name a database`);
+  const prismaDirect = isPrismaPostgresDirectHost(expectedHost);
+  if (!database && !prismaDirect) fail(`${name} must name a database`);
+  if (prismaDirect && (!parsed.username || !parsed.password)) {
+    fail(`${name} must contain a Prisma Postgres direct credential`);
+  }
 
   const sslModes = parsed.searchParams.getAll("sslmode");
   if (sslModes.length > 1) fail(`${name} must contain at most one sslmode parameter`);
   const sslMode = String(sslModes[0] ?? "").trim().toLowerCase();
   if (sslMode !== "verify-full") fail(`${name} must use sslmode=verify-full for production operational tooling`);
 
-  if (role === "source" && /^(hee_ci|hee_restore(?:_|$))/i.test(database)) fail(`${name} must target the production database, not CI/restore`);
-  if (role === "restore" && !/^hee_restore(?:_|$)/i.test(database)) fail(`${name} restore database name must begin with hee_restore`);
+  if (!prismaDirect && role === "source" && /^(hee_ci|hee_restore(?:_|$))/i.test(database)) fail(`${name} must target the production database, not CI/restore`);
+  if (!prismaDirect && role === "restore" && !/^hee_restore(?:_|$)/i.test(database)) fail(`${name} restore database name must begin with hee_restore`);
 
-  if (expectedHost) {
+  if (expectedHost && !prismaDirect) {
     if (role === "source" && database !== HEE_PRODUCTION_DATABASE) fail(`${name} must resolve to the isolated HEE production database`);
     if (role === "restore" && database !== HEE_RESTORE_DATABASE) fail(`${name} must resolve to the isolated HEE restore database`);
   }
 
-  return { host: parsed.hostname.toLowerCase(), port: parsed.port || "5432", database };
+  return {
+    host: parsed.hostname.toLowerCase(),
+    port: parsed.port || "5432",
+    database,
+    // Prisma Postgres creates a distinct direct credential per provisioned
+    // database. Its URL pathname may be empty or "postgres", so use the
+    // credential principal (not the path) to reject accidental source=restore.
+    identity: prismaDirect
+      ? `${parsed.hostname.toLowerCase()}:${parsed.port || "5432"}/${decodeURIComponent(parsed.username)}`
+      : `${parsed.hostname.toLowerCase()}:${parsed.port || "5432"}/${database}`,
+  };
 }
 
 const [sourceName = "DATABASE_URL", restoreName] = process.argv.slice(2);
 await resolveProductionDatabaseFromVercel(sourceName, restoreName);
 canonicalizeManagedHeeDatabases(sourceName, restoreName);
+canonicalizePrismaPostgresDirectUrls(sourceName, restoreName);
 const source = parseDatabaseUrl(sourceName, "source");
 
 if (restoreName) {
   const restore = parseDatabaseUrl(restoreName, "restore");
-  const sourceIdentity = `${source.host}:${source.port}/${source.database}`;
-  const restoreIdentity = `${restore.host}:${restore.port}/${restore.database}`;
+  const sourceIdentity = source.identity;
+  const restoreIdentity = restore.identity;
   if (sourceIdentity === restoreIdentity) fail(`${sourceName} and ${restoreName} resolve to the same PostgreSQL database identity`);
 }
 

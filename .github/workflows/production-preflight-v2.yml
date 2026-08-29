@@ -102,8 +102,10 @@ jobs:
             if (sslModes.length > 1) throw new Error(`${name} must contain at most one sslmode parameter`);
             const ssl = String(sslModes[0] ?? '').trim().toLowerCase();
             if (ssl !== 'verify-full') throw new Error(`${name} must use sslmode=verify-full`);
-            if (restore && !/^hee_restore(?:_|$)/i.test(db)) throw new Error('RESTORE_DATABASE_URL must name hee_restore*');
-            if (!restore && /^(hee_ci|hee_restore(?:_|$))/i.test(db)) throw new Error('PRODUCTION_DATABASE_URL must target production');
+            const prismaDirect = String(process.env.EXPECTED_PRODUCTION_DB_HOST ?? '').trim().toLowerCase() === 'db.prisma.io';
+            if (prismaDirect && (!parsed.username || !parsed.password)) throw new Error(`${name} must be a Prisma Postgres direct credential`);
+            if (!prismaDirect && restore && !/^hee_restore(?:_|$)/i.test(db)) throw new Error('RESTORE_DATABASE_URL must name hee_restore*');
+            if (!prismaDirect && !restore && /^(hee_ci|hee_restore(?:_|$))/i.test(db)) throw new Error('PRODUCTION_DATABASE_URL must target production');
             return parsed.href;
           }
           const source = database('DATABASE_URL', false);

@@ -97,6 +97,32 @@ test("configured HEE Production host is forcibly isolated from unrelated neondb 
   }
 });
 
+test("Prisma Postgres accepts only explicit direct source and restore credentials", () => {
+  const sourceDirect = "postgresql://production_user:production_secret@db.prisma.io:5432/?sslmode=require";
+  const restoreDirect = "postgresql://restore_user:restore_secret@db.prisma.io:5432/?sslmode=require";
+  const result = run(
+    {
+      DATABASE_URL: sourceDirect,
+      RESTORE_DATABASE_URL: restoreDirect,
+      EXPECTED_PRODUCTION_DB_HOST: "db.prisma.io",
+    },
+    ["DATABASE_URL", "RESTORE_DATABASE_URL"],
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /explicit Prisma Postgres direct source and restore credentials/);
+
+  const sameCredential = run(
+    {
+      DATABASE_URL: sourceDirect,
+      RESTORE_DATABASE_URL: sourceDirect,
+      EXPECTED_PRODUCTION_DB_HOST: "db.prisma.io",
+    },
+    ["DATABASE_URL", "RESTORE_DATABASE_URL"],
+  );
+  assert.notEqual(sameCredential.status, 0);
+  assert.match(sameCredential.stderr, /resolve to the same PostgreSQL database identity/);
+});
+
 test("unrelated Neon project host is rejected even with verify-full", () => {
   const unrelated = run({
     DATABASE_URL: `postgresql://user:secret@${unrelatedNeonHost}/hee_production?sslmode=verify-full`,
