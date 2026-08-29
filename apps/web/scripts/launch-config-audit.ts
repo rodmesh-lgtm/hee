@@ -81,23 +81,41 @@ function billingTaxReadiness() {
   }
 }
 
-function productionOauthReadiness() {
-  const googleId = required("GOOGLE_CLIENT_ID");
-  const googleSecret = strongSecret("GOOGLE_CLIENT_SECRET", 16);
-  if (!googleId.endsWith(".apps.googleusercontent.com")) {
-    throw new Error("GOOGLE_CLIENT_ID must be a Google OAuth web client id");
-  }
-  if (googleId === googleSecret) throw new Error("Google OAuth client id and secret must differ");
+function optionalValues(names: string[]) {
+  return names.map((name) => String(process.env[name] ?? "").trim());
+}
 
-  const appleClientId = required("APPLE_CLIENT_ID");
-  const appleTeamId = required("APPLE_TEAM_ID");
-  const appleKeyId = required("APPLE_KEY_ID");
-  const applePrivateKey = required("APPLE_PRIVATE_KEY").replace(/\\n/g, "\n");
-  if (!/^[A-Z0-9]{10}$/.test(appleTeamId)) throw new Error("APPLE_TEAM_ID must be a 10-character Apple Team ID");
-  if (!/^[A-Z0-9]{10}$/.test(appleKeyId)) throw new Error("APPLE_KEY_ID must be a 10-character Apple key ID");
-  if (!appleClientId.includes(".")) throw new Error("APPLE_CLIENT_ID must be an Apple Services ID");
-  if (!applePrivateKey.includes("-----BEGIN PRIVATE KEY-----") || !applePrivateKey.includes("-----END PRIVATE KEY-----")) {
-    throw new Error("APPLE_PRIVATE_KEY must contain a PKCS#8 private key");
+function requireAllOrNone(label: string, names: string[]) {
+  const values = optionalValues(names);
+  const configured = values.some(Boolean);
+  if (configured && !values.every(Boolean)) {
+    throw new Error(`${label} OAuth must be either fully configured or fully disabled in production`);
+  }
+  return configured ? values : null;
+}
+
+function productionOauthReadiness() {
+  const google = requireAllOrNone("Google", ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]);
+  if (google) {
+    const [googleId, googleSecret] = google;
+    if (!googleId.endsWith(".apps.googleusercontent.com")) {
+      throw new Error("GOOGLE_CLIENT_ID must be a Google OAuth web client id");
+    }
+    if (googleSecret.length < 16 || googleId === googleSecret) {
+      throw new Error("GOOGLE_CLIENT_SECRET must be a valid distinct production secret");
+    }
+  }
+
+  const apple = requireAllOrNone("Apple", ["APPLE_CLIENT_ID", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY"]);
+  if (apple) {
+    const [appleClientId, appleTeamId, appleKeyId, rawApplePrivateKey] = apple;
+    const applePrivateKey = rawApplePrivateKey.replace(/\\n/g, "\n");
+    if (!/^[A-Z0-9]{10}$/.test(appleTeamId)) throw new Error("APPLE_TEAM_ID must be a 10-character Apple Team ID");
+    if (!/^[A-Z0-9]{10}$/.test(appleKeyId)) throw new Error("APPLE_KEY_ID must be a 10-character Apple key ID");
+    if (!appleClientId.includes(".")) throw new Error("APPLE_CLIENT_ID must be an Apple Services ID");
+    if (!applePrivateKey.includes("-----BEGIN PRIVATE KEY-----") || !applePrivateKey.includes("-----END PRIVATE KEY-----")) {
+      throw new Error("APPLE_PRIVATE_KEY must contain a PKCS#8 private key");
+    }
   }
 }
 
@@ -153,9 +171,8 @@ function main() {
     if (String(process.env.S3_ALLOW_INSECURE ?? "").trim().toLowerCase() === "true") throw new Error("S3_ALLOW_INSECURE must not be true in production");
   }
 
-  // Google and Apple are visible customer login options. A production release must
-  // therefore prove both providers are configured rather than silently shipping
-  // dead buttons that fail only after a customer clicks them.
+  // Social providers are opt-in. A partially configured provider fails closed; a
+  // fully absent provider remains disabled until its credentials are added.
   productionOauthReadiness();
 
   console.log("launch-config-audit: PASS");
