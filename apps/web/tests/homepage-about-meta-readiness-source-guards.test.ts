@@ -11,6 +11,7 @@ test("homepage exposes a navigable and visible About iR section", () => {
   assert.match(homepage, /<section id="about" aria-labelledby="about-title"/);
   assert.match(homepage, /iR مشروع تقني سعودي/);
   assert.match(homepage, /هوية أعمال رقمية موثوقة ومنظمة/);
+  assert.match(homepage, /الكيان القانوني: مجموعة طلبات المعلومات لخدمات الأعمال/);
 });
 
 test("About section accurately identifies the official Meta integration", () => {
