@@ -33,6 +33,7 @@ jobs:
       API_URL: https://ir.sa
       RELEASE_SHA: ${{ github.sha }}
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      EXPECTED_PRODUCTION_DB_HOST: ${{ vars.PRODUCTION_DATABASE_HOST }}
       PG_POOL_MAX: ${{ vars.PRODUCTION_PG_POOL_MAX }}
       SESSION_SECRET: ${{ secrets.PRODUCTION_SESSION_SECRET }}
       RESEND_API_KEY: ${{ secrets.PRODUCTION_RESEND_API_KEY }}
