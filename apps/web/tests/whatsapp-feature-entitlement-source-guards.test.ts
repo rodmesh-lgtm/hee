@@ -22,12 +22,13 @@ test("WhatsApp Marketing is an explicit paid-plan feature", () => {
   assert.match(plans, /PRO:[\s\S]*whatsappMarketing: true/);
 });
 
-test("runtime entitlement requires a live matching subscription, not raw Business.planId", () => {
+test("runtime entitlement requires a live subscription and supports an explicit access-code add-on grant", () => {
   assert.match(entitlement, /status: "active"/);
   assert.match(entitlement, /endsAt: \{ gt: now \}/);
   assert.match(entitlement, /provider: "access_code"/);
   assert.match(entitlement, /revokedAt: null/);
-  assert.match(entitlement, /subscription\.planId === business\.plan\?\.id/);
+  assert.match(entitlement, /whatsappMarketingEnabled/);
+  assert.match(entitlement, /subscription\.provider === "access_code"/);
   assert.doesNotMatch(entitlement, /return Boolean\(business\?\.plan\)/);
 });
 
