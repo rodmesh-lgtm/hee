@@ -214,11 +214,11 @@ function parseDatabaseUrl(name, role) {
   if (sslMode !== "verify-full") fail(`${name} must use sslmode=verify-full for production operational tooling`);
 
   if (!prismaDirect && role === "source" && /^(hee_ci|hee_restore(?:_|$))/i.test(database)) fail(`${name} must target the production database, not CI/restore`);
-  if (!prismaDirect && role === "restore" && !/^hee_restore(?:_|$)/i.test(database)) fail(`${name} restore database name must begin with hee_restore`);
+  // A restore database on the production host must keep the protected HEE restore name.\n  // A separately hosted restore target (for example, the existing isolated Neon branch)\n  // is already isolated by host and must not be rejected solely for its provider database name.\n  const restoreUsesProductionHost = role === "restore" && expectedHost && parsed.hostname.toLowerCase() === expectedHost;\n  if (!prismaDirect && restoreUsesProductionHost && !/^hee_restore(?:_|$)/i.test(database)) fail(`${name} restore database name must begin with hee_restore`);
 
   if (expectedHost && !prismaDirect) {
     if (role === "source" && database !== HEE_PRODUCTION_DATABASE) fail(`${name} must resolve to the isolated HEE production database`);
-    if (role === "restore" && database !== HEE_RESTORE_DATABASE) fail(`${name} must resolve to the isolated HEE restore database`);
+    if (role === "restore" && parsed.hostname.toLowerCase() === expectedHost && database !== HEE_RESTORE_DATABASE) fail(`${name} must resolve to the isolated HEE restore database`);
   }
 
   return {
