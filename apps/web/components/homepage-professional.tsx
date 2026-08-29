@@ -110,6 +110,7 @@ export function HomepageProfessional() {
             <span className="inline-flex items-center gap-2 rounded-full bg-[#f1ebff] px-3 py-1.5 text-xs font-black text-[#6841d8]"><BadgeCheck className="h-4 w-4" />من نحن</span>
             <h2 id="about-title" className="mt-4 text-2xl font-black leading-tight sm:text-4xl">iR لهوية الأعمال الرقمية</h2>
             <p className="mt-4 max-w-3xl text-sm leading-8 text-[#686273] sm:text-base">iR مشروع تقني سعودي يساعد المنشآت على بناء هوية أعمال رقمية موثوقة ومنظمة في رابط واحد، تجمع التعريف بالنشاط والخدمات والمنتجات والفروع والفريق ووسائل التواصل، لتمنح العملاء صورة واضحة وتجربة وصول أسرع.</p>
+            <p className="mt-4 text-sm font-bold text-[#403956]">الكيان القانوني: مجموعة طلبات المعلومات لخدمات الأعمال</p>
             <div className="mt-6 rounded-[24px] border border-[#e5def1] bg-white p-5">
               <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600"><MessageCircle className="h-5 w-5" /></span><div><h3 className="font-black text-[#242044]">WhatsApp Business Platform الرسمي</h3><p className="mt-2 text-sm leading-7 text-[#706979]">تتضمن منظومة iR خدمة WhatsApp Marketing المبنية حصريًا على WhatsApp Business Platform / Cloud API الرسمي من Meta، لربط كل منشأة بحساب WABA ورقمها الخاص وإدارة القوالب والحملات والمحادثات، مع احترام موافقة العملاء والخصوصية وإلغاء الاشتراك.</p></div></div>
             </div>
