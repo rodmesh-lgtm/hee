@@ -151,6 +151,7 @@ jobs:
 
       - name: Stage exact checkout as Production deployment without assigning domains
         id: stage
+        working-directory: ../..
         env:
           VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
           VERCEL_GIT_COMMIT_REF: hee-v6-rc
