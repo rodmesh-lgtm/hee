@@ -33,7 +33,11 @@ test("production migration restores and proves the exact pre-migration backup fr
   const proof = source("scripts/production-backup-restore-proof.ts");
   assert.match(workflow, /PRODUCTION_RESTORE_DATABASE_URL/);
   assert.match(workflow, /Reset isolated restore schema/);
-  assert.match(workflow, /DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public/);
+  assert.match(workflow, /SELECT nspname\s+FROM pg_namespace/);
+  assert.match(workflow, /nspname NOT LIKE 'pg_%'/);
+  assert.match(workflow, /nspname NOT LIKE 'neon%'/);
+  assert.match(workflow, /DROP SCHEMA IF EXISTS %I CASCADE/);
+  assert.match(workflow, /CREATE SCHEMA public/);
   assert.match(workflow, /pg_restore --exit-on-error --dbname="\$RESTORE_DATABASE_URL" --no-owner --no-privileges/);
   assert.match(workflow, /Restore exact pre-migration backup into isolated database/);
   assert.match(workflow, /npm run backup:production-proof/);
