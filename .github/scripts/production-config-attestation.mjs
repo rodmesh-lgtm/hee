@@ -31,13 +31,9 @@ function attestedValue(name) {
   if (!value) return value;
   const parsed = new URL(value);
   const sslmode = parsed.searchParams.get("sslmode");
-  parsed.protocol = "postgresql:";
-  parsed.username = "";
-  parsed.password = "";
-  parsed.pathname = "/";
-  parsed.search = "";
-  if (sslmode) parsed.searchParams.set("sslmode", sslmode);
-  return parsed.href;
+  const host = parsed.hostname.toLowerCase();
+  const port = parsed.port || "5432";
+  return `postgresql://${host}:${port}/?sslmode=${encodeURIComponent(sslmode ?? "")}`;
 }
 function requireAllOrNone(label, names) {
   const values = optionalValues(names);
