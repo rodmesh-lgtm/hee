@@ -56,7 +56,7 @@ test("canonical rollback target capture fails closed on deployment identity", ()
   assert.match(script, /target !== "production"/);
   assert.match(script, /did not expose a project identity/);
   assert.match(script, /resolvedProjectId !== projectId/);
-  assert.match(script, /aliases\.includes\(canonicalHost\)/);
+  assert.match(script, /encodeURIComponent\(canonicalHost\)/);
   assert.match(script, /mode: 0o600/);
 });
 
