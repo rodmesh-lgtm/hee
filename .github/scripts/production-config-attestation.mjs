@@ -31,8 +31,10 @@ function attestedValue(name) {
   if (!value) return value;
   const parsed = new URL(value);
   const sslmode = parsed.searchParams.get("sslmode");
+  parsed.protocol = "postgresql:";
   parsed.username = "";
   parsed.password = "";
+  parsed.pathname = "/";
   parsed.search = "";
   if (sslmode) parsed.searchParams.set("sslmode", sslmode);
   return parsed.href;
