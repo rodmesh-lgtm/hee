@@ -207,7 +207,24 @@ jobs:
 
       - name: Reset isolated restore schema
         run: |
-          psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
+          psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $do$
+          DECLARE schema_name text;
+          BEGIN
+            FOR schema_name IN
+              SELECT nspname
+              FROM pg_namespace
+              WHERE nspname <> 'information_schema'
+                AND nspname <> 'extensions'
+                AND nspname NOT LIKE 'pg_%'
+                AND nspname NOT LIKE 'neon%'
+            LOOP
+              EXECUTE format('DROP SCHEMA IF EXISTS %I CASCADE', schema_name);
+            END LOOP;
+          END
+          $do$;
+          CREATE SCHEMA public;
+          SQL
 
       - name: Restore exact pre-migration backup into isolated database
         run: |
