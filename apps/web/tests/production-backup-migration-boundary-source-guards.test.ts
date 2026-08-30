@@ -38,6 +38,8 @@ test("production migration restores and proves the exact pre-migration backup fr
   assert.match(workflow, /nspname NOT LIKE 'neon%'/);
   assert.match(workflow, /DROP SCHEMA IF EXISTS %I CASCADE/);
   assert.match(workflow, /CREATE SCHEMA public/);
+  assert.match(workflow, /awk '!\(\$0 ~ \/prisma_postgres\/ && \$0 ~ \/\(EXTENSION\|COMMENT\)\/\)'/);
+  assert.match(workflow, /Filtered restore list still contains prisma_postgres extension metadata/);
   assert.match(workflow, /pg_restore --exit-on-error --dbname="\$RESTORE_DATABASE_URL" --no-owner --no-privileges/);
   assert.match(workflow, /Restore exact pre-migration backup into isolated database/);
   assert.match(workflow, /npm run backup:production-proof/);
