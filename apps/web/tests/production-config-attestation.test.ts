@@ -70,7 +70,9 @@ test("web-only Production attestation excludes worker-host while detecting relea
     assert.doesNotMatch(written.stdout, /postgresql:\/\//);
     assert.doesNotMatch(written.stdout, /private-key-material/);
 
-    const body = JSON.parse(readFileSync(path, "utf8"));
+    const serialized = readFileSync(path, "utf8");
+    assert.doesNotMatch(serialized, /hee:secret|api_key=/);
+    const body = JSON.parse(serialized);
     assert.deepEqual(Object.keys(body.digests).sort(), ["migration-core", "release-core"]);
 
     for (const scope of ["release-core", "migration-core"]) {
