@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 
-const VERSION = 2;
+const VERSION = 3;
 
 const releaseCoreKeys = [
   "DATABASE_URL", "PG_POOL_MAX", "RESEND_API_KEY", "HEE_FROM_EMAIL",
@@ -120,7 +120,10 @@ async function writeAttestation(path) {
   if (billingWorkerRequired()) digests["worker-host"] = digest("worker-host");
   const scopes = Object.keys(digests);
   const keyFingerprints = Object.fromEntries(scopes.map((scope) => [scope, fingerprints(scope)]));
-  const body = { version: VERSION, releaseSha: releaseSha(), digests, keyFingerprints };
+  const databaseTargets = Object.fromEntries(
+    ["DATABASE_URL", "RESTORE_DATABASE_URL"].map((key) => [key, attestedValue(key)]),
+  );
+  const body = { version: VERSION, releaseSha: releaseSha(), digests, keyFingerprints, databaseTargets };
   await writeFile(path, `${JSON.stringify(body)}\n`, { encoding: "utf8", mode: 0o600 });
   console.log(`production-config-attestation: WRITE PASS release=${body.releaseSha} scopes=${scopes.length}`);
 }
@@ -133,7 +136,13 @@ async function verifyAttestation(scope, path) {
   if (!equalHex(expected, current)) {
     const expectedFingerprints = body?.keyFingerprints?.[scope] ?? {};
     const changed = keysFor(scope).filter((key) => !equalHex(String(expectedFingerprints[key] ?? "").toLowerCase(), keyFingerprint(scope, key)));
-    const detail = changed.length ? ` changed keys: ${changed.join(",")}` : " fingerprint detail unavailable";
+    const databaseDetail = changed
+      .filter((key) => key === "DATABASE_URL" || key === "RESTORE_DATABASE_URL")
+      .map((key) => `${key} expected=${String(body?.databaseTargets?.[key] ?? "unknown")} current=${attestedValue(key)}`)
+      .join("; ");
+    const detail = changed.length
+      ? ` changed keys: ${changed.join(",")}${databaseDetail ? `; ${databaseDetail}` : ""}`
+      : " fingerprint detail unavailable";
     throw new Error(`Production ${scope} configuration changed after the successful Preflight attestation;${detail}`);
   }
   console.log(`production-config-attestation: VERIFY PASS scope=${scope} release=${releaseSha()}`);
