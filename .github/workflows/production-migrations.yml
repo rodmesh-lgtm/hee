@@ -233,9 +233,14 @@ jobs:
           # prisma_postgres is a provider-managed extension on the source and is
           # intentionally unavailable on the isolated restore database. It does
           # not contain application tables or customer data.
-          grep -vE ' EXTENSION .* prisma_postgres$| COMMENT .* EXTENSION prisma_postgres$' \
+          awk '!($0 ~ /prisma_postgres/ && $0 ~ /(EXTENSION|COMMENT)/)' \
             /tmp/hee-production-restore.list > /tmp/hee-production-restore-filtered.list
           test -s /tmp/hee-production-restore-filtered.list
+          if grep -E 'prisma_postgres.*(EXTENSION|COMMENT)|(EXTENSION|COMMENT).*prisma_postgres' \
+            /tmp/hee-production-restore-filtered.list; then
+            echo "Filtered restore list still contains prisma_postgres extension metadata" >&2
+            exit 1
+          fi
           pg_restore --exit-on-error --dbname="$RESTORE_DATABASE_URL" --no-owner --no-privileges \
             --use-list=/tmp/hee-production-restore-filtered.list \
             /tmp/hee-production-backup-verify.dump
