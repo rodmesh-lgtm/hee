@@ -10,14 +10,18 @@ verify_scope() {
   bash "$helper" "$scope"
 }
 
+worker_attestation_required() {
+  [ "${BILLING_RENEWAL_ENABLED:-false}" = "true" ] || [ "${BILLING_OPERATIONS_READY:-false}" = "true" ]
+}
+
 case "$workflow_ref" in
   */.github/workflows/production-enter-maintenance.yml@*)
     verify_scope release-core
-    verify_scope worker-host
+    if worker_attestation_required; then verify_scope worker-host; fi
     ;;
   */.github/workflows/production-migrations.yml@*)
     verify_scope migration-core
-    verify_scope worker-host
+    if worker_attestation_required; then verify_scope worker-host; fi
     ;;
   */.github/workflows/production-deploy.yml@*|*/.github/workflows/production-billing-rehearsal.yml@*|*/.github/workflows/production-open-paid-checkout.yml@*)
     verify_scope release-core
