@@ -210,7 +210,18 @@ jobs:
           psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
 
       - name: Restore exact pre-migration backup into isolated database
-        run: pg_restore --exit-on-error --dbname="$RESTORE_DATABASE_URL" --no-owner --no-privileges /tmp/hee-production-backup-verify.dump
+        run: |
+          set -euo pipefail
+          pg_restore --list /tmp/hee-production-backup-verify.dump > /tmp/hee-production-restore.list
+          # prisma_postgres is a provider-managed extension on the source and is
+          # intentionally unavailable on the isolated restore database. It does
+          # not contain application tables or customer data.
+          grep -vE ' EXTENSION .* prisma_postgres$| COMMENT .* EXTENSION prisma_postgres$' \
+            /tmp/hee-production-restore.list > /tmp/hee-production-restore-filtered.list
+          test -s /tmp/hee-production-restore-filtered.list
+          pg_restore --exit-on-error --dbname="$RESTORE_DATABASE_URL" --no-owner --no-privileges \
+            --use-list=/tmp/hee-production-restore-filtered.list \
+            /tmp/hee-production-backup-verify.dump
 
       - name: Prove restored critical data matches technically paused production source
         env:
@@ -251,4 +262,4 @@ jobs:
       - name: Remove runner-local backup and SSH material
         if: always()
         working-directory: .
-        run: rm -f /tmp/hee-production-pre-migration.dump /tmp/hee-production-pre-migration.dump.enc /tmp/hee-production-backup-verify.dump /tmp/hee-production-pre-migration-proof.json /tmp/hee-migration-maintenance.html "$HOME/.ssh/hee-production" "$HOME/.ssh/known_hosts"
+        run: rm -f /tmp/hee-production-pre-migration.dump /tmp/hee-production-pre-migration.dump.enc /tmp/hee-production-backup-verify.dump /tmp/hee-production-restore.list /tmp/hee-production-restore-filtered.list /tmp/hee-production-pre-migration-proof.json /tmp/hee-migration-maintenance.html "$HOME/.ssh/hee-production" "$HOME/.ssh/known_hosts"
