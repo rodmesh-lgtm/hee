@@ -25,6 +25,16 @@ function required(name) {
 function optionalValues(names) {
   return names.map((name) => String(process.env[name] ?? "").trim());
 }
+function attestedValue(name) {
+  const value = String(process.env[name] ?? "").trim();
+  if (name !== "DATABASE_URL" && name !== "RESTORE_DATABASE_URL") return value;
+  if (!value) return value;
+  const parsed = new URL(value);
+  parsed.username = "";
+  parsed.password = "";
+  parsed.searchParams.sort();
+  return parsed.href;
+}
 function requireAllOrNone(label, names) {
   const values = optionalValues(names);
   const configured = values.some(Boolean);
@@ -70,7 +80,7 @@ function signingKeyFor(scope) {
   throw new Error(`Unsupported attestation scope: ${scope}`);
 }
 function canonicalPayload(scope, keys) {
-  const values = Object.fromEntries(keys.map((key) => [key, String(process.env[key] ?? "").trim()]));
+  const values = Object.fromEntries(keys.map((key) => [key, attestedValue(key)]));
   return JSON.stringify({ version: VERSION, scope, releaseSha: releaseSha(), values });
 }
 function digest(scope) {
@@ -84,7 +94,7 @@ function digest(scope) {
   throw new Error(`Unsupported attestation scope: ${scope}`);
 }
 function keyFingerprint(scope, key) {
-  const value = String(process.env[key] ?? "").trim();
+  const value = attestedValue(key);
   return createHmac("sha256", signingKeyFor(scope))
     .update(JSON.stringify({ version: VERSION, scope, releaseSha: releaseSha(), key, value }))
     .digest("hex");
