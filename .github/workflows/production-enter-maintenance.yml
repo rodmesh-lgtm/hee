@@ -130,6 +130,7 @@ jobs:
           VERCEL_GIT_COMMIT_REF: hee-v6-rc
         run: |
           set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
           deployment_url="$(npx --yes "vercel@${VERCEL_CLI_VERSION}" deploy --prod --skip-domain --yes --token "$VERCEL_TOKEN" \
             --env RELEASE_SHA="$GITHUB_SHA" --build-env RELEASE_SHA="$GITHUB_SHA" \
             --env PRODUCTION_MAINTENANCE_MODE=true --build-env PRODUCTION_MAINTENANCE_MODE=true)"
