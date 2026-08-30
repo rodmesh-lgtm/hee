@@ -38,12 +38,12 @@ test("production deploy stages and proves exact-SHA core-ready Production before
   assert.match(workflow, /status\.maintenance !== false/);
   assert.match(workflow, /webReady\.ready !== true/);
   assert.match(workflow, /https:\/\/ir\.sa\/api\/health\/web-ready/);
-  assert.match(workflow, /promote "\$deployment_url" --yes --timeout 5m/);
-  assert.match(workflow, /promote status --timeout 60s/);
+  assert.match(workflow, /v10\/projects\/\$\{VERCEL_PROJECT_ID\}\/promote\/\$\{deployment_id\}/);
+  assert.match(workflow, /Staged deployment belongs to an unexpected Vercel project/);
   assert.match(workflow, /failure\(\) && steps\.stage_smoke\.outcome == 'success'/);
-  assert.match(workflow, /rollback "\$previous_url" --yes --timeout 5m/);
-  assert.match(workflow, /rollback status --timeout 60s/);
-  assert.match(workflow, /test "\$current_id" = "\$previous_id"/);
+  assert.match(workflow, /v1\/projects\/\$\{VERCEL_PROJECT_ID\}\/rollback\/\$\{previous_id\}/);
+  assert.doesNotMatch(workflow, /vercel@\$\{VERCEL_CLI_VERSION\}" (?:promote|rollback)/);
+  assert.match(workflow, /\[ "\$current_id" = "\$previous_id" \]/);
 });
 
 test("canonical rollback target capture fails closed on deployment identity", () => {
