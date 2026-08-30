@@ -22,5 +22,6 @@ test("main cannot bypass the reviewed production deployment workflow through Ver
   assert.match(workflow, /Require content-proven RC Quality for release/);
   assert.match(workflow, /Production Preflight V2/);
   assert.match(workflow, /deploy --prod --skip-domain --yes/);
-  assert.match(workflow, /promote \"\$deployment_url\"/);
+  assert.match(workflow, /v10\/projects\/\$\{VERCEL_PROJECT_ID\}\/promote\/\$\{deployment_id\}/);
+  assert.doesNotMatch(workflow, /vercel@\$\{VERCEL_CLI_VERSION\}\" promote/);
 });
