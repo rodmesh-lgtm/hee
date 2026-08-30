@@ -46,8 +46,9 @@ test("production maintenance is staged and proven before canonical promotion", (
   assert.match(workflow, /deploy --prod --skip-domain/);
   assert.match(workflow, /--env PRODUCTION_MAINTENANCE_MODE=true/);
   assert.match(workflow, /--build-env PRODUCTION_MAINTENANCE_MODE=true/);
-  assert.match(workflow, /curl \/register --deployment/);
-  assert.match(workflow, /curl \/api\/public\/orders --deployment/);
+  assert.match(workflow, /\$\{deployment_url%\/\}\/register/);
+  assert.match(workflow, /\$\{deployment_url%\/\}\/api\/public\/orders/);
+  assert.doesNotMatch(workflow, /vercel@\$\{VERCEL_CLI_VERSION\}" curl/);
   assert.match(workflow, /test "\$ui_code" = "503"/);
   assert.match(workflow, /test "\$write_code" = "503"/);
   assert.match(workflow, /https:\/\/ir\.sa\/api\/maintenance\/status/);
