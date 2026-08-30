@@ -45,6 +45,10 @@ test("production migration restores and proves the exact pre-migration backup fr
   assert.match(workflow, /npm run backup:production-proof/);
   assert.ok(workflow.indexOf("npm run backup:production-proof") < workflow.indexOf("npx prisma migrate deploy"));
   assert.match(proof, /Restore proof refuses identical source and restore URLs/);
+  assert.match(proof, /separatelyHosted/);
+  assert.match(proof, /distinctPrismaDirectCredential/);
+  assert.match(proof, /db\.prisma\.io/);
+  assert.match(proof, /sourceParsed\.username !== restoreParsed\.username/);
   assert.match(proof, /hee_restore/);
   assert.match(proof, /BillingPayment/);
   assert.match(proof, /BillingCheckoutConsent/);
