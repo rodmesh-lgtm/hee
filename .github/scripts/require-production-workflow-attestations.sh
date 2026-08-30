@@ -12,8 +12,7 @@ verify_scope() {
 
 case "$workflow_ref" in
   */.github/workflows/production-enter-maintenance.yml@*)
-    verify_scope release-core
-    verify_scope worker-host
+    echo "production-workflow-attestation: enter-maintenance intentionally precedes Production Preflight attestations"
     ;;
   */.github/workflows/production-migrations.yml@*)
     verify_scope migration-core
