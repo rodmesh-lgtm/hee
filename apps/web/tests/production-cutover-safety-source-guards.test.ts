@@ -38,11 +38,11 @@ test("production deploy stages and proves exact-SHA core-ready Production before
   assert.match(workflow, /status\.maintenance !== false/);
   assert.match(workflow, /webReady\.ready !== true/);
   assert.match(workflow, /https:\/\/ir\.sa\/api\/health\/web-ready/);
-  assert.match(workflow, /promote "\$deployment_url" --yes --timeout 5m/);
-  assert.match(workflow, /promote status --timeout 60s/);
+  assert.match(workflow, /promote "\$deployment_url" --yes --timeout 5m --token "\$VERCEL_TOKEN" --scope "\$VERCEL_ORG_ID"/);
+  assert.match(workflow, /promote status --timeout 60s --token "\$VERCEL_TOKEN" --scope "\$VERCEL_ORG_ID"/);
   assert.match(workflow, /failure\(\) && steps\.stage_smoke\.outcome == 'success'/);
-  assert.match(workflow, /rollback "\$previous_url" --yes --timeout 5m/);
-  assert.match(workflow, /rollback status --timeout 60s/);
+  assert.match(workflow, /rollback "\$previous_url" --yes --timeout 5m --token "\$VERCEL_TOKEN" --scope "\$VERCEL_ORG_ID"/);
+  assert.match(workflow, /rollback status --timeout 60s --token "\$VERCEL_TOKEN" --scope "\$VERCEL_ORG_ID"/);
   assert.match(workflow, /test "\$current_id" = "\$previous_id"/);
 });
 
