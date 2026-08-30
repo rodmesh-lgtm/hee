@@ -113,6 +113,7 @@ test("database-mutating Production workflows canonicalize transport before attes
     "../../.github/workflows/production-deploy.yml",
   ]) {
     const workflow = source(path);
+    assert.match(workflow, /EXPECTED_PRODUCTION_DB_HOST: \$\{\{ vars\.PRODUCTION_DATABASE_HOST \}\}/);
     assert.ok(workflow.indexOf("require-production-database-safety.mjs") < workflow.indexOf("require-release-quality"));
   }
 });
