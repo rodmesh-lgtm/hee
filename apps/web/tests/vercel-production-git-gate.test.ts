@@ -22,5 +22,5 @@ test("main cannot bypass the reviewed production deployment workflow through Ver
   assert.match(workflow, /Require content-proven RC Quality for release/);
   assert.match(workflow, /Production Preflight V2/);
   assert.match(workflow, /deploy --prod --skip-domain --yes/);
-  assert.match(workflow, /promote \"\$deployment_url\"/);
+  assert.match(workflow, /promote \"\$deployment_url\" --yes --timeout 5m --token \"\$VERCEL_TOKEN\" --scope \"\$VERCEL_ORG_ID\"/);
 });
