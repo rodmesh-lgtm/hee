@@ -34,3 +34,19 @@ test("production gates require an explicit reviewed PostgreSQL connection budget
   assert.match(preflight, /PG_POOL_MAX: \$\{\{ vars\.PRODUCTION_PG_POOL_MAX \}\}/);
   assert.match(preflight, /PG_POOL_MAX must be an integer between 1 and 5/);
 });
+
+test("production workflows that enforce database safety also provide the reviewed isolated host", () => {
+  for (const path of [
+    "../../.github/workflows/production-backup-proof.yml",
+    "../../.github/workflows/production-billing-rehearsal.yml",
+    "../../.github/workflows/production-deploy.yml",
+    "../../.github/workflows/production-launch-readiness.yml",
+    "../../.github/workflows/production-migrations.yml",
+    "../../.github/workflows/production-open-paid-checkout.yml",
+    "../../.github/workflows/production-preflight-v2.yml",
+  ]) {
+    const workflow = source(path);
+    assert.match(workflow, /EXPECTED_PRODUCTION_DB_HOST: \$\{\{ vars\.PRODUCTION_DATABASE_HOST \}\}/);
+    assert.match(workflow, /require-production-database-safety\.mjs/);
+  }
+});
