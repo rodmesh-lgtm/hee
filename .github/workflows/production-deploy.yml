@@ -182,7 +182,7 @@ jobs:
           if (webReady.ready !== true) throw new Error("Staged Production core web runtime is not ready");
           NODE
           for path in / /register /login /terms /privacy /contact /demo; do
-            npx --yes "vercel@${VERCEL_CLI_VERSION}" curl "$path" --deployment "$deployment_url" --token "$VERCEL_TOKEN" >/dev/null
+            curl --silent --show-error --fail --max-time 20 "${deployment_url%/}${path}" >/dev/null
           done
           echo "staged-production-smoke: PASS for ${GITHUB_SHA}; core web runtime ready; canonical domain is still unchanged"
 
