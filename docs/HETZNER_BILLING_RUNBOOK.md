@@ -129,7 +129,7 @@ Allow outbound HTTPS to `api.moyasar.com`. PostgreSQL should be reachable only o
 
 ## Migration and launch sequence
 
-1. Run `Production Preflight` on the exact green `hee-v6-rc` SHA while paid checkout is closed. It is read-only and must prove Production/restore DB reachability, TLS, Resend, Moyasar, Vercel and required configuration before maintenance.
+1. Run `Production Preflight` on the exact green `hee-v6-rc` SHA while paid checkout is closed. It is read-only and must prove Production/restore DB reachability, TLS, Resend, Moyasar, Vercel and required configuration before maintenance. If that exact-SHA proof is missing, both `Production Enter Maintenance` and `Production Database Migrations` now dispatch the same guarded preflight and wait for it to finish before continuing.
 2. Pause production writes/workers for schema migration and run the guarded `Production Database Migrations` workflow on that same SHA. It requires explicit migration and write-pause confirmations, creates an encrypted recovery artifact, restores it into a clean `hee_restore*`, proves critical data, applies migrations once, then verifies pre-existing critical data did not change.
 3. Run `Production Web Deploy` for that same SHA with `PAID_CHECKOUT_PUBLIC_ENABLED=false`; confirm `https://ir.sa/api/release` reports the exact SHA.
 4. Verify `https://ir.sa`, registration, login, policies and a public demo/business page over HTTPS.

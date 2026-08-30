@@ -32,6 +32,8 @@ test("maintenance status is read-only, exact-release addressable and non-cacheab
 
 test("production maintenance is staged and proven before canonical promotion", () => {
   const workflow = source("../../.github/workflows/production-enter-maintenance.yml");
+  const preflight = workflow.indexOf("Ensure successful exact-SHA Production Preflight V2");
+  const quality = workflow.indexOf("Require content-proven RC Quality for release");
   const capture = workflow.indexOf("Capture current canonical Production deployment for rollback");
   const stage = workflow.indexOf("Stage exact release in maintenance mode without assigning domains");
   const smoke = workflow.indexOf("Prove staged maintenance blocks UI and write API before promotion");
@@ -42,6 +44,10 @@ test("production maintenance is staged and proven before canonical promotion", (
   assert.match(workflow, /ENTER_PRODUCTION_MAINTENANCE/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/hee-v6-rc'/);
   assert.match(workflow, /environment: production/);
+  assert.match(workflow, /actions: write/);
+  assert.match(workflow, /production-preflight-v2\.yml\/dispatches/);
+  assert.match(workflow, /VERIFY_PRODUCTION_PREFLIGHT/);
+  assert.match(workflow, /Timed out waiting for exact-SHA Production Preflight V2/);
   assert.match(workflow, /production-preflight-v2\.yml\/runs\?head_sha=\$\{GITHUB_SHA\}/);
   assert.match(workflow, /deploy --prod --skip-domain/);
   assert.match(workflow, /--env PRODUCTION_MAINTENANCE_MODE=true/);
@@ -56,6 +62,7 @@ test("production maintenance is staged and proven before canonical promotion", (
   assert.match(workflow, /systemctl disable --now hee-billing-renew\.timer/);
   assert.doesNotMatch(workflow, /systemctl stop hee-billing-renew\.service/);
 
+  assert.ok(preflight >= 0 && quality > preflight, "exact-SHA preflight must be ensured before the release-quality attestation gate");
   assert.ok(capture >= 0 && stage > capture, "rollback target must be captured before maintenance staging");
   assert.ok(smoke > stage, "staged maintenance must be proven before promotion");
   assert.ok(promote > smoke, "maintenance may promote only after staged proof");

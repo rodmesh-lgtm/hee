@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  actions: read
+  actions: write
 
 concurrency:
   group: production-billing-launch-transition
@@ -72,6 +72,54 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
+
+      - name: Ensure successful exact-SHA Production Preflight V2
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: hee-v6-rc
+        run: |
+          set -euo pipefail
+          run_id="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/runs?head_sha=${GITHUB_SHA}&status=completed&per_page=20" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success" and .event == "workflow_dispatch" and .head_branch == "hee-v6-rc")] | sort_by(.run_number) | last | .id // empty')"
+          if test -n "$run_id"; then
+            echo "production-preflight-v2: PASS existing run=${run_id} sha=${GITHUB_SHA}"
+            exit 0
+          fi
+
+          branch_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')"
+          test "$branch_sha" = "$GITHUB_SHA" || (echo "Release branch moved before Production Preflight V2 dispatch" && exit 1)
+
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/dispatches" \
+            -f ref="$RELEASE_BRANCH" \
+            -f 'inputs[confirmation]=VERIFY_PRODUCTION_PREFLIGHT'
+
+          for attempt in $(seq 1 180); do
+            runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20")"
+            run_json="$(node - <<'NODE' "$runs" "$GITHUB_SHA"
+          const body=JSON.parse(process.argv[2]);
+          const sha=process.argv[3];
+          const run=(body.workflow_runs??[]).find((item)=>item.head_sha===sha&&item.event==='workflow_dispatch'&&item.head_branch==='hee-v6-rc');
+          process.stdout.write(run?JSON.stringify(run):'');
+          NODE
+            )"
+            if test -n "$run_json"; then
+              run_id="$(node -e 'const body=JSON.parse(process.argv[1]);process.stdout.write(String(body.id));' "$run_json")"
+              status="$(node -e 'const body=JSON.parse(process.argv[1]);process.stdout.write(String(body.status??\"\"));' "$run_json")"
+              conclusion="$(node -e 'const body=JSON.parse(process.argv[1]);process.stdout.write(String(body.conclusion??\"\"));' "$run_json")"
+              if test "$status" = "completed"; then
+                test "$conclusion" = "success" || (echo "Production Preflight V2 failed: run=${run_id} conclusion=${conclusion}" && exit 1)
+                echo "production-preflight-v2: PASS run=${run_id} sha=${GITHUB_SHA}"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+
+          echo "Timed out waiting for exact-SHA Production Preflight V2"
+          exit 1
 
       - name: Require content-proven RC Quality for release
         uses: ./.github/actions/require-release-quality
