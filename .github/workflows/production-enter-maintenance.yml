@@ -268,3 +268,4 @@ jobs:
       - name: Remove runner-local credentials and probes
         if: always()
         working-directory: .
+        run: rm -f "$HOME/.ssh/hee-production" "$HOME/.ssh/known_hosts" /tmp/hee-pre-maintenance-production.json /tmp/hee-maintenance-deployment-url /tmp/hee-maintenance-ui.html /tmp/hee-maintenance-write.html /tmp/hee-canonical-maintenance.html
