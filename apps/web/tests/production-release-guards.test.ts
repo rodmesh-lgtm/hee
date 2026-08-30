@@ -60,7 +60,13 @@ test("production migrations verify and restore an encrypted recovery backup into
   assert.ok(migrateIndex > proofIndex, "verified restore proof must complete before migrations");
   assert.match(workflow, /openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000/);
   assert.match(workflow, /pg_restore --list/);
-  assert.match(workflow, /DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public/);
+  assert.match(workflow, /SELECT nspname\s+FROM pg_namespace/);
+  assert.match(workflow, /nspname <> 'information_schema'/);
+  assert.match(workflow, /nspname <> 'extensions'/);
+  assert.match(workflow, /nspname NOT LIKE 'pg_%'/);
+  assert.match(workflow, /nspname NOT LIKE 'neon%'/);
+  assert.match(workflow, /DROP SCHEMA IF EXISTS %I CASCADE/);
+  assert.match(workflow, /CREATE SCHEMA public/);
   assert.match(workflow, /pg_restore --exit-on-error --dbname="\$RESTORE_DATABASE_URL" --no-owner --no-privileges/);
   assert.match(workflow, /npm run backup:production-proof/);
   assert.match(workflow, /retention-days: 14/);
