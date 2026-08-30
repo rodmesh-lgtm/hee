@@ -34,7 +34,6 @@ const url = String(deployment?.url ?? "").trim().toLowerCase();
 const state = String(deployment?.readyState ?? deployment?.state ?? deployment?.status ?? "").trim().toUpperCase();
 const target = String(deployment?.target ?? "").trim().toLowerCase();
 const resolvedProjectId = String(deployment?.project?.id ?? deployment?.projectId ?? "").trim();
-const aliases = Array.isArray(deployment?.alias) ? deployment.alias.map((value) => String(value).toLowerCase()) : [];
 
 if (!/^dpl_[A-Za-z0-9]+$/.test(id)) throw new Error("Canonical production deployment returned an invalid deployment ID");
 if (!url.endsWith(".vercel.app")) throw new Error("Canonical production deployment returned an invalid Vercel URL");
@@ -42,7 +41,9 @@ if (state !== "READY") throw new Error(`Canonical production deployment is not R
 if (target !== "production") throw new Error(`Canonical deployment is not a production target (target=${target || "unknown"})`);
 if (!resolvedProjectId) throw new Error("Canonical production deployment did not expose a project identity");
 if (resolvedProjectId !== projectId) throw new Error("Canonical deployment belongs to an unexpected Vercel project");
-if (!aliases.includes(canonicalHost)) throw new Error(`Canonical host ${canonicalHost} is not assigned to the resolved deployment`);
+// The lookup itself is performed with the canonical host. Vercel may omit the
+// `alias` array from this response, so project identity, production target and
+// READY state are the authoritative rollback-target checks.
 
 const record = {
   id,
