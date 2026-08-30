@@ -34,6 +34,8 @@ jobs:
       RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
       EXPECTED_PRODUCTION_DB_HOST: ${{ vars.PRODUCTION_DATABASE_HOST }}
       PRODUCTION_BACKUP_PASSPHRASE: ${{ secrets.PRODUCTION_BACKUP_PASSPHRASE }}
+      BILLING_RENEWAL_ENABLED: ${{ vars.PRODUCTION_BILLING_RENEWAL_ENABLED }}
+      BILLING_OPERATIONS_READY: ${{ vars.PRODUCTION_BILLING_OPERATIONS_READY }}
       HETZNER_HOST: ${{ vars.PRODUCTION_HETZNER_HOST }}
       HETZNER_USER: ${{ vars.PRODUCTION_HETZNER_USER }}
       HETZNER_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_HETZNER_SSH_PRIVATE_KEY }}
@@ -91,6 +93,7 @@ jobs:
           grep -q 'صيانة مجدولة' /tmp/hee-migration-maintenance.html || (echo "Canonical maintenance response body is missing" && exit 1)
 
       - name: Configure pinned Hetzner SSH verification
+        if: ${{ env.BILLING_RENEWAL_ENABLED == 'true' || env.BILLING_OPERATIONS_READY == 'true' }}
         working-directory: .
         run: |
           set -euo pipefail
@@ -105,6 +108,7 @@ jobs:
           chmod 0600 "$HOME/.ssh/known_hosts"
 
       - name: Prove billing worker maintenance lock and quiescence
+        if: ${{ env.BILLING_RENEWAL_ENABLED == 'true' || env.BILLING_OPERATIONS_READY == 'true' }}
         working-directory: .
         run: |
           set -euo pipefail
@@ -153,8 +157,10 @@ jobs:
           set -euo pipefail
           status_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/maintenance/status)"
           node -e 'const b=JSON.parse(process.argv[1]);if(b.maintenance!==true||b.releaseSha!==process.env.GITHUB_SHA||b.environment!=="production")process.exit(1);' "$status_json"
-          ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes "${HETZNER_USER}@${HETZNER_HOST}" \
-            "test -f /etc/hee/maintenance.lock && ! sudo -n systemctl is-active --quiet hee-billing-renew.timer && ! sudo -n systemctl is-active --quiet hee-billing-renew.service"
+          if [ "$BILLING_RENEWAL_ENABLED" = "true" ] || [ "$BILLING_OPERATIONS_READY" = "true" ]; then
+            ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes "${HETZNER_USER}@${HETZNER_HOST}" \
+              "test -f /etc/hee/maintenance.lock && ! sudo -n systemctl is-active --quiet hee-billing-renew.timer && ! sudo -n systemctl is-active --quiet hee-billing-renew.service"
+          fi
 
       - name: Create encrypted pre-migration backup
         run: |
