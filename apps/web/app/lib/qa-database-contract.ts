@@ -56,6 +56,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260828213000_shopify_webhook_processor",
   "20260828223000_shopify_webhook_subscriptions",
   "20260829080000_subscription_access_code_whatsapp_entitlement",
+  "20260830040000_seed_canonical_business_plans",
 ] as const;
 
 export const EXPECTED_PREVIEW_LATEST_MIGRATION = EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;
