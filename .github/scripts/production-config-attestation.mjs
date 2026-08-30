@@ -30,9 +30,11 @@ function attestedValue(name) {
   if (name !== "DATABASE_URL" && name !== "RESTORE_DATABASE_URL") return value;
   if (!value) return value;
   const parsed = new URL(value);
+  const sslmode = parsed.searchParams.get("sslmode");
   parsed.username = "";
   parsed.password = "";
-  parsed.searchParams.sort();
+  parsed.search = "";
+  if (sslmode) parsed.searchParams.set("sslmode", sslmode);
   return parsed.href;
 }
 function requireAllOrNone(label, names) {
