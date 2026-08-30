@@ -55,7 +55,7 @@ test("production migrations require verify-full before Prisma, backup and restor
   assert.match(workflow, /DATABASE_URL RESTORE_DATABASE_URL/);
   assertGuardPrecedes(workflow, "npx prisma migrate status");
   assertGuardPrecedes(workflow, 'pg_dump "$DATABASE_URL"');
-  assertGuardPrecedes(workflow, 'DROP SCHEMA IF EXISTS public CASCADE');
+  assertGuardPrecedes(workflow, 'DROP SCHEMA IF EXISTS %I CASCADE');
   assertGuardPrecedes(workflow, "npx prisma migrate deploy");
 });
 
