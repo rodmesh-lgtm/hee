@@ -80,8 +80,8 @@ test("web-only Production attestation excludes worker-host while detecting relea
 
     const rotatedDatabaseCredentials = {
       ...env,
-      DATABASE_URL: "postgresql://rotated-user:rotated-secret@db.example.com:5432/hee?sslmode=verify-full",
-      RESTORE_DATABASE_URL: "postgresql://rotated-user:rotated-secret@restore.example.com:5432/hee_restore?sslmode=verify-full",
+      DATABASE_URL: "postgresql://rotated-user:rotated-secret@db.example.com:5432/hee?sslmode=verify-full&api_key=rotated-token",
+      RESTORE_DATABASE_URL: "postgresql://rotated-user:rotated-secret@restore.example.com:5432/hee_restore?api_key=rotated-token&sslmode=verify-full",
     };
     assert.equal(run(["verify", "release-core", path], rotatedDatabaseCredentials).status, 0);
     assert.equal(run(["verify", "migration-core", path], rotatedDatabaseCredentials).status, 0);
