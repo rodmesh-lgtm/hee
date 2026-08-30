@@ -42,6 +42,9 @@ jobs:
       - name: Checkout exact release revision
         uses: actions/checkout@v7
 
+      - name: Canonicalize verified Production database URLs before release attestation
+        run: node ../../.github/scripts/require-production-database-safety.mjs DATABASE_URL RESTORE_DATABASE_URL
+
       - name: Require content-proven RC Quality for release
         uses: ./.github/actions/require-release-quality
         env:
