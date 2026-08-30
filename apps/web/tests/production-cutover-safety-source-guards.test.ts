@@ -29,9 +29,11 @@ test("production deploy stages and proves exact-SHA core-ready Production before
   assert.match(workflow, /VERCEL_CLI_VERSION: 59\.3\.0/);
   assert.doesNotMatch(workflow, /vercel@latest/);
   assert.match(workflow, /deploy --prod --skip-domain --yes/);
-  assert.match(workflow, /curl \/api\/release --deployment "\$deployment_url"/);
-  assert.match(workflow, /curl \/api\/maintenance\/status --deployment "\$deployment_url"/);
-  assert.match(workflow, /curl \/api\/health\/web-ready --deployment "\$deployment_url"/);
+  assert.match(workflow, /curl --silent --show-error --fail --max-time 20 "\$\{deployment_url%\/\}\/api\/release"/);
+  assert.match(workflow, /curl --silent --show-error --fail --max-time 20 "\$\{deployment_url%\/\}\/api\/maintenance\/status"/);
+  assert.match(workflow, /curl --silent --show-error --fail --max-time 20 "\$\{deployment_url%\/\}\/api\/health\/web-ready"/);
+  assert.match(workflow, /curl --silent --show-error --fail --max-time 20 "\$\{deployment_url%\/\}\$\{path\}"/);
+  assert.doesNotMatch(workflow, /vercel@\$\{VERCEL_CLI_VERSION\}" curl/);
   assert.match(workflow, /release\.releaseSha !== sha/);
   assert.match(workflow, /status\.maintenance !== false/);
   assert.match(workflow, /webReady\.ready !== true/);
