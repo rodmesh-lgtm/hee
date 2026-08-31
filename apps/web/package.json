@@ -34,6 +34,7 @@
     "billing:renew": "npm run billing:webhooks && npm run billing:renew-only && npm run billing:state-audit -- --record-heartbeat",
     "whatsapp:webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-webhook-worker.ts",
     "whatsapp:shopify-webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-shopify-webhook-worker.ts",
+    "whatsapp:shopify-abandoned-carts": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-shopify-abandoned-cart-worker.ts",
     "whatsapp:shopify-subscriptions": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-shopify-subscription-worker.ts",
     "whatsapp:deliveries": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-delivery-worker.ts",
     "whatsapp:campaigns": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-campaign-scheduler.ts",
@@ -44,52 +45,21 @@
     "whatsapp:contact-imports": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-contact-import-worker.ts",
     "whatsapp:operations": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-operations-worker.ts"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
-  "overrides": {
-    "nanoid": "3.3.18"
-  },
+  "prisma": { "seed": "tsx prisma/seed.ts" },
+  "overrides": { "nanoid": "3.3.18" },
   "allowScripts": {
-    "@prisma/client@5.22.0": true,
-    "@prisma/engines@5.22.0": true,
-    "esbuild@0.28.1": true,
-    "fsevents@2.3.2": true,
-    "fsevents@2.3.3": true,
-    "prisma@5.22.0": true,
-    "unrs-resolver@1.12.2": true
+    "@prisma/client@5.22.0": true, "@prisma/engines@5.22.0": true, "esbuild@0.28.1": true,
+    "fsevents@2.3.2": true, "fsevents@2.3.3": true, "prisma@5.22.0": true, "unrs-resolver@1.12.2": true
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^5.22.0",
-    "@prisma/client": "^5.22.0",
-    "bcryptjs": "^3.0.3",
-    "clsx": "^2.1.1",
-    "dotenv": "^17.4.2",
-    "framer-motion": "^12.43.0",
-    "html-to-image": "^1.11.13",
-    "lucide-react": "^1.28.0",
-    "next": "16.3.0",
-    "pg": "^8.22.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-icons": "^5.7.0",
-    "read-excel-file": "9.3.10",
-    "server-only": "^0.0.1",
-    "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "@prisma/adapter-pg": "^5.22.0", "@prisma/client": "^5.22.0", "bcryptjs": "^3.0.3", "clsx": "^2.1.1",
+    "dotenv": "^17.4.2", "framer-motion": "^12.43.0", "html-to-image": "^1.11.13", "lucide-react": "^1.28.0",
+    "next": "16.3.0", "pg": "^8.22.0", "react": "^19.2.8", "react-dom": "^19.2.8", "react-icons": "^5.7.0",
+    "read-excel-file": "9.3.10", "server-only": "^0.0.1", "tailwind-merge": "^3.6.0", "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20.19.43",
-    "@types/pg": "^8.21.0",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.0",
-    "prisma": "^5.22.0",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.11",
-    "typescript": "^5"
+    "@playwright/test": "^1.62.1", "@tailwindcss/postcss": "^4", "@types/node": "^20.19.43", "@types/pg": "^8.21.0",
+    "@types/react": "^19.2.18", "@types/react-dom": "^19.2.4", "eslint": "^9", "eslint-config-next": "16.3.0",
+    "prisma": "^5.22.0", "tailwindcss": "^4", "tsx": "^4.23.11", "typescript": "^5"
   }
 }
