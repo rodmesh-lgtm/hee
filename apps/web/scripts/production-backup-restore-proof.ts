@@ -43,8 +43,6 @@ const tables = [
 type Signature = {
   exists: boolean;
   count?: string;
-  minId?: string | null;
-  maxId?: string | null;
   digest?: string | null;
 };
 
@@ -72,9 +70,7 @@ async function signature(client: Client, table: string): Promise<Signature> {
   const escaped = quoteIdentifier(table);
   const result = await client.query<Omit<Signature, "exists">>(`
     SELECT COUNT(*)::text AS count,
-           MIN("id")::text AS "minId",
-           MAX("id")::text AS "maxId",
-           MD5(COALESCE(STRING_AGG(MD5(ROW_TO_JSON(t)::text), '' ORDER BY "id"::text), '')) AS digest
+           MD5(COALESCE(STRING_AGG(MD5(ROW_TO_JSON(t)::text), '' ORDER BY ROW_TO_JSON(t)::text), '')) AS digest
     FROM public.${escaped} t
   `);
   return { exists: true, ...result.rows[0] };
