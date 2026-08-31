@@ -46,10 +46,17 @@ export async function launchWhatsAppCampaignAction(form: FormData) {
       targetType: "campaign",
       targetId: campaignId,
       outcome: "success",
-      metadata: { queued: result.queued, skippedOptOut: result.skippedOptOut },
+      metadata: {
+        queued: result.queued,
+        skippedOptOut: result.skippedOptOut,
+        canaryState: result.canaryState,
+        remainingSnapshot: result.remainingSnapshot,
+      },
     });
     revalidatePath("/dashboard/whatsapp/campaigns");
-    destination = "/dashboard/whatsapp/campaigns?operation=launch";
+    if (result.canaryState === "queued") destination = "/dashboard/whatsapp/campaigns?operation=canary-launched";
+    else if (result.canaryState === "awaiting_delivery") destination = "/dashboard/whatsapp/campaigns?operation=canary-awaiting";
+    else destination = "/dashboard/whatsapp/campaigns?operation=launch";
   } catch (error) {
     const reason = error instanceof Error ? error.message : "WHATSAPP_CAMPAIGN_LAUNCH_FAILED";
     await writeWhatsAppAuditLog({
