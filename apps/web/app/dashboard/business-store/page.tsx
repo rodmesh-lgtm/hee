@@ -20,9 +20,9 @@ export default async function BusinessStorePage() {
     <section className="overflow-hidden rounded-[28px] border border-[#e7e9f4] bg-white">
       <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.25fr_.75fr] lg:items-center">
         <div>
-          <div className="flex items-center gap-2 text-[#6f3bd2]"><ShoppingBag className="h-5 w-5" /><span className="text-xs font-black">متجر HEE لأصحاب الأعمال</span></div>
+          <div className="flex items-center gap-2 text-[#6f3bd2]"><ShoppingBag className="h-5 w-5" /><span className="text-xs font-black">متجر iR لأصحاب الأعمال</span></div>
           <h1 className="mt-3 text-2xl font-black leading-tight text-[#20264f] sm:text-3xl">حوّل هويتك الرقمية إلى منتجات أعمال حقيقية</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">منتجات مكتبية وتسويقية مخصصة بهوية منشأتك، مع ربطها بصفحتك على HEE عبر QR. مشترياتك هنا منفصلة تمامًا عن الطلبات التي يستقبلها نشاطك من عملائه.</p>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">منتجات مكتبية وتسويقية مخصصة بهوية منشأتك، مع ربطها بصفحتك على iR عبر QR. مشترياتك هنا منفصلة تمامًا عن الطلبات التي يستقبلها نشاطك من عملائه.</p>
           <div className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-[#f1edff] px-3 py-1.5 text-xs font-black text-[#5d49cc]">تخصيص بهوية المنشأة</span><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">QR لصفحة الأعمال</span><span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">منتجات مادية للأعمال</span></div>
         </div>
         <div className="rounded-[24px] border border-[#e8e4f7] bg-[#faf9ff] p-4">
@@ -35,13 +35,13 @@ export default async function BusinessStorePage() {
     </section>
 
     <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><div className="flex items-center gap-2"><PackageCheck className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">منتجات متجر الأعمال</h2></div><p className="mt-1 text-xs leading-6 text-slate-500">يعرض هذا القسم المنتجات النشطة التي تديرها HEE مركزيًا. السعر والحد الأقصى للكمية يعاد التحقق منهما من الخادم عند كل حفظ.</p></div><span className="rounded-full bg-[#f1edff] px-3 py-1.5 text-xs font-black text-[#6543ce]">{catalog.length} منتج متاح</span></div>
-      <div className="mt-5">{catalog.length ? <BusinessStoreDraftBuilder catalog={catalog} /> : <div className="rounded-2xl border border-dashed border-[#dcd7ec] bg-[#faf9fd] p-8 text-center text-sm font-bold text-slate-500">لا توجد منتجات متاحة حاليًا في متجر الأعمال.</div>}</div>
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><div className="flex items-center gap-2"><PackageCheck className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">منتجات متجر الأعمال</h2></div><p className="mt-1 text-xs leading-6 text-slate-500">يعرض هذا القسم المنتجات النشطة التي تديرها iR مركزيًا. السعر والحد الأقصى للكمية يعاد التحقق منهما من الخادم عند كل حفظ.</p></div><span className="rounded-full bg-[#f1edff] px-3 py-1.5 text-xs font-black text-[#6543ce]">{catalog.length} منتج متاح</span></div>
+      <div className="mt-5">{catalog.length ? <BusinessStoreDraftBuilder catalog={catalog} /> : <div className="rounded-2xl border border-dashed border-[#dcd7ec] bg-[#faf9fd] p-8 text-center"><b className="block text-sm text-[#303653]">لا توجد منتجات متاحة حاليًا</b><p className="mt-2 text-xs leading-6 text-slate-500">لا تحتاج إلى إجراء شيء الآن. ستظهر المنتجات هنا تلقائيًا عند تفعيلها في متجر الأعمال.</p></div>}</div>
     </section>
 
     <section className="grid gap-4 lg:grid-cols-2">
       <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><h2 className="font-black text-[#20264f]">دورة الطلب</h2><div className="mt-4 space-y-2 text-xs leading-6 text-slate-600"><p>1. <b>مفعّل الآن:</b> اختيار المنتج والكمية وحفظها في مسودة مرتبطة بمنشأتك.</p><p>2. سحب اسم المنشأة والشعار والرابط والألوان من الهوية الرقمية.</p><p>3. معاينة التصميم ثم اعتماد نسخة ثابتة للطباعة.</p><p>4. العنوان والشحن والدفع ثم التجهيز والتسليم.</p></div></article>
-      <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><QrCode className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">فصل مالي وتشغيلي</h2></div><p className="mt-3 text-xs leading-6 text-slate-500">مسودة متجر HEE مستقلة عن طلبات زبائن المنشأة وعن اشتراك HEE المتكرر. حفظ المنتجات هنا لا ينشئ دفعة ولا يغيّر الباقة. سيُفتح الدفع فقط بعد إضافة مسار متجر مستقل وآمن.</p></article>
+      <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><QrCode className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">فصل مالي وتشغيلي</h2></div><p className="mt-3 text-xs leading-6 text-slate-500">مسودة متجر iR مستقلة عن طلبات زبائن المنشأة وعن اشتراك iR المتكرر. حفظ المنتجات هنا لا ينشئ دفعة ولا يغيّر الباقة. سيُفتح الدفع فقط بعد إضافة مسار متجر مستقل وآمن.</p></article>
     </section>
   </div>;
 }
