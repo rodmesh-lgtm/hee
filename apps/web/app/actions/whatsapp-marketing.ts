@@ -13,7 +13,6 @@ import { cancelWhatsAppCampaign, pauseWhatsAppCampaign, resumeWhatsAppCampaign, 
 import { snapshotWhatsAppCampaign } from "../lib/whatsapp/campaign-snapshot";
 import { enqueueContactImport, retryFailedContactImport } from "../lib/whatsapp/contact-import-processor";
 import { MAX_CONTACT_IMPORT_BYTES, parseContactImport, type ContactImportFormat } from "../lib/whatsapp/contact-import";
-import { enqueueWhatsAppCampaign } from "../lib/whatsapp/delivery-queue";
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
 import { getWhatsAppWriteContext } from "../lib/whatsapp/rbac";
 import { createShopifyAuthorization } from "../lib/whatsapp/shopify-commerce";
@@ -121,19 +120,7 @@ export async function createWhatsAppAutomationAction(form: FormData) {
   if (!name || !triggerType || !templateId || !/^\d{1,6}$/.test(cooldownRaw)) redirect("/dashboard/whatsapp/automations?create=invalid");
   let destination: string;
   try {
-    const automation = await createWhatsAppAutomation({
-      businessId: context.businessId,
-      actorUserId: context.userId,
-      name,
-      triggerType,
-      templateId,
-      cooldownMinutes: Number(cooldownRaw),
-      orderStatus,
-      reminderLeadMinutes,
-      inactiveDays,
-      apiEventName,
-      cartDelayMinutes,
-    });
+    const automation = await createWhatsAppAutomation({ businessId: context.businessId, actorUserId: context.userId, name, triggerType, templateId, cooldownMinutes: Number(cooldownRaw), orderStatus, reminderLeadMinutes, inactiveDays, apiEventName, cartDelayMinutes });
     revalidatePath("/dashboard/whatsapp/automations");
     destination = `/dashboard/whatsapp/automations?create=complete&automation=${automation.id}`;
   } catch {
@@ -148,12 +135,7 @@ export async function operateWhatsAppAutomationAction(form: FormData) {
   if (!automationId || !operation || !["activate", "pause", "resume"].includes(operation)) redirect("/dashboard/whatsapp/automations?operation=invalid");
   let destination: string;
   try {
-    await operateWhatsAppAutomation({
-      businessId: context.businessId,
-      actorUserId: context.userId,
-      automationId,
-      operation: operation as "activate" | "pause" | "resume",
-    });
+    await operateWhatsAppAutomation({ businessId: context.businessId, actorUserId: context.userId, automationId, operation: operation as "activate" | "pause" | "resume" });
     revalidatePath("/dashboard/whatsapp/automations");
     destination = `/dashboard/whatsapp/automations?operation=${operation}`;
   } catch {
@@ -259,21 +241,22 @@ export async function createWhatsAppCampaignAction(form: FormData) {
   if (!name || !connectionId || !templateId) redirect("/dashboard/whatsapp/campaigns?create=invalid");
   let destination: string;
   try {
+    const now = new Date();
     const contactIds = await db.whatsAppContact.findMany({ where: { businessId: context.businessId, optedOutAt: null }, select: { id: true, phoneE164: true }, take: 10_001 });
     if (contactIds.length > 10_000) throw new Error("WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE");
-    const consents = await db.whatsAppConsent.findMany({ where: { businessId: context.businessId, phoneE164: { in: contactIds.map((item) => item.phoneE164) }, revokedAt: null }, select: { phoneE164: true } });
+    const consents = await db.whatsAppConsent.findMany({ where: { businessId: context.businessId, phoneE164: { in: contactIds.map((item) => item.phoneE164) }, revokedAt: null, consentedAt: { lte: now } }, select: { phoneE164: true } });
     const allowed = new Set(consents.map((item) => item.phoneE164));
     const audience = contactIds.filter((item) => allowed.has(item.phoneE164)).map((item) => item.id);
     if (!audience.length) throw new Error("WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS");
     const campaign = await db.$transaction(async (tx) => {
-      const template = await tx.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId, status: "approved" }, select: { id: true } });
-      const connection = await tx.whatsAppConnection.findFirst({ where: { id: connectionId, businessId: context.businessId, status: "connected" }, select: { id: true } });
+      const template = await tx.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId, provider: "meta", status: "approved" }, select: { id: true } });
+      const connection = await tx.whatsAppConnection.findFirst({ where: { id: connectionId, businessId: context.businessId, provider: "meta", status: "connected", disabledAt: null }, select: { id: true } });
       if (!template || !connection) throw new Error("WHATSAPP_CAMPAIGN_CONFIGURATION_INVALID");
       const created = await tx.whatsAppCampaign.create({ data: { id: randomUUID(), businessId: context.businessId, connectionId, templateId, name, audienceDefinition: { kind: "contacts", contactIds: audience } as Prisma.InputJsonValue } });
       await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "campaign.create", targetType: "campaign", targetId: created.id, outcome: "success", metadata: { audienceSize: audience.length }, database: tx });
       return created;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    await snapshotWhatsAppCampaign({ businessId: context.businessId, campaignId: campaign.id });
+    await snapshotWhatsAppCampaign({ businessId: context.businessId, campaignId: campaign.id, now });
     revalidatePath("/dashboard/whatsapp/campaigns");
     destination = `/dashboard/whatsapp/campaigns?create=complete&campaign=${campaign.id}`;
   } catch {
@@ -285,11 +268,10 @@ export async function createWhatsAppCampaignAction(form: FormData) {
 export async function operateWhatsAppCampaignAction(form: FormData) {
   const context = await campaignContext();
   const campaignId = field(form, "campaignId", 128), operation = field(form, "operation", 20);
-  if (!campaignId || !operation) redirect("/dashboard/whatsapp/campaigns?operation=invalid");
+  if (!campaignId || !operation || !["schedule", "pause", "resume", "cancel"].includes(operation)) redirect("/dashboard/whatsapp/campaigns?operation=invalid");
   let destination: string;
   try {
-    if (operation === "launch") await enqueueWhatsAppCampaign({ businessId: context.businessId, campaignId });
-    else if (operation === "schedule") {
+    if (operation === "schedule") {
       const scheduledAt = new Date(String(form.get("scheduledAt") ?? ""));
       await scheduleWhatsAppCampaign({ businessId: context.businessId, campaignId, scheduledAt });
     } else if (operation === "pause") await pauseWhatsAppCampaign({ businessId: context.businessId, campaignId });

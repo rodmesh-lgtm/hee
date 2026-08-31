@@ -27,11 +27,7 @@ function credentialEnvelope(value: Prisma.JsonValue): WhatsAppCredentialEnvelope
   return envelope as WhatsAppCredentialEnvelope;
 }
 
-async function fetchTemplatePage(input: {
-  url: URL;
-  accessToken: string;
-  fetcher: Fetcher;
-}) {
+async function fetchTemplatePage(input: { url: URL; accessToken: string; fetcher: Fetcher }) {
   const response = await input.fetcher(input.url, {
     method: "GET",
     headers: { authorization: `Bearer ${input.accessToken}`, accept: "application/json" },
@@ -62,7 +58,6 @@ export async function fetchAllMetaTemplates(input: {
   url.searchParams.set("fields", "id,name,language,status,category,components,quality_score,rejected_reason,parameter_format");
   url.searchParams.set("limit", "100");
   const templates: ParsedMetaTemplate[] = [];
-
   for (let page = 0; page < 20; page += 1) {
     const result = await fetchTemplatePage({ url, accessToken: input.accessToken, fetcher });
     templates.push(...result.templates);
@@ -83,7 +78,7 @@ export async function syncMetaWhatsAppTemplates(input: {
   const database = input.database ?? db;
   const config = input.config ?? getMetaWhatsAppConfig();
   const connection = await database.whatsAppConnection.findFirst({
-    where: { id: input.connectionId, businessId: input.businessId, provider: "meta", status: "connected" },
+    where: { id: input.connectionId, businessId: input.businessId, provider: "meta", status: "connected", disabledAt: null },
     select: { id: true, businessId: true, wabaId: true, credentialEnvelope: true },
   });
   if (!connection) throw new Error("META_WHATSAPP_TEMPLATE_CONNECTION_NOT_READY");
@@ -129,7 +124,7 @@ export async function syncMetaWhatsAppTemplates(input: {
       ? { providerTemplateId: { notIn: templates.map((template) => template.providerTemplateId) } }
       : {};
     await tx.whatsAppTemplate.updateMany({
-      where: { businessId: input.businessId, connectionId: input.connectionId, ...staleWhere },
+      where: { businessId: input.businessId, connectionId: input.connectionId, provider: "meta", ...staleWhere },
       data: { status: "disabled", providerStatus: "NOT_RETURNED_BY_SYNC", lastSyncedAt: syncedAt },
     });
   });

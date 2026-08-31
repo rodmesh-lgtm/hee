@@ -31,9 +31,9 @@ export async function snapshotWhatsAppCampaign(input: {
       select: {
         id: true, businessId: true, connectionId: true, status: true,
         audienceDefinition: true, snapshotAt: true, totalRecipients: true,
-        connection: { select: { status: true } },
+        connection: { select: { provider: true, status: true, disabledAt: true } },
         template: { select: {
-          id: true, connectionId: true, providerTemplateId: true, name: true, language: true,
+          id: true, connectionId: true, provider: true, providerTemplateId: true, name: true, language: true,
           category: true, status: true, providerStatus: true,
           parameterFormat: true, components: true, lastSyncedAt: true,
         } },
@@ -44,8 +44,12 @@ export async function snapshotWhatsAppCampaign(input: {
       return { campaignId: campaign.id, totalRecipients: campaign.totalRecipients, alreadySnapshotted: true as const };
     }
     if (campaign.status !== "draft") throw new Error("WHATSAPP_CAMPAIGN_NOT_DRAFT");
-    if (campaign.connection.status !== "connected") throw new Error("WHATSAPP_CAMPAIGN_CONNECTION_NOT_READY");
-    if (campaign.template.connectionId !== campaign.connectionId) throw new Error("WHATSAPP_CAMPAIGN_TEMPLATE_CONNECTION_MISMATCH");
+    if (campaign.connection.provider !== "meta" || campaign.connection.status !== "connected" || campaign.connection.disabledAt) {
+      throw new Error("WHATSAPP_CAMPAIGN_CONNECTION_NOT_READY");
+    }
+    if (campaign.template.provider !== "meta" || campaign.template.connectionId !== campaign.connectionId) {
+      throw new Error("WHATSAPP_CAMPAIGN_TEMPLATE_CONNECTION_MISMATCH");
+    }
     if (campaign.template.status !== "approved" || campaign.template.category === "unknown") {
       throw new Error("WHATSAPP_CAMPAIGN_TEMPLATE_NOT_APPROVED");
     }

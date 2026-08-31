@@ -10,6 +10,7 @@ const templates = source("app/dashboard/whatsapp/templates/page.tsx");
 const campaigns = source("app/dashboard/whatsapp/campaigns/page.tsx");
 const automations = source("app/dashboard/whatsapp/automations/page.tsx");
 const actions = source("app/actions/whatsapp-marketing.ts");
+const launchActions = source("app/actions/whatsapp-campaign-launch.ts");
 const automationOperations = source("app/lib/whatsapp/automation-operations.ts");
 const admin = source("app/admin/whatsapp/page.tsx");
 
@@ -50,8 +51,14 @@ test("campaign mutations are entitlement, RBAC and tenant scoped", () => {
   assert.match(actions, /status: "approved"/);
   assert.match(actions, /status: "connected"/);
   assert.match(actions, /snapshotWhatsAppCampaign/);
-  assert.match(actions, /enqueueWhatsAppCampaign/);
+  assert.doesNotMatch(actions, /enqueueWhatsAppCampaign/);
+  assert.match(launchActions, /getWhatsAppWriteContext\("campaign\.manage"\)/);
+  assert.match(launchActions, /hasActiveWhatsAppMarketingEntitlement/);
+  assert.match(launchActions, /getWhatsAppCampaignLaunchReadiness/);
+  assert.match(launchActions, /enqueueWhatsAppCampaign/);
+  assert.match(launchActions, /businessId: context\.businessId/);
   assert.doesNotMatch(actions, /graph\.facebook\.com/);
+  assert.doesNotMatch(launchActions, /graph\.facebook\.com/);
 });
 
 test("contact import never infers consent and preserves revoked evidence", () => {
