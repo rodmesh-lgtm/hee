@@ -8,14 +8,16 @@ type Props = {
   className?: string;
   compact?: boolean;
   showIcon?: boolean;
+  disabled?: boolean;
 };
 
-export function ConfirmSubmitButton({ label = "حذف", confirmMessage, className = "", compact = false, showIcon = true }: Props) {
+export function ConfirmSubmitButton({ label = "حذف", confirmMessage, className = "", compact = false, showIcon = true, disabled = false }: Props) {
   return (
     <button
       type="submit"
+      disabled={disabled}
       onClick={(event) => {
-        if (!window.confirm(confirmMessage)) event.preventDefault();
+        if (disabled || !window.confirm(confirmMessage)) event.preventDefault();
       }}
       className={className || (compact ? "rounded-lg p-2 text-rose-600 hover:bg-rose-50" : "inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-700 hover:bg-rose-50")}
     >
