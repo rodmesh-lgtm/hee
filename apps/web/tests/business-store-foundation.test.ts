@@ -26,7 +26,7 @@ test("Business Store draft flow stays isolated from tenant customer orders and s
   assert.doesNotMatch(page, /updateOrderStatusAction|createOrder|BillingPayment|billing\/checkout/);
   assert.doesNotMatch(actions, /db\.order\.|billingPayment\.|subscription\.(create|update)/);
   assert.match(page, /مشترياتك هنا منفصلة تمامًا عن الطلبات/);
-  assert.match(page, /مسودة متجر HEE مستقلة عن طلبات زبائن المنشأة وعن اشتراك HEE المتكرر/);
+  assert.match(page, /مسودة متجر iR مستقلة عن طلبات زبائن المنشأة وعن اشتراك iR المتكرر/);
   assert.match(actions, /businessStoreOrder\.create/);
   assert.match(actions, /businessStoreOrderItem\.(create|update)/);
 });
