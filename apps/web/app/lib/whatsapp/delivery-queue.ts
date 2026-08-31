@@ -25,7 +25,7 @@ export async function enqueueWhatsAppCampaign(input: {
     if (!locked[0]) throw new Error("WHATSAPP_CAMPAIGN_NOT_FOUND");
     const campaign = await tx.whatsAppCampaign.findFirst({
       where: { id: input.campaignId, businessId: input.businessId },
-      select: { id: true, connectionId: true, status: true, scheduledAt: true },
+      select: { id: true, connectionId: true, templateId: true, status: true, scheduledAt: true },
     });
     if (!campaign) throw new Error("WHATSAPP_CAMPAIGN_NOT_FOUND");
     if (campaign.status === "scheduled" && campaign.scheduledAt && campaign.scheduledAt > now) {
@@ -34,6 +34,39 @@ export async function enqueueWhatsAppCampaign(input: {
     if (!["ready", "scheduled", "running"].includes(campaign.status)) {
       throw new Error("WHATSAPP_CAMPAIGN_NOT_QUEUEABLE");
     }
+
+    // Revalidate mutable provider configuration inside the same serializable
+    // transaction that creates delivery jobs. A campaign snapshot can outlive
+    // a disconnected number or a template approval, so launch must fail closed
+    // instead of filling a queue that is guaranteed to fail later.
+    const [connection, template, snapshotCount] = await Promise.all([
+      tx.whatsAppConnection.findFirst({
+        where: {
+          id: campaign.connectionId,
+          businessId: input.businessId,
+          provider: "meta",
+          status: "connected",
+          disabledAt: null,
+        },
+        select: { id: true },
+      }),
+      tx.whatsAppTemplate.findFirst({
+        where: {
+          id: campaign.templateId,
+          businessId: input.businessId,
+          connectionId: campaign.connectionId,
+          provider: "meta",
+          status: "approved",
+        },
+        select: { id: true },
+      }),
+      tx.whatsAppCampaignRecipient.count({
+        where: { businessId: input.businessId, campaignId: campaign.id },
+      }),
+    ]);
+    if (!connection) throw new Error("WHATSAPP_CAMPAIGN_CONNECTION_NOT_READY");
+    if (!template) throw new Error("WHATSAPP_CAMPAIGN_TEMPLATE_NOT_APPROVED");
+    if (snapshotCount === 0) throw new Error("WHATSAPP_CAMPAIGN_EMPTY_SNAPSHOT");
 
     const attemptedStatuses = ["queued", "processing", "sent", "failed", "cancelled"] as const;
     const [verifiedDelivery, priorAttemptCount] = await Promise.all([
