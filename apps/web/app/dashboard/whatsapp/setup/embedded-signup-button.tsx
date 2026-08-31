@@ -46,7 +46,16 @@ function loginForCode(configId: string) {
     window.FB?.login((response) => {
       const code = response.authResponse?.code;
       if (code) resolve(code); else reject(new Error("META_CODE_MISSING"));
-    }, { config_id: configId, response_type: "code", override_default_response_type: true, extras: { setup: {} } });
+    }, {
+      config_id: configId,
+      response_type: "code",
+      override_default_response_type: true,
+      extras: {
+        setup: {},
+        featureType: "whatsapp_business_app_onboarding",
+        sessionInfoVersion: "3",
+      },
+    });
   });
 }
 
