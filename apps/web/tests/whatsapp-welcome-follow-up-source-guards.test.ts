@@ -40,8 +40,8 @@ test("delivery rechecks the same-tenant subject before calling Meta", () => {
   assert.match(delivery, /releaseAs\(database, job, "cancelled"/);
 });
 
-test("automation UI states the exact live event sources and consent boundary", () => {
-  assert.match(page, /الترحيب يعمل عند تسجيل موافقة صريحة جديدة/);
-  assert.match(page, /المتابعة تعمل بعد اكتمال طلب أو حجز/);
-  assert.match(page, /وجود Customer أو Order أو Booking لا يُعد موافقة تسويقية/);
+test("automation UI states the live event and consent boundary in customer language", () => {
+  assert.match(page, /ترحيب بعد موافقة صريحة/);
+  assert.match(page, /المتابعة بعد اكتمال طلب أو حجز/);
+  assert.match(page, /وجود رقم العميل أو طلب سابق لا يُعد موافقة تسويقية/);
 });
