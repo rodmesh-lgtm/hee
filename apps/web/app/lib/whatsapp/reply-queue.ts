@@ -16,7 +16,7 @@ export async function enqueueWhatsAppReply(input: { businessId: string; actorUse
     if (!locked[0]) throw new Error("WHATSAPP_CONVERSATION_NOT_FOUND");
     const conversation = await tx.whatsAppConversation.findFirst({ where: { id: input.conversationId, businessId: input.businessId }, select: { id: true, phoneNumberId: true, lastInboundAt: true } });
     if (!conversation || !whatsAppCustomerServiceWindow(conversation.lastInboundAt, now).open) throw new Error("WHATSAPP_REPLY_WINDOW_CLOSED");
-    const connection = await tx.whatsAppConnection.findFirst({ where: { businessId: input.businessId, phoneNumberId: conversation.phoneNumberId, provider: "meta", status: "connected" }, select: { id: true } });
+    const connection = await tx.whatsAppConnection.findFirst({ where: { businessId: input.businessId, phoneNumberId: conversation.phoneNumberId, provider: "meta", status: "connected", disabledAt: null }, select: { id: true } });
     if (!connection) throw new Error("WHATSAPP_REPLY_CONNECTION_NOT_READY");
     const existing = await tx.whatsAppReplyJob.findUnique({ where: { idempotencyKey }, select: { id: true } });
     if (existing) return { jobId: existing.id, alreadyQueued: true as const };
