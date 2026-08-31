@@ -23,7 +23,19 @@ test("the dashboard inbox uses server reads and awaits Next.js search params", (
 });
 
 test("free-form reply action is rendered only while the service window is open", () => {
-  assert.match(page, /تتطلب رسالة قالب معتمد/);
-  assert.match(page, /لا يجوز إرسال نص حر/);
+  assert.match(page, /الرد الجديد يحتاج قالبًا معتمدًا/);
+  assert.match(page, /انتهت مهلة الرد النصي المباشر حسب سياسة واتساب/);
+  assert.match(page, /\/dashboard\/whatsapp\/templates/);
   assert.match(page, /serviceWindow\.open \? <form action=\{enqueueWhatsAppReplyAction\}/);
+});
+
+test("inbox uses customer-facing delivery feedback without leaking internal operations", () => {
+  assert.match(page, /تم استلام ردك وسيُرسل بأمان عبر رقم واتساب المرتبط/);
+  assert.match(page, /إرسال الرد/);
+  assert.match(page, /aria-live="polite"/);
+  assert.match(page, /لا توجد نتائج لهذا البحث/);
+  assert.match(page, /لا توجد محادثات بعد/);
+  assert.doesNotMatch(page, /Webhook موثّق|طابور الإرسال|بواسطة worker|إضافة للطابور/);
+  assert.doesNotMatch(page, /message\.errorCode/);
+  assert.doesNotMatch(page, /statusLabel\[message\.status\] \|\| message\.status/);
 });
