@@ -1,8 +1,9 @@
 # WhatsApp Operations Runbook
 
-The WhatsApp worker runs the durable contact-import, webhook, campaign scheduling,
-delivery, customer-service reply, automation-event, and automation-delivery queues. It never sends a bulk campaign
-inside an HTTP request.
+The WhatsApp worker runs the durable contact-import, Meta webhook, Shopify subscription,
+Shopify webhook, abandoned-cart detection, campaign scheduling, delivery, customer-service
+reply, automation scheduling, automation-event, and automation-delivery stages. It never
+sends a bulk campaign inside an HTTP request.
 
 ## Safety gates
 
@@ -10,6 +11,8 @@ inside an HTTP request.
   successful no-op.
 - Production requires a 40-character `RELEASE_SHA` supplied by the exact-SHA worker
   deployment. The worker refuses to start without it.
+- Immediate campaign launch is fail-closed unless the web runtime can prove its own exact
+  release SHA and the latest successful WhatsApp heartbeat was produced by that same SHA.
 - Meta credentials remain encrypted per business. They must not be placed in this file,
   systemd units, command arguments, or logs.
 - Meta Business/Tech Provider approval and the existing outbound Meta gate remain
@@ -40,7 +43,9 @@ sudo journalctl -u hee-whatsapp-operations.service --since '30 minutes ago'
 
 The central admin WhatsApp page shows the last start, last successful cycle, release SHA,
 and a bounded error code. A successful cycle updates the singleton
-`WhatsAppOperationsHeartbeat` row only after all seven durable stages complete.
+`WhatsAppOperationsHeartbeat` row only after all eleven durable stages complete. The
+customer campaign page remains locked unless that heartbeat is recent and its release SHA
+matches the currently deployed web release.
 
 If a cycle fails, inspect the named stage and its durable queue state. Do not retry a Meta
 request whose network outcome is ambiguous; the delivery and reply workers preserve that
