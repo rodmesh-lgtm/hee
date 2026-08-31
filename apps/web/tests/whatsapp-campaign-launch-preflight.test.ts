@@ -15,10 +15,11 @@ test("delivery queue fails closed when campaign runtime configuration is no long
   assert.match(queue, /WHATSAPP_CAMPAIGN_EMPTY_SNAPSHOT/);
 });
 
-test("campaign UI treats canary launch states as successful operations", () => {
+test("campaign UI treats guarded first-send states as successful operations without developer jargon", () => {
   const page = readFileSync(new URL("../app/dashboard/whatsapp/campaigns/page.tsx", import.meta.url), "utf8");
   assert.match(page, /"canary-launched"/);
   assert.match(page, /"canary-awaiting"/);
-  assert.match(page, /تم إطلاق أول دفعة تجريبية/);
-  assert.match(page, /بانتظار تأكيد التسليم/);
+  assert.match(page, /بدأت الدفعة التجريبية الآمنة/);
+  assert.match(page, /ننتظر الآن تأكيد التسليم من Meta/);
+  assert.doesNotMatch(page, />[^<]*Canary[^<]*</i);
 });
