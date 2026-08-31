@@ -13,6 +13,16 @@ function campaignIdFrom(form: FormData) {
   return value && value.length <= 128 ? value : null;
 }
 
+function safeLaunchFailure(code: string) {
+  if (code === "WHATSAPP_CAMPAIGN_CONNECTION_NOT_READY") return "connection-not-ready";
+  if (code === "WHATSAPP_CAMPAIGN_TEMPLATE_NOT_APPROVED") return "template-not-approved";
+  if (code === "WHATSAPP_CAMPAIGN_EMPTY_SNAPSHOT") return "empty-snapshot";
+  if (code === "WHATSAPP_CAMPAIGN_NOT_DUE") return "not-due";
+  if (code === "WHATSAPP_CAMPAIGN_NOT_QUEUEABLE") return "not-queueable";
+  if (code === "WHATSAPP_CAMPAIGN_NOT_FOUND") return "not-found";
+  return "failed";
+}
+
 export async function launchWhatsAppCampaignAction(form: FormData) {
   const context = await getWhatsAppWriteContext("campaign.manage");
   if (!context) redirect("/dashboard/whatsapp?access=denied");
@@ -68,7 +78,7 @@ export async function launchWhatsAppCampaignAction(form: FormData) {
       outcome: "failed",
       metadata: { reason },
     }).catch(() => undefined);
-    destination = "/dashboard/whatsapp/campaigns?operation=failed";
+    destination = `/dashboard/whatsapp/campaigns?operation=${safeLaunchFailure(reason)}`;
   }
   redirect(destination);
 }
