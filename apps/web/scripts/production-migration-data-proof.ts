@@ -59,7 +59,7 @@ async function tableProof(client: Client, table: string, preserveColumns?: strin
   const escaped = quoteIdentifier(table);
   const currentColumns = await tableColumns(client, table);
   const columns = preserveColumns ?? currentColumns;
-  if (!columns.length || !columns.includes("id")) throw new Error(`Critical table ${table} must include id in its migration proof`);
+  if (!columns.length) throw new Error(`Critical table ${table} must expose columns for its migration proof`);
 
   const missing = columns.filter((column) => !currentColumns.includes(column));
   if (missing.length) throw new Error(`Critical migration removed pre-existing columns from ${table}: ${missing.join(", ")}`);
@@ -69,8 +69,8 @@ async function tableProof(client: Client, table: string, preserveColumns?: strin
   const result = await client.query<{ count: string; fingerprint: string }>(`
     SELECT
       COUNT(*)::text AS count,
-      md5(COALESCE(string_agg(md5(${rowExpression}::text), '' ORDER BY t."id"::text), '')) AS fingerprint
-    FROM ${escaped} t
+      md5(COALESCE(string_agg(md5(${rowExpression}::text), '' ORDER BY ${rowExpression}::text), '')) AS fingerprint
+    FROM public.${escaped} t
   `, extra.length ? [extra] : []);
   return { exists: true, ...result.rows[0], columns };
 }
