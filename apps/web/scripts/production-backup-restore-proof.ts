@@ -7,8 +7,18 @@ const restoreUrl = String(process.env.RESTORE_DATABASE_URL ?? "").trim();
 if (!sourceUrl || !restoreUrl) throw new Error("SOURCE_DATABASE_URL and RESTORE_DATABASE_URL are required");
 if (sourceUrl === restoreUrl) throw new Error("Restore proof refuses identical source and restore URLs");
 
-const restoreDb = new URL(restoreUrl).pathname.replace(/^\//, "");
-if (!/^hee_restore(?:_|$)/i.test(restoreDb)) throw new Error("Restore proof requires an isolated hee_restore* database");
+const sourceParsed = new URL(sourceUrl);
+const restoreParsed = new URL(restoreUrl);
+const restoreDb = decodeURIComponent(restoreParsed.pathname.replace(/^\//, ""));
+const separatelyHosted = sourceParsed.hostname.toLowerCase() !== restoreParsed.hostname.toLowerCase();
+const distinctPrismaDirectCredential =
+  restoreParsed.hostname.toLowerCase() === "db.prisma.io" &&
+  Boolean(restoreParsed.username && restoreParsed.password) &&
+  (sourceParsed.username !== restoreParsed.username || sourceParsed.password !== restoreParsed.password);
+const namedRestoreDatabase = /^hee_restore(?:_|$)/i.test(restoreDb);
+if (!separatelyHosted && !distinctPrismaDirectCredential && !namedRestoreDatabase) {
+  throw new Error("Restore proof requires a separate host, distinct Prisma direct credential, or isolated hee_restore* database");
+}
 
 const source = new Client({ connectionString: sourceUrl });
 const restore = new Client({ connectionString: restoreUrl });
