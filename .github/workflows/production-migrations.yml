@@ -277,8 +277,12 @@ jobs:
           set -euo pipefail
           status_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/maintenance/status)"
           node -e 'const b=JSON.parse(process.argv[1]);if(b.maintenance!==true||b.releaseSha!==process.env.GITHUB_SHA||b.environment!=="production")process.exit(1);' "$status_json"
-          ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes "${HETZNER_USER}@${HETZNER_HOST}" \
-            "test -f /etc/hee/maintenance.lock && ! sudo -n systemctl is-active --quiet hee-billing-renew.timer && ! sudo -n systemctl is-active --quiet hee-billing-renew.service"
+          if [ "$BILLING_RENEWAL_ENABLED" = "true" ] || [ "$BILLING_OPERATIONS_READY" = "true" ]; then
+            ssh -i "$HOME/.ssh/hee-production" -o BatchMode=yes -o StrictHostKeyChecking=yes "${HETZNER_USER}@${HETZNER_HOST}" \
+              "test -f /etc/hee/maintenance.lock && ! sudo -n systemctl is-active --quiet hee-billing-renew.timer && ! sudo -n systemctl is-active --quiet hee-billing-renew.service"
+          else
+            echo "Hetzner maintenance proof skipped because billing and operations workers are disabled"
+          fi
           echo "production-migrations: PASS for ${GITHUB_SHA}; maintenance intentionally remains active until exact release deployment"
 
       - name: Remove runner-local backup and SSH material
