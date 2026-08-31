@@ -12,6 +12,7 @@ const inbox = read("app/dashboard/whatsapp/inbox/page.tsx");
 const setup = read("app/dashboard/whatsapp/setup/page.tsx");
 const billing = read("app/dashboard/billing/manage/page.tsx");
 const signup = read("app/lib/whatsapp/embedded-signup.ts");
+const signupButton = read("app/dashboard/whatsapp/setup/embedded-signup-button.tsx");
 
 test("WhatsApp Marketing is an explicit paid-plan feature", () => {
   assert.match(entitlement, /WHATSAPP_MARKETING_FEATURE = "whatsapp_marketing"/);
@@ -58,4 +59,10 @@ test("iR subscription revenue remains distinct from Meta charges", () => {
 test("Embedded Signup persists the connection status expected by every sender", () => {
   assert.match(signup, /status: "connected"/);
   assert.doesNotMatch(signup, /status: "active"/);
+});
+
+
+test("Embedded Signup onboards existing WhatsApp Business app numbers through coexistence", () => {
+  assert.match(signupButton, /featureType: "whatsapp_business_app_onboarding"/);
+  assert.match(signupButton, /sessionInfoVersion: "3"/);
 });
