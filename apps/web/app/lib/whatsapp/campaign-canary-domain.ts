@@ -7,9 +7,13 @@ export type WhatsAppCampaignCanaryDecision =
 
 export function decideWhatsAppCampaignCanary(input: {
   hasVerifiedDelivery: boolean;
-  hasPriorCurrentAttempt: boolean;
+  priorAttemptCount: number;
 }): WhatsAppCampaignCanaryDecision {
   if (input.hasVerifiedDelivery) return { state: "verified", queueLimit: null };
-  if (input.hasPriorCurrentAttempt) return { state: "awaiting_delivery", queueLimit: 0 };
-  return { state: "canary", queueLimit: WHATSAPP_FIRST_CAMPAIGN_CANARY_LIMIT };
+  const priorAttemptCount = Number.isSafeInteger(input.priorAttemptCount) && input.priorAttemptCount > 0
+    ? input.priorAttemptCount
+    : 0;
+  const remainingSlots = Math.max(0, WHATSAPP_FIRST_CAMPAIGN_CANARY_LIMIT - priorAttemptCount);
+  if (remainingSlots === 0) return { state: "awaiting_delivery", queueLimit: 0 };
+  return { state: "canary", queueLimit: remainingSlots };
 }
