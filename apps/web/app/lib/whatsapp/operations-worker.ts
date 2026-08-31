@@ -7,6 +7,7 @@ export const WHATSAPP_OPERATION_STAGES = [
   "whatsapp:webhooks",
   "whatsapp:shopify-subscriptions",
   "whatsapp:shopify-webhooks",
+  "whatsapp:shopify-abandoned-carts",
   "whatsapp:campaigns",
   "whatsapp:deliveries",
   "whatsapp:replies",
@@ -31,11 +32,7 @@ function stageErrorCode(stage: StageName) {
 
 export function runNpmStage(stage: StageName, env: NodeJS.ProcessEnv = process.env) {
   return new Promise<void>((resolve, reject) => {
-    const child = spawn("npm", ["run", "--silent", stage], {
-      env,
-      stdio: "inherit",
-      shell: false,
-    });
+    const child = spawn("npm", ["run", "--silent", stage], { env, stdio: "inherit", shell: false });
     child.once("error", () => reject(new Error(stageErrorCode(stage))));
     child.once("exit", (code, signal) => {
       if (code === 0 && signal === null) resolve();
@@ -51,61 +48,34 @@ export async function runWhatsAppOperations(input: {
   runStage?: (stage: StageName, env: NodeJS.ProcessEnv) => Promise<void>;
 }) {
   const env = input.env ?? process.env;
-  if (env.WHATSAPP_MARKETING_WORKER_ENABLED !== "true") {
-    return { enabled: false as const, completedStages: [] as StageName[] };
-  }
-
+  if (env.WHATSAPP_MARKETING_WORKER_ENABLED !== "true") return { enabled: false as const, completedStages: [] as StageName[] };
   const sha = releaseSha(env);
   const now = input.now ?? (() => new Date());
   const startedAt = now();
   const completedStages: StageName[] = [];
   const failedStages: StageName[] = [];
-
   await input.database.whatsAppOperationsHeartbeat.upsert({
     where: { id: "whatsapp-operations" },
     create: { id: "whatsapp-operations", lastStartedAt: startedAt, releaseSha: sha },
-    update: {
-      lastStartedAt: startedAt,
-      releaseSha: sha,
-      lastErrorCode: null,
-      details: { state: "running", completedStages },
-    },
+    update: { lastStartedAt: startedAt, releaseSha: sha, lastErrorCode: null, details: { state: "running", completedStages } },
   });
-
   const runStage = input.runStage ?? runNpmStage;
   for (const stage of WHATSAPP_OPERATION_STAGES) {
-    try {
-      await runStage(stage, env);
-      completedStages.push(stage);
-    } catch {
-      failedStages.push(stage);
-    }
+    try { await runStage(stage, env); completedStages.push(stage); } catch { failedStages.push(stage); }
   }
-
   if (failedStages.length > 0) {
     const failedAt = now();
-    const errorCode = failedStages.length === 1
-      ? stageErrorCode(failedStages[0])
-      : "WHATSAPP_MULTIPLE_STAGES_FAILED";
+    const errorCode = failedStages.length === 1 ? stageErrorCode(failedStages[0]) : "WHATSAPP_MULTIPLE_STAGES_FAILED";
     await input.database.whatsAppOperationsHeartbeat.update({
       where: { id: "whatsapp-operations" },
-      data: {
-        lastFailedAt: failedAt,
-        lastErrorCode: errorCode,
-        details: { state: "failed", failedStages, completedStages },
-      },
+      data: { lastFailedAt: failedAt, lastErrorCode: errorCode, details: { state: "failed", failedStages, completedStages } },
     });
     throw new Error(errorCode);
   }
-
   const succeededAt = now();
   await input.database.whatsAppOperationsHeartbeat.update({
     where: { id: "whatsapp-operations" },
-    data: {
-      lastSucceededAt: succeededAt,
-      lastErrorCode: null,
-      details: { state: "succeeded", completedStages },
-    },
+    data: { lastSucceededAt: succeededAt, lastErrorCode: null, details: { state: "succeeded", completedStages } },
   });
   return { enabled: true as const, completedStages, releaseSha: sha, succeededAt };
 }
