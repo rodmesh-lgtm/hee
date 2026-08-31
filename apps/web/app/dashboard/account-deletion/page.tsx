@@ -28,7 +28,7 @@ export default async function AccountDeletionPage({ searchParams }: { searchPara
 
   return <div className="space-y-4 pb-6">
     <section className="rounded-[24px] border border-rose-200 bg-white p-4 sm:p-5">
-      <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-700"><Trash2 className="h-5 w-5" /></span><div><h1 className="text-xl font-black text-[#1f2552]">حذف الحساب والبيانات</h1><p className="mt-1 text-sm leading-7 text-slate-600">هذا الإجراء نهائي لحساب HEE الحالي. سيتم إلغاء نشر جميع منشآتك، إبطال جلساتك، إيقاف التجديدات، وإبطال وسائل الدفع القابلة لإعادة الاستخدام.</p></div></div>
+      <div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-700"><Trash2 className="h-5 w-5" /></span><div><h1 className="text-xl font-black text-[#1f2552]">حذف الحساب والبيانات</h1><p className="mt-1 text-sm leading-7 text-slate-600">هذا الإجراء نهائي لحساب iR الحالي. سيتم إلغاء نشر جميع منشآتك، إبطال جلساتك، إيقاف التجديدات، وإبطال وسائل الدفع القابلة لإعادة الاستخدام.</p></div></div>
     </section>
 
     {errorText ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-7 text-rose-900">{errorText}</div> : null}
@@ -39,16 +39,17 @@ export default async function AccountDeletionPage({ searchParams }: { searchPara
 
     <section className="rounded-[24px] border border-[#e8e5f2] bg-white p-4 sm:p-5">
       <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#6543ce]" /><h2 className="font-black text-[#1f2552]">المنشآت المشمولة</h2></div>
-      <div className="mt-3 space-y-2">{businesses.length ? businesses.map((business) => <div key={business.id} className="rounded-xl border border-[#eeecf5] bg-[#faf9fd] px-3 py-2"><b className="block text-sm text-[#252a4a]">{business.name}</b><span className="text-[11px] text-slate-400">ir.sa/{business.slug}{business.isPublished ? " · منشورة حاليًا" : " · غير منشورة"}</span></div>) : <p className="text-sm text-slate-400">لا توجد منشآت نشطة، وسيشمل الحذف حساب المستخدم نفسه.</p>}</div>
+      <div className="mt-3 space-y-2">{businesses.length ? businesses.map((business) => <div key={business.id} className="rounded-xl border border-[#eeecf5] bg-[#faf9fd] px-3 py-2"><b className="block text-sm text-[#252a4a]">{business.name}</b><span className="text-[11px] text-slate-400"><span dir="ltr">ir.sa/{business.slug}</span>{business.isPublished ? " · منشورة حاليًا" : " · غير منشورة"}</span></div>) : <p className="text-sm text-slate-400">لا توجد منشآت نشطة، وسيشمل الحذف حساب المستخدم نفسه.</p>}</div>
     </section>
 
     <section className="rounded-[24px] border border-rose-200 bg-white p-4 sm:p-5">
       <h2 className="font-black text-rose-900">التأكيد النهائي</h2>
-      <p className="mt-2 text-xs leading-6 text-slate-600">لمنع الحذف العرضي، يجب أن تكون جلستك موثقة ببريد مؤكد، ثم تكتب بريد الحساب والعبارة الإنجليزية التالية حرفيًا.</p>
+      <p className="mt-2 text-xs leading-6 text-slate-600">لمنع الحذف العرضي، يجب أن تكون جلستك موثقة ببريد مؤكد، ثم تكتب بريد الحساب وعبارة التأكيد الإنجليزية التالية حرفيًا. عبارة التأكيد الحالية ثابتة تقنيًا لتوافق دورة الحذف الآمنة.</p>
       <code dir="ltr" className="mt-3 block rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white">{ACCOUNT_DELETION_CONFIRMATION}</code>
       <form action={deleteOwnAccountAction} className="mt-4 grid gap-3">
         <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>بريد الحساب</span><input name="email" type="email" autoComplete="email" required placeholder={user.email} className="h-11 rounded-xl border border-[#e2dfeb] px-3 text-sm" /></label>
-        <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>عبارة التأكيد</span><input name="confirmation" required autoComplete="off" className="h-11 rounded-xl border border-[#e2dfeb] px-3 text-sm" /></label>
+        <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>عبارة التأكيد</span><input name="confirmation" required autoComplete="off" aria-describedby="deletion-confirmation-help" className="h-11 rounded-xl border border-[#e2dfeb] px-3 text-sm" /></label>
+        <p id="deletion-confirmation-help" className="text-[11px] leading-5 text-slate-500">انسخ العبارة أعلاه كما هي؛ أي اختلاف يمنع تنفيذ الحذف.</p>
         <button disabled={!user.emailVerifiedAt || adminProtected} className="min-h-11 w-fit rounded-xl bg-rose-700 px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">حذف الحساب نهائيًا</button>
       </form>
       {!user.emailVerifiedAt ? <p className="mt-3 text-xs font-bold text-amber-700">البريد غير مؤكد. أكمل تأكيد البريد من إعدادات الحساب أولًا.</p> : null}
