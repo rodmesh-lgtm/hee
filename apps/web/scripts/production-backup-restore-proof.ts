@@ -7,18 +7,8 @@ const restoreUrl = String(process.env.RESTORE_DATABASE_URL ?? "").trim();
 if (!sourceUrl || !restoreUrl) throw new Error("SOURCE_DATABASE_URL and RESTORE_DATABASE_URL are required");
 if (sourceUrl === restoreUrl) throw new Error("Restore proof refuses identical source and restore URLs");
 
-const sourceParsed = new URL(sourceUrl);
-const restoreParsed = new URL(restoreUrl);
-const restoreDb = decodeURIComponent(restoreParsed.pathname.replace(/^\//, ""));
-const separatelyHosted = sourceParsed.hostname.toLowerCase() !== restoreParsed.hostname.toLowerCase();
-const distinctPrismaDirectCredential =
-  restoreParsed.hostname.toLowerCase() === "db.prisma.io" &&
-  Boolean(restoreParsed.username && restoreParsed.password) &&
-  (sourceParsed.username !== restoreParsed.username || sourceParsed.password !== restoreParsed.password);
-const namedRestoreDatabase = /^hee_restore(?:_|$)/i.test(restoreDb);
-if (!separatelyHosted && !distinctPrismaDirectCredential && !namedRestoreDatabase) {
-  throw new Error("Restore proof requires a separate host, distinct Prisma direct credential, or isolated hee_restore* database");
-}
+const restoreDb = new URL(restoreUrl).pathname.replace(/^\//, "");
+if (!/^hee_restore(?:_|$)/i.test(restoreDb)) throw new Error("Restore proof requires an isolated hee_restore* database");
 
 const source = new Client({ connectionString: sourceUrl });
 const restore = new Client({ connectionString: restoreUrl });
@@ -75,7 +65,7 @@ async function signature(client: Client, table: string): Promise<Signature> {
            MIN("id")::text AS "minId",
            MAX("id")::text AS "maxId",
            MD5(COALESCE(STRING_AGG(MD5(ROW_TO_JSON(t)::text), '' ORDER BY "id"::text), '')) AS digest
-    FROM ${escaped} t
+    FROM public.${escaped} t
   `);
   return { exists: true, ...result.rows[0] };
 }
@@ -85,7 +75,7 @@ async function financialSignature(client: Client) {
     SELECT COUNT(*)::text AS rows,
            COALESCE(SUM("amount"), 0)::text AS amount,
            COUNT(*) FILTER (WHERE "status"='paid')::text AS paid
-    FROM "BillingPayment"
+    FROM public."BillingPayment"
   `);
   return result.rows[0];
 }
@@ -93,7 +83,7 @@ async function financialSignature(client: Client) {
 async function migrationSignature(client: Client): Promise<MigrationSignature[]> {
   const result = await client.query<MigrationSignature>(`
     SELECT migration_name, checksum, finished_at, rolled_back_at
-    FROM "_prisma_migrations"
+    FROM public."_prisma_migrations"
     ORDER BY migration_name
   `);
   return result.rows;
