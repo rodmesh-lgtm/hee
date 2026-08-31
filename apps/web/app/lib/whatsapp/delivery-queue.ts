@@ -35,23 +35,19 @@ export async function enqueueWhatsAppCampaign(input: {
       throw new Error("WHATSAPP_CAMPAIGN_NOT_QUEUEABLE");
     }
 
-    const [verifiedDelivery, priorCurrentAttempt] = await Promise.all([
+    const attemptedStatuses = ["queued", "processing", "sent", "failed", "cancelled"] as const;
+    const [verifiedDelivery, priorAttemptCount] = await Promise.all([
       tx.whatsAppCampaignRecipient.findFirst({
         where: { businessId: input.businessId, status: { in: ["delivered", "read"] } },
         select: { id: true },
       }),
-      tx.whatsAppCampaignRecipient.findFirst({
-        where: {
-          businessId: input.businessId,
-          campaignId: campaign.id,
-          status: { in: ["queued", "processing", "sent", "failed", "cancelled"] },
-        },
-        select: { id: true, status: true },
+      tx.whatsAppCampaignRecipient.count({
+        where: { businessId: input.businessId, status: { in: [...attemptedStatuses] } },
       }),
     ]);
     const canary = decideWhatsAppCampaignCanary({
       hasVerifiedDelivery: Boolean(verifiedDelivery),
-      hasPriorCurrentAttempt: Boolean(priorCurrentAttempt),
+      priorAttemptCount,
     });
     if (canary.state === "awaiting_delivery") {
       const remainingSnapshot = await tx.whatsAppCampaignRecipient.count({
