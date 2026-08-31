@@ -5,6 +5,8 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { deliveryIdempotencyKey } from "./delivery-domain";
 
+export const WHATSAPP_FIRST_CAMPAIGN_CANARY_LIMIT = 5;
+
 type QueueDb = Pick<PrismaClient, "$transaction">;
 
 export async function enqueueWhatsAppCampaign(input: {
@@ -33,9 +35,39 @@ export async function enqueueWhatsAppCampaign(input: {
     if (!["ready", "scheduled", "running"].includes(campaign.status)) {
       throw new Error("WHATSAPP_CAMPAIGN_NOT_QUEUEABLE");
     }
+
+    const [verifiedDelivery, priorCurrentAttempt] = await Promise.all([
+      tx.whatsAppCampaignRecipient.findFirst({
+        where: { businessId: input.businessId, status: { in: ["delivered", "read"] } },
+        select: { id: true },
+      }),
+      tx.whatsAppCampaignRecipient.findFirst({
+        where: {
+          businessId: input.businessId,
+          campaignId: campaign.id,
+          status: { in: ["queued", "processing", "sent", "failed", "cancelled"] },
+        },
+        select: { id: true, status: true },
+      }),
+    ]);
+    const firstCampaignCanaryRequired = !verifiedDelivery;
+    if (firstCampaignCanaryRequired && priorCurrentAttempt) {
+      const remainingSnapshot = await tx.whatsAppCampaignRecipient.count({
+        where: { businessId: input.businessId, campaignId: campaign.id, status: "snapshotted" },
+      });
+      return {
+        campaignId: campaign.id,
+        queued: 0,
+        skippedOptOut: 0,
+        canaryState: "awaiting_delivery" as const,
+        remainingSnapshot,
+      };
+    }
+
     const recipients = await tx.whatsAppCampaignRecipient.findMany({
       where: { businessId: input.businessId, campaignId: campaign.id, status: "snapshotted" },
       select: { id: true, contactId: true, phoneE164: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
     const contacts = await tx.whatsAppContact.findMany({
       where: { businessId: input.businessId, id: { in: recipients.map((item) => item.contactId) }, optedOutAt: null },
@@ -53,22 +85,30 @@ export async function enqueueWhatsAppCampaign(input: {
       where: { businessId: input.businessId, campaignId: campaign.id, id: { in: skipped.map((item) => item.id) }, status: "snapshotted" },
       data: { status: "skipped_opt_out" },
     });
-    if (eligible.length) {
-      await tx.whatsAppDeliveryJob.createMany({ data: eligible.map((recipient) => ({
+
+    const queueEligible = firstCampaignCanaryRequired ? eligible.slice(0, WHATSAPP_FIRST_CAMPAIGN_CANARY_LIMIT) : eligible;
+    if (queueEligible.length) {
+      await tx.whatsAppDeliveryJob.createMany({ data: queueEligible.map((recipient) => ({
         id: randomUUID(), businessId: input.businessId, connectionId: campaign.connectionId,
         campaignId: campaign.id, recipientId: recipient.id,
         idempotencyKey: deliveryIdempotencyKey(input.businessId, campaign.id, recipient.id), nextAttemptAt: now,
       })), skipDuplicates: true });
       await tx.whatsAppCampaignRecipient.updateMany({
-        where: { businessId: input.businessId, campaignId: campaign.id, id: { in: eligible.map((item) => item.id) }, status: "snapshotted" },
+        where: { businessId: input.businessId, campaignId: campaign.id, id: { in: queueEligible.map((item) => item.id) }, status: "snapshotted" },
         data: { status: "queued", queuedAt: now },
       });
     }
-    if (eligible.length > 0) {
+    if (queueEligible.length > 0) {
       await tx.whatsAppCampaign.update({ where: { id: campaign.id }, data: { status: "running", startedAt: now, pausedAt: null } });
     } else if (campaign.status !== "running") {
       await tx.whatsAppCampaign.update({ where: { id: campaign.id }, data: { status: "completed", completedAt: now } });
     }
-    return { campaignId: campaign.id, queued: eligible.length, skippedOptOut: skipped.length };
+    return {
+      campaignId: campaign.id,
+      queued: queueEligible.length,
+      skippedOptOut: skipped.length,
+      canaryState: firstCampaignCanaryRequired && queueEligible.length > 0 ? "queued" as const : "verified" as const,
+      remainingSnapshot: Math.max(0, eligible.length - queueEligible.length),
+    };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
