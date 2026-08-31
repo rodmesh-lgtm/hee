@@ -3,9 +3,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
+import { decideWhatsAppCampaignCanary } from "./campaign-canary-domain";
 import { deliveryIdempotencyKey } from "./delivery-domain";
-
-export const WHATSAPP_FIRST_CAMPAIGN_CANARY_LIMIT = 5;
 
 type QueueDb = Pick<PrismaClient, "$transaction">;
 
@@ -50,8 +49,11 @@ export async function enqueueWhatsAppCampaign(input: {
         select: { id: true, status: true },
       }),
     ]);
-    const firstCampaignCanaryRequired = !verifiedDelivery;
-    if (firstCampaignCanaryRequired && priorCurrentAttempt) {
+    const canary = decideWhatsAppCampaignCanary({
+      hasVerifiedDelivery: Boolean(verifiedDelivery),
+      hasPriorCurrentAttempt: Boolean(priorCurrentAttempt),
+    });
+    if (canary.state === "awaiting_delivery") {
       const remainingSnapshot = await tx.whatsAppCampaignRecipient.count({
         where: { businessId: input.businessId, campaignId: campaign.id, status: "snapshotted" },
       });
@@ -86,7 +88,7 @@ export async function enqueueWhatsAppCampaign(input: {
       data: { status: "skipped_opt_out" },
     });
 
-    const queueEligible = firstCampaignCanaryRequired ? eligible.slice(0, WHATSAPP_FIRST_CAMPAIGN_CANARY_LIMIT) : eligible;
+    const queueEligible = canary.queueLimit == null ? eligible : eligible.slice(0, canary.queueLimit);
     if (queueEligible.length) {
       await tx.whatsAppDeliveryJob.createMany({ data: queueEligible.map((recipient) => ({
         id: randomUUID(), businessId: input.businessId, connectionId: campaign.connectionId,
@@ -107,7 +109,7 @@ export async function enqueueWhatsAppCampaign(input: {
       campaignId: campaign.id,
       queued: queueEligible.length,
       skippedOptOut: skipped.length,
-      canaryState: firstCampaignCanaryRequired && queueEligible.length > 0 ? "queued" as const : "verified" as const,
+      canaryState: canary.state === "canary" && queueEligible.length > 0 ? "queued" as const : "verified" as const,
       remainingSnapshot: Math.max(0, eligible.length - queueEligible.length),
     };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
