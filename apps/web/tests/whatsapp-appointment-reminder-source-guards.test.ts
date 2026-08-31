@@ -44,10 +44,10 @@ test("closing a booking cancels unsent reminders and delivery rechecks status", 
   assert.match(delivery, /releaseAs\(database, job, "cancelled", now, "BOOKING_NO_LONGER_CONFIRMED"\)/);
 });
 
-test("automation UI exposes lead time without claiming past reminders", () => {
+test("automation UI exposes lead time without implying stale reminder replay", () => {
   assert.match(page, /WHATSAPP_APPOINTMENT_LEAD_MINUTES/);
   assert.match(page, /name="reminderLeadMinutes"/);
-  assert.match(page, /لا يُرسل إذا كان وقت التذكير قد فات/);
-  assert.match(page, /أحداث مجدولة/);
+  assert.match(page, /الأحداث الجديدة فقط/);
+  assert.match(page, /رسائل بانتظار موعدها/);
   assert.match(page, /nextAttemptAt/);
 });
