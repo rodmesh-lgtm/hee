@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { Activity, BarChart3, Megaphone, Pause, Play, StopCircle } from "lucide-react";
 import { launchWhatsAppCampaignAction } from "../../../actions/whatsapp-campaign-launch";
-import { createWhatsAppCampaignAction, operateWhatsAppCampaignAction } from "../../../actions/whatsapp-marketing";
+import { operateWhatsAppCampaignAction } from "../../../actions/whatsapp-marketing";
 import { ConfirmSubmitButton } from "../../../../components/dashboard/confirm-submit-button";
 import { db } from "../../../lib/db";
 import { getWhatsAppCampaignLaunchReadiness, type WhatsAppCampaignLaunchReadiness } from "../../../lib/whatsapp/campaign-launch-readiness";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
+import { CampaignWizard } from "./campaign-wizard";
 
 export default async function WhatsAppCampaignsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const context = await getWhatsAppReadContext("campaign.manage");
@@ -15,13 +17,26 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
   if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   const params = await searchParams;
   const now = new Date();
-  const [connections, templates, campaigns, eligibleConsents, launchReadiness] = await Promise.all([
+  const [connections, templates, segments, campaigns, eligibleRows, launchReadiness] = await Promise.all([
     db.whatsAppConnection.findMany({ where: { businessId: context.businessId, provider: "meta", status: "connected", disabledAt: null }, select: { id: true, verifiedName: true, displayPhoneNumber: true } }),
-    db.whatsAppTemplate.findMany({ where: { businessId: context.businessId, provider: "meta", status: "approved" }, select: { id: true, connectionId: true, name: true, language: true, category: true }, orderBy: { name: "asc" } }),
+    db.whatsAppTemplate.findMany({ where: { businessId: context.businessId, provider: "meta", status: "approved" }, select: { id: true, connectionId: true, name: true, language: true, category: true, components: true }, orderBy: { name: "asc" } }),
+    db.whatsAppSegment.findMany({ where: { businessId: context.businessId, kind: "static" }, select: { id: true, name: true, _count: { select: { memberships: true } } }, orderBy: { name: "asc" }, take: 100 }),
     db.whatsAppCampaign.findMany({ where: { businessId: context.businessId }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, name: true, status: true, totalRecipients: true, scheduledAt: true, startedAt: true, completedAt: true, createdAt: true, template: { select: { name: true, language: true } } } }),
-    db.whatsAppConsent.count({ where: { businessId: context.businessId, revokedAt: null, consentedAt: { lte: now } } }),
+    db.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      SELECT COUNT(*)::bigint AS "count"
+      FROM "WhatsAppContact" contact
+      INNER JOIN "WhatsAppConsent" consent
+        ON consent."businessId" = contact."businessId"
+        AND consent."phoneE164" = contact."phoneE164"
+      WHERE contact."businessId" = ${context.businessId}
+        AND contact."optedOutAt" IS NULL
+        AND consent."revokedAt" IS NULL
+        AND consent."consentedAt" <= NOW()
+    `),
     getWhatsAppCampaignLaunchReadiness(),
   ]);
+  const eligibleContacts = Number(eligibleRows[0]?.count ?? 0);
+  const wizardTemplates = templates.map((template) => ({ ...template, category: templateCategoryLabel(template.category), ...templatePreview(template.components) }));
   const recipientGroups = campaigns.length ? await db.whatsAppCampaignRecipient.groupBy({ by: ["campaignId", "status"], where: { businessId: context.businessId, campaignId: { in: campaigns.map((item) => item.id) } }, _count: { _all: true } }) : [];
   const recipientCounts = new Map(recipientGroups.map((item) => [`${item.campaignId}:${item.status}`, item._count._all]));
   const operationSucceeded = ["launch", "schedule", "pause", "resume", "cancel", "canary-launched", "canary-awaiting"].includes(params.operation || "");
@@ -37,20 +52,17 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
       <div className="flex items-start gap-3"><Activity className={`mt-0.5 h-5 w-5 shrink-0 ${launchReadiness.ready ? "text-emerald-600" : "text-amber-600"}`} /><div><b className="text-sm text-[#20264f]">{launchReadiness.ready ? "الإرسال جاهز" : "الإرسال متوقف مؤقتًا للحماية"}</b><p className="mt-1 text-xs leading-6 text-slate-600">{launchReadiness.ready ? `آخر تحقق تشغيلي ناجح: ${launchReadiness.lastSucceededAt.toLocaleString("ar-SA")}. قبل الإرسال سيعاد التحقق من الموافقة، وإلغاء الاشتراك، والاتصال، واعتماد القالب لكل مستلم.` : `${readinessLabel(launchReadiness)}. يمكنك تجهيز الحملة ومراجعتها الآن، وسيظل الإطلاق متوقفًا حتى تعود حالة التشغيل إلى الوضع السليم.`}</p></div></div>
     </section>
 
-    {params.create || params.operation ? <p aria-live="polite" className={`rounded-2xl p-3 text-xs font-bold ${(params.create === "complete" || operationSucceeded) ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>{params.create === "complete" ? "أُنشئت الحملة وثُبتت قائمة المستلمين المؤهلين. راجع العدد والبيانات قبل الإطلاق." : operationMessage}</p> : null}
+    {params.create || params.operation ? <p aria-live="polite" className={`rounded-2xl p-3 text-xs font-bold ${(params.create === "complete" || operationSucceeded) ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>{params.create === "complete" ? "أُنشئت الحملة وثُبتت قائمة المستلمين المؤهلين. راجع العدد والبيانات قبل الإطلاق." : params.create ? campaignErrorMessage(params.reason) : operationMessage}</p> : null}
 
     <section className="grid gap-4 lg:grid-cols-[.8fr_1.2fr]">
-      <form action={createWhatsAppCampaignAction} className="rounded-[24px] border bg-white p-5">
-        <h2 className="font-black text-[#20264f]">إنشاء حملة جديدة</h2>
-        <p className="mt-2 text-xs leading-6 text-slate-500">سيتم تضمين جهات الاتصال ذات الموافقة الفعالة فقط، مع استبعاد من ألغوا الاشتراك. المتاح حاليًا: {eligibleConsents} موافقة.</p>
-        <label className="mt-4 block text-xs font-bold">اسم الحملة<input name="name" required maxLength={120} className="mt-1 h-11 w-full rounded-xl border px-3" /></label>
-        <label className="mt-3 block text-xs font-bold">الرقم الرسمي<select name="connectionId" required className="mt-1 h-11 w-full rounded-xl border px-3"><option value="">اختر الرقم</option>{connections.map((item) => <option key={item.id} value={item.id}>{item.verifiedName || item.displayPhoneNumber || "رقم واتساب متصل"}</option>)}</select></label>
-        <label className="mt-3 block text-xs font-bold">القالب المعتمد<select name="templateId" required className="mt-1 h-11 w-full rounded-xl border px-3"><option value="">اختر القالب</option>{templates.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.language} · {templateCategoryLabel(item.category)}</option>)}</select></label>
-        <button disabled={!connections.length || !templates.length || !eligibleConsents} className="mt-4 min-h-11 rounded-xl bg-[#6f3bd2] px-5 text-xs font-black text-white disabled:bg-slate-300">إنشاء الحملة ومراجعة المستلمين</button>
-        {!connections.length ? <Link href="/dashboard/whatsapp/setup" className="mt-3 block text-xs font-bold text-emerald-700">اربط رقم WhatsApp Business أولًا ←</Link> : null}
-        {connections.length > 0 && !templates.length ? <Link href="/dashboard/whatsapp/templates" className="mt-3 block text-xs font-bold text-amber-700">زامن قالبًا معتمدًا من Meta أولًا ←</Link> : null}
-        {connections.length > 0 && templates.length > 0 && !eligibleConsents ? <Link href="/dashboard/whatsapp/contacts" className="mt-3 block text-xs font-bold text-amber-700">أضف جهات اتصال بموافقة صريحة أولًا ←</Link> : null}
-      </form>
+      <div>
+              {connections.length && templates.length && eligibleContacts ? <CampaignWizard
+                connections={connections.map((item) => ({ id: item.id, label: item.verifiedName || item.displayPhoneNumber || "رقم واتساب متصل" }))}
+                templates={wizardTemplates}
+                segments={segments.map((segment) => ({ id: segment.id, name: segment.name, members: segment._count.memberships }))}
+                eligibleContacts={eligibleContacts}
+              /> : <CampaignReadiness connections={connections.length} templates={templates.length} eligibleContacts={eligibleContacts} />}
+            </div>
 
       <div className="rounded-[24px] border border-violet-200 bg-violet-50 p-5 text-xs leading-7 text-violet-950">
         <b className="text-sm">مرحلة إرسال تجريبية آمنة</b>
@@ -73,6 +85,34 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
   </div>;
 }
 
+function CampaignReadiness({ connections, templates, eligibleContacts }: { connections: number; templates: number; eligibleContacts: number }) {
+  const checks = [
+    { ready: connections > 0, label: "رقم WhatsApp Business متصل", href: "/dashboard/whatsapp/setup" },
+    { ready: templates > 0, label: "قالب Meta معتمد ومتزامن", href: "/dashboard/whatsapp/templates" },
+    { ready: eligibleContacts > 0, label: "جهات اتصال بموافقة فعالة", href: "/dashboard/whatsapp/contacts" },
+  ];
+  return <div className="rounded-[26px] border bg-white p-5"><h2 className="font-black text-[#20264f]">أكمل جاهزية الحملة</h2><p className="mt-2 text-xs leading-6 text-slate-500">سيظهر معالج الإنشاء فور اكتمال المتطلبات الثلاثة.</p><div className="mt-4 space-y-2">{checks.map((check) => <Link key={check.label} href={check.href} className={`flex items-center justify-between rounded-xl p-3 text-xs font-black ${check.ready ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}><span>{check.ready ? "✓" : "○"} {check.label}</span><span>{check.ready ? "مكتمل" : "إكمال ←"}</span></Link>)}</div></div>;
+}
+
+function templatePreview(value: Prisma.JsonValue) {
+  const components = Array.isArray(value) ? value.filter((item): item is Prisma.JsonObject => Boolean(item) && typeof item === "object" && !Array.isArray(item)) : [];
+  const findText = (type: string) => {
+    const component = components.find((item) => String(item.type ?? "").toUpperCase() === type);
+    return typeof component?.text === "string" ? component.text : null;
+  };
+  const buttonComponent = components.find((item) => String(item.type ?? "").toUpperCase() === "BUTTONS");
+  const buttons = Array.isArray(buttonComponent?.buttons) ? buttonComponent.buttons.flatMap((item) => item && typeof item === "object" && !Array.isArray(item) && typeof item.text === "string" ? [item.text] : []).slice(0, 3) : [];
+  return { header: findText("HEADER"), body: findText("BODY"), footer: findText("FOOTER"), buttons };
+}
+
+function campaignErrorMessage(reason?: string) {
+  if (reason === "WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS") return "لا يوجد مستلمون مؤهلون بعد فحص الموافقات والانسحابات.";
+  if (reason === "WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE") return "الجمهور أكبر من الحد الآمن للحملة الواحدة (10,000 مستلم).";
+  if (reason === "WHATSAPP_CAMPAIGN_STATIC_SEGMENT_NOT_FOUND") return "الشريحة المحددة لم تعد متاحة لهذا النشاط.";
+  if (reason === "WHATSAPP_CAMPAIGN_CONFIGURATION_INVALID") return "الرقم أو القالب لم يعد صالحًا؛ حدّث الصفحة وأعد الاختيار.";
+  if (reason === "invalid") return "أكمل بيانات الحملة واختر الجمهور والقالب قبل المتابعة.";
+  return "تعذر إنشاء الحملة؛ تحقق من الاتصال والقالب والموافقات ثم حاول مرة أخرى.";
+}
 function campaignStatusLabel(status: string) {
   const labels: Record<string, string> = { draft: "مسودة", ready: "جاهزة", scheduled: "مجدولة", running: "قيد الإرسال", paused: "متوقفة مؤقتًا", completed: "مكتملة", cancelled: "ملغاة", failed: "تعذر إكمالها" };
   return labels[status] ?? "قيد المعالجة";
