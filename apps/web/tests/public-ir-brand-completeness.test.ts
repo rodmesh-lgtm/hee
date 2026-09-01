@@ -6,6 +6,9 @@ const publicProfile = readFileSync(new URL("../components/public-business-page-v
 const preview = readFileSync(new URL("../app/preview/page.tsx", import.meta.url), "utf8");
 const passwordReset = readFileSync(new URL("../app/actions/password-reset.ts", import.meta.url), "utf8");
 const emailVerification = readFileSync(new URL("../app/lib/email-verification.ts", import.meta.url), "utf8");
+const terms = readFileSync(new URL("../app/terms/page.tsx", import.meta.url), "utf8");
+const privacy = readFileSync(new URL("../app/privacy/page.tsx", import.meta.url), "utf8");
+const adminLogin = readFileSync(new URL("../app/admin-login/page.tsx", import.meta.url), "utf8");
 
 test("public business profile exposes only iR customer branding", () => {
   assert.match(publicProfile, /aria-label="iR - الصفحة الرئيسية"/);
@@ -18,6 +21,16 @@ test("public business profile exposes only iR customer branding", () => {
 test("owner preview browser title uses iR", () => {
   assert.match(preview, /title: "معاينة الصفحة \| iR"/);
   assert.doesNotMatch(preview, /\| HEE/);
+});
+
+test("legal and central admin entry surfaces expose iR, not legacy UI branding", () => {
+  assert.match(terms, /منصة iR/);
+  assert.match(privacy, /منصة iR|تتعامل iR/);
+  assert.match(adminLogin, /iR CONTROL PLANE/);
+  assert.match(adminLogin, /لمشغلي iR فقط/);
+  assert.match(adminLogin, /aria-live="assertive"/);
+  assert.match(adminLogin, /aria-busy=\{pending\}/);
+  for (const source of [terms, privacy, adminLogin]) assert.doesNotMatch(source, />HEE|منصة HEE|مشغلي HEE/);
 });
 
 test("transactional account emails use iR without changing the ir.sa trust origin", () => {
