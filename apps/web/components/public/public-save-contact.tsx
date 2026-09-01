@@ -31,7 +31,7 @@ export function PublicSaveContact({ businessName, phone, whatsapp, email, websit
       whatsapp ? `TEL;TYPE=WORK:${escapeVcard(whatsapp)}` : "",
       email ? `EMAIL:${escapeVcard(email)}` : "",
       website ? `URL:${escapeVcard(website)}` : "",
-      publicUrl ? `NOTE:صفحة HEE ${escapeVcard(publicUrl)}` : "",
+      publicUrl ? `NOTE:صفحة iR ${escapeVcard(publicUrl)}` : "",
       address || city ? `ADR:;;${escapeVcard(address ?? "")};${escapeVcard(city ?? "")}` : "",
       "END:VCARD",
     ].filter(Boolean);
@@ -52,12 +52,12 @@ export function PublicSaveContact({ businessName, phone, whatsapp, email, websit
       <button
         type="button"
         onClick={downloadVCard}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#e8ebf7] bg-white px-4 py-3 text-sm font-bold text-slate-700"
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#e8ebf7] bg-white px-4 py-3 text-sm font-bold text-slate-700"
       >
-        <Download className="h-4 w-4" />
+        <Download className="h-4 w-4" aria-hidden="true" />
         حفظ جهة الاتصال
       </button>
-      {status === "done" ? <p className="mt-2 text-center text-xs text-emerald-700">تم تنزيل جهة الاتصال</p> : null}
+      {status === "done" ? <p role="status" aria-live="polite" className="mt-2 text-center text-xs text-emerald-700">تم تنزيل جهة الاتصال</p> : null}
     </div>
   );
 }
