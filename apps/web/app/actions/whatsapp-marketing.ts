@@ -238,29 +238,52 @@ export async function syncWhatsAppTemplatesAction(form: FormData) {
 export async function createWhatsAppCampaignAction(form: FormData) {
   const context = await campaignContext();
   const name = field(form, "name", 120), connectionId = field(form, "connectionId", 128), templateId = field(form, "templateId", 128);
-  if (!name || !connectionId || !templateId) redirect("/dashboard/whatsapp/campaigns?create=invalid");
+  const audienceKind = field(form, "audienceKind", 32) ?? "all_contacts";
+  const segmentId = field(form, "segmentId", 128);
+  if (!name || !connectionId || !templateId || !["all_contacts", "static_segment"].includes(audienceKind)) redirect("/dashboard/whatsapp/campaigns?create=invalid");
+  if (audienceKind === "static_segment" && !segmentId) redirect("/dashboard/whatsapp/campaigns?create=invalid");
   let destination: string;
   try {
     const now = new Date();
-    const contactIds = await db.whatsAppContact.findMany({ where: { businessId: context.businessId, optedOutAt: null }, select: { id: true, phoneE164: true }, take: 10_001 });
-    if (contactIds.length > 10_000) throw new Error("WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE");
-    const consents = await db.whatsAppConsent.findMany({ where: { businessId: context.businessId, phoneE164: { in: contactIds.map((item) => item.phoneE164) }, revokedAt: null, consentedAt: { lte: now } }, select: { phoneE164: true } });
-    const allowed = new Set(consents.map((item) => item.phoneE164));
-    const audience = contactIds.filter((item) => allowed.has(item.phoneE164)).map((item) => item.id);
-    if (!audience.length) throw new Error("WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS");
     const campaign = await db.$transaction(async (tx) => {
       const template = await tx.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId, provider: "meta", status: "approved" }, select: { id: true } });
       const connection = await tx.whatsAppConnection.findFirst({ where: { id: connectionId, businessId: context.businessId, provider: "meta", status: "connected", disabledAt: null }, select: { id: true } });
       if (!template || !connection) throw new Error("WHATSAPP_CAMPAIGN_CONFIGURATION_INVALID");
-      const created = await tx.whatsAppCampaign.create({ data: { id: randomUUID(), businessId: context.businessId, connectionId, templateId, name, audienceDefinition: { kind: "contacts", contactIds: audience } as Prisma.InputJsonValue } });
-      await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "campaign.create", targetType: "campaign", targetId: created.id, outcome: "success", metadata: { audienceSize: audience.length }, database: tx });
+
+      let audienceDefinition: Prisma.InputJsonValue;
+      let audienceSize: number;
+      if (audienceKind === "static_segment") {
+        const segment = await tx.whatsAppSegment.findFirst({
+          where: { id: segmentId!, businessId: context.businessId, kind: "static" },
+          select: { id: true, _count: { select: { memberships: true } } },
+        });
+        if (!segment) throw new Error("WHATSAPP_CAMPAIGN_STATIC_SEGMENT_NOT_FOUND");
+        if (segment._count.memberships > 10_000) throw new Error("WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE");
+        audienceDefinition = { kind: "static_segment", segmentId: segment.id };
+        audienceSize = segment._count.memberships;
+      } else {
+        const contacts = await tx.whatsAppContact.findMany({ where: { businessId: context.businessId, optedOutAt: null }, select: { id: true, phoneE164: true }, take: 10_001 });
+        if (contacts.length > 10_000) throw new Error("WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE");
+        const consents = await tx.whatsAppConsent.findMany({ where: { businessId: context.businessId, phoneE164: { in: contacts.map((item) => item.phoneE164) }, revokedAt: null, consentedAt: { lte: now } }, select: { phoneE164: true } });
+        const allowed = new Set(consents.map((item) => item.phoneE164));
+        const contactIds = contacts.filter((item) => allowed.has(item.phoneE164)).map((item) => item.id);
+        if (!contactIds.length) throw new Error("WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS");
+        audienceDefinition = { kind: "contacts", contactIds };
+        audienceSize = contactIds.length;
+      }
+
+      const created = await tx.whatsAppCampaign.create({ data: { id: randomUUID(), businessId: context.businessId, connectionId, templateId, name, audienceDefinition } });
+      await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "campaign.create", targetType: "campaign", targetId: created.id, outcome: "success", metadata: { audienceKind, audienceSize }, database: tx });
       return created;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     await snapshotWhatsAppCampaign({ businessId: context.businessId, campaignId: campaign.id, now });
     revalidatePath("/dashboard/whatsapp/campaigns");
     destination = `/dashboard/whatsapp/campaigns?create=complete&campaign=${campaign.id}`;
-  } catch {
-    destination = "/dashboard/whatsapp/campaigns?create=failed";
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "UNKNOWN";
+    const known = ["WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS", "WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE", "WHATSAPP_CAMPAIGN_STATIC_SEGMENT_NOT_FOUND", "WHATSAPP_CAMPAIGN_CONFIGURATION_INVALID"];
+    const reason = known.includes(code) ? code : "UNKNOWN";
+    destination = `/dashboard/whatsapp/campaigns?create=failed&reason=${reason}`;
   }
   redirect(destination);
 }

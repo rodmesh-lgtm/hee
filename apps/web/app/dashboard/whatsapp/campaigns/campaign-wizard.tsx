@@ -1,0 +1,179 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
+import { Check, ChevronLeft, ChevronRight, FileText, Send, UsersRound } from "lucide-react";
+import { createWhatsAppCampaignAction } from "../../../actions/whatsapp-marketing";
+
+type ConnectionOption = { id: string; label: string };
+type TemplateOption = {
+  id: string;
+  connectionId: string;
+  name: string;
+  language: string;
+  category: string;
+  header: string | null;
+  body: string | null;
+  footer: string | null;
+  buttons: string[];
+};
+type SegmentOption = { id: string; name: string; members: number };
+
+const steps = ["التفاصيل", "الجمهور", "القالب", "المراجعة"] as const;
+
+export function CampaignWizard({
+  connections,
+  templates,
+  segments,
+  eligibleContacts,
+}: {
+  connections: ConnectionOption[];
+  templates: TemplateOption[];
+  segments: SegmentOption[];
+  eligibleContacts: number;
+}) {
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState("");
+  const [connectionId, setConnectionId] = useState(connections[0]?.id ?? "");
+  const [audienceKind, setAudienceKind] = useState<"all_contacts" | "static_segment">("all_contacts");
+  const [segmentId, setSegmentId] = useState("");
+  const availableTemplates = useMemo(() => templates.filter((template) => template.connectionId === connectionId), [connectionId, templates]);
+  const [templateId, setTemplateId] = useState("");
+  const selectedConnection = connections.find((connection) => connection.id === connectionId);
+  const selectedSegment = segments.find((segment) => segment.id === segmentId);
+  const selectedTemplate = availableTemplates.find((template) => template.id === templateId);
+  const audienceCount = audienceKind === "static_segment" ? selectedSegment?.members ?? 0 : eligibleContacts;
+
+  const stepReady = [
+    name.trim().length > 0 && connectionId.length > 0,
+    audienceKind === "all_contacts" ? eligibleContacts > 0 : Boolean(segmentId && selectedSegment?.members),
+    Boolean(selectedTemplate),
+    true,
+  ][step];
+
+  const moveNext = () => {
+    if (stepReady) setStep((current) => Math.min(current + 1, steps.length - 1));
+  };
+
+  return (
+    <form action={createWhatsAppCampaignAction} onSubmit={(event) => { if (step < steps.length - 1) { event.preventDefault(); moveNext(); } }} className="rounded-[26px] border border-[#e7e9f4] bg-white p-5 shadow-sm">
+      <input type="hidden" name="name" value={name.trim()} />
+      <input type="hidden" name="connectionId" value={connectionId} />
+      <input type="hidden" name="templateId" value={templateId} />
+      <input type="hidden" name="audienceKind" value={audienceKind} />
+      {audienceKind === "static_segment" ? <input type="hidden" name="segmentId" value={segmentId} /> : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeeff6] pb-4">
+        <div>
+          <span className="text-[11px] font-black text-[#6f3bd2]">حملة جديدة</span>
+          <h2 className="mt-1 text-lg font-black text-[#20264f]">أنشئ الحملة خطوة بخطوة</h2>
+        </div>
+        <span className="rounded-full bg-[#f2eeff] px-3 py-1.5 text-[11px] font-black text-[#6543ce]">{step + 1} من {steps.length}</span>
+      </div>
+
+      <ol className="mt-5 grid grid-cols-4 gap-2" aria-label="مراحل إنشاء الحملة">
+        {steps.map((label, index) => (
+          <li key={label}>
+            <button
+              type="button"
+              onClick={() => index < step && setStep(index)}
+              disabled={index > step}
+              aria-current={index === step ? "step" : undefined}
+              className={`flex min-h-11 w-full items-center justify-center gap-1 rounded-xl px-2 text-[10px] font-black transition ${index === step ? "bg-[#6f3bd2] text-white" : index < step ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-400"}`}
+            >
+              {index < step ? <Check className="h-3.5 w-3.5" /> : <span>{index + 1}</span>}
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+
+      <div className="mt-5 min-h-[310px]">
+        {step === 0 ? (
+          <div className="space-y-4">
+            <StepHeading icon={<Send className="h-5 w-5" />} title="بيانات الحملة" text="سمِّ الحملة وحدد رقم المنشأة الرسمي الذي سيظهر للمستلمين." />
+            <label className="block text-xs font-bold text-[#20264f]">اسم الحملة
+              <input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder="مثال: عرض العملاء لشهر سبتمبر" className="mt-1.5 h-12 w-full rounded-xl border border-[#dfe2ee] px-3 outline-none transition focus:border-[#7b5bdd] focus:ring-2 focus:ring-[#ede8ff]" />
+            </label>
+            <label className="block text-xs font-bold text-[#20264f]">رقم WhatsApp Business الرسمي
+              <select value={connectionId} onChange={(event) => { setConnectionId(event.target.value); setTemplateId(""); }} className="mt-1.5 h-12 w-full rounded-xl border border-[#dfe2ee] bg-white px-3 outline-none focus:border-[#7b5bdd]">
+                <option value="">اختر الرقم</option>
+                {connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label}</option>)}
+              </select>
+            </label>
+          </div>
+        ) : null}
+
+        {step === 1 ? (
+          <div className="space-y-4">
+            <StepHeading icon={<UsersRound className="h-5 w-5" />} title="اختر الجمهور" text="لن يدخل الـSnapshot إلا من لديه موافقة فعالة ولم ينسحب." />
+            <AudienceCard active={audienceKind === "all_contacts"} title="كل جهات الاتصال المؤهلة" count={eligibleContacts} text="جميع الأرقام ذات الموافقة الفعالة" onClick={() => setAudienceKind("all_contacts")} />
+            <AudienceCard active={audienceKind === "static_segment"} title="شريحة محددة" count={selectedSegment?.members ?? 0} text="استهدف مجموعة ثابتة محفوظة" onClick={() => setAudienceKind("static_segment")} />
+            {audienceKind === "static_segment" ? (
+              <label className="block text-xs font-bold text-[#20264f]">الشريحة
+                <select value={segmentId} onChange={(event) => setSegmentId(event.target.value)} className="mt-1.5 h-12 w-full rounded-xl border border-[#dfe2ee] bg-white px-3 outline-none focus:border-[#7b5bdd]">
+                  <option value="">اختر الشريحة</option>
+                  {segments.map((segment) => <option key={segment.id} value={segment.id}>{segment.name} · {segment.members} عضو</option>)}
+                </select>
+              </label>
+            ) : null}
+            <p className="rounded-xl bg-emerald-50 p-3 text-[11px] leading-6 text-emerald-800">العدد الظاهر تقديري قبل التثبيت. عند إنشاء الحملة يعيد الخادم فحص الموافقات وOpt-out ويعرض العدد النهائي.</p>
+          </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div className="space-y-4">
+            <StepHeading icon={<FileText className="h-5 w-5" />} title="القالب المعتمد" text="تظهر فقط قوالب Meta المعتمدة والمرتبطة بالرقم الذي اخترته." />
+            <label className="block text-xs font-bold text-[#20264f]">قالب الرسالة
+              <select value={templateId} onChange={(event) => setTemplateId(event.target.value)} className="mt-1.5 h-12 w-full rounded-xl border border-[#dfe2ee] bg-white px-3 outline-none focus:border-[#7b5bdd]">
+                <option value="">اختر القالب</option>
+                {availableTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · {template.language} · {template.category}</option>)}
+              </select>
+            </label>
+            {selectedTemplate ? <TemplatePreview template={selectedTemplate} /> : <EmptyChoice text={availableTemplates.length ? "اختر قالبًا لمعاينته." : "لا توجد قوالب معتمدة لهذا الرقم. قم بالمزامنة من قسم القوالب."} />}
+          </div>
+        ) : null}
+
+        {step === 3 ? (
+          <div className="space-y-4">
+            <StepHeading icon={<Check className="h-5 w-5" />} title="راجع قبل التثبيت" text="لن يتم الإرسال الآن؛ سيُنشأ Snapshot ثابت يمكنك مراجعته قبل الإطلاق أو الجدولة." />
+            <dl className="grid gap-3 sm:grid-cols-2">
+              <Review label="الحملة" value={name} />
+              <Review label="الرقم الرسمي" value={selectedConnection?.label ?? "—"} />
+              <Review label="الجمهور" value={audienceKind === "all_contacts" ? "كل المؤهلين" : selectedSegment?.name ?? "—"} />
+              <Review label="العدد قبل التثبيت" value={`${audienceCount} مستلم`} />
+              <Review label="القالب" value={selectedTemplate?.name ?? "—"} />
+              <Review label="اللغة والفئة" value={selectedTemplate ? `${selectedTemplate.language} · ${selectedTemplate.category}` : "—"} />
+            </dl>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold leading-6 text-amber-900">إنشاء الـSnapshot لا يرسل رسائل ولا يستهلك رسوم Meta. الإرسال يتطلب تأكيدًا منفصلًا بعد ظهور العدد النهائي.</div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-5 flex items-center justify-between border-t border-[#eeeff6] pt-4">
+        <button type="button" onClick={() => setStep((current) => Math.max(0, current - 1))} disabled={step === 0} className="inline-flex h-11 items-center gap-1 rounded-xl border px-4 text-xs font-black text-slate-600 disabled:opacity-30"><ChevronRight className="h-4 w-4" />السابق</button>
+        {step < steps.length - 1 ? <button type="button" onClick={moveNext} disabled={!stepReady} className="inline-flex h-11 items-center gap-1 rounded-xl bg-[#6f3bd2] px-5 text-xs font-black text-white disabled:bg-slate-300">التالي<ChevronLeft className="h-4 w-4" /></button> : <CreateButton />}
+      </div>
+    </form>
+  );
+}
+
+function CreateButton() {
+  const { pending } = useFormStatus();
+  return <button type="submit" disabled={pending} className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-5 text-xs font-black text-white disabled:bg-slate-300"><Check className="h-4 w-4" />{pending ? "جارٍ تثبيت الجمهور…" : "إنشاء وتثبيت الجمهور"}</button>;
+}
+
+function StepHeading({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
+  return <div className="flex gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f2eeff] text-[#6543ce]">{icon}</span><div><h3 className="font-black text-[#20264f]">{title}</h3><p className="mt-1 text-xs leading-6 text-slate-500">{text}</p></div></div>;
+}
+
+function AudienceCard({ active, title, count, text, onClick }: { active: boolean; title: string; count: number; text: string; onClick: () => void }) {
+  return <button type="button" onClick={onClick} aria-pressed={active} className={`flex w-full items-center justify-between rounded-2xl border p-4 text-right transition ${active ? "border-[#7b5bdd] bg-[#f7f4ff] ring-2 ring-[#ede8ff]" : "border-[#e4e6ef] hover:border-[#cfc3f5]"}`}><span><b className="block text-sm text-[#20264f]">{title}</b><span className="mt-1 block text-[11px] text-slate-500">{text}</span></span><b className="rounded-full bg-white px-3 py-1 text-sm text-[#6543ce]">{count}</b></button>;
+}
+
+function TemplatePreview({ template }: { template: TemplateOption }) {
+  return <article className="rounded-2xl border border-[#dce8df] bg-[#f4fbf5] p-4"><div className="mb-3 flex items-center justify-between"><b className="text-xs text-emerald-900">معاينة الرسالة</b><span className="rounded-full bg-white px-2 py-1 text-[9px] font-black text-emerald-700">Approved</span></div><div className="max-w-md rounded-2xl rounded-tr-sm bg-white p-3 text-xs leading-6 text-slate-700 shadow-sm">{template.header ? <b className="mb-1 block text-[#20264f]">{template.header}</b> : null}<p className="whitespace-pre-wrap">{template.body || "محتوى القالب محفوظ لدى Meta."}</p>{template.footer ? <span className="mt-2 block text-[10px] text-slate-400">{template.footer}</span> : null}{template.buttons.length ? <div className="mt-3 grid gap-1 border-t pt-2 text-center font-bold text-sky-600">{template.buttons.map((button) => <span key={button}>{button}</span>)}</div> : null}</div></article>;
+}
+
+function EmptyChoice({ text }: { text: string }) { return <div className="rounded-2xl border border-dashed p-6 text-center text-xs text-slate-400">{text}</div>; }
+function Review({ label, value }: { label: string; value: string }) { return <div className="rounded-2xl bg-[#faf9fd] p-3"><dt className="text-[10px] font-bold text-slate-400">{label}</dt><dd className="mt-1 text-sm font-black text-[#20264f]">{value}</dd></div>; }
