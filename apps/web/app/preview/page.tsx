@@ -14,7 +14,7 @@ function makeQrUrl(url: string) {
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "معاينة الصفحة | HEE",
+  title: "معاينة الصفحة | iR",
   robots: { index: false, follow: false, noarchive: true, nocache: true },
 };
 
