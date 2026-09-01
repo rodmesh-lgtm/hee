@@ -39,6 +39,10 @@ export function PublicSmartActionSheet({ businessName, activity, whatsapp, phone
     };
   }, [isOpen]);
 
+  const effectiveDescription = sheetDescription ?? (mode === "request"
+    ? "سنسجل طلبك داخل iR ثم نجهز التواصل مع المنشأة."
+    : "أرسل استفسارك وسيتم فتح واتساب مباشرة.");
+
   return (
     <>
       <button
@@ -47,7 +51,7 @@ export function PublicSmartActionSheet({ businessName, activity, whatsapp, phone
         className={buttonClassName}
         style={buttonStyle}
       >
-        {whatsappDigits ? <MessageCircle className="h-[18px] w-[18px]" /> : <Phone className="h-[18px] w-[18px]" />}
+        {whatsappDigits ? <MessageCircle className="h-[18px] w-[18px]" aria-hidden="true" /> : <Phone className="h-[18px] w-[18px]" aria-hidden="true" />}
         {buttonLabel ?? activity.primaryActionLabel}
       </button>
 
@@ -59,7 +63,7 @@ export function PublicSmartActionSheet({ businessName, activity, whatsapp, phone
         whatsapp={whatsapp}
         phone={phone}
         title={sheetTitle}
-        description={sheetDescription}
+        description={effectiveDescription}
         ctaLabel={buttonLabel ?? (mode === "request" ? "إرسال عبر واتساب" : "إرسال الاستفسار عبر واتساب")}
       />
     </>
