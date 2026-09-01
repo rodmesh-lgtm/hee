@@ -28,7 +28,7 @@ export function FeatureGrid() {
         <Heading
           eyebrow="المزايا"
           title="كل ما تحتاجه لإدارة نشاطك"
-          description="منصة HEE مصممة لتكون مساحة موحدة لإدارة أعمالك بواجهة احترافية، تجربة واضحة، وعمليات متسلسلة من الطلب إلى التوصيل والقياس."
+          description="منصة iR مصممة لتكون مساحة موحدة لإدارة أعمالك بواجهة احترافية، تجربة واضحة، وعمليات متسلسلة من الطلب إلى التوصيل والقياس."
           align="start"
         />
 
@@ -43,7 +43,7 @@ export function FeatureGrid() {
             >
               <Card className="h-full">
                 <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
-                  <Sparkles className="h-5 w-5" />
+                  <Sparkles className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <h3 className="text-xl font-black text-slate-950 dark:text-white">{feature.title}</h3>
                 <p className="mt-3 text-base leading-8 text-slate-600 dark:text-slate-300">{feature.description}</p>
