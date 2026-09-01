@@ -7,6 +7,7 @@ const rootLayout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "
 const globals = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 const brandCompat = readFileSync(new URL("../app/ir-brand-compat.css", import.meta.url), "utf8");
 const shell = readFileSync(new URL("../components/dashboard/dashboard-shell.tsx", import.meta.url), "utf8");
+const onboarding = readFileSync(new URL("../components/onboarding-client.tsx", import.meta.url), "utf8");
 
 test("dashboard provides a keyboard skip path to the main customer content", () => {
   assert.match(dashboardLayout, /href="#dashboard-main-content"/);
@@ -25,6 +26,16 @@ test("dashboard preserves core RTL and keyboard accessibility contracts", () => 
   assert.match(shell, /aria-modal=\{mobileOpen \? "true" : undefined\}/);
   assert.match(shell, /event\.key === "Escape"/);
   assert.match(shell, /event\.key !== "Tab"/);
+});
+
+test("onboarding exposes progress, errors and pending state accessibly", () => {
+  assert.match(onboarding, /role="progressbar"/);
+  assert.match(onboarding, /aria-valuenow=\{step \+ 1\}/);
+  assert.match(onboarding, /role="alert"/);
+  assert.match(onboarding, /aria-live="assertive"/);
+  assert.match(onboarding, /aria-busy=\{pending\}/);
+  assert.match(onboarding, />iR</);
+  assert.doesNotMatch(onboarding, />HEE</);
 });
 
 test("legacy renderer identifiers cannot leak legacy HEE branding to customers", () => {
