@@ -33,8 +33,8 @@ export function receiptSnapshot(billingId: string, amount: number) {
   }
 
   return {
-    receiptNumber: `HEE-R-${billingId}`,
-    sellerLegalName: legalName || "HEE Test Seller",
+    receiptNumber: `iR-R-${billingId}`,
+    sellerLegalName: legalName || "iR Test Seller",
     sellerAddress: address || "Test Environment",
     taxStatus: "not_registered" as const,
     netAmount: amount,
