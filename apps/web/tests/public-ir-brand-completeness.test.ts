@@ -9,6 +9,7 @@ const emailVerification = readFileSync(new URL("../app/lib/email-verification.ts
 const terms = readFileSync(new URL("../app/terms/page.tsx", import.meta.url), "utf8");
 const privacy = readFileSync(new URL("../app/privacy/page.tsx", import.meta.url), "utf8");
 const adminLogin = readFileSync(new URL("../app/admin-login/page.tsx", import.meta.url), "utf8");
+const billingTax = readFileSync(new URL("../app/lib/billing-tax-core.ts", import.meta.url), "utf8");
 
 test("public business profile exposes only iR customer branding", () => {
   assert.match(publicProfile, /aria-label="iR - الصفحة الرئيسية"/);
@@ -42,4 +43,10 @@ test("transactional account emails use iR without changing the ir.sa trust origi
   assert.match(emailVerification, /"User-Agent": "iR\/1\.0"/);
   assert.doesNotMatch(passwordReset, /حساب HEE|إدارة HEE|HEE\/1\.0/);
   assert.doesNotMatch(emailVerification, /حساب HEE|HEE\/1\.0/);
+});
+
+test("new receipt snapshots use iR identifiers", () => {
+  assert.match(billingTax, /receiptNumber: `iR-R-\$\{billingId\}`/);
+  assert.match(billingTax, /sellerLegalName: legalName \|\| "iR Test Seller"/);
+  assert.doesNotMatch(billingTax, /HEE-R-|HEE Test Seller/);
 });
