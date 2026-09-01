@@ -24,14 +24,26 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const hasWhatsAppMarketing = business ? await hasActiveWhatsAppMarketingEntitlement({ businessId: business.id }) : false;
   const effectivelyPublished = Boolean(business?.isPublished && user.emailVerifiedAt);
 
-  return <DashboardShell
-    businessId={business?.id ?? null}
-    businessName={business?.name ?? "نشاط جديد"}
-    businessSlug={business?.slug ?? null}
-    isPublished={effectivelyPublished}
-    businesses={businesses.map(({ id, name, slug }) => ({ id, name, slug }))}
-    showQaBadge={Boolean(qaAuditUser)}
-    showAdminLink={!qaAuditUser && Boolean(user.emailVerifiedAt) && isAdminEmail(user.email)}
-    hasWhatsAppMarketing={hasWhatsAppMarketing}
-  >{children}</DashboardShell>;
+  return <>
+    <a
+      href="#dashboard-main-content"
+      className="fixed right-4 top-3 z-[100] -translate-y-24 rounded-xl bg-[#1f2552] px-4 py-2 text-sm font-black text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8b73e6] focus-visible:ring-offset-2"
+    >
+      الانتقال إلى المحتوى الرئيسي
+    </a>
+    <DashboardShell
+      businessId={business?.id ?? null}
+      businessName={business?.name ?? "نشاط جديد"}
+      businessSlug={business?.slug ?? null}
+      isPublished={effectivelyPublished}
+      businesses={businesses.map(({ id, name, slug }) => ({ id, name, slug }))}
+      showQaBadge={Boolean(qaAuditUser)}
+      showAdminLink={!qaAuditUser && Boolean(user.emailVerifiedAt) && isAdminEmail(user.email)}
+      hasWhatsAppMarketing={hasWhatsAppMarketing}
+    >
+      <div id="dashboard-main-content" tabIndex={-1} className="outline-none focus-visible:ring-2 focus-visible:ring-[#8b73e6] focus-visible:ring-offset-4">
+        {children}
+      </div>
+    </DashboardShell>
+  </>;
 }
