@@ -17,25 +17,14 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
   if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   const params = await searchParams;
   const now = new Date();
-  const [connections, templates, segments, campaigns, eligibleRows, launchReadiness] = await Promise.all([
+  const [connections, templates, segments, campaigns, eligibleConsents, launchReadiness] = await Promise.all([
     db.whatsAppConnection.findMany({ where: { businessId: context.businessId, provider: "meta", status: "connected", disabledAt: null }, select: { id: true, verifiedName: true, displayPhoneNumber: true } }),
     db.whatsAppTemplate.findMany({ where: { businessId: context.businessId, provider: "meta", status: "approved" }, select: { id: true, connectionId: true, name: true, language: true, category: true, components: true }, orderBy: { name: "asc" } }),
     db.whatsAppSegment.findMany({ where: { businessId: context.businessId, kind: "static" }, select: { id: true, name: true, _count: { select: { memberships: true } } }, orderBy: { name: "asc" }, take: 100 }),
     db.whatsAppCampaign.findMany({ where: { businessId: context.businessId }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, name: true, status: true, totalRecipients: true, scheduledAt: true, startedAt: true, completedAt: true, createdAt: true, template: { select: { name: true, language: true } } } }),
-    db.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
-      SELECT COUNT(*)::bigint AS "count"
-      FROM "WhatsAppContact" contact
-      INNER JOIN "WhatsAppConsent" consent
-        ON consent."businessId" = contact."businessId"
-        AND consent."phoneE164" = contact."phoneE164"
-      WHERE contact."businessId" = ${context.businessId}
-        AND contact."optedOutAt" IS NULL
-        AND consent."revokedAt" IS NULL
-        AND consent."consentedAt" <= NOW()
-    `),
+    db.whatsAppConsent.count({ where: { businessId: context.businessId, revokedAt: null, consentedAt: { lte: now } } }),
     getWhatsAppCampaignLaunchReadiness(),
   ]);
-  const eligibleContacts = Number(eligibleRows[0]?.count ?? 0);
   const wizardTemplates = templates.map((template) => ({ ...template, category: templateCategoryLabel(template.category), ...templatePreview(template.components) }));
   const recipientGroups = campaigns.length ? await db.whatsAppCampaignRecipient.groupBy({ by: ["campaignId", "status"], where: { businessId: context.businessId, campaignId: { in: campaigns.map((item) => item.id) } }, _count: { _all: true } }) : [];
   const recipientCounts = new Map(recipientGroups.map((item) => [`${item.campaignId}:${item.status}`, item._count._all]));
@@ -56,12 +45,12 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
 
     <section className="grid gap-4 lg:grid-cols-[.8fr_1.2fr]">
       <div>
-              {connections.length && templates.length && eligibleContacts ? <CampaignWizard
+              {connections.length && templates.length && eligibleConsents ? <CampaignWizard
                 connections={connections.map((item) => ({ id: item.id, label: item.verifiedName || item.displayPhoneNumber || "رقم واتساب متصل" }))}
                 templates={wizardTemplates}
                 segments={segments.map((segment) => ({ id: segment.id, name: segment.name, members: segment._count.memberships }))}
-                eligibleContacts={eligibleContacts}
-              /> : <CampaignReadiness connections={connections.length} templates={templates.length} eligibleContacts={eligibleContacts} />}
+                eligibleContacts={eligibleConsents}
+              /> : <CampaignReadiness connections={connections.length} templates={templates.length} eligibleContacts={eligibleConsents} />}
             </div>
 
       <div className="rounded-[24px] border border-violet-200 bg-violet-50 p-5 text-xs leading-7 text-violet-950">
