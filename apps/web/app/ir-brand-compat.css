@@ -1,0 +1,6 @@
+/* Transitional renderer identifiers stay internal for compatibility; customer-visible branding is iR. */
+@media (max-width: 767px) {
+  [data-renderer="hee-v3-smart-business-profile"] > div::after {
+    content: "iR · صفحة أعمال ذكية";
+  }
+}

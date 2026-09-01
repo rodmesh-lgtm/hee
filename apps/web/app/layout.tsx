@@ -6,6 +6,7 @@ import { LanguageSwitcher } from "../components/language-switcher";
 import { LOCALE_META, SITE_MESSAGES } from "./lib/i18n";
 import { getRequestLocale } from "./lib/i18n-server";
 import "./globals.css";
+import "./ir-brand-compat.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({ variable: "--font-ibm-plex-sans-arabic", subsets: ["arabic"], weight: ["400", "500", "600", "700"] });
