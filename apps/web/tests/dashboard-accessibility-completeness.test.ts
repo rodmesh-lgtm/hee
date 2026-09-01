@@ -8,6 +8,10 @@ const globals = readFileSync(new URL("../app/globals.css", import.meta.url), "ut
 const brandCompat = readFileSync(new URL("../app/ir-brand-compat.css", import.meta.url), "utf8");
 const shell = readFileSync(new URL("../components/dashboard/dashboard-shell.tsx", import.meta.url), "utf8");
 const onboarding = readFileSync(new URL("../components/onboarding-client.tsx", import.meta.url), "utf8");
+const forgotPassword = readFileSync(new URL("../app/forgot-password/page.tsx", import.meta.url), "utf8");
+const resetPassword = readFileSync(new URL("../app/reset-password/page.tsx", import.meta.url), "utf8");
+const contact = readFileSync(new URL("../app/contact/page.tsx", import.meta.url), "utf8");
+const adminError = readFileSync(new URL("../app/admin/error.tsx", import.meta.url), "utf8");
 
 test("dashboard provides a keyboard skip path to the main customer content", () => {
   assert.match(dashboardLayout, /href="#dashboard-main-content"/);
@@ -36,6 +40,19 @@ test("onboarding exposes progress, errors and pending state accessibly", () => {
   assert.match(onboarding, /aria-busy=\{pending\}/);
   assert.match(onboarding, />iR</);
   assert.doesNotMatch(onboarding, />HEE</);
+});
+
+test("password recovery and public support use iR with accessible live feedback", () => {
+  for (const source of [forgotPassword, resetPassword, contact, adminError]) {
+    assert.doesNotMatch(source, />HEE</);
+  }
+  assert.match(forgotPassword, /role="status"/);
+  assert.match(forgotPassword, /role="alert"/);
+  assert.match(forgotPassword, /aria-busy=\{pending\}/);
+  assert.match(resetPassword, /aria-live="assertive"/);
+  assert.match(resetPassword, /aria-busy=\{pending\}/);
+  assert.match(contact, /عملاء iR/);
+  assert.match(adminError, /aria-live="assertive"/);
 });
 
 test("legacy renderer identifiers cannot leak legacy HEE branding to customers", () => {
