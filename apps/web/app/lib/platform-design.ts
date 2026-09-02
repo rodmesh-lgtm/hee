@@ -1,53 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { DEFAULT_PLATFORM_BRAND, PLATFORM_BRAND_SETTING_KEY, type PlatformBrandConfig } from "../../lib/platform-brand-config";
-
-export type PlatformDesignConfig = PlatformBrandConfig & {
-  headerCtaLabel: string; headerCtaHref: string;
-  footerCopyright: string;
-  homeHeroTitleAr: string; homeHeroSubtitleAr: string;
-  customerHeaderEnabled: boolean; customerFooterEnabled: boolean;
-};
-
-export const DEFAULT_PLATFORM_DESIGN: PlatformDesignConfig = {
-  ...DEFAULT_PLATFORM_BRAND,
-  headerCtaLabel: "ابدأ الآن", headerCtaHref: "/register",
-  footerCopyright: "INFRO © جميع الحقوق محفوظة",
-  homeHeroTitleAr: "هويتك الرقمية والتسويقية في مكان واحد",
-  homeHeroSubtitleAr: "أنشئ حضور أعمال احترافي وأدر تواصلك ونموك من INFRO.",
-  customerHeaderEnabled: true, customerFooterEnabled: true,
-};
-
-const HEX = /^#[0-9a-fA-F]{6}$/;
-const safeText = (v: unknown, fallback: string, max = 300) => typeof v === "string" && v.trim() ? v.trim().slice(0, max) : fallback;
-const safeUrl = (v: unknown, fallback: string | null) => {
-  if (v === null || v === "") return null;
-  if (typeof v !== "string") return fallback;
-  const s = v.trim();
-  if (s.startsWith("/")) return s.slice(0, 1000);
-  try { const u = new URL(s); return u.protocol === "https:" ? u.toString().slice(0, 1000) : fallback; } catch { return fallback; }
-};
-const color = (v: unknown, fallback: string) => typeof v === "string" && HEX.test(v) ? v.toLowerCase() : fallback;
-const bool = (v: unknown, fallback: boolean) => typeof v === "boolean" ? v : fallback;
-
-export function sanitizePlatformDesign(input: unknown): PlatformDesignConfig {
-  const x = input && typeof input === "object" && !Array.isArray(input) ? input as Record<string, unknown> : {};
-  const d = DEFAULT_PLATFORM_DESIGN;
-  return {
-    brandNameAr: safeText(x.brandNameAr,d.brandNameAr,80), brandNameEn: safeText(x.brandNameEn,d.brandNameEn,80),
-    logoUrl: safeUrl(x.logoUrl,d.logoUrl), logoDarkUrl: safeUrl(x.logoDarkUrl,d.logoDarkUrl), faviconUrl: safeUrl(x.faviconUrl,d.faviconUrl),
-    primaryColor: color(x.primaryColor,d.primaryColor), secondaryColor: color(x.secondaryColor,d.secondaryColor), accentColor: color(x.accentColor,d.accentColor), backgroundColor: color(x.backgroundColor,d.backgroundColor), foregroundColor: color(x.foregroundColor,d.foregroundColor),
-    headerBackground: color(x.headerBackground,d.headerBackground), headerForeground: color(x.headerForeground,d.headerForeground), footerBackground: color(x.footerBackground,d.footerBackground), footerForeground: color(x.footerForeground,d.footerForeground),
-    seoTitleAr: safeText(x.seoTitleAr,d.seoTitleAr,120), seoTitleEn: safeText(x.seoTitleEn,d.seoTitleEn,120), seoDescriptionAr: safeText(x.seoDescriptionAr,d.seoDescriptionAr,320), seoDescriptionEn: safeText(x.seoDescriptionEn,d.seoDescriptionEn,320),
-    seoKeywords: Array.isArray(x.seoKeywords) ? x.seoKeywords.filter((v):v is string=>typeof v==="string").map(v=>v.trim().slice(0,60)).filter(Boolean).slice(0,30) : d.seoKeywords,
-    ogImageUrl: safeUrl(x.ogImageUrl,d.ogImageUrl), robotsIndex: bool(x.robotsIndex,d.robotsIndex), robotsFollow: bool(x.robotsFollow,d.robotsFollow), customerPageBrandingEnabled: bool(x.customerPageBrandingEnabled,d.customerPageBrandingEnabled),
-    headerCtaLabel: safeText(x.headerCtaLabel,d.headerCtaLabel,60), headerCtaHref: safeUrl(x.headerCtaHref,d.headerCtaHref) ?? d.headerCtaHref,
-    footerCopyright: safeText(x.footerCopyright,d.footerCopyright,160), homeHeroTitleAr: safeText(x.homeHeroTitleAr,d.homeHeroTitleAr,160), homeHeroSubtitleAr: safeText(x.homeHeroSubtitleAr,d.homeHeroSubtitleAr,320),
-    customerHeaderEnabled: bool(x.customerHeaderEnabled,d.customerHeaderEnabled), customerFooterEnabled: bool(x.customerFooterEnabled,d.customerFooterEnabled),
-  };
-}
-
-export async function readPlatformDesign() {
-  const rows = await db.$queryRaw<Array<{draft: unknown; published: unknown; publishedAt: Date|null}>>(Prisma.sql`SELECT "draft", "published", "publishedAt" FROM "PlatformDesignSetting" WHERE "key"=${PLATFORM_BRAND_SETTING_KEY} LIMIT 1`);
-  const row=rows[0]; return { draft: sanitizePlatformDesign(row?.draft), published: sanitizePlatformDesign(row?.published), publishedAt: row?.publishedAt ?? null };
-}
+export type PlatformDesignConfig=PlatformBrandConfig&{headerCtaLabel:string;headerCtaHref:string;footerCopyright:string;homeHeroTitleAr:string;homeHeroSubtitleAr:string;customerHeaderEnabled:boolean;customerFooterEnabled:boolean};
+export const DEFAULT_PLATFORM_DESIGN:PlatformDesignConfig={...DEFAULT_PLATFORM_BRAND,headerCtaLabel:"ابدأ الآن",headerCtaHref:"/register",footerCopyright:"INFRO © جميع الحقوق محفوظة",homeHeroTitleAr:"هويتك الرقمية والتسويقية في مكان واحد",homeHeroSubtitleAr:"أنشئ حضور أعمال احترافي وأدر تواصلك ونموك من INFRO.",customerHeaderEnabled:true,customerFooterEnabled:true};
+const HEX=/^#[0-9a-fA-F]{6}$/;const safeText=(v:unknown,f:string,m=300)=>typeof v==="string"&&v.trim()?v.trim().slice(0,m):f;const safeUrl=(v:unknown,f:string|null)=>{if(v===null||v==="")return null;if(typeof v!=="string")return f;const s=v.trim();if(s.startsWith("/"))return s.slice(0,1000);try{const u=new URL(s);return u.protocol==="https:"?u.toString().slice(0,1000):f}catch{return f}};const color=(v:unknown,f:string)=>typeof v==="string"&&HEX.test(v)?v.toLowerCase():f;const bool=(v:unknown,f:boolean)=>typeof v==="boolean"?v:f;
+export function sanitizePlatformDesign(input:unknown):PlatformDesignConfig{const x=input&&typeof input==="object"&&!Array.isArray(input)?input as Record<string,unknown>:{};const d=DEFAULT_PLATFORM_DESIGN;return{brandNameAr:safeText(x.brandNameAr,d.brandNameAr,80),brandNameEn:safeText(x.brandNameEn,d.brandNameEn,80),logoUrl:safeUrl(x.logoUrl,d.logoUrl),logoDarkUrl:safeUrl(x.logoDarkUrl,d.logoDarkUrl),faviconUrl:safeUrl(x.faviconUrl,d.faviconUrl),primaryColor:color(x.primaryColor,d.primaryColor),secondaryColor:color(x.secondaryColor,d.secondaryColor),accentColor:color(x.accentColor,d.accentColor),backgroundColor:color(x.backgroundColor,d.backgroundColor),foregroundColor:color(x.foregroundColor,d.foregroundColor),headerBackground:color(x.headerBackground,d.headerBackground),headerForeground:color(x.headerForeground,d.headerForeground),footerBackground:color(x.footerBackground,d.footerBackground),footerForeground:color(x.footerForeground,d.footerForeground),seoTitleAr:safeText(x.seoTitleAr,d.seoTitleAr,120),seoTitleEn:safeText(x.seoTitleEn,d.seoTitleEn,120),seoDescriptionAr:safeText(x.seoDescriptionAr,d.seoDescriptionAr,320),seoDescriptionEn:safeText(x.seoDescriptionEn,d.seoDescriptionEn,320),seoKeywords:Array.isArray(x.seoKeywords)?x.seoKeywords.filter((v):v is string=>typeof v==="string").map(v=>v.trim().slice(0,60)).filter(Boolean).slice(0,30):d.seoKeywords,ogImageUrl:safeUrl(x.ogImageUrl,d.ogImageUrl),robotsIndex:bool(x.robotsIndex,d.robotsIndex),robotsFollow:bool(x.robotsFollow,d.robotsFollow),customerPageBrandingEnabled:bool(x.customerPageBrandingEnabled,d.customerPageBrandingEnabled),headerCtaLabel:safeText(x.headerCtaLabel,d.headerCtaLabel,60),headerCtaHref:safeUrl(x.headerCtaHref,d.headerCtaHref)??d.headerCtaHref,footerCopyright:safeText(x.footerCopyright,d.footerCopyright,160),homeHeroTitleAr:safeText(x.homeHeroTitleAr,d.homeHeroTitleAr,160),homeHeroSubtitleAr:safeText(x.homeHeroSubtitleAr,d.homeHeroSubtitleAr,320),customerHeaderEnabled:bool(x.customerHeaderEnabled,d.customerHeaderEnabled),customerFooterEnabled:bool(x.customerFooterEnabled,d.customerFooterEnabled)}}
+export async function readPlatformDesign(){try{const rows=await db.$queryRaw<Array<{draft:unknown;published:unknown;publishedAt:Date|null}>>(Prisma.sql`SELECT "draft","published","publishedAt" FROM "PlatformDesignSetting" WHERE "key"=${PLATFORM_BRAND_SETTING_KEY} LIMIT 1`);const r=rows[0];return{draft:sanitizePlatformDesign(r?.draft),published:sanitizePlatformDesign(r?.published),publishedAt:r?.publishedAt??null}}catch{return{draft:DEFAULT_PLATFORM_DESIGN,published:DEFAULT_PLATFORM_DESIGN,publishedAt:null}}}
