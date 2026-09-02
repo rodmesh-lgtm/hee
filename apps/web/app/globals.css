@@ -20,6 +20,29 @@
 [data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#e9fbf8\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#e9fbf7\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#effbf9\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#effbf8\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#e8fbf8\]{background-color:#0d3937!important}
 [data-dashboard-path][data-dashboard-theme="dark"] .infro-theme-toggle{background:#10292c!important;border-color:#285055!important;color:#66e7d5!important}
 
+/* Responsive product-grade workspace behavior */
+[data-dashboard-path],[data-admin-shell]{min-height:100dvh;overflow-x:clip}
+[data-dashboard-path] :where(button,a,input,select,textarea),[data-admin-shell] :where(button,a,input,select,textarea){touch-action:manipulation}
+[data-dashboard-path] :where(.overflow-x-auto),[data-admin-shell] :where(.overflow-x-auto){overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+@media(max-width:767px){
+  [data-dashboard-path] :where(input,select,textarea),[data-admin-shell] :where(input,select,textarea){font-size:16px!important}
+  [data-dashboard-path] :where(button,a),[data-admin-shell] :where(button,a){min-height:44px}
+  [data-dashboard-path] :where(.rounded-\[30px\],.rounded-\[28px\],.rounded-\[26px\]){border-radius:22px}
+  [data-admin-shell] :where(.rounded-\[30px\],.rounded-\[28px\],.rounded-\[26px\]){border-radius:22px}
+  [data-dashboard-path] table,[data-admin-shell] table{font-size:12px}
+  [data-dashboard-path] th,[data-dashboard-path] td,[data-admin-shell] th,[data-admin-shell] td{white-space:nowrap}
+  [data-dashboard-path] .grid,[data-admin-shell] .grid{min-width:0}
+  [data-dashboard-path] article,[data-dashboard-path] section,[data-admin-shell] article,[data-admin-shell] section{min-width:0}
+  [data-dashboard-path] h1,[data-admin-shell] h1{text-wrap:balance;line-height:1.28}
+  [data-dashboard-path] p,[data-admin-shell] p{text-wrap:pretty}
+}
+@media(max-width:430px){
+  [data-dashboard-path] main,[data-admin-shell] main{padding-inline:12px!important}
+  [data-dashboard-path] :where(.p-6,.p-7,.p-8),[data-admin-shell] :where(.p-6,.p-7,.p-8){padding:18px}
+  [data-dashboard-path] :where(.gap-5,.gap-6),[data-admin-shell] :where(.gap-5,.gap-6){gap:14px}
+}
+@supports(padding:max(0px)){[data-dashboard-path],[data-admin-shell]{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}}
+
 /* Public business profile */
 [data-renderer="hee-v3-smart-business-profile"]{--hee-card-border:#e1e9e5;--hee-card-shadow:0 18px 46px -40px rgba(4,54,43,.42);background:radial-gradient(circle at 92% 0%,rgba(16,185,129,.055),transparent 24rem),linear-gradient(180deg,#f8fbf9 0%,#f5f8f6 55%,#f7f9f8 100%)}
 [data-renderer="hee-v3-smart-business-profile"] section{isolation:isolate}[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child){box-shadow:var(--hee-card-shadow)}[data-renderer="hee-v3-smart-business-profile"] h2{letter-spacing:-.018em}[data-renderer="hee-v3-smart-business-profile"] p{text-wrap:pretty}[data-renderer="hee-v3-smart-business-profile"] a,[data-renderer="hee-v3-smart-business-profile"] button{touch-action:manipulation}[data-renderer="hee-v3-smart-business-profile"] img{-webkit-user-drag:none}[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto{scrollbar-width:none;overscroll-behavior-inline:contain}[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto::-webkit-scrollbar{display:none}
