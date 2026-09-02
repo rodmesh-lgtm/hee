@@ -1,13 +1,1 @@
-export default function DashboardLoading() {
-  return (
-    <div className="space-y-4 rounded-[28px] border border-[#e9e7f3] bg-white p-6 shadow-[0_12px_32px_-28px_rgba(58,35,75,.28)]">
-      <div className="h-8 w-40 animate-pulse rounded-2xl bg-[#eee9f7]" />
-      <div className="h-4 w-3/4 animate-pulse rounded-full bg-[#f2eef8]" />
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="h-28 animate-pulse rounded-3xl bg-[#f7f4fb]" />
-        <div className="h-28 animate-pulse rounded-3xl bg-[#f7f4fb]" />
-        <div className="h-28 animate-pulse rounded-3xl bg-[#f7f4fb]" />
-      </div>
-    </div>
-  );
-}
+export default function DashboardLoading(){return <div className="space-y-5" aria-busy="true"><section className="relative h-48 overflow-hidden rounded-[30px] bg-[#07181b]"><div className="absolute -left-12 -top-16 h-48 w-48 animate-pulse rounded-full bg-[#00d8c6]/15 blur-3xl"/><div className="absolute right-6 top-7 h-5 w-28 animate-pulse rounded-full bg-white/10"/><div className="absolute right-6 top-16 h-8 w-56 animate-pulse rounded-lg bg-white/10"/><div className="absolute right-6 top-28 h-3 w-80 max-w-[70%] animate-pulse rounded bg-white/[.07]"/></section><section className="rounded-[26px] border border-slate-200 bg-white p-5"><div className="h-5 w-28 animate-pulse rounded bg-slate-100"/><div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">{Array.from({length:4}).map((_,i)=><div key={i} className="h-28 animate-pulse rounded-[20px] border border-slate-100 bg-slate-50/70"/>)}</div></section><div className="grid gap-5 xl:grid-cols-[1.25fr_.75fr]"><div className="h-64 animate-pulse rounded-[26px] border border-slate-200 bg-white"/><div className="h-64 animate-pulse rounded-[26px] bg-[#0b2529]"/></div><span className="sr-only">جاري تحميل مساحة INFRO</span></div>}
