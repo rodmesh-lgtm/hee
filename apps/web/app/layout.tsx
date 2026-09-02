@@ -1,5 +1,5 @@
-import type { CSSProperties, Metadata } from "next";
-import type { ReactNode } from "react";
+import type { Metadata } from "next";
+import type { CSSProperties, ReactNode } from "react";
 import { Suspense } from "react";
 import { IBM_Plex_Sans_Arabic, Inter } from "next/font/google";
 import { LanguageSwitcher } from "../components/language-switcher";
