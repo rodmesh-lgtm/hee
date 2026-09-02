@@ -1,100 +1,25 @@
 import Link from "next/link";
-import { Search, UserRound, ShieldCheck } from "lucide-react";
+import { Search, UserRound, ShieldCheck, MailCheck, MailWarning, Building2, ArrowLeft, UsersRound } from "lucide-react";
 import { requireAdmin } from "../../lib/admin";
 import { db } from "../../lib/db";
 
 const PAGE_SIZE = 40;
-
 function clean(value: unknown, max = 160) { return String(value ?? "").trim().slice(0, max); }
 function date(value: Date | null | undefined) { return value ? new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(value) : "—"; }
 
 export default async function AdminCustomersPage({ searchParams }: { searchParams: Promise<{ q?: string; verification?: string; page?: string }> }) {
-  await requireAdmin();
-  const params = await searchParams;
-  const q = clean(params.q);
-  const verification = params.verification === "verified" || params.verification === "unverified" ? params.verification : "";
-  const page = Math.max(1, Number.parseInt(String(params.page ?? "1"), 10) || 1);
-
-  const where = {
-    deletedAt: null,
-    ...(verification === "verified" ? { emailVerifiedAt: { not: null } } : {}),
-    ...(verification === "unverified" ? { emailVerifiedAt: null } : {}),
-    ...(q ? { OR: [
-      { name: { contains: q, mode: "insensitive" as const } },
-      { email: { contains: q, mode: "insensitive" as const } },
-      { businesses: { some: { deletedAt: null, OR: [
-        { name: { contains: q, mode: "insensitive" as const } },
-        { slug: { contains: q, mode: "insensitive" as const } },
-      ] } } },
-    ] } : {}),
-  };
-
-  const [users, count, verifiedCount, unverifiedCount] = await Promise.all([
-    db.user.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        emailVerifiedAt: true,
-        createdAt: true,
-        updatedAt: true,
-        authIdentities: { select: { provider: true } },
-        businesses: {
-          where: { deletedAt: null },
-          orderBy: { updatedAt: "desc" },
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            isPublished: true,
-            isVerified: true,
-            plan: { select: { code: true, name: true } },
-            subscriptions: {
-              where: { status: { in: ["active", "past_due"] } },
-              orderBy: { createdAt: "desc" },
-              take: 1,
-              select: { status: true, provider: true, endsAt: true },
-            },
-            _count: { select: { products: true, services: true, orders: true, bookings: true } },
-          },
-        },
-        _count: { select: { sessions: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
-    db.user.count({ where }),
-    db.user.count({ where: { deletedAt: null, emailVerifiedAt: { not: null } } }),
-    db.user.count({ where: { deletedAt: null, emailVerifiedAt: null } }),
-  ]);
-
-  const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
-
-  return <main dir="rtl" className="min-h-screen bg-[#f7f8fb] px-4 py-7 text-[#1f2552] sm:px-6"><div className="mx-auto max-w-7xl space-y-5">
-    <header className="rounded-[26px] border border-[#e7e4f0] bg-white p-5"><div className="flex items-center gap-2 text-[#6f3bd2]"><UserRound className="h-5 w-5" /><span className="text-xs font-black">إدارة HEE المركزية</span></div><h1 className="mt-2 text-2xl font-black">العملاء والحسابات</h1><p className="mt-2 max-w-4xl text-sm leading-7 text-slate-500">قراءة تشغيلية لحسابات ملاك المنشآت وملكية البريد والمنشآت والخطط الحالية. لا يوجد انتحال جلسة، ولا حذف حساب، ولا تعديل اشتراك من هذه الصفحة.</p></header>
-
-    <section className="grid gap-3 sm:grid-cols-3"><Metric label="الحسابات المطابقة" value={count} /><Metric label="البريد الموثق" value={verifiedCount} /><Metric label="البريد غير الموثق" value={unverifiedCount} /></section>
-
-    <form className="grid gap-3 rounded-[22px] border border-[#e7e4f0] bg-white p-4 md:grid-cols-[1fr_210px_auto]" action="/admin/customers">
-      <label className="relative"><Search className="absolute right-3 top-3 h-4 w-4 text-slate-400" /><input name="q" defaultValue={q} placeholder="اسم، بريد، منشأة أو slug" className="min-h-10 w-full rounded-xl border border-[#e4e0ec] pr-10 pl-3 text-sm" /></label>
-      <select name="verification" defaultValue={verification} className="min-h-10 rounded-xl border border-[#e4e0ec] px-3 text-sm"><option value="">كل حالات البريد</option><option value="verified">موثق</option><option value="unverified">غير موثق</option></select>
-      <button className="min-h-10 rounded-xl bg-[#20264f] px-5 text-xs font-black text-white">تطبيق</button>
-    </form>
-
-    <section className="overflow-hidden rounded-[24px] border border-[#e7e4f0] bg-white"><div className="overflow-x-auto"><table className="w-full min-w-[1180px] text-right text-xs"><thead className="bg-[#fbfbfd] text-slate-400"><tr><th className="p-3">صاحب الحساب</th><th>البريد</th><th>الدخول</th><th>المنشآت</th><th>الحالة التجارية</th><th>المحتوى والمعاملات</th><th>التسجيل</th><th>التفاصيل</th></tr></thead><tbody>{users.map((user) => {
-      const providers = [...new Set(user.authIdentities.map((identity) => identity.provider))];
-      const primary = user.businesses[0];
-      const entitlement = primary?.subscriptions[0];
-      const totals = user.businesses.reduce((acc, business) => ({ products: acc.products + business._count.products, services: acc.services + business._count.services, transactions: acc.transactions + business._count.orders + business._count.bookings }), { products: 0, services: 0, transactions: 0 });
-      return <tr key={user.id} className="border-t border-[#f0edf5] align-top"><td className="p-3"><b className="block text-sm">{user.name}</b><code className="mt-1 block text-[9px] text-slate-400" dir="ltr">{user.id}</code></td><td><span className="font-medium">{user.email}</span><span className={`mt-1 block text-[10px] font-black ${user.emailVerifiedAt ? "text-emerald-700" : "text-amber-700"}`}>{user.emailVerifiedAt ? "موثق" : "غير موثق"}</span></td><td><span>{providers.length ? providers.join(" · ") : "password/local"}</span><span className="mt-1 block text-[10px] text-slate-400">{user._count.sessions} جلسة حالية/مسجلة</span></td><td><b>{user.businesses.length}</b>{primary ? <span className="mt-1 block text-[10px] text-slate-400">{primary.name}</span> : <span className="mt-1 block text-[10px] text-slate-400">لا توجد منشأة</span>}</td><td>{primary ? <><span className="font-black text-[#5d49cc]">{primary.plan?.name ?? primary.plan?.code ?? "Free"}</span><span className="mt-1 block text-[10px] text-slate-400">{entitlement ? `${entitlement.status} · ${entitlement.provider ?? "internal"}` : "لا اشتراك حالي"}</span><span className="mt-1 block text-[10px] text-slate-400">{primary.isPublished ? "منشورة" : "غير منشورة"} · {primary.isVerified ? "موثقة" : "غير موثقة"}</span></> : "—"}</td><td>{totals.products} منتج · {totals.services} خدمة<span className="mt-1 block text-[10px] text-slate-400">{totals.transactions} طلب/حجز</span></td><td>{date(user.createdAt)}</td><td><Link href={`/admin/customers/${user.id}`} className="rounded-xl bg-[#f3efff] px-3 py-2 font-black text-[#5d49cc]">فتح الحساب</Link></td></tr>;
-    })}{!users.length ? <tr><td colSpan={8} className="p-10 text-center text-slate-400">لا توجد حسابات مطابقة.</td></tr> : null}</tbody></table></div></section>
-
-    {pages > 1 ? <nav className="flex items-center justify-between text-xs"><span>الصفحة {page} من {pages}</span><div className="flex gap-2">{page > 1 ? <Link className="rounded-xl border bg-white px-4 py-2 font-black" href={{ pathname: "/admin/customers", query: { q, verification, page: page - 1 } }}>السابق</Link> : null}{page < pages ? <Link className="rounded-xl border bg-white px-4 py-2 font-black" href={{ pathname: "/admin/customers", query: { q, verification, page: page + 1 } }}>التالي</Link> : null}</div></nav> : null}
-
-    <section className="rounded-[20px] border border-blue-200 bg-blue-50 p-4 text-xs leading-6 text-blue-900"><div className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><p><b>حد الأمان:</b> حالة البريد هنا دليل ملكية فقط. هذه الجولة لا تضيف زرًا لتزوير emailVerifiedAt ولا مسار حذف/انتحال/تفعيل باقة مدفوعة.</p></div></section>
-  </div></main>;
+  await requireAdmin(); const params=await searchParams; const q=clean(params.q); const verification=params.verification==="verified"||params.verification==="unverified"?params.verification:""; const page=Math.max(1,Number.parseInt(String(params.page??"1"),10)||1);
+  const where={deletedAt:null,...(verification==="verified"?{emailVerifiedAt:{not:null}}:{}),...(verification==="unverified"?{emailVerifiedAt:null}:{}),...(q?{OR:[{name:{contains:q,mode:"insensitive" as const}},{email:{contains:q,mode:"insensitive" as const}},{businesses:{some:{deletedAt:null,OR:[{name:{contains:q,mode:"insensitive" as const}},{slug:{contains:q,mode:"insensitive" as const}}]}}}]}:{})};
+  const [users,count,verifiedCount,unverifiedCount]=await Promise.all([
+    db.user.findMany({where,select:{id:true,name:true,email:true,emailVerifiedAt:true,createdAt:true,authIdentities:{select:{provider:true}},businesses:{where:{deletedAt:null},orderBy:{updatedAt:"desc"},select:{id:true,name:true,slug:true,isPublished:true,isVerified:true,plan:{select:{code:true,name:true}},subscriptions:{where:{status:{in:["active","past_due"]}},orderBy:{createdAt:"desc"},take:1,select:{status:true,provider:true}},_count:{select:{products:true,services:true,orders:true,bookings:true}}}},_count:{select:{sessions:true}}},orderBy:{createdAt:"desc"},skip:(page-1)*PAGE_SIZE,take:PAGE_SIZE}),
+    db.user.count({where}),db.user.count({where:{deletedAt:null,emailVerifiedAt:{not:null}}}),db.user.count({where:{deletedAt:null,emailVerifiedAt:null}})
+  ]); const pages=Math.max(1,Math.ceil(count/PAGE_SIZE));
+  return <div dir="rtl" className="space-y-6">
+    <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,.03)]"><div className="absolute -left-16 -top-24 h-56 w-56 rounded-full bg-[#dffbf6] blur-3xl"/><div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-3 flex items-center gap-2 text-[10px] font-black tracking-[.16em] text-[#008f87]"><UsersRound className="h-4 w-4"/>INFRO CUSTOMER OPERATIONS</div><h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">العملاء والحسابات</h1><p className="mt-2 max-w-3xl text-sm leading-7 text-slate-500">مركز موحد لمراجعة حسابات العملاء وملكية البريد والمنشآت والخطط والنشاط التشغيلي، مع إبقاء الإجراءات الحساسة خارج هذه الشاشة.</p></div><div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-xs font-bold text-emerald-800"><ShieldCheck className="ml-1 inline h-4 w-4"/>قراءة إدارية آمنة · بلا انتحال جلسات</div></div></header>
+    <section className="grid gap-3 sm:grid-cols-3"><Metric label="الحسابات المطابقة" value={count} icon={<UserRound/>} hint="ضمن عوامل البحث الحالية"/><Metric label="البريد الموثق" value={verifiedCount} icon={<MailCheck/>} hint="ملكية بريد مؤكدة"/><Metric label="غير الموثق" value={unverifiedCount} icon={<MailWarning/>} hint="يحتاج إكمال التحقق"/></section>
+    <form className="grid gap-3 rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-[1fr_210px_auto]" action="/admin/customers"><label className="relative"><Search className="absolute right-3.5 top-3 h-4 w-4 text-slate-400"/><input name="q" defaultValue={q} placeholder="ابحث بالاسم، البريد، المنشأة أو الرابط..." className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/60 pr-10 pl-3 text-sm outline-none transition focus:border-[#7bded5] focus:bg-white focus:ring-4 focus:ring-[#dffbf6]"/></label><select name="verification" defaultValue={verification} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none"><option value="">كل حالات البريد</option><option value="verified">موثق</option><option value="unverified">غير موثق</option></select><button className="h-10 rounded-xl bg-[#07181b] px-6 text-xs font-black text-white transition hover:bg-[#0d2a2e]">تطبيق الفلاتر</button></form>
+    <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="text-sm font-black text-slate-900">دليل العملاء</h2><p className="mt-1 text-[10px] font-semibold text-slate-400">{count} حساب ضمن العرض الحالي</p></div><Building2 className="h-5 w-5 text-slate-300"/></div><div className="overflow-x-auto"><table className="w-full min-w-[1160px] text-right text-xs"><thead className="bg-slate-50/70 text-[10px] font-black text-slate-400"><tr><th className="p-4">العميل</th><th>البريد والتحقق</th><th>الدخول</th><th>المنشآت</th><th>الخطة والحالة</th><th>النشاط</th><th>منذ</th><th className="pl-4">إجراء</th></tr></thead><tbody>{users.map(user=>{const providers=[...new Set(user.authIdentities.map(i=>i.provider))];const primary=user.businesses[0];const entitlement=primary?.subscriptions[0];const totals=user.businesses.reduce((a,b)=>({products:a.products+b._count.products,services:a.services+b._count.services,transactions:a.transactions+b._count.orders+b._count.bookings}),{products:0,services:0,transactions:0});return <tr key={user.id} className="group border-t border-slate-100 align-middle transition hover:bg-[#f8fdfc]"><td className="p-4"><div className="flex items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-sm font-black text-[#008f87]">{(user.name||user.email).slice(0,2).toUpperCase()}</div><div><b className="block text-sm text-slate-900">{user.name}</b><code className="mt-1 block max-w-[150px] truncate text-[9px] text-slate-300" dir="ltr">{user.id}</code></div></div></td><td><span className="font-semibold text-slate-700">{user.email}</span><span className={`mt-1.5 flex w-fit items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black ${user.emailVerifiedAt?"bg-emerald-50 text-emerald-700":"bg-amber-50 text-amber-700"}`}>{user.emailVerifiedAt?"● موثق":"● بانتظار التحقق"}</span></td><td className="text-slate-600">{providers.length?providers.join(" · "):"password/local"}<span className="mt-1 block text-[10px] text-slate-400">{user._count.sessions} جلسة</span></td><td><b className="text-slate-900">{user.businesses.length}</b>{primary?<span className="mt-1 block text-[10px] text-slate-400">{primary.name}</span>:<span className="mt-1 block text-[10px] text-slate-400">لا توجد منشأة</span>}</td><td>{primary?<><span className="rounded-lg bg-[#e9fbf8] px-2 py-1 text-[10px] font-black text-[#008f87]">{primary.plan?.name??primary.plan?.code??"Free"}</span><span className="mt-2 block text-[10px] text-slate-400">{entitlement?`${entitlement.status} · ${entitlement.provider??"internal"}`:"لا اشتراك حالي"}</span></>:"—"}</td><td className="text-slate-600">{totals.products} منتج · {totals.services} خدمة<span className="mt-1 block text-[10px] text-slate-400">{totals.transactions} معاملة</span></td><td className="text-slate-500">{date(user.createdAt)}</td><td className="pl-4"><Link href={`/admin/customers/${user.id}`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 font-black text-slate-700 transition group-hover:border-[#a7e9e1] group-hover:text-[#008f87]">فتح <ArrowLeft className="h-3.5 w-3.5"/></Link></td></tr>})}{!users.length?<tr><td colSpan={8} className="p-14 text-center text-slate-400">لا توجد حسابات مطابقة لعوامل البحث.</td></tr>:null}</tbody></table></div></section>
+    {pages>1?<nav className="flex items-center justify-between text-xs text-slate-500"><span>الصفحة {page} من {pages}</span><div className="flex gap-2">{page>1?<Link className="rounded-xl border bg-white px-4 py-2 font-black" href={{pathname:"/admin/customers",query:{q,verification,page:page-1}}}>السابق</Link>:null}{page<pages?<Link className="rounded-xl border bg-white px-4 py-2 font-black" href={{pathname:"/admin/customers",query:{q,verification,page:page+1}}}>التالي</Link>:null}</div></nav>:null}
+  </div>;
 }
-
-function Metric({ label, value }: { label: string; value: number }) { return <div className="rounded-2xl border border-[#e7e4f0] bg-white p-4"><span className="text-xs text-slate-400">{label}</span><b className="mt-1 block text-xl">{value}</b></div>; }
+function Metric({label,value,icon,hint}:{label:string;value:number;icon:React.ReactNode;hint:string}){return <article className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-start justify-between"><div><span className="text-[10px] font-bold text-slate-400">{label}</span><b className="mt-1 block text-2xl font-black text-slate-950">{value.toLocaleString("ar-SA")}</b><span className="mt-1 block text-[9px] font-semibold text-slate-400">{hint}</span></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#009d93] [&>svg]:h-4 [&>svg]:w-4">{icon}</div></div></article>}
