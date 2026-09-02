@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BadgeCheck,ExternalLink,PackageCheck,QrCode,ShoppingBag,Sparkles,ArrowLeft,Layers3,ShieldCheck } from "lucide-react";
@@ -32,4 +33,4 @@ export default async function BusinessStorePage(){
   </div>;
 }
 
-function InfoCard({icon,eyebrow,title,text}:{icon:React.ReactNode;eyebrow:string;title:string;text:string}){return <article className="rounded-[20px] border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]">{icon}</span><span className="text-[8px] font-black tracking-[.12em] text-slate-300" dir="ltr">{eyebrow}</span></div><b className="mt-3 block text-xs text-slate-900">{title}</b><p className="mt-1 text-[9px] leading-5 text-slate-400">{text}</p></article>}
+function InfoCard({icon,eyebrow,title,text}:{icon:ReactNode;eyebrow:string;title:string;text:string}){return <article className="rounded-[20px] border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]">{icon}</span><span className="text-[8px] font-black tracking-[.12em] text-slate-300" dir="ltr">{eyebrow}</span></div><b className="mt-3 block text-xs text-slate-900">{title}</b><p className="mt-1 text-[9px] leading-5 text-slate-400">{text}</p></article>}
