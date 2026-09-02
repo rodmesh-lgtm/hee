@@ -1,6 +1,50 @@
-/* Transitional renderer identifiers stay internal for compatibility; customer-visible branding is iR. */
+/* INFRO brand compatibility layer.
+ * Legacy renderer identifiers remain internal; all customer-visible surfaces use INFRO.
+ * Brand palette is derived from the approved INFRO mark: midnight navy + cyan + teal + emerald.
+ */
+:root {
+  --infro-midnight: #020b14;
+  --infro-navy: #06243a;
+  --infro-cyan: #08bfe8;
+  --infro-teal: #00d8c6;
+  --infro-emerald: #00eea8;
+  --infro-ink: #0b1724;
+  --infro-surface: #f6fbfc;
+  --infro-border: #d9eef0;
+  --infro-gradient: linear-gradient(135deg, var(--infro-cyan) 0%, var(--infro-teal) 48%, var(--infro-emerald) 100%);
+
+  /* Shared semantic tokens consumed by public, customer and central-admin surfaces. */
+  --brand-primary: var(--infro-teal);
+  --brand-primary-hover: #00bfae;
+  --brand-secondary: var(--infro-cyan);
+  --brand-accent: var(--infro-emerald);
+  --brand-dark: var(--infro-midnight);
+  --brand-ring: rgba(0, 216, 198, .34);
+}
+
+::selection { background: rgba(0,216,198,.24); }
+:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline-color: var(--infro-teal);
+}
+
+/* Keep existing utility markup working while migrating every surface to INFRO. */
+:where(.text-indigo-600,.text-violet-600,.text-purple-600) { color: #00aebd !important; }
+:where(.bg-indigo-600,.bg-violet-600,.bg-purple-600) { background-color: #00bfb4 !important; }
+:where(.border-indigo-600,.border-violet-600,.border-purple-600) { border-color: #00bfb4 !important; }
+:where(.ring-indigo-500,.ring-violet-500,.ring-purple-500) { --tw-ring-color: rgba(0,216,198,.38) !important; }
+:where(.from-indigo-500,.from-violet-500,.from-purple-500) { --tw-gradient-from: #08bfe8 var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(8 191 232 / 0) var(--tw-gradient-to-position) !important; }
+:where(.to-indigo-500,.to-violet-500,.to-purple-500) { --tw-gradient-to: #00eea8 var(--tw-gradient-to-position) !important; }
+
+/* Dashboard shells: restrained brand tint, preserving readability and status colors. */
+:where([data-dashboard-shell],[data-admin-shell],main) .brand-gradient,
+:where([data-dashboard-shell],[data-admin-shell]) [data-brand-accent] {
+  background-image: var(--infro-gradient);
+}
+
 @media (max-width: 767px) {
   [data-renderer="hee-v3-smart-business-profile"] > div::after {
-    content: "iR · صفحة أعمال ذكية";
+    content: "INFRO · صفحة أعمال ذكية";
+    border-color: var(--infro-border);
+    color: #54747b;
   }
 }
