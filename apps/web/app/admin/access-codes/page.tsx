@@ -1,63 +1,14 @@
-import { KeyRound, ShieldCheck } from "lucide-react";
+import { KeyRound, ShieldCheck, TicketCheck, MessageCircleMore, Activity, LockKeyhole } from "lucide-react";
 import { revokeSubscriptionAccessCodeAdminAction, setSubscriptionAccessCodeWhatsAppEntitlementAdminAction } from "../../actions/admin-access-code";
 import { requireAdmin } from "../../lib/admin";
 import { db } from "../../lib/db";
 import { AccessCodeCreateForm } from "../../../components/admin/access-code-create-form";
-
-function dateText(value: Date | null) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh" }).format(value);
-}
-
-export default async function AdminAccessCodesPage({ searchParams }: { searchParams: Promise<{ access?: string }> }) {
-  await requireAdmin();
-  const params = await searchParams;
-  const [plans, codes] = await Promise.all([
-    db.businessPlan.findMany({ where: { isActive: true, code: { not: "FREE" } }, orderBy: { monthlyPrice: "asc" }, select: { code: true, name: true } }),
-    db.subscriptionAccessCode.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 100,
-      select: {
-        id: true,
-        label: true,
-        isActive: true,
-        redemptionCount: true,
-        maxRedemptions: true,
-        expiresAt: true,
-        revokedAt: true,
-        whatsappMarketingEnabled: true,
-        createdAt: true,
-        plan: { select: { code: true, name: true } },
-        createdBy: { select: { name: true, email: true } },
-        _count: { select: { grants: true } },
-      },
-    }),
-  ]);
-  const now = new Date();
-
-  return <main className="min-h-screen bg-[#f7f8fb] px-4 py-8 text-[#1f2552] sm:px-6">
-    <div className="mx-auto max-w-6xl space-y-5">
-      <header className="rounded-[24px] border border-[#e7e4f0] bg-white p-5">
-        <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><KeyRound className="h-5 w-5" /></span><div><h1 className="text-xl font-black">أكواد تفعيل الاشتراكات</h1><p className="mt-1 text-sm text-slate-500">منح باقة بدون دفع مع إمكانية إلغاء الكود والمنح التابعة له من الإدارة.</p></div></div>
-        {params.access === "revoked" ? <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">تم إلغاء الكود وسحب المنح النشطة المرتبطة به.</div> : null}
-        {params.access === "invalid-code" ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-800">تعذر تحديد الكود المطلوب إلغاؤه.</div> : null}
-        {params.access === "whatsapp-enabled" ? <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">أصبحت ميزة تسويق واتساب مفعّلة للمنح النشطة المرتبطة بهذا الكود.</div> : null}
-        {params.access === "whatsapp-disabled" ? <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">تم إيقاف ميزة تسويق واتساب للمنح المرتبطة بهذا الكود.</div> : null}
-      </header>
-
-      <section className="rounded-[24px] border border-[#e7e4f0] bg-white p-5">
-        <div className="mb-4 flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-[#6543ce]" /><h2 className="font-black">إنشاء كود جديد</h2></div>
-        <AccessCodeCreateForm plans={plans} />
-      </section>
-
-      <section className="rounded-[24px] border border-[#e7e4f0] bg-white p-5">
-        <h2 className="font-black">الأكواد الأخيرة</h2>
-        <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[1040px] text-right text-xs"><thead><tr className="border-b border-[#ece9f3] text-slate-400"><th className="px-2 py-3">الوصف</th><th className="px-2 py-3">الباقة</th><th className="px-2 py-3">واتساب</th><th className="px-2 py-3">الحالة</th><th className="px-2 py-3">الاستخدام</th><th className="px-2 py-3">صلاحية الإدخال</th><th className="px-2 py-3">المنشئ</th><th className="px-2 py-3">الإجراء</th></tr></thead><tbody>{codes.map((code) => {
-          const expired = Boolean(code.expiresAt && code.expiresAt <= now);
-          const active = code.isActive && !code.revokedAt && !expired;
-          return <tr key={code.id} className="border-b border-[#f0edf5] last:border-0"><td className="px-2 py-3 font-bold">{code.label || "بدون وصف"}</td><td className="px-2 py-3">{code.plan.name} <span className="text-slate-400">({code.plan.code})</span></td><td className="px-2 py-3"><form action={setSubscriptionAccessCodeWhatsAppEntitlementAdminAction} className="flex items-center gap-2"><input type="hidden" name="codeId" value={code.id} /><input type="hidden" name="whatsappMarketingEnabled" value={code.whatsappMarketingEnabled ? "" : "on"} /><button className={`rounded-lg px-2 py-1 font-black ${code.whatsappMarketingEnabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{code.whatsappMarketingEnabled ? "مفعّل — إيقاف" : "غير مفعّل — تفعيل"}</button></form></td><td className="px-2 py-3"><span className={`rounded-lg px-2 py-1 font-black ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{active ? "فعال للإدخال" : code.revokedAt ? "ملغى" : "انتهت صلاحية الإدخال"}</span></td><td className="px-2 py-3">{code.redemptionCount}{code.maxRedemptions ? ` / ${code.maxRedemptions}` : " / غير محدود"}<span className="mr-1 text-slate-400">· {code._count.grants} سجل</span></td><td className="px-2 py-3">{dateText(code.expiresAt)}</td><td className="px-2 py-3"><span className="block font-bold">{code.createdBy.name}</span><span className="text-slate-400">{code.createdBy.email}</span></td><td className="px-2 py-3">{code.isActive && !code.revokedAt ? <form action={revokeSubscriptionAccessCodeAdminAction}><input type="hidden" name="codeId" value={code.id} /><button className="rounded-xl border border-rose-200 px-3 py-2 font-black text-rose-700">إلغاء الكود والمنح</button></form> : <span className="text-slate-400">لا إجراء</span>}</td></tr>;
-        })}{!codes.length ? <tr><td colSpan={8} className="py-8 text-center text-slate-500">لا توجد أكواد حتى الآن.</td></tr> : null}</tbody></table></div>
-      </section>
-    </div>
-  </main>;
-}
+function dateText(value:Date|null){if(!value)return"—";return new Intl.DateTimeFormat("ar-SA",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Riyadh"}).format(value)}
+export default async function AdminAccessCodesPage({searchParams}:{searchParams:Promise<{access?:string}>}){await requireAdmin();const params=await searchParams;const [plans,codes]=await Promise.all([db.businessPlan.findMany({where:{isActive:true,code:{not:"FREE"}},orderBy:{monthlyPrice:"asc"},select:{code:true,name:true}}),db.subscriptionAccessCode.findMany({orderBy:{createdAt:"desc"},take:100,select:{id:true,label:true,isActive:true,redemptionCount:true,maxRedemptions:true,expiresAt:true,revokedAt:true,whatsappMarketingEnabled:true,createdAt:true,plan:{select:{code:true,name:true}},createdBy:{select:{name:true,email:true}},_count:{select:{grants:true}}}})]);const now=new Date();const activeCodes=codes.filter(c=>c.isActive&&!c.revokedAt&&(!c.expiresAt||c.expiresAt>now)).length;const whatsappCodes=codes.filter(c=>c.whatsappMarketingEnabled).length;const grants=codes.reduce((sum,c)=>sum+c._count.grants,0);return <div dir="rtl" className="space-y-6">
+<header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-[#07181b] p-6 text-white shadow-sm"><div className="absolute -left-16 -top-20 h-56 w-56 rounded-full bg-[#00d8c6]/15 blur-3xl"/><div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-3 flex items-center gap-2 text-[10px] font-black tracking-[.16em] text-[#4ee7d4]"><KeyRound className="h-4 w-4"/>INFRO ACCESS GOVERNANCE</div><h1 className="text-2xl font-black sm:text-3xl">أكواد تفعيل الاشتراكات</h1><p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300">إدارة منح الوصول غير المدفوعة كصلاحيات قابلة للتتبع والإلغاء، مع فصل واضح بين الكود والاستحقاق الفعلي وسجل المنح.</p></div><div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-bold text-[#a8f2e8]"><LockKeyhole className="ml-1 inline h-4 w-4"/>إلغاء الكود يسحب المنح النشطة المرتبطة</div></div></header>
+{params.access?<Notice value={params.access}/>:null}
+<section className="grid gap-3 sm:grid-cols-3"><Metric label="أكواد فعالة" value={activeCodes} icon={<TicketCheck/>}/><Metric label="واتساب مفعّل" value={whatsappCodes} icon={<MessageCircleMore/>}/><Metric label="إجمالي المنح" value={grants} icon={<Activity/>}/></section>
+<section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm"><div className="mb-4 flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#e9fbf8] text-[#009d93]"><ShieldCheck className="h-4 w-4"/></div><div><h2 className="text-sm font-black text-slate-900">إنشاء كود جديد</h2><p className="mt-1 text-[10px] text-slate-400">المنح الناتجة تظهر في سجل الاستحقاقات ويمكن سحبها لاحقًا بإلغاء الكود.</p></div></div><AccessCodeCreateForm plans={plans}/></section>
+<section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="text-sm font-black text-slate-900">الأكواد الأخيرة</h2><p className="mt-1 text-[10px] text-slate-400">آخر 100 كود مع حالة الاستخدام والصلاحيات التابعة</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-black text-slate-500">{codes.length} CODES</span></div><div className="overflow-x-auto"><table className="w-full min-w-[1040px] text-right text-xs"><thead className="bg-slate-50/70 text-[10px] font-black text-slate-400"><tr><th className="p-4">الوصف</th><th>الباقة</th><th>واتساب</th><th>الحالة</th><th>الاستخدام</th><th>صلاحية الإدخال</th><th>المنشئ</th><th className="pl-4">الإجراء</th></tr></thead><tbody>{codes.map(code=>{const expired=Boolean(code.expiresAt&&code.expiresAt<=now);const active=code.isActive&&!code.revokedAt&&!expired;return <tr key={code.id} className="border-t border-slate-100 transition hover:bg-[#f8fdfc]"><td className="p-4"><b className="block text-slate-900">{code.label||"بدون وصف"}</b><code dir="ltr" className="mt-1 block text-[9px] text-slate-300">{code.id.slice(0,12)}</code></td><td><span className="rounded-lg bg-[#e9fbf8] px-2 py-1 text-[10px] font-black text-[#008f87]">{code.plan.name}</span><span className="mr-1 text-[9px] text-slate-400">{code.plan.code}</span></td><td><form action={setSubscriptionAccessCodeWhatsAppEntitlementAdminAction}><input type="hidden" name="codeId" value={code.id}/><input type="hidden" name="whatsappMarketingEnabled" value={code.whatsappMarketingEnabled?"":"on"}/><button className={`rounded-full px-2.5 py-1 text-[9px] font-black ${code.whatsappMarketingEnabled?"bg-emerald-50 text-emerald-700":"bg-slate-100 text-slate-500"}`}>{code.whatsappMarketingEnabled?"● مفعّل":"○ غير مفعّل"}</button></form></td><td><span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${active?"bg-emerald-50 text-emerald-700":code.revokedAt?"bg-rose-50 text-rose-700":"bg-amber-50 text-amber-700"}`}>{active?"● فعال":code.revokedAt?"ملغى":"منتهي"}</span></td><td><b className="text-slate-800">{code.redemptionCount}</b>{code.maxRedemptions?` / ${code.maxRedemptions}`:" / ∞"}<span className="mr-1 text-[10px] text-slate-400">· {code._count.grants} منح</span></td><td className="text-slate-500">{dateText(code.expiresAt)}</td><td><span className="block font-bold text-slate-700">{code.createdBy.name}</span><span className="text-[10px] text-slate-400">{code.createdBy.email}</span></td><td className="pl-4">{code.isActive&&!code.revokedAt?<form action={revokeSubscriptionAccessCodeAdminAction}><input type="hidden" name="codeId" value={code.id}/><button className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-[10px] font-black text-rose-700 transition hover:bg-rose-50">إلغاء الكود والمنح</button></form>:<span className="text-[10px] text-slate-300">لا إجراء</span>}</td></tr>})}{!codes.length?<tr><td colSpan={8} className="py-10 text-center text-slate-400">لا توجد أكواد حتى الآن.</td></tr>:null}</tbody></table></div></section></div>}
+function Metric({label,value,icon}:{label:string;value:number;icon:React.ReactNode}){return <article className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-start justify-between"><div><span className="text-[10px] font-bold text-slate-400">{label}</span><b className="mt-1 block text-2xl font-black text-slate-950">{value.toLocaleString("ar-SA")}</b></div><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#009d93] [&>svg]:h-4 [&>svg]:w-4">{icon}</div></div></article>}
+function Notice({value}:{value:string}){const success=value==="revoked"||value==="whatsapp-enabled"||value==="whatsapp-disabled";const text=value==="revoked"?"تم إلغاء الكود وسحب المنح النشطة المرتبطة به.":value==="invalid-code"?"تعذر تحديد الكود المطلوب إلغاؤه.":value==="whatsapp-enabled"?"تم تفعيل تسويق واتساب للمنح النشطة المرتبطة بالكود.":value==="whatsapp-disabled"?"تم إيقاف تسويق واتساب للمنح المرتبطة بالكود.":"";return text?<div role="status" className={`rounded-2xl border px-4 py-3 text-sm font-bold ${success?"border-emerald-200 bg-emerald-50 text-emerald-800":"border-rose-200 bg-rose-50 text-rose-800"}`}>{text}</div>:null}
