@@ -1,21 +1,4 @@
 import Image from "next/image";
-
-type IrLogoProps = {
-  className?: string;
-  priority?: boolean;
-};
-
-/** Canonical iR mark supplied by the brand owner. Never crop or square it. */
-export function IrLogo({ className = "h-12", priority = false }: IrLogoProps) {
-  return (
-    <Image
-      src="/brand/ir-logo-original.webp"
-      alt="iR"
-      width={128}
-      height={133}
-      priority={priority}
-      sizes="(max-width: 640px) 56px, 72px"
-      className={`shrink-0 !w-auto object-contain ${className}`}
-    />
-  );
-}
+type IrLogoProps={className?:string;priority?:boolean;showTagline?:boolean};
+/** INFRO lockup: retains the owner's canonical iR mark as the symbol. */
+export function IrLogo({className="h-12",priority=false,showTagline=false}:IrLogoProps){return <span className={`inline-flex items-center gap-2.5 ${className}`}><Image src="/brand/ir-logo-original.webp" alt="INFRO" width={128} height={133} priority={priority} sizes="(max-width:640px) 44px,56px" className="h-full w-auto shrink-0 object-contain"/><span className="flex min-w-0 flex-col leading-none"><span className="font-black tracking-[-.055em] text-current" style={{fontSize:"1.12em"}}>INFR<span className="relative">O<span className="absolute left-1/2 top-1/2 h-[.24em] w-[.24em] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#08bfe8] via-[#00d8c6] to-[#00eea8]"/></span></span>{showTagline&&<span className="mt-1 whitespace-nowrap text-[.23em] font-bold tracking-[.08em] opacity-60">YOUR DIGITAL &amp; MARKETING IDENTITY</span>}</span></span>}

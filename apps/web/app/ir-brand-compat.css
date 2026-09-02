@@ -1,6 +1,12 @@
-/* Transitional renderer identifiers stay internal for compatibility; customer-visible branding is iR. */
-@media (max-width: 767px) {
-  [data-renderer="hee-v3-smart-business-profile"] > div::after {
-    content: "iR · صفحة أعمال ذكية";
-  }
-}
+/* INFRO brand system — legacy renderer identifiers remain internal only. */
+:root{--infro-midnight:#020b14;--infro-navy:#06243a;--infro-cyan:#08bfe8;--infro-teal:#00d8c6;--infro-emerald:#00eea8;--infro-ink:#0b1724;--infro-surface:#f6fbfc;--infro-border:#d9eef0;--infro-gradient:linear-gradient(135deg,var(--brand-secondary,#08bfe8) 0%,var(--brand-primary,#00d8c6) 48%,var(--brand-accent,#00eea8) 100%);--brand-primary-hover:#00bfae;--brand-dark:var(--infro-midnight);--brand-ring:rgba(0,216,198,.34)}
+::selection{background:rgba(0,216,198,.24)}:where(a,button,input,textarea,select,summary,[tabindex]):focus-visible{outline-color:var(--brand-primary,#00d8c6)}
+:where(.text-indigo-600,.text-violet-600,.text-purple-600,.text-\[\#6841d8\]){color:var(--brand-primary,#00aebd)!important}:where(.bg-indigo-600,.bg-violet-600,.bg-purple-600,.bg-\[\#6841d8\]){background-color:var(--brand-primary,#00bfb4)!important}:where(.border-indigo-600,.border-violet-600,.border-purple-600){border-color:var(--brand-primary,#00bfb4)!important}:where(.ring-indigo-500,.ring-violet-500,.ring-purple-500){--tw-ring-color:rgba(0,216,198,.38)!important}
+:where(.from-indigo-500,.from-violet-500,.from-purple-500){--tw-gradient-from:var(--brand-secondary,#08bfe8) var(--tw-gradient-from-position)!important;--tw-gradient-to:rgb(8 191 232/0) var(--tw-gradient-to-position)!important}:where(.to-indigo-500,.to-violet-500,.to-purple-500){--tw-gradient-to:var(--brand-accent,#00eea8) var(--tw-gradient-to-position)!important}
+:where([data-dashboard-shell],[data-admin-shell],main) .brand-gradient,:where([data-dashboard-shell],[data-admin-shell]) [data-brand-accent]{background-image:var(--infro-gradient)}
+body{background:var(--brand-background,#f6fbfc);color:var(--brand-foreground,#0b1724)}
+main#home{background:linear-gradient(180deg,#f8feff 0%,#fff 32%,#f6fbfc 100%)!important;color:var(--brand-foreground,#0b1724)!important}
+main#home>header{border-color:rgba(0,216,198,.18)!important;box-shadow:0 18px 55px rgba(2,11,20,.10)!important}
+main#home section:first-of-type{background:radial-gradient(circle at 12% 16%,rgba(8,191,232,.16),transparent 28%),radial-gradient(circle at 88% 10%,rgba(0,238,168,.13),transparent 30%),linear-gradient(180deg,#f8feff,#fff)!important}
+main#home :where(.rounded-\[38px\],.rounded-\[28px\],.rounded-\[26px\]){box-shadow:0 24px 70px -35px rgba(2,36,58,.35)}
+@media(max-width:767px){[data-renderer="hee-v3-smart-business-profile"]>div::after{content:"INFRO · صفحة أعمال ذكية";border-color:var(--infro-border);color:#54747b}}
