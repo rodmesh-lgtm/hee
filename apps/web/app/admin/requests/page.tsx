@@ -1,161 +1,21 @@
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
-import { BadgeCheck, BriefcaseBusiness } from "lucide-react";
+import { BadgeCheck, BriefcaseBusiness, ChevronLeft, Clock3, ShieldCheck, Sparkles } from "lucide-react";
 import { approvePlanUpgradeAdminAction, approveVerificationAdminAction } from "../../actions/admin";
 import { requireAdmin } from "../../lib/admin";
 import { paidPlanActivationAllowed } from "../../lib/billing";
 import { db } from "../../lib/db";
 
-type RequestRow = {
-  id: string;
-  eventType: string;
-  metadataText: string | null;
-  createdAt: Date;
-  businessId: string;
-  businessName: string;
-  businessSlug: string;
-  isVerified: boolean;
-  planCode: string | null;
-  planName: string | null;
-};
-
-function parseMeta(value: string | null) {
-  if (!value) return {} as Record<string, unknown>;
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
-  } catch {
-    return {} as Record<string, unknown>;
-  }
-}
-
-function requestTypeWhere(type: string) {
-  if (type === "verification") return Prisma.sql`e."eventType" = 'verification_requested'`;
-  if (type === "upgrade") return Prisma.sql`e."eventType" = 'plan_upgrade_requested'`;
-  return Prisma.sql`e."eventType" IN ('verification_requested', 'plan_upgrade_requested')`;
-}
-
-export default async function AdminRequestsPage({ searchParams }: { searchParams: Promise<{ type?: string; page?: string }> }) {
-  await requireAdmin();
-  const params = await searchParams;
-  const type = params.type === "verification" || params.type === "upgrade" ? params.type : "all";
-  const page = Math.max(1, Number.parseInt(String(params.page ?? "1"), 10) || 1);
-  const pageSize = 50;
-  const offset = (page - 1) * pageSize;
-  const typeWhere = requestTypeWhere(type);
-  const manualPaidActivation = paidPlanActivationAllowed();
-
-  // metadata historically existed as TEXT and is migrated to JSONB. Casting either
-  // representation to text and extracting the status with a regex keeps this queue
-  // usable during the release transition as well as after the JSONB migration.
-  const statusIsPending = Prisma.sql`
-    COALESCE(
-      substring(e."metadata"::text from '"status"[[:space:]]*:[[:space:]]*"([^"]+)"'),
-      'pending'
-    ) = 'pending'
-  `;
-
-  const [rows, countRows, plans] = await Promise.all([
-    db.$queryRaw<RequestRow[]>(Prisma.sql`
-      SELECT
-        e."id",
-        e."eventType",
-        e."metadata"::text AS "metadataText",
-        e."createdAt",
-        b."id" AS "businessId",
-        b."name" AS "businessName",
-        b."slug" AS "businessSlug",
-        b."isVerified",
-        p."code" AS "planCode",
-        p."name" AS "planName"
-      FROM "AnalyticsEvent" e
-      JOIN "Business" b ON b."id" = e."businessId"
-      LEFT JOIN "BusinessPlan" p ON p."id" = b."planId"
-      WHERE b."deletedAt" IS NULL
-        AND ${typeWhere}
-        AND ${statusIsPending}
-      ORDER BY e."createdAt" DESC, e."id" DESC
-      LIMIT ${pageSize} OFFSET ${offset}
-    `),
-    db.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
-      SELECT COUNT(*)::bigint AS "count"
-      FROM "AnalyticsEvent" e
-      JOIN "Business" b ON b."id" = e."businessId"
-      WHERE b."deletedAt" IS NULL
-        AND ${typeWhere}
-        AND ${statusIsPending}
-    `),
-    db.businessPlan.findMany({ where: { isActive: true }, select: { code: true } }),
-  ]);
-
-  const total = Number(countRows[0]?.count ?? BigInt(0));
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const activePlans = new Set(plans.map((plan) => plan.code));
-
-  const pageHref = (nextPage: number) => `/admin/requests?page=${nextPage}${type !== "all" ? `&type=${type}` : ""}`;
-
-  return (
-    <main dir="rtl" className="min-h-screen bg-[#f7f8fb] px-4 py-8 text-[#1f2552] sm:px-6">
-      <div className="mx-auto max-w-6xl space-y-5">
-        <header className="rounded-[26px] border border-[#e7e4f0] bg-white p-5">
-          <h1 className="text-xl font-black">طلبات الإدارة</h1>
-          <p className="mt-1 text-sm text-slate-500">قائمة كاملة ومقسمة صفحات لطلبات التوثيق والترقية المعلقة.</p>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs font-black">
-            <Link href="/admin/requests" className={`rounded-xl px-3 py-2 ${type === "all" ? "bg-[#6f3bd2] text-white" : "bg-[#f4f1fb] text-[#5d49cc]"}`}>الكل</Link>
-            <Link href="/admin/requests?type=verification" className={`rounded-xl px-3 py-2 ${type === "verification" ? "bg-[#6f3bd2] text-white" : "bg-[#f4f1fb] text-[#5d49cc]"}`}>التوثيق</Link>
-            <Link href="/admin/requests?type=upgrade" className={`rounded-xl px-3 py-2 ${type === "upgrade" ? "bg-[#6f3bd2] text-white" : "bg-[#f4f1fb] text-[#5d49cc]"}`}>الترقية</Link>
-          </div>
-        </header>
-
-        {!manualPaidActivation && (type === "all" || type === "upgrade") ? <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-6 text-blue-900"><b>الترقيات المدفوعة محمية بالدفع:</b> لا تمنح لوحة الإدارة باقة مدفوعة يدويًا. يتم تفعيل BUSINESS وPRO فقط بعد إثبات عملية دفع موثقة من مزود الدفع؛ الطلبات القديمة هنا للمراجعة والتتبع فقط.</div> : null}
-
-        <section className="rounded-[24px] border border-[#e7e4f0] bg-white p-4 sm:p-5">
-          <div className="space-y-3">
-            {rows.map((row) => {
-              const metadata = parseMeta(row.metadataText);
-              const requestedPlan = String(metadata.requestedPlan ?? "BUSINESS").toUpperCase();
-              const isVerification = row.eventType === "verification_requested";
-              const planReady = activePlans.has(requestedPlan);
-              return (
-                <article key={row.id} className="rounded-2xl border border-[#ece9f3] p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        {isVerification ? <BadgeCheck className="h-4 w-4 text-blue-600" /> : <BriefcaseBusiness className="h-4 w-4 text-[#6f3bd2]" />}
-                        <b className="text-sm">{row.businessName}</b>
-                      </div>
-                      <span className="mt-1 block text-xs text-slate-500">ir.sa/{row.businessSlug} · {row.planName ?? row.planCode ?? "Free"}</span>
-                      <span className="mt-1 block text-[11px] text-slate-400">{new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(row.createdAt)}</span>
-                      {!isVerification ? <span className="mt-1 block text-xs font-bold text-[#5d49cc]">الخطة المطلوبة: {requestedPlan}</span> : null}
-                      {!isVerification && !planReady ? <span className="mt-1 block text-[11px] font-bold text-rose-600">الباقة {requestedPlan} غير مهيأة.</span> : null}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link href={`/admin/businesses/${row.businessId}`} className="rounded-xl border border-[#e5e1ec] px-3 py-2 text-xs font-black">مراجعة المنشأة</Link>
-                      {isVerification ? (
-                        row.isVerified ? <span className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">موثق بالفعل</span> :
-                        <form action={approveVerificationAdminAction}><input type="hidden" name="eventId" value={row.id} /><button className="h-9 rounded-xl bg-blue-600 px-4 text-xs font-black text-white">اعتماد التوثيق</button></form>
-                      ) : manualPaidActivation ? (
-                        <form action={approvePlanUpgradeAdminAction}><input type="hidden" name="eventId" value={row.id} /><button disabled={!planReady} className="h-9 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white disabled:bg-slate-300">اعتماد الترقية</button></form>
-                      ) : (
-                        <span className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-600">يتطلب دفعًا موثقًا</span>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-            {!rows.length ? <div className="rounded-2xl bg-[#faf9fd] px-4 py-8 text-center text-sm text-slate-500">لا توجد طلبات معلقة ضمن هذا التصنيف.</div> : null}
-          </div>
-
-          <div className="mt-5 flex items-center justify-between gap-3 text-xs text-slate-500">
-            <span>{total} طلب معلق · صفحة {Math.min(page, totalPages)} من {totalPages}</span>
-            <div className="flex gap-2">
-              {page > 1 ? <Link href={pageHref(page - 1)} className="rounded-lg border px-3 py-1.5">السابق</Link> : null}
-              {page < totalPages ? <Link href={pageHref(page + 1)} className="rounded-lg border px-3 py-1.5">التالي</Link> : null}
-            </div>
-          </div>
-        </section>
-      </div>
-    </main>
-  );
-}
+type RequestRow={id:string;eventType:string;metadataText:string|null;createdAt:Date;businessId:string;businessName:string;businessSlug:string;isVerified:boolean;planCode:string|null;planName:string|null};
+function parseMeta(value:string|null){if(!value)return{} as Record<string,unknown>;try{const parsed=JSON.parse(value) as unknown;return parsed&&typeof parsed==="object"&&!Array.isArray(parsed)?parsed as Record<string,unknown>:{};}catch{return{} as Record<string,unknown>;}}
+function requestTypeWhere(type:string){if(type==="verification")return Prisma.sql`e."eventType" = 'verification_requested'`;if(type==="upgrade")return Prisma.sql`e."eventType" = 'plan_upgrade_requested'`;return Prisma.sql`e."eventType" IN ('verification_requested', 'plan_upgrade_requested')`;}
+export default async function AdminRequestsPage({searchParams}:{searchParams:Promise<{type?:string;page?:string}>}){await requireAdmin();const params=await searchParams;const type=params.type==="verification"||params.type==="upgrade"?params.type:"all";const page=Math.max(1,Number.parseInt(String(params.page??"1"),10)||1);const pageSize=50;const offset=(page-1)*pageSize;const typeWhere=requestTypeWhere(type);const manualPaidActivation=paidPlanActivationAllowed();const statusIsPending=Prisma.sql`COALESCE(substring(e."metadata"::text from '"status"[[:space:]]*:[[:space:]]*"([^"]+)"'),'pending') = 'pending'`;
+const [rows,countRows,plans]=await Promise.all([db.$queryRaw<RequestRow[]>(Prisma.sql`SELECT e."id",e."eventType",e."metadata"::text AS "metadataText",e."createdAt",b."id" AS "businessId",b."name" AS "businessName",b."slug" AS "businessSlug",b."isVerified",p."code" AS "planCode",p."name" AS "planName" FROM "AnalyticsEvent" e JOIN "Business" b ON b."id"=e."businessId" LEFT JOIN "BusinessPlan" p ON p."id"=b."planId" WHERE b."deletedAt" IS NULL AND ${typeWhere} AND ${statusIsPending} ORDER BY e."createdAt" DESC,e."id" DESC LIMIT ${pageSize} OFFSET ${offset}`),db.$queryRaw<Array<{count:bigint}>>(Prisma.sql`SELECT COUNT(*)::bigint AS "count" FROM "AnalyticsEvent" e JOIN "Business" b ON b."id"=e."businessId" WHERE b."deletedAt" IS NULL AND ${typeWhere} AND ${statusIsPending}`),db.businessPlan.findMany({where:{isActive:true},select:{code:true}})]);
+const total=Number(countRows[0]?.count??BigInt(0));const totalPages=Math.max(1,Math.ceil(total/pageSize));const activePlans=new Set(plans.map(plan=>plan.code));const verificationCount=rows.filter(row=>row.eventType==="verification_requested").length;const upgradeCount=rows.filter(row=>row.eventType==="plan_upgrade_requested").length;const pageHref=(nextPage:number)=>`/admin/requests?page=${nextPage}${type!=="all"?`&type=${type}`:""}`;
+return <main dir="rtl" className="min-h-screen bg-[#f7faf9] px-4 py-7 text-[#10292d] sm:px-6"><div className="mx-auto max-w-6xl space-y-5"><header className="relative overflow-hidden rounded-[30px] bg-[#07181b] p-6 text-white sm:p-7"><div className="absolute -left-16 -top-20 h-56 w-56 rounded-full bg-[#00e5a8]/10 blur-3xl"/><div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><span className="inline-flex items-center gap-2 text-[9px] font-black tracking-[.18em] text-[#5cebd7]" dir="ltr"><Sparkles className="h-4 w-4"/>INFRO REQUEST COMMAND</span><h1 className="mt-3 text-2xl font-black sm:text-3xl">قرارات الإدارة في مسار واضح.</h1><p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">طابور موحد لطلبات التوثيق والترقية المعلقة، مع إبقاء تفعيل الباقات المدفوعة خلف إثبات الدفع الحقيقي.</p></div><div className="grid grid-cols-3 gap-2"><Stat label="المعلقة" value={total}/><Stat label="توثيق بالصفحة" value={verificationCount}/><Stat label="ترقية بالصفحة" value={upgradeCount}/></div></div></header>
+{!manualPaidActivation&&(type==="all"||type==="upgrade")?<div className="flex gap-3 rounded-2xl border border-[#bfe9e3] bg-[#effbf9] p-4 text-xs leading-6 text-[#075d58]"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0"/><div><b>حماية الترقية المدفوعة فعالة.</b> لا تمنح لوحة الإدارة BUSINESS أو PRO يدويًا؛ التفعيل يتطلب عملية دفع موثقة من مزود الدفع. الطلبات القديمة هنا للمراجعة والتتبع فقط.</div></div>:null}
+<section className="rounded-[24px] border border-slate-200 bg-white p-2"><div className="grid grid-cols-3 gap-2 text-center text-xs font-black"><Filter href="/admin/requests" active={type==="all"} label="كل الطلبات"/><Filter href="/admin/requests?type=verification" active={type==="verification"} label="التوثيق"/><Filter href="/admin/requests?type=upgrade" active={type==="upgrade"} label="الترقية"/></div></section>
+<section className="space-y-3">{rows.map((row,index)=>{const metadata=parseMeta(row.metadataText);const requestedPlan=String(metadata.requestedPlan??"BUSINESS").toUpperCase();const isVerification=row.eventType==="verification_requested";const planReady=activePlans.has(requestedPlan);return <article key={row.id} className="group rounded-[24px] border border-slate-200 bg-white p-4 transition hover:border-[#bfe9e3] sm:p-5"><div className="grid gap-4 lg:grid-cols-[auto_1fr_auto] lg:items-center"><span className={`grid h-12 w-12 place-items-center rounded-2xl ${isVerification?"bg-blue-50 text-blue-600":"bg-[#effbf9] text-[#008f87]"}`}>{isVerification?<BadgeCheck className="h-5 w-5"/>:<BriefcaseBusiness className="h-5 w-5"/>}</span><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-[9px] font-black tracking-[.14em] text-slate-400" dir="ltr">QUEUE {String((page-1)*pageSize+index+1).padStart(3,"0")}</span><span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${isVerification?"bg-blue-50 text-blue-700":"bg-[#effbf9] text-[#08736c]"}`}>{isVerification?"توثيق":"ترقية"}</span></div><h2 className="mt-2 text-base font-black text-slate-950">{row.businessName}</h2><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500"><span dir="ltr">ir.sa/{row.businessSlug}</span><span>{row.planName??row.planCode??"Free"}</span><span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3"/>{new Intl.DateTimeFormat("ar-SA",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Riyadh"}).format(row.createdAt)}</span></div>{!isVerification?<div className="mt-3 flex flex-wrap items-center gap-2"><span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600">المطلوب · {requestedPlan}</span>{!planReady?<span className="text-[10px] font-black text-rose-600">الباقة غير مهيأة</span>:null}</div>:null}</div><div className="flex flex-wrap gap-2 lg:justify-end"><Link href={`/admin/businesses/${row.businessId}`} className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-200 px-3 text-xs font-black text-slate-700">مراجعة المنشأة<ChevronLeft className="h-3.5 w-3.5"/></Link>{isVerification?(row.isVerified?<span className="inline-flex h-10 items-center rounded-xl bg-blue-50 px-3 text-xs font-black text-blue-700">موثق بالفعل</span>:<form action={approveVerificationAdminAction}><input type="hidden" name="eventId" value={row.id}/><button className="h-10 rounded-xl bg-blue-600 px-4 text-xs font-black text-white transition hover:bg-blue-700">اعتماد التوثيق</button></form>):manualPaidActivation?<form action={approvePlanUpgradeAdminAction}><input type="hidden" name="eventId" value={row.id}/><button disabled={!planReady} className="h-10 rounded-xl bg-[#07181b] px-4 text-xs font-black text-white disabled:bg-slate-300">اعتماد الترقية</button></form>:<span className="inline-flex h-10 items-center rounded-xl bg-slate-100 px-3 text-xs font-black text-slate-600">يتطلب دفعًا موثقًا</span>}</div></div></article>})}{!rows.length?<div className="rounded-[26px] border border-dashed border-slate-300 bg-white p-12 text-center"><BadgeCheck className="mx-auto h-7 w-7 text-slate-300"/><b className="mt-3 block text-sm text-slate-800">لا توجد قرارات معلقة هنا</b><p className="mt-1 text-xs text-slate-400">سيظهر أي طلب جديد في هذا الطابور تلقائيًا.</p></div>:null}</section>
+<div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500"><span>{total} طلب معلق · صفحة {Math.min(page,totalPages)} من {totalPages}</span><div className="flex gap-2">{page>1?<Link href={pageHref(page-1)} className="rounded-lg border border-slate-200 px-3 py-1.5 font-black text-slate-700">السابق</Link>:null}{page<totalPages?<Link href={pageHref(page+1)} className="rounded-lg bg-[#07181b] px-3 py-1.5 font-black text-white">التالي</Link>:null}</div></div></div></main>}
+function Stat({label,value}:{label:string;value:number}){return <div className="min-w-[82px] rounded-2xl border border-white/10 bg-white/[.06] px-3 py-3 text-center"><b className="block text-lg text-white">{new Intl.NumberFormat("ar-SA").format(value)}</b><span className="mt-1 block text-[8px] text-slate-400">{label}</span></div>}
+function Filter({href,active,label}:{href:string;active:boolean;label:string}){return <Link href={href} className={`rounded-2xl px-3 py-3 transition ${active?"bg-[#07181b] text-white shadow-sm":"text-slate-500 hover:bg-[#f4faf8] hover:text-[#08736c]"}`}>{label}</Link>}
