@@ -26,7 +26,7 @@ The central administration dashboard is the source of truth for platform present
 ## SEO
 - Arabic and English title/description.
 - Keywords.
-- Canonical base URL.
+- canonical base URL.
 - OpenGraph image.
 - robots index/follow switches.
 - Structured-data organization identity.
