@@ -2,6 +2,7 @@
 
 import Script from "next/script";
 import { useState, useTransition } from "react";
+import { Loader2, ShieldCheck } from "lucide-react";
 import { completeWhatsAppEmbeddedSignupAction, startWhatsAppEmbeddedSignupAction } from "../../../actions/whatsapp";
 
 declare global {
@@ -50,11 +51,7 @@ function loginForCode(configId: string) {
       config_id: configId,
       response_type: "code",
       override_default_response_type: true,
-      extras: {
-        setup: {},
-        featureType: "whatsapp_business_app_onboarding",
-        sessionInfoVersion: "3",
-      },
+      extras: { setup: {}, featureType: "whatsapp_business_app_onboarding", sessionInfoVersion: "3" },
     });
   });
 }
@@ -81,7 +78,9 @@ export function EmbeddedSignupButton({ appId, configId, graphVersion }: { appId:
 
   return <div>
     <Script src="https://connect.facebook.net/en_US/sdk.js" strategy="afterInteractive" onReady={() => { window.FB?.init({ appId, autoLogAppEvents: true, xfbml: true, version: graphVersion }); setSdkReady(Boolean(window.FB)); }} />
-    <button type="button" onClick={launch} disabled={!sdkReady || pending} className="min-h-11 rounded-xl bg-[#6f3bd2] px-5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{pending ? "جارٍ التحقق والربط…" : "ربط حساب Meta"}</button>
-    {message ? <p role="status" className="mt-3 text-xs font-bold text-slate-600">{message}</p> : null}
+    <button type="button" onClick={launch} disabled={!sdkReady || pending} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#07181b] px-5 text-xs font-black text-white transition hover:bg-[#0d2a2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4 text-[#6eead8]" />}{pending ? "جارٍ التحقق والربط…" : sdkReady ? "ربط حساب Meta" : "جارٍ تجهيز Meta…"}
+    </button>
+    {message ? <p role="status" aria-live="polite" className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[10px] font-bold leading-5 text-slate-600">{message}</p> : null}
   </div>;
 }
