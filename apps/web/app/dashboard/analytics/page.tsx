@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CalendarDays,Eye,FileText,Globe2,MapPin,MessageCircle,Phone,Share2,ShoppingBag,TrendingUp,Sparkles,ArrowLeft,Activity,Target,MousePointerClick } from "lucide-react";
@@ -76,6 +77,6 @@ export default async function DashboardAnalyticsPage({searchParams}:{searchParam
   </div>;
 }
 
-function HeroStat({label,value,icon}:{label:string;value:string;icon:React.ReactNode}){return <div className="flex min-h-[96px] items-center gap-3 border-b border-l border-white/[.07] p-4"><span className="grid h-9 w-9 place-items-center rounded-xl bg-white/[.055] text-[#66e7d5]">{icon}</span><div><b className="block text-lg text-white">{value}</b><span className="mt-1 block text-[8px] font-bold text-slate-500">{label}</span></div></div>}
+function HeroStat({label,value,icon}:{label:string;value:string;icon:ReactNode}){return <div className="flex min-h-[96px] items-center gap-3 border-b border-l border-white/[.07] p-4"><span className="grid h-9 w-9 place-items-center rounded-xl bg-white/[.055] text-[#66e7d5]">{icon}</span><div><b className="block text-lg text-white">{value}</b><span className="mt-1 block text-[8px] font-bold text-slate-500">{label}</span></div></div>}
 function MiniDark({label,value}:{label:string;value:string}){return <div className="rounded-xl border border-white/[.07] bg-white/[.035] p-3"><b className="block text-lg text-white">{value}</b><span className="mt-1 block text-[8px] text-slate-500">{label}</span></div>}
-function SignalCard({icon,label,value}:{icon:React.ReactNode;label:string;value:number}){return <article className="rounded-[18px] border border-slate-100 bg-[#fbfdfd] p-3.5"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]">{icon}</span><b className="mt-3 block text-xl text-slate-950">{number(value)}</b><span className="mt-1 block text-[9px] font-bold text-slate-500">{label}</span></article>}
+function SignalCard({icon,label,value}:{icon:ReactNode;label:string;value:number}){return <article className="rounded-[18px] border border-slate-100 bg-[#fbfdfd] p-3.5"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]">{icon}</span><b className="mt-3 block text-xl text-slate-950">{number(value)}</b><span className="mt-1 block text-[9px] font-bold text-slate-500">{label}</span></article>}
