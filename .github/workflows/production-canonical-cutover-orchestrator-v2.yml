@@ -1,0 +1,131 @@
+name: Production Canonical Cutover Orchestrator V2
+
+on:
+  workflow_run:
+    workflows: ["RC Quality"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: production-canonical-cutover
+  cancel-in-progress: false
+
+jobs:
+  cutover:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'hee-v6-rc'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    env:
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+      RELEASE_BRANCH: hee-v6-rc
+      GH_TOKEN: ${{ github.token }}
+      VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      ADMIN_CANONICAL_HOST: admin.ir.sa
+    steps:
+      - name: Require explicit cutover marker and unchanged release head
+        run: |
+          set -euo pipefail
+          message="$(gh api "/repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}" --jq '.commit.message')"
+          grep -Fq '[production-cutover]' <<<"$message" || { echo 'No cutover marker; leaving Production unchanged.'; exit 0; }
+          test "$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')" = "$TARGET_SHA"
+          echo 'CUTOVER_REQUESTED=true' >> "$GITHUB_ENV"
+
+      - name: Dispatch Production Preflight V2
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/dispatches" -f ref="$RELEASE_BRANCH" -f 'inputs[confirmation]=VERIFY_PRODUCTION_PREFLIGHT'
+
+      - name: Require successful exact-SHA Production Preflight V2
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 180); do
+            row="$(gh run list --workflow production-preflight-v2.yml --branch "$RELEASE_BRANCH" --event workflow_dispatch --commit "$TARGET_SHA" --limit 10 --json databaseId,status,conclusion --jq '.[0] // empty')"
+            if test -n "$row"; then
+              status="$(jq -r '.status // ""' <<<"$row")"
+              conclusion="$(jq -r '.conclusion // ""' <<<"$row")"
+              run_id="$(jq -r '.databaseId' <<<"$row")"
+              if test "$status" = completed; then
+                test "$conclusion" = success || { echo "Preflight failed run=${run_id} conclusion=${conclusion}"; exit 1; }
+                echo "PREFLIGHT_RUN_ID=${run_id}" >> "$GITHUB_ENV"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo 'Timed out waiting for Production Preflight V2'; exit 1
+
+      - name: Ensure admin.ir.sa is registered and DNS-ready
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN"
+          domains="$(curl -fsS --max-time 20 -H "Authorization: Bearer ${VERCEL_TOKEN}" "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_ORG_ID}&limit=100")"
+          if ! jq -e --arg h "$ADMIN_CANONICAL_HOST" '.domains[]? | select((.name|ascii_downcase)==($h|ascii_downcase))' <<<"$domains" >/dev/null; then
+            curl -fsS --max-time 20 -X POST -H "Authorization: Bearer ${VERCEL_TOKEN}" -H 'Content-Type: application/json' --data "{\"name\":\"${ADMIN_CANONICAL_HOST}\"}" "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_ORG_ID}" >/dev/null
+          fi
+          project_domain="$(curl -fsS --max-time 20 -H "Authorization: Bearer ${VERCEL_TOKEN}" "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${ADMIN_CANONICAL_HOST}?teamId=${VERCEL_ORG_ID}")"
+          jq -e '.verified == true' <<<"$project_domain" >/dev/null || { echo 'admin.ir.sa is not verified on Vercel'; exit 1; }
+          config="$(curl -fsS --max-time 20 -H "Authorization: Bearer ${VERCEL_TOKEN}" "https://api.vercel.com/v6/domains/${ADMIN_CANONICAL_HOST}/config?projectIdOrName=${VERCEL_PROJECT_ID}&teamId=${VERCEL_ORG_ID}")"
+          jq -e '.misconfigured != true' <<<"$config" >/dev/null || { echo 'admin.ir.sa DNS is misconfigured'; exit 1; }
+
+      - name: Re-prove unchanged release head
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: test "$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')" = "$TARGET_SHA"
+
+      - name: Dispatch exact-head Production Web Deploy
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-deploy.yml/dispatches" -f ref="$RELEASE_BRANCH" -f 'inputs[confirmation]=DEPLOY_EXACT_RELEASE_TO_PRODUCTION'
+
+      - name: Require successful exact-SHA Production Web Deploy
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 240); do
+            row="$(gh run list --workflow production-deploy.yml --branch "$RELEASE_BRANCH" --event workflow_dispatch --commit "$TARGET_SHA" --limit 10 --json databaseId,status,conclusion --jq '.[0] // empty')"
+            if test -n "$row"; then
+              status="$(jq -r '.status // ""' <<<"$row")"
+              conclusion="$(jq -r '.conclusion // ""' <<<"$row")"
+              run_id="$(jq -r '.databaseId' <<<"$row")"
+              if test "$status" = completed; then
+                test "$conclusion" = success || { echo "Production deploy failed run=${run_id} conclusion=${conclusion}"; exit 1; }
+                echo "DEPLOY_RUN_ID=${run_id}" >> "$GITHUB_ENV"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo 'Timed out waiting for Production Web Deploy'; exit 1
+
+      - name: Verify canonical Production release
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: |
+          set -euo pipefail
+          release="$(curl -fsS --max-time 20 https://ir.sa/api/release)"
+          test "$(jq -r '.releaseSha // ""' <<<"$release")" = "$TARGET_SHA"
+          test "$(jq -r '.environment // ""' <<<"$release")" = production
+          headers="$(mktemp)"; body="$(mktemp)"
+          curl -fsSL --max-time 20 -D "$headers" -o "$body" https://ir.sa/
+          grep -qi '^strict-transport-security:' "$headers"
+          grep -qi '^content-security-policy:' "$headers"
+          grep -Fq 'https://ir.sa' "$body"
+          www_headers="$(mktemp)"
+          curl -fsS --head --max-time 20 -D "$www_headers" -o /dev/null https://www.ir.sa/
+          grep -Eqi '^location: https://ir\.sa/?\r?$' "$www_headers"
+          code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://admin.ir.sa/)"
+          case "$code" in 200|301|302|303|307|308) ;; *) echo "admin.ir.sa HTTP ${code}"; exit 1;; esac
+          rm -f "$headers" "$body" "$www_headers"
+
+      - name: Cutover summary
+        if: env.CUTOVER_REQUESTED == 'true'
+        run: echo "production-canonical-cutover-v2 PASS sha=${TARGET_SHA} preflight=${PREFLIGHT_RUN_ID} deploy=${DEPLOY_RUN_ID}"
