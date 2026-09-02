@@ -1,184 +1,30 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-}
+:root { --background:#f8fafc; --foreground:#0f172a; }
+@theme inline { --color-background:var(--background); --color-foreground:var(--foreground); --font-sans:var(--font-ibm-plex-sans-arabic),var(--font-inter),sans-serif; --font-mono:var(--font-inter),monospace; }
+*{box-sizing:border-box} html{scroll-behavior:smooth;color-scheme:light} body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--font-ibm-plex-sans-arabic),var(--font-inter),sans-serif;text-rendering:optimizeLegibility} button,a{-webkit-tap-highlight-color:transparent}:where(a,button,input,textarea,select,summary,[tabindex]):focus-visible{outline:3px solid #00bfae;outline-offset:3px}:where(button,input,textarea,select):disabled{cursor:not-allowed}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}::selection{background:rgba(53,228,203,.28)}
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-ibm-plex-sans-arabic), var(--font-inter), sans-serif;
-  --font-mono: var(--font-inter), monospace;
-}
-
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; color-scheme: light; }
-body {
-  margin: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-ibm-plex-sans-arabic), var(--font-inter), sans-serif;
-  text-rendering: optimizeLegibility;
-}
-button, a { -webkit-tap-highlight-color: transparent; }
-:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible { outline: 3px solid #4f46e5; outline-offset: 3px; }
-:where(button, input, textarea, select):disabled { cursor: not-allowed; }
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
-}
-::selection { background: rgba(99,102,241,.26); }
+/* INFRO customer workspace appearance. Scoped to dashboard only so public business pages remain customer-branded. */
+html[data-dashboard-theme="dark"]{color-scheme:dark}
+html[data-dashboard-theme="dark"] [data-dashboard-path]{background:#061416!important;color:#e8f2f1!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-white{background-color:#0b2023!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-white\/80,html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-white\/95{background-color:rgba(11,32,35,.92)!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-\[\#f7f9fa\],html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-\[\#fafcfc\],html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-\[\#fbfdfd\],html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-slate-50,html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-slate-50\/70{background-color:#0d2528!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .text-slate-950,html[data-dashboard-theme="dark"] [data-dashboard-path] .text-slate-900,html[data-dashboard-theme="dark"] [data-dashboard-path] .text-slate-800{color:#edf7f5!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .text-slate-700,html[data-dashboard-theme="dark"] [data-dashboard-path] .text-slate-600{color:#c1d2d0!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .text-slate-500{color:#9aafad!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .text-slate-400{color:#78918f!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .border-slate-100,html[data-dashboard-theme="dark"] [data-dashboard-path] .border-slate-200,html[data-dashboard-theme="dark"] [data-dashboard-path] .border-slate-200\/70,html[data-dashboard-theme="dark"] [data-dashboard-path] .border-slate-200\/80{border-color:#19383b!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] input,html[data-dashboard-theme="dark"] [data-dashboard-path] select,html[data-dashboard-theme="dark"] [data-dashboard-path] textarea{background-color:#0a1d20!important;border-color:#24464a!important;color:#e8f2f1!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] input::placeholder,html[data-dashboard-theme="dark"] [data-dashboard-path] textarea::placeholder{color:#627d7b!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .hover\:bg-\[\#fbfdfd\]:hover,html[data-dashboard-theme="dark"] [data-dashboard-path] .hover\:bg-\[\#f3faf9\]:hover{background-color:#123034!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-\[\#e9fbf8\],html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-\[\#effbf9\],html[data-dashboard-theme="dark"] [data-dashboard-path] .bg-\[\#e8fbf8\]{background-color:#0d3937!important}
+html[data-dashboard-theme="dark"] [data-dashboard-path] .infro-theme-toggle{background:#10292c!important;border-color:#285055!important;color:#66e7d5!important}
 
 /* Public business profile */
-[data-renderer="hee-v3-smart-business-profile"] {
-  --hee-card-border: #e1e9e5;
-  --hee-card-shadow: 0 18px 46px -40px rgba(4,54,43,.42);
-  background:
-    radial-gradient(circle at 92% 0%, rgba(16,185,129,.055), transparent 24rem),
-    linear-gradient(180deg,#f8fbf9 0%,#f5f8f6 55%,#f7f9f8 100%);
-}
-[data-renderer="hee-v3-smart-business-profile"] section { isolation: isolate; }
-[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child) { box-shadow: var(--hee-card-shadow); }
-[data-renderer="hee-v3-smart-business-profile"] h2 { letter-spacing: -.018em; }
-[data-renderer="hee-v3-smart-business-profile"] p { text-wrap: pretty; }
-[data-renderer="hee-v3-smart-business-profile"] a,
-[data-renderer="hee-v3-smart-business-profile"] button { touch-action: manipulation; }
-[data-renderer="hee-v3-smart-business-profile"] img { -webkit-user-drag: none; }
-[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto { scrollbar-width: none; overscroll-behavior-inline: contain; }
-[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto::-webkit-scrollbar { display: none; }
-
-@media (max-width: 767px) {
-  [data-renderer="hee-v3-smart-business-profile"] {
-    background: #f4f7f5;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] > div {
-    min-height: calc(100dvh - env(safe-area-inset-bottom));
-    padding: 0 0 calc(112px + env(safe-area-inset-bottom));
-  }
-
-  /* Mobile identity becomes the app header instead of another floating card. */
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child {
-    border-radius: 0 0 28px 28px;
-    border: 0;
-    box-shadow: 0 18px 46px -36px rgba(4,54,43,.58);
-  }
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child > .h-1 {
-    height: 3px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child > div.relative {
-    padding: 18px 16px 16px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child h1 {
-    font-size: 21px;
-    line-height: 1.3;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child p {
-    max-width: 32rem;
-  }
-
-  /* The floating bottom dock owns primary actions on phones. */
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child > div.relative > div.grid {
-    display: none;
-  }
-
-  /* Content flows like an app feed: compact rhythm, not disconnected cards. */
-  [data-renderer="hee-v3-smart-business-profile"] > div > section:not(:first-child),
-  [data-renderer="hee-v3-smart-business-profile"] > div > div:not(:first-child) {
-    margin-left: 12px;
-    margin-right: 12px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] > div > section:not(:first-child) {
-    border-radius: 20px;
-    border-color: #e3ebe7;
-    box-shadow: 0 12px 34px -30px rgba(4,54,43,.36);
-  }
-  [data-renderer="hee-v3-smart-business-profile"] > div > .mt-3 {
-    margin-top: 10px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] h2 {
-    line-height: 1.45;
-    font-size: 15px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] article { min-width: 0; }
-
-  /* A description that merely repeats the business name should not consume a full card. */
-  [data-renderer="hee-v3-smart-business-profile"] section:has(> div > h2:first-child:last-child) {
-    min-height: 0;
-  }
-
-  /* One department should feel like direct contact, not a tabbed directory. */
-  #hee-contact-directory > .mt-4.flex:has(> button:only-child) {
-    display: none;
-  }
-  #hee-contact-directory > .mt-4.flex:has(> button:only-child) + .mt-3 {
-    margin-top: .8rem;
-  }
-  #hee-contact-directory article {
-    border-radius: 16px;
-    background: #fbfdfc;
-    box-shadow: none;
-  }
-
-  /* Collapsible utilities are visually lighter than primary business content. */
-  [data-renderer="hee-v3-smart-business-profile"] > div > div.md\:grid-cols-3 > section,
-  [data-renderer="hee-v3-smart-business-profile"] > div > div.md\:grid-cols-3 > a {
-    border-radius: 18px;
-    box-shadow: none;
-  }
-
-  /* Short profiles end deliberately, while the dock remains visually separate. */
-  [data-renderer="hee-v3-smart-business-profile"] > div::after {
-    content: "HEE · صفحة أعمال ذكية";
-    display: block;
-    margin: 18px auto 0;
-    width: fit-content;
-    padding: 6px 11px;
-    border: 1px solid #e2ebe7;
-    border-radius: 999px;
-    background: rgba(255,255,255,.72);
-    color: #82918b;
-    font-size: 8.5px;
-    font-weight: 800;
-    letter-spacing: .01em;
-  }
-}
-
-@media (max-width: 430px) {
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child > div.relative {
-    padding-inline: 14px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] > div > section:not(:first-child),
-  [data-renderer="hee-v3-smart-business-profile"] > div > div:not(:first-child) {
-    margin-left: 10px;
-    margin-right: 10px;
-  }
-}
-
-@media (min-width: 768px) {
-  [data-renderer="hee-v3-smart-business-profile"] section:not(:first-child),
-  [data-renderer="hee-v3-smart-business-profile"] article {
-    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] section:not(:first-child):hover { border-color: #d6e5de; }
-}
-
-/* Dashboard phone previews: render a real phone viewport and scale it into the shell. */
-@media (min-width: 1024px) {
-  aside iframe[title="معاينة الصفحة"][src*="?preview="]:not([src*="surface=desktop"]) {
-    width: 390px !important;
-    height: 780px !important;
-    max-width: none !important;
-    border: 0;
-    transform: scale(.805);
-    transform-origin: top left;
-  }
-  aside iframe[title="معاينة الهاتف"][src*="surface=phone"] {
-    width: 390px !important;
-    height: 846px !important;
-    max-width: none !important;
-    border: 0;
-    transform: scale(.5077);
-    transform-origin: top left;
-  }
-}
+[data-renderer="hee-v3-smart-business-profile"]{--hee-card-border:#e1e9e5;--hee-card-shadow:0 18px 46px -40px rgba(4,54,43,.42);background:radial-gradient(circle at 92% 0%,rgba(16,185,129,.055),transparent 24rem),linear-gradient(180deg,#f8fbf9 0%,#f5f8f6 55%,#f7f9f8 100%)}
+[data-renderer="hee-v3-smart-business-profile"] section{isolation:isolate}[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child){box-shadow:var(--hee-card-shadow)}[data-renderer="hee-v3-smart-business-profile"] h2{letter-spacing:-.018em}[data-renderer="hee-v3-smart-business-profile"] p{text-wrap:pretty}[data-renderer="hee-v3-smart-business-profile"] a,[data-renderer="hee-v3-smart-business-profile"] button{touch-action:manipulation}[data-renderer="hee-v3-smart-business-profile"] img{-webkit-user-drag:none}[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto{scrollbar-width:none;overscroll-behavior-inline:contain}[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto::-webkit-scrollbar{display:none}
+@media(max-width:767px){[data-renderer="hee-v3-smart-business-profile"]{background:#f4f7f5}[data-renderer="hee-v3-smart-business-profile"]>div{min-height:calc(100dvh - env(safe-area-inset-bottom));padding:0 0 calc(112px + env(safe-area-inset-bottom))}[data-renderer="hee-v3-smart-business-profile"] section:first-child{border-radius:0 0 28px 28px;border:0;box-shadow:0 18px 46px -36px rgba(4,54,43,.58)}[data-renderer="hee-v3-smart-business-profile"] section:first-child>.h-1{height:3px}[data-renderer="hee-v3-smart-business-profile"] section:first-child>div.relative{padding:18px 16px 16px}[data-renderer="hee-v3-smart-business-profile"] section:first-child h1{font-size:21px;line-height:1.3}[data-renderer="hee-v3-smart-business-profile"] section:first-child p{max-width:32rem}[data-renderer="hee-v3-smart-business-profile"] section:first-child>div.relative>div.grid{display:none}[data-renderer="hee-v3-smart-business-profile"]>div>section:not(:first-child),[data-renderer="hee-v3-smart-business-profile"]>div>div:not(:first-child){margin-left:12px;margin-right:12px}[data-renderer="hee-v3-smart-business-profile"]>div>section:not(:first-child){border-radius:20px;border-color:#e3ebe7;box-shadow:0 12px 34px -30px rgba(4,54,43,.36)}[data-renderer="hee-v3-smart-business-profile"]>div>.mt-3{margin-top:10px}[data-renderer="hee-v3-smart-business-profile"] h2{line-height:1.45;font-size:15px}[data-renderer="hee-v3-smart-business-profile"] article{min-width:0}[data-renderer="hee-v3-smart-business-profile"] section:has(>div>h2:first-child:last-child){min-height:0}#hee-contact-directory>.mt-4.flex:has(>button:only-child){display:none}#hee-contact-directory>.mt-4.flex:has(>button:only-child)+.mt-3{margin-top:.8rem}#hee-contact-directory article{border-radius:16px;background:#fbfdfc;box-shadow:none}[data-renderer="hee-v3-smart-business-profile"]>div>div.md\:grid-cols-3>section,[data-renderer="hee-v3-smart-business-profile"]>div>div.md\:grid-cols-3>a{border-radius:18px;box-shadow:none}[data-renderer="hee-v3-smart-business-profile"]>div::after{content:"INFRO · صفحة أعمال ذكية";display:block;margin:18px auto 0;width:fit-content;padding:6px 11px;border:1px solid #e2ebe7;border-radius:999px;background:rgba(255,255,255,.72);color:#82918b;font-size:8.5px;font-weight:800;letter-spacing:.01em}}
+@media(max-width:430px){[data-renderer="hee-v3-smart-business-profile"] section:first-child>div.relative{padding-inline:14px}[data-renderer="hee-v3-smart-business-profile"]>div>section:not(:first-child),[data-renderer="hee-v3-smart-business-profile"]>div>div:not(:first-child){margin-left:10px;margin-right:10px}}
+@media(min-width:768px){[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child),[data-renderer="hee-v3-smart-business-profile"] article{transition:border-color 180ms ease,box-shadow 180ms ease,transform 180ms ease}[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child):hover{border-color:#d6e5de}}
+@media(min-width:1024px){aside iframe[title="معاينة الصفحة"][src*="?preview="]:not([src*="surface=desktop"]){width:390px!important;height:780px!important;max-width:none!important;border:0;transform:scale(.805);transform-origin:top left}aside iframe[title="معاينة الهاتف"][src*="surface=phone"]{width:390px!important;height:846px!important;max-width:none!important;border:0;transform:scale(.5077);transform-origin:top left}}
