@@ -51,8 +51,8 @@
 }
 
 @media(max-width:560px){
-  [data-dashboard-path] :where(.grid-cols-3){grid-template-columns:repeat(3,minmax(0,1fr))}
-  [data-dashboard-path] :where(.grid-cols-4),[data-admin-shell] :where(.grid-cols-4),[data-admin-shell] :where(.grid-cols-5){grid-template-columns:repeat(2,minmax(0,1fr))}
+  [data-dashboard-path] main :where(.grid-cols-3){grid-template-columns:repeat(3,minmax(0,1fr))}
+  [data-dashboard-path] main :where(.grid-cols-4),[data-admin-shell] main :where(.grid-cols-4),[data-admin-shell] main :where(.grid-cols-5){grid-template-columns:repeat(2,minmax(0,1fr))}
   [data-dashboard-path] :where(.text-3xl),[data-admin-shell] :where(.text-3xl){font-size:1.55rem;line-height:1.25}
   [data-dashboard-path] :where(.text-2xl),[data-admin-shell] :where(.text-2xl){font-size:1.35rem;line-height:1.3}
 }
