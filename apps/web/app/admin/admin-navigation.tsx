@@ -53,6 +53,7 @@ export function AdminMobileNavigation() {
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
+    const trigger = triggerRef.current;
     document.body.style.overflow = "hidden";
     const timer = window.setTimeout(() => closeRef.current?.focus(), 0);
     const onKeyDown = (event: KeyboardEvent) => {
@@ -79,7 +80,7 @@ export function AdminMobileNavigation() {
       window.clearTimeout(timer);
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
-      triggerRef.current?.focus();
+      trigger?.focus();
     };
   }, [open]);
 
