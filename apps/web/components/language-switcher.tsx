@@ -20,9 +20,9 @@ export function LanguageSwitcher({ locale }: { locale: AppLocale }) {
     >
       <summary
         aria-label={messages.changeLanguage}
-        className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-xs font-bold text-slate-700 shadow-lg backdrop-blur transition hover:border-violet-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+        className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2 text-xs font-bold text-slate-700 shadow-lg backdrop-blur transition hover:border-[#9fe8df] hover:text-[#007f78] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae]"
       >
-        <Languages className="h-4 w-4 text-violet-600" aria-hidden="true" />
+        <Languages className="h-4 w-4 text-[#008f87]" aria-hidden="true" />
         <span>{LOCALE_META[locale].nativeLabel}</span>
       </summary>
       <div className="absolute bottom-14 left-0 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
@@ -35,7 +35,7 @@ export function LanguageSwitcher({ locale }: { locale: AppLocale }) {
               <button
                 type="submit"
                 aria-current={item === locale ? "true" : undefined}
-                className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-start text-xs font-bold transition ${item === locale ? "bg-violet-50 text-violet-700" : "text-slate-600 hover:bg-slate-50"}`}
+                className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-start text-xs font-bold transition ${item === locale ? "bg-[#e9fbf8] text-[#007f78]" : "text-slate-600 hover:bg-slate-50"}`}
               >
                 <span>{LOCALE_META[item].nativeLabel}</span>
                 {item === locale ? <span aria-hidden="true">✓</span> : null}
