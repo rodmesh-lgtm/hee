@@ -1,17 +1,17 @@
 "use client";
 import { useEffect,useState } from "react";
 import { Monitor,Moon,Sun } from "lucide-react";
-const themeKey="infro-dashboard-theme";
+const KEY="infro-dashboard-theme";
 type Theme="light"|"dark"|"system";
 function workspace(){return document.querySelector<HTMLElement>("[data-dashboard-path]")}
 function systemTheme():"light"|"dark"{return typeof window!=="undefined"&&window.matchMedia?.("(prefers-color-scheme: dark)").matches?"dark":"light"}
-function savedTheme():Theme{if(typeof window==="undefined")return"system";try{const value=localStorage.getItem(themeKey);return value==="dark"||value==="light"||value==="system"?value:"system"}catch{return"system"}}
+function savedTheme():Theme{if(typeof window==="undefined")return"system";try{const value=localStorage.getItem(KEY);return value==="dark"||value==="light"||value==="system"?value:"system"}catch{return"system"}}
 function resolved(theme:Theme){return theme==="system"?systemTheme():theme}
 function apply(theme:Theme,persist=true){
   const root=workspace();
   if(root)root.dataset.dashboardTheme=resolved(theme);
   if(persist){
-    try{localStorage.setItem(themeKey, theme)}catch{}
+    try{localStorage.setItem(KEY,theme)}catch{}
     window.dispatchEvent(new Event("infro-theme-change"));
   }
 }
