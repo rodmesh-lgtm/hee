@@ -7,7 +7,6 @@ import { getQaAuditSessionUser } from "../lib/qa-audit";
 import { getActiveBusinessForUser, getOwnedBusinessSummaries } from "../lib/active-business";
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
 import { DashboardShell } from "../../components/dashboard/dashboard-shell";
-import { DashboardThemeToggle } from "../../components/dashboard/dashboard-theme-toggle";
 import "./dashboard-theme.css";
 
 export const metadata:Metadata={title:"INFRO | لوحة التحكم",robots:{index:false,follow:false,noarchive:true,nocache:true}};
@@ -20,9 +19,7 @@ export default async function DashboardLayout({children}:{children:ReactNode}){
   const effectivelyPublished=Boolean(business?.isPublished&&user.emailVerifiedAt);
   return <>
     <a href="#dashboard-main-content" className="fixed right-4 top-3 z-[100] -translate-y-24 rounded-xl bg-[#07181b] px-4 py-2 text-sm font-black text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2">الانتقال إلى المحتوى الرئيسي</a>
-    <div className="fixed bottom-5 left-5 z-[29] hidden sm:block"><DashboardThemeToggle/></div>
     <DashboardShell businessId={business?.id??null} businessName={business?.name??"نشاط جديد"} businessSlug={business?.slug??null} isPublished={effectivelyPublished} businesses={businesses.map(({id,name,slug})=>({id,name,slug}))} showQaBadge={Boolean(qaAuditUser)} showAdminLink={!qaAuditUser&&Boolean(user.emailVerifiedAt)&&isAdminEmail(user.email)} hasWhatsAppMarketing={hasWhatsAppMarketing}>
-      <div className="mb-3 flex justify-end sm:hidden"><DashboardThemeToggle/></div>
       <div id="dashboard-main-content" tabIndex={-1} className="outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-4">{children}</div>
     </DashboardShell>
   </>;
