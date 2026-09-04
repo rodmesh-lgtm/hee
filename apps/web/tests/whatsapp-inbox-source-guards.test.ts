@@ -23,10 +23,11 @@ test("the dashboard inbox uses server reads and awaits Next.js search params", (
 });
 
 test("free-form reply action is rendered only while the service window is open", () => {
+  assert.match(page, /const serviceOpen=inbox\.selected\?\.serviceWindow\.open\?\?false/);
+  assert.match(page, /serviceOpen\?<form action=\{enqueueWhatsAppReplyAction\}/);
   assert.match(page, /الرد الجديد يحتاج قالبًا معتمدًا/);
   assert.match(page, /انتهت مهلة الرد النصي المباشر حسب سياسة واتساب/);
   assert.match(page, /\/dashboard\/whatsapp\/templates/);
-  assert.match(page, /serviceWindow\.open \? <form action=\{enqueueWhatsAppReplyAction\}/);
 });
 
 test("inbox uses customer-facing delivery feedback without leaking internal operations", () => {
