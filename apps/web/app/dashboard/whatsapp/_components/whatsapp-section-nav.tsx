@@ -18,12 +18,12 @@ const items = [
 
 export function WhatsAppSectionNav() {
   const pathname = usePathname();
-  return <nav aria-label="أقسام تسويق واتساب" className="overflow-x-auto overscroll-x-contain rounded-[18px] border border-slate-200 bg-white p-1.5 shadow-[0_8px_28px_rgba(15,23,42,.035)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+  return <nav aria-label="أقسام تسويق واتساب" className="min-w-0 overflow-x-auto overscroll-x-contain rounded-[18px] border border-slate-200 bg-white p-1.5 shadow-[0_8px_28px_rgba(15,23,42,.035)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     <div className="flex min-w-max snap-x snap-mandatory gap-1">
       {items.map(([href, label, Icon, exact]) => {
         const active = exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
-        return <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`flex min-h-10 snap-start items-center gap-2 rounded-xl px-3 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-1 ${active ? "bg-[#07181b] text-white shadow-sm" : "text-slate-500 hover:bg-[#effbf9] hover:text-[#008f87]"}`}>
-          <Icon className={`h-3.5 w-3.5 ${active ? "text-[#6eead8]" : ""}`} /><span>{label}</span>
+        return <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`flex min-h-11 snap-start items-center gap-2 rounded-xl px-3 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-1 motion-reduce:transition-none ${active ? "bg-[#07181b] text-white shadow-sm" : "text-slate-500 hover:bg-[#effbf9] hover:text-[#008f87]"}`}>
+          <Icon aria-hidden="true" className={`h-3.5 w-3.5 ${active ? "text-[#6eead8]" : ""}`} /><span>{label}</span>
         </Link>;
       })}
     </div>
