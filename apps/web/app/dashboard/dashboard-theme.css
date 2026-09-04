@@ -1,20 +1,24 @@
-/* INFRO workspace theme refinements. Scoped to authenticated customer workspace only. */
-[data-dashboard-path][data-dashboard-theme="dark"]{--infro-surface:#0b2023;--infro-surface-soft:#0d2528;--infro-border:#19383b;--infro-muted:#9aafad;--infro-ink:#edf7f5;background:radial-gradient(circle at 12% 0%,rgba(0,216,198,.055),transparent 24rem),#061416!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.bg-slate-100){background-color:#112b2e!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.bg-emerald-50){background-color:rgba(16,185,129,.12)!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.bg-amber-50){background-color:rgba(245,158,11,.12)!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.bg-rose-50){background-color:rgba(244,63,94,.11)!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.bg-blue-50){background-color:rgba(59,130,246,.11)!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.border-slate-300){border-color:#285055!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.text-emerald-700,.text-emerald-600){color:#6ee7b7!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.text-amber-700,.text-amber-600){color:#fcd34d!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.text-blue-700,.text-blue-600){color:#93c5fd!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.text-rose-700,.text-rose-600){color:#fda4af!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.bg-\[\#f4f7f7\],.bg-\[\#f8fbfb\],.bg-\[\#f8fbfb\]\/88){background-color:#061416!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.bg-\[linear-gradient\(135deg\2c \#effbf9\2c \#fff\)\]){background:#0d292b!important}
-[data-dashboard-path][data-dashboard-theme="dark"] :where(.shadow-sm){box-shadow:0 12px 30px -24px rgba(0,0,0,.75)!important}
-[data-dashboard-path][data-dashboard-theme="dark"] header{border-color:rgba(40,80,85,.7)!important}
-[data-dashboard-path][data-dashboard-theme="dark"] nav[aria-label="التنقل السريع"]{background:rgba(8,25,28,.96)!important;border-color:#19383b!important}
-[data-dashboard-path][data-dashboard-theme="dark"] nav[aria-label="التنقل السريع"] :where(.text-slate-500){color:#91aaa8!important}
-[data-dashboard-path][data-dashboard-theme="dark"] .infro-theme-toggle{box-shadow:0 12px 30px -20px rgba(0,0,0,.8)!important}
-@media(prefers-reduced-motion:no-preference){[data-dashboard-path] article,[data-dashboard-path] section{transition:background-color 180ms ease,border-color 180ms ease,color 180ms ease,box-shadow 180ms ease}}
+/* INFRO authenticated workspace theme refinements shared by customer and platform admin shells. */
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"]{--infro-surface:#0b2023;--infro-surface-soft:#0d2528;--infro-border:#19383b;--infro-muted:#9aafad;--infro-ink:#edf7f5;background:radial-gradient(circle at 12% 0%,rgba(0,216,198,.055),transparent 24rem),#061416!important;color:#edf7f5}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-white){background-color:#0b2023!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-slate-50,.bg-\[\#fbfdfd\]){background-color:#0d2528!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-slate-100){background-color:#112b2e!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-emerald-50){background-color:rgba(16,185,129,.12)!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-amber-50){background-color:rgba(245,158,11,.12)!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-rose-50){background-color:rgba(244,63,94,.11)!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-blue-50){background-color:rgba(59,130,246,.11)!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.border-slate-100,.border-slate-200,.border-slate-300){border-color:#23474b!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-slate-950,.text-slate-900,.text-slate-800,.text-slate-700){color:#edf7f5!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-slate-600,.text-slate-500,.text-slate-400){color:#9aafad!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-emerald-700,.text-emerald-600){color:#6ee7b7!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-amber-700,.text-amber-600){color:#fcd34d!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-blue-700,.text-blue-600){color:#93c5fd!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-rose-700,.text-rose-600){color:#fda4af!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-\[\#f3f6f6\],.bg-\[\#f4f7f7\],.bg-\[\#f8fbfb\],.bg-\[\#f8fbfb\]\/88,.bg-\[\#f8fbfb\]\/90){background-color:#061416!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-\[linear-gradient\(135deg\2c \#effbf9\2c \#fff\)\]){background:#0d292b!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.shadow-sm){box-shadow:0 12px 30px -24px rgba(0,0,0,.75)!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] header{border-color:rgba(40,80,85,.7)!important}
+[data-dashboard-path][data-dashboard-theme="dark"] nav[aria-label="التنقل السريع"],[data-admin-shell][data-dashboard-theme="dark"] nav[aria-label="التنقل السريع للإدارة"]{background:rgba(8,25,28,.96)!important;border-color:#19383b!important}
+[data-dashboard-path][data-dashboard-theme="dark"] nav[aria-label="التنقل السريع"] :where(.text-slate-500),[data-admin-shell][data-dashboard-theme="dark"] nav[aria-label="التنقل السريع للإدارة"] :where(.text-slate-500){color:#91aaa8!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] .infro-theme-toggle{background:#0d2528!important;border-color:#285055!important;color:#d7efeb!important;box-shadow:0 12px 30px -20px rgba(0,0,0,.8)!important}
+@media(prefers-reduced-motion:no-preference){:is([data-dashboard-path],[data-admin-shell]) article,:is([data-dashboard-path],[data-admin-shell]) section{transition:background-color 180ms ease,border-color 180ms ease,color 180ms ease,box-shadow 180ms ease}}
