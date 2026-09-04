@@ -1,5 +1,5 @@
 "use client";
-import { useEffect,useState } from "react";
+import { useEffect,useLayoutEffect,useState } from "react";
 import { Monitor,Moon,Sun } from "lucide-react";
 const KEY="infro-dashboard-theme";
 type Theme="light"|"dark"|"system";
@@ -9,8 +9,9 @@ function savedTheme():Theme{if(typeof window==="undefined")return"system";try{co
 function resolved(theme:Theme){return theme==="system"?systemTheme():theme}
 function apply(theme:Theme,persist=true){
   const value=resolved(theme);
-  for(const root of workspaces())root.dataset.dashboardTheme=value;
+  for(const root of workspaces()){root.dataset.dashboardTheme=value;root.style.colorScheme=value}
   document.documentElement.dataset.infroWorkspaceTheme=value;
+  document.documentElement.style.colorScheme=value;
   if(persist){
     try{localStorage.setItem(KEY,theme)}catch{}
     window.dispatchEvent(new Event("infro-theme-change"));
@@ -18,8 +19,8 @@ function apply(theme:Theme,persist=true){
 }
 export function DashboardThemeToggle({showLabel=false}:{showLabel?:boolean}){
   const[theme,setTheme]=useState<Theme>(savedTheme);
+  useLayoutEffect(()=>{apply(theme,false)},[theme]);
   useEffect(()=>{
-    apply(theme,false);
     const syncExternal=()=>{const next=savedTheme();setTheme(next);apply(next,false)};
     window.addEventListener("infro-theme-change",syncExternal);
     if(theme!=="system")return()=>window.removeEventListener("infro-theme-change",syncExternal);
