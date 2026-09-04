@@ -12,6 +12,8 @@ const automations = source("app/dashboard/whatsapp/automations/page.tsx");
 const actions = source("app/actions/whatsapp-marketing.ts");
 const launchActions = source("app/actions/whatsapp-campaign-launch.ts");
 const automationOperations = source("app/lib/whatsapp/automation-operations.ts");
+const automationProcessor = source("app/lib/whatsapp/automation-processor.ts");
+const automationApi = source("app/api/whatsapp/automations/events/route.ts");
 const admin = source("app/admin/whatsapp/page.tsx");
 
 test("WhatsApp Marketing is a first-class customer dashboard section", () => {
@@ -44,6 +46,20 @@ test("automation management is explicit, tenant scoped and connected to durable 
   assert.match(automationOperations, /status: "connected"/);
   assert.match(automationOperations, /writeWhatsAppAuditLog/g);
   assert.doesNotMatch(automationOperations, /graph\.facebook\.com|fetch\(/);
+});
+
+test("automation workers keep every related record inside the event tenant", () => {
+  assert.match(automationProcessor, /where: \{ id: event\.contactId, businessId: event\.businessId \}/);
+  assert.match(automationProcessor, /businessId_phoneE164: \{ businessId: event\.businessId/);
+  assert.match(automationProcessor, /connection: \{ businessId: event\.businessId, provider: "meta", status: "connected" \}/g);
+  assert.match(automationProcessor, /businessId: event\.businessId, automationId: automation\.id, contactId: contact\.id/);
+  assert.match(automationProcessor, /WHATSAPP_AUTOMATION_TENANT_MISMATCH/);
+  assert.match(automationProcessor, /where: \{ id: event\.id, businessId: event\.businessId \}/g);
+  assert.match(automationProcessor, /SELECT "id", "businessId"/);
+  assert.match(automationProcessor, /WHATSAPP_AUTOMATION_EVENT_CLAIM_CONFLICT/);
+  assert.match(automationApi, /businessId: key\.businessId/g);
+  assert.match(automationApi, /businessId_phoneE164: \{ businessId: key\.businessId/);
+  assert.match(automationApi, /businessId_source_externalEventId: \{ businessId: key\.businessId/);
 });
 
 test("campaign mutations are entitlement, RBAC and tenant scoped", () => {
