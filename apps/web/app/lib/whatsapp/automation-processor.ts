@@ -80,8 +80,8 @@ export async function processWhatsAppAutomationEvent(input: {
     if (event.status === "failed") return { processed: false as const, terminal: true as const, jobs: 0 };
     if (event.nextAttemptAt > now) return { processed: false as const, deferred: true as const, jobs: 0 };
 
-    await tx.whatsAppAutomationEvent.update({
-      where: { id: event.id }, data: {
+    await tx.whatsAppAutomationEvent.updateMany({
+      where: { id: event.id, businessId: event.businessId }, data: {
         status: "processing", attemptCount: { increment: 1 }, leaseOwner: input.workerId.slice(0, 100),
         leaseExpiresAt: new Date(now.getTime() + 5 * 60_000), processingErrorCode: null,
       },
@@ -111,12 +111,13 @@ export async function processWhatsAppAutomationEvent(input: {
         where: {
           businessId: event.businessId, status: "active", triggerType: event.triggerType,
           ...(event.automationId ? { id: event.automationId } : {}),
-          connection: { status: "connected" },
+          connection: { businessId: event.businessId, provider: "meta", status: "connected" },
         },
         select: { id: true, businessId: true, connectionId: true, triggerType: true, triggerConfig: true, actionType: true, actionConfig: true, cooldownMinutes: true },
       });
       let jobs = 0;
       for (const automation of automations) {
+        if (automation.businessId !== event.businessId) throw new Error("WHATSAPP_AUTOMATION_TENANT_MISMATCH");
         if (!automationMatchesEvent({ triggerType: automation.triggerType, triggerConfig: automation.triggerConfig, subjectType: event.subjectType })) continue;
         const key = automationIdempotencyKey({ businessId: event.businessId, automationId: automation.id, eventId: event.id, contactId: contact.id });
         const skipReason = eventSkipReason ?? (contact.optedOutAt ? "contact_opted_out" : !consent || consent.revokedAt ? "marketing_consent_missing" : null);
@@ -139,7 +140,14 @@ export async function processWhatsAppAutomationEvent(input: {
         if (automation.actionType !== "send_template") throw new Error("WHATSAPP_AUTOMATION_ACTION_UNSUPPORTED");
         const action = readTemplateActionConfig(automation.actionConfig);
         const template = await tx.whatsAppTemplate.findFirst({
-          where: { id: action.templateId, businessId: event.businessId, connectionId: automation.connectionId, status: "approved" },
+          where: {
+            id: action.templateId,
+            businessId: event.businessId,
+            connectionId: automation.connectionId,
+            provider: "meta",
+            status: "approved",
+            connection: { businessId: event.businessId, provider: "meta", status: "connected" },
+          },
           select: { id: true },
         });
         if (!template) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_NOT_APPROVED");
@@ -154,8 +162,8 @@ export async function processWhatsAppAutomationEvent(input: {
         });
         jobs += 1;
       }
-      await tx.whatsAppAutomationEvent.update({
-        where: { id: event.id }, data: { status: "processed", processedAt: now, leaseOwner: null, leaseExpiresAt: null },
+      await tx.whatsAppAutomationEvent.updateMany({
+        where: { id: event.id, businessId: event.businessId }, data: { status: "processed", processedAt: now, leaseOwner: null, leaseExpiresAt: null },
       });
       await writeWhatsAppAuditLog({
         businessId: event.businessId, actorType: "worker", action: "automation.event.process",
@@ -166,8 +174,8 @@ export async function processWhatsAppAutomationEvent(input: {
       const attempt = event.attemptCount + 1;
       const terminal = attempt >= MAX_EVENT_ATTEMPTS;
       const code = error instanceof Error ? error.message.slice(0, 100) : "WHATSAPP_AUTOMATION_PROCESSING_FAILED";
-      await tx.whatsAppAutomationEvent.update({
-        where: { id: event.id }, data: {
+      await tx.whatsAppAutomationEvent.updateMany({
+        where: { id: event.id, businessId: event.businessId }, data: {
           status: terminal ? "failed" : "retry_scheduled", nextAttemptAt: automationRetryAt(attempt, now),
           leaseOwner: null, leaseExpiresAt: null, processingErrorCode: code,
         },
@@ -185,8 +193,8 @@ export async function processNextWhatsAppAutomationEvent(input: {
   const database = input.database ?? db;
   const now = input.now ?? new Date();
   const eventId = await database.$transaction(async (tx) => {
-    const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      SELECT "id"
+    const rows = await tx.$queryRaw<Array<{ id: string; businessId: string }>>(Prisma.sql`
+      SELECT "id", "businessId"
       FROM "WhatsAppAutomationEvent"
       WHERE (
         "status" IN ('pending', 'retry_scheduled')
@@ -198,14 +206,15 @@ export async function processNextWhatsAppAutomationEvent(input: {
       LIMIT 1
     `);
     if (!rows[0]) return null;
-    await tx.whatsAppAutomationEvent.update({
-      where: { id: rows[0].id },
+    const claimed = await tx.whatsAppAutomationEvent.updateMany({
+      where: { id: rows[0].id, businessId: rows[0].businessId },
       data: {
         status: "processing",
         leaseOwner: input.workerId.slice(0, 100),
         leaseExpiresAt: new Date(now.getTime() + 5 * 60_000),
       },
     });
+    if (claimed.count !== 1) throw new Error("WHATSAPP_AUTOMATION_EVENT_CLAIM_CONFLICT");
     return rows[0].id;
   });
   if (!eventId) return { processed: false as const, empty: true as const, jobs: 0 };
