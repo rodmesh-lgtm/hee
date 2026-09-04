@@ -13,6 +13,7 @@ const actions = source("app/actions/whatsapp-marketing.ts");
 const launchActions = source("app/actions/whatsapp-campaign-launch.ts");
 const automationOperations = source("app/lib/whatsapp/automation-operations.ts");
 const automationProcessor = source("app/lib/whatsapp/automation-processor.ts");
+const automationScheduler = source("app/lib/whatsapp/automation-scheduler.ts");
 const automationApi = source("app/api/whatsapp/automations/events/route.ts");
 const admin = source("app/admin/whatsapp/page.tsx");
 
@@ -60,6 +61,14 @@ test("automation workers keep every related record inside the event tenant", () 
   assert.match(automationApi, /businessId: key\.businessId/g);
   assert.match(automationApi, /businessId_phoneE164: \{ businessId: key\.businessId/);
   assert.match(automationApi, /businessId_source_externalEventId: \{ businessId: key\.businessId/);
+});
+
+test("inactive automation scheduler rejects cross-business connection corruption", () => {
+  assert.match(automationScheduler, /connection: \{ select: \{ businessId: true, provider: true, status: true \} \}/);
+  assert.match(automationScheduler, /automation\.connection\.businessId !== automation\.businessId/);
+  assert.match(automationScheduler, /contact\."businessId" = \$\{automation\.businessId\}/);
+  assert.match(automationScheduler, /consent\."businessId" = \$\{automation\.businessId\}/);
+  assert.match(automationScheduler, /event\."businessId" = \$\{automation\.businessId\}/);
 });
 
 test("campaign mutations are entitlement, RBAC and tenant scoped", () => {
