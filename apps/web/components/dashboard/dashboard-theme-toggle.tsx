@@ -10,6 +10,7 @@ function resolved(theme:Theme){return theme==="system"?systemTheme():theme}
 function apply(theme:Theme,persist=true){
   const value=resolved(theme);
   for(const root of workspaces())root.dataset.dashboardTheme=value;
+  document.documentElement.dataset.infroWorkspaceTheme=value;
   if(persist){
     try{localStorage.setItem(KEY,theme)}catch{}
     window.dispatchEvent(new Event("infro-theme-change"));
@@ -28,10 +29,12 @@ export function DashboardThemeToggle({showLabel=false}:{showLabel?:boolean}){
     return()=>{window.removeEventListener("infro-theme-change",syncExternal);media.removeEventListener?.("change",syncSystem)};
   },[theme]);
   const cycle=()=>{const next:Theme=theme==="system"?"light":theme==="light"?"dark":"system";setTheme(next);apply(next)};
-  const Icon=theme==="dark"?Sun:theme==="light"?Moon:Monitor;
-  const label=theme==="dark"?"المظهر الداكن — اضغط لاختيار تلقائي":theme==="light"?"المظهر الفاتح — اضغط للداكن":"المظهر تلقائي حسب الجهاز — اضغط للفاتح";
+  const Icon=theme==="dark"?Moon:theme==="light"?Sun:Monitor;
+  const nextLabel=theme==="system"?"الفاتح":theme==="light"?"الداكن":"التلقائي";
+  const currentLabel=theme==="dark"?"داكن":theme==="light"?"فاتح":"تلقائي";
+  const label=`المظهر الحالي: ${currentLabel}. اضغط للتبديل إلى ${nextLabel}.`;
   return <button type="button" onClick={cycle} aria-label={label} title={label} className="infro-theme-toggle group inline-flex h-10 shrink-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 text-[10px] font-black text-slate-600 shadow-[0_12px_30px_-20px_rgba(7,24,27,.45)] transition hover:-translate-y-0.5 hover:border-[#9fe8df] hover:text-[#008f87] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2">
-    <span className="relative grid h-6 w-6 place-items-center overflow-hidden rounded-full bg-slate-100 transition group-hover:bg-[#e9fbf8]"><Icon className="h-3.5 w-3.5"/></span>
-    <span className={showLabel?"inline":"hidden xl:inline"}>{theme==="dark"?"داكن":theme==="light"?"فاتح":"تلقائي"}</span>
+    <span className="relative grid h-6 w-6 place-items-center overflow-hidden rounded-full bg-slate-100 transition group-hover:bg-[#e9fbf8]"><Icon className="h-3.5 w-3.5" aria-hidden="true"/></span>
+    <span className={showLabel?"inline":"hidden xl:inline"}>{currentLabel}</span>
   </button>;
 }
