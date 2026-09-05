@@ -11,7 +11,7 @@ import { ImportProgressRefresh } from "./import-progress-refresh";
 const buttonFocus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2";
 const audienceFilters = ["all", "eligible", "no-consent", "opted-out"] as const;
 type AudienceFilter = (typeof audienceFilters)[number];
-type AudienceRow = { id: string; displayName: string | null; phoneE164: string; email: string | null; source: string; optedOutAt: Date | null; createdAt: Date; consentedAt: Date | null; revokedAt: Date | null };
+type AudienceRow = { id: string; displayName: string | null; phoneE164: string; email: string | null; source: string; optedOutAt: Date | null; createdAt: Date; consentedAt: Date | null; revokedAt: Date | null; eligible: boolean };
 
 export default async function WhatsAppContactsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const context = await getWhatsAppReadContext("campaign.manage");
@@ -35,7 +35,8 @@ export default async function WhatsAppContactsPage({ searchParams }: { searchPar
 
   const [contacts, imports, audienceMetrics, segments] = await Promise.all([
     db.$queryRaw<AudienceRow[]>(Prisma.sql`
-      SELECT contact."id", contact."displayName", contact."phoneE164", contact."email", contact."source", contact."optedOutAt", contact."createdAt", consent."consentedAt", consent."revokedAt"
+      SELECT contact."id", contact."displayName", contact."phoneE164", contact."email", contact."source", contact."optedOutAt", contact."createdAt", consent."consentedAt", consent."revokedAt",
+        (contact."optedOutAt" IS NULL AND consent."revokedAt" IS NULL AND consent."consentedAt" <= CURRENT_TIMESTAMP) AS "eligible"
       FROM "WhatsAppContact" contact
       LEFT JOIN "WhatsAppConsent" consent ON consent."businessId" = contact."businessId" AND consent."phoneE164" = contact."phoneE164"
       WHERE contact."businessId" = ${context.businessId}
@@ -86,7 +87,7 @@ export default async function WhatsAppContactsPage({ searchParams }: { searchPar
 }
 
 function ContactCard({contact}:{contact:AudienceRow}){return <article className="rounded-[18px] border border-slate-200 bg-[#fbfdfd] p-3.5"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><b className="block truncate text-sm text-slate-900">{contact.displayName||"بدون اسم"}</b><span dir="ltr" className="mt-1 block text-right text-[11px] text-slate-500">{contact.phoneE164}</span>{contact.email?<span dir="ltr" className="mt-1 block truncate text-right text-[10px] text-slate-400">{contact.email}</span>:null}</div><AudienceState contact={contact}/></div><div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-[9px] text-slate-400"><span>{contactSourceLabel(contact.source)}</span><span>{contact.createdAt.toLocaleDateString("ar-SA")}</span></div></article>}
-function AudienceState({contact}:{contact:AudienceRow}){if(contact.optedOutAt)return <span className="shrink-0 rounded-full bg-rose-50 px-2.5 py-1 text-[9px] font-black text-rose-700">Opt-out</span>;if(contact.consentedAt&&contact.consentedAt<=new Date()&&!contact.revokedAt)return <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black text-emerald-700">مؤهل</span>;return <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[9px] font-black text-amber-700">يحتاج موافقة</span>}
+function AudienceState({contact}:{contact:AudienceRow}){if(contact.optedOutAt)return <span className="shrink-0 rounded-full bg-rose-50 px-2.5 py-1 text-[9px] font-black text-rose-700">Opt-out</span>;if(contact.eligible)return <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black text-emerald-700">مؤهل</span>;return <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[9px] font-black text-amber-700">يحتاج موافقة</span>}
 function Metric({label,value,hint,good=false}:{label:string;value:number;hint:string;good?:boolean}){return <div className={`rounded-[20px] border p-4 ${good?"border-emerald-100 bg-emerald-50/50":"border-slate-200 bg-white"}`}><span className="text-[9px] text-slate-400">{label}</span><b className="mt-1 block text-xl text-slate-900">{value}</b><span className="mt-1 block text-[9px] text-slate-400">{hint}</span></div>}
 function Notice({text,ok=false}:{text:string;ok?:boolean}){return <div role="status" aria-live="polite" className={`flex items-center gap-2 rounded-2xl border p-3 text-[10px] font-bold ${ok?"border-emerald-200 bg-emerald-50 text-emerald-800":"border-rose-200 bg-rose-50 text-rose-800"}`}>{ok?<CheckCircle2 className="h-4 w-4"/>:null}{text}</div>}
 function importStatus(status:string){if(status==="queued")return "بانتظار المعالجة";if(status==="processing")return "قيد الاستيراد";if(status==="completed")return "مكتمل";if(status==="completed_with_errors")return "مكتمل مع ملاحظات";return "تعذر الإكمال — يحتاج مراجعة"}
