@@ -21,7 +21,7 @@ const required = [
   'STORAGE_DRIVER',
 ];
 
-const CANONICAL_FROM_EMAIL = 'HEE <no-reply@ir.sa>';
+const CANONICAL_FROM_EMAIL = 'INFRO <no-reply@ir.sa>';
 
 function value(name) {
   return String(process.env[name] ?? '').trim();
