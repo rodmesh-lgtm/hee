@@ -32,3 +32,8 @@ test("smart reminder storage validates recipient, status and recurrence", () => 
   assert.match(migration, /SmartReminder_status_check/);
   assert.match(migration, /SmartReminderDelivery_status_check/);
 });
+
+test("smart reminder recipient constraint accepts canonical E164 without PostgreSQL escape ambiguity", () => {
+  assert.ok(migration.includes(`CONSTRAINT "SmartReminder_recipient_check" CHECK ("recipientPhoneE164" ~ '^[+][1-9][0-9]{7,14}$')`));
+  assert.doesNotMatch(migration, /recipientPhoneE164" ~ '\^\\\\\+/);
+});
