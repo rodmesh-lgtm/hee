@@ -28,7 +28,8 @@ test("WhatsApp Marketing is a first-class customer dashboard section", () => {
   assert.match(contacts, /بانتظار المعالجة/);
   assert.match(contacts, /retryWhatsAppContactImportAction/);
   assert.match(templates, /syncWhatsAppTemplatesAction/);
-  assert.match(campaigns, /أنشئ حملاتك من جهات الاتصال ذات الموافقة الفعالة/);
+  assert.match(campaigns, /مركز عمليات الحملات/);
+  assert.match(campaigns, /ثبّت الجمهور المؤهل/);
   assert.match(campaigns, /مرحلة إرسال تجريبية آمنة/);
   assert.doesNotMatch(campaigns, /Queue وWorkers وRate Limiting/);
 });
