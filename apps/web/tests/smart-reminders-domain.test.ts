@@ -1,12 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeReminderRecurrence, normalizeReminderTimezone, reminderDeliveryIdempotencyKey, reminderTemplateSupportsBodyParameter, validateReminderSchedule } from "../app/lib/reminders/domain";
+import { normalizeReminderRecurrence, normalizeReminderTimezone, reminderDeliveryIdempotencyKey, reminderLocalDateTimeToUtc, reminderTemplateSupportsBodyParameter, validateReminderSchedule } from "../app/lib/reminders/domain";
 
 test("smart reminders accept real IANA timezones and reject invalid zones", () => {
   assert.equal(normalizeReminderTimezone("Asia/Riyadh"), "Asia/Riyadh");
   assert.equal(normalizeReminderTimezone("America/New_York"), "America/New_York");
   assert.throws(() => normalizeReminderTimezone("UTC+03"), /REMINDER_TIMEZONE_INVALID/);
   assert.throws(() => normalizeReminderTimezone(""), /REMINDER_TIMEZONE_INVALID/);
+});
+
+test("local reminder time converts to UTC without depending on server timezone", () => {
+  assert.equal(reminderLocalDateTimeToUtc("2026-09-05T18:00", "Asia/Riyadh").toISOString(), "2026-09-05T15:00:00.000Z");
+  assert.equal(reminderLocalDateTimeToUtc("2026-07-01T09:30", "America/New_York").toISOString(), "2026-07-01T13:30:00.000Z");
+});
+
+test("DST gaps fail closed and repeated wall time resolves deterministically to the earliest occurrence", () => {
+  assert.throws(() => reminderLocalDateTimeToUtc("2026-03-08T02:30", "America/New_York"), /REMINDER_LOCAL_TIME_INVALID/);
+  assert.equal(reminderLocalDateTimeToUtc("2026-11-01T01:30", "America/New_York").toISOString(), "2026-11-01T05:30:00.000Z");
 });
 
 test("smart reminders only accept supported recurrence types", () => {
