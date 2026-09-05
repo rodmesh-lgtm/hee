@@ -129,7 +129,7 @@ test.describe.serial("platform admin workflow", () => {
       await expect(page.getByRole("link", { name: "إدارة المنصة" })).toBeVisible();
 
       await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "إدارة المنصة", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "مركز قيادة المنصة", exact: true })).toBeVisible();
       const businessRow = page.getByRole("row").filter({ hasText: "منشأة عميل لوحة الإدارة" });
       await expect(businessRow).toBeVisible();
       await expect(businessRow.getByText(/1 منتج · 1 خدمة · 1 عميل/)).toBeVisible();

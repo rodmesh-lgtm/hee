@@ -63,11 +63,11 @@ test.describe.serial("platform admin request queue", () => {
       await page.context().addCookies([{ name: "hee_session", value: adminSessionToken, url: baseUrl }]);
 
       await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
-      const pendingMetric = page.locator("section").filter({ hasText: "طلبات معلقة" }).first();
+      const pendingMetric = page.getByRole("heading", { name: "ما يحتاج قرار الإدارة" }).locator("../..");
       await expect(pendingMetric).toContainText("101");
 
       await page.goto(`${baseUrl}/admin/requests?type=verification`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "طلبات الإدارة" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "قرارات الإدارة في مسار واضح." })).toBeVisible();
       await expect(page.getByText(/101 طلب معلق · صفحة 1 من 3/)).toBeVisible();
       await expect(page.getByRole("button", { name: "اعتماد التوثيق" })).toHaveCount(50);
       await page.getByRole("link", { name: "التالي" }).click();

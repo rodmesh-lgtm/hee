@@ -64,7 +64,7 @@ test.describe.serial("central admin Business Store catalog", () => {
     try {
       await setSession(page, fixture.adminToken);
       await page.goto(`${baseUrl}/admin/store-products`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "منتجات متجر الأعمال" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "الكتالوج المركزي لمتجر الأعمال" })).toBeVisible();
       await page.getByLabel("SKU ثابت").fill(fixture.sku);
       await page.getByLabel("اسم المنتج", { exact: true }).first().fill(productTitle);
       await page.getByLabel("القسم", { exact: true }).first().fill("rc-products");

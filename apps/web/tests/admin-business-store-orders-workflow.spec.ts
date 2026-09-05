@@ -42,7 +42,7 @@ test.describe.serial("central admin Business Store orders", () => {
     try {
       await page.context().addCookies([{ name: "hee_session", value: f.adminToken, url: baseUrl }]);
       await page.goto(`${baseUrl}/admin/store-orders?q=${encodeURIComponent(f.orderId)}`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "طلبات متجر الأعمال" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "مركز تشغيل طلبات المتجر" })).toBeVisible();
       await expect(page.getByText(f.orderId, { exact: true })).toBeVisible();
       await page.getByRole("link", { name: "فتح" }).click();
       await expect(page).toHaveURL(new RegExp(`/admin/store-orders/${f.orderId}`));

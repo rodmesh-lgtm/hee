@@ -65,8 +65,8 @@ test.describe.serial("customer support and data rights", () => {
       const ticket = page.locator("article").filter({ hasText: "مشكلة اختبار الدعم" });
       await expect(ticket).toContainText("منشأة دعم الاختبار");
       const resolutionNote = "تم التحقق من طلب الاختبار ومعالجته وإبلاغ العميل بالنتيجة.";
-      await ticket.getByRole("textbox", { name: "نتيجة المعالجة للعميل" }).fill(resolutionNote);
-      await ticket.getByRole("button", { name: "حفظ النتيجة وإغلاق الطلب" }).click();
+      await ticket.getByRole("textbox", { name: "الرد النهائي للعميل" }).fill(resolutionNote);
+      await ticket.getByRole("button", { name: "حفظ وإغلاق الطلب" }).click();
       await expect(page).toHaveURL(/done=resolved/);
 
       await setSession(page, ownerToken);
