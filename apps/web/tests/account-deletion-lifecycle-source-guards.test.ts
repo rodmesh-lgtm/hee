@@ -16,6 +16,8 @@ test("self-service deletion requires authenticated verified ownership and explic
   assert.match(action, /email !== user\.email\.toLowerCase\(\)/);
   assert.match(action, /confirmation !== CONFIRMATION/);
   assert.match(action, /isAdminEmail\(user\.email\)/);
+  assert.match(action, /const CONFIRMATION = "DELETE MY INFRO ACCOUNT"/);
+  assert.doesNotMatch(action, /DELETE MY HEE ACCOUNT/);
 });
 
 test("deletion revokes access, publication, renewals and reusable payment methods", () => {
@@ -49,6 +51,7 @@ test("privacy support cannot claim deletion completion without lifecycle proof",
 
 test("customers can reach the deletion lifecycle from privacy support", () => {
   assert.match(supportPage, /href="\/dashboard\/account-deletion"/);
-  assert.match(page, /DELETE MY HEE ACCOUNT/);
+  assert.match(page, /DELETE MY INFRO ACCOUNT/);
+  assert.doesNotMatch(page, /DELETE MY HEE ACCOUNT/);
   assert.match(page, /deleteOwnAccountAction/);
 });

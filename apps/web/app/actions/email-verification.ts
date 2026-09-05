@@ -53,7 +53,7 @@ export async function requestEmailVerificationAction(_previous: EmailVerificatio
   const result = await issueEmailVerification(user.id, user.email);
   if (result === "sent") return { success: "أرسلنا رابط التأكيد إلى بريدك. افتحه خلال 24 ساعة." };
   if (result === "already-verified") return { success: "بريد حسابك مؤكد بالفعل" };
-  if (result === "not-configured") return { error: "خدمة تأكيد البريد لم تُفعّل بعد. تواصل مع إدارة HEE." };
+  if (result === "not-configured") return { error: "خدمة تأكيد البريد لم تُفعّل بعد. تواصل مع إدارة INFRO." };
   if (result === "send-failed") return { error: "تعذر إرسال رسالة التأكيد الآن. حاول مرة أخرى لاحقًا." };
   return { error: "تعذر إنشاء طلب تأكيد البريد الآن." };
 }

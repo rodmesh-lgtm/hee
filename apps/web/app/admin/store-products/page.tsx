@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { Archive, Box, CircleOff, PackagePlus, Pencil, Power, ShieldCheck, Sparkles, Store } from "lucide-react";
+import { Archive, Box, CircleOff, PackagePlus, Pencil, Power, ShieldCheck, Sparkles } from "lucide-react";
 import { createBusinessStoreProductAdminAction, toggleBusinessStoreProductAdminAction, updateBusinessStoreProductAdminAction } from "../../actions/admin-business-store";
 import { requireAdmin } from "../../lib/admin";
 import { listBusinessStoreCatalogProductsForAdmin } from "../../lib/business-store-catalog";

@@ -33,7 +33,8 @@ test("Production presence audit enumerates release-critical configuration withou
     assert.match(audit, new RegExp(`['\"]${name}['\"]`));
   }
   assert.doesNotMatch(audit, /required[\s\S]*['\"]HEE_FROM_EMAIL['\"]/);
-  assert.match(audit, /CANONICAL_FROM_EMAIL = 'HEE <no-reply@ir\.sa>'/);
+  assert.match(audit, /CANONICAL_FROM_EMAIL = 'INFRO <no-reply@ir\.sa>'/);
+  assert.doesNotMatch(audit, /CANONICAL_FROM_EMAIL = 'HEE </);
   assert.match(audit, /appendFileSync\(githubEnv, `HEE_FROM_EMAIL=\$\{CANONICAL_FROM_EMAIL\}\\n`/);
   assert.match(audit, /production-config-presence: FAIL missing=/);
   assert.doesNotMatch(audit, /console\.(?:log|error)\([^\n]*(?:process\.env|value\()/);

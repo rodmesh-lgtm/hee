@@ -5,7 +5,7 @@ const required = (name) => {
 };
 
 const enabled = (name) => String(process.env[name] ?? "").trim().toLowerCase() === "true";
-const CANONICAL_FROM_EMAIL = "HEE <no-reply@ir.sa>";
+const CANONICAL_FROM_EMAIL = "INFRO <no-reply@ir.sa>";
 const CANONICAL_HOST = "ir.sa";
 const WWW_HOST = "www.ir.sa";
 

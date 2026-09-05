@@ -1,7 +1,6 @@
 "use client";
 import { useEffect,useLayoutEffect,useState } from "react";
 import { Monitor,Moon,Sun } from "lucide-react";
-const KEY="infro-dashboard-theme";
 type Theme="light"|"dark"|"system";
 function workspaces(){return Array.from(document.querySelectorAll<HTMLElement>("[data-dashboard-path],[data-admin-shell]"))}
 function systemTheme():"light"|"dark"{return typeof window!=="undefined"&&window.matchMedia?.("(prefers-color-scheme: dark)").matches?"dark":"light"}

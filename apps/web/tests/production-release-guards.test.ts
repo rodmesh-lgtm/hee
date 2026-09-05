@@ -127,7 +127,8 @@ test("production web deployment rebuilds the exact content-proven SHA with one r
   assert.match(sync, /QA_AUDIT_SECRET/);
   assert.match(sync, /QA_AUDIT_USER_EMAIL/);
   assert.match(sync, /PRODUCTION_MAINTENANCE_MODE must remain deployment-scoped/);
-  assert.match(sync, /CANONICAL_FROM_EMAIL = "HEE <no-reply@ir\.sa>"/);
+  assert.match(sync, /CANONICAL_FROM_EMAIL = "INFRO <no-reply@ir\.sa>"/);
+  assert.doesNotMatch(sync, /CANONICAL_FROM_EMAIL = "HEE </);
   assert.match(sync, /key: "HEE_FROM_EMAIL", value: CANONICAL_FROM_EMAIL/);
   assert.match(sync, /key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false"/);
   assert.match(sync, /key: "BILLING_REHEARSAL_USER_EMAIL", value: ""/);

@@ -8,12 +8,17 @@ function source(path: string) {
 }
 
 test("login page retains supported OAuth entry points and server routes fail closed when disabled", () => {
-  const login = source("app/login/page.tsx");
+  const page = source("app/login/page.tsx");
+  const client = source("app/login/login-content.tsx");
   const oauth = source("app/lib/oauth.ts");
-  assert.match(login, /href="\/api\/auth\/oauth\/google"/);
-  assert.match(login, /href="\/api\/auth\/oauth\/apple"/);
-  assert.match(login, /المتابعة باستخدام Google/);
-  assert.match(login, /المتابعة باستخدام Apple/);
+  assert.match(page, /providerConfigured\("google"\)/);
+  assert.match(page, /providerConfigured\("apple"\)/);
+  assert.match(client, /href="\/api\/auth\/oauth\/google"/);
+  assert.match(client, /href="\/api\/auth\/oauth\/apple"/);
+  assert.match(client, /المتابعة باستخدام Google/);
+  assert.match(client, /المتابعة باستخدام Apple/);
+  assert.match(client, /googleEnabled \?/);
+  assert.match(client, /appleEnabled \?/);
   assert.match(oauth, /export function providerConfigured/);
   assert.match(oauth, /if \(!providerConfigured\(provider\)\)/);
 });
@@ -26,9 +31,9 @@ test("OAuth start route remains login-only until consent-aware social registrati
 });
 
 test("login page renders safe user-facing OAuth failure feedback", () => {
-  const login = source("app/login/page.tsx");
-  assert.match(login, /searchParams\.get\("oauth"\)/);
-  assert.match(login, /provider-unavailable/);
-  assert.match(login, /account-link-required/);
-  assert.match(login, /role="alert"/);
+  const client = source("app/login/login-content.tsx");
+  assert.match(client, /searchParams\.get\("oauth"\)/);
+  assert.match(client, /provider-unavailable/);
+  assert.match(client, /account-link-required/);
+  assert.match(client, /role="alert"/);
 });

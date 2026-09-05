@@ -51,7 +51,7 @@ test.describe.serial("verified account deletion lifecycle", () => {
       await page.goto(`${baseUrl}/dashboard/account-deletion`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "حذف الحساب والبيانات" })).toBeVisible();
       await page.getByRole("textbox", { name: "بريد الحساب" }).fill(owner.email);
-      await page.getByRole("textbox", { name: "عبارة التأكيد" }).fill("DELETE MY HEE ACCOUNT");
+      await page.getByRole("textbox", { name: "عبارة التأكيد" }).fill("DELETE MY INFRO ACCOUNT");
       await page.getByRole("button", { name: "حذف الحساب نهائيًا" }).click();
       await expect(page).toHaveURL(/\/login\?account=deleted/);
 
