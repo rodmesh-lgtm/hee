@@ -1,143 +1,73 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
-import { BadgeCheck, BriefcaseBusiness, Building2, ExternalLink, ShieldCheck, Users } from "lucide-react";
+import { ArrowUpLeft,BadgeCheck,BriefcaseBusiness,Building2,ExternalLink,Search,ShieldCheck,Users,Activity,Command,ArrowLeft,Layers3 } from "lucide-react";
 import { approvePlanUpgradeAdminAction, approveVerificationAdminAction } from "../actions/admin";
 import { requireAdmin } from "../lib/admin";
 import { paidPlanActivationAllowed } from "../lib/billing";
 import { db } from "../lib/db";
 
-function meta(value: unknown) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
+function meta(value:unknown){return value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};}
+const pendingStatusSql=Prisma.sql`COALESCE(substring(e."metadata"::text from '"status"[[:space:]]*:[[:space:]]*"([^"]+)"'),'pending') = 'pending'`;
 
-const pendingStatusSql = Prisma.sql`
-  COALESCE(
-    substring(e."metadata"::text from '"status"[[:space:]]*:[[:space:]]*"([^"]+)"'),
-    'pending'
-  ) = 'pending'
-`;
-
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
+export default async function AdminPage({searchParams}:{searchParams:Promise<{q?:string;page?:string}>}){
   await requireAdmin();
-  const params = await searchParams;
-  const q = String(params.q ?? "").trim();
-  const page = Math.max(1, Number.parseInt(String(params.page ?? "1"), 10) || 1);
-  const pageSize = 50;
-  const manualPaidActivation = paidPlanActivationAllowed();
-  const businessWhere = {
-    deletedAt: null,
-    ...(q ? {
-      OR: [
-        { name: { contains: q, mode: "insensitive" as const } },
-        { slug: { contains: q, mode: "insensitive" as const } },
-        { owner: { email: { contains: q, mode: "insensitive" as const } } },
-      ],
-    } : {}),
-  };
-
-  const [events, plans, userCount, businessCount, publishedCount, verifiedCount, businesses, filteredCount, pendingCountRows] = await Promise.all([
-    db.analyticsEvent.findMany({
-      where: {
-        eventType: { in: ["verification_requested", "plan_upgrade_requested"] },
-        business: { deletedAt: null },
-      },
-      include: { business: { select: { id: true, name: true, slug: true, isVerified: true, plan: { select: { code: true, name: true } } } } },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    }),
-    db.businessPlan.findMany({ where: { isActive: true }, select: { code: true } }),
-    db.user.count({ where: { deletedAt: null } }),
-    db.business.count({ where: { deletedAt: null } }),
-    db.business.count({ where: { deletedAt: null, isPublished: true } }),
-    db.business.count({ where: { deletedAt: null, isVerified: true } }),
-    db.business.findMany({
-      where: businessWhere,
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        businessType: true,
-        city: true,
-        isPublished: true,
-        isVerified: true,
-        onboardingCompleted: true,
-        updatedAt: true,
-        owner: { select: { name: true, email: true } },
-        plan: { select: { code: true, name: true } },
-        _count: { select: { products: true, services: true, customers: true, orders: true, bookings: true } },
-      },
-      orderBy: { updatedAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    db.business.count({ where: businessWhere }),
-    db.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
-      SELECT COUNT(*)::bigint AS "count"
-      FROM "AnalyticsEvent" e
-      JOIN "Business" b ON b."id" = e."businessId"
-      WHERE b."deletedAt" IS NULL
-        AND e."eventType" IN ('verification_requested', 'plan_upgrade_requested')
-        AND ${pendingStatusSql}
-    `),
+  const params=await searchParams;
+  const q=String(params.q??"").trim();
+  const page=Math.max(1,Number.parseInt(String(params.page??"1"),10)||1);
+  const pageSize=50;
+  const manualPaidActivation=paidPlanActivationAllowed();
+  const businessWhere={deletedAt:null,...(q?{OR:[{name:{contains:q,mode:"insensitive" as const}},{slug:{contains:q,mode:"insensitive" as const}},{owner:{email:{contains:q,mode:"insensitive" as const}}}]}:{})};
+  const[events,plans,userCount,businessCount,publishedCount,verifiedCount,businesses,filteredCount,pendingCountRows]=await Promise.all([
+    db.analyticsEvent.findMany({where:{eventType:{in:["verification_requested","plan_upgrade_requested"]},business:{deletedAt:null}},include:{business:{select:{id:true,name:true,slug:true,isVerified:true,plan:{select:{code:true,name:true}}}}},orderBy:{createdAt:"desc"},take:100}),
+    db.businessPlan.findMany({where:{isActive:true},select:{code:true}}),
+    db.user.count({where:{deletedAt:null}}),
+    db.business.count({where:{deletedAt:null}}),
+    db.business.count({where:{deletedAt:null,isPublished:true}}),
+    db.business.count({where:{deletedAt:null,isVerified:true}}),
+    db.business.findMany({where:businessWhere,select:{id:true,name:true,slug:true,businessType:true,city:true,isPublished:true,isVerified:true,onboardingCompleted:true,updatedAt:true,owner:{select:{name:true,email:true}},plan:{select:{code:true,name:true}},_count:{select:{products:true,services:true,customers:true,orders:true,bookings:true}}},orderBy:{updatedAt:"desc"},skip:(page-1)*pageSize,take:pageSize}),
+    db.business.count({where:businessWhere}),
+    db.$queryRaw<Array<{count:bigint}>>(Prisma.sql`SELECT COUNT(*)::bigint AS "count" FROM "AnalyticsEvent" e JOIN "Business" b ON b."id"=e."businessId" WHERE b."deletedAt" IS NULL AND e."eventType" IN ('verification_requested','plan_upgrade_requested') AND ${pendingStatusSql}`),
   ]);
+  const totalPages=Math.max(1,Math.ceil(filteredCount/pageSize));
+  const pendingCount=Number(pendingCountRows[0]?.count??BigInt(0));
+  const activePlans=new Set(plans.map(plan=>plan.code));
+  const pending=events.filter(event=>String(meta(event.metadata).status??"pending")==="pending");
+  const verification=pending.filter(event=>event.eventType==="verification_requested");
+  const upgrades=pending.filter(event=>event.eventType==="plan_upgrade_requested");
+  const publicationRate=businessCount?Math.round((publishedCount/businessCount)*100):0;
+  const verificationRate=businessCount?Math.round((verifiedCount/businessCount)*100):0;
 
-  const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
-  const pendingCount = Number(pendingCountRows[0]?.count ?? BigInt(0));
-  const activePlans = new Set(plans.map((plan) => plan.code));
-  const pending = events.filter((event) => String(meta(event.metadata).status ?? "pending") === "pending");
-  const verification = pending.filter((event) => event.eventType === "verification_requested");
-  const upgrades = pending.filter((event) => event.eventType === "plan_upgrade_requested");
+  return <div dir="rtl" className="space-y-4 sm:space-y-5">
+    <section className="relative overflow-hidden rounded-[28px] border border-[#153438] bg-[#07181b] text-white shadow-[0_22px_70px_-44px_rgba(7,24,27,.75)]">
+      <div className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#00d8c6]/12 blur-3xl"/>
+      <div className="relative grid xl:grid-cols-[1fr_430px]">
+        <div className="p-5 sm:p-6 lg:p-7"><div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[.05] px-2.5 py-1 text-[8px] font-black tracking-[.14em] text-[#7af0df]" dir="ltr"><Command className="h-3 w-3"/>INFRO OPERATIONS COCKPIT</span><span className={`rounded-full px-2.5 py-1 text-[8px] font-black ${pendingCount?"bg-amber-300/15 text-amber-200":"bg-emerald-300/15 text-emerald-200"}`}>{pendingCount?`${pendingCount} ACTIONS PENDING`:"QUEUE CLEAR"}</span></div><h1 className="mt-4 text-[25px] font-black tracking-tight sm:text-[30px]">مركز قيادة المنصة</h1><p className="mt-2 max-w-2xl text-[11px] leading-6 text-slate-400 sm:text-xs">ابدأ بما يحتاج قرارًا أو متابعة. أرقام المنصة والسجلات التفصيلية تبقى تحتك، لا أمامك.</p><div className="mt-5 grid gap-2 min-[420px]:flex"><Link href="/admin/requests" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#35e4cb] px-4 text-[10px] font-black text-[#07181b]">فتح طابور الإجراءات <ArrowUpLeft className="h-3.5 w-3.5"/></Link><Link href="/admin/design" className="inline-flex h-11 items-center justify-center rounded-xl border border-white/12 bg-white/[.04] px-4 text-[10px] font-black text-white">استوديو الهوية</Link></div></div>
+        <div className="grid grid-cols-2 border-t border-white/[.08] bg-white/[.025] xl:border-r xl:border-t-0"><HeroMetric label="المستخدمون" value={userCount} icon={<Users className="h-4 w-4"/>}/><HeroMetric label="المنشآت" value={businessCount} icon={<Building2 className="h-4 w-4"/>}/><HeroMetric label="نسبة النشر" value={`${publicationRate}%`} icon={<Activity className="h-4 w-4"/>}/><HeroMetric label="نسبة التوثيق" value={`${verificationRate}%`} icon={<BadgeCheck className="h-4 w-4"/>}/></div>
+      </div>
+    </section>
 
-  return <main dir="rtl" className="min-h-screen bg-[#f7f8fb] px-4 py-8 text-[#1f2552] sm:px-6">
-    <div className="mx-auto max-w-7xl space-y-5">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-[26px] border border-[#e7e4f0] bg-white p-5">
-        <div><span className="text-2xl font-black tracking-[-.08em] text-[#6f3bd2]">HEE</span><h1 className="mt-2 text-xl font-black">إدارة المنصة</h1><p className="mt-1 text-sm text-slate-500">مركز تشغيل HEE: العملاء، المنشآت، النشر، التوثيق، الترقية والمعاملات.</p></div>
-        <Link href="/dashboard" className="rounded-xl border border-[#e3dfed] px-4 py-2 text-xs font-black text-[#5d49cc]">لوحة العميل</Link>
-      </header>
+    <section className="grid gap-4 xl:grid-cols-[1.08fr_.92fr]">
+      <article className="overflow-hidden rounded-[24px] border border-slate-200 bg-white"><div className="flex items-center justify-between border-b border-slate-100 px-4 py-4 sm:px-5"><div><span className="text-[8px] font-black tracking-[.15em] text-[#008f87]" dir="ltr">ACTION QUEUE</span><h2 className="mt-1 text-sm font-black text-slate-950">ما يحتاج قرار الإدارة</h2></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-black text-slate-600">{pendingCount}</span></div><div className="grid gap-2 p-3 sm:grid-cols-2 sm:p-4"><QueueSummary href="/admin/requests?type=verification" icon={<BadgeCheck className="h-4 w-4"/>} title="طلبات التوثيق" count={verification.length} tone="blue"/><QueueSummary href="/admin/requests?type=upgrade" icon={<BriefcaseBusiness className="h-4 w-4"/>} title="طلبات الترقية" count={upgrades.length} tone="teal"/></div><div className="border-t border-slate-100 p-4"><p className="text-[10px] leading-5 text-slate-500">تفعيل الباقات المدفوعة يدويًا {manualPaidActivation?"مسموح في البيئة الحالية وفق ضوابط النظام.":"غير مسموح؛ أي ترقية مدفوعة تحتاج إثبات دفع معتمد."}</p></div></article>
+      <article className="rounded-[24px] border border-slate-200 bg-white p-4 sm:p-5"><div className="flex items-center justify-between"><div><span className="text-[8px] font-black tracking-[.15em] text-slate-400" dir="ltr">PLATFORM SIGNAL</span><h2 className="mt-1 text-sm font-black text-slate-950">صورة سريعة للحالة</h2></div><ShieldCheck className="h-5 w-5 text-[#008f87]"/></div><div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3"><Signal label="منشآت منشورة" value={publishedCount} total={businessCount}/><Signal label="منشآت موثقة" value={verifiedCount} total={businessCount}/></div><p className="mt-4 rounded-2xl bg-[#f6faf9] px-4 py-3 text-[10px] leading-5 text-slate-500">هذه الصفحة لا تنتحل جلسات العملاء ولا تغير حالات الفوترة تلقائيًا؛ هي طبقة مراقبة وتشغيل فقط.</p></article>
+    </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Metric title="المستخدمون" value={userCount} icon={<Users className="h-4 w-4" />} />
-        <Metric title="المنشآت" value={businessCount} icon={<Building2 className="h-4 w-4" />} />
-        <Metric title="المنشورة" value={publishedCount} />
-        <Metric title="الموثقة" value={verifiedCount} />
-        <Metric title="طلبات معلقة" value={pendingCount} />
-      </section>
+    <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_12px_40px_-34px_rgba(15,23,42,.4)]">
+      <div className="flex flex-col gap-4 border-b border-slate-100 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex items-center gap-2"><Layers3 className="h-4 w-4 text-[#079b91]"/><h2 className="text-sm font-black text-slate-900">سجل المنشآت</h2></div><p className="mt-1 text-[10px] leading-5 text-slate-400">على الهاتف نعرض أهم بيانات المنشأة كبطاقة؛ الجدول الكامل يبقى للشاشات الأكبر.</p></div><form className="flex min-w-0 gap-2" action="/admin"><div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300"/><input name="q" defaultValue={q} placeholder="ابحث بالاسم، الرابط أو البريد" className="h-11 w-full rounded-xl border border-slate-200 bg-[#f8fbfb] pr-9 pl-3 text-xs outline-none transition placeholder:text-slate-300 focus:border-[#16b9ab] focus:bg-white focus:ring-4 focus:ring-[#16b9ab]/10 sm:w-72"/></div><button className="h-11 rounded-xl bg-[#07181b] px-4 text-xs font-black text-white">بحث</button></form></div>
 
-      <section className="rounded-[24px] border border-[#e7e4f0] bg-white p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><div className="flex items-center gap-2"><Building2 className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black">العملاء والمنشآت</h2></div><p className="mt-1 text-xs text-slate-500">عرض إداري للمنصة فقط؛ لا يتم انتحال جلسة العميل.</p></div>
-          <form className="flex gap-2" action="/admin"><input name="q" defaultValue={q} placeholder="اسم، رابط أو بريد العميل" className="h-10 min-w-0 rounded-xl border border-[#e4e0ec] px-3 text-sm outline-none sm:w-64" /><button className="h-10 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white">بحث</button></form>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[980px] text-right text-xs">
-            <thead><tr className="border-b border-[#ece9f3] text-slate-400"><th className="px-2 py-3">المنشأة</th><th className="px-2 py-3">المالك</th><th className="px-2 py-3">الحالة</th><th className="px-2 py-3">الخطة</th><th className="px-2 py-3">المحتوى</th><th className="px-2 py-3">المعاملات</th><th className="px-2 py-3">آخر تحديث</th><th className="px-2 py-3">إدارة</th></tr></thead>
-            <tbody>{businesses.map((business) => <tr key={business.id} className="border-b border-[#f0edf5] align-top last:border-0">
-              <td className="px-2 py-3"><b className="block text-sm text-[#24294f]">{business.name}</b><span className="mt-1 block text-slate-400">ir.sa/{business.slug}</span><span className="mt-1 block text-slate-500">{business.businessType}{business.city ? ` · ${business.city}` : ""}</span></td>
-              <td className="px-2 py-3"><span className="block font-bold text-slate-700">{business.owner.name}</span><span className="mt-1 block text-slate-400">{business.owner.email}</span></td>
-              <td className="px-2 py-3"><div className="flex flex-wrap gap-1"><Status active={business.isPublished} on="منشورة" off="غير منشورة" /><Status active={business.isVerified} on="موثقة" off="غير موثقة" /><Status active={business.onboardingCompleted} on="مكتملة" off="إعداد" /></div></td>
-              <td className="px-2 py-3 font-black text-[#5d49cc]">{business.plan?.name ?? business.plan?.code ?? "Free"}</td>
-              <td className="px-2 py-3 text-slate-600">{business._count.products} منتج · {business._count.services} خدمة · {business._count.customers} عميل</td>
-              <td className="px-2 py-3 text-slate-600">{business._count.orders} طلب · {business._count.bookings} حجز</td>
-              <td className="px-2 py-3 text-slate-500">{new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium" }).format(business.updatedAt)}</td>
-              <td className="px-2 py-3"><div className="flex items-center gap-2"><Link href={`/admin/businesses/${business.id}`} className="rounded-xl bg-[#f3efff] px-3 py-2 font-black text-[#5d49cc]">التفاصيل</Link><a href={`/${business.slug}`} target="_blank" rel="noreferrer" className="grid h-9 w-9 place-items-center rounded-xl border border-[#e5e1ec] text-slate-500" aria-label={`فتح صفحة ${business.name}`}><ExternalLink className="h-4 w-4" /></a></div></td>
-            </tr>)}{!businesses.length ? <tr><td colSpan={8} className="py-8 text-center text-slate-500">لا توجد نتائج مطابقة.</td></tr> : null}</tbody>
-          </table>
-        </div>
-        <div className="mt-4 flex items-center justify-between text-xs text-slate-500"><span>{filteredCount} منشأة · صفحة {Math.min(page, totalPages)} من {totalPages}</span><div className="flex gap-2">{page > 1 ? <Link href={`/admin?page=${page - 1}${q ? `&q=${encodeURIComponent(q)}` : ""}`} className="rounded-lg border px-3 py-1.5">السابق</Link> : null}{page < totalPages ? <Link href={`/admin?page=${page + 1}${q ? `&q=${encodeURIComponent(q)}` : ""}`} className="rounded-lg border px-3 py-1.5">التالي</Link> : null}</div></div>
-      </section>
+      <div className="space-y-2 bg-[#f8fbfb]/55 p-3 md:hidden">{businesses.map(business=><article key={business.id} className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_10px_34px_-30px_rgba(7,24,27,.5)]"><div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-[#eaf8f6] text-xs font-black text-[#078f86]">{business.name.slice(0,2)}</div><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><b className="block truncate text-sm text-slate-950">{business.name}</b><span className="mt-1 block truncate text-[9px] text-slate-400">ir.sa/{business.slug}</span></div><span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[8px] font-black text-slate-600">{business.plan?.name??business.plan?.code??"Free"}</span></div><p className="mt-2 text-[9px] text-slate-500">{business.businessType}{business.city?` · ${business.city}`:""}</p></div></div><div className="mt-3 flex flex-wrap gap-1"><Status active={business.isPublished} on="منشورة" off="غير منشورة"/><Status active={business.isVerified} on="موثقة" off="غير موثقة"/><Status active={business.onboardingCompleted} on="مكتملة" off="إعداد"/></div><div className="mt-3 grid grid-cols-3 gap-2 rounded-2xl bg-[#f8fbfb] p-2.5"><MiniStat label="المحتوى" value={business._count.products+business._count.services}/><MiniStat label="العملاء" value={business._count.customers}/><MiniStat label="المعاملات" value={business._count.orders+business._count.bookings}/></div><div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3"><div className="min-w-0"><span className="block truncate text-[9px] font-bold text-slate-600">{business.owner.name}</span><span className="mt-0.5 block truncate text-[8px] text-slate-400">{business.owner.email}</span></div><div className="flex shrink-0 gap-2"><Link href={`/admin/businesses/${business.id}`} className="inline-flex h-10 items-center rounded-xl bg-[#07181b] px-3 text-[9px] font-black text-white">التفاصيل</Link><a href={`/${business.slug}`} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-500" aria-label={`فتح صفحة ${business.name}`}><ExternalLink className="h-3.5 w-3.5"/></a></div></div></article>)}{!businesses.length?<div className="rounded-2xl border border-dashed border-slate-300 bg-white py-10 text-center text-sm text-slate-400">لا توجد نتائج مطابقة.</div>:null}</div>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-[24px] border border-[#e7e4f0] bg-white p-4 sm:p-5"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><BadgeCheck className="h-5 w-5 text-blue-600" /><h2 className="font-black">طلبات التوثيق</h2></div><Link href="/admin/requests?type=verification" className="text-[11px] font-black text-[#5d49cc]">عرض الكل</Link></div><div className="mt-4 space-y-2">{verification.length ? verification.map((event) => <article key={event.id} className="flex flex-col gap-3 rounded-2xl border border-[#ece9f3] p-4 sm:flex-row sm:items-center sm:justify-between"><div><b className="text-sm">{event.business.name}</b><span className="mt-1 block text-xs text-slate-500">ir.sa/{event.business.slug} · {event.business.plan?.name ?? "Free"}</span></div><div className="flex items-center gap-2"><Link href={`/admin/businesses/${event.business.id}`} className="rounded-xl border border-[#e5e1ec] px-3 py-2 text-xs font-black">مراجعة</Link>{event.business.isVerified ? <span className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">موثق بالفعل</span> : <form action={approveVerificationAdminAction}><input type="hidden" name="eventId" value={event.id} /><button className="h-9 rounded-xl bg-blue-600 px-4 text-xs font-black text-white">اعتماد</button></form>}</div></article>) : <Empty text="لا توجد طلبات توثيق معلقة." />}</div></div>
-        <div className="rounded-[24px] border border-[#e7e4f0] bg-white p-4 sm:p-5"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><BriefcaseBusiness className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black">طلبات الترقية</h2></div><Link href="/admin/requests?type=upgrade" className="text-[11px] font-black text-[#5d49cc]">عرض الكل</Link></div><div className="mt-4 space-y-2">{upgrades.length ? upgrades.map((event) => { const requestedPlan = String(meta(event.metadata).requestedPlan ?? "BUSINESS").toUpperCase(); const planReady = activePlans.has(requestedPlan); return <article key={event.id} className="flex flex-col gap-3 rounded-2xl border border-[#ece9f3] p-4 sm:flex-row sm:items-center sm:justify-between"><div><b className="text-sm">{event.business.name}</b><span className="mt-1 block text-xs text-slate-500">{event.business.plan?.code ?? "FREE"} ← {requestedPlan}</span>{!planReady ? <span className="mt-1 block text-[11px] font-bold text-rose-600">الباقة {requestedPlan} غير مهيأة.</span> : null}</div><div className="flex items-center gap-2"><Link href={`/admin/businesses/${event.business.id}`} className="rounded-xl border border-[#e5e1ec] px-3 py-2 text-xs font-black">مراجعة</Link>{manualPaidActivation ? <form action={approvePlanUpgradeAdminAction}><input type="hidden" name="eventId" value={event.id} /><button disabled={!planReady} className="h-9 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white disabled:bg-slate-300">اعتماد</button></form> : <span className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-600">يتطلب دفعًا موثقًا</span>}</div></article>; }) : <Empty text="لا توجد طلبات ترقية معلقة." />}</div></div>
-      </section>
+      <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[1060px] text-right text-xs"><thead className="bg-[#f8fbfb]"><tr className="text-[9px] font-black text-slate-400"><th className="px-5 py-3">المنشأة</th><th className="px-3 py-3">المالك</th><th className="px-3 py-3">الحالة</th><th className="px-3 py-3">الخطة</th><th className="px-3 py-3">المحتوى</th><th className="px-3 py-3">المعاملات</th><th className="px-3 py-3">آخر تحديث</th><th className="px-5 py-3">إدارة</th></tr></thead><tbody>{businesses.map(business=><tr key={business.id} className="border-t border-slate-100 align-middle transition hover:bg-[#fbfefe]"><td className="px-5 py-4"><div className="flex items-center gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#eaf8f6] text-xs font-black text-[#078f86]">{business.name.slice(0,2)}</div><div><b className="block text-[12px] text-slate-900">{business.name}</b><span className="mt-1 block text-[9px] text-slate-400">ir.sa/{business.slug}</span><span className="mt-0.5 block text-[9px] text-slate-500">{business.businessType}{business.city?` · ${business.city}`:""}</span></div></div></td><td className="px-3 py-4"><span className="block text-[11px] font-bold text-slate-700">{business.owner.name}</span><span className="mt-1 block text-[9px] text-slate-400">{business.owner.email}</span></td><td className="px-3 py-4"><div className="flex flex-wrap gap-1"><Status active={business.isPublished} on="منشورة" off="غير منشورة"/><Status active={business.isVerified} on="موثقة" off="غير موثقة"/><Status active={business.onboardingCompleted} on="مكتملة" off="إعداد"/></div></td><td className="px-3 py-4"><span className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-[9px] font-black text-slate-700">{business.plan?.name??business.plan?.code??"Free"}</span></td><td className="px-3 py-4 text-[9px] leading-5 text-slate-500">{business._count.products} منتج · {business._count.services} خدمة<br/>{business._count.customers} عميل</td><td className="px-3 py-4 text-[9px] leading-5 text-slate-500">{business._count.orders} طلب<br/>{business._count.bookings} حجز</td><td className="px-3 py-4 text-[9px] text-slate-400">{new Intl.DateTimeFormat("ar-SA",{dateStyle:"medium",timeZone:"Asia/Riyadh"}).format(business.updatedAt)}</td><td className="px-5 py-4"><div className="flex items-center gap-2"><Link href={`/admin/businesses/${business.id}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[9px] font-black text-slate-700">التفاصيل</Link><a href={`/${business.slug}`} target="_blank" rel="noreferrer" className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label={`فتح صفحة ${business.name}`}><ExternalLink className="h-3.5 w-3.5"/></a></div></td></tr>)}{!businesses.length?<tr><td colSpan={8} className="py-12 text-center text-sm text-slate-400">لا توجد نتائج مطابقة.</td></tr>:null}</tbody></table></div>
+      <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-[9px] text-slate-400 sm:px-5"><span>{filteredCount} منشأة · صفحة {Math.min(page,totalPages)} من {totalPages}</span><div className="flex gap-2">{page>1?<Link href={`/admin?page=${page-1}${q?`&q=${encodeURIComponent(q)}`:""}`} className="rounded-lg border border-slate-200 px-3 py-1.5 font-bold text-slate-600">السابق</Link>:null}{page<totalPages?<Link href={`/admin?page=${page+1}${q?`&q=${encodeURIComponent(q)}`:""}`} className="rounded-lg border border-slate-200 px-3 py-1.5 font-bold text-slate-600">التالي</Link>:null}</div></div>
+    </section>
 
-      {!manualPaidActivation && upgrades.length ? <section className="rounded-[20px] border border-blue-200 bg-blue-50 p-4 text-xs leading-6 text-blue-900"><p><b>حماية الباقات المدفوعة:</b> طلبات الترقية القديمة معروضة للمراجعة فقط. لا يمكن للإدارة منح BUSINESS أو PRO يدويًا في بيئة التشغيل؛ التفعيل يتم حصريًا بعد دفع موثق ومسجل في دفتر الفوترة.</p></section> : null}
-
-      <section className="rounded-[20px] border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900"><div className="flex gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><p><b>حدود صلاحية الإدارة:</b> هذه اللوحة تعرض بيانات التشغيل وتنفذ إجراءات الإدارة الصريحة فقط. لا توجد جلسة انتحال للعميل في هذه الجولة، وأي ميزة دعم تدخل إلى حساب عميل مستقبلًا يجب أن تسجل من دخل ولماذا ومتى.</p></div></section>
-    </div>
-  </main>;
+    {(verification.length||upgrades.length)?<section className="grid gap-4 xl:grid-cols-2"><QueueCard title="أحدث طلبات التوثيق" icon={<BadgeCheck className="h-4 w-4"/>}>{verification.slice(0,4).map(event=><article key={event.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-[#fbfcfc] p-3.5 sm:flex-row sm:items-center sm:justify-between"><div><b className="text-xs text-slate-800">{event.business.name}</b><span className="mt-1 block text-[9px] text-slate-400">ir.sa/{event.business.slug}</span></div><div className="flex gap-2"><Link href={`/admin/businesses/${event.business.id}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[9px] font-black">مراجعة</Link>{event.business.isVerified?<span className="rounded-lg bg-blue-50 px-3 py-2 text-[9px] font-black text-blue-700">موثق</span>:<form action={approveVerificationAdminAction}><input type="hidden" name="eventId" value={event.id}/><button className="h-10 rounded-lg bg-blue-600 px-3 text-[9px] font-black text-white">اعتماد</button></form>}</div></article>)}</QueueCard><QueueCard title="أحدث طلبات الترقية" icon={<BriefcaseBusiness className="h-4 w-4"/>}>{upgrades.slice(0,4).map(event=>{const requestedPlan=String(meta(event.metadata).requestedPlan??"BUSINESS").toUpperCase();const planReady=activePlans.has(requestedPlan);return <article key={event.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-[#fbfcfc] p-3.5 sm:flex-row sm:items-center sm:justify-between"><div><b className="text-xs text-slate-800">{event.business.name}</b><span className="mt-1 block text-[9px] text-slate-400">{event.business.plan?.code??"FREE"} ← {requestedPlan}</span></div><div className="flex gap-2"><Link href={`/admin/businesses/${event.business.id}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[9px] font-black">مراجعة</Link>{manualPaidActivation&&planReady?<form action={approvePlanUpgradeAdminAction}><input type="hidden" name="eventId" value={event.id}/><input type="hidden" name="requestedPlan" value={requestedPlan}/><button className="h-10 rounded-lg bg-[#07181b] px-3 text-[9px] font-black text-white">اعتماد</button></form>:<span className="inline-flex min-h-10 items-center rounded-lg bg-amber-50 px-3 py-2 text-[9px] font-black text-amber-700">يتطلب دفعًا موثقًا</span>}</div></article>})}</QueueCard></section>:null}
+  </div>;
 }
 
-function Metric({ title, value, icon }: { title: string; value: number; icon?: React.ReactNode }) { return <article className="rounded-[20px] border border-[#e7e4f0] bg-white p-4"><span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">{icon}{title}</span><b className="mt-1 block text-2xl font-black">{value}</b></article>; }
-function Status({ active, on, off }: { active: boolean; on: string; off: string }) { return <span className={`rounded-full px-2 py-1 text-[10px] font-black ${active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{active ? on : off}</span>; }
-function Empty({ text }: { text: string }) { return <div className="rounded-2xl bg-[#faf9fd] px-4 py-6 text-center text-sm text-slate-500">{text}</div>; }
+function HeroMetric({label,value,icon}:{label:string;value:number|string;icon:ReactNode}){return <div className="flex min-h-[92px] items-center gap-3 border-b border-l border-white/[.07] p-3 sm:min-h-[105px] sm:p-4"><span className="grid h-9 w-9 place-items-center rounded-xl bg-white/[.055] text-[#66e7d5]">{icon}</span><div><b className="block text-lg text-white sm:text-xl">{typeof value==="number"?new Intl.NumberFormat("ar-SA").format(value):value}</b><span className="mt-1 block text-[8px] font-bold text-slate-500">{label}</span></div></div>}
+function QueueSummary({href,icon,title,count,tone}:{href:string;icon:ReactNode;title:string;count:number;tone:"blue"|"teal"}){return <Link href={href} className="group rounded-2xl border border-slate-100 bg-[#fbfcfc] p-4 transition hover:border-[#bdebe5] hover:bg-white"><div className="flex items-center justify-between"><span className={`grid h-9 w-9 place-items-center rounded-xl ${tone==="blue"?"bg-blue-50 text-blue-600":"bg-[#e9fbf8] text-[#008f87]"}`}>{icon}</span><ArrowLeft className="h-3.5 w-3.5 text-slate-300 transition group-hover:-translate-x-1"/></div><b className="mt-4 block text-2xl text-slate-950">{count}</b><span className="mt-1 block text-[10px] font-bold text-slate-500">{title}</span></Link>}
+function Signal({label,value,total}:{label:string;value:number;total:number}){const pct=total?Math.round(value/total*100):0;return <div className="rounded-2xl border border-slate-100 p-3"><div className="flex items-end justify-between gap-2"><span className="text-[9px] font-bold text-slate-500">{label}</span><b className="text-sm text-slate-900">{pct}%</b></div><div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#00bfae]" style={{width:`${pct}%`}}/></div><span className="mt-2 block text-[8px] text-slate-400">{value} من {total}</span></div>}
+function MiniStat({label,value}:{label:string;value:number}){return <div className="min-w-0 text-center"><b className="block text-sm text-slate-900">{new Intl.NumberFormat("ar-SA").format(value)}</b><span className="mt-0.5 block truncate text-[8px] font-bold text-slate-400">{label}</span></div>}
+function Status({active,on,off}:{active:boolean;on:string;off:string}){return <span className={`rounded-full px-2 py-1 text-[8px] font-black ${active?"bg-emerald-50 text-emerald-700":"bg-slate-100 text-slate-500"}`}>{active?on:off}</span>}
+function QueueCard({title,icon,children}:{title:string;icon:ReactNode;children:ReactNode}){return <article className="rounded-[24px] border border-slate-200 bg-white p-4"><div className="mb-3 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#e9fbf8] text-[#008f87]">{icon}</span><h2 className="text-xs font-black text-slate-900">{title}</h2></div><div className="space-y-2">{children}</div></article>}

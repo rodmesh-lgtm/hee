@@ -1,21 +1,4 @@
 "use client";
-
 import { useEffect } from "react";
-
-export default function AdminError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => {
-    console.error("[admin] render_failed", { digest: error.digest, message: error.message });
-  }, [error]);
-
-  return (
-    <main dir="rtl" className="min-h-screen bg-[#f7f8fb] px-4 py-12 text-[#1f2552] sm:px-6">
-      <section className="mx-auto max-w-xl rounded-[26px] border border-rose-200 bg-white p-6 text-center shadow-sm sm:p-8" role="alert" aria-live="assertive">
-        <span className="text-2xl font-black tracking-[-.08em] text-[#6f3bd2]">iR</span>
-        <h1 className="mt-4 text-xl font-black">تعذر تحميل إدارة المنصة</h1>
-        <p className="mt-2 text-sm leading-7 text-slate-500">لم يتم تنفيذ أي إجراء إداري من هذه الشاشة. أعد المحاولة، وإذا استمرت المشكلة راجع سجلات التشغيل قبل اعتماد أي طلب.</p>
-        {error.digest ? <p className="mt-2 text-[11px] text-slate-400">مرجع الخطأ: {error.digest}</p> : null}
-        <button type="button" onClick={reset} className="mt-5 rounded-xl bg-[#6f3bd2] px-5 py-2.5 text-sm font-black text-white">إعادة المحاولة</button>
-      </section>
-    </main>
-  );
-}
+import { AlertTriangle, RefreshCw, ShieldCheck } from "lucide-react";
+export default function AdminError({error,reset}:{error:Error&{digest?:string};reset:()=>void}){useEffect(()=>{console.error("[admin] render_failed",{digest:error.digest,message:error.message})},[error]);return <div dir="rtl" className="grid min-h-[65vh] place-items-center px-4"><section className="relative w-full max-w-xl overflow-hidden rounded-[28px] border border-slate-200 bg-white p-7 text-center shadow-[0_18px_60px_rgba(15,23,42,.07)]" role="alert" aria-live="assertive"><div className="absolute -left-16 -top-20 h-48 w-48 rounded-full bg-rose-100/70 blur-3xl"/><div className="relative"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-50 text-rose-600"><AlertTriangle className="h-6 w-6"/></div><p className="mt-5 text-[9px] font-black tracking-[.18em] text-[#008f87]" dir="ltr">INFRO CONTROL CENTER</p><h1 className="mt-2 text-xl font-black text-slate-950">تعذر تحميل هذه المساحة</h1><p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">لم يُنفّذ أي إجراء إداري نتيجة هذا الخطأ. يمكنك إعادة المحاولة بأمان، وإذا استمرت المشكلة فيجب مراجعة سجلات التشغيل قبل اعتماد أي تغيير.</p>{error.digest?<code dir="ltr" className="mt-4 inline-flex rounded-lg bg-slate-50 px-3 py-2 text-[10px] text-slate-400">ref: {error.digest}</code>:null}<div className="mt-6 flex flex-wrap items-center justify-center gap-3"><button type="button" onClick={reset} className="inline-flex items-center gap-2 rounded-xl bg-[#07181b] px-5 py-2.5 text-xs font-black text-white transition hover:bg-[#0d2a2e]"><RefreshCw className="h-4 w-4"/>إعادة المحاولة</button><span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><ShieldCheck className="h-4 w-4 text-emerald-500"/>لم تُطبق تغييرات جزئية</span></div></div></section></div>}

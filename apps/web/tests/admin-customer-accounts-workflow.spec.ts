@@ -52,9 +52,9 @@ test.describe.serial("central admin customer accounts", () => {
       await expect(page.getByRole("heading", { name: "العملاء والحسابات" })).toBeVisible();
       const row = page.getByRole("row").filter({ hasText: f.ownerEmail });
       await expect(row).toBeVisible();
-      await expect(row.getByText("موثق", { exact: true })).toBeVisible();
+      await expect(row.getByText("● موثق", { exact: true })).toBeVisible();
       await expect(row.getByText(/google/)).toBeVisible();
-      await row.getByRole("link", { name: "فتح الحساب" }).click();
+      await row.getByRole("link", { name: "فتح" }).click();
 
       await expect(page.getByRole("heading", { name: "RC Account Owner" })).toBeVisible();
       await expect(page.getByText("google", { exact: true }).first()).toBeVisible();

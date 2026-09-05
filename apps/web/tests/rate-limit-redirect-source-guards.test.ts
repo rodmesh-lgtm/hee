@@ -13,7 +13,7 @@ test("email verification rate-limit redirect happens after the limiter try/catch
 
 test("company profile rate-limit redirect is not swallowed as a limiter failure", () => {
   assert.match(digitalIdentity, /let rateAllowed = false;[\s\S]*rateAllowed = rate\.allowed;[\s\S]*if \(!rateAllowed\) redirect\("\/dashboard\/digital-identity\?profile=rate-limited"\);/);
-  assert.match(digitalIdentityPage, /profile === "rate-limited"/);
+  assert.match(digitalIdentityPage, /profile==="rate-limited"/);
   assert.match(digitalIdentityPage, /تم تجاوز عدد محاولات رفع الملف مؤقتًا/);
 });
 

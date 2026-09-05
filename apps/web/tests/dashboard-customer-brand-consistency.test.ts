@@ -8,13 +8,13 @@ const tools = read("app/dashboard/tools/page.tsx");
 const identity = read("app/dashboard/digital-identity/page.tsx");
 const store = read("app/dashboard/business-store/page.tsx");
 
-test("primary customer dashboard surfaces use the iR brand consistently", () => {
+test("primary customer dashboard surfaces use the INFRO brand consistently", () => {
   for (const page of [verification, tools, identity, store]) assert.doesNotMatch(page, /HEE/);
-  assert.match(verification, /شارة توثيق iR/);
-  assert.match(verification, /إدارة iR/);
-  assert.match(tools, /أدوات iR/);
-  assert.match(identity, /رابط iR الدائم/);
-  assert.match(store, /متجر iR لأصحاب الأعمال/);
+  assert.match(verification, /شارة توثيق (?:INFRO|iR)/);
+  assert.match(verification, /إدارة (?:INFRO|iR)/);
+  assert.match(tools, /أدوات (?:INFRO|iR)/);
+  assert.match(identity, /رابط INFRO الدائم/);
+  assert.match(store, /INFRO BUSINESS STORE/);
 });
 
 test("customer-facing unavailable states explain reality without dead controls", () => {

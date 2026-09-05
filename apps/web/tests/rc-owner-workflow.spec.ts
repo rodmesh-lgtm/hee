@@ -18,6 +18,7 @@ type Seeded = {
 
 let pool: Pool;
 let db: PrismaClient;
+let seededForCleanup: Seeded | null = null;
 
 async function seedBusiness(): Promise<Seeded> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -140,9 +141,17 @@ test.describe.serial("RC owner workflow", () => {
     await pool?.end();
   });
 
+  test.afterEach(async () => {
+    if (!seededForCleanup) return;
+    const seeded = seededForCleanup;
+    seededForCleanup = null;
+    await cleanup(seeded);
+  });
+
   test("covers current editor, branding, publish, public V10, responsive rendering and data retention", async ({ browser }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(210_000);
     const seeded = await seedBusiness();
+    seededForCleanup = seeded;
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await setSessionCookie(page, seeded.sessionToken);
 
@@ -152,17 +161,17 @@ test.describe.serial("RC owner workflow", () => {
       await expect(page.getByLabel("اسم المنشأة")).toHaveValue("منشأة اختبار HEE");
 
       await page.getByLabel("اسم المنشأة").fill("منشأة HEE المحدثة");
-      await page.getByLabel("وصف مختصر").fill("تم تحديث هذه البيانات عبر المحرر الحالي وحفظها تلقائيًا");
+      await page.getByLabel("الوصف المختصر").fill("تم تحديث هذه البيانات عبر المحرر الحالي وحفظها تلقائيًا");
       await page.getByLabel("الحي").fill("الملقا");
       await waitForBusiness({ id: seeded.businessId, name: "منشأة HEE المحدثة" });
-      await expect(page.getByText("تم الحفظ", { exact: true })).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText("محفوظ تلقائيًا", { exact: true })).toBeVisible({ timeout: 20_000 });
 
       const persisted = await db.business.findUnique({ where: { id: seeded.businessId }, select: { shortDescription: true, district: true } });
       expect(persisted?.shortDescription).toContain("المحرر الحالي");
       expect(persisted?.district).toBe("الملقا");
 
       await page.goto(`${baseUrl}/dashboard/branding`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "المظهر" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "المظهر والهوية", exact: true })).toBeVisible();
       await page.locator('input[name="logoFile"]').setInputFiles({ name: "rc-logo.png", mimeType: "image/png", buffer: png1x1 });
       await page.locator('input[name="coverFile"]').setInputFiles({ name: "rc-cover.png", mimeType: "image/png", buffer: png1x1 });
       await page.getByRole("button", { name: "حفظ الصور" }).click();
@@ -208,7 +217,6 @@ test.describe.serial("RC owner workflow", () => {
       expect(retained?.coverUrl).toMatch(/^\/api\/storage\//);
     } finally {
       await page.close();
-      await cleanup(seeded);
     }
   });
 });

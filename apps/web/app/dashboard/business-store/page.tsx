@@ -1,47 +1,36 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, ExternalLink, PackageCheck, QrCode, ShoppingBag, Sparkles } from "lucide-react";
+import { BadgeCheck,ExternalLink,PackageCheck,QrCode,ShoppingBag,Sparkles,ArrowLeft,Layers3,ShieldCheck } from "lucide-react";
 import { BusinessStoreDraftBuilder } from "../../../components/business-store/business-store-draft-builder";
 import { getActiveBusinessForUser } from "../../lib/active-business";
 import { getCurrentUser } from "../../lib/auth";
 import { listBusinessStoreCatalogItems } from "../../lib/business-store-catalog";
 
-export default async function BusinessStorePage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const business = await getActiveBusinessForUser(user.id);
-  if (!business) redirect("/onboarding");
+export default async function BusinessStorePage(){
+  const user=await getCurrentUser();
+  if(!user)redirect("/login");
+  const business=await getActiveBusinessForUser(user.id);
+  if(!business)redirect("/onboarding");
+  const catalog=await listBusinessStoreCatalogItems();
+  const publicUrl=`https://ir.sa/${business.slug}`;
+  const identityReady=Boolean(business.logoUrl&&business.name&&business.slug);
 
-  const [catalog] = await Promise.all([listBusinessStoreCatalogItems()]);
-  const publicUrl = `https://ir.sa/${business.slug}`;
-  const identityReady = Boolean(business.logoUrl && business.name && business.slug);
-
-  return <div className="space-y-4 pb-4">
-    <section className="overflow-hidden rounded-[28px] border border-[#e7e9f4] bg-white">
-      <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.25fr_.75fr] lg:items-center">
-        <div>
-          <div className="flex items-center gap-2 text-[#6f3bd2]"><ShoppingBag className="h-5 w-5" /><span className="text-xs font-black">متجر iR لأصحاب الأعمال</span></div>
-          <h1 className="mt-3 text-2xl font-black leading-tight text-[#20264f] sm:text-3xl">حوّل هويتك الرقمية إلى منتجات أعمال حقيقية</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">منتجات مكتبية وتسويقية مخصصة بهوية منشأتك، مع ربطها بصفحتك على iR عبر QR. مشترياتك هنا منفصلة تمامًا عن الطلبات التي يستقبلها نشاطك من عملائه.</p>
-          <div className="mt-4 flex flex-wrap gap-2"><span className="rounded-full bg-[#f1edff] px-3 py-1.5 text-xs font-black text-[#5d49cc]">تخصيص بهوية المنشأة</span><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">QR لصفحة الأعمال</span><span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">منتجات مادية للأعمال</span></div>
-        </div>
-        <div className="rounded-[24px] border border-[#e8e4f7] bg-[#faf9ff] p-4">
-          <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-[#6f3bd2]" /><h2 className="text-sm font-black text-[#20264f]">هوية الطلب الحالية</h2></div>
-          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-white p-3"><div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-[#ece9f8] bg-[#f6f3ff]"><BadgeCheck className="h-6 w-6 text-[#6f3bd2]" /></div><div className="min-w-0"><div className="truncate text-sm font-black text-[#20264f]">{business.name}</div><code dir="ltr" className="mt-1 block truncate text-[10px] text-slate-400">{publicUrl}</code></div></div>
-          <div className={`mt-3 rounded-xl border px-3 py-2 text-xs font-bold ${identityReady ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{identityReady ? "✓ الهوية جاهزة لتخصيص منتجات المتجر." : "أضف شعار المنشأة قبل اعتماد أي تصميم للطباعة."}</div>
-          <Link href="/dashboard/digital-identity" className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#ddd8f4] bg-white px-3 text-xs font-black text-[#5d49cc]">مراجعة الهوية الرقمية <ExternalLink className="h-3.5 w-3.5" /></Link>
-        </div>
+  return <div className="space-y-4 pb-4 sm:space-y-5">
+    <section className="relative overflow-hidden rounded-[28px] border border-[#17383b] bg-[#07181b] text-white shadow-[0_26px_72px_-44px_rgba(7,24,27,.75)]">
+      <div className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#00d8c6]/18 blur-3xl"/>
+      <div className="relative grid xl:grid-cols-[1fr_360px]">
+        <div className="p-5 sm:p-7"><div className="flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[.05] px-2.5 py-1 text-[8px] font-black tracking-[.16em] text-[#72efdd]" dir="ltr"><ShoppingBag className="h-3.5 w-3.5"/>INFRO BUSINESS STORE</span><span className={`rounded-full px-2.5 py-1 text-[8px] font-black ${identityReady?"bg-emerald-300/12 text-emerald-200":"bg-amber-300/12 text-amber-200"}`}>{identityReady?"IDENTITY READY":"IDENTITY INCOMPLETE"}</span></div><h1 className="mt-4 max-w-2xl text-2xl font-black leading-tight sm:text-3xl">حوّل حضورك الرقمي إلى أصول أعمال ملموسة</h1><p className="mt-2 max-w-2xl text-xs leading-6 text-slate-400 sm:text-sm">اختر المنتج، طبّق هوية منشأتك وQR صفحتك، ثم راجع المسودة قبل أي خطوة دفع أو تنفيذ.</p><div className="mt-5 flex flex-wrap gap-2"><span className="rounded-xl border border-white/10 bg-white/[.04] px-3 py-2 text-[9px] font-black text-[#8ff5e6]">هوية المنشأة</span><span className="rounded-xl border border-white/10 bg-white/[.04] px-3 py-2 text-[9px] font-black text-[#8ff5e6]">QR للصفحة</span><span className="rounded-xl border border-white/10 bg-white/[.04] px-3 py-2 text-[9px] font-black text-slate-300">مراجعة قبل التنفيذ</span></div></div>
+        <div className="border-t border-white/[.08] bg-white/[.025] p-4 sm:p-5 xl:border-r xl:border-t-0"><span className="text-[8px] font-black tracking-[.15em] text-slate-500" dir="ltr">ORDER IDENTITY</span><div className="mt-3 flex items-center gap-3 rounded-2xl border border-white/[.07] bg-white/[.04] p-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#35e4cb]/10 text-[#6eead8]"><BadgeCheck className="h-5 w-5"/></span><div className="min-w-0"><b className="block truncate text-xs">{business.name}</b><code dir="ltr" className="mt-1 block truncate text-[9px] text-slate-500">{publicUrl}</code></div></div><div className={`mt-3 rounded-2xl border px-3 py-3 text-[10px] font-bold leading-5 ${identityReady?"border-emerald-400/20 bg-emerald-400/10 text-emerald-200":"border-amber-300/20 bg-amber-300/10 text-amber-200"}`}>{identityReady?"الهوية جاهزة للاستخدام في تخصيص المنتجات.":"أكمل الشعار والهوية قبل اعتماد تصميم للطباعة."}</div><Link href="/dashboard/digital-identity" className="mt-3 inline-flex min-h-10 items-center gap-1.5 text-[10px] font-black text-[#6eead8]">مراجعة الهوية <ArrowLeft className="h-3 w-3"/></Link></div>
       </div>
     </section>
 
-    <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><div className="flex items-center gap-2"><PackageCheck className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">منتجات متجر الأعمال</h2></div><p className="mt-1 text-xs leading-6 text-slate-500">يعرض هذا القسم المنتجات النشطة التي تديرها iR مركزيًا. السعر والحد الأقصى للكمية يعاد التحقق منهما من الخادم عند كل حفظ.</p></div><span className="rounded-full bg-[#f1edff] px-3 py-1.5 text-xs font-black text-[#6543ce]">{catalog.length} منتج متاح</span></div>
-      <div className="mt-5">{catalog.length ? <BusinessStoreDraftBuilder catalog={catalog} /> : <div className="rounded-2xl border border-dashed border-[#dcd7ec] bg-[#faf9fd] p-8 text-center"><b className="block text-sm text-[#303653]">لا توجد منتجات متاحة حاليًا</b><p className="mt-2 text-xs leading-6 text-slate-500">لا تحتاج إلى إجراء شيء الآن. ستظهر المنتجات هنا تلقائيًا عند تفعيلها في متجر الأعمال.</p></div>}</div>
-    </section>
+    <section className="grid gap-3 sm:grid-cols-3"><InfoCard icon={<PackageCheck className="h-4 w-4"/>} eyebrow="CATALOG" title={`${catalog.length} منتج متاح`} text="المنتجات النشطة فقط تظهر هنا."/><InfoCard icon={<Layers3 className="h-4 w-4"/>} eyebrow="DRAFT" title="مسودة مستقلة" text="الحفظ لا ينشئ دفعًا ولا يغيّر الباقة."/><InfoCard icon={<ShieldCheck className="h-4 w-4"/>} eyebrow="SERVER CHECK" title="تحقق عند كل حفظ" text="السعر والكمية يعاد التحقق منهما من الخادم."/></section>
 
-    <section className="grid gap-4 lg:grid-cols-2">
-      <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><h2 className="font-black text-[#20264f]">دورة الطلب</h2><div className="mt-4 space-y-2 text-xs leading-6 text-slate-600"><p>1. <b>مفعّل الآن:</b> اختيار المنتج والكمية وحفظها في مسودة مرتبطة بمنشأتك.</p><p>2. سحب اسم المنشأة والشعار والرابط والألوان من الهوية الرقمية.</p><p>3. معاينة التصميم ثم اعتماد نسخة ثابتة للطباعة.</p><p>4. العنوان والشحن والدفع ثم التجهيز والتسليم.</p></div></article>
-      <article className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><QrCode className="h-5 w-5 text-[#6f3bd2]" /><h2 className="font-black text-[#20264f]">فصل مالي وتشغيلي</h2></div><p className="mt-3 text-xs leading-6 text-slate-500">مسودة متجر iR مستقلة عن طلبات زبائن المنشأة وعن اشتراك iR المتكرر. حفظ المنتجات هنا لا ينشئ دفعة ولا يغيّر الباقة. سيُفتح الدفع فقط بعد إضافة مسار متجر مستقل وآمن.</p></article>
-    </section>
+    <section className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-[0_18px_50px_-42px_rgba(7,24,27,.45)] sm:p-6"><div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><PackageCheck className="h-4 w-4"/></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">PRODUCT CONFIGURATOR</span><h2 className="mt-1 text-sm font-black text-slate-950 sm:text-base">ابنِ مسودة طلبك</h2><p className="mt-1 text-[10px] leading-5 text-slate-400">ابدأ بالمنتج، ثم الكمية والتخصيص. الواجهة أدناه هي مساحة التنفيذ الفعلية.</p></div></div><span className="inline-flex w-fit rounded-full bg-[#e9fbf8] px-3 py-1.5 text-[10px] font-black text-[#008f87]">{catalog.length} AVAILABLE</span></div><div className="mt-5">{catalog.length?<BusinessStoreDraftBuilder catalog={catalog}/>:<div className="rounded-[20px] border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center"><b className="block text-sm">لا توجد منتجات متاحة حاليًا</b><p className="mt-2 text-xs leading-6 text-slate-400">ستظهر المنتجات هنا تلقائيًا عند تفعيلها في متجر الأعمال.</p></div>}</div></section>
+
+    <section className="grid gap-4 lg:grid-cols-[1.15fr_.85fr]"><article className="rounded-[24px] border border-slate-200 bg-white p-4 sm:p-5"><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">ORDER JOURNEY</span><h2 className="mt-1 text-sm font-black text-slate-950">من المسودة إلى التسليم</h2><div className="mt-4 grid gap-2 sm:grid-cols-2">{["اختيار المنتج والكمية وحفظها في مسودة المنشأة.","تطبيق الاسم والشعار والرابط والألوان من الهوية الرقمية.","معاينة نسخة ثابتة قبل اعتماد التنفيذ.","العنوان والشحن والدفع ثم التجهيز والتسليم."].map((x,i)=><div key={x} className="flex gap-3 rounded-2xl border border-slate-100 bg-[#fbfdfd] p-3"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#07181b] text-[9px] font-black text-[#6eead8]">0{i+1}</span><p className="text-[10px] leading-5 text-slate-500">{x}</p></div>)}</div></article><article className="relative overflow-hidden rounded-[24px] bg-[#0a2225] p-5 text-white"><div className="absolute -left-10 -bottom-10 h-36 w-36 rounded-full bg-[#00d8c6]/12 blur-3xl"/><div className="relative flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/[.06] text-[#6eead8]"><QrCode className="h-4 w-4"/></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#6eead8]" dir="ltr">FINANCIAL ISOLATION</span><h2 className="mt-1 text-sm font-black">فصل مالي وتشغيلي</h2></div></div><p className="relative mt-4 text-[10px] leading-6 text-slate-400">مسودة متجر INFRO مستقلة عن طلبات زبائن المنشأة وعن الاشتراك المتكرر. الحفظ هنا لا ينشئ دفعة ولا يغيّر الباقة.</p><Link href="/dashboard/digital-identity" className="relative mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-3 text-[10px] font-black text-[#6eead8]"><ExternalLink className="h-3.5 w-3.5"/>أصول الهوية</Link></article></section>
   </div>;
 }
+
+function InfoCard({icon,eyebrow,title,text}:{icon:ReactNode;eyebrow:string;title:string;text:string}){return <article className="rounded-[20px] border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]">{icon}</span><span className="text-[8px] font-black tracking-[.12em] text-slate-300" dir="ltr">{eyebrow}</span></div><b className="mt-3 block text-xs text-slate-900">{title}</b><p className="mt-1 text-[9px] leading-5 text-slate-400">{text}</p></article>}

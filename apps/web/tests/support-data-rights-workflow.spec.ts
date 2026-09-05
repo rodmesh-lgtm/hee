@@ -38,7 +38,7 @@ test.describe.serial("customer support and data rights", () => {
     try {
       await setSession(page, ownerToken);
       await page.goto(`${baseUrl}/dashboard/support`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "الدعم والمساعدة" })).toBeVisible();
+      await expect(page.locator("#dashboard-main-content").getByRole("heading", { name: "الدعم والمساعدة" })).toBeVisible();
       await page.locator('select[name="category"]').selectOption("technical");
       await page.getByPlaceholder("صف المشكلة باختصار").fill("مشكلة اختبار الدعم");
       await page.getByPlaceholder(/اذكر التفاصيل/).fill("تفاصيل فنية لاختبار مسار دعم العميل وربط الطلب بالمنشأة الصحيحة.");
@@ -65,8 +65,8 @@ test.describe.serial("customer support and data rights", () => {
       const ticket = page.locator("article").filter({ hasText: "مشكلة اختبار الدعم" });
       await expect(ticket).toContainText("منشأة دعم الاختبار");
       const resolutionNote = "تم التحقق من طلب الاختبار ومعالجته وإبلاغ العميل بالنتيجة.";
-      await ticket.getByRole("textbox", { name: "نتيجة المعالجة للعميل" }).fill(resolutionNote);
-      await ticket.getByRole("button", { name: "حفظ النتيجة وإغلاق الطلب" }).click();
+      await ticket.getByRole("textbox", { name: "الرد النهائي للعميل" }).fill(resolutionNote);
+      await ticket.getByRole("button", { name: "حفظ وإغلاق الطلب" }).click();
       await expect(page).toHaveURL(/done=resolved/);
 
       await setSession(page, ownerToken);

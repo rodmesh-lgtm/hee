@@ -6,10 +6,10 @@ const source = readFileSync("app/dashboard/whatsapp/integrations/page.tsx", "utf
 
 test("WhatsApp commerce integrations explain provider readiness in customer language", () => {
   assert.match(source, /Shopify متاح للربط الرسمي الآن/);
-  assert.match(source, /سلة وزد يبقيان في مرحلة الإعداد/);
-  assert.match(source, /بحاجة إلى إكمال الربط/);
-  assert.match(source, /أحداث المتجر جاهزة/);
-  assert.match(source, /إعادة تجهيز أحداث المتجر/);
+  assert.match(source, /تبقى سلة وزد مغلقتين تشغيليًا/);
+  assert.match(source, /يكتمل الربط الرسمي/);
+  assert.match(source, /ربط أحداث الطلبات والسلال/);
+  assert.match(source, /إعادة تجهيز الأحداث/);
   assert.match(source, /إضافة أول متجر/);
   assert.match(source, /href="#store-integration-create"/);
   assert.match(source, /aria-live="polite"/);

@@ -1,13 +1,1 @@
-export default function DashboardLoading() {
-  return (
-    <div className="space-y-4 rounded-[28px] border border-[#e9e7f3] bg-white p-6 shadow-[0_12px_32px_-28px_rgba(58,35,75,.28)]">
-      <div className="h-8 w-40 animate-pulse rounded-2xl bg-[#eee9f7]" />
-      <div className="h-4 w-3/4 animate-pulse rounded-full bg-[#f2eef8]" />
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="h-28 animate-pulse rounded-3xl bg-[#f7f4fb]" />
-        <div className="h-28 animate-pulse rounded-3xl bg-[#f7f4fb]" />
-        <div className="h-28 animate-pulse rounded-3xl bg-[#f7f4fb]" />
-      </div>
-    </div>
-  );
-}
+export default function DashboardLoading(){const pulse="motion-safe:animate-pulse";return <div className="space-y-4" aria-busy="true" aria-live="polite" aria-label="جاري تحميل مساحة INFRO"><section className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-5 sm:p-6"><div className="absolute -left-16 -top-20 h-48 w-48 rounded-full bg-[#c9f8f0]/70 blur-3xl"/><div className="relative grid gap-5 lg:grid-cols-[1fr_260px]"><div><div className={`h-5 w-32 rounded-full bg-[#e9fbf8] ${pulse}`}/><div className={`mt-4 h-8 w-56 max-w-[72%] rounded-xl bg-slate-100 ${pulse}`}/><div className={`mt-3 h-3 w-80 max-w-[88%] rounded bg-slate-100 ${pulse}`}/><div className="mt-6 flex gap-2"><div className={`h-10 w-28 rounded-xl bg-[#dff8f4] ${pulse}`}/><div className={`h-10 w-24 rounded-xl bg-slate-100 ${pulse}`}/></div></div><div className={`min-h-36 rounded-[22px] border border-slate-100 bg-slate-50/70 p-4 ${pulse}`}><div className="h-3 w-20 rounded bg-slate-200"/><div className="mt-8 h-6 w-36 rounded bg-slate-200"/><div className="mt-3 h-3 w-28 rounded bg-slate-200"/></div></div></section><section className="grid gap-3 sm:grid-cols-2"><div className={`h-40 rounded-[24px] border border-slate-200 bg-white ${pulse}`}/><div className={`h-40 rounded-[24px] border border-slate-200 bg-white ${pulse}`}/></section><section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white p-4"><div className={`h-4 w-28 rounded bg-slate-100 ${pulse}`}/><div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">{Array.from({length:4}).map((_,i)=><div key={i} className={`h-20 rounded-2xl bg-slate-50 ${pulse}`}/>)}</div></section><div className="grid gap-4 xl:grid-cols-[1.3fr_.7fr]"><div className={`h-56 rounded-[24px] border border-slate-200 bg-white ${pulse}`}/><div className={`h-56 rounded-[24px] border border-slate-200 bg-white ${pulse}`}/></div><span className="sr-only">جاري تحميل لوحة هويتك الرقمية والتسويقية</span></div>}

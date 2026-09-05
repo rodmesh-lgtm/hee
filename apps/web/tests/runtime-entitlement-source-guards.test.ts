@@ -31,6 +31,6 @@ test("verification requests are tenant-owned, serialized and do not self-verify"
 test("billing management labels the effective plan instead of an expired historical subscription", () => {
   const page = source("app/dashboard/billing/manage/page.tsx");
   assert.match(page, /subscriptionStillEffective/);
-  assert.match(page, /الباقة الفعالة الآن/);
+  assert.match(page, /فعالة الآن/);
   assert.match(page, /انتهت الفترة المدفوعة المسجلة/);
 });

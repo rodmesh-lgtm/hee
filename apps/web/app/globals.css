@@ -1,184 +1,80 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+:root { --background:#f8fafc; --foreground:#0f172a; }
+@theme inline { --color-background:var(--background); --color-foreground:var(--foreground); --font-sans:var(--font-ibm-plex-sans-arabic),var(--font-inter),sans-serif; --font-mono:var(--font-inter),monospace; }
+*{box-sizing:border-box} html{scroll-behavior:smooth;color-scheme:light} body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--font-ibm-plex-sans-arabic),var(--font-inter),sans-serif;text-rendering:optimizeLegibility} button,a{-webkit-tap-highlight-color:transparent}:where(a,button,input,textarea,select,summary,[tabindex]):focus-visible{outline:3px solid #00bfae;outline-offset:3px}:where(button,input,textarea,select):disabled{cursor:not-allowed}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}::selection{background:rgba(53,228,203,.28)}
+
+/* INFRO customer workspace appearance. The theme lives on the workspace node only: it never leaks into public pages after client navigation. */
+[data-dashboard-path][data-dashboard-theme="dark"]{color-scheme:dark;background:#061416!important;color:#e8f2f1!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .bg-white{background-color:#0b2023!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .bg-white\/80,[data-dashboard-path][data-dashboard-theme="dark"] .bg-white\/90,[data-dashboard-path][data-dashboard-theme="dark"] .bg-white\/95{background-color:rgba(11,32,35,.92)!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#f7f9fa\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#fafcfc\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#faf9fd\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#fbfcff\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#fbfdfd\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#f8fbfb\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-slate-50,[data-dashboard-path][data-dashboard-theme="dark"] .bg-slate-50\/70{background-color:#0d2528!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .text-\[\#0a2426\],[data-dashboard-path][data-dashboard-theme="dark"] .text-\[\#173437\],[data-dashboard-path][data-dashboard-theme="dark"] .text-\[\#20264f\],[data-dashboard-path][data-dashboard-theme="dark"] .text-\[\#252a4a\],[data-dashboard-path][data-dashboard-theme="dark"] .text-slate-950,[data-dashboard-path][data-dashboard-theme="dark"] .text-slate-900,[data-dashboard-path][data-dashboard-theme="dark"] .text-slate-800{color:#edf7f5!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .text-slate-700,[data-dashboard-path][data-dashboard-theme="dark"] .text-slate-600{color:#c1d2d0!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .text-slate-500{color:#9aafad!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .text-slate-400{color:#78918f!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .border-\[\#dce8e7\],[data-dashboard-path][data-dashboard-theme="dark"] .border-\[\#e2ebea\],[data-dashboard-path][data-dashboard-theme="dark"] .border-\[\#e3eceb\],[data-dashboard-path][data-dashboard-theme="dark"] .border-slate-100,[data-dashboard-path][data-dashboard-theme="dark"] .border-slate-200,[data-dashboard-path][data-dashboard-theme="dark"] .border-slate-200\/70,[data-dashboard-path][data-dashboard-theme="dark"] .border-slate-200\/80{border-color:#19383b!important}
+[data-dashboard-path][data-dashboard-theme="dark"] input,[data-dashboard-path][data-dashboard-theme="dark"] select,[data-dashboard-path][data-dashboard-theme="dark"] textarea{background-color:#0a1d20!important;border-color:#24464a!important;color:#e8f2f1!important}
+[data-dashboard-path][data-dashboard-theme="dark"] input::placeholder,[data-dashboard-path][data-dashboard-theme="dark"] textarea::placeholder{color:#627d7b!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .hover\:bg-\[\#fbfdfd\]:hover,[data-dashboard-path][data-dashboard-theme="dark"] .hover\:bg-\[\#f3faf9\]:hover{background-color:#123034!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#e9fbf8\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#e9fbf7\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#effbf9\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#effbf8\],[data-dashboard-path][data-dashboard-theme="dark"] .bg-\[\#e8fbf8\]{background-color:#0d3937!important}
+[data-dashboard-path][data-dashboard-theme="dark"] .infro-theme-toggle{background:#10292c!important;border-color:#285055!important;color:#66e7d5!important}
+
+/* Responsive product-grade workspace behavior */
+[data-dashboard-path],[data-admin-shell]{min-height:100dvh;overflow-x:clip}
+[data-dashboard-path] :where(button,a,input,select,textarea),[data-admin-shell] :where(button,a,input,select,textarea){touch-action:manipulation}
+[data-dashboard-path] :where(.overflow-x-auto),[data-admin-shell] :where(.overflow-x-auto){overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+[data-dashboard-path] main,[data-admin-shell] main{container-type:inline-size;container-name:infro-workspace}
+[data-dashboard-path] :where(section,article),[data-admin-shell] :where(section,article){scroll-margin-top:88px}
+[data-dashboard-path] :where(button,a),[data-admin-shell] :where(button,a){transition-property:background-color,border-color,color,box-shadow,transform,opacity;transition-duration:160ms;transition-timing-function:cubic-bezier(.2,.8,.2,1)}
+[data-dashboard-path] :where(button,a):active,[data-admin-shell] :where(button,a):active{transform:translateY(1px) scale(.995)}
+[data-dashboard-path] :where(input,select,textarea),[data-admin-shell] :where(input,select,textarea){transition:border-color 160ms ease,box-shadow 160ms ease,background-color 160ms ease}
+[data-dashboard-path] :where(input,select,textarea):focus,[data-admin-shell] :where(input,select,textarea):focus{box-shadow:0 0 0 4px rgba(53,228,203,.09)}
+[data-dashboard-path] :where(.shadow-sm),[data-admin-shell] :where(.shadow-sm){box-shadow:0 4px 18px -14px rgba(7,24,27,.28)}
+
+@media(max-width:767px){
+  [data-dashboard-path] :where(input,select,textarea),[data-admin-shell] :where(input,select,textarea){font-size:16px!important}
+  [data-dashboard-path] :where(button,a),[data-admin-shell] :where(button,a){min-height:44px}
+  [data-dashboard-path] :where(.rounded-\[30px\],.rounded-\[28px\],.rounded-\[26px\]){border-radius:22px}
+  [data-admin-shell] :where(.rounded-\[30px\],.rounded-\[28px\],.rounded-\[26px\]){border-radius:22px}
+  [data-dashboard-path] table,[data-admin-shell] table{font-size:12px}
+  [data-dashboard-path] th,[data-dashboard-path] td,[data-admin-shell] th,[data-admin-shell] td{white-space:nowrap}
+  [data-dashboard-path] .grid,[data-admin-shell] .grid{min-width:0}
+  [data-dashboard-path] article,[data-dashboard-path] section,[data-admin-shell] article,[data-admin-shell] section{min-width:0}
+  [data-dashboard-path] h1,[data-admin-shell] h1{text-wrap:balance;line-height:1.28}
+  [data-dashboard-path] p,[data-admin-shell] p{text-wrap:pretty}
+  [data-dashboard-path] :where(.overflow-x-auto),[data-admin-shell] :where(.overflow-x-auto){margin-inline:-12px;padding-inline:12px;scroll-padding-inline:12px}
+  [data-dashboard-path] :where(table),[data-admin-shell] :where(table){font-variant-numeric:tabular-nums}
+  [data-dashboard-path] :where(.sticky),[data-admin-shell] :where(.sticky){backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+  [data-dashboard-path] :where(form.grid),[data-admin-shell] :where(form.grid){align-items:stretch}
+  [data-dashboard-path] :where(form.grid)>button,[data-admin-shell] :where(form.grid)>button{width:100%}
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-ibm-plex-sans-arabic), var(--font-inter), sans-serif;
-  --font-mono: var(--font-inter), monospace;
+@media(max-width:560px){
+  [data-dashboard-path] main :where(.grid-cols-3){grid-template-columns:repeat(3,minmax(0,1fr))}
+  [data-dashboard-path] main :where(.grid-cols-4),[data-admin-shell] main :where(.grid-cols-4),[data-admin-shell] main :where(.grid-cols-5){grid-template-columns:repeat(2,minmax(0,1fr))}
+  [data-dashboard-path] :where(.text-3xl),[data-admin-shell] :where(.text-3xl){font-size:1.55rem;line-height:1.25}
+  [data-dashboard-path] :where(.text-2xl),[data-admin-shell] :where(.text-2xl){font-size:1.35rem;line-height:1.3}
 }
 
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; color-scheme: light; }
-body {
-  margin: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-ibm-plex-sans-arabic), var(--font-inter), sans-serif;
-  text-rendering: optimizeLegibility;
+@media(max-width:430px){
+  [data-dashboard-path] main,[data-admin-shell] main{padding-inline:12px!important}
+  [data-dashboard-path] :where(.p-6,.p-7,.p-8),[data-admin-shell] :where(.p-6,.p-7,.p-8){padding:18px}
+  [data-dashboard-path] :where(.gap-5,.gap-6),[data-admin-shell] :where(.gap-5,.gap-6){gap:14px}
+  [data-dashboard-path] :where(.rounded-\[24px\],.rounded-\[22px\],.rounded-\[20px\]),[data-admin-shell] :where(.rounded-\[24px\],.rounded-\[22px\],.rounded-\[20px\]){border-radius:18px}
+  [data-dashboard-path] :where(.px-5,.px-6),[data-admin-shell] :where(.px-5,.px-6){padding-inline:16px}
 }
-button, a { -webkit-tap-highlight-color: transparent; }
-:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible { outline: 3px solid #4f46e5; outline-offset: 3px; }
-:where(button, input, textarea, select):disabled { cursor: not-allowed; }
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+
+@container infro-workspace (max-width:700px){
+  [data-dashboard-path] :where(.xl\:grid-cols-2,.xl\:grid-cols-3),[data-admin-shell] :where(.xl\:grid-cols-2,.xl\:grid-cols-3){grid-template-columns:1fr}
 }
-::selection { background: rgba(99,102,241,.26); }
+
+@supports(padding:max(0px)){[data-dashboard-path],[data-admin-shell]{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}}
 
 /* Public business profile */
-[data-renderer="hee-v3-smart-business-profile"] {
-  --hee-card-border: #e1e9e5;
-  --hee-card-shadow: 0 18px 46px -40px rgba(4,54,43,.42);
-  background:
-    radial-gradient(circle at 92% 0%, rgba(16,185,129,.055), transparent 24rem),
-    linear-gradient(180deg,#f8fbf9 0%,#f5f8f6 55%,#f7f9f8 100%);
-}
-[data-renderer="hee-v3-smart-business-profile"] section { isolation: isolate; }
-[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child) { box-shadow: var(--hee-card-shadow); }
-[data-renderer="hee-v3-smart-business-profile"] h2 { letter-spacing: -.018em; }
-[data-renderer="hee-v3-smart-business-profile"] p { text-wrap: pretty; }
-[data-renderer="hee-v3-smart-business-profile"] a,
-[data-renderer="hee-v3-smart-business-profile"] button { touch-action: manipulation; }
-[data-renderer="hee-v3-smart-business-profile"] img { -webkit-user-drag: none; }
-[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto { scrollbar-width: none; overscroll-behavior-inline: contain; }
-[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto::-webkit-scrollbar { display: none; }
-
-@media (max-width: 767px) {
-  [data-renderer="hee-v3-smart-business-profile"] {
-    background: #f4f7f5;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] > div {
-    min-height: calc(100dvh - env(safe-area-inset-bottom));
-    padding: 0 0 calc(112px + env(safe-area-inset-bottom));
-  }
-
-  /* Mobile identity becomes the app header instead of another floating card. */
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child {
-    border-radius: 0 0 28px 28px;
-    border: 0;
-    box-shadow: 0 18px 46px -36px rgba(4,54,43,.58);
-  }
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child > .h-1 {
-    height: 3px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child > div.relative {
-    padding: 18px 16px 16px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child h1 {
-    font-size: 21px;
-    line-height: 1.3;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child p {
-    max-width: 32rem;
-  }
-
-  /* The floating bottom dock owns primary actions on phones. */
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child > div.relative > div.grid {
-    display: none;
-  }
-
-  /* Content flows like an app feed: compact rhythm, not disconnected cards. */
-  [data-renderer="hee-v3-smart-business-profile"] > div > section:not(:first-child),
-  [data-renderer="hee-v3-smart-business-profile"] > div > div:not(:first-child) {
-    margin-left: 12px;
-    margin-right: 12px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] > div > section:not(:first-child) {
-    border-radius: 20px;
-    border-color: #e3ebe7;
-    box-shadow: 0 12px 34px -30px rgba(4,54,43,.36);
-  }
-  [data-renderer="hee-v3-smart-business-profile"] > div > .mt-3 {
-    margin-top: 10px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] h2 {
-    line-height: 1.45;
-    font-size: 15px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] article { min-width: 0; }
-
-  /* A description that merely repeats the business name should not consume a full card. */
-  [data-renderer="hee-v3-smart-business-profile"] section:has(> div > h2:first-child:last-child) {
-    min-height: 0;
-  }
-
-  /* One department should feel like direct contact, not a tabbed directory. */
-  #hee-contact-directory > .mt-4.flex:has(> button:only-child) {
-    display: none;
-  }
-  #hee-contact-directory > .mt-4.flex:has(> button:only-child) + .mt-3 {
-    margin-top: .8rem;
-  }
-  #hee-contact-directory article {
-    border-radius: 16px;
-    background: #fbfdfc;
-    box-shadow: none;
-  }
-
-  /* Collapsible utilities are visually lighter than primary business content. */
-  [data-renderer="hee-v3-smart-business-profile"] > div > div.md\:grid-cols-3 > section,
-  [data-renderer="hee-v3-smart-business-profile"] > div > div.md\:grid-cols-3 > a {
-    border-radius: 18px;
-    box-shadow: none;
-  }
-
-  /* Short profiles end deliberately, while the dock remains visually separate. */
-  [data-renderer="hee-v3-smart-business-profile"] > div::after {
-    content: "HEE · صفحة أعمال ذكية";
-    display: block;
-    margin: 18px auto 0;
-    width: fit-content;
-    padding: 6px 11px;
-    border: 1px solid #e2ebe7;
-    border-radius: 999px;
-    background: rgba(255,255,255,.72);
-    color: #82918b;
-    font-size: 8.5px;
-    font-weight: 800;
-    letter-spacing: .01em;
-  }
-}
-
-@media (max-width: 430px) {
-  [data-renderer="hee-v3-smart-business-profile"] section:first-child > div.relative {
-    padding-inline: 14px;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] > div > section:not(:first-child),
-  [data-renderer="hee-v3-smart-business-profile"] > div > div:not(:first-child) {
-    margin-left: 10px;
-    margin-right: 10px;
-  }
-}
-
-@media (min-width: 768px) {
-  [data-renderer="hee-v3-smart-business-profile"] section:not(:first-child),
-  [data-renderer="hee-v3-smart-business-profile"] article {
-    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
-  }
-  [data-renderer="hee-v3-smart-business-profile"] section:not(:first-child):hover { border-color: #d6e5de; }
-}
-
-/* Dashboard phone previews: render a real phone viewport and scale it into the shell. */
-@media (min-width: 1024px) {
-  aside iframe[title="معاينة الصفحة"][src*="?preview="]:not([src*="surface=desktop"]) {
-    width: 390px !important;
-    height: 780px !important;
-    max-width: none !important;
-    border: 0;
-    transform: scale(.805);
-    transform-origin: top left;
-  }
-  aside iframe[title="معاينة الهاتف"][src*="surface=phone"] {
-    width: 390px !important;
-    height: 846px !important;
-    max-width: none !important;
-    border: 0;
-    transform: scale(.5077);
-    transform-origin: top left;
-  }
-}
+[data-renderer="hee-v3-smart-business-profile"]{--hee-card-border:#e1e9e5;--hee-card-shadow:0 18px 46px -40px rgba(4,54,43,.42);background:radial-gradient(circle at 92% 0%,rgba(16,185,129,.055),transparent 24rem),linear-gradient(180deg,#f8fbf9 0%,#f5f8f6 55%,#f7f9f8 100%)}
+[data-renderer="hee-v3-smart-business-profile"] section{isolation:isolate}[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child){box-shadow:var(--hee-card-shadow)}[data-renderer="hee-v3-smart-business-profile"] h2{letter-spacing:-.018em}[data-renderer="hee-v3-smart-business-profile"] p{text-wrap:pretty}[data-renderer="hee-v3-smart-business-profile"] a,[data-renderer="hee-v3-smart-business-profile"] button{touch-action:manipulation}[data-renderer="hee-v3-smart-business-profile"] img{-webkit-user-drag:none}[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto{scrollbar-width:none;overscroll-behavior-inline:contain}[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto::-webkit-scrollbar{display:none}
+@media(max-width:767px){[data-renderer="hee-v3-smart-business-profile"]{background:#f4f7f5}[data-renderer="hee-v3-smart-business-profile"]>div{min-height:calc(100dvh - env(safe-area-inset-bottom));padding:0 0 calc(112px + env(safe-area-inset-bottom))}[data-renderer="hee-v3-smart-business-profile"] section:first-child{border-radius:0 0 28px 28px;border:0;box-shadow:0 18px 46px -36px rgba(4,54,43,.58)}[data-renderer="hee-v3-smart-business-profile"] section:first-child>.h-1{height:3px}[data-renderer="hee-v3-smart-business-profile"] section:first-child>div.relative{padding:18px 16px 16px}[data-renderer="hee-v3-smart-business-profile"] section:first-child h1{font-size:21px;line-height:1.3}[data-renderer="hee-v3-smart-business-profile"] section:first-child p{max-width:32rem}[data-renderer="hee-v3-smart-business-profile"] section:first-child>div.relative>div.grid{display:none}[data-renderer="hee-v3-smart-business-profile"]>div>section:not(:first-child),[data-renderer="hee-v3-smart-business-profile"]>div>div:not(:first-child){margin-left:12px;margin-right:12px}[data-renderer="hee-v3-smart-business-profile"]>div>section:not(:first-child){border-radius:20px;border-color:#e3ebe7;box-shadow:0 12px 34px -30px rgba(4,54,43,.36)}[data-renderer="hee-v3-smart-business-profile"]>div>.mt-3{margin-top:10px}[data-renderer="hee-v3-smart-business-profile"] h2{line-height:1.45;font-size:15px}[data-renderer="hee-v3-smart-business-profile"] article{min-width:0}[data-renderer="hee-v3-smart-business-profile"] section:has(>div>h2:first-child:last-child){min-height:0}#hee-contact-directory>.mt-4.flex:has(>button:only-child){display:none}#hee-contact-directory>.mt-4.flex:has(>button:only-child)+.mt-3{margin-top:.8rem}#hee-contact-directory article{border-radius:16px;background:#fbfdfc;box-shadow:none}[data-renderer="hee-v3-smart-business-profile"]>div>div.md\:grid-cols-3>section,[data-renderer="hee-v3-smart-business-profile"]>div>div.md\:grid-cols-3>a{border-radius:18px;box-shadow:none}[data-renderer="hee-v3-smart-business-profile"]>div::after{content:"INFRO · صفحة أعمال ذكية";display:block;margin:18px auto 0;width:fit-content;padding:6px 11px;border:1px solid #e2ebe7;border-radius:999px;background:rgba(255,255,255,.72);color:#82918b;font-size:8.5px;font-weight:800;letter-spacing:.01em}}
+@media(max-width:430px){[data-renderer="hee-v3-smart-business-profile"] section:first-child>div.relative{padding-inline:14px}[data-renderer="hee-v3-smart-business-profile"]>div>section:not(:first-child),[data-renderer="hee-v3-smart-business-profile"]>div>div:not(:first-child){margin-left:10px;margin-right:10px}}
+@media(min-width:768px){[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child),[data-renderer="hee-v3-smart-business-profile"] article{transition:border-color 180ms ease,box-shadow 180ms ease,transform 180ms ease}[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child):hover{border-color:#d6e5de}}
+@media(min-width:1024px){aside iframe[title="معاينة الصفحة"][src*="?preview="]:not([src*="surface=desktop"]){width:390px!important;height:780px!important;max-width:none!important;border:0;transform:scale(.805);transform-origin:top left}aside iframe[title="معاينة الهاتف"][src*="surface=phone"]{width:390px!important;height:846px!important;max-width:none!important;border:0;transform:scale(.5077);transform-origin:top left}}

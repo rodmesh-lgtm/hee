@@ -13,13 +13,14 @@ const customerPage = read("app/dashboard/business-store/page.tsx");
 const catalog = read("app/lib/business-store-catalog.ts");
 const migration = read("prisma/migrations/20260824210500_central_business_store_catalog/migration.sql");
 const layout = read("app/admin/layout.tsx");
+const navigation = read("app/admin/admin-navigation.tsx");
 
 test("central catalog is protected by platform-admin authorization and audited", () => {
   assert.match(adminAction, /await requireAdmin\(\)/);
   assert.match(adminAction, /BusinessStoreCatalogAudit/);
   assert.match(adminAction, /actorUserId/);
   assert.match(migration, /FOREIGN KEY \("actorUserId"\) REFERENCES "User"/);
-  assert.match(layout, /\/admin\/store-products/);
+  assert.match(layout + navigation, /\/admin\/store-products/);
 });
 
 test("catalog products have database invariants instead of browser-only validation", () => {
@@ -32,7 +33,7 @@ test("catalog products have database invariants instead of browser-only validati
 test("customer store reads only active products from the central database", () => {
   assert.match(catalog, /FROM "BusinessStoreCatalogProduct"/);
   assert.match(catalog, /WHERE "isActive" = true/);
-  assert.match(customerPage, /await Promise\.all\(\[listBusinessStoreCatalogItems\(\)\]\)/);
+  assert.match(customerPage, /listBusinessStoreCatalogItems\(\)/);
   assert.doesNotMatch(customerPage, /BUSINESS_STORE_CATALOG/);
 });
 
