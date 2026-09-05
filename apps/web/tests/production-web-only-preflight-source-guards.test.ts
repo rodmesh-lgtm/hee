@@ -17,8 +17,8 @@ test("web-only Production presence defers billing provider and worker config", (
 
 test("billing operations restore provider, seller and worker fail-closed requirements", () => {
   assert.match(preflight, /const billingRequired = billingRenewalEnabled \|\| billingOperationsReady/);
-  assert.match(preflight, /if \(billingRequired\) \{[\s\S]*PRODUCTION_MOYASAR_PUBLISHABLE_KEY[\s\S]*PRODUCTION_BILLING_TAX_STATUS/);
-  assert.match(preflight, /if \(billingRequired\) \{[\s\S]*PRODUCTION_WORKER_HOST/);
+  assert.match(preflight, /if \(billingRequired\) \{[\s\S]*MOYASAR_PUBLISHABLE_KEY[\s\S]*BILLING_TAX_STATUS/);
+  assert.match(preflight, /if \(billingRequired\) \{[\s\S]*HETZNER_HOST/);
 });
 
 test("Moyasar preflight probe is conditional with billing operations", () => {
