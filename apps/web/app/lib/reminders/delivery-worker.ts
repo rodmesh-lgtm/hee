@@ -17,6 +17,7 @@ type JsonRecord = Record<string, unknown>;
 type ClaimedDelivery = { id: string; businessId: string; reminderId: string; connectionId: string; templateId: string; attemptCount: number; leaseOwner: string };
 type ReminderContext = {
   reminderId: string; businessId: string; title: string; body: string; recipientPhoneE164: string; recipientConsentedAt: Date; recipientConsentEvidence: string; reminderStatus: string;
+  recurrenceType: string; nextOccurrenceAt: Date | null;
   connectionId: string; connectionProvider: string; connectionStatus: string; phoneNumberId: string; credentialEnvelope: Prisma.JsonValue;
   templateId: string; templateProvider: string; templateStatus: string; templateName: string; templateLanguage: string; templateComponents: Prisma.JsonValue;
   businessWhatsapp: string | null; businessPhone: string | null;
@@ -58,18 +59,31 @@ async function claimNext(database: PrismaClient, workerId: string, now: Date) {
 }
 
 async function releaseAs(database: PrismaClient, delivery: ClaimedDelivery, status: string, now: Date, errorCode?: string, nextAttemptAt?: Date) {
-  const changed = await database.$executeRaw(Prisma.sql`
-    UPDATE "SmartReminderDelivery"
-    SET "status"=${status}, "leaseOwner"=NULL, "leaseExpiresAt"=NULL, "lastErrorCode"=${errorCode ?? null},
-        "nextAttemptAt"=${nextAttemptAt ?? now}, "failedAt"=${["failed","delivery_unknown"].includes(status) ? now : null}, "updatedAt"=${now}
-    WHERE "id"=${delivery.id} AND "businessId"=${delivery.businessId} AND "status"='processing' AND "leaseOwner"=${delivery.leaseOwner}
-  `);
-  if (changed !== 1) throw new Error("REMINDER_DELIVERY_LEASE_LOST");
+  await database.$transaction(async (tx) => {
+    const changed = await tx.$executeRaw(Prisma.sql`
+      UPDATE "SmartReminderDelivery"
+      SET "status"=${status}, "leaseOwner"=NULL, "leaseExpiresAt"=NULL, "lastErrorCode"=${errorCode ?? null},
+          "nextAttemptAt"=${nextAttemptAt ?? now}, "failedAt"=${["failed","delivery_unknown"].includes(status) ? now : null}, "updatedAt"=${now}
+      WHERE "id"=${delivery.id} AND "businessId"=${delivery.businessId} AND "status"='processing' AND "leaseOwner"=${delivery.leaseOwner}
+    `);
+    if (changed !== 1) throw new Error("REMINDER_DELIVERY_LEASE_LOST");
+    await writeWhatsAppAuditLog({
+      businessId: delivery.businessId,
+      actorType: "worker",
+      action: "reminder.delivery.transition",
+      targetType: "smart_reminder_delivery",
+      targetId: delivery.id,
+      outcome: status === "cancelled" ? "cancelled" : "failed",
+      metadata: { reminderId: delivery.reminderId, deliveryStatus: status, reason: errorCode ?? null },
+      database: tx,
+    });
+  });
 }
 
 async function loadContext(database: PrismaClient, delivery: ClaimedDelivery) {
   const rows = await database.$queryRaw<ReminderContext[]>(Prisma.sql`
     SELECT r."id" AS "reminderId", r."businessId", r."title", r."body", r."recipientPhoneE164", r."recipientConsentedAt", r."recipientConsentEvidence", r."status" AS "reminderStatus",
+           r."recurrenceType", r."nextOccurrenceAt",
            c."id" AS "connectionId", c."provider" AS "connectionProvider", c."status" AS "connectionStatus", c."phoneNumberId", c."credentialEnvelope",
            t."id" AS "templateId", t."provider" AS "templateProvider", t."status" AS "templateStatus", t."name" AS "templateName", t."language" AS "templateLanguage", t."components" AS "templateComponents",
            b."whatsapp" AS "businessWhatsapp", b."phone" AS "businessPhone"
@@ -135,7 +149,17 @@ export async function processNextSmartReminderDelivery(input: { database?: Prism
   if(!response.ok){const providerError=record(record(payload)?.error),code=safeText(providerError?.code)??`HTTP_${response.status}`;if(isRetryableMetaStatus(response.status)&&delivery.attemptCount<MAX_ATTEMPTS){const retryAfter=Number(response.headers.get("retry-after"));await releaseAs(database,delivery,"retry_scheduled",now,code,new Date(now.getTime()+retryDelayMs(delivery.attemptCount,Number.isFinite(retryAfter)?retryAfter:null)));return {processed:true as const,result:"retry_scheduled" as const,deliveryId:delivery.id};}await releaseAs(database,delivery,"failed",now,code);return {processed:true as const,result:"failed" as const,deliveryId:delivery.id};}
   const providerMessageId=safeText(Array.isArray(record(payload)?.messages)?record((record(payload)?.messages as unknown[])[0])?.id:null);
   if(!providerMessageId){await releaseAs(database,delivery,"delivery_unknown",now,"META_SUCCESS_RESPONSE_INVALID");return {processed:true as const,result:"delivery_unknown" as const,deliveryId:delivery.id};}
-  await database.$transaction(async(tx)=>{const conversation=await tx.whatsAppConversation.upsert({where:{businessId_phoneNumberId_customerPhoneE164:{businessId:delivery.businessId,phoneNumberId:context.phoneNumberId,customerPhoneE164:context.recipientPhoneE164}},create:{id:randomUUID(),businessId:delivery.businessId,phoneNumberId:context.phoneNumberId,customerPhoneE164:context.recipientPhoneE164,lastMessageAt:now,lastOutboundAt:now},update:{lastMessageAt:now,lastOutboundAt:now},select:{id:true}});await tx.whatsAppMessage.upsert({where:{provider_providerMessageId:{provider:"meta",providerMessageId}},create:{id:randomUUID(),businessId:delivery.businessId,conversationId:conversation.id,provider:"meta",providerMessageId,direction:"outbound",messageType:"template",status:"sent",sentAt:now},update:{}});const changed=await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminderDelivery" SET "status"='sent',"providerMessageId"=${providerMessageId},"leaseOwner"=NULL,"leaseExpiresAt"=NULL,"lastErrorCode"=NULL,"sentAt"=${now},"failedAt"=NULL,"updatedAt"=${now} WHERE "id"=${delivery.id} AND "businessId"=${delivery.businessId} AND "status"='processing' AND "leaseOwner"=${delivery.leaseOwner}`);if(changed!==1)throw new Error("REMINDER_DELIVERY_LEASE_LOST");await writeWhatsAppAuditLog({businessId:delivery.businessId,actorType:"worker",action:"reminder.delivery.send",targetType:"smart_reminder_delivery",targetId:delivery.id,outcome:"success",metadata:{reminderId:delivery.reminderId},database:tx});});
+  await database.$transaction(async(tx)=>{
+    const conversation=await tx.whatsAppConversation.upsert({where:{businessId_phoneNumberId_customerPhoneE164:{businessId:delivery.businessId,phoneNumberId:context.phoneNumberId,customerPhoneE164:context.recipientPhoneE164}},create:{id:randomUUID(),businessId:delivery.businessId,phoneNumberId:context.phoneNumberId,customerPhoneE164:context.recipientPhoneE164,lastMessageAt:now,lastOutboundAt:now},update:{lastMessageAt:now,lastOutboundAt:now},select:{id:true}});
+    await tx.whatsAppMessage.upsert({where:{provider_providerMessageId:{provider:"meta",providerMessageId}},create:{id:randomUUID(),businessId:delivery.businessId,conversationId:conversation.id,provider:"meta",providerMessageId,direction:"outbound",messageType:"template",status:"sent",sentAt:now},update:{}});
+    const changed=await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminderDelivery" SET "status"='sent',"providerMessageId"=${providerMessageId},"leaseOwner"=NULL,"leaseExpiresAt"=NULL,"lastErrorCode"=NULL,"sentAt"=${now},"failedAt"=NULL,"updatedAt"=${now} WHERE "id"=${delivery.id} AND "businessId"=${delivery.businessId} AND "status"='processing' AND "leaseOwner"=${delivery.leaseOwner}`);
+    if(changed!==1)throw new Error("REMINDER_DELIVERY_LEASE_LOST");
+    const completed = context.recurrenceType === "once" && context.nextOccurrenceAt === null
+      ? await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "status"='completed',"completedAt"=${now},"updatedAt"=${now} WHERE "id"=${delivery.reminderId} AND "businessId"=${delivery.businessId} AND "status"='scheduled' AND "recurrenceType"='once' AND "nextOccurrenceAt" IS NULL`)
+      : 0;
+    await writeWhatsAppAuditLog({businessId:delivery.businessId,actorType:"worker",action:"reminder.delivery.send",targetType:"smart_reminder_delivery",targetId:delivery.id,outcome:"success",metadata:{reminderId:delivery.reminderId},database:tx});
+    if(completed===1)await writeWhatsAppAuditLog({businessId:delivery.businessId,actorType:"worker",action:"reminder.complete",targetType:"smart_reminder",targetId:delivery.reminderId,outcome:"success",metadata:{source:"confirmed_delivery"},database:tx});
+  });
   return {processed:true as const,result:"sent" as const,deliveryId:delivery.id,providerMessageId};
 }
 
