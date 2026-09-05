@@ -76,7 +76,6 @@ export async function createSmartReminder(input: {
   const timezone = normalizeReminderTimezone(input.timezone);
   const scheduledAt = validateReminderSchedule({ scheduledAt: input.scheduledAt });
   const recurrenceType = normalizeReminderRecurrence(input.recurrenceType ?? "once");
-  if (recurrenceType !== "once") throw new Error("REMINDER_RECURRENCE_NOT_ENABLED_YET");
   const id = randomUUID();
   const consentedAt = new Date();
 
