@@ -57,15 +57,26 @@ function sameLocalParts(a: LocalParts, b: LocalParts) {
   return a.year === b.year && a.month === b.month && a.day === b.day && a.hour === b.hour && a.minute === b.minute;
 }
 
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function localPartsString(parts: LocalParts) {
+  return `${String(parts.year).padStart(4, "0")}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}:${pad2(parts.minute)}`;
+}
+
+function validCalendarDate(parts: Pick<LocalParts, "year" | "month" | "day">) {
+  const value = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  return value.getUTCFullYear() === parts.year && value.getUTCMonth() + 1 === parts.month && value.getUTCDate() === parts.day;
+}
+
 export function reminderLocalDateTimeToUtc(localDateTime: string, timezoneInput: string) {
   const timezone = normalizeReminderTimezone(timezoneInput);
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(localDateTime.trim());
   if (!match) throw new Error("REMINDER_LOCAL_TIME_INVALID");
   const desired: LocalParts = { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]), hour: Number(match[4]), minute: Number(match[5]) };
-  if (desired.month < 1 || desired.month > 12 || desired.day < 1 || desired.day > 31 || desired.hour > 23 || desired.minute > 59) throw new Error("REMINDER_LOCAL_TIME_INVALID");
+  if (desired.month < 1 || desired.month > 12 || desired.day < 1 || desired.day > 31 || desired.hour > 23 || desired.minute > 59 || !validCalendarDate(desired)) throw new Error("REMINDER_LOCAL_TIME_INVALID");
   const wallClockUtc = Date.UTC(desired.year, desired.month - 1, desired.day, desired.hour, desired.minute);
-  const calendarCheck = new Date(wallClockUtc);
-  if (calendarCheck.getUTCFullYear() !== desired.year || calendarCheck.getUTCMonth() + 1 !== desired.month || calendarCheck.getUTCDate() !== desired.day) throw new Error("REMINDER_LOCAL_TIME_INVALID");
 
   let candidate = new Date(wallClockUtc);
   for (let index = 0; index < 4; index += 1) {
@@ -83,6 +94,39 @@ export function reminderLocalDateTimeToUtc(localDateTime: string, timezoneInput:
   if (!matches.length) throw new Error("REMINDER_LOCAL_TIME_INVALID");
   matches.sort((a, b) => a.getTime() - b.getTime());
   return matches[0];
+}
+
+function addLocalPeriod(parts: LocalParts, recurrenceType: Exclude<ReminderRecurrenceType, "once">, step: number): LocalParts | null {
+  if (recurrenceType === "monthly") {
+    const monthIndex = parts.month - 1 + step;
+    const year = parts.year + Math.floor(monthIndex / 12);
+    const month = ((monthIndex % 12) + 12) % 12 + 1;
+    const candidate = { ...parts, year, month };
+    return validCalendarDate(candidate) ? candidate : null;
+  }
+  const dayStep = recurrenceType === "weekly" ? 7 * step : step;
+  const value = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + dayStep, parts.hour, parts.minute));
+  return { year: value.getUTCFullYear(), month: value.getUTCMonth() + 1, day: value.getUTCDate(), hour: parts.hour, minute: parts.minute };
+}
+
+export function nextReminderOccurrence(input: { occurrenceAt: Date; timezone: string; recurrenceType: ReminderRecurrenceType | string }) {
+  const recurrenceType = normalizeReminderRecurrence(input.recurrenceType);
+  if (recurrenceType === "once") return null;
+  if (Number.isNaN(input.occurrenceAt.getTime())) throw new Error("REMINDER_OCCURRENCE_INVALID");
+  const timezone = normalizeReminderTimezone(input.timezone);
+  const local = localPartsAt(input.occurrenceAt, timezone);
+  const maximumAttempts = recurrenceType === "monthly" ? 36 : 8;
+  for (let step = 1; step <= maximumAttempts; step += 1) {
+    const candidateLocal = addLocalPeriod(local, recurrenceType, step);
+    if (!candidateLocal) continue;
+    try {
+      const next = reminderLocalDateTimeToUtc(localPartsString(candidateLocal), timezone);
+      if (next.getTime() > input.occurrenceAt.getTime()) return next;
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== "REMINDER_LOCAL_TIME_INVALID") throw error;
+    }
+  }
+  throw new Error("REMINDER_NEXT_OCCURRENCE_UNRESOLVABLE");
 }
 
 export function reminderTemplateSupportsBodyParameter(components: unknown) {
