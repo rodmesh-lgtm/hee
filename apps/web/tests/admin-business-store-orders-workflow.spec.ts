@@ -44,7 +44,7 @@ test.describe.serial("central admin Business Store orders", () => {
       await page.goto(`${baseUrl}/admin/store-orders?q=${encodeURIComponent(f.orderId)}`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "مركز تشغيل طلبات المتجر" })).toBeVisible();
       await expect(page.getByText(f.orderId, { exact: true })).toBeVisible();
-      await page.getByRole("link", { name: "فتح" }).click();
+      await page.getByRole("row").filter({ hasText: f.orderId }).getByRole("link", { name: "فتح" }).click();
       await expect(page).toHaveURL(new RegExp(`/admin/store-orders/${f.orderId}`));
       const transition = page.locator("form").filter({ hasText: "submitted → processing" });
       await transition.getByPlaceholder("ملاحظة تشغيلية اختيارية").fill("بدء التنفيذ بعد إثبات الدفع");

@@ -151,7 +151,8 @@ test.describe.serial("subscription access-code lifecycle", () => {
       await page.getByRole("button", { name: "تفعيل الكود" }).click();
       await page.waitForURL(/code=activated/);
       await expect(page.getByText("تم تفعيل الباقة بواسطة كود الوصول", { exact: false })).toBeVisible();
-      await expect(page.getByText("مفعلة بكود وصول إداري حتى إلغاء المنحة", { exact: true })).toBeVisible();
+      await expect(page.getByText("وصول إداري بلا خصم مالي", { exact: true })).toBeVisible();
+      await expect(page.getByText("حتى إلغاء المنحة", { exact: true })).toBeVisible();
 
       const activatedBusiness = await db.business.findUnique({ where: { id: fixture.businessId }, select: { planId: true } });
       expect(activatedBusiness?.planId).toBe(fixture.paidPlanId);

@@ -132,8 +132,10 @@ test.describe.serial("platform admin workflow", () => {
       await expect(page.getByRole("heading", { name: "مركز قيادة المنصة", exact: true })).toBeVisible();
       const businessRow = page.getByRole("row").filter({ hasText: "منشأة عميل لوحة الإدارة" });
       await expect(businessRow).toBeVisible();
-      await expect(businessRow.getByText(/1 منتج · 1 خدمة · 1 عميل/)).toBeVisible();
-      await expect(businessRow.getByText(/1 طلب · 1 حجز/)).toBeVisible();
+      await expect(businessRow.getByText(/1 منتج · 1 خدمة/)).toBeVisible();
+      await expect(businessRow.getByText(/1 عميل/)).toBeVisible();
+      await expect(businessRow.getByText(/1 طلب/)).toBeVisible();
+      await expect(businessRow.getByText(/1 حجز/)).toBeVisible();
 
       await businessRow.getByRole("link", { name: "التفاصيل" }).click();
       await expect(page.getByRole("heading", { name: "منشأة عميل لوحة الإدارة" })).toBeVisible();
