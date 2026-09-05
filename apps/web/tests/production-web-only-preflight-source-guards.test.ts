@@ -24,7 +24,7 @@ function webOnlyEnv() {
     BILLING_TOKEN_ENCRYPTION_KEY: "present",
     VERCEL_TOKEN: "present",
     PG_POOL_MAX: "2",
-    HEE_FROM_EMAIL: "HEE <noreply@ir.sa>",
+    HEE_FROM_EMAIL: "INFRO <no-reply@ir.sa>",
     BILLING_RENEWAL_ENABLED: "false",
     BILLING_OPERATIONS_READY: "false",
     PAID_CHECKOUT_PUBLIC_ENABLED: "false",
@@ -75,7 +75,8 @@ test("Vercel Production environment sync keeps billing credentials fail-closed b
   assert.match(sync, /const billingRequired = enabled\("BILLING_RENEWAL_ENABLED"\) \|\| enabled\("BILLING_OPERATIONS_READY"\)/);
   assert.match(sync, /if \(billingRequired\) \{[\s\S]*required\("MOYASAR_PUBLISHABLE_KEY"\)[\s\S]*required\("BILLING_TAX_STATUS"\)/);
   assert.doesNotMatch(sync, /required\("HEE_FROM_EMAIL"\)/);
-  assert.match(sync, /CANONICAL_FROM_EMAIL = "HEE <no-reply@ir\.sa>"/);
+  assert.match(sync, /CANONICAL_FROM_EMAIL = "INFRO <no-reply@ir\.sa>"/);
+  assert.doesNotMatch(sync, /CANONICAL_FROM_EMAIL = "HEE </);
   assert.match(sync, /key: "HEE_FROM_EMAIL", value: CANONICAL_FROM_EMAIL/);
   assert.match(sync, /key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false"/);
   assert.match(sync, /key: "BILLING_REHEARSAL_USER_EMAIL", value: ""/);
