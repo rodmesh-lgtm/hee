@@ -37,11 +37,12 @@ export async function createSmartReminderAction(form: FormData) {
   const templateId = field(form, "templateId", 128);
   const timezone = field(form, "timezone", 64);
   const localDateTime = field(form, "scheduledLocal", 32);
+  const recurrenceType = field(form, "recurrenceType", 16) ?? "once";
   const recipientConsentAccepted = form.get("recipientConsentAccepted") === "on";
   if (!title || !body || !templateId || !timezone || !localDateTime || !recipientConsentAccepted) redirect("/dashboard/reminders?create=consent-required");
   try {
     const scheduledAt = reminderLocalDateTimeToUtc(localDateTime, timezone);
-    await createSmartReminder({ businessId: context.businessId, actorUserId: context.userId, title, body, templateId, scheduledAt, timezone, recurrenceType: "once", recipientConsentAccepted });
+    await createSmartReminder({ businessId: context.businessId, actorUserId: context.userId, title, body, templateId, scheduledAt, timezone, recurrenceType, recipientConsentAccepted });
     revalidatePath("/dashboard/reminders");
   } catch (error) {
     redirect(destinationFor(error, "create"));
