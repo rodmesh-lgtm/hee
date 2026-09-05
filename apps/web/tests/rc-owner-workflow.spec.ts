@@ -18,6 +18,7 @@ type Seeded = {
 
 let pool: Pool;
 let db: PrismaClient;
+let seededForCleanup: Seeded | null = null;
 
 async function seedBusiness(): Promise<Seeded> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -140,9 +141,17 @@ test.describe.serial("RC owner workflow", () => {
     await pool?.end();
   });
 
+  test.afterEach(async () => {
+    if (!seededForCleanup) return;
+    const seeded = seededForCleanup;
+    seededForCleanup = null;
+    await cleanup(seeded);
+  });
+
   test("covers current editor, branding, publish, public V10, responsive rendering and data retention", async ({ browser }) => {
     test.setTimeout(210_000);
     const seeded = await seedBusiness();
+    seededForCleanup = seeded;
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await setSessionCookie(page, seeded.sessionToken);
 
@@ -208,7 +217,6 @@ test.describe.serial("RC owner workflow", () => {
       expect(retained?.coverUrl).toMatch(/^\/api\/storage\//);
     } finally {
       await page.close();
-      await cleanup(seeded);
     }
   });
 });

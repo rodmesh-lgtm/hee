@@ -72,7 +72,7 @@ test.describe.serial("active business tenant isolation", () => {
         await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded", timeout: 15_000 });
         const switcher = page.getByLabel("المنشأة النشطة").first();
         await expect(switcher).toBeVisible({ timeout: 10_000 });
-        await expect(switcher.locator("option")).toHaveCount(2);
+        await expect(switcher.locator("option:not([disabled])")).toHaveCount(2);
         await expect(switcher.locator(`option[value="${seeded.businessAId}"]`)).toHaveCount(1);
         await expect(switcher.locator(`option[value="${seeded.businessBId}"]`)).toHaveCount(1);
         await expect(switcher.locator(`option[value="${seeded.attackerBusinessId}"]`)).toHaveCount(0);
