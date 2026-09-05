@@ -62,7 +62,7 @@ test.describe.serial("central admin billing operations", () => {
       expect(await db.billingPayment.count({ where: { businessId: f.accessBusinessId } })).toBe(0);
       expect(await db.billingPayment.count({ where: { businessId: f.paidBusinessId } })).toBe(1);
 
-      await page.getByRole("link", { name: "فتح" }).click();
+      await page.getByRole("link", { name: "فتح", exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/admin/billing/payments/${f.paymentId}`));
       await expect(page.getByRole("heading", { name: "تفاصيل الدفعة" })).toBeVisible();
       await expect(page.getByText("not_registered", { exact: true })).toBeVisible();
