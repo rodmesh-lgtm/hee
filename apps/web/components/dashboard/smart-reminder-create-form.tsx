@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BellPlus, Clock3, MessageCircleMore } from "lucide-react";
+import { BellPlus, Clock3, MessageCircleMore, ShieldCheck } from "lucide-react";
 import { createSmartReminderAction } from "../../app/actions/smart-reminders";
 
 function localMinimum() {
@@ -39,6 +39,7 @@ export function SmartReminderCreateForm({ templateId, recipientLabel }: { templa
       <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4"><MessageCircleMore className="mt-0.5 h-5 w-5 shrink-0 text-[#009d93]"/><div><p className="text-xs font-black text-slate-800">إشعار واتساب</p><p className="mt-1 text-xs leading-6 text-slate-500">سيصل التذكير إلى {recipientLabel}. لن يُستخدم لإرسال رسائل لأرقام خارج حسابك.</p></div></div>
       <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4"><Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-[#009d93]"/><div><p className="text-xs font-black text-slate-800">توقيت جهازك</p><p className="mt-1 text-xs leading-6 text-slate-500">{timezone || "جارٍ تحديد المنطقة الزمنية بأمان..."}</p></div></div>
     </div>
+    <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#bdece6] bg-[#f2fcfa] p-4 text-xs leading-6 text-slate-600"><input type="checkbox" name="recipientConsentAccepted" required className="mt-1 h-4 w-4 shrink-0 accent-[#009d93]"/><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#009d93]"/><span><b className="text-slate-800">أوافق على استلام هذا التذكير عبر واتساب على رقم النشاط المسجل.</b><br/>هذه الموافقة خاصة بخدمة التذكيرات ولا تمنح موافقة تسويقية عامة.</span></label>
     <button disabled={!timezone} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#07181b] px-5 py-3 text-sm font-black text-white transition hover:bg-[#0b2529] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"><BellPlus className="h-4 w-4"/>إضافة التذكير</button>
   </form>;
 }
