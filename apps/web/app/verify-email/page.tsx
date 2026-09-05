@@ -4,7 +4,7 @@ import { MailCheck } from "lucide-react";
 import { verifyEmailAction } from "../actions/email-verification";
 
 export const metadata: Metadata = {
-  title: "تأكيد البريد الإلكتروني | INFRO",
+  title: "تأكيد البريد الإلكتروني",
   robots: { index: false, follow: false },
 };
 
