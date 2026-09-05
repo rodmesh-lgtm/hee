@@ -3,14 +3,24 @@ import { Activity, BellRing, Building2, CheckCircle2, Clock3, ShieldCheck, Trian
 import Link from "next/link";
 import { requireAdmin } from "../../../lib/admin";
 import { db } from "../../../lib/db";
+import { isSmartRemindersSchemaReady } from "../../../lib/reminders/schema-readiness";
 
 type Summary = { total: bigint; scheduled: bigint; paused: bigint; completed: bigint; cancelled: bigint };
 type DeliverySummary = { queued: bigint; processing: bigint; retrying: bigint; sent: bigint; failed: bigint; unknown: bigint };
 type TenantRow = { businessId: string; businessName: string; scheduled: bigint; sent: bigint; failed: bigint; unknown: bigint; lastActivityAt: Date | null };
 const ZERO = BigInt(0);
 
+function SchemaPending() {
+  return <div dir="rtl" className="space-y-6" data-admin-reminder-schema="pending">
+    <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-[#07181b] p-6 text-white shadow-sm"><div className="absolute -left-16 -top-20 h-56 w-56 rounded-full bg-[#00d8c6]/15 blur-3xl"/><div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-3 flex items-center gap-2 text-[10px] font-black tracking-[.16em] text-[#4ee7d4]"><BellRing className="h-4 w-4"/>INFRO REMINDER OPERATIONS</div><h1 className="text-2xl font-black sm:text-3xl">تشغيل التذكيرات الذكية</h1><p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300">مخطط التذكيرات غير مطبق على قاعدة بيانات بيئة المعاينة الحالية، لذلك أوقفت الاستعلامات التشغيلية بدل عرض بيانات ناقصة أو توليد خطأ.</p></div><Link href="/admin/whatsapp" className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-[#a8f2e8]">العودة لمركز واتساب</Link></div></header>
+    <section className="rounded-[24px] border border-amber-200 bg-amber-50 p-6 text-sm leading-7 text-amber-950"><div className="flex items-start gap-3"><ShieldCheck className="mt-1 h-5 w-5 shrink-0"/><div><p className="font-black">لا توجد عملية تشغيل أو قراءة لتذكيرات من مخطط غير جاهز.</p><p className="mt-1 text-xs">عند تطبيق migration المعتمدة على بيئة الإصدار ستظهر المؤشرات تلقائيًا. لم تُمس بيانات العملاء ولم تُنفذ عمليات إرسال من هذه الحالة.</p></div></div></section>
+  </div>;
+}
+
 export default async function AdminSmartRemindersPage() {
   await requireAdmin();
+  if (!await isSmartRemindersSchemaReady()) return <SchemaPending />;
+
   const [summaryRows, deliveryRows, tenants, heartbeat] = await Promise.all([
     db.$queryRaw<Summary[]>(Prisma.sql`
       SELECT COUNT(*)::bigint AS "total",
