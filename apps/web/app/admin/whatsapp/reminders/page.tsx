@@ -7,6 +7,7 @@ import { db } from "../../../lib/db";
 type Summary = { total: bigint; scheduled: bigint; paused: bigint; completed: bigint; cancelled: bigint };
 type DeliverySummary = { queued: bigint; processing: bigint; retrying: bigint; sent: bigint; failed: bigint; unknown: bigint };
 type TenantRow = { businessId: string; businessName: string; scheduled: bigint; sent: bigint; failed: bigint; unknown: bigint; lastActivityAt: Date | null };
+const ZERO = BigInt(0);
 
 export default async function AdminSmartRemindersPage() {
   await requireAdmin();
@@ -45,8 +46,8 @@ export default async function AdminSmartRemindersPage() {
     `),
     db.whatsAppOperationsHeartbeat.findUnique({ where: { id: "whatsapp-operations" }, select: { lastStartedAt: true, lastSucceededAt: true, lastFailedAt: true, lastErrorCode: true, releaseSha: true, details: true } }),
   ]);
-  const summary = summaryRows[0] ?? { total: 0n, scheduled: 0n, paused: 0n, completed: 0n, cancelled: 0n };
-  const deliveries = deliveryRows[0] ?? { queued: 0n, processing: 0n, retrying: 0n, sent: 0n, failed: 0n, unknown: 0n };
+  const summary = summaryRows[0] ?? { total: ZERO, scheduled: ZERO, paused: ZERO, completed: ZERO, cancelled: ZERO };
+  const deliveries = deliveryRows[0] ?? { queued: ZERO, processing: ZERO, retrying: ZERO, sent: ZERO, failed: ZERO, unknown: ZERO };
   const attention = Number(deliveries.failed + deliveries.unknown);
 
   return <div dir="rtl" className="space-y-6">
