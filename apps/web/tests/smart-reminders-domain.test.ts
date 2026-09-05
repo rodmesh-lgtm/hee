@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeReminderRecurrence, normalizeReminderTimezone, reminderDeliveryIdempotencyKey, validateReminderSchedule } from "../app/lib/reminders/domain";
+import { normalizeReminderRecurrence, normalizeReminderTimezone, reminderDeliveryIdempotencyKey, reminderTemplateSupportsBodyParameter, validateReminderSchedule } from "../app/lib/reminders/domain";
 
 test("smart reminders accept real IANA timezones and reject invalid zones", () => {
   assert.equal(normalizeReminderTimezone("Asia/Riyadh"), "Asia/Riyadh");
@@ -34,4 +34,12 @@ test("delivery idempotency is tenant and occurrence specific", () => {
   assert.notEqual(a, otherTenant);
   assert.notEqual(a, otherOccurrence);
   assert.match(a, /^[a-f0-9]{64}$/);
+});
+
+test("reminder template permits one body parameter and rejects unresolved extra variables", () => {
+  assert.equal(reminderTemplateSupportsBodyParameter([{ type: "BODY", text: "تذكير INFRO: {{1}}" }]), true);
+  assert.equal(reminderTemplateSupportsBodyParameter([{ type: "BODY", text: "تذكير INFRO" }]), false);
+  assert.equal(reminderTemplateSupportsBodyParameter([{ type: "BODY", text: "{{1}} - {{2}}" }]), false);
+  assert.equal(reminderTemplateSupportsBodyParameter([{ type: "HEADER", text: "{{1}}" }, { type: "BODY", text: "تذكير" }]), false);
+  assert.equal(reminderTemplateSupportsBodyParameter(null), false);
 });
