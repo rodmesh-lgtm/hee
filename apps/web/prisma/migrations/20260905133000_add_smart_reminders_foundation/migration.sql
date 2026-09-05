@@ -52,7 +52,7 @@ CREATE TABLE "SmartReminderDelivery" (
     "failedAt" TIMESTAMP(3),
 
     CONSTRAINT "SmartReminderDelivery_pkey" PRIMARY KEY ("id"),
-    CONSTRAINT "SmartReminderDelivery_status_check" CHECK ("status" IN ('queued','processing','sent','failed','delivery_unknown','cancelled')),
+    CONSTRAINT "SmartReminderDelivery_status_check" CHECK ("status" IN ('queued','processing','retry_scheduled','sent','failed','delivery_unknown','cancelled')),
     CONSTRAINT "SmartReminderDelivery_attempt_check" CHECK ("attemptCount" >= 0)
 );
 
