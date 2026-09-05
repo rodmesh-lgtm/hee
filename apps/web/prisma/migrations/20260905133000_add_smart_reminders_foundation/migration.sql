@@ -10,6 +10,8 @@ CREATE TABLE "SmartReminder" (
     "title" TEXT NOT NULL,
     "body" TEXT NOT NULL,
     "recipientPhoneE164" TEXT NOT NULL,
+    "recipientConsentedAt" TIMESTAMP(3) NOT NULL,
+    "recipientConsentEvidence" TEXT NOT NULL,
     "timezone" TEXT NOT NULL,
     "scheduledAt" TIMESTAMP(3) NOT NULL,
     "nextOccurrenceAt" TIMESTAMP(3),
@@ -27,6 +29,7 @@ CREATE TABLE "SmartReminder" (
     CONSTRAINT "SmartReminder_body_check" CHECK (char_length("body") BETWEEN 1 AND 2000),
     CONSTRAINT "SmartReminder_timezone_check" CHECK (char_length("timezone") BETWEEN 1 AND 64),
     CONSTRAINT "SmartReminder_recipient_check" CHECK ("recipientPhoneE164" ~ '^\\+[1-9][0-9]{7,14}$'),
+    CONSTRAINT "SmartReminder_consent_evidence_check" CHECK (char_length("recipientConsentEvidence") BETWEEN 1 AND 80),
     CONSTRAINT "SmartReminder_recurrence_check" CHECK ("recurrenceType" IN ('once','daily','weekly','monthly')),
     CONSTRAINT "SmartReminder_status_check" CHECK ("status" IN ('scheduled','paused','completed','cancelled'))
 );
