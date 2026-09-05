@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { db } from "../db";
 import { processNextSmartReminderDelivery } from "../reminders/delivery-worker";
+import { isSmartRemindersSchemaReady } from "../reminders/schema-readiness";
 import { runSmartReminderScheduler } from "../reminders/scheduler";
 import { processNextWhatsAppAutomationDelivery } from "./automation-delivery-worker";
 import { processNextWhatsAppAutomationEvent } from "./automation-processor";
@@ -111,10 +112,12 @@ async function runAutomationDeliveries(env: NodeJS.ProcessEnv) {
 }
 
 async function runReminderSchedules(env: NodeJS.ProcessEnv) {
+  if (!await isSmartRemindersSchemaReady()) return;
   await runSmartReminderScheduler({ limit: boundedBatch(env, "WHATSAPP_REMINDER_SCHEDULE_BATCH_SIZE", 100, 500) });
 }
 
 async function runReminderDeliveries(env: NodeJS.ProcessEnv) {
+  if (!await isSmartRemindersSchemaReady()) return;
   const batchSize = boundedBatch(env, "WHATSAPP_REMINDER_DELIVERY_BATCH_SIZE", 100, 500);
   const workerId = `vercel-reminder-delivery-${randomUUID()}`;
   for (let index = 0; index < batchSize; index += 1) { const result = await processNextSmartReminderDelivery({ workerId }); if (!result.processed) break; }
