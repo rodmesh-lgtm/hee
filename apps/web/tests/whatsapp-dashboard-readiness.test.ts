@@ -24,3 +24,15 @@ test("WhatsApp command center gives one explicit next action from four launch ga
   assert.match(page, /const nextStep = launchSteps\.find\(\(step\) => !step\.ready\)/);
   assert.match(page, /الإجراء التالي/);
 });
+
+test("command center audience readiness counts only current consented non-opted-out contacts", () => {
+  const page = readFileSync(new URL("../app/dashboard/whatsapp/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /INNER JOIN "WhatsAppConsent" consent/);
+  assert.match(page, /consent\."businessId" = contact\."businessId"/);
+  assert.match(page, /consent\."phoneE164" = contact\."phoneE164"/);
+  assert.match(page, /contact\."businessId" = \$\{context\.businessId\}/);
+  assert.match(page, /contact\."optedOutAt" IS NULL/);
+  assert.match(page, /consent\."revokedAt" IS NULL/);
+  assert.match(page, /consent\."consentedAt" <= CURRENT_TIMESTAMP/);
+  assert.match(page, /ready:\s*eligibleAudience > 0/);
+});
