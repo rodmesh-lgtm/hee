@@ -36,3 +36,17 @@ export function validateReminderSchedule(input: { scheduledAt: Date; now?: Date 
   if (input.scheduledAt.getTime() > now.getTime() + 5 * 366 * 24 * 60 * 60_000) throw new Error("REMINDER_SCHEDULE_TOO_FAR");
   return input.scheduledAt;
 }
+
+export function reminderTemplateSupportsBodyParameter(components: unknown) {
+  if (!Array.isArray(components)) return false;
+  const serialized = JSON.stringify(components);
+  const allVariables = serialized.match(/\{\{[^{}]+\}\}/g) ?? [];
+  if (allVariables.length !== 1 || allVariables[0] !== "{{1}}") return false;
+  return components.some((component) => {
+    if (!component || typeof component !== "object") return false;
+    const record = component as Record<string, unknown>;
+    return String(record.type ?? "").toUpperCase() === "BODY"
+      && typeof record.text === "string"
+      && record.text.includes("{{1}}");
+  });
+}
