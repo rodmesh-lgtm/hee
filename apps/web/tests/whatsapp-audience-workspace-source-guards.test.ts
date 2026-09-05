@@ -14,6 +14,9 @@ test("campaign eligibility uses effective consent on database time and opt-out e
   assert.match(page, /contact\."optedOutAt" IS NULL/g);
   assert.match(page, /consent\."revokedAt" IS NULL/g);
   assert.match(page, /consent\."consentedAt" <= CURRENT_TIMESTAMP/g);
+  assert.match(page, /AS "eligible"/);
+  assert.match(page, /if\(contact\.eligible\)/);
+  assert.doesNotMatch(page, /consentedAt<=new Date\(\)/);
   assert.match(page, /COUNT\(\*\) FILTER/);
 });
 
