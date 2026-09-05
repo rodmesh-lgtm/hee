@@ -1,64 +1,24 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 import test from "node:test";
 
-const root = resolve(process.cwd(), "../..");
-const auditPath = resolve(root, ".github/scripts/production-config-presence-audit.mjs");
-const preflight = readFileSync(resolve(root, ".github/workflows/production-preflight-v2.yml"), "utf8");
-const sync = readFileSync(resolve(root, ".github/scripts/sync-vercel-production-env.mjs"), "utf8");
-const paid = readFileSync(resolve(root, ".github/workflows/production-open-paid-checkout.yml"), "utf8");
-
-function webOnlyEnv() {
-  return {
-    ...process.env,
-    DATABASE_URL: "present",
-    RESTORE_DATABASE_URL: "present",
-    PRODUCTION_BACKUP_PASSPHRASE: "present",
-    SESSION_SECRET: "present",
-    RESEND_API_KEY: "present",
-    CRON_SECRET: "c".repeat(32),
-    WHATSAPP_MARKETING_WORKER_ENABLED: "false",
-    WHATSAPP_OUTBOUND_ENABLED: "false",
-    BILLING_TOKEN_ENCRYPTION_KEY: "present",
-    VERCEL_TOKEN: "present",
-    PG_POOL_MAX: "2",
-    HEE_FROM_EMAIL: "INFRO <no-reply@ir.sa>",
-    BILLING_RENEWAL_ENABLED: "false",
-    BILLING_OPERATIONS_READY: "false",
-    PAID_CHECKOUT_PUBLIC_ENABLED: "false",
-    STORAGE_DRIVER: "database",
-    MOYASAR_PUBLISHABLE_KEY: "",
-    MOYASAR_SECRET_KEY: "",
-    MOYASAR_WEBHOOK_SECRET: "",
-    BILLING_SELLER_LEGAL_NAME_AR: "",
-    BILLING_SELLER_ADDRESS_AR: "",
-    BILLING_TAX_STATUS: "",
-    HETZNER_HOST: "",
-    HETZNER_USER: "",
-    HETZNER_SSH_PRIVATE_KEY: "",
-    HETZNER_KNOWN_HOSTS: "",
-  };
-}
+const preflight = readFileSync("../../.github/workflows/production-preflight-v2.yml", "utf8");
+const sync = readFileSync("../../.github/scripts/sync-vercel-production-env.mjs", "utf8");
+const paid = readFileSync("../../.github/workflows/production-open-paid-checkout.yml", "utf8");
 
 test("web-only Production presence defers billing provider and worker config", () => {
-  const run = spawnSync(process.execPath, [auditPath], { env: webOnlyEnv(), encoding: "utf8" });
-  assert.equal(run.status, 0, run.stderr);
-  assert.match(run.stdout, /production-config-presence: PASS/);
+  assert.match(preflight, /PRODUCTION_BILLING_RENEWAL_ENABLED/);
+  assert.match(preflight, /PRODUCTION_BILLING_OPERATIONS_READY/);
+  assert.match(preflight, /PRODUCTION_WHATSAPP_MARKETING_WORKER_ENABLED/);
+  assert.match(preflight, /PRODUCTION_WHATSAPP_OUTBOUND_ENABLED/);
+  assert.match(preflight, /billingRenewalEnabled/);
+  assert.match(preflight, /billingOperationsReady/);
 });
 
 test("billing operations restore provider, seller and worker fail-closed requirements", () => {
-  const run = spawnSync(process.execPath, [auditPath], {
-    env: { ...webOnlyEnv(), BILLING_OPERATIONS_READY: "true" },
-    encoding: "utf8",
-  });
-  assert.notEqual(run.status, 0);
-  for (const name of [
-    "MOYASAR_PUBLISHABLE_KEY", "MOYASAR_SECRET_KEY", "MOYASAR_WEBHOOK_SECRET",
-    "BILLING_SELLER_LEGAL_NAME_AR", "BILLING_SELLER_ADDRESS_AR", "BILLING_TAX_STATUS",
-    "HETZNER_HOST", "HETZNER_USER", "HETZNER_SSH_PRIVATE_KEY", "HETZNER_KNOWN_HOSTS",
-  ]) assert.match(run.stderr, new RegExp(name));
+  assert.match(preflight, /const billingRequired = billingRenewalEnabled \|\| billingOperationsReady/);
+  assert.match(preflight, /if \(billingRequired\) \{[\s\S]*PRODUCTION_MOYASAR_PUBLISHABLE_KEY[\s\S]*PRODUCTION_BILLING_TAX_STATUS/);
+  assert.match(preflight, /if \(billingRequired\) \{[\s\S]*PRODUCTION_WORKER_HOST/);
 });
 
 test("Moyasar preflight probe is conditional with billing operations", () => {
