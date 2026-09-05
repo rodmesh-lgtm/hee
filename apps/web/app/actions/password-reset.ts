@@ -11,7 +11,7 @@ export type PasswordResetState = { error?: string; success?: string };
 const PROVIDER = "password-reset";
 const RESET_TTL_MS = 30 * 60 * 1000;
 const passwordComplexityRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-const GENERIC_RESET_MESSAGE = "إذا كان البريد مرتبطًا بحساب HEE فستصلك رسالة الاستعادة خلال دقائق.";
+const GENERIC_RESET_MESSAGE = "إذا كان البريد مرتبطًا بحساب INFRO فستصلك رسالة الاستعادة خلال دقائق.";
 
 function normalizeEmail(value: string) { return value.trim().toLowerCase(); }
 function hashToken(token: string) { return createHash("sha256").update(token).digest("hex"); }
@@ -82,15 +82,15 @@ async function sendResetEmail(email: string, token: string) {
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "User-Agent": "HEE/1.0",
-      "Idempotency-Key": `hee-reset-${hashToken(token).slice(0, 32)}`,
+      "User-Agent": "INFRO/1.0",
+      "Idempotency-Key": `infro-reset-${hashToken(token).slice(0, 32)}`,
     },
     body: JSON.stringify({
       from,
       to: [email],
-      subject: "استعادة كلمة مرور HEE",
-      text: `طلبت استعادة كلمة مرور حساب HEE. افتح الرابط التالي خلال 30 دقيقة:\n${resetUrl}\n\nإذا لم تطلب ذلك فتجاهل الرسالة.`,
-      html: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.8"><h2>استعادة كلمة مرور HEE</h2><p>اضغط الزر التالي لتعيين كلمة مرور جديدة. الرابط صالح لمدة 30 دقيقة.</p><p><a href="${resetUrl}" style="display:inline-block;background:#6f3bd2;color:#fff;text-decoration:none;padding:12px 18px;border-radius:12px">تعيين كلمة مرور جديدة</a></p><p style="color:#666;font-size:13px">إذا لم تطلب استعادة كلمة المرور فتجاهل هذه الرسالة.</p></div>`,
+      subject: "استعادة كلمة مرور INFRO",
+      text: `طلبت استعادة كلمة مرور حساب INFRO. افتح الرابط التالي خلال 30 دقيقة:\n${resetUrl}\n\nإذا لم تطلب ذلك فتجاهل الرسالة.`,
+      html: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.8;color:#0a2426"><h2>استعادة كلمة مرور INFRO</h2><p>اضغط الزر التالي لتعيين كلمة مرور جديدة. الرابط صالح لمدة 30 دقيقة.</p><p><a href="${resetUrl}" style="display:inline-block;background:#07181b;color:#7ff4df;text-decoration:none;padding:12px 18px;border-radius:12px">تعيين كلمة مرور جديدة</a></p><p style="color:#667574;font-size:13px">إذا لم تطلب استعادة كلمة المرور فتجاهل هذه الرسالة.</p></div>`,
     }),
     cache: "no-store",
     signal: AbortSignal.timeout(10_000),
@@ -111,7 +111,7 @@ export async function requestPasswordResetAction(_previous: PasswordResetState, 
   if (!ipRate.allowed || !emailRate.allowed) return { success: GENERIC_RESET_MESSAGE };
 
   const configured = Boolean(String(process.env.RESEND_API_KEY ?? "").trim() && String(process.env.HEE_FROM_EMAIL ?? "").trim());
-  if (!configured) return { error: "استعادة كلمة المرور عبر البريد لم تُفعّل بعد. تواصل مع إدارة HEE." };
+  if (!configured) return { error: "استعادة كلمة المرور عبر البريد لم تُفعّل بعد. تواصل مع إدارة INFRO." };
 
   const user = await db.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, deletedAt: true } });
   if (!user?.passwordHash || user.deletedAt) return { success: GENERIC_RESET_MESSAGE };
