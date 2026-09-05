@@ -23,7 +23,7 @@ test("self reminders cannot be used as arbitrary outbound messaging", () => {
 
 test("reminder mutations always scope by reminder id and business id", () => {
   assert.match(operations, /WHERE "id" = \$\{input\.reminderId\} AND "businessId" = \$\{input\.businessId\}/);
-  assert.match(operations, /WHERE "reminderId" = \$\{input\.reminderId\} AND "businessId" = \$\{input\.businessId\}/);
+  assert.match(operations, /WHERE "businessId" = \$\{(?:input\.)?businessId\} AND "reminderId" = \$\{(?:input\.)?reminderId\}|WHERE "reminderId" = \$\{(?:input\.)?reminderId\} AND "businessId" = \$\{(?:input\.)?businessId\}/);
 });
 
 test("reminder audit metadata inherits WhatsApp secret and message redaction", () => {
