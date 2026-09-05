@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { reminderLocalDateTimeToUtc } from "../lib/reminders/domain";
 import { cancelSmartReminder, completeSmartReminder, createSmartReminder, pauseSmartReminder, rescheduleSmartReminder, resumeSmartReminder, updateSmartReminderContent } from "../lib/reminders/operations";
+import { isSmartRemindersSchemaReady } from "../lib/reminders/schema-readiness";
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
 import { getWhatsAppWriteContext } from "../lib/whatsapp/rbac";
 
@@ -18,6 +19,7 @@ async function reminderContext() {
   const context = await getWhatsAppWriteContext("automation.manage");
   if (!context) redirect("/dashboard/reminders?access=denied");
   if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
+  if (!await isSmartRemindersSchemaReady()) redirect("/dashboard/reminders?schema=pending");
   return context;
 }
 
