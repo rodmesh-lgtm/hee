@@ -62,8 +62,8 @@ test.describe.serial("HEE directory workflow", () => {
       await page.getByPlaceholder("اسم الفرع").fill("فرع جدة الرئيسي");
       await page.getByPlaceholder("المدينة").fill("جدة");
       await page.getByPlaceholder("الحي").fill("الروضة");
-      await page.getByPlaceholder("هاتف الفرع (اختياري)").fill("0500000011");
-      await page.getByPlaceholder("واتساب الفرع (اختياري)").fill("966500000011");
+      await page.getByPlaceholder("هاتف الفرع", { exact: true }).fill("0500000011");
+      await page.getByPlaceholder("واتساب الفرع", { exact: true }).fill("966500000011");
       await page.getByRole("button", { name: "إضافة فرع" }).click();
       await expect(page).toHaveURL(/status=branch-created/);
       await expect(page.getByText("تمت إضافة الفرع.")).toBeVisible();
@@ -74,10 +74,10 @@ test.describe.serial("HEE directory workflow", () => {
 
       await page.getByPlaceholder("الاسم").fill("مسؤول مبيعات جدة");
       await page.getByPlaceholder("المسمى الوظيفي").fill("مسؤول مبيعات");
-      await page.getByPlaceholder("واتساب").fill("966500000022");
-      await page.getByPlaceholder("الهاتف (اختياري)").fill("0500000022");
+      await page.getByPlaceholder("واتساب", { exact: true }).fill("966500000022");
+      await page.getByPlaceholder("الهاتف", { exact: true }).fill("0500000022");
       await page.locator('select[name="branchId"]').first().selectOption(branch.id);
-      await page.getByPlaceholder("البريد (اختياري)").fill("sales-directory@hee.test");
+      await page.getByPlaceholder("البريد", { exact: true }).fill("sales-directory@hee.test");
       await page.getByRole("button", { name: "إضافة عضو" }).click();
       await expect(page).toHaveURL(/status=contact-created/);
       await expect(page.getByText("تمت إضافة عضو الفريق.")).toBeVisible();
