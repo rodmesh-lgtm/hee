@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { cancelSmartReminderAction, completeSmartReminderAction, pauseSmartReminderAction, rescheduleSmartReminderAction, resumeSmartReminderAction, snoozeSmartReminderAction, updateSmartReminderAction } from "../../actions/smart-reminders";
 import { db } from "../../lib/db";
 import { reminderTemplateSupportsBodyParameter } from "../../lib/reminders/domain";
+import { isSmartRemindersSchemaReady } from "../../lib/reminders/schema-readiness";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../lib/whatsapp/rbac";
 import { SmartReminderCreateForm } from "../../../components/dashboard/smart-reminder-create-form";
@@ -51,12 +52,25 @@ function Notice({ params }: { params: Record<string, string | undefined> }) {
   return <div role="status" className={`rounded-2xl border px-4 py-3 text-sm font-bold ${success ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>{text}</div>;
 }
 
+function SchemaPending() {
+  return <div dir="rtl" className="space-y-6 pb-10" data-reminder-schema="pending">
+    <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-[#07181b] p-6 text-white shadow-sm sm:p-7">
+      <div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#00d8c6]/15 blur-3xl" />
+      <div className="relative"><div className="mb-3 flex items-center gap-2 text-[10px] font-black tracking-[.16em] text-[#4ee7d4]"><BellRing className="h-4 w-4"/>INFRO SMART REMINDERS</div><h1 className="text-2xl font-black sm:text-3xl">تذكيرات أعمالك الذكية</h1><p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">ميزة التذكيرات جاهزة في هذا الإصدار، لكن قاعدة بيانات بيئة المعاينة لم تُحدَّث بعد بالمخطط الجديد.</p></div>
+    </header>
+    <section className="rounded-[26px] border border-amber-200 bg-amber-50 p-6 text-amber-950 shadow-sm">
+      <div className="flex items-start gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-amber-700"><CalendarClock className="h-5 w-5"/></div><div><h2 className="font-black">التذكيرات غير مفعلة في قاعدة هذه المعاينة بعد</h2><p className="mt-2 text-sm leading-7">لم يتم فقد أي بيانات ولم تُنفذ أي عملية إرسال. بعد تطبيق migration المعتمدة على بيئة الإصدار ستفتح الصفحة تلقائيًا بكامل وظائفها.</p><Link href="/dashboard" className="mt-4 inline-flex rounded-xl border border-amber-300 bg-white px-4 py-2 text-xs font-black">العودة للرئيسية</Link></div></div>
+    </section>
+  </div>;
+}
+
 export default async function SmartRemindersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const context = await getWhatsAppReadContext("automation.manage");
   if (!context) redirect("/dashboard/whatsapp?access=denied");
   const entitled = await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId });
   if (!entitled) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   const params = await searchParams;
+  if (!await isSmartRemindersSchemaReady()) return <SchemaPending />;
 
   const [business, templates, reminders] = await Promise.all([
     db.business.findFirst({ where: { id: context.businessId, deletedAt: null }, select: { whatsapp: true, phone: true } }),
