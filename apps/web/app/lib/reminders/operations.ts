@@ -7,6 +7,8 @@ import { writeWhatsAppAuditLog } from "../whatsapp/audit";
 import { normalizeE164 } from "../whatsapp/contact-domain";
 import { normalizeReminderRecurrence, normalizeReminderTimezone, reminderTemplateSupportsBodyParameter, validateReminderSchedule, type ReminderRecurrenceType } from "./domain";
 
+const REMINDER_CONSENT_EVIDENCE = "dashboard_explicit_reminder_opt_in_v1";
+
 function boundedText(value: string, max: number, code: string) {
   const normalized = value.normalize("NFKC").trim().replace(/\s+/g, " ");
   if (!normalized || normalized.length > max) throw new Error(code);
@@ -66,8 +68,9 @@ async function cancelQueuedDeliveries(database: Prisma.TransactionClient, busine
 
 export async function createSmartReminder(input: {
   businessId: string; actorUserId: string; title: string; body: string; templateId: string; scheduledAt: Date; timezone: string;
-  recurrenceType?: ReminderRecurrenceType | string; recipientPhone?: string | null;
+  recurrenceType?: ReminderRecurrenceType | string; recipientPhone?: string | null; recipientConsentAccepted: boolean;
 }) {
+  if (!input.recipientConsentAccepted) throw new Error("REMINDER_RECIPIENT_CONSENT_REQUIRED");
   const title = boundedText(input.title, 160, "REMINDER_TITLE_INVALID");
   const body = boundedText(input.body, 2000, "REMINDER_BODY_INVALID");
   const timezone = normalizeReminderTimezone(input.timezone);
@@ -75,6 +78,7 @@ export async function createSmartReminder(input: {
   const recurrenceType = normalizeReminderRecurrence(input.recurrenceType ?? "once");
   if (recurrenceType !== "once") throw new Error("REMINDER_RECURRENCE_NOT_ENABLED_YET");
   const id = randomUUID();
+  const consentedAt = new Date();
 
   await db.$transaction(async (tx) => {
     const [template, recipientPhoneE164] = await Promise.all([
@@ -83,14 +87,14 @@ export async function createSmartReminder(input: {
     ]);
     await tx.$executeRaw(Prisma.sql`
       INSERT INTO "SmartReminder" (
-        "id", "businessId", "createdByUserId", "connectionId", "templateId", "title", "body", "recipientPhoneE164", "timezone",
-        "scheduledAt", "nextOccurrenceAt", "recurrenceType", "status", "updatedAt"
+        "id", "businessId", "createdByUserId", "connectionId", "templateId", "title", "body", "recipientPhoneE164",
+        "recipientConsentedAt", "recipientConsentEvidence", "timezone", "scheduledAt", "nextOccurrenceAt", "recurrenceType", "status", "updatedAt"
       ) VALUES (
-        ${id}, ${input.businessId}, ${input.actorUserId}, ${template.connectionId}, ${template.id}, ${title}, ${body}, ${recipientPhoneE164}, ${timezone},
-        ${scheduledAt}, ${scheduledAt}, ${recurrenceType}, 'scheduled', CURRENT_TIMESTAMP
+        ${id}, ${input.businessId}, ${input.actorUserId}, ${template.connectionId}, ${template.id}, ${title}, ${body}, ${recipientPhoneE164},
+        ${consentedAt}, ${REMINDER_CONSENT_EVIDENCE}, ${timezone}, ${scheduledAt}, ${scheduledAt}, ${recurrenceType}, 'scheduled', CURRENT_TIMESTAMP
       )
     `);
-    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.create", targetType: "smart_reminder", targetId: id, outcome: "success", metadata: { timezone, recurrenceType, connectionId: template.connectionId, templateId: template.id }, database: tx });
+    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.create", targetType: "smart_reminder", targetId: id, outcome: "success", metadata: { timezone, recurrenceType, connectionId: template.connectionId, templateId: template.id, reminderConsent: true }, database: tx });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   return { id, scheduledAt, timezone, recurrenceType };
 }
