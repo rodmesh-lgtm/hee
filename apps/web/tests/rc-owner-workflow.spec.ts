@@ -164,7 +164,7 @@ test.describe.serial("RC owner workflow", () => {
       await page.getByLabel("الوصف المختصر").fill("تم تحديث هذه البيانات عبر المحرر الحالي وحفظها تلقائيًا");
       await page.getByLabel("الحي").fill("الملقا");
       await waitForBusiness({ id: seeded.businessId, name: "منشأة HEE المحدثة" });
-      await expect(page.getByText("تم الحفظ", { exact: true })).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText("محفوظ تلقائيًا", { exact: true })).toBeVisible({ timeout: 20_000 });
 
       const persisted = await db.business.findUnique({ where: { id: seeded.businessId }, select: { shortDescription: true, district: true } });
       expect(persisted?.shortDescription).toContain("المحرر الحالي");
