@@ -124,8 +124,9 @@ test.describe.serial("smart reminders authenticated workflow", () => {
       await page.getByRole("button", { name: "إضافة التذكير" }).click();
       await page.waitForURL(/\/dashboard\/reminders\?create=success/);
 
-      await expect(page.getByText("متابعة عرض الاختبار", { exact: true })).toBeVisible();
-      await expect(page.getByText("أسبوعيًا", { exact: true })).toBeVisible();
+      const reminderCard = page.getByRole("article").filter({ hasText: "متابعة عرض الاختبار" });
+      await expect(reminderCard.getByText("متابعة عرض الاختبار", { exact: true })).toBeVisible();
+      await expect(reminderCard.getByText("أسبوعيًا", { exact: true })).toBeVisible();
       const rows = await db.$queryRaw<Array<{ id: string; businessId: string; status: string; recurrenceType: string; recipientPhoneE164: string; recipientConsentEvidence: string }>>(Prisma.sql`
         SELECT "id", "businessId", "status", "recurrenceType", "recipientPhoneE164", "recipientConsentEvidence"
         FROM "SmartReminder" WHERE "businessId" = ${fixture.businessId} ORDER BY "createdAt" DESC LIMIT 1
