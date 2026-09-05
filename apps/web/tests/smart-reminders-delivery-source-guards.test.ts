@@ -74,6 +74,26 @@ test("reminder delivery shares Meta credential, rate and message persistence con
   assert.doesNotMatch(worker, /console\.(log|error).*accessToken/);
 });
 
+test("confirmed one-time delivery completes the reminder atomically while recurring reminders stay scheduled", () => {
+  assert.match(worker, /context\.recurrenceType === "once"/);
+  assert.match(worker, /context\.nextOccurrenceAt === null/);
+  assert.match(worker, /SET "status"='completed'/);
+  assert.match(worker, /"recurrenceType"='once'/);
+  assert.match(worker, /"nextOccurrenceAt" IS NULL/);
+  assert.match(worker, /action:"reminder\.complete"/);
+  const completionAt = worker.indexOf('SET "status"=\'completed\'');
+  const providerSuccessAt = worker.indexOf('SET "status"=\'sent\'');
+  assert.ok(providerSuccessAt > 0 && completionAt > providerSuccessAt);
+});
+
+test("non-success delivery transitions are privacy-safe audited", () => {
+  assert.match(worker, /action: "reminder\.delivery\.transition"/);
+  assert.match(worker, /deliveryStatus: status/);
+  assert.match(worker, /reason: errorCode \?\? null/);
+  assert.doesNotMatch(worker, /metadata:\s*\{[^}]*recipientPhoneE164/);
+  assert.doesNotMatch(worker, /metadata:\s*\{[^}]*body/);
+});
+
 test("operations cycle always schedules reminders before delivering them on both runtimes", () => {
   const scheduleAt = operations.indexOf('"whatsapp:reminder-schedules"');
   const deliveryAt = operations.indexOf('"whatsapp:reminder-deliveries"');
