@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 export const REMINDER_STATUSES = ["scheduled", "paused", "completed", "cancelled"] as const;
-export const REMINDER_DELIVERY_STATUSES = ["pending", "queued", "processing", "sent", "failed", "delivery_unknown", "cancelled"] as const;
+export const REMINDER_DELIVERY_STATUSES = ["queued", "processing", "retry_scheduled", "sent", "failed", "delivery_unknown", "cancelled"] as const;
 export const REMINDER_RECURRENCE_TYPES = ["once", "daily", "weekly", "monthly"] as const;
 
 export type ReminderStatus = typeof REMINDER_STATUSES[number];
