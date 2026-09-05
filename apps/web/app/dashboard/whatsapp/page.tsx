@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -49,7 +50,7 @@ export default async function WhatsAppMarketingPage() {
     redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   }
 
-  const [connection, contacts, templates, campaigns, automations, conversations, integrations, launchReadiness] = await Promise.all([
+  const [connection, contacts, templates, campaigns, automations, conversations, integrations, eligibleAudienceRows, launchReadiness] = await Promise.all([
     db.whatsAppConnection.findFirst({
       where: { businessId: context.businessId, provider: "meta" },
       select: { status: true, disabledAt: true, displayPhoneNumber: true, verifiedName: true },
@@ -60,10 +61,22 @@ export default async function WhatsAppMarketingPage() {
     db.whatsAppAutomation.count({ where: { businessId: context.businessId } }),
     db.whatsAppConversation.count({ where: { businessId: context.businessId } }),
     db.whatsAppCommerceIntegration.count({ where: { businessId: context.businessId } }),
+    db.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+      SELECT COUNT(*)::int AS "count"
+      FROM "WhatsAppContact" contact
+      INNER JOIN "WhatsAppConsent" consent
+        ON consent."businessId" = contact."businessId"
+        AND consent."phoneE164" = contact."phoneE164"
+      WHERE contact."businessId" = ${context.businessId}
+        AND contact."optedOutAt" IS NULL
+        AND consent."revokedAt" IS NULL
+        AND consent."consentedAt" <= CURRENT_TIMESTAMP
+    `),
     getWhatsAppCampaignLaunchReadiness(),
   ]);
 
   const connected = connection?.status === "connected" && !connection.disabledAt;
+  const eligibleAudience = eligibleAudienceRows[0]?.count ?? 0;
   const launchSteps: ReadinessStep[] = [
     {
       title: "ربط الرقم الرسمي",
@@ -81,10 +94,10 @@ export default async function WhatsAppMarketingPage() {
     },
     {
       title: "جمهور مؤهل",
-      description: "جهات اتصال قابلة للتجهيز مع حدود الموافقة والانسحاب.",
+      description: "جهات اتصال بموافقة فعالة وغير منسحبة وقت التحقق.",
       href: "/dashboard/whatsapp/contacts",
-      ready: contacts > 0,
-      value: contacts ? `${contacts} جهة` : "ابدأ الاستيراد",
+      ready: eligibleAudience > 0,
+      value: eligibleAudience ? `${eligibleAudience} مؤهل` : contacts ? "لا توجد موافقات فعالة" : "ابدأ الاستيراد",
     },
     {
       title: "جاهزية التشغيل",
@@ -108,11 +121,11 @@ export default async function WhatsAppMarketingPage() {
   const cards = [
     { href: "/dashboard/whatsapp/contacts", title: "جهات الاتصال والاستيراد", text: "استيراد CSV أو Excel حتى 10,000 صف مع توحيد الأرقام وإزالة التكرار وتوثيق الموافقة الصريحة.", icon:ContactRound, state: contacts ? "ready" : "empty", status: contacts ? `${contacts} جهة اتصال` : "ابدأ بالاستيراد" },
     { href: "/dashboard/whatsapp/templates", title: "قوالب Meta", text: "مزامنة القوالب الرسمية ومتابعة حالة الاعتماد قبل استخدامها في الإرسال.", icon:FileText, state: templates ? "ready" : connected ? "attention" : "empty", status: templates ? `${templates} قالب معتمد` : connected ? "تحتاج مزامنة" : "اربط الرقم أولًا" },
-    { href: "/dashboard/whatsapp/campaigns", title: "الحملات الجماعية", text: "أنشئ حملة من جهات الاتصال المؤهلة، راجع الجمهور والقالب، ثم جدولة الإرسال أو تشغيله بأمان.", icon:Megaphone, state: connected && templates && contacts && launchReadiness.ready ? "ready" : "attention", status: connected && templates && contacts && launchReadiness.ready ? "جاهز للتجهيز" : "متطلبات ناقصة" },
+    { href: "/dashboard/whatsapp/campaigns", title: "الحملات الجماعية", text: "أنشئ حملة من جهات الاتصال المؤهلة، راجع الجمهور والقالب، ثم جدولة الإرسال أو تشغيله بأمان.", icon:Megaphone, state: connected && templates && eligibleAudience && launchReadiness.ready ? "ready" : "attention", status: connected && templates && eligibleAudience && launchReadiness.ready ? "جاهز للتجهيز" : "متطلبات ناقصة" },
     { href: "/dashboard/whatsapp/automations", title: "الأتمتة الذكية", text: "شغّل رسائل قالبية من أحداث موثوقة مع إعادة فحص الموافقة والانسحاب والاتصال قبل كل إرسال.", icon:Workflow, state: connected && templates ? "ready" : "attention", status: automations ? `${automations} أتمتة` : connected && templates ? "متاح للإنشاء" : "يتطلب ربطًا وقالبًا" },
     { href: "/dashboard/whatsapp/integrations", title: "تكاملات المتاجر", text: "اربط Shopify رسميًا لتحويل الطلبات والسلال إلى أحداث تستخدمها مسارات واتساب. سلة وزد تبقيان مغلقتين حتى اكتمال الربط الرسمي.", icon:ShoppingBag, state: integrations ? "ready" : "empty", status: integrations ? `${integrations} تكامل` : "لا توجد تكاملات" },
     { href: "/dashboard/whatsapp/inbox", title: "خدمة العملاء", text: "إدارة المحادثات والرد على العملاء ضمن نافذة الخدمة الرسمية من رقم منشأتك.", icon:MessageCircle, state: connected ? "ready" : "attention", status: connected ? `${conversations} محادثة` : "اربط الرقم أولًا" },
-    { href: "/dashboard/whatsapp/setup", title: "ربط الرقم الرسمي", text: "اربط WABA ورقم WhatsApp Business الخاصين بالمنشأة عبر Embedded Signup الرسمي من Meta.", icon:Link2, state: connected ? "ready" : "attention", status:connected?"متصل رسميًا":"يتطلب ربط Meta" },
+    { href: "/dashboard/whatsapp/setup", title: "ربط الرقم الرسمي", text: "اربط WABA ورقم WhatsApp Business الخاصين بالمنشأة عبر Embedded Signup الرسمي من Meta.", icon:Link2, state: connected ? "ready" : "attention", status: connected ? "متصل رسميًا" : "يتطلب ربط Meta" },
     { href: "/dashboard/whatsapp/audit", title: "الأمان والتدقيق", text: "راجع العمليات الحساسة لهذا النشاط دون عرض الرموز السرية أو محتوى الرسائل.", icon:ShieldCheck, state: "ready", status: "فعال" },
   ] as const;
 
@@ -205,7 +218,7 @@ export default async function WhatsAppMarketingPage() {
       </section>
 
       <section aria-label="ملخص واتساب" className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
-        <Metric label="جهات الاتصال" value={String(contacts)} helper="الجمهور المسجل" />
+        <Metric label="جهات الاتصال" value={String(contacts)} helper={`${eligibleAudience} مؤهل للإرسال`} />
         <Metric label="قوالب معتمدة" value={String(templates)} helper="صالحة للاستخدام" />
         <Metric label="الحملات" value={String(campaigns)} helper="كل الحالات" />
         <Metric label="الأتمتة" value={String(automations)} helper="المسارات المنشأة" />
