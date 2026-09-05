@@ -27,10 +27,13 @@ test("insights derives delivery and audience truth from stored lifecycle state",
   assert.match(source, /contact\."optedOutAt" IS NULL/);
   assert.match(source, /consent\."revokedAt" IS NULL/);
   assert.match(source, /consent\."consentedAt" <= CURRENT_TIMESTAMP/);
+  assert.match(source, /consent\."phoneE164" = contact\."phoneE164"/);
 });
 
 test("insights avoids unsupported revenue attribution and customer-private payloads", () => {
   assert.match(source, /لا نعرض إيرادًا أو تحويلًا ما لم يوجد له إسناد حقيقي/);
-  assert.doesNotMatch(source, /textBody|phoneE164|credentialEnvelope|rawPayload|payload:/);
+  assert.doesNotMatch(source, /textBody|credentialEnvelope|rawPayload|payload:/);
+  assert.doesNotMatch(source, /phoneE164\s*:/);
+  assert.doesNotMatch(source, /\{(?:contact|recipient)\.phoneE164\}/);
   assert.match(source, /لا تعرض نصوص الرسائل أو أرقام العملاء أو أي بيانات اعتماد/);
 });
