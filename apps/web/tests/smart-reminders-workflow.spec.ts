@@ -83,16 +83,11 @@ async function seed(): Promise<Fixture> {
 }
 
 async function cleanup(fixture: Fixture) {
+  // Audit evidence is intentionally append-only at the database boundary. This RC database
+  // is ephemeral, so cleanup removes only mutable workflow rows and the reusable session.
   await db.$executeRaw(Prisma.sql`DELETE FROM "SmartReminderDelivery" WHERE "businessId" = ${fixture.businessId}`);
   await db.$executeRaw(Prisma.sql`DELETE FROM "SmartReminder" WHERE "businessId" = ${fixture.businessId}`);
-  await db.whatsAppAuditLog.deleteMany({ where: { businessId: fixture.businessId } });
-  await db.whatsAppTemplate.deleteMany({ where: { businessId: fixture.businessId } });
-  await db.whatsAppConnection.deleteMany({ where: { businessId: fixture.businessId } });
-  await db.subscription.deleteMany({ where: { businessId: fixture.businessId } });
-  await db.business.delete({ where: { id: fixture.businessId } });
   await db.session.deleteMany({ where: { userId: fixture.userId } });
-  await db.authIdentity.deleteMany({ where: { userId: fixture.userId } });
-  await db.user.delete({ where: { id: fixture.userId } });
 }
 
 test.describe.serial("smart reminders authenticated workflow", () => {
@@ -157,6 +152,9 @@ test.describe.serial("smart reminders authenticated workflow", () => {
       `);
       expect(completed[0]?.status).toBe("completed");
       expect(completed[0]?.nextOccurrenceAt).toBeNull();
+
+      const auditCount = await db.whatsAppAuditLog.count({ where: { businessId: fixture.businessId } });
+      expect(auditCount).toBeGreaterThan(0);
     } finally {
       await cleanup(fixture);
     }
