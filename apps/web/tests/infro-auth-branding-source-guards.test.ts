@@ -7,6 +7,7 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 const verificationEmail = read("../app/lib/email-verification.ts");
 const verificationActions = read("../app/actions/email-verification.ts");
 const verificationPage = read("../app/verify-email/page.tsx");
+const rootLayout = read("../app/layout.tsx");
 const passwordReset = read("../app/actions/password-reset.ts");
 
 test("customer-facing verification email uses INFRO identity", () => {
@@ -26,10 +27,12 @@ test("customer-facing password reset uses INFRO identity", () => {
   assert.doesNotMatch(passwordReset, /استعادة كلمة مرور HEE|حساب HEE|إدارة HEE|User-Agent": "HEE\/1\.0"/);
 });
 
-test("verification support and page metadata no longer expose HEE", () => {
+test("verification support and page metadata no longer expose HEE or duplicate the global brand suffix", () => {
   assert.match(verificationActions, /إدارة INFRO/);
   assert.doesNotMatch(verificationActions, /إدارة HEE/);
-  assert.match(verificationPage, /تأكيد البريد الإلكتروني \| INFRO/);
+  assert.match(verificationPage, /title: "تأكيد البريد الإلكتروني"/);
+  assert.doesNotMatch(verificationPage, /تأكيد البريد الإلكتروني \| INFRO|\| HEE/);
+  assert.match(rootLayout, /template:`%s \| \$\{d\.brandNameEn\}`/);
   assert.match(verificationPage, /INFRO ACCOUNT SECURITY/);
-  assert.doesNotMatch(verificationPage, /\| HEE|violet|#5b3fd6|#5d49cc|#6543ce/);
+  assert.doesNotMatch(verificationPage, /violet|#5b3fd6|#5d49cc|#6543ce/);
 });
