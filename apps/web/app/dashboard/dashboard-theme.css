@@ -21,9 +21,9 @@
 /* Dark mode owns every neutral surface in the authenticated workspace. */
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"]{--infro-surface:#0b2023;--infro-surface-soft:#0d2528;--infro-border:#19383b;--infro-muted:#9aafad;--infro-ink:#edf7f5;background:radial-gradient(circle at 12% 0%,rgba(0,216,198,.055),transparent 24rem),#061416!important;color:#edf7f5}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-white,.bg-\[\#fcfcff\],.bg-\[\#fbfcff\]){background-color:#0b2023!important}
-:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-slate-50,.bg-\[\#fbfdfd\],.bg-\[\#f5fffd\],.bg-\[\#f4fffd\]){background-color:#0d2528!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-slate-50,.bg-\[\#fbfcfc\],.bg-\[\#fbfdfd\],.bg-\[\#f5fffd\],.bg-\[\#f4fffd\]){background-color:#0d2528!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-slate-100,.bg-\[\#f1edff\],.bg-\[\#effbf9\],.bg-\[\#e9fbf8\],.bg-\[\#e8fbf8\],.bg-\[\#e7faf7\],.bg-\[\#e7f8f5\],.bg-\[\#f0fcfa\]){background-color:#112b2e!important}
-:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-emerald-50){background-color:rgba(16,185,129,.12)!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-emerald-50,.bg-emerald-50\/45){background-color:rgba(16,185,129,.12)!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-amber-50){background-color:rgba(245,158,11,.12)!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-rose-50){background-color:rgba(244,63,94,.11)!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-blue-50){background-color:rgba(59,130,246,.11)!important}
