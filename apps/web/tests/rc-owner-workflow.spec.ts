@@ -161,7 +161,7 @@ test.describe.serial("RC owner workflow", () => {
       await expect(page.getByLabel("اسم المنشأة")).toHaveValue("منشأة اختبار HEE");
 
       await page.getByLabel("اسم المنشأة").fill("منشأة HEE المحدثة");
-      await page.getByLabel("وصف مختصر").fill("تم تحديث هذه البيانات عبر المحرر الحالي وحفظها تلقائيًا");
+      await page.getByLabel("الوصف المختصر").fill("تم تحديث هذه البيانات عبر المحرر الحالي وحفظها تلقائيًا");
       await page.getByLabel("الحي").fill("الملقا");
       await waitForBusiness({ id: seeded.businessId, name: "منشأة HEE المحدثة" });
       await expect(page.getByText("تم الحفظ", { exact: true })).toBeVisible({ timeout: 20_000 });
@@ -171,7 +171,7 @@ test.describe.serial("RC owner workflow", () => {
       expect(persisted?.district).toBe("الملقا");
 
       await page.goto(`${baseUrl}/dashboard/branding`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("heading", { name: "المظهر" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "المظهر والهوية", exact: true })).toBeVisible();
       await page.locator('input[name="logoFile"]').setInputFiles({ name: "rc-logo.png", mimeType: "image/png", buffer: png1x1 });
       await page.locator('input[name="coverFile"]').setInputFiles({ name: "rc-cover.png", mimeType: "image/png", buffer: png1x1 });
       await page.getByRole("button", { name: "حفظ الصور" }).click();
