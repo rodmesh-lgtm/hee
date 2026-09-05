@@ -2,6 +2,7 @@ import { createElement, type ComponentType, type SVGProps } from "react";
 import {
   BarChart3,
   BadgeCheck,
+  BellRing,
   Home,
   Inbox,
   LifeBuoy,
@@ -28,6 +29,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "الهوية الرقمية", href: "/dashboard/digital-identity", icon: BadgeCheck, activePrefixes: ["/dashboard/verification"] },
   { label: "الطلبات والحجوزات", href: "/dashboard/inbox", icon: Inbox },
   { label: "تسويق واتساب", href: "/dashboard/whatsapp", icon: WhatsAppIcon, activePrefixes: ["/dashboard/whatsapp"] },
+  { label: "التذكيرات الذكية", href: "/dashboard/reminders", icon: BellRing },
   { label: "متجر الأعمال", href: "/dashboard/business-store", icon: ShoppingBag },
   { label: "الأداء", href: "/dashboard/analytics", icon: BarChart3 },
   { label: "الدعم والمساعدة", href: "/dashboard/support", icon: LifeBuoy },
