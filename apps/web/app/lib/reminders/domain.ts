@@ -37,6 +37,54 @@ export function validateReminderSchedule(input: { scheduledAt: Date; now?: Date 
   return input.scheduledAt;
 }
 
+type LocalParts = { year: number; month: number; day: number; hour: number; minute: number };
+
+function localPartsAt(date: Date, timezone: string): LocalParts {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(date).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return { year: Number(parts.year), month: Number(parts.month), day: Number(parts.day), hour: Number(parts.hour), minute: Number(parts.minute) };
+}
+
+function sameLocalParts(a: LocalParts, b: LocalParts) {
+  return a.year === b.year && a.month === b.month && a.day === b.day && a.hour === b.hour && a.minute === b.minute;
+}
+
+export function reminderLocalDateTimeToUtc(localDateTime: string, timezoneInput: string) {
+  const timezone = normalizeReminderTimezone(timezoneInput);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(localDateTime.trim());
+  if (!match) throw new Error("REMINDER_LOCAL_TIME_INVALID");
+  const desired: LocalParts = { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]), hour: Number(match[4]), minute: Number(match[5]) };
+  if (desired.month < 1 || desired.month > 12 || desired.day < 1 || desired.day > 31 || desired.hour > 23 || desired.minute > 59) throw new Error("REMINDER_LOCAL_TIME_INVALID");
+  const wallClockUtc = Date.UTC(desired.year, desired.month - 1, desired.day, desired.hour, desired.minute);
+  const calendarCheck = new Date(wallClockUtc);
+  if (calendarCheck.getUTCFullYear() !== desired.year || calendarCheck.getUTCMonth() + 1 !== desired.month || calendarCheck.getUTCDate() !== desired.day) throw new Error("REMINDER_LOCAL_TIME_INVALID");
+
+  let candidate = new Date(wallClockUtc);
+  for (let index = 0; index < 4; index += 1) {
+    const actual = localPartsAt(candidate, timezone);
+    const actualAsUtc = Date.UTC(actual.year, actual.month - 1, actual.day, actual.hour, actual.minute);
+    const delta = actualAsUtc - wallClockUtc;
+    if (delta === 0) break;
+    candidate = new Date(candidate.getTime() - delta);
+  }
+  const matches: Date[] = [];
+  for (let offsetMinutes = -180; offsetMinutes <= 180; offsetMinutes += 15) {
+    const possible = new Date(candidate.getTime() + offsetMinutes * 60_000);
+    if (sameLocalParts(localPartsAt(possible, timezone), desired)) matches.push(possible);
+  }
+  if (!matches.length) throw new Error("REMINDER_LOCAL_TIME_INVALID");
+  matches.sort((a, b) => a.getTime() - b.getTime());
+  return matches[0];
+}
+
 export function reminderTemplateSupportsBodyParameter(components: unknown) {
   if (!Array.isArray(components)) return false;
   const serialized = JSON.stringify(components);
