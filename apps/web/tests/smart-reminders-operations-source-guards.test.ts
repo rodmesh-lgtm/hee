@@ -33,6 +33,9 @@ test("reminder audit metadata inherits WhatsApp secret and message redaction", (
   assert.doesNotMatch(operations, /metadata: \{[^}]*recipientPhone/);
 });
 
-test("recurrence is schema-ready but not silently enabled before timezone-safe scheduling exists", () => {
-  assert.match(operations, /REMINDER_RECURRENCE_NOT_ENABLED_YET/);
+test("supported recurrence is normalized at creation and persisted explicitly", () => {
+  assert.match(operations, /normalizeReminderRecurrence/);
+  assert.match(operations, /input\.recurrenceType \?\? "once"/);
+  assert.match(operations, /\$\{recurrenceType\}/);
+  assert.doesNotMatch(operations, /REMINDER_RECURRENCE_NOT_ENABLED_YET/);
 });
