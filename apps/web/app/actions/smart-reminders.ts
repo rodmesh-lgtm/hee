@@ -37,10 +37,11 @@ export async function createSmartReminderAction(form: FormData) {
   const templateId = field(form, "templateId", 128);
   const timezone = field(form, "timezone", 64);
   const localDateTime = field(form, "scheduledLocal", 32);
-  if (!title || !body || !templateId || !timezone || !localDateTime) redirect("/dashboard/reminders?create=invalid");
+  const recipientConsentAccepted = form.get("recipientConsentAccepted") === "on";
+  if (!title || !body || !templateId || !timezone || !localDateTime || !recipientConsentAccepted) redirect("/dashboard/reminders?create=consent-required");
   try {
     const scheduledAt = reminderLocalDateTimeToUtc(localDateTime, timezone);
-    await createSmartReminder({ businessId: context.businessId, actorUserId: context.userId, title, body, templateId, scheduledAt, timezone, recurrenceType: "once" });
+    await createSmartReminder({ businessId: context.businessId, actorUserId: context.userId, title, body, templateId, scheduledAt, timezone, recurrenceType: "once", recipientConsentAccepted });
     revalidatePath("/dashboard/reminders");
   } catch (error) {
     redirect(destinationFor(error, "create"));
@@ -52,10 +53,8 @@ export async function updateSmartReminderAction(form: FormData) {
   const context = await reminderContext();
   const reminderId = field(form, "reminderId", 128), title = field(form, "title", 160), body = field(form, "body", 2000);
   if (!reminderId || !title || !body) redirect("/dashboard/reminders?update=invalid");
-  try {
-    await updateSmartReminderContent({ businessId: context.businessId, actorUserId: context.userId, reminderId, title, body });
-    revalidatePath("/dashboard/reminders");
-  } catch (error) { redirect(destinationFor(error, "update")); }
+  try { await updateSmartReminderContent({ businessId: context.businessId, actorUserId: context.userId, reminderId, title, body }); revalidatePath("/dashboard/reminders"); }
+  catch (error) { redirect(destinationFor(error, "update")); }
   redirect("/dashboard/reminders?update=success");
 }
 
@@ -63,17 +62,13 @@ export async function rescheduleSmartReminderAction(form: FormData) {
   const context = await reminderContext();
   const reminderId = field(form, "reminderId", 128), timezone = field(form, "timezone", 64), localDateTime = field(form, "scheduledLocal", 32);
   if (!reminderId || !timezone || !localDateTime) redirect("/dashboard/reminders?reschedule=invalid");
-  try {
-    const scheduledAt = reminderLocalDateTimeToUtc(localDateTime, timezone);
-    await rescheduleSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId, scheduledAt, timezone });
-    revalidatePath("/dashboard/reminders");
-  } catch (error) { redirect(destinationFor(error, "reschedule")); }
+  try { const scheduledAt = reminderLocalDateTimeToUtc(localDateTime, timezone); await rescheduleSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId, scheduledAt, timezone }); revalidatePath("/dashboard/reminders"); }
+  catch (error) { redirect(destinationFor(error, "reschedule")); }
   redirect("/dashboard/reminders?reschedule=success");
 }
 
 export async function pauseSmartReminderAction(form: FormData) {
-  const context = await reminderContext();
-  const reminderId = field(form, "reminderId", 128);
+  const context = await reminderContext(); const reminderId = field(form, "reminderId", 128);
   if (!reminderId) redirect("/dashboard/reminders?pause=invalid");
   try { await pauseSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId }); revalidatePath("/dashboard/reminders"); }
   catch (error) { redirect(destinationFor(error, "pause")); }
@@ -81,8 +76,7 @@ export async function pauseSmartReminderAction(form: FormData) {
 }
 
 export async function resumeSmartReminderAction(form: FormData) {
-  const context = await reminderContext();
-  const reminderId = field(form, "reminderId", 128);
+  const context = await reminderContext(); const reminderId = field(form, "reminderId", 128);
   if (!reminderId) redirect("/dashboard/reminders?resume=invalid");
   try { await resumeSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId }); revalidatePath("/dashboard/reminders"); }
   catch (error) { redirect(destinationFor(error, "resume")); }
@@ -90,8 +84,7 @@ export async function resumeSmartReminderAction(form: FormData) {
 }
 
 export async function cancelSmartReminderAction(form: FormData) {
-  const context = await reminderContext();
-  const reminderId = field(form, "reminderId", 128);
+  const context = await reminderContext(); const reminderId = field(form, "reminderId", 128);
   if (!reminderId) redirect("/dashboard/reminders?cancel=invalid");
   try { await cancelSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId }); revalidatePath("/dashboard/reminders"); }
   catch (error) { redirect(destinationFor(error, "cancel")); }
@@ -99,8 +92,7 @@ export async function cancelSmartReminderAction(form: FormData) {
 }
 
 export async function completeSmartReminderAction(form: FormData) {
-  const context = await reminderContext();
-  const reminderId = field(form, "reminderId", 128);
+  const context = await reminderContext(); const reminderId = field(form, "reminderId", 128);
   if (!reminderId) redirect("/dashboard/reminders?complete=invalid");
   try { await completeSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId }); revalidatePath("/dashboard/reminders"); }
   catch (error) { redirect(destinationFor(error, "complete")); }
@@ -112,13 +104,9 @@ export async function snoozeSmartReminderAction(form: FormData) {
   const reminderId = field(form, "reminderId", 128);
   const minutes = Number(field(form, "minutes", 8));
   if (!reminderId || ![10, 30, 60, 1440].includes(minutes)) redirect("/dashboard/reminders?snooze=invalid");
-  const rows = await db.$queryRaw<Array<{ timezone: string }>>(Prisma.sql`
-    SELECT "timezone" FROM "SmartReminder" WHERE "id" = ${reminderId} AND "businessId" = ${context.businessId} LIMIT 1
-  `);
+  const rows = await db.$queryRaw<Array<{ timezone: string }>>(Prisma.sql`SELECT "timezone" FROM "SmartReminder" WHERE "id" = ${reminderId} AND "businessId" = ${context.businessId} LIMIT 1`);
   if (!rows[0]) redirect("/dashboard/reminders?snooze=failed");
-  try {
-    await rescheduleSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId, scheduledAt: new Date(Date.now() + minutes * 60_000), timezone: rows[0].timezone });
-    revalidatePath("/dashboard/reminders");
-  } catch (error) { redirect(destinationFor(error, "snooze")); }
+  try { await rescheduleSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId, scheduledAt: new Date(Date.now() + minutes * 60_000), timezone: rows[0].timezone }); revalidatePath("/dashboard/reminders"); }
+  catch (error) { redirect(destinationFor(error, "snooze")); }
   redirect("/dashboard/reminders?snooze=success");
 }
