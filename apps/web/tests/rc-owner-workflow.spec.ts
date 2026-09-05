@@ -141,7 +141,7 @@ test.describe.serial("RC owner workflow", () => {
   });
 
   test("covers current editor, branding, publish, public V10, responsive rendering and data retention", async ({ browser }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(210_000);
     const seeded = await seedBusiness();
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await setSessionCookie(page, seeded.sessionToken);

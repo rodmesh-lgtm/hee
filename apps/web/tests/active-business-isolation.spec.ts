@@ -41,7 +41,7 @@ async function authenticate(page: import("@playwright/test").Page, token: string
 }
 
 async function switchBusiness(page: import("@playwright/test").Page, businessId: string, expectedResult = "switched") {
-  const switcher = page.getByLabel("اختيار المنشأة").first();
+  const switcher = page.getByLabel("المنشأة النشطة").first();
   await expect(switcher).toBeVisible({ timeout: 10_000 });
   await switcher.selectOption(businessId);
   const button = switcher.locator("xpath=..").getByRole("button", { name: "تبديل" });
@@ -70,7 +70,7 @@ test.describe.serial("active business tenant isolation", () => {
     try {
       await test.step("owner sees only owned businesses", async () => {
         await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded", timeout: 15_000 });
-        const switcher = page.getByLabel("اختيار المنشأة").first();
+        const switcher = page.getByLabel("المنشأة النشطة").first();
         await expect(switcher).toBeVisible({ timeout: 10_000 });
         await expect(switcher.locator("option")).toHaveCount(2);
         await expect(switcher.locator(`option[value="${seeded.businessAId}"]`)).toHaveCount(1);
@@ -102,7 +102,7 @@ test.describe.serial("active business tenant isolation", () => {
 
       await test.step("foreign tenant business selection is rejected", async () => {
         await page.goto(`${baseUrl}/dashboard`, { waitUntil: "domcontentloaded", timeout: 15_000 });
-        const protectedSwitcher = page.getByLabel("اختيار المنشأة").first();
+        const protectedSwitcher = page.getByLabel("المنشأة النشطة").first();
         await protectedSwitcher.evaluate((select, foreignId) => { const option = document.createElement("option"); option.value = String(foreignId); option.textContent = "منشأة مزورة"; select.append(option); (select as HTMLSelectElement).value = String(foreignId); }, seeded.attackerBusinessId);
         const button = protectedSwitcher.locator("xpath=..").getByRole("button", { name: "تبديل" });
         await button.click({ timeout: 10_000 });
