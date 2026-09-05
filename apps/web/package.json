@@ -42,6 +42,8 @@
     "whatsapp:automation-schedules": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-automation-scheduler.ts",
     "whatsapp:automations": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-automation-worker.ts",
     "whatsapp:automation-deliveries": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-automation-delivery-worker.ts",
+    "whatsapp:reminder-schedules": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-reminder-scheduler.ts",
+    "whatsapp:reminder-deliveries": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-reminder-delivery-worker.ts",
     "whatsapp:contact-imports": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-contact-import-worker.ts",
     "whatsapp:operations": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-operations-worker.ts"
   },
