@@ -69,7 +69,7 @@ async function seed(): Promise<Fixture> {
       providerTemplateId: `reminder-template-${suffix}`,
       name: `infro_reminder_${suffix.replaceAll("-", "_")}`,
       language: "ar",
-      category: "UTILITY",
+      category: "utility",
       status: "approved",
       providerStatus: "APPROVED",
       components: [{ type: "BODY", text: "تذكيرك: {{1}}" }],
