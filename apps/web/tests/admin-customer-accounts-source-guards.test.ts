@@ -7,15 +7,16 @@ async function source(path: string) {
 }
 
 test("central customer account operations stay server-admin protected and read-only", async () => {
-  const [list, detail, layout] = await Promise.all([
+  const [list, detail, layout, navigation] = await Promise.all([
     source("../app/admin/customers/page.tsx"),
     source("../app/admin/customers/[id]/page.tsx"),
     source("../app/admin/layout.tsx"),
+    source("../app/admin/admin-navigation.tsx"),
   ]);
 
   assert.match(list, /await requireAdmin\(\)/);
   assert.match(detail, /await requireAdmin\(\)/);
-  assert.match(layout, /href="\/admin\/customers"/);
+  assert.match(layout + navigation, /href:\s*"\/admin\/customers"/);
 
   for (const text of [list, detail]) {
     assert.doesNotMatch(text, /db\.user\.(?:update|delete|deleteMany|upsert|create)\s*\(/);

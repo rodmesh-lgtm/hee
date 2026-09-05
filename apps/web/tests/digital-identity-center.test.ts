@@ -14,7 +14,7 @@ test("dashboard exposes a dedicated digital identity center", () => {
   const assets = read("components/dashboard/identity-assets.tsx");
   assert.match(nav, /الهوية الرقمية/);
   assert.match(nav, /\/dashboard\/digital-identity/);
-  assert.match(page, /الملف التعريفي للشركة PDF/);
+  assert.match(page, /الملف التعريفي للشركة/);
   assert.match(page, /الرابط والاتصال/);
   assert.match(page, /تنزيل vCard/);
   assert.match(page, /IdentityAssets/);

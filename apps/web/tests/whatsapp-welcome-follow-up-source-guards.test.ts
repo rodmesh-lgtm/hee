@@ -43,5 +43,5 @@ test("delivery rechecks the same-tenant subject before calling Meta", () => {
 test("automation UI states the live event and consent boundary in customer language", () => {
   assert.match(page, /ترحيب بعد موافقة صريحة/);
   assert.match(page, /المتابعة بعد اكتمال طلب أو حجز/);
-  assert.match(page, /وجود رقم العميل أو طلب سابق لا يُعد موافقة تسويقية/);
+  assert.match(page, /وجود رقم العميل أو طلب سابق وحده لا يُعد موافقة تسويقية/);
 });

@@ -60,10 +60,10 @@ test("sensitive successful mutations append audit evidence transactionally", () 
 });
 
 test("customer activity history humanizes actions without exposing internal identifiers", () => {
-  assert.match(auditPage, /سجل نشاط واتساب/);
+  assert.match(auditPage, /INFRO AUDIT TRAIL/);
   assert.match(auditPage, /actionLabel\(log\.action\)/);
-  assert.match(auditPage, /actorLabel\(log\.actorType, log\.actorUser\?\.name\)/);
-  assert.match(auditPage, /targetLabel\[log\.targetType\] \|\| "واتساب"/);
+  assert.match(auditPage, /actorLabel\(log\.actorType,log\.actorUser\?\.name\)/);
+  assert.match(auditPage, /targetLabel\[log\.targetType\]\|\|"واتساب"/);
   assert.match(auditPage, /لا يوجد نشاط مسجل بعد/);
   assert.doesNotMatch(auditPage, /targetId: true/);
   assert.doesNotMatch(auditPage, /\|\| log\.action|\|\| log\.outcome|\|\| log\.actorType/);

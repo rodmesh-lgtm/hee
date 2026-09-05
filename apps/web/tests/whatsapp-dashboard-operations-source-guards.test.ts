@@ -28,7 +28,7 @@ test("WhatsApp Marketing is a first-class customer dashboard section", () => {
   assert.match(contacts, /بانتظار المعالجة/);
   assert.match(contacts, /retryWhatsAppContactImportAction/);
   assert.match(templates, /syncWhatsAppTemplatesAction/);
-  assert.match(campaigns, /أنشئ حملاتك من جهات الاتصال التي وافقت على الاستلام/);
+  assert.match(campaigns, /أنشئ حملاتك من جهات الاتصال ذات الموافقة الفعالة/);
   assert.match(campaigns, /مرحلة إرسال تجريبية آمنة/);
   assert.doesNotMatch(campaigns, /Queue وWorkers وRate Limiting/);
 });
@@ -90,7 +90,7 @@ test("campaign mutations are entitlement, RBAC and tenant scoped", () => {
 
 test("contact import never infers consent and preserves revoked evidence", () => {
   assert.match(contacts, /explicitConsent/);
-  assert.match(contacts, /لا تحدد هذا الخيار لمجرد أنهم عملاء أو أصحاب طلبات/);
+  assert.match(contacts, /وجود علاقة عميل سابقة وحده لا يكفي/);
   assert.match(actions, /consentConfirmed && !evidence/);
   assert.match(actions, /consentEvidence: consentConfirmed \? evidence : null/);
   assert.match(actions, /enqueueContactImport/);
@@ -99,7 +99,7 @@ test("contact import never infers consent and preserves revoked evidence", () =>
 
 test("central admin gets a read-only credential-safe WhatsApp overview", () => {
   assert.match(admin, /requireAdmin\(\)/);
-  assert.match(admin, /مراقبة قراءة فقط/);
+  assert.match(admin, /مراقبة تشغيلية آمنة/);
   assert.match(admin, /whatsAppOperationsHeartbeat/);
   assert.match(admin, /عامل WhatsApp/);
   assert.doesNotMatch(admin, /credentialEnvelope|accessToken|textBody|rawPayload/);

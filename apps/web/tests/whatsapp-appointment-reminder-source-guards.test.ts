@@ -47,7 +47,7 @@ test("closing a booking cancels unsent reminders and delivery rechecks status", 
 test("automation UI exposes lead time without implying stale reminder replay", () => {
   assert.match(page, /WHATSAPP_APPOINTMENT_LEAD_MINUTES/);
   assert.match(page, /name="reminderLeadMinutes"/);
-  assert.match(page, /للأحداث الجديدة فقط/);
-  assert.match(page, /رسائل بانتظار موعدها/);
+  assert.match(page, /لا تعيد إرسال أحداث قديمة/);
+  assert.match(page, /بانتظار موعدها/);
   assert.match(page, /nextAttemptAt/);
 });

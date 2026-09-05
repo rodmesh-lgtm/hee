@@ -5,5 +5,5 @@ import test from "node:test";
 test("WhatsApp hub does not present unfinished providers as active", () => {
   const page = readFileSync(new URL("../app/dashboard/whatsapp/page.tsx", import.meta.url), "utf8");
   assert.doesNotMatch(page, /تمهيدًا لمزامنة السلة/);
-  assert.match(page, /Salla وZid مغلقين كمسودة/);
+  assert.match(page, /سلة وزد تبقيان مغلقتين/);
 });

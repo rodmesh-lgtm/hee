@@ -50,9 +50,9 @@ test("workers recheck entitlement immediately before outbound Meta work", () => 
   assert.ok(delivery.indexOf("if (!await hasActiveWhatsAppMarketingEntitlement") < delivery.indexOf("config = input.config ?? getMetaWhatsAppConfig"));
 });
 
-test("iR subscription revenue remains distinct from Meta charges", () => {
-  assert.match(billing, /رسوم محادثات ورسائل Meta/);
-  assert.match(billing, /لا تسجل كإيراد اشتراك iR/);
+test("INFRO subscription revenue remains distinct from Meta charges", () => {
+  assert.match(billing, /رسوم رسائل Meta/);
+  assert.match(billing, /لا تسجل كإيراد اشتراك INFRO/);
   assert.doesNotMatch(entitlement, /BillingPayment|billingPayment|amount|currency/);
 });
 

@@ -8,11 +8,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, "../app/dashboard/page.tsx"), "utf8");
 
 test("dashboard home exposes real seven-day operating metrics", () => {
-  assert.match(source, /نبض الأعمال/);
-  assert.match(source, /زيارات 7 أيام/);
-  assert.match(source, /تفاعلات 7 أيام/);
-  assert.match(source, /طلبات 7 أيام/);
-  assert.match(source, /حجوزات 7 أيام/);
+  assert.match(source, /آخر 7 أيام/);
+  for (const label of ["الزيارات", "التفاعل", "الطلبات", "الحجوزات"]) assert.match(source, new RegExp(label));
   assert.match(source, /db\.analyticsEvent\.count/);
   assert.match(source, /db\.order\.count/);
   assert.match(source, /db\.booking\.count/);
@@ -31,12 +28,12 @@ test("dashboard interaction pulse includes identity engagement", () => {
 
 test("dashboard surfaces the nearest actionable booking", () => {
   assert.match(source, /db\.booking\.findFirst/);
-  assert.match(source, /bookingDate: \{ gte: today \}/);
-  assert.match(source, /الموعد القادم/);
+  assert.match(source, /bookingDate:\{gte:today\}/);
+  assert.match(source, /NEXT APPOINTMENT/);
   assert.match(source, /فتح الحجوزات/);
 });
 
 test("dashboard pulse remains tenant scoped", () => {
-  const businessScoped = source.match(/businessId: business\.id/g) ?? [];
+  const businessScoped = source.match(/businessId:business\.id/g) ?? [];
   assert.ok(businessScoped.length >= 10, `expected tenant scoping on dashboard queries, got ${businessScoped.length}`);
 });
