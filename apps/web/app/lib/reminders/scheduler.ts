@@ -64,16 +64,17 @@ export async function runSmartReminderScheduler(input: { database?: PrismaClient
   for (let index = 0; index < limit; index += 1) {
     const result = await scheduleNext(database, now);
     if (!result) break;
-    if (result.deliveryId) scheduled += 1;
-    else deduplicated += 1;
+    const wasDeduplicated = !result.deliveryId;
+    if (wasDeduplicated) deduplicated += 1;
+    else scheduled += 1;
     await writeWhatsAppAuditLog({
       businessId: result.businessId,
       actorType: "system",
       action: "reminder.delivery.queue",
       targetType: "smart_reminder",
       targetId: result.id,
-      outcome: result.deliveryId ? "success" : "deduplicated",
-      metadata: { occurrenceAt: result.nextOccurrenceAt.toISOString() },
+      outcome: "success",
+      metadata: { occurrenceAt: result.nextOccurrenceAt.toISOString(), deduplicated: wasDeduplicated },
       database,
     });
   }
