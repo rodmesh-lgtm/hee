@@ -8,13 +8,13 @@ const contentSecurityPolicy = [
   "form-action 'self'",
   // Moyasar's PCI-scoped payment form is loaded from its documented CDN. Do not widen
   // this to arbitrary HTTPS script/style origins.
-  "script-src 'self' 'unsafe-inline' https://cdn.moyasar.com https://connect.facebook.net",
+  "script-src 'self' 'unsafe-inline' https://cdn.moyasar.com https://connect.facebook.net https://eauthenticate.saudibusiness.gov.sa",
   "style-src 'self' 'unsafe-inline' https://cdn.moyasar.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   // Browser-side payment creation is performed by Moyasar Form against its API.
   // All other application API traffic remains same-origin.
-  "connect-src 'self' https://api.moyasar.com https://www.facebook.com https://graph.facebook.com wss:",
+  "connect-src 'self' https://api.moyasar.com https://www.facebook.com https://graph.facebook.com https://eauthenticate.saudibusiness.gov.sa wss:",
   "frame-src 'self' https://www.facebook.com https://business.facebook.com",
   "media-src 'self' blob: https:",
   "worker-src 'self' blob:",
@@ -28,17 +28,24 @@ const securityHeaders = [
   // SAMEORIGIN keeps third-party framing blocked while allowing those previews to render.
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Content-Security-Policy", value: contentSecurityPolicy },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=()",
+  },
   // Meta Embedded Signup uses an authenticated cross-origin popup. This retains
   // opener communication for that flow without allowing this application to be framed.
   { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
-  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=31536000; includeSubDomains",
+  },
 ];
 
 function serverActionOrigins() {
   const origins = ["ir.sa", "www.ir.sa"];
   if (process.env.VERCEL_ENV === "preview") origins.push("*.vercel.app");
-  if (process.env.NODE_ENV !== "production") origins.push("localhost:3000", "127.0.0.1:3000", "*.app.github.dev");
+  if (process.env.NODE_ENV !== "production")
+    origins.push("localhost:3000", "127.0.0.1:3000", "*.app.github.dev");
   return origins;
 }
 
