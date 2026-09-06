@@ -6,9 +6,99 @@ import { db } from "../db";
 import { writeWhatsAppAuditLog } from "../whatsapp/audit";
 import { nextReminderOccurrence, normalizeReminderChannels, normalizeReminderRecurrence, reminderDeliveryIdempotencyKey } from "./domain";
 
-type DueReminder={id:string;businessId:string;connectionId:string;templateId:string;recurrenceType:string;timezone:string;nextOccurrenceAt:Date;deliveryChannels:string[]};
-function nextFutureOccurrence(reminder:DueReminder,now:Date){const recurrenceType=normalizeReminderRecurrence(reminder.recurrenceType);if(recurrenceType==="once")return{nextOccurrenceAt:null as Date|null,skippedMissedOccurrences:0};let cursor=reminder.nextOccurrenceAt,skippedMissedOccurrences=0;for(let index=0;index<2000;index+=1){const next=nextReminderOccurrence({occurrenceAt:cursor,timezone:reminder.timezone,recurrenceType});if(!next)return{nextOccurrenceAt:null as Date|null,skippedMissedOccurrences};if(next.getTime()>now.getTime())return{nextOccurrenceAt:next,skippedMissedOccurrences};cursor=next;skippedMissedOccurrences+=1;}throw new Error("REMINDER_RECURRENCE_CATCHUP_LIMIT_EXCEEDED");}
+type DueReminder = {
+  id: string;
+  businessId: string;
+  connectionId: string | null;
+  templateId: string | null;
+  recurrenceType: string;
+  timezone: string;
+  nextOccurrenceAt: Date;
+  deliveryChannels: string[];
+};
 
-async function scheduleNext(database:PrismaClient,now:Date){return database.$transaction(async(tx)=>{const rows=await tx.$queryRaw<DueReminder[]>(Prisma.sql`SELECT "id","businessId","connectionId","templateId","recurrenceType","timezone","nextOccurrenceAt","deliveryChannels" FROM "SmartReminder" WHERE "status"='scheduled' AND "nextOccurrenceAt" IS NOT NULL AND "nextOccurrenceAt"<=${now} ORDER BY "nextOccurrenceAt","createdAt" FOR UPDATE SKIP LOCKED LIMIT 1`);const reminder=rows[0];if(!reminder)return null;const future=nextFutureOccurrence(reminder,now),channels=normalizeReminderChannels(reminder.deliveryChannels);let scheduled=0,deduplicated=0;for(const channel of channels){const deliveryId=randomUUID(),idempotencyKey=reminderDeliveryIdempotencyKey({businessId:reminder.businessId,reminderId:reminder.id,occurrenceAt:reminder.nextOccurrenceAt,channel});const inserted=await tx.$queryRaw<Array<{id:string}>>(Prisma.sql`INSERT INTO "SmartReminderDelivery" ("id","businessId","reminderId","connectionId","templateId","occurrenceAt","channel","idempotencyKey","status","updatedAt") VALUES (${deliveryId},${reminder.businessId},${reminder.id},${reminder.connectionId},${reminder.templateId},${reminder.nextOccurrenceAt},${channel},${idempotencyKey},'queued',CURRENT_TIMESTAMP) ON CONFLICT ("idempotencyKey") DO NOTHING RETURNING "id"`);if(inserted[0])scheduled+=1;else deduplicated+=1;}await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "nextOccurrenceAt"=${future.nextOccurrenceAt},"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${reminder.id} AND "businessId"=${reminder.businessId} AND "nextOccurrenceAt"=${reminder.nextOccurrenceAt}`);return{...reminder,scheduled,deduplicated,nextScheduledOccurrenceAt:future.nextOccurrenceAt,skippedMissedOccurrences:future.skippedMissedOccurrences,channelCount:channels.length};},{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});}
+function nextFutureOccurrence(reminder: DueReminder, now: Date) {
+  const recurrenceType = normalizeReminderRecurrence(reminder.recurrenceType);
+  if (recurrenceType === "once") return { nextOccurrenceAt: null as Date | null, skippedMissedOccurrences: 0 };
+  let cursor = reminder.nextOccurrenceAt;
+  let skippedMissedOccurrences = 0;
+  for (let index = 0; index < 2000; index += 1) {
+    const next = nextReminderOccurrence({ occurrenceAt: cursor, timezone: reminder.timezone, recurrenceType });
+    if (!next) return { nextOccurrenceAt: null as Date | null, skippedMissedOccurrences };
+    if (next.getTime() > now.getTime()) return { nextOccurrenceAt: next, skippedMissedOccurrences };
+    cursor = next;
+    skippedMissedOccurrences += 1;
+  }
+  throw new Error("REMINDER_RECURRENCE_CATCHUP_LIMIT_EXCEEDED");
+}
 
-export async function runSmartReminderScheduler(input:{database?:PrismaClient;now?:Date;limit?:number}={}){const database=input.database??db,now=input.now??new Date(),limit=Math.min(Math.max(input.limit??100,1),500);let scheduled=0,deduplicated=0,skippedMissedOccurrences=0;for(let index=0;index<limit;index+=1){const result=await scheduleNext(database,now);if(!result)break;scheduled+=result.scheduled;deduplicated+=result.deduplicated;skippedMissedOccurrences+=result.skippedMissedOccurrences;await writeWhatsAppAuditLog({businessId:result.businessId,actorType:"system",action:"reminder.delivery.queue",targetType:"smart_reminder",targetId:result.id,outcome:"success",metadata:{occurrenceAt:result.nextOccurrenceAt.toISOString(),channelCount:result.channelCount,scheduled:result.scheduled,deduplicated:result.deduplicated,skippedMissedOccurrences:result.skippedMissedOccurrences},database});}return{scheduled,deduplicated,skippedMissedOccurrences};}
+async function scheduleNext(database: PrismaClient, now: Date) {
+  return database.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<DueReminder[]>(Prisma.sql`
+      SELECT "id", "businessId", "connectionId", "templateId", "recurrenceType", "timezone", "nextOccurrenceAt", "deliveryChannels"
+      FROM "SmartReminder"
+      WHERE "status" = 'scheduled' AND "nextOccurrenceAt" IS NOT NULL AND "nextOccurrenceAt" <= ${now}
+      ORDER BY "nextOccurrenceAt", "createdAt"
+      FOR UPDATE SKIP LOCKED LIMIT 1
+    `);
+    const reminder = rows[0];
+    if (!reminder) return null;
+
+    const future = nextFutureOccurrence(reminder, now);
+    const channels = normalizeReminderChannels(reminder.deliveryChannels);
+    let scheduled = 0;
+    let deduplicated = 0;
+
+    for (const channel of channels) {
+      if (channel === "whatsapp" && (!reminder.connectionId || !reminder.templateId)) throw new Error("REMINDER_WHATSAPP_BINDING_MISSING");
+      const deliveryId = randomUUID();
+      const idempotencyKey = reminderDeliveryIdempotencyKey({ businessId: reminder.businessId, reminderId: reminder.id, occurrenceAt: reminder.nextOccurrenceAt, channel });
+      const inserted = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        INSERT INTO "SmartReminderDelivery" (
+          "id", "businessId", "reminderId", "connectionId", "templateId", "occurrenceAt", "channel", "idempotencyKey", "status", "updatedAt"
+        ) VALUES (
+          ${deliveryId}, ${reminder.businessId}, ${reminder.id}, ${channel === "whatsapp" ? reminder.connectionId : null}, ${channel === "whatsapp" ? reminder.templateId : null},
+          ${reminder.nextOccurrenceAt}, ${channel}, ${idempotencyKey}, 'queued', CURRENT_TIMESTAMP
+        )
+        ON CONFLICT ("idempotencyKey") DO NOTHING
+        RETURNING "id"
+      `);
+      if (inserted[0]) scheduled += 1;
+      else deduplicated += 1;
+    }
+
+    await tx.$executeRaw(Prisma.sql`
+      UPDATE "SmartReminder"
+      SET "nextOccurrenceAt" = ${future.nextOccurrenceAt}, "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = ${reminder.id} AND "businessId" = ${reminder.businessId} AND "nextOccurrenceAt" = ${reminder.nextOccurrenceAt}
+    `);
+    return { ...reminder, scheduled, deduplicated, nextScheduledOccurrenceAt: future.nextOccurrenceAt, skippedMissedOccurrences: future.skippedMissedOccurrences, channelCount: channels.length };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export async function runSmartReminderScheduler(input: { database?: PrismaClient; now?: Date; limit?: number } = {}) {
+  const database = input.database ?? db;
+  const now = input.now ?? new Date();
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 500);
+  let scheduled = 0;
+  let deduplicated = 0;
+  let skippedMissedOccurrences = 0;
+  for (let index = 0; index < limit; index += 1) {
+    const result = await scheduleNext(database, now);
+    if (!result) break;
+    scheduled += result.scheduled;
+    deduplicated += result.deduplicated;
+    skippedMissedOccurrences += result.skippedMissedOccurrences;
+    await writeWhatsAppAuditLog({
+      businessId: result.businessId,
+      actorType: "system",
+      action: "reminder.delivery.queue",
+      targetType: "smart_reminder",
+      targetId: result.id,
+      outcome: "success",
+      metadata: { occurrenceAt: result.nextOccurrenceAt.toISOString(), channelCount: result.channelCount, scheduled: result.scheduled, deduplicated: result.deduplicated, skippedMissedOccurrences: result.skippedMissedOccurrences },
+      database,
+    });
+  }
+  return { scheduled, deduplicated, skippedMissedOccurrences };
+}
