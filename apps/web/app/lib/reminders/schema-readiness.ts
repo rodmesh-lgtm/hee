@@ -5,18 +5,10 @@ import { db } from "../db";
 
 export async function isSmartRemindersSchemaReady() {
   const rows = await db.$queryRaw<Array<{
-    reminderReady: boolean;
-    deliveryReady: boolean;
-    channelsReady: boolean;
-    deliveryChannelReady: boolean;
-    reminderSenderModeReady: boolean;
-    deliverySenderModeReady: boolean;
-    deliveryReceiptsReady: boolean;
-    progressReady: boolean;
-    workCompletionReady: boolean;
-    notificationReady: boolean;
-    platformRateReady: boolean;
-    platformOptOutReady: boolean;
+    reminderReady: boolean; deliveryReady: boolean; channelsReady: boolean; deliveryChannelReady: boolean;
+    reminderSenderModeReady: boolean; deliverySenderModeReady: boolean; deliveryReceiptsReady: boolean;
+    progressReady: boolean; workCompletionReady: boolean; executionContextReady: boolean; notificationReady: boolean;
+    platformRateReady: boolean; platformOptOutReady: boolean;
   }>>(Prisma.sql`
     SELECT
       to_regclass('public."SmartReminder"') IS NOT NULL AS "reminderReady",
@@ -31,23 +23,18 @@ export async function isSmartRemindersSchemaReady() {
         AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='progressNote')
         AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='progressUpdatedAt') AS "progressReady",
       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='workCompletedAt') AS "workCompletionReady",
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='workHealth')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='priority')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='responsiblePerson')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='businessDueAt')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='nextAction') AS "executionContextReady",
       to_regclass('public."SmartReminderNotification"') IS NOT NULL AS "notificationReady",
       to_regclass('public."InfroReminderWhatsAppRateBucket"') IS NOT NULL AS "platformRateReady",
       to_regclass('public."InfroReminderWhatsAppOptOut"') IS NOT NULL AS "platformOptOutReady"
   `);
   const readiness = rows[0];
-  return Boolean(
-    readiness?.reminderReady
-    && readiness?.deliveryReady
-    && readiness?.channelsReady
-    && readiness?.deliveryChannelReady
-    && readiness?.reminderSenderModeReady
-    && readiness?.deliverySenderModeReady
-    && readiness?.deliveryReceiptsReady
-    && readiness?.progressReady
-    && readiness?.workCompletionReady
-    && readiness?.notificationReady
-    && readiness?.platformRateReady
-    && readiness?.platformOptOutReady
-  );
+  return Boolean(readiness?.reminderReady && readiness?.deliveryReady && readiness?.channelsReady && readiness?.deliveryChannelReady
+    && readiness?.reminderSenderModeReady && readiness?.deliverySenderModeReady && readiness?.deliveryReceiptsReady
+    && readiness?.progressReady && readiness?.workCompletionReady && readiness?.executionContextReady
+    && readiness?.notificationReady && readiness?.platformRateReady && readiness?.platformOptOutReady);
 }
