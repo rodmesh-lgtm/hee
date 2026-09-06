@@ -49,9 +49,14 @@ const SUGGESTION_SCHEMA = {
   },
 } as const;
 
+function openAiApiKey() {
+  return process.env.INFRO_OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
+}
+
 export function businessMemoryAiReady() {
-  const enabled = process.env.INFRO_BUSINESS_MEMORY_AI_ENABLED === "true" || process.env.INFRO_BUSINESS_VOICE_AI_ENABLED === "true";
-  return enabled && Boolean(process.env.INFRO_OPENAI_API_KEY?.trim());
+  if (process.env.INFRO_BUSINESS_MEMORY_AI_ENABLED === "false") return false;
+  if (process.env.INFRO_BUSINESS_VOICE_AI_ENABLED === "false") return false;
+  return Boolean(openAiApiKey());
 }
 
 function modelName() {
@@ -127,7 +132,7 @@ export async function organizeBusinessMemo(input: { memo: string; languageHint: 
   const memo = input.memo.normalize("NFKC").trim();
   if (!memo || memo.length > MAX_MEMO_LENGTH) throw new Error("BUSINESS_MEMORY_AI_INPUT_INVALID");
 
-  const apiKey = process.env.INFRO_OPENAI_API_KEY!.trim();
+  const apiKey = openAiApiKey();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
