@@ -5,6 +5,7 @@ import test from "node:test";
 const migration = readFileSync("prisma/migrations/20260906050000_add_multichannel_reminders/migration.sql", "utf8");
 const senderMigration = readFileSync("prisma/migrations/20260906113000_platform_reminder_sender/migration.sql", "utf8");
 const optOutMigration = readFileSync("prisma/migrations/20260906114500_infro_reminder_global_opt_out/migration.sql", "utf8");
+const receiptMigration = readFileSync("prisma/migrations/20260906121500_platform_reminder_receipts/migration.sql", "utf8");
 const domain = readFileSync("app/lib/reminders/domain.ts", "utf8");
 const actions = readFileSync("app/actions/smart-reminders.ts", "utf8");
 const scheduler = readFileSync("app/lib/reminders/scheduler.ts", "utf8");
@@ -76,8 +77,18 @@ test("platform reminder traffic never enters tenant WhatsAppConversation or What
   assert.ok(platformStatusStart >= 0 && tenantStatusStart > platformStatusStart);
   assert.doesNotMatch(platformStatuses, /whatsAppMessage|whatsAppConversation/);
   assert.match(platformStatuses, /applyPlatformReminderFailureReceipt/);
+  assert.match(platformStatuses, /applyPlatformReminderPositiveReceipt/);
   assert.match(webhookProcessor, /"whatsappSenderMode"='platform'/);
   assert.match(webhookProcessor, /"whatsappSenderMode"='tenant'/);
+});
+
+test("central reminder delivery and read receipts stay on SmartReminderDelivery", () => {
+  assert.match(receiptMigration, /ADD COLUMN "deliveredAt" TIMESTAMP\(3\)/);
+  assert.match(receiptMigration, /ADD COLUMN "readAt" TIMESTAMP\(3\)/);
+  assert.match(receiptMigration, /SmartReminderDelivery_platform_receipt_idx/);
+  assert.match(webhookProcessor, /SET "deliveredAt"=COALESCE\("deliveredAt", \$\{at\}\)/);
+  assert.match(webhookProcessor, /"readAt"=COALESCE\("readAt", \$\{at\}\)/);
+  assert.match(webhookProcessor, /receipt\.status === "delivered" \|\| receipt\.status === "read"/);
 });
 
 test("email and in-app remain independent while legacy tenant Meta safeguards stay intact", () => {
