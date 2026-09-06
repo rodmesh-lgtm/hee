@@ -14,10 +14,13 @@ test("Meta webhook verifies the raw request before JSON parsing", () => {
   assert.match(route, /readBoundedText\(request, MAX_WEBHOOK_BYTES\)/);
 });
 
-test("Meta webhook resolves both WABA and phone number before assigning tenant", () => {
+test("Meta webhook resolves tenant numbers while central INFRO REMINDER remains unassigned", () => {
   const route = source("app/api/whatsapp/meta/webhook/route.ts");
   assert.match(route, /where: \{ provider: "meta", wabaId, phoneNumberId, disabledAt: null \}/);
-  assert.match(route, /businessId: connection\.businessId/);
+  assert.match(route, /isPlatformReminderSender/);
+  assert.match(route, /platform\.wabaId === wabaId/);
+  assert.match(route, /platform\.phoneNumberId === phoneNumberId/);
+  assert.match(route, /businessId: connection\?\.businessId \?\? null/);
   assert.doesNotMatch(route, /businessId:\s*wabaId|businessId:\s*phoneNumberId/);
 });
 
