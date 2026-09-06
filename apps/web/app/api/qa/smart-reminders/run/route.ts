@@ -1,5 +1,7 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
+import { db } from "../../../../lib/db";
 import { runSmartReminderDeliveryWorker } from "../../../../lib/reminders/delivery-worker";
 import { runSmartReminderScheduler } from "../../../../lib/reminders/scheduler";
 import { isSmartRemindersSchemaReady } from "../../../../lib/reminders/schema-readiness";
@@ -28,12 +30,27 @@ export async function GET(request: Request) {
   try {
     const scheduled = await runSmartReminderScheduler({ limit: 250 });
     const delivered = await runSmartReminderDeliveryWorker({ limit: 250 });
+    const recentDeliveries = await db.$queryRaw<Array<{
+      channel: string;
+      status: string;
+      lastErrorCode: string | null;
+      sentAt: Date | null;
+      occurrenceAt: Date;
+    }>>(Prisma.sql`
+      SELECT "channel", "status", "lastErrorCode", "sentAt", "occurrenceAt"
+      FROM "SmartReminderDelivery"
+      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '30 minutes'
+      ORDER BY "createdAt" DESC
+      LIMIT 20
+    `);
+
     return NextResponse.json({
       ok: true,
       scheduled: scheduled.scheduled,
       deduplicated: scheduled.deduplicated,
       skippedMissedOccurrences: scheduled.skippedMissedOccurrences,
       processed: delivered.processed,
+      recentDeliveries,
       releaseSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     });
   } catch (error) {
