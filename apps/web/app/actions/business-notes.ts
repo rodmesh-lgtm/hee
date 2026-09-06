@@ -10,9 +10,16 @@ import { db } from "../lib/db";
 import { isBusinessNotesSchemaReady } from "../lib/business-notes/schema-readiness";
 
 const text = (form: FormData, key: string, max: number) => {
-  const value = String(form.get(key) ?? "").trim();
+  const value = String(form.get(key) ?? "").normalize("NFKC").trim();
   return value && value.length <= max ? value : null;
 };
+
+const enumValue = <T extends string>(form: FormData, key: string, allowed: readonly T[], fallback: T) => {
+  const value = String(form.get(key) ?? fallback) as T;
+  return allowed.includes(value) ? value : fallback;
+};
+
+const tags = (form: FormData) => [...new Set(String(form.get("tags") ?? "").split(/[،,]/).map((tag) => tag.normalize("NFKC").trim()).filter(Boolean))].slice(0, 12).map((tag) => tag.slice(0, 40));
 
 async function context() {
   const user = await getCurrentUser();
@@ -25,6 +32,7 @@ async function context() {
 
 function done(action: string) {
   revalidatePath("/dashboard/notes");
+  revalidatePath("/dashboard/reminders");
   redirect(`/dashboard/notes?${action}=success`);
 }
 
@@ -34,9 +42,13 @@ export async function createBusinessNoteAction(form: FormData) {
   const body = text(form, "body", 8000);
   if (!title || !body) redirect("/dashboard/notes?create=invalid");
   const isPinned = form.get("isPinned") === "on";
+  const category = text(form, "category", 64) ?? "عام";
+  const priority = enumValue(form, "priority", ["low", "normal", "high", "urgent"] as const, "normal");
+  const status = enumValue(form, "status", ["draft", "active"] as const, "active");
+  const noteTags = tags(form);
   await db.$executeRaw(Prisma.sql`
-    INSERT INTO "BusinessNote" ("id", "businessId", "title", "body", "isPinned", "sortOrder", "createdAt", "updatedAt")
-    VALUES (${randomUUID()}, ${businessId}, ${title}, ${body}, ${isPinned}, 0, NOW(), NOW())
+    INSERT INTO "BusinessNote" ("id", "businessId", "title", "body", "isPinned", "sortOrder", "category", "priority", "tags", "status", "createdAt", "updatedAt")
+    VALUES (${randomUUID()}, ${businessId}, ${title}, ${body}, ${isPinned}, 0, ${category}, ${priority}, ${noteTags}, ${status}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
   `);
   done("create");
 }
@@ -47,18 +59,50 @@ export async function updateBusinessNoteAction(form: FormData) {
   const title = text(form, "title", 160);
   const body = text(form, "body", 8000);
   if (!noteId || !title || !body) redirect("/dashboard/notes?update=invalid");
+  const category = text(form, "category", 64) ?? "عام";
+  const priority = enumValue(form, "priority", ["low", "normal", "high", "urgent"] as const, "normal");
+  const status = enumValue(form, "status", ["draft", "active"] as const, "active");
+  const noteTags = tags(form);
   const changed = await db.$executeRaw(Prisma.sql`
-    UPDATE "BusinessNote" SET "title"=${title}, "body"=${body}, "updatedAt"=NOW()
-    WHERE "id"=${noteId} AND "businessId"=${businessId}
+    UPDATE "BusinessNote" SET "title"=${title}, "body"=${body}, "category"=${category}, "priority"=${priority}, "tags"=${noteTags}, "status"=${status}, "archivedAt"=NULL, "updatedAt"=CURRENT_TIMESTAMP
+    WHERE "id"=${noteId} AND "businessId"=${businessId} AND "status" <> 'archived'
   `);
   if (changed !== 1) redirect("/dashboard/notes?update=missing");
   done("update");
+}
+
+export async function archiveBusinessNoteAction(form: FormData) {
+  const { businessId } = await context();
+  const noteId = text(form, "noteId", 128);
+  if (!noteId) redirect("/dashboard/notes?archive=invalid");
+  const changed = await db.$executeRaw(Prisma.sql`
+    UPDATE "BusinessNote" SET "status"='archived', "archivedAt"=CURRENT_TIMESTAMP, "isPinned"=false, "updatedAt"=CURRENT_TIMESTAMP
+    WHERE "id"=${noteId} AND "businessId"=${businessId} AND "status" <> 'archived'
+  `);
+  if (changed !== 1) redirect("/dashboard/notes?archive=missing");
+  done("archive");
+}
+
+export async function restoreBusinessNoteAction(form: FormData) {
+  const { businessId } = await context();
+  const noteId = text(form, "noteId", 128);
+  if (!noteId) redirect("/dashboard/notes?restore=invalid");
+  const changed = await db.$executeRaw(Prisma.sql`
+    UPDATE "BusinessNote" SET "status"='active', "archivedAt"=NULL, "updatedAt"=CURRENT_TIMESTAMP
+    WHERE "id"=${noteId} AND "businessId"=${businessId} AND "status"='archived'
+  `);
+  if (changed !== 1) redirect("/dashboard/notes?restore=missing");
+  done("restore");
 }
 
 export async function deleteBusinessNoteAction(form: FormData) {
   const { businessId } = await context();
   const noteId = text(form, "noteId", 128);
   if (!noteId) redirect("/dashboard/notes?delete=invalid");
+  const linked = await db.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+    SELECT COUNT(*)::bigint AS "count" FROM "SmartReminder" WHERE "businessId"=${businessId} AND "businessNoteId"=${noteId}
+  `);
+  if (Number(linked[0]?.count ?? 0) > 0) redirect("/dashboard/notes?delete=linked-reminder");
   const changed = await db.$executeRaw(Prisma.sql`DELETE FROM "BusinessNote" WHERE "id"=${noteId} AND "businessId"=${businessId}`);
   if (changed !== 1) redirect("/dashboard/notes?delete=missing");
   done("delete");
@@ -69,8 +113,8 @@ export async function toggleBusinessNotePinAction(form: FormData) {
   const noteId = text(form, "noteId", 128);
   if (!noteId) redirect("/dashboard/notes?pin=invalid");
   const changed = await db.$executeRaw(Prisma.sql`
-    UPDATE "BusinessNote" SET "isPinned"=NOT "isPinned", "updatedAt"=NOW()
-    WHERE "id"=${noteId} AND "businessId"=${businessId}
+    UPDATE "BusinessNote" SET "isPinned"=NOT "isPinned", "updatedAt"=CURRENT_TIMESTAMP
+    WHERE "id"=${noteId} AND "businessId"=${businessId} AND "status" <> 'archived'
   `);
   if (changed !== 1) redirect("/dashboard/notes?pin=missing");
   done("pin");
@@ -84,8 +128,8 @@ export async function moveBusinessNoteAction(form: FormData) {
   const delta = direction === "up" ? -1 : 1;
   const changed = await db.$executeRaw(Prisma.sql`
     UPDATE "BusinessNote"
-    SET "sortOrder"=GREATEST(-100000, LEAST(100000, "sortOrder" + ${delta})), "updatedAt"=NOW()
-    WHERE "id"=${noteId} AND "businessId"=${businessId}
+    SET "sortOrder"=GREATEST(-100000, LEAST(100000, "sortOrder" + ${delta})), "updatedAt"=CURRENT_TIMESTAMP
+    WHERE "id"=${noteId} AND "businessId"=${businessId} AND "status" <> 'archived'
   `);
   if (changed !== 1) redirect("/dashboard/notes?move=missing");
   done("move");
