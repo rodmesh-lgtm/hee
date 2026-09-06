@@ -12,7 +12,8 @@ export const maxDuration = 300;
 
 const APPROVED_PREVIEW_REF = "infro-business-memory-2026";
 const CONFIRM_VALUE = "run-due-reminders";
-const PREVIEW_FROM_EMAIL = "INFRO <no-reply@ir.sa>";
+const PREVIEW_REMINDER_FROM_EMAIL = "INFRO Reminders <reminder@ir.sa>";
+const TARGET_OCCURRENCE = new Date("2026-09-06T06:24:00.000Z");
 
 export async function GET(request: Request) {
   if (process.env.VERCEL_ENV !== "preview" || process.env.VERCEL_GIT_COMMIT_REF !== APPROVED_PREVIEW_REF) {
@@ -30,14 +31,14 @@ export async function GET(request: Request) {
 
   try {
     const resendApiKeyConfigured = Boolean(String(process.env.RESEND_API_KEY ?? "").trim());
-    const senderWasConfigured = Boolean(String(process.env.HEE_FROM_EMAIL ?? "").trim());
+    const originalFrom = process.env.HEE_FROM_EMAIL;
 
-    // Preview-only test fallback. The domain is verified in Resend; Production remains
-    // environment-driven and is never modified by this probe.
-    if (!senderWasConfigured) process.env.HEE_FROM_EMAIL = PREVIEW_FROM_EMAIL;
+    // Preview-only execution uses the dedicated Smart Reminders identity. Production remains
+    // environment-driven and system transactional mail keeps its existing no-reply sender.
+    process.env.HEE_FROM_EMAIL = PREVIEW_REMINDER_FROM_EMAIL;
 
-    // Requeue only recent email deliveries that failed before a provider call because the
-    // preview email runtime was not configured. Existing sent deliveries are never touched.
+    // Requeue only the single known failed QA email occurrence. Sent deliveries can never
+    // match this predicate, so repeated probe execution cannot duplicate a successful send.
     const requeued = resendApiKeyConfigured
       ? await db.$executeRaw(Prisma.sql`
           UPDATE "SmartReminderDelivery"
@@ -46,38 +47,42 @@ export async function GET(request: Request) {
               "updatedAt"=CURRENT_TIMESTAMP
           WHERE "channel"='email'
             AND "status"='failed'
-            AND "lastErrorCode"='REMINDER_EMAIL_NOT_CONFIGURED'
-            AND "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '30 minutes'
+            AND "sentAt" IS NULL
+            AND "lastErrorCode" IN ('REMINDER_EMAIL_NOT_CONFIGURED','RESEND_HTTP_403')
+            AND "occurrenceAt"=${TARGET_OCCURRENCE}
         `)
       : 0;
 
     const scheduled = await runSmartReminderScheduler({ limit: 250 });
     const delivered = await runSmartReminderDeliveryWorker({ limit: 250 });
-    const recentDeliveries = await db.$queryRaw<Array<{
+    const targetDeliveries = await db.$queryRaw<Array<{
       channel: string;
       status: string;
       lastErrorCode: string | null;
       sentAt: Date | null;
       occurrenceAt: Date;
+      providerMessageId: string | null;
     }>>(Prisma.sql`
-      SELECT "channel", "status", "lastErrorCode", "sentAt", "occurrenceAt"
+      SELECT "channel", "status", "lastErrorCode", "sentAt", "occurrenceAt", "providerMessageId"
       FROM "SmartReminderDelivery"
-      WHERE "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '30 minutes'
+      WHERE "occurrenceAt"=${TARGET_OCCURRENCE}
       ORDER BY "createdAt" DESC
-      LIMIT 20
+      LIMIT 10
     `);
+
+    if (originalFrom === undefined) delete process.env.HEE_FROM_EMAIL;
+    else process.env.HEE_FROM_EMAIL = originalFrom;
 
     return NextResponse.json({
       ok: true,
       resendApiKeyConfigured,
-      senderWasConfigured,
-      previewSenderApplied: !senderWasConfigured,
+      reminderSender: "reminder@ir.sa",
       requeued,
       scheduled: scheduled.scheduled,
       deduplicated: scheduled.deduplicated,
       skippedMissedOccurrences: scheduled.skippedMissedOccurrences,
       processed: delivered.processed,
-      recentDeliveries,
+      targetDeliveries,
       releaseSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     });
   } catch (error) {
