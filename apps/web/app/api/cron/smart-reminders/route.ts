@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { runSmartReminderDeliveryWorker } from "../../../lib/reminders/delivery-worker";
 import { runSmartReminderScheduler } from "../../../lib/reminders/scheduler";
-import { isSmartReminderSchemaReady } from "../../../lib/reminders/schema-readiness";
+import { isSmartRemindersSchemaReady } from "../../../lib/reminders/schema-readiness";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  if (!(await isSmartReminderSchemaReady())) {
+  if (!(await isSmartRemindersSchemaReady())) {
     return NextResponse.json({ ok: false, error: "SMART_REMINDER_SCHEMA_NOT_READY" }, { status: 503 });
   }
 
