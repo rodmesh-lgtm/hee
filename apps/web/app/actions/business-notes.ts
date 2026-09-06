@@ -12,10 +12,13 @@ import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 
 const MAX_ACTIVE_NOTES_PER_BUSINESS = 200;
 const NOTE_TYPES = ["general","meeting","decision","client","supplier","finance","operations","idea","follow_up"] as const;
+const WORK_HEALTH = ["on_track","at_risk","blocked"] as const;
+const PRIORITIES = ["low","normal","high","urgent"] as const;
 const text = (form: FormData, key: string, max: number) => { const value=String(form.get(key)??"").normalize("NFKC").trim(); return value&&value.length<=max?value:null; };
 const optionalText = (form:FormData,key:string,max:number)=>{const value=String(form.get(key)??"").normalize("NFKC").trim();if(!value)return null;if(value.length>max)return null;return value;};
 const enumValue = <T extends string>(form:FormData,key:string,allowed:readonly T[],fallback:T)=>{const value=String(form.get(key)??fallback) as T;return allowed.includes(value)?value:fallback;};
 const tags=(form:FormData)=>[...new Set(String(form.get("tags")??"").split(/[،,]/).map(tag=>tag.normalize("NFKC").trim()).filter(Boolean))].slice(0,12).map(tag=>tag.slice(0,40));
+function optionalDueAt(form:FormData){const raw=String(form.get("businessDueAt")??"").trim();if(!raw)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(raw))return undefined;const due=new Date(`${raw}T23:59:59.999Z`);return Number.isNaN(due.getTime())?undefined:due;}
 async function context(){const user=await getCurrentUser();if(!user)redirect("/login");const business=await getActiveBusinessForUser(user.id);if(!business)redirect("/dashboard?business=required");if(!await isBusinessNotesSchemaReady())redirect("/dashboard/notes?schema=pending");return{userId:user.id,businessId:business.id};}
 function done(action:string){revalidatePath("/dashboard/notes");revalidatePath("/dashboard/reminders");redirect(`/dashboard/notes?${action}=success`);}
 async function audit(tx:Prisma.TransactionClient,input:{businessId:string;userId:string;action:string;noteId:string;metadata?:Record<string,string|number|boolean|null>}){await writeWhatsAppAuditLog({businessId:input.businessId,actorUserId:input.userId,action:input.action,targetType:"business_note",targetId:input.noteId,outcome:"success",metadata:input.metadata,database:tx});}
@@ -28,6 +31,9 @@ function structuredFields(form:FormData){
     nextAction: optionalText(form,"nextAction",1200),
     stakeholder: optionalText(form,"stakeholder",160),
     referenceCode: optionalText(form,"referenceCode",120),
+    workHealth: enumValue(form,"workHealth",WORK_HEALTH,"on_track"),
+    responsiblePerson: optionalText(form,"responsiblePerson",160),
+    businessDueAt: optionalDueAt(form),
   };
 }
 
@@ -35,16 +41,16 @@ export async function createBusinessNoteAction(form:FormData){
   const{businessId,userId}=await context();
   const title=text(form,"title",160),body=text(form,"body",8000);
   if(!title||!body)redirect("/dashboard/notes?create=invalid");
-  const isPinned=form.get("isPinned")==="on",category=text(form,"category",64)??"عام",priority=enumValue(form,"priority",["low","normal","high","urgent"] as const,"normal"),status=enumValue(form,"status",["draft","active"] as const,"active"),noteTags=tags(form),noteId=randomUUID();
-  const structured=structuredFields(form);
+  const isPinned=form.get("isPinned")==="on",category=text(form,"category",64)??"عام",priority=enumValue(form,"priority",PRIORITIES,"normal"),status=enumValue(form,"status",["draft","active"] as const,"active"),noteTags=tags(form),noteId=randomUUID();
+  const structured=structuredFields(form);if(structured.businessDueAt===undefined)redirect("/dashboard/notes?create=invalid-due-date");
   const outcome=await db.$transaction(async tx=>{
     const rows=await tx.$queryRaw<Array<{count:bigint}>>(Prisma.sql`SELECT COUNT(*)::bigint AS "count" FROM "BusinessNote" WHERE "businessId"=${businessId} AND "status" <> 'archived'`);
     if(Number(rows[0]?.count??0)>=MAX_ACTIVE_NOTES_PER_BUSINESS)return"limit" as const;
     await tx.$executeRaw(Prisma.sql`
-      INSERT INTO "BusinessNote" ("id","businessId","title","body","isPinned","sortOrder","category","priority","tags","status","noteType","summary","outcome","nextAction","stakeholder","referenceCode","createdAt","updatedAt")
-      VALUES (${noteId},${businessId},${title},${body},${isPinned},0,${category},${priority},${noteTags},${status},${structured.noteType},${structured.summary},${structured.outcome},${structured.nextAction},${structured.stakeholder},${structured.referenceCode},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+      INSERT INTO "BusinessNote" ("id","businessId","title","body","isPinned","sortOrder","category","priority","tags","status","noteType","summary","outcome","nextAction","stakeholder","referenceCode","workHealth","responsiblePerson","businessDueAt","createdAt","updatedAt")
+      VALUES (${noteId},${businessId},${title},${body},${isPinned},0,${category},${priority},${noteTags},${status},${structured.noteType},${structured.summary},${structured.outcome},${structured.nextAction},${structured.stakeholder},${structured.referenceCode},${structured.workHealth},${structured.responsiblePerson},${structured.businessDueAt},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
     `);
-    await audit(tx,{businessId,userId,action:"business_note.create",noteId,metadata:{priority,status,pinned:isPinned,tagCount:noteTags.length,noteType:structured.noteType,hasNextAction:Boolean(structured.nextAction),hasOutcome:Boolean(structured.outcome)}});
+    await audit(tx,{businessId,userId,action:"business_note.create",noteId,metadata:{priority,status,pinned:isPinned,tagCount:noteTags.length,noteType:structured.noteType,workHealth:structured.workHealth,hasResponsiblePerson:Boolean(structured.responsiblePerson),hasDueDate:Boolean(structured.businessDueAt),hasNextAction:Boolean(structured.nextAction),hasOutcome:Boolean(structured.outcome)}});
     return"created" as const;
   },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
   if(outcome==="limit")redirect("/dashboard/notes?create=limit");done("create");
@@ -54,15 +60,16 @@ export async function updateBusinessNoteAction(form:FormData){
   const{businessId,userId}=await context();
   const noteId=text(form,"noteId",128),title=text(form,"title",160),body=text(form,"body",8000);
   if(!noteId||!title||!body)redirect("/dashboard/notes?update=invalid");
-  const category=text(form,"category",64)??"عام",priority=enumValue(form,"priority",["low","normal","high","urgent"] as const,"normal"),status=enumValue(form,"status",["draft","active"] as const,"active"),noteTags=tags(form),structured=structuredFields(form);
+  const category=text(form,"category",64)??"عام",priority=enumValue(form,"priority",PRIORITIES,"normal"),status=enumValue(form,"status",["draft","active"] as const,"active"),noteTags=tags(form),structured=structuredFields(form);if(structured.businessDueAt===undefined)redirect("/dashboard/notes?update=invalid-due-date");
   const changed=await db.$transaction(async tx=>{
+    const rows=await tx.$queryRaw<Array<{id:string}>>(Prisma.sql`SELECT "id" FROM "BusinessNote" WHERE "id"=${noteId} AND "businessId"=${businessId} AND "status" <> 'archived' FOR UPDATE`);if(!rows[0])return 0;
     const count=await tx.$executeRaw(Prisma.sql`
       UPDATE "BusinessNote" SET "title"=${title},"body"=${body},"category"=${category},"priority"=${priority},"tags"=${noteTags},"status"=${status},
         "noteType"=${structured.noteType},"summary"=${structured.summary},"outcome"=${structured.outcome},"nextAction"=${structured.nextAction},"stakeholder"=${structured.stakeholder},"referenceCode"=${structured.referenceCode},
-        "archivedAt"=NULL,"updatedAt"=CURRENT_TIMESTAMP
+        "workHealth"=${structured.workHealth},"responsiblePerson"=${structured.responsiblePerson},"businessDueAt"=${structured.businessDueAt},"archivedAt"=NULL,"updatedAt"=CURRENT_TIMESTAMP
       WHERE "id"=${noteId} AND "businessId"=${businessId} AND "status" <> 'archived'
     `);
-    if(count===1)await audit(tx,{businessId,userId,action:"business_note.update",noteId,metadata:{priority,status,tagCount:noteTags.length,noteType:structured.noteType,hasNextAction:Boolean(structured.nextAction),hasOutcome:Boolean(structured.outcome)}});
+    if(count===1)await audit(tx,{businessId,userId,action:"business_note.update",noteId,metadata:{priority,status,tagCount:noteTags.length,noteType:structured.noteType,workHealth:structured.workHealth,hasResponsiblePerson:Boolean(structured.responsiblePerson),hasDueDate:Boolean(structured.businessDueAt),hasNextAction:Boolean(structured.nextAction),hasOutcome:Boolean(structured.outcome)}});
     return count;
   },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
   if(changed!==1)redirect("/dashboard/notes?update=missing");done("update");
