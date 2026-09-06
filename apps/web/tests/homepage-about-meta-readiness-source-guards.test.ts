@@ -64,7 +64,7 @@ test("Saudi Business Center trust seal uses its fixed official script and a vali
     homepage,
     /eauthenticate\.saudibusiness\.gov\.sa\/certificate-details\/\$\{d\.trustSealCertificateNumber}/,
   );
-  assert.match(homepage, /cdn\.salla\.network\/images\/sbc\.png/);
+  assert.match(homepage, /src="\/images\/sbc\.png"/);
   assert.match(homepage, /data-token={d\.trustSealToken}/);
   assert.match(homepage, /data-position="bottom-left"/);
   assert.match(

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import Script from "next/script";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -785,10 +786,8 @@ export function HomepageProfessional({
                 className="mx-auto flex w-fit min-w-44 flex-col items-center justify-center rounded-2xl px-5 py-3 text-center text-sm font-bold text-white/80 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300 sm:mx-0"
                 aria-label="عرض شهادة توثيق INFRO لدى المركز السعودي للأعمال"
               >
-                {/* The official SBC badge asset used by Saudi storefronts. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://cdn.salla.network/images/sbc.png?v=2.0.5"
+                <Image
+                  src="/images/sbc.png"
                   alt="المركز السعودي للأعمال"
                   width="72"
                   height="52"
