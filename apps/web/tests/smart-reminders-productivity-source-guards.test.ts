@@ -11,7 +11,7 @@ test("smart reminders surface useful operational states without raw technical UX
   assert.match(page, /"attention"/);
   assert.match(page, /المتأخرة/);
   assert.match(page, /تحتاج مراجعة/);
-  assert.match(page, /لوحة متابعة التنفيذ تحتاج انتباهك/);
+  assert.match(page, /مركز تنفيذ الأعمال/);
   assert.match(page, /delivery_unknown/);
   assert.match(page, /failed/);
   assert.doesNotMatch(page, /NEXT ACTION/);
