@@ -29,13 +29,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: "SMART_REMINDER_SCHEMA_NOT_READY" }, { status: 503 });
   }
 
+  const originalFrom = process.env.REMINDER_FROM_EMAIL;
   try {
     const resendApiKeyConfigured = Boolean(String(process.env.RESEND_API_KEY ?? "").trim());
-    const originalFrom = process.env.HEE_FROM_EMAIL;
 
     // Preview-only execution uses the dedicated Smart Reminders identity. Production remains
-    // environment-driven and system transactional mail keeps its existing no-reply sender.
-    process.env.HEE_FROM_EMAIL = PREVIEW_REMINDER_FROM_EMAIL;
+    // environment-driven and system transactional mail keeps HEE_FROM_EMAIL/no-reply untouched.
+    process.env.REMINDER_FROM_EMAIL = PREVIEW_REMINDER_FROM_EMAIL;
 
     // Requeue only the single known failed QA email occurrence. Sent deliveries can never
     // match this predicate, so repeated probe execution cannot duplicate a successful send.
@@ -66,12 +66,9 @@ export async function GET(request: Request) {
       SELECT "channel", "status", "lastErrorCode", "sentAt", "occurrenceAt", "providerMessageId"
       FROM "SmartReminderDelivery"
       WHERE "occurrenceAt"=${TARGET_OCCURRENCE}
-      ORDER BY "createdAt" DESC
+      ORDER BY "updatedAt" DESC, "createdAt" DESC
       LIMIT 10
     `);
-
-    if (originalFrom === undefined) delete process.env.HEE_FROM_EMAIL;
-    else process.env.HEE_FROM_EMAIL = originalFrom;
 
     return NextResponse.json({
       ok: true,
@@ -88,5 +85,8 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("[smart-reminders-preview-probe] failed", error);
     return NextResponse.json({ ok: false, error: "SMART_REMINDER_PREVIEW_PROBE_FAILED" }, { status: 500 });
+  } finally {
+    if (originalFrom === undefined) delete process.env.REMINDER_FROM_EMAIL;
+    else process.env.REMINDER_FROM_EMAIL = originalFrom;
   }
 }
