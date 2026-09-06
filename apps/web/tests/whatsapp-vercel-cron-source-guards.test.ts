@@ -5,12 +5,11 @@ import test from "node:test";
 
 const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
-test("Vercel invokes the authenticated WhatsApp operations route every five minutes", () => {
+test("Vercel invokes authenticated operations and reminder maintenance schedules", () => {
   const config = JSON.parse(source("vercel.json"));
-  assert.deepEqual(config.crons, [{
-    path: "/api/cron/whatsapp-operations",
-    schedule: "*/5 * * * *",
-  }]);
+  assert.ok(config.crons.some((cron: { path: string; schedule: string }) => cron.path === "/api/cron/whatsapp-operations" && cron.schedule === "*/5 * * * *"));
+  assert.ok(config.crons.some((cron: { path: string; schedule: string }) => cron.path === "/api/cron/smart-reminders" && cron.schedule === "* * * * *"));
+  assert.ok(config.crons.some((cron: { path: string; schedule: string }) => cron.path === "/api/cron/business-memory-retention" && cron.schedule === "17 3 * * *"));
 
   const route = source("app/api/cron/whatsapp-operations/route.ts");
   assert.match(route, /export async function GET/);
@@ -45,13 +44,7 @@ test("cron credentials and outbound switches are synchronized and exact-SHA atte
     assert.match(attestation, new RegExp(`\\"${name}\\"`));
   }
 
-  for (const workflow of [
-    "production-preflight-v2.yml",
-    "production-deploy.yml",
-    "production-enter-maintenance.yml",
-    "production-billing-rehearsal.yml",
-    "production-open-paid-checkout.yml",
-  ]) {
+  for (const workflow of ["production-preflight-v2.yml","production-deploy.yml","production-enter-maintenance.yml","production-billing-rehearsal.yml","production-open-paid-checkout.yml"]) {
     const body = source(`../../.github/workflows/${workflow}`);
     assert.match(body, /CRON_SECRET: \$\{\{ secrets\.PRODUCTION_CRON_SECRET \}\}/);
     assert.match(body, /WHATSAPP_MARKETING_WORKER_ENABLED: \$\{\{ vars\.PRODUCTION_WHATSAPP_MARKETING_WORKER_ENABLED \}\}/);
