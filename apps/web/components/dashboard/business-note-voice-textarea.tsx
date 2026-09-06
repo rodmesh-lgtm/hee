@@ -29,6 +29,36 @@ type Suggestion = {
   reminderReason: string | null;
 };
 
+type BrowserSpeechRecognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+};
+
+type SpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+function browserSpeechConstructor(): SpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") return null;
+  const candidate = window as unknown as { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor };
+  return candidate.SpeechRecognition ?? candidate.webkitSpeechRecognition ?? null;
+}
+
+function browserLanguage(hint: string) {
+  if (hint === "ar") return "ar-SA";
+  if (hint === "en") return "en-US";
+  if (hint === "es") return "es-ES";
+  if (hint === "ur") return "ur-PK";
+  if (hint === "zh-CN") return "zh-CN";
+  return typeof navigator !== "undefined" && navigator.language ? navigator.language : "ar-SA";
+}
+
 function recorderMimeType() {
   if (typeof MediaRecorder === "undefined") return "";
   for (const value of ["audio/webm;codecs=opus", "audio/mp4", "audio/webm", "audio/ogg;codecs=opus"]) {
@@ -72,17 +102,30 @@ export function BusinessNoteVoiceTextarea({ voiceAvailable }: { voiceAvailable: 
   const [seconds, setSeconds] = useState(0);
   const [message, setMessage] = useState("");
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [browserFallbackAvailable, setBrowserFallbackAvailable] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    recorderRef.current?.stop();
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+  useEffect(() => {
+    setBrowserFallbackAvailable(Boolean(browserSpeechConstructor()));
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+      recognitionRef.current?.abort();
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
   }, []);
+
+  function appendTranscript(text: string) {
+    const cleaned = text.normalize("NFKC").trim();
+    if (!cleaned) return;
+    setValue((current) => `${current}${current.trim() ? "\n\n" : ""}${cleaned}`.slice(0, 8000));
+    setSuggestion(null);
+  }
 
   async function transcribe(blob: Blob) {
     setProcessing(true);
@@ -95,8 +138,7 @@ export function BusinessNoteVoiceTextarea({ voiceAvailable }: { voiceAvailable: 
       const response = await fetch("/api/business-notes/voice/transcribe", { method: "POST", body: form, cache: "no-store" });
       const data = (await response.json().catch(() => ({}))) as { ok?: boolean; text?: string; code?: string };
       if (!response.ok || !data.ok || !data.text) throw new Error(data.code || "transcription_failed");
-      setValue((current) => `${current}${current.trim() ? "\n\n" : ""}${data.text!.trim()}`.slice(0, 8000));
-      setSuggestion(null);
+      appendTranscript(data.text);
       setMessage("تم تحويل التسجيل إلى نص. راجعه، ثم يمكنك طلب ترتيبه كمذكرة أعمال ذكية.");
     } catch (error) {
       setMessage(errorText(error instanceof Error ? error.message : "transcription_failed"));
@@ -108,7 +150,7 @@ export function BusinessNoteVoiceTextarea({ voiceAvailable }: { voiceAvailable: 
   async function organizeMemo() {
     const memo = value.normalize("NFKC").trim();
     if (!memo) { setMessage("اكتب أو سجّل تفاصيل المذكرة أولًا ثم اطلب ترتيبها."); return; }
-    if (!voiceAvailable) { setMessage("خدمات الذكاء الاصطناعي غير مفعّلة في هذه البيئة بعد."); return; }
+    if (!voiceAvailable) { setMessage("التنظيم بالذكاء الاصطناعي غير مفعّل في هذه البيئة بعد، لكن التسجيل والكتابة ما زالا متاحين."); return; }
     setOrganizing(true);
     setMessage("INFRO AI يقرأ المذكرة الآن لاستخراج القرار والخطوة التالية ومسؤول التنفيذ دون تغيير كلامك الأصلي...");
     try {
@@ -141,11 +183,62 @@ export function BusinessNoteVoiceTextarea({ voiceAvailable }: { voiceAvailable: 
     }
   }
 
+  function startBrowserFallback() {
+    const Constructor = browserSpeechConstructor();
+    if (!Constructor) {
+      setMessage("خدمة التحويل الصوتي الذكي غير مفعّلة، ومتصفحك لا يوفر التحويل الصوتي الاحتياطي. يمكنك الكتابة يدويًا الآن.");
+      return;
+    }
+    try {
+      const recognition = new Constructor();
+      recognition.lang = browserLanguage(languageHint);
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognitionRef.current = recognition;
+      recognition.onresult = (event) => {
+        let text = "";
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+          const result = event.results[index];
+          if (result?.isFinal) text += `${result[0]?.transcript ?? ""} `;
+        }
+        appendTranscript(text);
+      };
+      recognition.onerror = (event) => {
+        const denied = event.error === "not-allowed" || event.error === "service-not-allowed";
+        setMessage(denied ? "لم يسمح المتصفح باستخدام الميكروفون. فعّل إذن الميكروفون ثم جرّب مرة أخرى." : "تعذر التحويل الصوتي عبر المتصفح. يمكنك المحاولة مجددًا أو الكتابة يدويًا.");
+      };
+      recognition.onend = () => {
+        recognitionRef.current = null;
+        setRecording(false);
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = null;
+      };
+      recognition.start();
+      setSeconds(0);
+      setRecording(true);
+      setMessage("يتم الاستماع الآن عبر التحويل الصوتي الاحتياطي في المتصفح. راجع النص قبل الحفظ.");
+      timerRef.current = setInterval(() => {
+        setSeconds((current) => {
+          const next = current + 1;
+          if (next >= MAX_SECONDS) recognition.stop();
+          return next;
+        });
+      }, 1000);
+    } catch {
+      setMessage("تعذر بدء التحويل الصوتي في هذا المتصفح. يمكنك الكتابة يدويًا أو المحاولة من Chrome/Safari حديث.");
+    }
+  }
+
   async function startRecording() {
     setMessage("");
-    if (!voiceAvailable) { setMessage("التحويل الصوتي غير مفعّل في هذه البيئة بعد."); return; }
+    if (!voiceAvailable) {
+      startBrowserFallback();
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setMessage("هذا المتصفح لا يدعم التسجيل الصوتي المطلوب. يمكنك كتابة المذكرة يدويًا.");
+      if (browserFallbackAvailable) startBrowserFallback();
+      else setMessage("هذا المتصفح لا يدعم التسجيل الصوتي المطلوب. يمكنك كتابة المذكرة يدويًا.");
       return;
     }
     try {
@@ -177,12 +270,14 @@ export function BusinessNoteVoiceTextarea({ voiceAvailable }: { voiceAvailable: 
         });
       }, 1000);
     } catch {
-      setMessage("تعذر الوصول إلى الميكروفون. اسمح للمتصفح باستخدامه أو اكتب المذكرة يدويًا.");
+      if (browserFallbackAvailable) startBrowserFallback();
+      else setMessage("تعذر الوصول إلى الميكروفون. اسمح للمتصفح باستخدامه أو اكتب المذكرة يدويًا.");
     }
   }
 
   function stopRecording() {
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    if (recognitionRef.current) recognitionRef.current.stop();
   }
 
   const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -192,7 +287,7 @@ export function BusinessNoteVoiceTextarea({ voiceAvailable }: { voiceAvailable: 
     <textarea ref={textareaRef} name="body" required maxLength={8000} rows={6} value={value} onChange={(event) => { setValue(event.target.value); setSuggestion(null); }} placeholder="اكتب التفاصيل أو اضغط الميكروفون وتحدث بطبيعتك..." className="w-full resize-y rounded-t-2xl border-0 px-4 py-3 text-sm leading-7 outline-none focus:ring-0"/>
     <div className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/70 p-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap items-center gap-2">
-        {!recording ? <button type="button" onClick={startRecording} disabled={processing || organizing || !voiceAvailable} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#07181b] px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Mic className="h-4 w-4"/>تسجيل مذكرة صوتية</button> : <button type="button" onClick={stopRecording} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-rose-600 px-4 text-xs font-black text-white"><Square className="h-4 w-4"/>إيقاف {minutes}:{secs}</button>}
+        {!recording ? <button type="button" onClick={startRecording} disabled={processing || organizing} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#07181b] px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Mic className="h-4 w-4"/>تسجيل مذكرة صوتية</button> : <button type="button" onClick={stopRecording} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-rose-600 px-4 text-xs font-black text-white"><Square className="h-4 w-4"/>إيقاف {minutes}:{secs}</button>}
         <button type="button" onClick={organizeMemo} disabled={recording || processing || organizing || !voiceAvailable || !value.trim()} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#9ee9df] bg-[#eafffb] px-4 text-xs font-black text-[#006f69] disabled:cursor-not-allowed disabled:opacity-50"><BrainCircuit className={`h-4 w-4 ${organizing ? "animate-pulse" : ""}`}/>{organizing ? "يتم ترتيبها..." : "رتّبها بالذكاء الاصطناعي"}</button>
         <label className="flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600"><span>لغة الكلام</span><select value={languageHint} onChange={(event) => setLanguageHint(event.target.value)} disabled={recording || processing || organizing} className="bg-transparent font-bold outline-none">{LANGUAGE_OPTIONS.map(([option,label]) => <option key={option} value={option}>{label}</option>)}</select></label>
         {processing ? <span className="inline-flex items-center gap-2 text-xs font-bold text-[#007f76]"><WandSparkles className="h-4 w-4 animate-pulse"/>جارٍ التحويل...</span> : null}
