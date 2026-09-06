@@ -27,8 +27,14 @@ export function isBusinessVoiceLanguageHint(value: string): value is BusinessVoi
   return (BUSINESS_VOICE_LANGUAGE_HINTS as readonly string[]).includes(value);
 }
 
+function openAiApiKey() {
+  return process.env.INFRO_OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
+}
+
 export function businessVoiceAiReady() {
-  return process.env.INFRO_BUSINESS_VOICE_AI_ENABLED === "true" && Boolean(process.env.INFRO_OPENAI_API_KEY?.trim());
+  const enabled = process.env.INFRO_BUSINESS_VOICE_AI_ENABLED;
+  if (enabled === "false") return false;
+  return Boolean(openAiApiKey());
 }
 
 export function isAllowedBusinessVoiceMime(value: string) {
@@ -61,7 +67,7 @@ export async function transcribeBusinessVoice(input: { file: File; languageHint:
   if (input.file.size <= 0 || input.file.size > BUSINESS_VOICE_MAX_BYTES) throw new Error("BUSINESS_VOICE_FILE_SIZE_INVALID");
   if (!isAllowedBusinessVoiceMime(input.file.type)) throw new Error("BUSINESS_VOICE_FILE_TYPE_INVALID");
 
-  const apiKey = process.env.INFRO_OPENAI_API_KEY!.trim();
+  const apiKey = openAiApiKey();
   const payload = new FormData();
   payload.set("model", modelName());
   payload.set("file", input.file, input.file.name || "business-note.webm");
