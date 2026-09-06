@@ -1,7 +1,7 @@
 import "server-only";
 
 import { Prisma } from "@prisma/client";
-import { db } from "../../db";
+import { db } from "../db";
 
 export async function isBusinessNotesSchemaReady() {
   try {
