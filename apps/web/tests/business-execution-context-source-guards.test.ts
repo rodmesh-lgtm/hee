@@ -4,6 +4,7 @@ import test from "node:test";
 
 const source=(path:string)=>readFileSync(path,"utf8");
 const migration=source("prisma/migrations/20260906133500_business_execution_context/migration.sql");
+const snapshotMigration=source("prisma/migrations/20260906135000_business_note_reminder_execution_snapshot/migration.sql");
 const reminders=source("app/lib/reminders/execution-context.ts");
 const notes=source("app/actions/business-notes.ts");
 const reminderReadiness=source("app/lib/reminders/schema-readiness.ts");
@@ -19,6 +20,14 @@ test("business execution context is database bounded for reminders and notes",()
   assert.match(migration,/next_action_length/);
   assert.match(migration,/SmartReminder_business_health_due_idx/);
   assert.match(migration,/BusinessNote_business_health_due_idx/);
+});
+
+test("linked note execution context is snapshotted atomically inside the reminder insert",()=>{
+  assert.match(snapshotMigration,/BEFORE INSERT ON "SmartReminder"/);
+  assert.match(snapshotMigration,/"id" = NEW\."businessNoteId"/);
+  assert.match(snapshotMigration,/"businessId" = NEW\."businessId"/);
+  assert.match(snapshotMigration,/"status" <> 'archived'/);
+  for(const field of ["priority","workHealth","responsiblePerson","businessDueAt","nextAction"]) assert.match(snapshotMigration,new RegExp(`NEW\\."${field}" := note_record\\."${field}"`));
 });
 
 test("reminder execution updates are tenant scoped serialized audited and independent from delivery lifecycle",()=>{
@@ -44,4 +53,5 @@ test("readiness and Preview contract fail closed until execution context exists"
   for(const column of ["workHealth","priority","responsiblePerson","businessDueAt","nextAction"]) assert.match(reminderReadiness,new RegExp(`column_name='${column}'`));
   for(const column of ["workHealth","responsiblePerson","businessDueAt"]) assert.match(noteReadiness,new RegExp(`column_name='${column}'`));
   assert.match(qaContract,/20260906133500_business_execution_context/);
+  assert.match(qaContract,/20260906135000_business_note_reminder_execution_snapshot/);
 });
