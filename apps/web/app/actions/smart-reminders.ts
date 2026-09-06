@@ -9,6 +9,7 @@ import { db } from "../lib/db";
 import { normalizeReminderChannels, reminderLocalDateTimeToUtc } from "../lib/reminders/domain";
 import { cancelSmartReminder, completeSmartReminder, createSmartReminder, pauseSmartReminder, rescheduleSmartReminder, resumeSmartReminder, updateSmartReminderContent } from "../lib/reminders/operations";
 import { infroReminderWhatsAppReady } from "../lib/reminders/platform-whatsapp";
+import { updateReminderWorkProgress } from "../lib/reminders/progress";
 import { isSmartRemindersSchemaReady } from "../lib/reminders/schema-readiness";
 
 const MAX_ACTIVE_REMINDERS_PER_BUSINESS = 100;
@@ -34,6 +35,8 @@ function destinationFor(error: unknown, action: string) {
   if (code === "REMINDER_RECIPIENT_NOT_CONFIGURED") return `/dashboard/reminders?${action}=phone-required`;
   if (code === "REMINDER_DELIVERY_CHANNELS_INVALID") return `/dashboard/reminders?${action}=channels-required`;
   if (code === "REMINDER_NOTE_INVALID") return `/dashboard/reminders?${action}=note-invalid`;
+  if (code === "REMINDER_PROGRESS_INVALID" || code === "REMINDER_PROGRESS_NOTE_INVALID") return `/dashboard/reminders?${action}=progress-invalid`;
+  if (code === "REMINDER_PROGRESS_NOT_EDITABLE") return `/dashboard/reminders?${action}=progress-locked`;
   return `/dashboard/reminders?${action}=failed`;
 }
 
@@ -90,6 +93,20 @@ export async function updateSmartReminderAction(form: FormData) {
   try { await updateSmartReminderContent({ businessId: context.businessId, actorUserId: context.userId, reminderId, title, body }); revalidatePath("/dashboard/reminders"); }
   catch (error) { redirect(destinationFor(error, "update")); }
   redirect("/dashboard/reminders?update=success");
+}
+
+export async function updateSmartReminderProgressAction(form: FormData) {
+  const context = await reminderContext();
+  const reminderId = field(form, "reminderId", 128);
+  const progressPercent = Number(String(form.get("progressPercent") ?? ""));
+  const progressNote = String(form.get("progressNote") ?? "").normalize("NFKC").trim().slice(0, 1000);
+  if (!reminderId) redirect("/dashboard/reminders?progress=invalid");
+  try {
+    await updateReminderWorkProgress({ businessId: context.businessId, actorUserId: context.userId, reminderId, progressPercent, progressNote });
+    revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/notes");
+  } catch (error) { redirect(destinationFor(error, "progress")); }
+  redirect("/dashboard/reminders?progress=success");
 }
 
 export async function rescheduleSmartReminderAction(form: FormData) {
