@@ -141,7 +141,8 @@ async function markSent(database: PrismaClient, delivery: ClaimedDelivery, conte
   });
 }
 
-async function persistWhatsAppMessage(database: PrismaClient, input: { delivery: ClaimedDelivery; phoneNumberId: string; recipientPhoneE164: string; providerMessageId: string; now: Date }) {
+async function persistTenantWhatsAppMessage(database: PrismaClient, input: { delivery: ClaimedDelivery; phoneNumberId: string; recipientPhoneE164: string; providerMessageId: string; now: Date }) {
+  if (input.delivery.whatsappSenderMode !== "tenant") throw new Error("REMINDER_TENANT_MESSAGE_STORE_MODE_MISMATCH");
   await database.$transaction(async (tx) => {
     const conversation = await tx.whatsAppConversation.upsert({
       where: { businessId_phoneNumberId_customerPhoneE164: { businessId: input.delivery.businessId, phoneNumberId: input.phoneNumberId, customerPhoneE164: input.recipientPhoneE164 } },
@@ -218,7 +219,6 @@ async function sendPlatformWhatsAppReminder(delivery: ClaimedDelivery, context: 
   }
   const providerMessageId = safeText(Array.isArray(record(payload)?.messages) ? record((record(payload)?.messages as unknown[])[0])?.id : null);
   if (!providerMessageId) { await releaseAs(database, delivery, "delivery_unknown", now, "META_SUCCESS_RESPONSE_INVALID"); return "delivery_unknown" as const; }
-  await persistWhatsAppMessage(database, { delivery, phoneNumberId: config.phoneNumberId, recipientPhoneE164: context.recipientPhoneE164, providerMessageId, now });
   await markSent(database, delivery, context, now, providerMessageId); return "sent" as const;
 }
 
@@ -248,7 +248,7 @@ async function sendTenantWhatsAppReminder(delivery: ClaimedDelivery, context: Re
   }
   const providerMessageId = safeText(Array.isArray(record(payload)?.messages) ? record((record(payload)?.messages as unknown[])[0])?.id : null);
   if (!providerMessageId) { await releaseAs(database, delivery, "delivery_unknown", now, "META_SUCCESS_RESPONSE_INVALID"); return "delivery_unknown" as const; }
-  await persistWhatsAppMessage(database, { delivery, phoneNumberId: context.phoneNumberId, recipientPhoneE164: context.recipientPhoneE164!, providerMessageId, now });
+  await persistTenantWhatsAppMessage(database, { delivery, phoneNumberId: context.phoneNumberId, recipientPhoneE164: context.recipientPhoneE164!, providerMessageId, now });
   await markSent(database, delivery, context, now, providerMessageId); return "sent" as const;
 }
 
