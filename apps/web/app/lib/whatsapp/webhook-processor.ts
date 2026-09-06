@@ -128,12 +128,41 @@ async function applyPlatformReminderFailureReceipt(tx: Tx, input: { providerMess
   `);
 }
 
+async function applyPlatformReminderPositiveReceipt(tx: Tx, input: { providerMessageId: string; status: string; at: Date | null }) {
+  const at = input.at ?? new Date();
+  if (input.status === "delivered") {
+    await tx.$executeRaw(Prisma.sql`
+      UPDATE "SmartReminderDelivery"
+      SET "deliveredAt"=COALESCE("deliveredAt", ${at}), "updatedAt"=CURRENT_TIMESTAMP
+      WHERE "providerMessageId"=${input.providerMessageId}
+        AND "channel"='whatsapp'
+        AND "whatsappSenderMode"='platform'
+        AND "status"='sent'
+    `);
+  }
+  if (input.status === "read") {
+    await tx.$executeRaw(Prisma.sql`
+      UPDATE "SmartReminderDelivery"
+      SET "deliveredAt"=COALESCE("deliveredAt", ${at}), "readAt"=COALESCE("readAt", ${at}), "updatedAt"=CURRENT_TIMESTAMP
+      WHERE "providerMessageId"=${input.providerMessageId}
+        AND "channel"='whatsapp'
+        AND "whatsappSenderMode"='platform'
+        AND "status"='sent'
+    `);
+  }
+}
+
 async function processPlatformStatuses(tx: Tx, event: ClaimedEvent) {
   assertPlatformEvent(event);
   const receipts = parseStatusReceipts(webhookValue(event.payload));
   for (const receipt of receipts) {
-    if (receipt.status !== "failed") continue;
-    await applyPlatformReminderFailureReceipt(tx, { providerMessageId: receipt.providerMessageId, at: receipt.providerTimestamp, errorCode: receipt.errorCode });
+    if (receipt.status === "failed") {
+      await applyPlatformReminderFailureReceipt(tx, { providerMessageId: receipt.providerMessageId, at: receipt.providerTimestamp, errorCode: receipt.errorCode });
+      continue;
+    }
+    if (receipt.status === "delivered" || receipt.status === "read") {
+      await applyPlatformReminderPositiveReceipt(tx, { providerMessageId: receipt.providerMessageId, status: receipt.status, at: receipt.providerTimestamp });
+    }
   }
 }
 
