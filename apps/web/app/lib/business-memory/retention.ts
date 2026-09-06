@@ -10,21 +10,21 @@ export const BUSINESS_MEMORY_RETENTION = {
 
 export async function runBusinessMemoryRetention(database: PrismaClient = db) {
   return database.$transaction(async (tx) => {
-    // In-app notifications are transient UI data. Remove read notifications after 30 days,
-    // and notifications for already-finished reminders once the reminder reaches 90 days.
+    // In-app notifications are transient UI data. Read notification cards may age out even
+    // while the underlying business work remains open; the reminder/work record stays intact.
     const notifications = await tx.$executeRaw(Prisma.sql`
       DELETE FROM "SmartReminderNotification" n
       WHERE (n."readAt" IS NOT NULL AND n."readAt" < CURRENT_TIMESTAMP - INTERVAL '30 days')
          OR EXISTS (
            SELECT 1 FROM "SmartReminder" r
            WHERE r."id"=n."reminderId" AND r."businessId"=n."businessId"
-             AND r."status" IN ('completed','cancelled')
+             AND (r."status"='cancelled' OR (r."status"='completed' AND r."progressPercent"=100))
              AND r."updatedAt" < CURRENT_TIMESTAMP - INTERVAL '90 days'
          )
     `);
 
-    // Keep operational delivery evidence for 90 days. Never delete work that could still
-    // execute or whose provider outcome is unknown.
+    // Keep provider delivery evidence for 90 days. This is transport history, not the
+    // business-execution record itself, so completed delivery rows may age out independently.
     const deliveries = await tx.$executeRaw(Prisma.sql`
       DELETE FROM "SmartReminderDelivery" d
       WHERE d."createdAt" < CURRENT_TIMESTAMP - INTERVAL '90 days'
@@ -32,18 +32,19 @@ export async function runBusinessMemoryRetention(database: PrismaClient = db) {
         AND NOT EXISTS (SELECT 1 FROM "SmartReminderNotification" n WHERE n."deliveryId"=d."id")
     `);
 
-    // Finished reminders are retained for 90 days for support/audit, then removed only
-    // after all child delivery/notification rows have safely aged out.
+    // A reminder whose notification lifecycle ended is NOT disposable while work is still
+    // partially complete. Only explicit cancellation or 100% business completion qualifies
+    // it for age-based removal after child transport evidence has expired.
     const reminders = await tx.$executeRaw(Prisma.sql`
       DELETE FROM "SmartReminder" r
-      WHERE r."status" IN ('completed','cancelled')
+      WHERE (r."status"='cancelled' OR (r."status"='completed' AND r."progressPercent"=100 AND r."workCompletedAt" IS NOT NULL))
         AND r."updatedAt" < CURRENT_TIMESTAMP - INTERVAL '90 days'
         AND NOT EXISTS (SELECT 1 FROM "SmartReminderDelivery" d WHERE d."reminderId"=r."id" AND d."businessId"=r."businessId")
         AND NOT EXISTS (SELECT 1 FROM "SmartReminderNotification" n WHERE n."reminderId"=r."id" AND n."businessId"=r."businessId")
     `);
 
-    // Archived notes are a 30-day recycle bin. Linked notes are preserved until their
-    // reminder is itself safely removed. Active/draft notes are never deleted by age.
+    // Archived notes are a 30-day recycle bin. Linked notes remain preserved while their
+    // business reminder/work context exists. Active and draft notes are never deleted by age.
     const notes = await tx.$executeRaw(Prisma.sql`
       DELETE FROM "BusinessNote" n
       WHERE n."status"='archived'
