@@ -21,7 +21,7 @@ test("recorder visibly reports microphone acquisition and records before AI bran
   assert.match(source, /جارٍ فتح الميكروفون/);
   assert.match(source, /MICROPHONE_REQUEST_TIMEOUT_MS = 15_000/);
   assert.match(source, /recorder\.start\(750\)/);
-  assert.match(source, /if \(voiceAvailable\) \{\s*void transcribe\(blob\)/s);
+  assert.ok(source.includes("if (voiceAvailable) {\n          void transcribe(blob);"), "server transcription must branch only after the captured blob exists");
   assert.match(source, /if \(!voiceAvailable\) startLiveBrowserTranscription\(\)/);
   assert.match(source, /stream\.getTracks\(\)\.forEach/);
   assert.match(source, /type="button" onClick=\{startRecording\}/);
