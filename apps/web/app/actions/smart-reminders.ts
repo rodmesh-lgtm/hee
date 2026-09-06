@@ -46,6 +46,7 @@ export async function createSmartReminderAction(form: FormData) {
   const title = field(form, "title", 160);
   const body = field(form, "body", 2000);
   const templateId = field(form, "templateId", 128);
+  const businessNoteId = field(form, "businessNoteId", 128);
   const timezone = field(form, "timezone", 64);
   const localDateTime = field(form, "scheduledLocal", 32);
   const recurrenceType = field(form, "recurrenceType", 16) ?? "once";
@@ -56,10 +57,19 @@ export async function createSmartReminderAction(form: FormData) {
   const recipientConsentAccepted = form.get("recipientConsentAccepted") === "on";
   if (!title || !body || !timezone || !localDateTime || (wantsWhatsApp && (!templateId || !recipientConsentAccepted))) redirect("/dashboard/reminders?create=consent-required");
   if (wantsWhatsApp) await assertWhatsAppReminderAccess(context.businessId);
+  if (businessNoteId) {
+    const note = await db.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "BusinessNote" WHERE "id"=${businessNoteId} AND "businessId"=${context.businessId} AND "status" <> 'archived' LIMIT 1`);
+    if (!note[0]) redirect("/dashboard/reminders?create=note-invalid");
+  }
   try {
     const scheduledAt = reminderLocalDateTimeToUtc(localDateTime, timezone);
-    await createSmartReminder({ businessId: context.businessId, actorUserId: context.userId, title, body, templateId, scheduledAt, timezone, recurrenceType, recipientConsentAccepted, deliveryChannels });
+    const created = await createSmartReminder({ businessId: context.businessId, actorUserId: context.userId, title, body, templateId, scheduledAt, timezone, recurrenceType, recipientConsentAccepted, deliveryChannels });
+    if (businessNoteId) {
+      const linked = await db.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "businessNoteId"=${businessNoteId}, "updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${created.id} AND "businessId"=${context.businessId}`);
+      if (linked !== 1) throw new Error("REMINDER_NOTE_LINK_FAILED");
+    }
     revalidatePath("/dashboard/reminders");
+    revalidatePath("/dashboard/notes");
   } catch (error) { redirect(destinationFor(error, "create")); }
   redirect("/dashboard/reminders?create=success");
 }
