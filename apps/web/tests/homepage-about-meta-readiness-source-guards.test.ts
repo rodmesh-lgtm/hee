@@ -59,6 +59,7 @@ test("Saudi Business Center trust seal uses its fixed official script and a vali
   assert.match(homepage, /className="sbc-verify-seal [^"]*"/);
   assert.match(homepage, /<footer[\s\S]*className="sbc-verify-seal [^"]*"/);
   assert.match(homepage, /موثق لدى منصة الأعمال/);
+  assert.match(homepage, /رقم الشهادة: \{d\.trustSealCertificateNumber\}/);
   assert.match(homepage, /المركز السعودي للأعمال/);
   assert.match(
     homepage,

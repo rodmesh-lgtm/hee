@@ -794,7 +794,13 @@ export function HomepageProfessional({
                   loading="lazy"
                   className="mb-1.5 h-[52px] w-[72px] object-contain"
                 />
-                موثق لدى منصة الأعمال
+                <span>موثق لدى منصة الأعمال</span>
+                <span
+                  className="mt-1 text-[11px] font-medium leading-none text-white/55 tabular-nums"
+                  dir="rtl"
+                >
+                  رقم الشهادة: {d.trustSealCertificateNumber}
+                </span>
               </a>
               <div
                 className="sbc-verify-seal h-0 overflow-hidden"
