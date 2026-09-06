@@ -24,8 +24,10 @@ test("reminder delivery claims are leased and ambiguous sends never retry", () =
 test("reminder delivery revalidates every tenant and outbound trust boundary", () => {
   assert.match(worker, /d\."businessId"\s*=\s*\$\{delivery\.businessId\}/);
   assert.match(worker, /d\."reminderId"\s*=\s*\$\{delivery\.reminderId\}/);
-  assert.match(worker, /d\."connectionId"\s*=\s*\$\{delivery\.connectionId\}/);
-  assert.match(worker, /d\."templateId"\s*=\s*\$\{delivery\.templateId\}/);
+  assert.match(worker, /LEFT JOIN "WhatsAppConnection" c ON c\."id"=d\."connectionId" AND c\."businessId"=d\."businessId"/);
+  assert.match(worker, /LEFT JOIN "WhatsAppTemplate" t ON t\."id"=d\."templateId" AND t\."businessId"=d\."businessId" AND t\."connectionId"=d\."connectionId"/);
+  assert.match(worker, /delivery\.channel\s*!==\s*"whatsapp"/);
+  assert.match(worker, /!delivery\.connectionId\s*\|\|\s*!delivery\.templateId/);
   assert.match(worker, /hasActiveWhatsAppMarketingEntitlement/);
   assert.match(worker, /recipientStillOwnedByBusiness/);
   assert.match(worker, /REMINDER_RECIPIENT_CONSENT_REQUIRED/);
