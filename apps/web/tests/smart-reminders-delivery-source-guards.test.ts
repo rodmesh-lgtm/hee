@@ -21,35 +21,35 @@ test("reminder delivery claims are leased and ambiguous sends never retry", () =
   assert.match(worker, /MAX_ATTEMPTS\s*=\s*8/);
 });
 
-test("reminder delivery revalidates every tenant and outbound trust boundary", () => {
-  assert.match(worker, /d\."businessId"\s*=\s*\$\{delivery\.businessId\}/);
-  assert.match(worker, /d\."reminderId"\s*=\s*\$\{delivery\.reminderId\}/);
+test("legacy tenant sender revalidates tenant and outbound trust boundaries", () => {
+  assert.match(worker, /d\."businessId"=\$\{delivery\.businessId\}/);
+  assert.match(worker, /d\."reminderId"=\$\{delivery\.reminderId\}/);
   assert.match(worker, /LEFT JOIN "WhatsAppConnection" c ON c\."id"=d\."connectionId" AND c\."businessId"=d\."businessId"/);
   assert.match(worker, /LEFT JOIN "WhatsAppTemplate" t ON t\."id"=d\."templateId" AND t\."businessId"=d\."businessId" AND t\."connectionId"=d\."connectionId"/);
-  assert.match(worker, /delivery\.channel\s*!==\s*"whatsapp"/);
-  assert.match(worker, /!delivery\.connectionId\s*\|\|\s*!delivery\.templateId/);
   assert.match(worker, /hasActiveWhatsAppMarketingEntitlement/);
   assert.match(worker, /recipientStillOwnedByBusiness/);
   assert.match(worker, /REMINDER_RECIPIENT_CONSENT_REQUIRED/);
-  assert.match(worker, /connectionProvider\s*!==\s*"meta"/);
-  assert.match(worker, /templateProvider\s*!==\s*"meta"/);
-  assert.match(worker, /templateStatus\s*!==\s*"approved"/);
+  assert.match(worker, /connectionProvider !== "meta"/);
+  assert.match(worker, /templateProvider !== "meta"/);
+  assert.match(worker, /templateStatus !== "approved"/);
   assert.match(worker, /reminderTemplateSupportsBodyParameter/);
 });
 
 test("reminder opt-in stays reminder-specific and never widens marketing consent", () => {
   assert.match(migration, /"recipientConsentedAt" TIMESTAMP\(3\) NOT NULL/);
   assert.match(migration, /"recipientConsentEvidence" TEXT NOT NULL/);
-  assert.match(reminderOperations, /recipientConsentAccepted\?:\s*boolean/);
-  assert.match(reminderOperations, /wantsWhatsApp\s*&&\s*!input\.recipientConsentAccepted/);
+  assert.match(reminderOperations, /recipientConsentAccepted\?: boolean/);
+  assert.match(reminderOperations, /wantsWhatsApp && !input\.recipientConsentAccepted/);
   assert.match(reminderOperations, /dashboard_explicit_reminder_opt_in_v1/);
-  assert.match(actions, /form\.get\("recipientConsentAccepted"\)\s*===\s*"on"/);
-  assert.match(actions, /wantsWhatsApp\s*&&\s*\(\s*!templateId\s*\|\|\s*!recipientConsentAccepted\s*\)/);
+  assert.match(actions, /form\.get\("recipientConsentAccepted"\) === "on"/);
+  assert.match(actions, /wantsWhatsApp && !recipientConsentAccepted/);
+  assert.match(actions, /whatsappSenderMode: "platform"/);
   assert.match(createForm, /name="recipientConsentAccepted"/);
   assert.match(worker, /recipientConsentEvidence/);
   assert.match(worker, /recipientConsentedAt/);
   assert.match(worker, /dashboard_explicit_reminder_opt_in_v1/);
   assert.match(worker, /optedOutAt/);
+  assert.match(worker, /platformRecipientOptedOut/);
   assert.doesNotMatch(reminderOperations, /whatsAppConsent\.(create|upsert|update)/);
   assert.doesNotMatch(worker, /whatsAppConsent\.findFirst/);
 });
@@ -58,18 +58,20 @@ test("reminder lifecycle mutations serialize against in-flight deliveries", () =
   assert.match(reminderOperations, /FOR UPDATE/);
   assert.match(reminderOperations, /TransactionIsolationLevel\.Serializable/);
   assert.match(reminderOperations, /REMINDER_DELIVERY_IN_PROGRESS/);
-  assert.match(reminderOperations, /status"\s+IN\s+\('queued','retry_scheduled'\)/);
+  assert.match(reminderOperations, /status" IN \('queued','retry_scheduled'\)/);
   assert.match(reminderOperations, /cancelQueuedDeliveries/);
   assert.match(reminderOperations, /assertNoInFlightDelivery/);
 });
 
-test("reminder delivery shares Meta credential, rate and message persistence controls", () => {
+test("reminder delivery uses official Meta controls and persists provider IDs", () => {
   assert.match(worker, /WhatsAppSendRateBucket/);
+  assert.match(worker, /InfroReminderWhatsAppRateBucket/);
   assert.match(worker, /outboundRateLimit/);
   assert.match(worker, /decryptWhatsAppCredential/);
-  assert.match(worker, /businessId\s*:\s*delivery\.businessId/);
+  assert.match(worker, /businessId: delivery\.businessId/);
   assert.match(worker, /metaWhatsAppGraphUrl/);
-  assert.match(worker, /messaging_product\s*:\s*"whatsapp"/);
+  assert.match(worker, /infroReminderWhatsAppGraphUrl/);
+  assert.match(worker, /messaging_product: "whatsapp"/);
   assert.match(worker, /providerMessageId/);
   assert.match(worker, /whatsAppConversation\.upsert/);
   assert.match(worker, /whatsAppMessage\.upsert/);
@@ -78,21 +80,21 @@ test("reminder delivery shares Meta credential, rate and message persistence con
 });
 
 test("confirmed one-time delivery completes only after sibling channels settle", () => {
-  assert.match(worker, /context\.recurrenceType\s*===\s*"once"/);
-  assert.match(worker, /context\.nextOccurrenceAt\s*===\s*null/);
-  assert.match(worker, /"businessId"\s*=\s*\$\{delivery\.businessId\}[\s\S]*"reminderId"\s*=\s*\$\{delivery\.reminderId\}[\s\S]*"occurrenceAt"\s*=\s*\$\{delivery\.occurrenceAt\}/);
-  assert.match(worker, /"status"\s+NOT IN\s+\('sent','cancelled'\)/);
-  assert.match(worker, /Number\(pending\[0\]\?\.count\s*\?\?\s*0\)\s*===\s*0/);
+  assert.match(worker, /context\.recurrenceType === "once"/);
+  assert.match(worker, /context\.nextOccurrenceAt === null/);
+  assert.match(worker, /"businessId"=\$\{delivery\.businessId\}[\s\S]*"reminderId"=\$\{delivery\.reminderId\}[\s\S]*"occurrenceAt"=\$\{delivery\.occurrenceAt\}/);
+  assert.match(worker, /"status" NOT IN \('sent','cancelled'\)/);
+  assert.match(worker, /Number\(pending\[0\]\?\.count \?\? 0\) === 0/);
   assert.match(worker, /SET "status"='completed'/);
   assert.match(worker, /"recurrenceType"='once'/);
   assert.match(worker, /"nextOccurrenceAt" IS NULL/);
-  assert.match(worker, /action\s*:\s*"reminder\.complete"/);
+  assert.match(worker, /action: "reminder\.complete"/);
 });
 
 test("non-success delivery transitions are privacy-safe audited", () => {
-  assert.match(worker, /action\s*:\s*"reminder\.delivery\.transition"/);
-  assert.match(worker, /deliveryStatus\s*:\s*status/);
-  assert.match(worker, /reason\s*:\s*errorCode\s*\?\?\s*null/);
+  assert.match(worker, /action: "reminder\.delivery\.transition"/);
+  assert.match(worker, /deliveryStatus: status/);
+  assert.match(worker, /reason: errorCode \?\? null/);
   assert.doesNotMatch(worker, /metadata\s*:\s*\{[^}]*recipientPhoneE164/);
   assert.doesNotMatch(worker, /metadata\s*:\s*\{[^}]*body/);
 });
