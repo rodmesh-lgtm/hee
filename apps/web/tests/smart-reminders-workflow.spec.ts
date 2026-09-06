@@ -121,23 +121,42 @@ test.describe.serial("smart reminders authenticated workflow", () => {
       await page.locator('textarea[name="body"]').fill("راجع العرض وتأكد من الخطوة التالية.");
       await page.locator('input[name="scheduledLocal"]').fill(scheduledLocal);
       await page.locator('select[name="recurrenceType"]').selectOption("weekly");
-      await page.locator('input[name="recipientConsentAccepted"]').check();
+
+      const consent = page.locator('input[name="recipientConsentAccepted"]');
+      const whatsappChannel = page.locator('input[name="deliveryChannels"][value="whatsapp"]');
+      const whatsappAvailable = await consent.isEnabled();
+      if (whatsappAvailable) {
+        await expect(whatsappChannel).toBeChecked();
+        await consent.check();
+      } else {
+        await expect(consent).toBeDisabled();
+        await expect(whatsappChannel).toBeDisabled();
+        await expect(page.locator('input[name="deliveryChannels"][value="in_app"]')).toBeChecked();
+      }
+
       await activateReminder.click();
       await page.waitForURL(/\/dashboard\/reminders\?create=success/);
 
       const reminderCard = page.getByRole("article").filter({ hasText: "متابعة عرض الاختبار" });
       await expect(reminderCard.getByText("متابعة عرض الاختبار", { exact: true })).toBeVisible();
       await expect(reminderCard.getByText("أسبوعيًا", { exact: true })).toBeVisible();
-      const rows = await db.$queryRaw<Array<{ id: string; businessId: string; status: string; recurrenceType: string; recipientPhoneE164: string; recipientConsentEvidence: string }>>(Prisma.sql`
-        SELECT "id", "businessId", "status", "recurrenceType", "recipientPhoneE164", "recipientConsentEvidence"
+      const rows = await db.$queryRaw<Array<{ id: string; businessId: string; status: string; recurrenceType: string; recipientPhoneE164: string | null; recipientConsentEvidence: string | null; deliveryChannels: string[] }>>(Prisma.sql`
+        SELECT "id", "businessId", "status", "recurrenceType", "recipientPhoneE164", "recipientConsentEvidence", "deliveryChannels"
         FROM "SmartReminder" WHERE "businessId" = ${fixture.businessId} ORDER BY "createdAt" DESC LIMIT 1
       `);
       expect(rows).toHaveLength(1);
       expect(rows[0].businessId).toBe(fixture.businessId);
       expect(rows[0].status).toBe("scheduled");
       expect(rows[0].recurrenceType).toBe("weekly");
-      expect(rows[0].recipientPhoneE164).toBe("+966555000033");
-      expect(rows[0].recipientConsentEvidence).toBe("dashboard_explicit_reminder_opt_in_v1");
+      if (whatsappAvailable) {
+        expect(rows[0].deliveryChannels).toContain("whatsapp");
+        expect(rows[0].recipientPhoneE164).toBe("+966555000033");
+        expect(rows[0].recipientConsentEvidence).toBe("dashboard_explicit_reminder_opt_in_v1");
+      } else {
+        expect(rows[0].deliveryChannels).toEqual(["in_app"]);
+        expect(rows[0].recipientPhoneE164).toBeNull();
+        expect(rows[0].recipientConsentEvidence).toBeNull();
+      }
 
       await page.getByRole("button", { name: "إيقاف" }).click();
       await page.waitForURL(/\/dashboard\/reminders\?pause=success/);
