@@ -1,101 +1,83 @@
 import { expect, test } from "@playwright/test";
-import { Prisma, PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { Pool } from "pg";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
-let pool: Pool;
-let db: PrismaClient;
+const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const databaseUrl = process.env.DATABASE_URL;
+let db: PrismaClient | null = null;
+let pool: Pool | null = null;
 
-type Fixture = { userId: string; businessId: string; connectionId: string; templateId: string; token: string };
+function hashSession(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
 
-async function seed(): Promise<Fixture> {
-  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const plan = await db.businessPlan.upsert({
-    where: { code: "BUSINESS" },
-    update: { isActive: true },
-    create: { code: "BUSINESS", name: "Business", monthlyPrice: 9900, productLimit: 10, isActive: true },
-  });
-  const user = await db.user.create({
+async function seed() {
+  if (!databaseUrl) throw new Error("DATABASE_URL is required");
+  db ??= new PrismaClient();
+  pool ??= new Pool({ connectionString: databaseUrl });
+  const suffix = randomUUID();
+  const userId = `reminder-user-${suffix}`;
+  const businessId = `reminder-business-${suffix}`;
+  const token = `playwright-reminder-${randomBytes(24).toString("hex")}`;
+  const tokenHash = hashSession(token);
+  const sessionId = `reminder-session-${suffix}`;
+  const email = `reminder-${suffix}@example.com`;
+
+  await db.user.create({
     data: {
-      name: "Smart Reminders Workflow",
-      email: `smart-reminders-${suffix}@hee.test`,
-      passwordHash: "rc-only",
+      id: userId,
+      name: "Reminder Owner",
+      email,
+      passwordHash: "playwright-no-login",
       emailVerifiedAt: new Date(),
     },
   });
-  const business = await db.business.create({
+  await db.business.create({
     data: {
-      ownerId: user.id,
-      planId: plan.id,
-      name: "منشأة اختبار التذكيرات",
-      slug: `smart-reminders-${suffix}`,
-      businessType: "خدمات أعمال",
-      phone: "0555000033",
-      whatsapp: "0555000033",
-      city: "الرياض",
+      id: businessId,
+      ownerId: userId,
+      name: `Reminder Business ${suffix}`,
+      slug: `reminder-${suffix}`.slice(0, 70),
+      whatsapp: "+966555000033",
+      phone: "+966555000033",
       onboardingCompleted: true,
     },
   });
-  await db.subscription.create({
+  await db.session.create({
     data: {
-      businessId: business.id,
-      planId: plan.id,
-      status: "active",
-      provider: "moyasar",
-      startsAt: new Date(Date.now() - 60_000),
-      endsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      autoRenew: false,
+      id: sessionId,
+      userId,
+      tokenHash,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     },
   });
-  const connection = await db.whatsAppConnection.create({
-    data: {
-      businessId: business.id,
-      provider: "meta",
-      status: "connected",
-      wabaId: `waba-${suffix}`,
-      phoneNumberId: `phone-${suffix}`,
-      displayPhoneNumber: "+966555000033",
-      verifiedName: "INFRO Reminder Test",
-      credentialEnvelope: { v: 1, alg: "aes-256-gcm", keyVersion: "rc", iv: "rc", ciphertext: "rc", tag: "rc" },
-      connectedAt: new Date(),
-    },
-  });
-  const template = await db.whatsAppTemplate.create({
-    data: {
-      businessId: business.id,
-      connectionId: connection.id,
-      provider: "meta",
-      providerTemplateId: `reminder-template-${suffix}`,
-      name: `infro_reminder_${suffix.replaceAll("-", "_")}`,
-      language: "ar",
-      category: "utility",
-      status: "approved",
-      providerStatus: "APPROVED",
-      components: [{ type: "BODY", text: "تذكيرك: {{1}}" }],
-      rawPayload: { status: "APPROVED" },
-      lastSyncedAt: new Date(),
-    },
-  });
-  const token = crypto.randomUUID();
-  await db.session.create({ data: { token, userId: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
-  return { userId: user.id, businessId: business.id, connectionId: connection.id, templateId: template.id, token };
+  return { userId, businessId, sessionId, token };
 }
 
-async function cleanup(fixture: Fixture) {
-  // Audit evidence is intentionally append-only at the database boundary. This RC database
-  // is ephemeral, so cleanup removes only mutable workflow rows and the reusable session.
-  await db.$executeRaw(Prisma.sql`DELETE FROM "SmartReminderDelivery" WHERE "businessId" = ${fixture.businessId}`);
-  await db.$executeRaw(Prisma.sql`DELETE FROM "SmartReminder" WHERE "businessId" = ${fixture.businessId}`);
-  await db.session.deleteMany({ where: { userId: fixture.userId } });
+async function cleanup(fixture: Awaited<ReturnType<typeof seed>>) {
+  if (!db) return;
+  await db.$transaction(async (tx) => {
+    await tx.smartReminderNotification.deleteMany({ where: { businessId: fixture.businessId } });
+    await tx.smartReminderDelivery.deleteMany({ where: { businessId: fixture.businessId } });
+    await tx.smartReminder.deleteMany({ where: { businessId: fixture.businessId } });
+    await tx.whatsAppAuditLog.deleteMany({ where: { businessId: fixture.businessId } });
+    await tx.session.deleteMany({ where: { userId: fixture.userId } });
+    await tx.business.delete({ where: { id: fixture.businessId } });
+    await tx.user.delete({ where: { id: fixture.userId } });
+  });
 }
 
-test.describe.serial("smart reminders authenticated workflow", () => {
+test.describe("smart reminders authenticated workflow", () => {
   test.beforeAll(async () => {
-    const connectionString = String(process.env.DATABASE_URL ?? "").trim();
-    if (!connectionString) throw new Error("DATABASE_URL is required for smart reminders workflow");
-    pool = new Pool({ connectionString, max: 3 });
-    db = new PrismaClient({ adapter: new PrismaPg(pool) });
+    if (!databaseUrl) test.skip(true, "DATABASE_URL is required");
+    process.env.INFRO_REMINDER_WHATSAPP_ENABLED = "true";
+    process.env.INFRO_REMINDER_WHATSAPP_WABA_ID = "123456789012345";
+    process.env.INFRO_REMINDER_WHATSAPP_PHONE_NUMBER_ID = "123456789012346";
+    process.env.INFRO_REMINDER_WHATSAPP_ACCESS_TOKEN = "playwright-reminder-access-token-long-enough";
+    process.env.INFRO_REMINDER_WHATSAPP_TEMPLATE_NAME = "infro_reminder";
+    process.env.INFRO_REMINDER_WHATSAPP_TEMPLATE_LANGUAGE = "ar";
+    process.env.META_WHATSAPP_GRAPH_VERSION = "v23.0";
   });
 
   test.afterAll(async () => {
@@ -113,7 +95,8 @@ test.describe.serial("smart reminders authenticated workflow", () => {
       expect(response?.ok()).toBe(true);
       await expect(page.locator('[data-dashboard-path="/dashboard/reminders"]')).toBeVisible();
       await expect(page.getByRole("heading", { name: "تذكيرات أعمالك الذكية" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "إضافة التذكير" })).toBeVisible();
+      const activateReminder = page.getByRole("button", { name: "حفظ وتفعيل التذكير" });
+      await expect(activateReminder).toBeVisible();
 
       const scheduledLocal = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 16);
       await page.locator('input[name="title"]').fill("متابعة عرض الاختبار");
@@ -121,7 +104,7 @@ test.describe.serial("smart reminders authenticated workflow", () => {
       await page.locator('input[name="scheduledLocal"]').fill(scheduledLocal);
       await page.locator('select[name="recurrenceType"]').selectOption("weekly");
       await page.locator('input[name="recipientConsentAccepted"]').check();
-      await page.getByRole("button", { name: "إضافة التذكير" }).click();
+      await activateReminder.click();
       await page.waitForURL(/\/dashboard\/reminders\?create=success/);
 
       const reminderCard = page.getByRole("article").filter({ hasText: "متابعة عرض الاختبار" });
