@@ -12,6 +12,7 @@ export const maxDuration = 300;
 
 const APPROVED_PREVIEW_REF = "infro-business-memory-2026";
 const CONFIRM_VALUE = "run-due-reminders";
+const PREVIEW_FROM_EMAIL = "INFRO <no-reply@ir.sa>";
 
 export async function GET(request: Request) {
   if (process.env.VERCEL_ENV !== "preview" || process.env.VERCEL_GIT_COMMIT_REF !== APPROVED_PREVIEW_REF) {
@@ -28,6 +29,28 @@ export async function GET(request: Request) {
   }
 
   try {
+    const resendApiKeyConfigured = Boolean(String(process.env.RESEND_API_KEY ?? "").trim());
+    const senderWasConfigured = Boolean(String(process.env.HEE_FROM_EMAIL ?? "").trim());
+
+    // Preview-only test fallback. The domain is verified in Resend; Production remains
+    // environment-driven and is never modified by this probe.
+    if (!senderWasConfigured) process.env.HEE_FROM_EMAIL = PREVIEW_FROM_EMAIL;
+
+    // Requeue only recent email deliveries that failed before a provider call because the
+    // preview email runtime was not configured. Existing sent deliveries are never touched.
+    const requeued = resendApiKeyConfigured
+      ? await db.$executeRaw(Prisma.sql`
+          UPDATE "SmartReminderDelivery"
+          SET "status"='queued', "lastErrorCode"=NULL, "failedAt"=NULL,
+              "nextAttemptAt"=CURRENT_TIMESTAMP, "leaseOwner"=NULL, "leaseExpiresAt"=NULL,
+              "updatedAt"=CURRENT_TIMESTAMP
+          WHERE "channel"='email'
+            AND "status"='failed'
+            AND "lastErrorCode"='REMINDER_EMAIL_NOT_CONFIGURED'
+            AND "createdAt" >= CURRENT_TIMESTAMP - INTERVAL '30 minutes'
+        `)
+      : 0;
+
     const scheduled = await runSmartReminderScheduler({ limit: 250 });
     const delivered = await runSmartReminderDeliveryWorker({ limit: 250 });
     const recentDeliveries = await db.$queryRaw<Array<{
@@ -46,6 +69,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       ok: true,
+      resendApiKeyConfigured,
+      senderWasConfigured,
+      previewSenderApplied: !senderWasConfigured,
+      requeued,
       scheduled: scheduled.scheduled,
       deduplicated: scheduled.deduplicated,
       skippedMissedOccurrences: scheduled.skippedMissedOccurrences,
