@@ -18,6 +18,9 @@ export async function isBusinessNotesSchemaReady() {
         AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='nextAction')
         AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='stakeholder')
         AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='referenceCode')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='workHealth')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='responsiblePerson')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='businessDueAt')
         AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='businessNoteId')
       ) AS "ready"
     `);
