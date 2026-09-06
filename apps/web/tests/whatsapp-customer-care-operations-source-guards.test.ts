@@ -18,7 +18,8 @@ test("customer care triage reads remain tenant scoped and bounded", () => {
 test("needs-reply is derived from inbound versus outbound activity, not invented unread state", () => {
   assert.match(care, /conversation\.lastInboundAt > conversation\.lastOutboundAt/);
   assert.match(page, /آخر تفاعل وارد لم يتبعه صادر/);
-  assert.doesNotMatch(page, /غير مقروء|unread/i);
+  assert.doesNotMatch(care, /\.unread\b|unreadCount|isUnread|readBy|readAt/i);
+  assert.doesNotMatch(page, /operations\.summary\.unread|item\.unread|unreadCount|isUnread/i);
 });
 
 test("service-window triage reuses the WhatsApp 24-hour domain contract", () => {
