@@ -17,11 +17,11 @@ const nav = source("components/dashboard/dashboard-nav.ts");
 test("business notes mutations are tenant scoped input bounded and audited transactionally", () => {
   assert.match(actions, /getActiveBusinessForUser\(user\.id\)/);
   assert.match(actions, /"businessId"=\$\{businessId\}/);
-  assert.match(actions, /text\(form, "title", 160\)/);
-  assert.match(actions, /text\(form, "body", 8000\)/);
+  assert.match(actions, /text\(form,\s*"title",\s*160\)/);
+  assert.match(actions, /text\(form,\s*"body",\s*8000\)/);
   assert.match(actions, /db\.\$transaction/);
   assert.match(actions, /writeWhatsAppAuditLog/);
-  assert.match(actions, /targetType: "business_note"/);
+  assert.match(actions, /targetType:\s*"business_note"/);
   assert.doesNotMatch(actions, /metadata:\s*\{[^}]*body/);
 });
 
