@@ -45,7 +45,9 @@ test("email and in-app delivery load context before WhatsApp sender routing", ()
 
 test("the create form keeps non-WhatsApp channels available when INFRO REMINDER is unavailable", () => {
   assert.match(form, /whatsAppAvailable: boolean/);
-  assert.match(form, /disabled=\{!whatsAppAvailable\}/);
+  assert.match(form, /value="whatsapp"[\s\S]*disabled=\{!whatsAppAvailable\}/);
+  assert.match(form, /value="email"/);
   assert.match(form, /value="in_app" defaultChecked=\{!whatsAppAvailable\}/);
-  assert.match(form, /البريد أو إشعارات INFRO/);
+  assert.doesNotMatch(form, /value="email"[^>]*disabled=\{!whatsAppAvailable\}/);
+  assert.doesNotMatch(form, /value="in_app"[^>]*disabled=\{!whatsAppAvailable\}/);
 });
