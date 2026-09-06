@@ -106,12 +106,24 @@ async function processInbound(tx: Tx, event: ClaimedEvent) {
   }
 }
 
-async function applyReminderFailureReceipt(tx: Tx, input: { providerMessageId: string; at: Date | null; errorCode: string | null }) {
+async function applyTenantReminderFailureReceipt(tx: Tx, input: { providerMessageId: string; at: Date | null; errorCode: string | null }) {
   await tx.$executeRaw(Prisma.sql`
     UPDATE "SmartReminderDelivery"
     SET "status"='failed', "failedAt"=${input.at ?? new Date()}, "lastErrorCode"=${input.errorCode ?? 'META_DELIVERY_FAILED'}, "updatedAt"=CURRENT_TIMESTAMP
     WHERE "providerMessageId"=${input.providerMessageId}
       AND "channel"='whatsapp'
+      AND "whatsappSenderMode"='tenant'
+      AND "status"='sent'
+  `);
+}
+
+async function applyPlatformReminderFailureReceipt(tx: Tx, input: { providerMessageId: string; at: Date | null; errorCode: string | null }) {
+  await tx.$executeRaw(Prisma.sql`
+    UPDATE "SmartReminderDelivery"
+    SET "status"='failed', "failedAt"=${input.at ?? new Date()}, "lastErrorCode"=${input.errorCode ?? 'META_DELIVERY_FAILED'}, "updatedAt"=CURRENT_TIMESTAMP
+    WHERE "providerMessageId"=${input.providerMessageId}
+      AND "channel"='whatsapp'
+      AND "whatsappSenderMode"='platform'
       AND "status"='sent'
   `);
 }
@@ -120,19 +132,8 @@ async function processPlatformStatuses(tx: Tx, event: ClaimedEvent) {
   assertPlatformEvent(event);
   const receipts = parseStatusReceipts(webhookValue(event.payload));
   for (const receipt of receipts) {
-    const message = await tx.whatsAppMessage.findUnique({
-      where: { provider_providerMessageId: { provider: event.provider, providerMessageId: receipt.providerMessageId } },
-      select: { id: true, status: true },
-    });
-    if (!message) continue;
-    const next = nextWhatsAppMessageStatus(message.status as WhatsAppMessageStatus, receipt.status);
-    if (next !== message.status) {
-      await tx.whatsAppMessage.update({
-        where: { id: message.id },
-        data: { status: next, ...statusTimestampPatch(next, receipt.providerTimestamp), ...(next === "failed" ? { errorCode: receipt.errorCode, errorMessage: receipt.errorMessage } : {}) },
-      });
-    }
-    if (next === "failed") await applyReminderFailureReceipt(tx, { providerMessageId: receipt.providerMessageId, at: receipt.providerTimestamp, errorCode: receipt.errorCode });
+    if (receipt.status !== "failed") continue;
+    await applyPlatformReminderFailureReceipt(tx, { providerMessageId: receipt.providerMessageId, at: receipt.providerTimestamp, errorCode: receipt.errorCode });
   }
 }
 
@@ -155,7 +156,7 @@ async function processStatuses(tx: Tx, event: ClaimedEvent) {
         data: { status: next, ...statusTimestampPatch(next, receipt.providerTimestamp), ...(next === "failed" ? { errorCode: receipt.errorCode, errorMessage: receipt.errorMessage } : {}) },
       });
     }
-    if (next === "failed") await applyReminderFailureReceipt(tx, { providerMessageId: receipt.providerMessageId, at: receipt.providerTimestamp, errorCode: receipt.errorCode });
+    if (next === "failed") await applyTenantReminderFailureReceipt(tx, { providerMessageId: receipt.providerMessageId, at: receipt.providerTimestamp, errorCode: receipt.errorCode });
 
     const delivery = await tx.whatsAppDeliveryJob.findFirst({
       where: { businessId: event.businessId, providerMessageId: receipt.providerMessageId },
