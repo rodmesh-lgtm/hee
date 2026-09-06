@@ -38,6 +38,7 @@ function destinationFor(error: unknown, action: string) {
   if (code === "REMINDER_LOCAL_TIME_INVALID") return `/dashboard/reminders?${action}=invalid-time`;
   if (code === "REMINDER_RECIPIENT_CONSENT_REQUIRED") return `/dashboard/reminders?${action}=consent-required`;
   if (code === "REMINDER_DELIVERY_CHANNELS_INVALID") return `/dashboard/reminders?${action}=channels-required`;
+  if (code === "REMINDER_NOTE_INVALID") return `/dashboard/reminders?${action}=note-invalid`;
   return `/dashboard/reminders?${action}=failed`;
 }
 
@@ -57,17 +58,9 @@ export async function createSmartReminderAction(form: FormData) {
   const recipientConsentAccepted = form.get("recipientConsentAccepted") === "on";
   if (!title || !body || !timezone || !localDateTime || (wantsWhatsApp && (!templateId || !recipientConsentAccepted))) redirect("/dashboard/reminders?create=consent-required");
   if (wantsWhatsApp) await assertWhatsAppReminderAccess(context.businessId);
-  if (businessNoteId) {
-    const note = await db.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "BusinessNote" WHERE "id"=${businessNoteId} AND "businessId"=${context.businessId} AND "status" <> 'archived' LIMIT 1`);
-    if (!note[0]) redirect("/dashboard/reminders?create=note-invalid");
-  }
   try {
     const scheduledAt = reminderLocalDateTimeToUtc(localDateTime, timezone);
-    const created = await createSmartReminder({ businessId: context.businessId, actorUserId: context.userId, title, body, templateId, scheduledAt, timezone, recurrenceType, recipientConsentAccepted, deliveryChannels });
-    if (businessNoteId) {
-      const linked = await db.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "businessNoteId"=${businessNoteId}, "updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${created.id} AND "businessId"=${context.businessId}`);
-      if (linked !== 1) throw new Error("REMINDER_NOTE_LINK_FAILED");
-    }
+    await createSmartReminder({ businessId: context.businessId, actorUserId: context.userId, title, body, templateId, businessNoteId, scheduledAt, timezone, recurrenceType, recipientConsentAccepted, deliveryChannels });
     revalidatePath("/dashboard/reminders");
     revalidatePath("/dashboard/notes");
   } catch (error) { redirect(destinationFor(error, "create")); }
