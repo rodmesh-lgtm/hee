@@ -38,11 +38,12 @@ test("reminder delivery revalidates every tenant and outbound trust boundary", (
 test("reminder opt-in stays reminder-specific and never widens marketing consent", () => {
   assert.match(migration, /"recipientConsentedAt" TIMESTAMP\(3\) NOT NULL/);
   assert.match(migration, /"recipientConsentEvidence" TEXT NOT NULL/);
-  assert.match(reminderOperations, /recipientConsentAccepted:\s*boolean/);
+  assert.match(reminderOperations, /recipientConsentAccepted\?:\s*boolean/);
+  assert.match(reminderOperations, /wantsWhatsApp\s*&&\s*!input\.recipientConsentAccepted/);
   assert.match(reminderOperations, /dashboard_explicit_reminder_opt_in_v1/);
   assert.match(actions, /form\.get\("recipientConsentAccepted"\)\s*===\s*"on"/);
+  assert.match(actions, /wantsWhatsApp\s*&&\s*\(\s*!templateId\s*\|\|\s*!recipientConsentAccepted\s*\)/);
   assert.match(createForm, /name="recipientConsentAccepted"/);
-  assert.match(createForm, /recipientConsentAccepted" required/);
   assert.match(worker, /recipientConsentEvidence/);
   assert.match(worker, /recipientConsentedAt/);
   assert.match(worker, /dashboard_explicit_reminder_opt_in_v1/);
@@ -64,9 +65,9 @@ test("reminder delivery shares Meta credential, rate and message persistence con
   assert.match(worker, /WhatsAppSendRateBucket/);
   assert.match(worker, /outboundRateLimit/);
   assert.match(worker, /decryptWhatsAppCredential/);
-  assert.match(worker, /businessId:\s*delivery\.businessId/);
+  assert.match(worker, /businessId\s*:\s*delivery\.businessId/);
   assert.match(worker, /metaWhatsAppGraphUrl/);
-  assert.match(worker, /messaging_product:\s*"whatsapp"/);
+  assert.match(worker, /messaging_product\s*:\s*"whatsapp"/);
   assert.match(worker, /providerMessageId/);
   assert.match(worker, /whatsAppConversation\.upsert/);
   assert.match(worker, /whatsAppMessage\.upsert/);
@@ -74,24 +75,24 @@ test("reminder delivery shares Meta credential, rate and message persistence con
   assert.doesNotMatch(worker, /console\.(log|error).*accessToken/);
 });
 
-test("confirmed one-time delivery completes the reminder atomically while recurring reminders stay scheduled", () => {
-  assert.match(worker, /context\.recurrenceType === "once"/);
-  assert.match(worker, /context\.nextOccurrenceAt === null/);
+test("confirmed one-time delivery completes only after sibling channels settle", () => {
+  assert.match(worker, /context\.recurrenceType\s*===\s*"once"/);
+  assert.match(worker, /context\.nextOccurrenceAt\s*===\s*null/);
+  assert.match(worker, /"businessId"\s*=\s*\$\{delivery\.businessId\}[\s\S]*"reminderId"\s*=\s*\$\{delivery\.reminderId\}[\s\S]*"occurrenceAt"\s*=\s*\$\{delivery\.occurrenceAt\}/);
+  assert.match(worker, /"status"\s+NOT IN\s+\('sent','cancelled'\)/);
+  assert.match(worker, /Number\(pending\[0\]\?\.count\s*\?\?\s*0\)\s*===\s*0/);
   assert.match(worker, /SET "status"='completed'/);
   assert.match(worker, /"recurrenceType"='once'/);
   assert.match(worker, /"nextOccurrenceAt" IS NULL/);
-  assert.match(worker, /action:"reminder\.complete"/);
-  const completionAt = worker.indexOf('SET "status"=\'completed\'');
-  const providerSuccessAt = worker.indexOf('SET "status"=\'sent\'');
-  assert.ok(providerSuccessAt > 0 && completionAt > providerSuccessAt);
+  assert.match(worker, /action\s*:\s*"reminder\.complete"/);
 });
 
 test("non-success delivery transitions are privacy-safe audited", () => {
-  assert.match(worker, /action: "reminder\.delivery\.transition"/);
-  assert.match(worker, /deliveryStatus: status/);
-  assert.match(worker, /reason: errorCode \?\? null/);
-  assert.doesNotMatch(worker, /metadata:\s*\{[^}]*recipientPhoneE164/);
-  assert.doesNotMatch(worker, /metadata:\s*\{[^}]*body/);
+  assert.match(worker, /action\s*:\s*"reminder\.delivery\.transition"/);
+  assert.match(worker, /deliveryStatus\s*:\s*status/);
+  assert.match(worker, /reason\s*:\s*errorCode\s*\?\?\s*null/);
+  assert.doesNotMatch(worker, /metadata\s*:\s*\{[^}]*recipientPhoneE164/);
+  assert.doesNotMatch(worker, /metadata\s*:\s*\{[^}]*body/);
 });
 
 test("operations cycle always schedules reminders before delivering them on both runtimes", () => {
