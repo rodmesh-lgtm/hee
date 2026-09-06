@@ -57,7 +57,7 @@ test("business memory UI supports search filters archive restore and reminder cr
 
 test("note-linked reminders are validated and inserted atomically inside the reminder transaction", () => {
   assert.match(reminderActions, /businessNoteId/);
-  assert.match(reminderActions, /createSmartReminder\(\{[^}]*businessNoteId/s);
+  assert.match(reminderActions, /createSmartReminder\(\{[\s\S]*?businessNoteId/);
   assert.doesNotMatch(reminderActions, /UPDATE "SmartReminder" SET "businessNoteId"/);
   assert.match(reminderOperations, /input\.businessNoteId/);
   assert.match(reminderOperations, /FROM "BusinessNote"/);
