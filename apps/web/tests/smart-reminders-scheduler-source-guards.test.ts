@@ -15,11 +15,12 @@ test("reminder scheduler claims due work safely", () => {
 test("reminder scheduler preserves tenant fields in channel delivery jobs", () => {
   assert.match(scheduler, /"businessId"\s*,\s*"reminderId"\s*,\s*"connectionId"\s*,\s*"templateId"\s*,\s*"occurrenceAt"\s*,\s*"channel"/);
   assert.match(scheduler, /\$\{reminder\.businessId\}/);
-  assert.match(scheduler, /\$\{reminder\.connectionId\}/);
-  assert.match(scheduler, /\$\{reminder\.templateId\}/);
+  assert.match(scheduler, /channel\s*===\s*"whatsapp"\s*\?\s*reminder\.connectionId\s*:\s*null/);
+  assert.match(scheduler, /channel\s*===\s*"whatsapp"\s*\?\s*reminder\.templateId\s*:\s*null/);
+  assert.match(scheduler, /channel\s*===\s*"whatsapp"\s*&&\s*\(\s*!reminder\.connectionId\s*\|\|\s*!reminder\.templateId\s*\)/);
   assert.match(scheduler, /normalizeReminderChannels\(reminder\.deliveryChannels\)/);
   assert.match(scheduler, /for\s*\(\s*const channel of channels\s*\)/);
-  assert.match(scheduler, /reminderDeliveryIdempotencyKey\(\{businessId:reminder\.businessId,reminderId:reminder\.id,occurrenceAt:reminder\.nextOccurrenceAt,channel\}\)/);
+  assert.match(scheduler, /reminderDeliveryIdempotencyKey\(\{\s*businessId:\s*reminder\.businessId,\s*reminderId:\s*reminder\.id,\s*occurrenceAt:\s*reminder\.nextOccurrenceAt,\s*channel\s*\}\)/);
   assert.match(scheduler, /ON CONFLICT\s*\("idempotencyKey"\)\s*DO NOTHING/);
 });
 
