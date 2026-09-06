@@ -57,6 +57,9 @@ test("central admin controls homepage content with guarded draft and publish act
 
 test("Saudi Business Center trust seal uses its fixed official script and a validated token", () => {
   assert.match(homepage, /className="sbc-verify-seal"/);
+  assert.match(homepage, /<footer[\s\S]*className="sbc-verify-seal"/);
+  assert.match(homepage, /متجر إلكتروني موثّق/);
+  assert.match(homepage, /المركز السعودي للأعمال/);
   assert.match(homepage, /data-token={d\.trustSealToken}/);
   assert.match(homepage, /data-position="bottom-left"/);
   assert.match(

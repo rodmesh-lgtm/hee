@@ -476,7 +476,7 @@ export default async function DesignAdminPage() {
                 label="إظهار ختم التوثيق"
                 name="trustSealEnabled"
                 value={d.trustSealEnabled}
-                description="يظهر في أسفل الصفحة الرئيسية عبر السكربت الحكومي الرسمي."
+                description="يظهر داخل تذييل الصفحة الرئيسية، ويحمّل شارة الجهة الحكومية الرسمية عند فتح الموقع على النطاق المعتمد."
               />
               <Field
                 label="رمز التوثيق"

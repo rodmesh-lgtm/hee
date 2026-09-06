@@ -750,40 +750,62 @@ export function HomepageProfessional({
         </section>
       ) : null}
 
-      {d.trustSealEnabled ? (
-        <>
-          <div
-            className="sbc-verify-seal"
-            data-token={d.trustSealToken}
-            data-position="bottom-left"
-          />
-          <Script
-            id="saudi-business-trust-seal"
-            src="https://eauthenticate.saudibusiness.gov.sa/EAuthSealApi/seal.js"
-            strategy="afterInteractive"
-          />
-        </>
-      ) : null}
       <footer className="bg-[#141027] px-4 py-10 text-white sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-7 md:flex-row md:items-center md:justify-between">
-          <div>
-            <Logo />
-            <p className="mt-3 max-w-md text-sm leading-7 text-white/60">
-              {d.footerDescription}
-            </p>
-            <p className="mt-2 text-[11px] text-white/40">
-              {d.footerCopyright}
-            </p>
+        <div className="mx-auto max-w-6xl">
+          <div className="flex flex-col gap-7 md:flex-row md:items-center md:justify-between">
+            <div>
+              <Logo />
+              <p className="mt-3 max-w-md text-sm leading-7 text-white/60">
+                {d.footerDescription}
+              </p>
+              <p className="mt-2 text-[11px] text-white/40">
+                {d.footerCopyright}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-bold text-white/70">
+              {d.homeAboutEnabled ? (
+                <Link href="#about">{d.headerAboutLabel}</Link>
+              ) : null}
+              <Link href="/privacy">سياسة الخصوصية</Link>
+              <Link href="/terms">الشروط والأحكام</Link>
+              <Link href="/contact">تواصل معنا</Link>
+              <Link href="/login">{d.headerLoginLabel}</Link>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-bold text-white/70">
-            {d.homeAboutEnabled ? (
-              <Link href="#about">{d.headerAboutLabel}</Link>
-            ) : null}
-            <Link href="/privacy">سياسة الخصوصية</Link>
-            <Link href="/terms">الشروط والأحكام</Link>
-            <Link href="/contact">تواصل معنا</Link>
-            <Link href="/login">{d.headerLoginLabel}</Link>
-          </div>
+
+          {d.trustSealEnabled ? (
+            <div
+              className="mt-8 flex flex-col gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between"
+              aria-label="توثيق المتجر الإلكتروني"
+            >
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-300/20">
+                  <BadgeCheck className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="font-black text-white">متجر إلكتروني موثّق</p>
+                  <p className="mt-1 text-xs leading-6 text-white/55">
+                    موثّق إلكترونيًا لدى المركز السعودي للأعمال
+                  </p>
+                </div>
+              </div>
+              <div className="relative min-h-14 min-w-44 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div
+                  className="sbc-verify-seal"
+                  data-token={d.trustSealToken}
+                  data-position="bottom-left"
+                />
+                <span className="pointer-events-none flex min-h-8 items-center justify-center text-xs font-bold text-white/70">
+                  ختم التوثيق الإلكتروني
+                </span>
+              </div>
+              <Script
+                id="saudi-business-trust-seal"
+                src="https://eauthenticate.saudibusiness.gov.sa/EAuthSealApi/seal.js"
+                strategy="afterInteractive"
+              />
+            </div>
+          ) : null}
         </div>
       </footer>
     </main>
