@@ -46,6 +46,7 @@ export type PlatformDesignConfig = PlatformBrandConfig & {
   homeCtaEnabled: boolean;
   trustSealEnabled: boolean;
   trustSealToken: string;
+  trustSealCertificateNumber: string;
   customerHeaderEnabled: boolean;
   customerFooterEnabled: boolean;
 };
@@ -97,6 +98,7 @@ export const DEFAULT_PLATFORM_DESIGN: PlatformDesignConfig = {
   homeCtaEnabled: true,
   trustSealEnabled: true,
   trustSealToken: "M2J3UGwxOXk4OVpzT2F1bW1zSVI0Zz09",
+  trustSealCertificateNumber: "0000321894",
   customerHeaderEnabled: true,
   customerFooterEnabled: true,
 };
@@ -234,6 +236,11 @@ export function sanitizePlatformDesign(input: unknown): PlatformDesignConfig {
       /^[A-Za-z0-9+/=]{20,160}$/.test(x.trustSealToken.trim())
         ? x.trustSealToken.trim()
         : d.trustSealToken,
+    trustSealCertificateNumber:
+      typeof x.trustSealCertificateNumber === "string" &&
+      /^\d{6,20}$/.test(x.trustSealCertificateNumber.trim())
+        ? x.trustSealCertificateNumber.trim()
+        : d.trustSealCertificateNumber,
     customerHeaderEnabled: bool(
       x.customerHeaderEnabled,
       d.customerHeaderEnabled,

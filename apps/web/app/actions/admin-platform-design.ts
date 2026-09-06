@@ -70,6 +70,7 @@ function formConfig(form: FormData) {
     "homeCtaLabel",
     "homeCtaHref",
     "trustSealToken",
+    "trustSealCertificateNumber",
   ])
     raw[key] = form.get(key);
   for (const key of [

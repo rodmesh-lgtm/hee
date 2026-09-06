@@ -775,30 +775,34 @@ export function HomepageProfessional({
 
           {d.trustSealEnabled ? (
             <div
-              className="mt-8 flex flex-col gap-4 border-t border-white/10 pt-6 sm:flex-row sm:items-center sm:justify-between"
+              className="mt-8 border-t border-white/10 pt-6"
               aria-label="توثيق المتجر الإلكتروني"
             >
-              <div className="flex items-center gap-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-300/20">
-                  <BadgeCheck className="h-6 w-6" />
-                </span>
-                <div>
-                  <p className="font-black text-white">متجر إلكتروني موثّق</p>
-                  <p className="mt-1 text-xs leading-6 text-white/55">
-                    موثّق إلكترونيًا لدى المركز السعودي للأعمال
-                  </p>
-                </div>
-              </div>
-              <div className="relative min-h-14 min-w-44 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div
-                  className="sbc-verify-seal"
-                  data-token={d.trustSealToken}
-                  data-position="bottom-left"
+              <a
+                href={`https://eauthenticate.saudibusiness.gov.sa/certificate-details/${d.trustSealCertificateNumber}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mx-auto flex w-fit min-w-44 flex-col items-center justify-center rounded-2xl px-5 py-3 text-center text-sm font-bold text-white/80 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300 sm:mx-0"
+                aria-label="عرض شهادة توثيق INFRO لدى المركز السعودي للأعمال"
+              >
+                {/* The official SBC badge asset used by Saudi storefronts. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://cdn.salla.network/images/sbc.png?v=2.0.5"
+                  alt="المركز السعودي للأعمال"
+                  width="72"
+                  height="52"
+                  loading="lazy"
+                  className="mb-1.5 h-[52px] w-[72px] object-contain"
                 />
-                <span className="pointer-events-none flex min-h-8 items-center justify-center text-xs font-bold text-white/70">
-                  ختم التوثيق الإلكتروني
-                </span>
-              </div>
+                موثق لدى منصة الأعمال
+              </a>
+              <div
+                className="sbc-verify-seal h-0 overflow-hidden"
+                data-token={d.trustSealToken}
+                data-position="bottom-left"
+                aria-hidden="true"
+              />
               <Script
                 id="saudi-business-trust-seal"
                 src="https://eauthenticate.saudibusiness.gov.sa/EAuthSealApi/seal.js"

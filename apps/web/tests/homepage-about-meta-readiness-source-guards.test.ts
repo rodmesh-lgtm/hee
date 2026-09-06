@@ -56,10 +56,15 @@ test("central admin controls homepage content with guarded draft and publish act
 });
 
 test("Saudi Business Center trust seal uses its fixed official script and a validated token", () => {
-  assert.match(homepage, /className="sbc-verify-seal"/);
-  assert.match(homepage, /<footer[\s\S]*className="sbc-verify-seal"/);
-  assert.match(homepage, /متجر إلكتروني موثّق/);
+  assert.match(homepage, /className="sbc-verify-seal [^"]*"/);
+  assert.match(homepage, /<footer[\s\S]*className="sbc-verify-seal [^"]*"/);
+  assert.match(homepage, /موثق لدى منصة الأعمال/);
   assert.match(homepage, /المركز السعودي للأعمال/);
+  assert.match(
+    homepage,
+    /eauthenticate\.saudibusiness\.gov\.sa\/certificate-details\/\$\{d\.trustSealCertificateNumber}/,
+  );
+  assert.match(homepage, /cdn\.salla\.network\/images\/sbc\.png/);
   assert.match(homepage, /data-token={d\.trustSealToken}/);
   assert.match(homepage, /data-position="bottom-left"/);
   assert.match(
@@ -67,5 +72,6 @@ test("Saudi Business Center trust seal uses its fixed official script and a vali
     /https:\/\/eauthenticate\.saudibusiness\.gov\.sa\/EAuthSealApi\/seal\.js/,
   );
   assert.match(design, /\^\[A-Za-z0-9\+\/=\]\{20,160\}\$/);
+  assert.match(design, /trustSealCertificateNumber: "0000321894"/);
   assert.match(nextConfig, /https:\/\/eauthenticate\.saudibusiness\.gov\.sa/);
 });

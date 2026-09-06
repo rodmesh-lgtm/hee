@@ -471,7 +471,7 @@ export default async function DesignAdminPage() {
             title="ختم التوثيق السعودي"
             description="إدارة ختم متجر موثّق الصادر من المركز السعودي للأعمال. لا يقبل إلا رمز التوثيق، وليس كودًا أو JavaScript حرًا."
           >
-            <div className="grid gap-4 md:grid-cols-[1fr_2fr]">
+            <div className="grid gap-4 md:grid-cols-3">
               <Check
                 label="إظهار ختم التوثيق"
                 name="trustSealEnabled"
@@ -483,6 +483,12 @@ export default async function DesignAdminPage() {
                 name="trustSealToken"
                 value={d.trustSealToken}
                 hint="data-token من المركز السعودي للأعمال"
+              />
+              <Field
+                label="رقم شهادة التوثيق"
+                name="trustSealCertificateNumber"
+                value={d.trustSealCertificateNumber}
+                hint="الرقم الظاهر في بيانات الشهادة، ويُستخدم لفتح صفحة التحقق الرسمية."
               />
             </div>
           </Section>
