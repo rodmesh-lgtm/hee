@@ -9,16 +9,20 @@ const page = source("app/dashboard/notes/page.tsx");
 const migration = source("prisma/migrations/20260906043000_add_business_notes/migration.sql");
 const productivityMigration = source("prisma/migrations/20260906084500_enrich_business_notes_and_reminder_link/migration.sql");
 const reminderActions = source("app/actions/smart-reminders.ts");
+const reminderOperations = source("app/lib/reminders/operations.ts");
 const reminderForm = source("components/dashboard/smart-reminder-create-form.tsx");
 const readiness = source("app/lib/business-notes/schema-readiness.ts");
 const nav = source("components/dashboard/dashboard-nav.ts");
 
-test("business notes mutations are tenant scoped and input bounded", () => {
+test("business notes mutations are tenant scoped input bounded and audited transactionally", () => {
   assert.match(actions, /getActiveBusinessForUser\(user\.id\)/);
   assert.match(actions, /"businessId"=\$\{businessId\}/);
   assert.match(actions, /text\(form, "title", 160\)/);
   assert.match(actions, /text\(form, "body", 8000\)/);
-  assert.match(actions, /cardinality|tags/);
+  assert.match(actions, /db\.\$transaction/);
+  assert.match(actions, /writeWhatsAppAuditLog/);
+  assert.match(actions, /targetType: "business_note"/);
+  assert.doesNotMatch(actions, /metadata:\s*\{[^}]*body/);
 });
 
 test("business notes storage has tenant relation and database length guards", () => {
@@ -51,11 +55,17 @@ test("business memory UI supports search filters archive restore and reminder cr
   assert.match(nav, /مذكرات الأعمال/);
 });
 
-test("note-linked reminders validate active tenant ownership on the server", () => {
-  assert.match(reminderActions, /"BusinessNote"/);
-  assert.match(reminderActions, /"businessId"=\$\{context\.businessId\}/);
-  assert.match(reminderActions, /"status" <> 'archived'/);
-  assert.match(reminderActions, /"businessNoteId"=\$\{businessNoteId\}/);
+test("note-linked reminders are validated and inserted atomically inside the reminder transaction", () => {
+  assert.match(reminderActions, /businessNoteId/);
+  assert.match(reminderActions, /createSmartReminder\(\{[^}]*businessNoteId/s);
+  assert.doesNotMatch(reminderActions, /UPDATE "SmartReminder" SET "businessNoteId"/);
+  assert.match(reminderOperations, /input\.businessNoteId/);
+  assert.match(reminderOperations, /FROM "BusinessNote"/);
+  assert.match(reminderOperations, /"businessId"=\$\{input\.businessId\}/);
+  assert.match(reminderOperations, /"status" <> 'archived'/);
+  assert.match(reminderOperations, /"businessNoteId"/);
+  assert.match(reminderOperations, /REMINDER_NOTE_INVALID/);
+  assert.match(reminderOperations, /isolationLevel: Prisma\.TransactionIsolationLevel\.Serializable/);
   assert.match(reminderForm, /useSearchParams/);
   assert.match(reminderForm, /name="businessNoteId"/);
 });
