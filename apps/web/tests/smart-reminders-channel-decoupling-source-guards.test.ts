@@ -47,5 +47,5 @@ test("the create form keeps non-WhatsApp channels available when INFRO REMINDER 
   assert.match(form, /whatsAppAvailable: boolean/);
   assert.match(form, /disabled=\{!whatsAppAvailable\}/);
   assert.match(form, /value="in_app" defaultChecked=\{!whatsAppAvailable\}/);
-  assert.match(form, /البريد وإشعار INFRO/);
+  assert.match(form, /البريد أو إشعارات INFRO/);
 });
