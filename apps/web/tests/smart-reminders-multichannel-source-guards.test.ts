@@ -9,6 +9,7 @@ const domain = readFileSync("app/lib/reminders/domain.ts", "utf8");
 const actions = readFileSync("app/actions/smart-reminders.ts", "utf8");
 const scheduler = readFileSync("app/lib/reminders/scheduler.ts", "utf8");
 const worker = readFileSync("app/lib/reminders/delivery-worker.ts", "utf8");
+const webhookProcessor = readFileSync("app/lib/whatsapp/webhook-processor.ts", "utf8");
 const form = readFileSync("components/dashboard/smart-reminder-create-form.tsx", "utf8");
 const platform = readFileSync("app/lib/reminders/platform-whatsapp.ts", "utf8");
 
@@ -57,6 +58,26 @@ test("central sender is Meta-only, fail-closed, rate-limited and globally opt-ou
   assert.match(worker, /InfroReminderWhatsAppRateBucket/);
   assert.match(worker, /sendPlatformWhatsAppReminder/);
   assert.match(worker, /messaging_product:\s*"whatsapp"/);
+});
+
+test("platform reminder traffic never enters tenant WhatsAppConversation or WhatsAppMessage storage", () => {
+  const platformSendStart = worker.indexOf("async function sendPlatformWhatsAppReminder");
+  const tenantSendStart = worker.indexOf("async function sendTenantWhatsAppReminder");
+  const platformSend = worker.slice(platformSendStart, tenantSendStart);
+  assert.ok(platformSendStart >= 0 && tenantSendStart > platformSendStart);
+  assert.doesNotMatch(platformSend, /persistTenantWhatsAppMessage|whatsAppConversation|whatsAppMessage/);
+  assert.match(worker, /async function persistTenantWhatsAppMessage/);
+  assert.match(worker, /whatsappSenderMode !== "tenant"/);
+  assert.match(worker, /await persistTenantWhatsAppMessage\(database/);
+
+  const platformStatusStart = webhookProcessor.indexOf("async function processPlatformStatuses");
+  const tenantStatusStart = webhookProcessor.indexOf("async function processStatuses");
+  const platformStatuses = webhookProcessor.slice(platformStatusStart, tenantStatusStart);
+  assert.ok(platformStatusStart >= 0 && tenantStatusStart > platformStatusStart);
+  assert.doesNotMatch(platformStatuses, /whatsAppMessage|whatsAppConversation/);
+  assert.match(platformStatuses, /applyPlatformReminderFailureReceipt/);
+  assert.match(webhookProcessor, /"whatsappSenderMode"='platform'/);
+  assert.match(webhookProcessor, /"whatsappSenderMode"='tenant'/);
 });
 
 test("email and in-app remain independent while legacy tenant Meta safeguards stay intact", () => {
