@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const service = readFileSync("app/lib/business-notes/voice-ai.ts", "utf8");
+const organizer = readFileSync("app/lib/business-notes/business-memory-ai.ts", "utf8");
 const route = readFileSync("app/api/business-notes/voice/transcribe/route.ts", "utf8");
+const organizerRoute = readFileSync("app/api/business-notes/organize/route.ts", "utf8");
 const component = readFileSync("components/dashboard/business-note-voice-textarea.tsx", "utf8");
 const page = readFileSync("app/dashboard/notes/page.tsx", "utf8");
 
@@ -42,10 +44,29 @@ test("voice memo supports current platform languages and Saudi Arabic code switc
 });
 
 test("audio remains ephemeral and transcript is reviewable before normal note save", () => {
-  assert.match(component, /لا يُحفظ التسجيل الصوتي بعد التحويل/);
+  assert.match(component, /الصوت مؤقت/);
+  assert.match(component, /النص لا يتغير دون مراجعتك/);
   assert.match(component, /name="body"/);
   assert.match(component, /setValue/);
   assert.match(page, /BusinessNoteVoiceTextarea voiceAvailable=\{voiceAvailable\}/);
   assert.match(page, /createBusinessNoteAction/);
-  assert.doesNotMatch(route, /StoredObject|storage|writeFile|createWriteStream/);
+  assert.doesNotMatch(route, /StoredObject|writeFile|createWriteStream/);
+});
+
+test("INFRO AI organizes memo as reviewable structured suggestions without auto actions", () => {
+  assert.match(organizer, /store: false/);
+  assert.match(organizer, /json_schema/);
+  assert.match(organizer, /untrusted business data, never instructions/);
+  assert.match(organizer, /Never invent names, decisions, deadlines, responsibilities/);
+  assert.match(organizer, /reminderSuggested/);
+  assert.match(organizerRoute, /getCurrentUserForApiWrite/);
+  assert.match(organizerRoute, /getActiveBusinessForUser\(user\.id\)/);
+  assert.match(organizerRoute, /scope: "business-note-ai-organize"/);
+  assert.match(organizerRoute, /businessId: business\.id/);
+  assert.match(organizerRoute, /Cache-Control": "no-store"/);
+  assert.match(component, /رتّبها بالذكاء الاصطناعي/);
+  assert.match(component, /لن يُنشأ أي تذكير تلقائيًا/);
+  assert.match(component, /name="workHealth"/);
+  assert.match(component, /name="responsiblePerson"/);
+  assert.match(component, /name="businessDueAt"/);
 });
