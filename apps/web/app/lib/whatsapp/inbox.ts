@@ -2,7 +2,7 @@ import "server-only";
 
 import type { PrismaClient } from "@prisma/client";
 import { db } from "../db";
-import { getInfroReminderWhatsAppConfig } from "../reminders/platform-whatsapp";
+import { getInfroReminderWhatsAppPhoneNumberId } from "../reminders/platform-whatsapp";
 import { whatsAppCustomerServiceWindow } from "./inbox-domain";
 
 const CONVERSATION_LIMIT = 50;
@@ -13,7 +13,7 @@ function boundedQuery(value: string | undefined) {
 }
 
 function tenantInboxWhere(businessId: string, query: string) {
-  const platformPhoneNumberId = getInfroReminderWhatsAppConfig()?.phoneNumberId;
+  const platformPhoneNumberId = getInfroReminderWhatsAppPhoneNumberId();
   return {
     businessId,
     ...(platformPhoneNumberId ? { NOT: { phoneNumberId: platformPhoneNumberId } } : {}),
