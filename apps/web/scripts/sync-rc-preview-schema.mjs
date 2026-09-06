@@ -2,10 +2,11 @@ import { spawnSync } from "node:child_process";
 
 const vercelEnv = String(process.env.VERCEL_ENV ?? "").trim().toLowerCase();
 const gitRef = String(process.env.VERCEL_GIT_COMMIT_REF ?? "").trim();
-const isRcPreview = vercelEnv === "preview" && gitRef === "hee-v6-rc";
+const previewSchemaRefs = new Set(["hee-v6-rc", "infro-business-memory-2026"]);
+const isManagedPreview = vercelEnv === "preview" && previewSchemaRefs.has(gitRef);
 
-if (!isRcPreview) {
-  console.log("[rc-preview-schema-sync] SKIP — not the hee-v6-rc Vercel Preview deployment");
+if (!isManagedPreview) {
+  console.log("[rc-preview-schema-sync] SKIP — deployment is not an approved isolated schema-managed Preview");
   process.exit(0);
 }
 
@@ -39,7 +40,7 @@ try {
   process.exit(1);
 }
 
-console.log("[rc-preview-schema-sync] Applying committed Prisma migrations to the isolated RC Preview database");
+console.log(`[rc-preview-schema-sync] Applying committed Prisma migrations to the isolated Preview database for ${gitRef}`);
 const maxAttempts = 3;
 for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
   const result = spawnSync(process.platform === "win32" ? "npx.cmd" : "npx", ["prisma", "migrate", "deploy"], {
