@@ -3,11 +3,14 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync("prisma/migrations/20260906050000_add_multichannel_reminders/migration.sql", "utf8");
+const senderMigration = readFileSync("prisma/migrations/20260906113000_platform_reminder_sender/migration.sql", "utf8");
+const optOutMigration = readFileSync("prisma/migrations/20260906114500_infro_reminder_global_opt_out/migration.sql", "utf8");
 const domain = readFileSync("app/lib/reminders/domain.ts", "utf8");
 const actions = readFileSync("app/actions/smart-reminders.ts", "utf8");
 const scheduler = readFileSync("app/lib/reminders/scheduler.ts", "utf8");
 const worker = readFileSync("app/lib/reminders/delivery-worker.ts", "utf8");
 const form = readFileSync("components/dashboard/smart-reminder-create-form.tsx", "utf8");
+const platform = readFileSync("app/lib/reminders/platform-whatsapp.ts", "utf8");
 
 test("multi-channel persistence is bounded and independently idempotent", () => {
   assert.match(migration, /"deliveryChannels" TEXT\[\]/);
@@ -19,33 +22,51 @@ test("multi-channel persistence is bounded and independently idempotent", () => 
   assert.match(domain, /input\.channel\s*\?\?\s*"whatsapp"/);
 });
 
-test("customer explicitly selects channels and WhatsApp keeps reminder-specific consent", () => {
+test("customer explicitly selects channels and central WhatsApp keeps reminder-specific consent", () => {
   assert.match(form, /name="deliveryChannels"\s+value="whatsapp"/);
   assert.match(form, /name="deliveryChannels"\s+value="email"/);
   assert.match(form, /name="deliveryChannels"\s+value="in_app"/);
+  assert.match(form, /INFRO REMINDER/);
   assert.match(actions, /form\.getAll\("deliveryChannels"\)/);
-  assert.match(actions, /wantsWhatsApp\s*&&\s*\(\s*!templateId\s*\|\|\s*!recipientConsentAccepted\s*\)/);
-  assert.match(actions, /if\s*\(wantsWhatsApp\)\s*await assertWhatsAppReminderAccess\(context\.businessId\)/);
+  assert.match(actions, /wantsWhatsApp\s*&&\s*!recipientConsentAccepted/);
+  assert.match(actions, /infroReminderWhatsAppReady/);
+  assert.match(actions, /whatsappSenderMode:\s*"platform"/);
+  assert.doesNotMatch(actions, /assertWhatsAppReminderAccess/);
 });
 
-test("scheduler fans one occurrence out to selected channels without duplicate jobs", () => {
+test("scheduler fans one occurrence out by channel and sender mode without duplicate jobs", () => {
   assert.match(scheduler, /normalizeReminderChannels\(reminder\.deliveryChannels\)/);
   assert.match(scheduler, /for\s*\(\s*const channel of channels\s*\)/);
-  assert.match(scheduler, /reminderDeliveryIdempotencyKey\(\{\s*businessId:\s*reminder\.businessId,\s*reminderId:\s*reminder\.id,\s*occurrenceAt:\s*reminder\.nextOccurrenceAt,\s*channel\s*\}\)/);
-  assert.match(scheduler, /channel\s*===\s*"whatsapp"\s*\?\s*reminder\.connectionId\s*:\s*null/);
-  assert.match(scheduler, /channel\s*===\s*"whatsapp"\s*\?\s*reminder\.templateId\s*:\s*null/);
-  assert.match(scheduler, /ON CONFLICT\s*\("idempotencyKey"\)\s*DO NOTHING/);
+  assert.match(scheduler, /reminderDeliveryIdempotencyKey/);
+  assert.match(scheduler, /senderMode === "tenant"/);
+  assert.match(scheduler, /"whatsappSenderMode"/);
+  assert.match(scheduler, /ON CONFLICT \("idempotencyKey"\) DO NOTHING/);
 });
 
-test("delivery routes by channel while Meta controls remain on WhatsApp", () => {
-  assert.match(worker, /delivery\.channel\s*===\s*"email"/);
+test("central sender is Meta-only, fail-closed, rate-limited and globally opt-out aware", () => {
+  assert.match(senderMigration, /whatsappSenderMode/);
+  assert.match(senderMigration, /InfroReminderWhatsAppRateBucket/);
+  assert.match(optOutMigration, /InfroReminderWhatsAppOptOut/);
+  assert.match(platform, /INFRO_REMINDER_WHATSAPP_ENABLED/);
+  assert.match(platform, /INFRO_REMINDER_WHATSAPP_WABA_ID/);
+  assert.match(platform, /INFRO_REMINDER_WHATSAPP_PHONE_NUMBER_ID/);
+  assert.match(platform, /INFRO_REMINDER_WHATSAPP_ACCESS_TOKEN/);
+  assert.match(platform, /graph\.facebook\.com/);
+  assert.match(worker, /platformRecipientOptedOut/);
+  assert.match(worker, /InfroReminderWhatsAppOptOut/);
+  assert.match(worker, /InfroReminderWhatsAppRateBucket/);
+  assert.match(worker, /sendPlatformWhatsAppReminder/);
+  assert.match(worker, /messaging_product:\s*"whatsapp"/);
+});
+
+test("email and in-app remain independent while legacy tenant Meta safeguards stay intact", () => {
+  assert.match(worker, /delivery\.channel === "email"/);
+  assert.match(worker, /REMINDER_FROM_EMAIL/);
   assert.match(worker, /https:\/\/api\.resend\.com\/emails/);
   assert.match(worker, /Idempotency-Key/);
-  assert.match(worker, /delivery\.channel\s*===\s*"in_app"/);
+  assert.match(worker, /delivery\.channel === "in_app"/);
   assert.match(worker, /SmartReminderNotification/);
-  assert.match(worker, /delivery\.channel\s*!==\s*"whatsapp"/);
   assert.match(worker, /hasActiveWhatsAppMarketingEntitlement/);
-  assert.match(worker, /recipientStillOwnedByBusiness/);
-  assert.match(worker, /REMINDER_RECIPIENT_CONSENT_REQUIRED/);
-  assert.match(worker, /templateStatus\s*!==\s*"approved"/);
+  assert.match(worker, /decryptWhatsAppCredential/);
+  assert.match(worker, /templateStatus !== "approved"/);
 });
