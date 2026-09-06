@@ -70,6 +70,7 @@ export async function createSmartReminder(input: {
   title: string;
   body: string;
   templateId?: string | null;
+  businessNoteId?: string | null;
   scheduledAt: Date;
   timezone: string;
   recurrenceType?: ReminderRecurrenceType | string;
@@ -94,6 +95,15 @@ export async function createSmartReminder(input: {
     let recipientConsentedAt: Date | null = null;
     let recipientConsentEvidence: string | null = null;
 
+    if (input.businessNoteId) {
+      const note = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id" FROM "BusinessNote"
+        WHERE "id"=${input.businessNoteId} AND "businessId"=${input.businessId} AND "status" <> 'archived'
+        LIMIT 1
+      `);
+      if (!note[0]) throw new Error("REMINDER_NOTE_INVALID");
+    }
+
     if (wantsWhatsApp) {
       if (!input.templateId) throw new Error("REMINDER_TEMPLATE_NOT_RUNNABLE");
       const [template, recipient] = await Promise.all([
@@ -109,10 +119,10 @@ export async function createSmartReminder(input: {
 
     await tx.$executeRaw(Prisma.sql`
       INSERT INTO "SmartReminder" (
-        "id", "businessId", "createdByUserId", "connectionId", "templateId", "title", "body", "recipientPhoneE164",
+        "id", "businessId", "createdByUserId", "connectionId", "templateId", "businessNoteId", "title", "body", "recipientPhoneE164",
         "recipientConsentedAt", "recipientConsentEvidence", "timezone", "scheduledAt", "nextOccurrenceAt", "recurrenceType", "deliveryChannels", "status", "updatedAt"
       ) VALUES (
-        ${id}, ${input.businessId}, ${input.actorUserId}, ${connectionId}, ${templateId}, ${title}, ${body}, ${recipientPhoneE164},
+        ${id}, ${input.businessId}, ${input.actorUserId}, ${connectionId}, ${templateId}, ${input.businessNoteId ?? null}, ${title}, ${body}, ${recipientPhoneE164},
         ${recipientConsentedAt}, ${recipientConsentEvidence}, ${timezone}, ${scheduledAt}, ${scheduledAt}, ${recurrenceType}, ${deliveryChannels}, 'scheduled', CURRENT_TIMESTAMP
       )
     `);
@@ -123,7 +133,7 @@ export async function createSmartReminder(input: {
       targetType: "smart_reminder",
       targetId: id,
       outcome: "success",
-      metadata: { timezone, recurrenceType, channelCount: deliveryChannels.length, whatsappEnabled: wantsWhatsApp },
+      metadata: { timezone, recurrenceType, channelCount: deliveryChannels.length, whatsappEnabled: wantsWhatsApp, noteLinked: Boolean(input.businessNoteId) },
       database: tx,
     });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
