@@ -1,6 +1,6 @@
 -- INFRO Business Productivity: progress-aware reminders and structured business notes.
 -- Progress is intentionally separate from scheduling/delivery state so partially completed
--- work can remain scheduled while the customer records real execution progress.
+-- work can remain open after the reminder notification lifecycle has completed.
 
 ALTER TABLE "SmartReminder"
   ADD COLUMN "progressPercent" INTEGER NOT NULL DEFAULT 0,
@@ -9,8 +9,7 @@ ALTER TABLE "SmartReminder"
 
 ALTER TABLE "SmartReminder"
   ADD CONSTRAINT "SmartReminder_progress_percent_check" CHECK ("progressPercent" BETWEEN 0 AND 100),
-  ADD CONSTRAINT "SmartReminder_progress_note_length_check" CHECK ("progressNote" IS NULL OR char_length("progressNote") <= 1000),
-  ADD CONSTRAINT "SmartReminder_completed_progress_check" CHECK ("status" <> 'completed' OR "progressPercent" = 100);
+  ADD CONSTRAINT "SmartReminder_progress_note_length_check" CHECK ("progressNote" IS NULL OR char_length("progressNote") <= 1000);
 
 CREATE INDEX "SmartReminder_business_progress_idx"
   ON "SmartReminder"("businessId", "status", "progressPercent", "updatedAt" DESC);
