@@ -100,7 +100,6 @@ test.describe.serial("smart reminders authenticated workflow", () => {
 
   test.afterAll(async () => {
     await db?.$disconnect();
-    await pool?.end();
   });
 
   test("owner creates, pauses, resumes and completes a tenant-scoped recurring reminder", async ({ page }) => {
@@ -109,33 +108,35 @@ test.describe.serial("smart reminders authenticated workflow", () => {
     await page.context().addCookies([{ name: "hee_session", value: fixture.token, url: baseUrl }]);
 
     try {
-      const response = await page.goto(`${baseUrl}/dashboard/reminders`, { waitUntil: "domcontentloaded" });
-      expect(response?.ok()).toBe(true);
-      await expect(page.locator('[data-dashboard-path="/dashboard/reminders"]')).toBeVisible();
-      await expect(page.getByRole("heading", { name: "تذكيرات أعمالك الذكية" })).toBeVisible();
-      const activateReminder = page.getByRole("button", { name: "حفظ وتفعيل التذكير" });
-      await expect(activateReminder).toBeVisible();
+      await test.step("open reminder workspace", async () => {
+        const response = await page.goto(`${baseUrl}/dashboard/reminders`, { waitUntil: "domcontentloaded" });
+        expect(response?.ok()).toBe(true);
+        await expect(page.locator('[data-dashboard-path="/dashboard/reminders"]')).toBeVisible();
+        await expect(page.getByRole("heading", { name: "تذكيرات أعمالك الذكية" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "حفظ وتفعيل التذكير" })).toBeVisible();
+      });
 
-      const scheduledLocal = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 16);
-      await page.locator('input[name="title"]').fill("متابعة عرض الاختبار");
-      await page.locator('textarea[name="body"]').fill("راجع العرض وتأكد من الخطوة التالية.");
-      await page.locator('input[name="scheduledLocal"]').fill(scheduledLocal);
-      await page.locator('select[name="recurrenceType"]').selectOption("weekly");
+      await test.step("create deterministic in-app reminder", async () => {
+        const scheduledLocal = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 16);
+        await page.locator('input[name="title"]').fill("متابعة عرض الاختبار");
+        await page.locator('textarea[name="body"]').fill("راجع العرض وتأكد من الخطوة التالية.");
+        await page.locator('input[name="scheduledLocal"]').fill(scheduledLocal);
+        await page.locator('select[name="recurrenceType"]').selectOption("weekly");
 
-      const consent = page.locator('input[name="recipientConsentAccepted"]');
-      const whatsappChannel = page.locator('input[name="deliveryChannels"][value="whatsapp"]');
-      const whatsappAvailable = await consent.isEnabled();
-      if (whatsappAvailable) {
-        await expect(whatsappChannel).toBeChecked();
-        await consent.check();
-      } else {
-        await expect(consent).toBeDisabled();
-        await expect(whatsappChannel).toBeDisabled();
-        await expect(page.locator('input[name="deliveryChannels"][value="in_app"]')).toBeChecked();
-      }
+        // This lifecycle E2E deliberately uses the local in-app transport so its outcome
+        // never depends on central Meta credentials or environment-specific sender readiness.
+        // WhatsApp consent and Meta-only safeguards remain covered independently by domain,
+        // source-guard and delivery-worker tests.
+        const whatsappChannel = page.locator('input[name="deliveryChannels"][value="whatsapp"]');
+        if (await whatsappChannel.isEnabled()) await whatsappChannel.uncheck();
+        const inAppChannel = page.locator('input[name="deliveryChannels"][value="in_app"]');
+        await inAppChannel.check();
+        const consent = page.locator('input[name="recipientConsentAccepted"]');
+        if (await consent.isEnabled() && await consent.isChecked()) await consent.uncheck();
 
-      await activateReminder.click();
-      await page.waitForURL(/\/dashboard\/reminders\?create=success/);
+        await page.getByRole("button", { name: "حفظ وتفعيل التذكير" }).click();
+        await page.waitForURL(/\/dashboard\/reminders\?create=success/);
+      });
 
       const reminderCard = page.getByRole("article").filter({ hasText: "متابعة عرض الاختبار" });
       await expect(reminderCard.getByText("متابعة عرض الاختبار", { exact: true })).toBeVisible();
@@ -148,26 +149,24 @@ test.describe.serial("smart reminders authenticated workflow", () => {
       expect(rows[0].businessId).toBe(fixture.businessId);
       expect(rows[0].status).toBe("scheduled");
       expect(rows[0].recurrenceType).toBe("weekly");
-      if (whatsappAvailable) {
-        expect(rows[0].deliveryChannels).toContain("whatsapp");
-        expect(rows[0].recipientPhoneE164).toBe("+966555000033");
-        expect(rows[0].recipientConsentEvidence).toBe("dashboard_explicit_reminder_opt_in_v1");
-      } else {
-        expect(rows[0].deliveryChannels).toEqual(["in_app"]);
-        expect(rows[0].recipientPhoneE164).toBeNull();
-        expect(rows[0].recipientConsentEvidence).toBeNull();
-      }
+      expect(rows[0].deliveryChannels).toEqual(["in_app"]);
+      expect(rows[0].recipientPhoneE164).toBeNull();
+      expect(rows[0].recipientConsentEvidence).toBeNull();
 
-      await page.getByRole("button", { name: "إيقاف" }).click();
-      await page.waitForURL(/\/dashboard\/reminders\?pause=success/);
-      await expect(page.getByText("متوقف مؤقتًا", { exact: true })).toBeVisible();
+      await test.step("pause and resume reminder", async () => {
+        await page.getByRole("button", { name: "إيقاف" }).click();
+        await page.waitForURL(/\/dashboard\/reminders\?pause=success/);
+        await expect(page.getByText("متوقف مؤقتًا", { exact: true })).toBeVisible();
 
-      await page.getByRole("button", { name: "استئناف" }).click();
-      await page.waitForURL(/\/dashboard\/reminders\?resume=success/);
-      await expect(page.getByText("قادم", { exact: true })).toBeVisible();
+        await page.getByRole("button", { name: "استئناف" }).click();
+        await page.waitForURL(/\/dashboard\/reminders\?resume=success/);
+        await expect(page.getByText("قادم", { exact: true })).toBeVisible();
+      });
 
-      await page.getByRole("button", { name: "إكمال" }).click();
-      await page.waitForURL(/\/dashboard\/reminders\?complete=success/);
+      await test.step("complete reminder lifecycle", async () => {
+        await page.getByRole("button", { name: "إكمال" }).click();
+        await page.waitForURL(/\/dashboard\/reminders\?complete=success/);
+      });
       const completed = await db.$queryRaw<Array<{ status: string; nextOccurrenceAt: Date | null }>>(Prisma.sql`
         SELECT "status", "nextOccurrenceAt" FROM "SmartReminder" WHERE "id" = ${rows[0].id} AND "businessId" = ${fixture.businessId}
       `);
