@@ -10,6 +10,7 @@ import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, retryD
 import { hasActiveWhatsAppMarketingEntitlement } from "../whatsapp/feature-entitlement";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "../whatsapp/meta-config";
 import { reminderTemplateSupportsBodyParameter } from "./domain";
+import { getInfroReminderWhatsAppConfig, infroReminderWhatsAppGraphUrl } from "./platform-whatsapp";
 
 const MAX_ATTEMPTS = 8;
 const REMINDER_CONSENT_EVIDENCE = "dashboard_explicit_reminder_opt_in_v1";
@@ -20,6 +21,7 @@ type ClaimedDelivery = {
   reminderId: string;
   connectionId: string | null;
   templateId: string | null;
+  whatsappSenderMode: string;
   channel: string;
   occurrenceAt: Date;
   attemptCount: number;
@@ -72,7 +74,7 @@ async function claimNext(database: PrismaClient, workerId: string, now: Date) {
       WHERE "status"='processing' AND "leaseExpiresAt"<${now}
     `);
     const rows = await tx.$queryRaw<Array<Omit<ClaimedDelivery, "leaseOwner">>>(Prisma.sql`
-      SELECT "id", "businessId", "reminderId", "connectionId", "templateId", "channel", "occurrenceAt", "attemptCount"
+      SELECT "id", "businessId", "reminderId", "connectionId", "templateId", "whatsappSenderMode", "channel", "occurrenceAt", "attemptCount"
       FROM "SmartReminderDelivery"
       WHERE "status" IN ('queued','retry_scheduled') AND "nextAttemptAt"<=${now} AND "leaseExpiresAt" IS NULL
       ORDER BY "nextAttemptAt", "createdAt" FOR UPDATE SKIP LOCKED LIMIT 1
@@ -142,6 +144,19 @@ async function acquireRateSlot(database: PrismaClient, input: { connectionId: st
   return rows.length > 0;
 }
 
+async function acquirePlatformRateSlot(database: PrismaClient, limit: number, now: Date) {
+  const windowStart = new Date(Math.floor(now.getTime() / 60_000) * 60_000);
+  const rows = await database.$queryRaw<Array<{ sentCount: number }>>(Prisma.sql`
+    INSERT INTO "InfroReminderWhatsAppRateBucket" ("windowStart","sentCount","updatedAt")
+    VALUES (${windowStart},1,${now})
+    ON CONFLICT ("windowStart") DO UPDATE
+    SET "sentCount"="InfroReminderWhatsAppRateBucket"."sentCount"+1,"updatedAt"=${now}
+    WHERE "InfroReminderWhatsAppRateBucket"."sentCount"<${limit}
+    RETURNING "sentCount"
+  `);
+  return rows.length > 0;
+}
+
 async function markSent(database: PrismaClient, delivery: ClaimedDelivery, context: ReminderContext, now: Date, providerMessageId?: string | null) {
   await database.$transaction(async (tx) => {
     const changed = await tx.$executeRaw(Prisma.sql`
@@ -159,14 +174,28 @@ async function markSent(database: PrismaClient, delivery: ClaimedDelivery, conte
     const completed = context.recurrenceType === "once" && context.nextOccurrenceAt === null && Number(pending[0]?.count ?? 0) === 0
       ? await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "status"='completed',"completedAt"=${now},"updatedAt"=${now} WHERE "id"=${delivery.reminderId} AND "businessId"=${delivery.businessId} AND "status"='scheduled' AND "recurrenceType"='once' AND "nextOccurrenceAt" IS NULL`)
       : 0;
-    await writeWhatsAppAuditLog({ businessId: delivery.businessId, actorType: "worker", action: "reminder.delivery.send", targetType: "smart_reminder_delivery", targetId: delivery.id, outcome: "success", metadata: { reminderId: delivery.reminderId, channel: delivery.channel }, database: tx });
+    await writeWhatsAppAuditLog({ businessId: delivery.businessId, actorType: "worker", action: "reminder.delivery.send", targetType: "smart_reminder_delivery", targetId: delivery.id, outcome: "success", metadata: { reminderId: delivery.reminderId, channel: delivery.channel, whatsappSenderMode: delivery.channel === "whatsapp" ? delivery.whatsappSenderMode : null }, database: tx });
     if (completed === 1) await writeWhatsAppAuditLog({ businessId: delivery.businessId, actorType: "worker", action: "reminder.complete", targetType: "smart_reminder", targetId: delivery.reminderId, outcome: "success", metadata: { source: "confirmed_delivery" }, database: tx });
+  });
+}
+
+async function persistWhatsAppMessage(database: PrismaClient, input: { delivery: ClaimedDelivery; phoneNumberId: string; recipientPhoneE164: string; providerMessageId: string; now: Date }) {
+  await database.$transaction(async (tx) => {
+    const conversation = await tx.whatsAppConversation.upsert({
+      where: { businessId_phoneNumberId_customerPhoneE164: { businessId: input.delivery.businessId, phoneNumberId: input.phoneNumberId, customerPhoneE164: input.recipientPhoneE164 } },
+      create: { id: randomUUID(), businessId: input.delivery.businessId, phoneNumberId: input.phoneNumberId, customerPhoneE164: input.recipientPhoneE164, lastMessageAt: input.now, lastOutboundAt: input.now },
+      update: { lastMessageAt: input.now, lastOutboundAt: input.now }, select: { id: true },
+    });
+    await tx.whatsAppMessage.upsert({
+      where: { provider_providerMessageId: { provider: "meta", providerMessageId: input.providerMessageId } },
+      create: { id: randomUUID(), businessId: input.delivery.businessId, conversationId: conversation.id, provider: "meta", providerMessageId: input.providerMessageId, direction: "outbound", messageType: "template", status: "sent", sentAt: input.now }, update: {},
+    });
   });
 }
 
 async function sendEmailReminder(delivery: ClaimedDelivery, context: ReminderContext, now: Date, fetcher: typeof fetch, env: NodeJS.ProcessEnv, database: PrismaClient) {
   const apiKey = String(env.RESEND_API_KEY ?? "").trim();
-  const from = String(env.HEE_FROM_EMAIL ?? "").trim();
+  const from = String(env.REMINDER_FROM_EMAIL ?? "").trim();
   if (!apiKey || !from || context.userDeletedAt || !/^\S+@\S+\.\S+$/.test(context.userEmail)) {
     await releaseAs(database, delivery, "failed", now, "REMINDER_EMAIL_NOT_CONFIGURED");
     return "failed" as const;
@@ -214,6 +243,148 @@ async function sendInAppReminder(delivery: ClaimedDelivery, context: ReminderCon
   return "sent" as const;
 }
 
+async function commonWhatsAppSafety(database: PrismaClient, delivery: ClaimedDelivery, context: ReminderContext, now: Date) {
+  if (context.userDeletedAt) {
+    await releaseAs(database, delivery, "cancelled", now, "REMINDER_USER_INACTIVE");
+    return "cancelled" as const;
+  }
+  if (!context.recipientPhoneE164 || !context.recipientConsentedAt || !recipientStillOwnedByBusiness(context)) {
+    await releaseAs(database, delivery, "cancelled", now, "REMINDER_RECIPIENT_OWNERSHIP_CHANGED");
+    return "recipient_changed" as const;
+  }
+  if (context.recipientConsentEvidence !== REMINDER_CONSENT_EVIDENCE || context.recipientConsentedAt.getTime() > now.getTime()) {
+    await releaseAs(database, delivery, "cancelled", now, "REMINDER_RECIPIENT_CONSENT_REQUIRED");
+    return "consent_required" as const;
+  }
+  const contact = await database.whatsAppContact.findFirst({ where: { businessId: delivery.businessId, phoneE164: context.recipientPhoneE164 }, select: { optedOutAt: true } });
+  if (contact?.optedOutAt) {
+    await releaseAs(database, delivery, "cancelled", now, "REMINDER_RECIPIENT_OPTED_OUT");
+    return "opted_out" as const;
+  }
+  return null;
+}
+
+async function sendPlatformWhatsAppReminder(delivery: ClaimedDelivery, context: ReminderContext, now: Date, fetcher: typeof fetch, env: NodeJS.ProcessEnv, database: PrismaClient) {
+  assertOutboundEnabled(env);
+  const safety = await commonWhatsAppSafety(database, delivery, context, now);
+  if (safety) return safety;
+  const config = getInfroReminderWhatsAppConfig(env);
+  if (!config) {
+    await releaseAs(database, delivery, "failed", now, "INFRO_REMINDER_WHATSAPP_NOT_CONFIGURED");
+    return "failed" as const;
+  }
+  if (!await acquirePlatformRateSlot(database, config.ratePerMinute, now)) {
+    const nextMinute = new Date((Math.floor(now.getTime() / 60_000) + 1) * 60_000);
+    await releaseAs(database, delivery, "retry_scheduled", now, "INFRO_REMINDER_RATE_LIMIT", nextMinute);
+    return "rate_limited" as const;
+  }
+
+  const reminderText = `${context.title}\n${context.body}`.slice(0, 4096);
+  const template = { name: config.templateName, language: { code: config.templateLanguage }, components: [{ type: "body", parameters: [{ type: "text", text: reminderText }] }] };
+  let response: Response;
+  try {
+    response = await fetcher(infroReminderWhatsAppGraphUrl(config), {
+      method: "POST", cache: "no-store", signal: AbortSignal.timeout(15_000),
+      headers: { authorization: `Bearer ${config.accessToken}`, "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: context.recipientPhoneE164, type: "template", template }),
+    });
+  } catch {
+    await releaseAs(database, delivery, "delivery_unknown", now, "META_NETWORK_OUTCOME_UNKNOWN");
+    return "delivery_unknown" as const;
+  }
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const providerError = record(record(payload)?.error);
+    const code = safeText(providerError?.code) ?? `HTTP_${response.status}`;
+    if (isRetryableMetaStatus(response.status) && delivery.attemptCount < MAX_ATTEMPTS) {
+      const retryAfter = Number(response.headers.get("retry-after"));
+      await releaseAs(database, delivery, "retry_scheduled", now, code, new Date(now.getTime() + retryDelayMs(delivery.attemptCount, Number.isFinite(retryAfter) ? retryAfter : null)));
+      return "retry_scheduled" as const;
+    }
+    await releaseAs(database, delivery, "failed", now, code);
+    return "failed" as const;
+  }
+  const providerMessageId = safeText(Array.isArray(record(payload)?.messages) ? record((record(payload)?.messages as unknown[])[0])?.id : null);
+  if (!providerMessageId) {
+    await releaseAs(database, delivery, "delivery_unknown", now, "META_SUCCESS_RESPONSE_INVALID");
+    return "delivery_unknown" as const;
+  }
+  await persistWhatsAppMessage(database, { delivery, phoneNumberId: config.phoneNumberId, recipientPhoneE164: context.recipientPhoneE164!, providerMessageId, now });
+  await markSent(database, delivery, context, now, providerMessageId);
+  return "sent" as const;
+}
+
+async function sendTenantWhatsAppReminder(delivery: ClaimedDelivery, context: ReminderContext, now: Date, fetcher: typeof fetch, env: NodeJS.ProcessEnv, database: PrismaClient, suppliedConfig?: MetaWhatsAppConfig) {
+  assertOutboundEnabled(env);
+  const safety = await commonWhatsAppSafety(database, delivery, context, now);
+  if (safety) return safety;
+  if (!delivery.connectionId || !delivery.templateId || !context.connectionId || !context.templateId || !context.phoneNumberId || context.credentialEnvelope === null) {
+    await releaseAs(database, delivery, "cancelled", now, "REMINDER_WHATSAPP_BINDING_MISSING");
+    return "cancelled" as const;
+  }
+  if (context.connectionId !== delivery.connectionId || context.templateId !== delivery.templateId) {
+    await releaseAs(database, delivery, "cancelled", now, "REMINDER_WHATSAPP_BINDING_MISMATCH");
+    return "cancelled" as const;
+  }
+  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: delivery.businessId, database, now })) {
+    await releaseAs(database, delivery, "cancelled", now, "WHATSAPP_MARKETING_ENTITLEMENT_REQUIRED");
+    return "entitlement_required" as const;
+  }
+  if (context.connectionProvider !== "meta" || context.connectionStatus !== "connected" || context.templateProvider !== "meta" || context.templateStatus !== "approved" || !context.templateName || !context.templateLanguage || !reminderTemplateSupportsBodyParameter(context.templateComponents)) {
+    await releaseAs(database, delivery, "cancelled", now, "REMINDER_OUTBOUND_CONFIGURATION_NOT_ACTIVE");
+    return "cancelled" as const;
+  }
+  if (!await acquireRateSlot(database, { connectionId: delivery.connectionId, businessId: delivery.businessId }, outboundRateLimit(env), now)) {
+    const nextMinute = new Date((Math.floor(now.getTime() / 60_000) + 1) * 60_000);
+    await releaseAs(database, delivery, "retry_scheduled", now, "LOCAL_RATE_LIMIT", nextMinute);
+    return "rate_limited" as const;
+  }
+
+  let config: MetaWhatsAppConfig;
+  let accessToken: string;
+  try {
+    config = suppliedConfig ?? getMetaWhatsAppConfig(env);
+    accessToken = decryptWhatsAppCredential({ envelope: credentialEnvelope(context.credentialEnvelope), encryptionKeyBase64: config.META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY, businessId: delivery.businessId });
+  } catch {
+    await releaseAs(database, delivery, "failed", now, "OUTBOUND_CONFIGURATION_INVALID");
+    return "failed" as const;
+  }
+
+  const reminderText = `${context.title}\n${context.body}`.slice(0, 4096);
+  const template = { name: context.templateName, language: { code: context.templateLanguage }, components: [{ type: "body", parameters: [{ type: "text", text: reminderText }] }] };
+  let response: Response;
+  try {
+    response = await fetcher(metaWhatsAppGraphUrl(config, `${context.phoneNumberId}/messages`), {
+      method: "POST", cache: "no-store", signal: AbortSignal.timeout(15_000),
+      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: context.recipientPhoneE164, type: "template", template }),
+    });
+  } catch {
+    await releaseAs(database, delivery, "delivery_unknown", now, "META_NETWORK_OUTCOME_UNKNOWN");
+    return "delivery_unknown" as const;
+  }
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const providerError = record(record(payload)?.error);
+    const code = safeText(providerError?.code) ?? `HTTP_${response.status}`;
+    if (isRetryableMetaStatus(response.status) && delivery.attemptCount < MAX_ATTEMPTS) {
+      const retryAfter = Number(response.headers.get("retry-after"));
+      await releaseAs(database, delivery, "retry_scheduled", now, code, new Date(now.getTime() + retryDelayMs(delivery.attemptCount, Number.isFinite(retryAfter) ? retryAfter : null)));
+      return "retry_scheduled" as const;
+    }
+    await releaseAs(database, delivery, "failed", now, code);
+    return "failed" as const;
+  }
+  const providerMessageId = safeText(Array.isArray(record(payload)?.messages) ? record((record(payload)?.messages as unknown[])[0])?.id : null);
+  if (!providerMessageId) {
+    await releaseAs(database, delivery, "delivery_unknown", now, "META_SUCCESS_RESPONSE_INVALID");
+    return "delivery_unknown" as const;
+  }
+  await persistWhatsAppMessage(database, { delivery, phoneNumberId: context.phoneNumberId, recipientPhoneE164: context.recipientPhoneE164!, providerMessageId, now });
+  await markSent(database, delivery, context, now, providerMessageId);
+  return "sent" as const;
+}
+
 export async function processNextSmartReminderDelivery(input: { database?: PrismaClient; workerId?: string; now?: Date; fetcher?: typeof fetch; env?: NodeJS.ProcessEnv; config?: MetaWhatsAppConfig } = {}) {
   const database = input.database ?? db;
   const now = input.now ?? new Date();
@@ -245,96 +416,12 @@ export async function processNextSmartReminderDelivery(input: { database?: Prism
     return { processed: true as const, result: "failed" as const, deliveryId: delivery.id };
   }
 
-  assertOutboundEnabled(env);
-  if (!delivery.connectionId || !delivery.templateId || !context.connectionId || !context.templateId || !context.phoneNumberId || context.credentialEnvelope === null || !context.recipientPhoneE164 || !context.recipientConsentedAt) {
-    await releaseAs(database, delivery, "cancelled", now, "REMINDER_WHATSAPP_BINDING_MISSING");
-    return { processed: true as const, result: "cancelled" as const, deliveryId: delivery.id };
+  if (delivery.whatsappSenderMode === "platform") {
+    const result = await sendPlatformWhatsAppReminder(delivery, context, now, fetcher, env, database);
+    return { processed: true as const, result, deliveryId: delivery.id };
   }
-  if (context.connectionId !== delivery.connectionId || context.templateId !== delivery.templateId) {
-    await releaseAs(database, delivery, "cancelled", now, "REMINDER_WHATSAPP_BINDING_MISMATCH");
-    return { processed: true as const, result: "cancelled" as const, deliveryId: delivery.id };
-  }
-  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: delivery.businessId, database, now })) {
-    await releaseAs(database, delivery, "cancelled", now, "WHATSAPP_MARKETING_ENTITLEMENT_REQUIRED");
-    return { processed: true as const, result: "entitlement_required" as const, deliveryId: delivery.id };
-  }
-  if (!recipientStillOwnedByBusiness(context)) {
-    await releaseAs(database, delivery, "cancelled", now, "REMINDER_RECIPIENT_OWNERSHIP_CHANGED");
-    return { processed: true as const, result: "recipient_changed" as const, deliveryId: delivery.id };
-  }
-  if (context.recipientConsentEvidence !== REMINDER_CONSENT_EVIDENCE || context.recipientConsentedAt.getTime() > now.getTime()) {
-    await releaseAs(database, delivery, "cancelled", now, "REMINDER_RECIPIENT_CONSENT_REQUIRED");
-    return { processed: true as const, result: "consent_required" as const, deliveryId: delivery.id };
-  }
-  const contact = await database.whatsAppContact.findFirst({ where: { businessId: delivery.businessId, phoneE164: context.recipientPhoneE164 }, select: { optedOutAt: true } });
-  if (contact?.optedOutAt) {
-    await releaseAs(database, delivery, "cancelled", now, "REMINDER_RECIPIENT_OPTED_OUT");
-    return { processed: true as const, result: "opted_out" as const, deliveryId: delivery.id };
-  }
-  if (context.connectionProvider !== "meta" || context.connectionStatus !== "connected" || context.templateProvider !== "meta" || context.templateStatus !== "approved" || !context.templateName || !context.templateLanguage || !reminderTemplateSupportsBodyParameter(context.templateComponents)) {
-    await releaseAs(database, delivery, "cancelled", now, "REMINDER_OUTBOUND_CONFIGURATION_NOT_ACTIVE");
-    return { processed: true as const, result: "cancelled" as const, deliveryId: delivery.id };
-  }
-  if (!await acquireRateSlot(database, { connectionId: delivery.connectionId, businessId: delivery.businessId }, outboundRateLimit(env), now)) {
-    const nextMinute = new Date((Math.floor(now.getTime() / 60_000) + 1) * 60_000);
-    await releaseAs(database, delivery, "retry_scheduled", now, "LOCAL_RATE_LIMIT", nextMinute);
-    return { processed: true as const, result: "rate_limited" as const, deliveryId: delivery.id };
-  }
-
-  let config: MetaWhatsAppConfig;
-  let accessToken: string;
-  try {
-    config = input.config ?? getMetaWhatsAppConfig(env);
-    accessToken = decryptWhatsAppCredential({ envelope: credentialEnvelope(context.credentialEnvelope), encryptionKeyBase64: config.META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY, businessId: delivery.businessId });
-  } catch {
-    await releaseAs(database, delivery, "failed", now, "OUTBOUND_CONFIGURATION_INVALID");
-    return { processed: true as const, result: "failed" as const, deliveryId: delivery.id };
-  }
-
-  const reminderText = `${context.title}\n${context.body}`.slice(0, 4096);
-  const template = { name: context.templateName, language: { code: context.templateLanguage }, components: [{ type: "body", parameters: [{ type: "text", text: reminderText }] }] };
-  let response: Response;
-  try {
-    response = await fetcher(metaWhatsAppGraphUrl(config, `${context.phoneNumberId}/messages`), {
-      method: "POST", cache: "no-store", signal: AbortSignal.timeout(15_000),
-      headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: context.recipientPhoneE164, type: "template", template }),
-    });
-  } catch {
-    await releaseAs(database, delivery, "delivery_unknown", now, "META_NETWORK_OUTCOME_UNKNOWN");
-    return { processed: true as const, result: "delivery_unknown" as const, deliveryId: delivery.id };
-  }
-  const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const providerError = record(record(payload)?.error);
-    const code = safeText(providerError?.code) ?? `HTTP_${response.status}`;
-    if (isRetryableMetaStatus(response.status) && delivery.attemptCount < MAX_ATTEMPTS) {
-      const retryAfter = Number(response.headers.get("retry-after"));
-      await releaseAs(database, delivery, "retry_scheduled", now, code, new Date(now.getTime() + retryDelayMs(delivery.attemptCount, Number.isFinite(retryAfter) ? retryAfter : null)));
-      return { processed: true as const, result: "retry_scheduled" as const, deliveryId: delivery.id };
-    }
-    await releaseAs(database, delivery, "failed", now, code);
-    return { processed: true as const, result: "failed" as const, deliveryId: delivery.id };
-  }
-  const providerMessageId = safeText(Array.isArray(record(payload)?.messages) ? record((record(payload)?.messages as unknown[])[0])?.id : null);
-  if (!providerMessageId) {
-    await releaseAs(database, delivery, "delivery_unknown", now, "META_SUCCESS_RESPONSE_INVALID");
-    return { processed: true as const, result: "delivery_unknown" as const, deliveryId: delivery.id };
-  }
-
-  await database.$transaction(async (tx) => {
-    const conversation = await tx.whatsAppConversation.upsert({
-      where: { businessId_phoneNumberId_customerPhoneE164: { businessId: delivery.businessId, phoneNumberId: context.phoneNumberId!, customerPhoneE164: context.recipientPhoneE164! } },
-      create: { id: randomUUID(), businessId: delivery.businessId, phoneNumberId: context.phoneNumberId!, customerPhoneE164: context.recipientPhoneE164!, lastMessageAt: now, lastOutboundAt: now },
-      update: { lastMessageAt: now, lastOutboundAt: now }, select: { id: true },
-    });
-    await tx.whatsAppMessage.upsert({
-      where: { provider_providerMessageId: { provider: "meta", providerMessageId } },
-      create: { id: randomUUID(), businessId: delivery.businessId, conversationId: conversation.id, provider: "meta", providerMessageId, direction: "outbound", messageType: "template", status: "sent", sentAt: now }, update: {},
-    });
-  });
-  await markSent(database, delivery, context, now, providerMessageId);
-  return { processed: true as const, result: "sent" as const, deliveryId: delivery.id, providerMessageId };
+  const result = await sendTenantWhatsAppReminder(delivery, context, now, fetcher, env, database, input.config);
+  return { processed: true as const, result, deliveryId: delivery.id };
 }
 
 export async function runSmartReminderDeliveryWorker(input: Parameters<typeof processNextSmartReminderDelivery>[0] & { limit?: number } = {}) {
