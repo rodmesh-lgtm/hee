@@ -3,9 +3,17 @@ import { createHash } from "node:crypto";
 export const REMINDER_STATUSES = ["scheduled", "paused", "completed", "cancelled"] as const;
 export const REMINDER_DELIVERY_STATUSES = ["queued", "processing", "retry_scheduled", "sent", "failed", "delivery_unknown", "cancelled"] as const;
 export const REMINDER_RECURRENCE_TYPES = ["once", "daily", "weekly", "monthly"] as const;
+export const REMINDER_DELIVERY_CHANNELS = ["whatsapp", "email", "in_app"] as const;
 
 export type ReminderStatus = typeof REMINDER_STATUSES[number];
 export type ReminderRecurrenceType = typeof REMINDER_RECURRENCE_TYPES[number];
+export type ReminderDeliveryChannel = typeof REMINDER_DELIVERY_CHANNELS[number];
+
+export function normalizeReminderChannels(values: readonly string[]) {
+  const unique = [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+  if (!unique.length || unique.length > REMINDER_DELIVERY_CHANNELS.length || unique.some((value) => !(REMINDER_DELIVERY_CHANNELS as readonly string[]).includes(value))) throw new Error("REMINDER_DELIVERY_CHANNELS_INVALID");
+  return unique as ReminderDeliveryChannel[];
+}
 
 export function normalizeReminderTimezone(value: string) {
   const timezone = value.trim();
@@ -23,9 +31,9 @@ export function normalizeReminderRecurrence(value: string): ReminderRecurrenceTy
   return value as ReminderRecurrenceType;
 }
 
-export function reminderDeliveryIdempotencyKey(input: { businessId: string; reminderId: string; occurrenceAt: Date }) {
+export function reminderDeliveryIdempotencyKey(input: { businessId: string; reminderId: string; occurrenceAt: Date; channel?: ReminderDeliveryChannel | string }) {
   return createHash("sha256")
-    .update(["infro-reminder-v1", input.businessId, input.reminderId, input.occurrenceAt.toISOString()].join(":"))
+    .update(["infro-reminder-v2", input.businessId, input.reminderId, input.occurrenceAt.toISOString(), input.channel ?? "whatsapp"].join(":"))
     .digest("hex");
 }
 
