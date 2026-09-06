@@ -9,9 +9,11 @@ const organizerRoute = readFileSync("app/api/business-notes/organize/route.ts", 
 const component = readFileSync("components/dashboard/business-note-voice-textarea.tsx", "utf8");
 const page = readFileSync("app/dashboard/notes/page.tsx", "utf8");
 
-test("business voice AI is explicit fail-closed server configuration", () => {
-  assert.match(service, /INFRO_BUSINESS_VOICE_AI_ENABLED === "true"/);
+test("business voice AI remains server-only and accepts INFRO or standard OpenAI keys", () => {
+  assert.match(service, /INFRO_BUSINESS_VOICE_AI_ENABLED/);
+  assert.match(service, /enabled === "false"/);
   assert.match(service, /INFRO_OPENAI_API_KEY/);
+  assert.match(service, /OPENAI_API_KEY/);
   assert.match(service, /https:\/\/api\.openai\.com\/v1\/audio\/transcriptions/);
   assert.match(service, /gpt-transcribe/);
   assert.match(service, /BUSINESS_VOICE_MAX_BYTES = 10 \* 1024 \* 1024/);
@@ -30,7 +32,7 @@ test("voice transcription stays authenticated tenant-scoped rate-limited and bou
   assert.match(route, /Cache-Control": "no-store"/);
 });
 
-test("voice memo supports current platform languages and Saudi Arabic code switching", () => {
+test("voice memo supports current platform languages Saudi Arabic and browser speech fallback", () => {
   for (const language of ["auto", "ar", "en", "es", "ur", "zh-CN"]) {
     assert.ok(service.includes(`"${language}"`));
     assert.ok(component.includes(`"${language}"`));
@@ -40,14 +42,18 @@ test("voice memo supports current platform languages and Saudi Arabic code switc
   assert.match(service, /without translating/);
   assert.match(component, /MediaRecorder/);
   assert.match(component, /navigator\.mediaDevices\?\.getUserMedia/);
+  assert.match(component, /webkitSpeechRecognition/);
+  assert.match(component, /SpeechRecognition/);
+  assert.match(component, /ar-SA/);
   assert.match(component, /MAX_SECONDS = 5 \* 60/);
+  assert.doesNotMatch(component, /disabled=\{processing \|\| organizing \|\| !voiceAvailable\}/);
 });
 
 test("audio remains ephemeral and transcript is reviewable before normal note save", () => {
   assert.match(component, /الصوت مؤقت/);
   assert.match(component, /النص لا يتغير دون مراجعتك/);
   assert.match(component, /name="body"/);
-  assert.match(component, /setValue/);
+  assert.match(component, /appendTranscript/);
   assert.match(page, /BusinessNoteVoiceTextarea voiceAvailable=\{voiceAvailable\}/);
   assert.match(page, /createBusinessNoteAction/);
   assert.doesNotMatch(route, /StoredObject|writeFile|createWriteStream/);
