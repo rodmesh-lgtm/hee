@@ -12,6 +12,12 @@ export async function isBusinessNotesSchemaReady() {
         AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='priority')
         AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='tags')
         AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='status')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='noteType')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='summary')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='outcome')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='nextAction')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='stakeholder')
+        AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='BusinessNote' AND column_name='referenceCode')
         AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='businessNoteId')
       ) AS "ready"
     `);
