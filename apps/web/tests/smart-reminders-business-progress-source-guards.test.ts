@@ -16,7 +16,7 @@ test("work progress is bounded and explicitly independent from reminder delivery
   assert.match(decouplingMigration,/"workCompletedAt" TIMESTAMP\(3\)/);
   assert.match(decouplingMigration,/"progressPercent" = 100 AND "workCompletedAt" IS NOT NULL/);
   assert.match(decouplingMigration,/"progressPercent" < 100 AND "workCompletedAt" IS NULL/);
-  assert.doesNotMatch(decouplingMigration,/status.*completed.*progressPercent/s);
+  assert.equal(/status[\s\S]*completed[\s\S]*progressPercent/.test(decouplingMigration),false);
 });
 
 test("business progress updates are tenant scoped serialized and audited",()=>{
