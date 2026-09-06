@@ -13,6 +13,7 @@ export async function isSmartRemindersSchemaReady() {
     deliverySenderModeReady: boolean;
     notificationReady: boolean;
     platformRateReady: boolean;
+    platformOptOutReady: boolean;
   }>>(Prisma.sql`
     SELECT
       to_regclass('public."SmartReminder"') IS NOT NULL AS "reminderReady",
@@ -22,7 +23,8 @@ export async function isSmartRemindersSchemaReady() {
       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminder' AND column_name='whatsappSenderMode') AS "reminderSenderModeReady",
       EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='SmartReminderDelivery' AND column_name='whatsappSenderMode') AS "deliverySenderModeReady",
       to_regclass('public."SmartReminderNotification"') IS NOT NULL AS "notificationReady",
-      to_regclass('public."InfroReminderWhatsAppRateBucket"') IS NOT NULL AS "platformRateReady"
+      to_regclass('public."InfroReminderWhatsAppRateBucket"') IS NOT NULL AS "platformRateReady",
+      to_regclass('public."InfroReminderWhatsAppOptOut"') IS NOT NULL AS "platformOptOutReady"
   `);
   const readiness = rows[0];
   return Boolean(
@@ -34,5 +36,6 @@ export async function isSmartRemindersSchemaReady() {
     && readiness?.deliverySenderModeReady
     && readiness?.notificationReady
     && readiness?.platformRateReady
+    && readiness?.platformOptOutReady
   );
 }
