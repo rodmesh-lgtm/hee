@@ -11,6 +11,7 @@ type DueReminder = {
   businessId: string;
   connectionId: string | null;
   templateId: string | null;
+  whatsappSenderMode: string;
   recurrenceType: string;
   timezone: string;
   nextOccurrenceAt: Date;
@@ -35,7 +36,7 @@ function nextFutureOccurrence(reminder: DueReminder, now: Date) {
 async function scheduleNext(database: PrismaClient, now: Date) {
   return database.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<DueReminder[]>(Prisma.sql`
-      SELECT "id", "businessId", "connectionId", "templateId", "recurrenceType", "timezone", "nextOccurrenceAt", "deliveryChannels"
+      SELECT "id", "businessId", "connectionId", "templateId", "whatsappSenderMode", "recurrenceType", "timezone", "nextOccurrenceAt", "deliveryChannels"
       FROM "SmartReminder"
       WHERE "status" = 'scheduled' AND "nextOccurrenceAt" IS NOT NULL AND "nextOccurrenceAt" <= ${now}
       ORDER BY "nextOccurrenceAt", "createdAt"
@@ -46,19 +47,20 @@ async function scheduleNext(database: PrismaClient, now: Date) {
 
     const future = nextFutureOccurrence(reminder, now);
     const channels = normalizeReminderChannels(reminder.deliveryChannels);
+    const senderMode = reminder.whatsappSenderMode === "platform" ? "platform" : "tenant";
     let scheduled = 0;
     let deduplicated = 0;
 
     for (const channel of channels) {
-      if (channel === "whatsapp" && (!reminder.connectionId || !reminder.templateId)) throw new Error("REMINDER_WHATSAPP_BINDING_MISSING");
+      if (channel === "whatsapp" && senderMode === "tenant" && (!reminder.connectionId || !reminder.templateId)) throw new Error("REMINDER_WHATSAPP_BINDING_MISSING");
       const deliveryId = randomUUID();
       const idempotencyKey = reminderDeliveryIdempotencyKey({ businessId: reminder.businessId, reminderId: reminder.id, occurrenceAt: reminder.nextOccurrenceAt, channel });
       const inserted = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
         INSERT INTO "SmartReminderDelivery" (
-          "id", "businessId", "reminderId", "connectionId", "templateId", "occurrenceAt", "channel", "idempotencyKey", "status", "updatedAt"
+          "id", "businessId", "reminderId", "connectionId", "templateId", "whatsappSenderMode", "occurrenceAt", "channel", "idempotencyKey", "status", "updatedAt"
         ) VALUES (
-          ${deliveryId}, ${reminder.businessId}, ${reminder.id}, ${channel === "whatsapp" ? reminder.connectionId : null}, ${channel === "whatsapp" ? reminder.templateId : null},
-          ${reminder.nextOccurrenceAt}, ${channel}, ${idempotencyKey}, 'queued', CURRENT_TIMESTAMP
+          ${deliveryId}, ${reminder.businessId}, ${reminder.id}, ${channel === "whatsapp" && senderMode === "tenant" ? reminder.connectionId : null}, ${channel === "whatsapp" && senderMode === "tenant" ? reminder.templateId : null},
+          ${channel === "whatsapp" ? senderMode : "platform"}, ${reminder.nextOccurrenceAt}, ${channel}, ${idempotencyKey}, 'queued', CURRENT_TIMESTAMP
         )
         ON CONFLICT ("idempotencyKey") DO NOTHING
         RETURNING "id"
@@ -72,7 +74,7 @@ async function scheduleNext(database: PrismaClient, now: Date) {
       SET "nextOccurrenceAt" = ${future.nextOccurrenceAt}, "updatedAt" = CURRENT_TIMESTAMP
       WHERE "id" = ${reminder.id} AND "businessId" = ${reminder.businessId} AND "nextOccurrenceAt" = ${reminder.nextOccurrenceAt}
     `);
-    return { ...reminder, scheduled, deduplicated, nextScheduledOccurrenceAt: future.nextOccurrenceAt, skippedMissedOccurrences: future.skippedMissedOccurrences, channelCount: channels.length };
+    return { ...reminder, scheduled, deduplicated, nextScheduledOccurrenceAt: future.nextOccurrenceAt, skippedMissedOccurrences: future.skippedMissedOccurrences, channelCount: channels.length, senderMode };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
@@ -96,7 +98,7 @@ export async function runSmartReminderScheduler(input: { database?: PrismaClient
       targetType: "smart_reminder",
       targetId: result.id,
       outcome: "success",
-      metadata: { occurrenceAt: result.nextOccurrenceAt.toISOString(), channelCount: result.channelCount, scheduled: result.scheduled, deduplicated: result.deduplicated, skippedMissedOccurrences: result.skippedMissedOccurrences },
+      metadata: { occurrenceAt: result.nextOccurrenceAt.toISOString(), channelCount: result.channelCount, scheduled: result.scheduled, deduplicated: result.deduplicated, skippedMissedOccurrences: result.skippedMissedOccurrences, whatsappSenderMode: result.senderMode },
       database,
     });
   }
