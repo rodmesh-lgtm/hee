@@ -21,6 +21,7 @@ const tags=(form:FormData)=>[...new Set(String(form.get("tags")??"").split(/[،,
 function optionalDueAt(form:FormData){const raw=String(form.get("businessDueAt")??"").trim();if(!raw)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(raw))return undefined;const due=new Date(`${raw}T23:59:59.999Z`);return Number.isNaN(due.getTime())?undefined:due;}
 async function context(){const user=await getCurrentUser();if(!user)redirect("/login");const business=await getActiveBusinessForUser(user.id);if(!business)redirect("/dashboard?business=required");if(!await isBusinessNotesSchemaReady())redirect("/dashboard/notes?schema=pending");return{userId:user.id,businessId:business.id};}
 function done(action:string){revalidatePath("/dashboard/notes");revalidatePath("/dashboard/reminders");redirect(`/dashboard/notes?${action}=success`);}
+function continueToReminder(input:{noteId:string;title:string;body:string}){revalidatePath("/dashboard/notes");revalidatePath("/dashboard/reminders");const query=new URLSearchParams({noteId:input.noteId,title:input.title,body:input.body.slice(0,2000),source:"business-memory"});redirect(`/dashboard/reminders?${query.toString()}`);}
 async function audit(tx:Prisma.TransactionClient,input:{businessId:string;userId:string;action:string;noteId:string;metadata?:Record<string,string|number|boolean|null>}){await writeWhatsAppAuditLog({businessId:input.businessId,actorUserId:input.userId,action:input.action,targetType:"business_note",targetId:input.noteId,outcome:"success",metadata:input.metadata,database:tx});}
 
 function structuredFields(form:FormData){
@@ -41,7 +42,7 @@ export async function createBusinessNoteAction(form:FormData){
   const{businessId,userId}=await context();
   const title=text(form,"title",160),body=text(form,"body",8000);
   if(!title||!body)redirect("/dashboard/notes?create=invalid");
-  const isPinned=form.get("isPinned")==="on",category=text(form,"category",64)??"عام",priority=enumValue(form,"priority",PRIORITIES,"normal"),status=enumValue(form,"status",["draft","active"] as const,"active"),noteTags=tags(form),noteId=randomUUID();
+  const isPinned=form.get("isPinned")==="on",category=text(form,"category",64)??"عام",priority=enumValue(form,"priority",PRIORITIES,"normal"),status=enumValue(form,"status",["draft","active"] as const,"active"),noteTags=tags(form),noteId=randomUUID(),afterSave=String(form.get("afterSave")??"")==="reminder"?"reminder":"notes";
   const structured=structuredFields(form);if(structured.businessDueAt===undefined)redirect("/dashboard/notes?create=invalid-due-date");
   const outcome=await db.$transaction(async tx=>{
     const rows=await tx.$queryRaw<Array<{count:bigint}>>(Prisma.sql`SELECT COUNT(*)::bigint AS "count" FROM "BusinessNote" WHERE "businessId"=${businessId} AND "status" <> 'archived'`);
@@ -50,10 +51,12 @@ export async function createBusinessNoteAction(form:FormData){
       INSERT INTO "BusinessNote" ("id","businessId","title","body","isPinned","sortOrder","category","priority","tags","status","noteType","summary","outcome","nextAction","stakeholder","referenceCode","workHealth","responsiblePerson","businessDueAt","createdAt","updatedAt")
       VALUES (${noteId},${businessId},${title},${body},${isPinned},0,${category},${priority},${noteTags},${status},${structured.noteType},${structured.summary},${structured.outcome},${structured.nextAction},${structured.stakeholder},${structured.referenceCode},${structured.workHealth},${structured.responsiblePerson},${structured.businessDueAt},CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
     `);
-    await audit(tx,{businessId,userId,action:"business_note.create",noteId,metadata:{priority,status,pinned:isPinned,tagCount:noteTags.length,noteType:structured.noteType,workHealth:structured.workHealth,hasResponsiblePerson:Boolean(structured.responsiblePerson),hasDueDate:Boolean(structured.businessDueAt),hasNextAction:Boolean(structured.nextAction),hasOutcome:Boolean(structured.outcome)}});
+    await audit(tx,{businessId,userId,action:"business_note.create",noteId,metadata:{priority,status,pinned:isPinned,tagCount:noteTags.length,noteType:structured.noteType,workHealth:structured.workHealth,hasResponsiblePerson:Boolean(structured.responsiblePerson),hasDueDate:Boolean(structured.businessDueAt),hasNextAction:Boolean(structured.nextAction),hasOutcome:Boolean(structured.outcome),continueToReminder:afterSave==="reminder"}});
     return"created" as const;
   },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
-  if(outcome==="limit")redirect("/dashboard/notes?create=limit");done("create");
+  if(outcome==="limit")redirect("/dashboard/notes?create=limit");
+  if(afterSave==="reminder")continueToReminder({noteId,title,body:structured.nextAction??body});
+  done("create");
 }
 
 export async function updateBusinessNoteAction(form:FormData){
