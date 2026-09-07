@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 const actions = readFileSync(resolve(process.cwd(), "app/actions/business-notes.ts"), "utf8");
+const page = readFileSync(resolve(process.cwd(), "app/dashboard/notes/page.tsx"), "utf8");
 
 test("saved business notes can continue into a reviewed reminder without auto-creating one", () => {
   assert.match(actions, /afterSave/);
@@ -14,6 +15,13 @@ test("saved business notes can continue into a reviewed reminder without auto-cr
   assert.match(actions, /body:input\.body\.slice\(0,2000\)/);
   assert.match(actions, /redirect\(`\/dashboard\/reminders\?\$\{query\.toString\(\)\}`\)/);
   assert.doesNotMatch(actions, /createSmartReminder/);
+});
+
+test("business memory UI makes the reviewed continuation an explicit user choice", () => {
+  assert.match(page, /name="afterSave"/);
+  assert.match(page, /value="reminder"/);
+  assert.match(page, /حفظ ثم إعداد تذكير/);
+  assert.match(page, /لا يتم إنشاء أو إرسال أي تذكير تلقائيًا/);
 });
 
 test("note-to-reminder continuation keeps the note write audited and tenant scoped first", () => {
