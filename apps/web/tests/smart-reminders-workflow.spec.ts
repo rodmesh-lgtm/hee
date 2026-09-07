@@ -11,80 +11,18 @@ type Fixture = { userId: string; businessId: string; connectionId: string; templ
 
 async function seed(): Promise<Fixture> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const plan = await db.businessPlan.upsert({
-    where: { code: "BUSINESS" },
-    update: { isActive: true },
-    create: { code: "BUSINESS", name: "Business", monthlyPrice: 9900, productLimit: 10, isActive: true },
-  });
-  const user = await db.user.create({
-    data: {
-      name: "Smart Reminders Workflow",
-      email: `smart-reminders-${suffix}@hee.test`,
-      passwordHash: "rc-only",
-      emailVerifiedAt: new Date(),
-    },
-  });
-  const business = await db.business.create({
-    data: {
-      ownerId: user.id,
-      planId: plan.id,
-      name: "منشأة اختبار التذكيرات",
-      slug: `smart-reminders-${suffix}`,
-      businessType: "خدمات أعمال",
-      phone: "0555000033",
-      whatsapp: "0555000033",
-      city: "الرياض",
-      onboardingCompleted: true,
-    },
-  });
-  await db.subscription.create({
-    data: {
-      businessId: business.id,
-      planId: plan.id,
-      status: "active",
-      provider: "moyasar",
-      startsAt: new Date(Date.now() - 60_000),
-      endsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      autoRenew: false,
-    },
-  });
-  const connection = await db.whatsAppConnection.create({
-    data: {
-      businessId: business.id,
-      provider: "meta",
-      status: "connected",
-      wabaId: `waba-${suffix}`,
-      phoneNumberId: `phone-${suffix}`,
-      displayPhoneNumber: "+966555000033",
-      verifiedName: "INFRO Reminder Test",
-      credentialEnvelope: { v: 1, alg: "aes-256-gcm", keyVersion: "rc", iv: "rc", ciphertext: "rc", tag: "rc" },
-      connectedAt: new Date(),
-    },
-  });
-  const template = await db.whatsAppTemplate.create({
-    data: {
-      businessId: business.id,
-      connectionId: connection.id,
-      provider: "meta",
-      providerTemplateId: `reminder-template-${suffix}`,
-      name: `infro_reminder_${suffix.replaceAll("-", "_")}`,
-      language: "ar",
-      category: "utility",
-      status: "approved",
-      providerStatus: "APPROVED",
-      components: [{ type: "BODY", text: "تذكيرك: {{1}}" }],
-      rawPayload: { status: "APPROVED" },
-      lastSyncedAt: new Date(),
-    },
-  });
+  const plan = await db.businessPlan.upsert({ where: { code: "BUSINESS" }, update: { isActive: true }, create: { code: "BUSINESS", name: "Business", monthlyPrice: 9900, productLimit: 10, isActive: true } });
+  const user = await db.user.create({ data: { name: "Smart Reminders Workflow", email: `smart-reminders-${suffix}@hee.test`, passwordHash: "rc-only", emailVerifiedAt: new Date() } });
+  const business = await db.business.create({ data: { ownerId: user.id, planId: plan.id, name: "منشأة اختبار التذكيرات", slug: `smart-reminders-${suffix}`, businessType: "خدمات أعمال", phone: "0555000033", whatsapp: "0555000033", city: "الرياض", onboardingCompleted: true } });
+  await db.subscription.create({ data: { businessId: business.id, planId: plan.id, status: "active", provider: "moyasar", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 24 * 60 * 60 * 1000), autoRenew: false } });
+  const connection = await db.whatsAppConnection.create({ data: { businessId: business.id, provider: "meta", status: "connected", wabaId: `waba-${suffix}`, phoneNumberId: `phone-${suffix}`, displayPhoneNumber: "+966555000033", verifiedName: "INFRO Reminder Test", credentialEnvelope: { v: 1, alg: "aes-256-gcm", keyVersion: "rc", iv: "rc", ciphertext: "rc", tag: "rc" }, connectedAt: new Date() } });
+  const template = await db.whatsAppTemplate.create({ data: { businessId: business.id, connectionId: connection.id, provider: "meta", providerTemplateId: `reminder-template-${suffix}`, name: `infro_reminder_${suffix.replaceAll("-", "_")}`, language: "ar", category: "utility", status: "approved", providerStatus: "APPROVED", components: [{ type: "BODY", text: "تذكيرك: {{1}}" }], rawPayload: { status: "APPROVED" }, lastSyncedAt: new Date() } });
   const token = crypto.randomUUID();
   await db.session.create({ data: { token, userId: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
   return { userId: user.id, businessId: business.id, connectionId: connection.id, templateId: template.id, token };
 }
 
 async function cleanup(fixture: Fixture) {
-  // Audit evidence is intentionally append-only at the database boundary. This RC database
-  // is ephemeral, so cleanup removes only mutable workflow rows and the reusable session.
   await db.$executeRaw(Prisma.sql`DELETE FROM "SmartReminderDelivery" WHERE "businessId" = ${fixture.businessId}`);
   await db.$executeRaw(Prisma.sql`DELETE FROM "SmartReminder" WHERE "businessId" = ${fixture.businessId}`);
   await db.session.deleteMany({ where: { userId: fixture.userId } });
@@ -97,22 +35,18 @@ test.describe.serial("smart reminders authenticated workflow", () => {
     pool = new Pool({ connectionString, max: 3 });
     db = new PrismaClient({ adapter: new PrismaPg(pool) });
   });
-
-  test.afterAll(async () => {
-    await db?.$disconnect();
-  });
+  test.afterAll(async () => { await db?.$disconnect(); });
 
   test("owner creates, pauses, resumes and completes a tenant-scoped recurring reminder", async ({ page }) => {
     test.setTimeout(120_000);
     const fixture = await seed();
     await page.context().addCookies([{ name: "hee_session", value: fixture.token, url: baseUrl }]);
-
     try {
       await test.step("open reminder workspace", async () => {
         const response = await page.goto(`${baseUrl}/dashboard/reminders`, { waitUntil: "domcontentloaded" });
         expect(response?.ok()).toBe(true);
         await expect(page.locator('[data-dashboard-path="/dashboard/reminders"]')).toBeVisible();
-        await expect(page.getByRole("heading", { name: "تذكيرات أعمالك الذكية" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "مركز تنفيذ الأعمال" })).toBeVisible();
         await expect(page.getByRole("button", { name: "حفظ وتفعيل التذكير" })).toBeVisible();
       });
 
@@ -122,18 +56,12 @@ test.describe.serial("smart reminders authenticated workflow", () => {
         await page.locator('textarea[name="body"]').fill("راجع العرض وتأكد من الخطوة التالية.");
         await page.locator('input[name="scheduledLocal"]').fill(scheduledLocal);
         await page.locator('select[name="recurrenceType"]').selectOption("weekly");
-
-        // This lifecycle E2E deliberately uses the local in-app transport so its outcome
-        // never depends on central Meta credentials or environment-specific sender readiness.
-        // WhatsApp consent and Meta-only safeguards remain covered independently by domain,
-        // source-guard and delivery-worker tests.
         const whatsappChannel = page.locator('input[name="deliveryChannels"][value="whatsapp"]');
         if (await whatsappChannel.isEnabled()) await whatsappChannel.uncheck();
         const inAppChannel = page.locator('input[name="deliveryChannels"][value="in_app"]');
         await inAppChannel.check();
         const consent = page.locator('input[name="recipientConsentAccepted"]');
         if (await consent.isEnabled() && await consent.isChecked()) await consent.uncheck();
-
         await page.getByRole("button", { name: "حفظ وتفعيل التذكير" }).click();
         await page.waitForURL(/\/dashboard\/reminders\?create=success/);
       });
@@ -157,7 +85,6 @@ test.describe.serial("smart reminders authenticated workflow", () => {
         await page.getByRole("button", { name: "إيقاف" }).click();
         await page.waitForURL(/\/dashboard\/reminders\?pause=success/);
         await expect(page.getByText("متوقف مؤقتًا", { exact: true })).toBeVisible();
-
         await page.getByRole("button", { name: "استئناف" }).click();
         await page.waitForURL(/\/dashboard\/reminders\?resume=success/);
         await expect(page.getByText("قادم", { exact: true })).toBeVisible();
@@ -172,11 +99,8 @@ test.describe.serial("smart reminders authenticated workflow", () => {
       `);
       expect(completed[0]?.status).toBe("completed");
       expect(completed[0]?.nextOccurrenceAt).toBeNull();
-
       const auditCount = await db.whatsAppAuditLog.count({ where: { businessId: fixture.businessId } });
       expect(auditCount).toBeGreaterThan(0);
-    } finally {
-      await cleanup(fixture);
-    }
+    } finally { await cleanup(fixture); }
   });
 });
