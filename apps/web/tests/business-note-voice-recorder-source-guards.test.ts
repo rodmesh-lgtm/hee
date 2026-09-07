@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const componentPath = new URL("../components/dashboard/business-note-voice-textarea.tsx", import.meta.url);
+const nextConfigPath = new URL("../next.config.ts", import.meta.url);
 
 test("voice recorder requests the microphone independently of AI readiness", async () => {
   const source = await readFile(componentPath, "utf8");
@@ -33,4 +34,12 @@ test("browser live transcription can recover when server AI is unavailable", asy
   assert.match(source, /webkitSpeechRecognition/);
   assert.match(source, /fallbackTranscriptSeenRef/);
   assert.match(source, /تم تحويل الكلام إلى نص عبر المتصفح/);
+});
+
+test("microphone permission is denied globally and opened only for business notes", async () => {
+  const source = await readFile(nextConfigPath, "utf8");
+  assert.match(source, /defaultPermissionsPolicy = "camera=\(\), microphone=\(\), geolocation=\(\), payment=\(\)"/);
+  assert.match(source, /businessNotesPermissionsPolicy = "camera=\(\), microphone=\(self\), geolocation=\(\), payment=\(\)"/);
+  assert.match(source, /source: "\/dashboard\/notes\/:path\*"/);
+  assert.match(source, /value: businessNotesPermissionsPolicy/);
 });
