@@ -91,7 +91,7 @@ test.describe.serial("smart reminders authenticated workflow", () => {
       });
 
       await test.step("complete reminder lifecycle", async () => {
-        await page.getByRole("button", { name: "إكمال" }).click();
+        await page.getByRole("button", { name: "إنهاء التذكير" }).click();
         await page.waitForURL(/\/dashboard\/reminders\?complete=success/);
       });
       const completed = await db.$queryRaw<Array<{ status: string; nextOccurrenceAt: Date | null }>>(Prisma.sql`
