@@ -2,11 +2,13 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
 
-const isRcPreview = String(process.env.VERCEL_ENV ?? "").trim().toLowerCase() === "preview"
-  && process.env.VERCEL_GIT_COMMIT_REF === "hee-v6-rc";
+const vercelEnv = String(process.env.VERCEL_ENV ?? "").trim().toLowerCase();
+const gitRef = String(process.env.VERCEL_GIT_COMMIT_REF ?? "").trim();
+const previewSchemaRefs = new Set(["hee-v6-rc", "infro-business-memory-2026"]);
+const isManagedPreview = vercelEnv === "preview" && previewSchemaRefs.has(gitRef);
 
-if (!isRcPreview) {
-  console.log("[rc-preview-schema] SKIP — not the hee-v6-rc Vercel Preview deployment");
+if (!isManagedPreview) {
+  console.log("[rc-preview-schema] SKIP — deployment is not an approved isolated schema-managed Preview");
   process.exit(0);
 }
 
@@ -26,9 +28,6 @@ function strictDatabaseUrl(raw) {
   }
   const mode = String(modes[0] ?? "").trim().toLowerCase();
   if (["prefer", "require", "verify-ca"].includes(mode)) {
-    // node-postgres currently treats these legacy values with verify-full semantics but
-    // pg v9 will adopt weaker libpq-compatible behavior. Canonicalize now so the RC
-    // database gate cannot silently lose hostname verification after a dependency bump.
     parsed.searchParams.set("sslmode", "verify-full");
   } else if (mode !== "verify-full") {
     throw new Error("DATABASE_URL must use sslmode=verify-full");
@@ -90,7 +89,8 @@ try {
     || critical.analyticsMetadataType !== "jsonb";
 
   if (incompatible) {
-    console.error("[rc-preview-schema] REFUSED — RC Preview database is not compatible with this release", {
+    console.error("[rc-preview-schema] REFUSED — managed Preview database is not compatible with this release", {
+      gitRef,
       expectedMigrationCount: expected.length,
       appliedMigrationCount: applied.length,
       pending,
@@ -100,7 +100,7 @@ try {
     });
     process.exitCode = 1;
   } else {
-    console.log(`[rc-preview-schema] PASS — ${applied.length} migrations current; latest=${expected.at(-1) ?? "none"}`);
+    console.log(`[rc-preview-schema] PASS — ${applied.length} migrations current; latest=${expected.at(-1) ?? "none"}; ref=${gitRef}`);
   }
 } finally {
   await client.end();

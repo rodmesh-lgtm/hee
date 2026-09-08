@@ -9,6 +9,14 @@
     {
       "path": "/api/cron/whatsapp-operations",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/smart-reminders",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/business-memory-retention",
+      "schedule": "17 3 * * *"
     }
   ]
 }

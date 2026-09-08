@@ -20,24 +20,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
   const provider = asProvider(rawProvider);
   if (!provider) return redirectToApp(request, "/login?oauth=unsupported-provider");
   const { searchParams } = new URL(request.url);
+  const registration = searchParams.get("mode") === "register";
 
-  // Social registration is not exposed in the current product and, more importantly,
-  // would bypass the explicit Terms/Privacy checkbox on /register. Keep OAuth login-only
-  // until a consent-aware social registration flow is implemented and audited.
-  if (searchParams.get("mode") === "register") return redirectToApp(request, "/register?oauth=consent-required");
-  const redirectTo = "/dashboard";
+  // Social registration is allowed only after the customer explicitly accepts the
+  // same Terms/Privacy consent presented on /register. The server validates this
+  // marker as well as the client UI so a hand-crafted registration URL cannot bypass
+  // the consent gate.
+  if (registration && searchParams.get("consent") !== "accepted") {
+    return redirectToApp(request, "/register?oauth=consent-required");
+  }
+  const redirectTo = registration ? "/onboarding" : "/dashboard";
 
   try {
     const identity = requestClientAddress(request) || "unknown";
     const rate = await consumePublicWriteLimit({ scope: `oauth-start-${provider}`, businessId: "auth", identity, limit: 30, windowSeconds: 10 * 60 });
     if (!rate.allowed) {
-      const response = redirectToApp(request, "/login?oauth=too-many-attempts");
+      const response = redirectToApp(request, `/${registration ? "register" : "login"}?oauth=too-many-attempts`);
       response.headers.set("Retry-After", String(Math.max(1, rate.retryAfterSeconds)));
       return response;
     }
   } catch (error) {
     console.error("[oauth-start] rate_limit_failed", { provider, error });
-    const response = redirectToApp(request, "/login?oauth=start-unavailable");
+    const response = redirectToApp(request, `/${registration ? "register" : "login"}?oauth=start-unavailable`);
     response.headers.set("Retry-After", "30");
     return response;
   }
@@ -52,6 +56,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
   } catch (error) {
     console.error("[oauth-start] failed", { provider, error: error instanceof Error ? error.message : "unknown" });
     const code = error instanceof Error && error.message === "provider-not-configured" ? "provider-unavailable" : "start-failed";
-    return redirectToApp(request, `/login?oauth=${code}`);
+    return redirectToApp(request, `/${registration ? "register" : "login"}?oauth=${code}`);
   }
 }
