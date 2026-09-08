@@ -63,4 +63,6 @@
  [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{padding:14px!important}
 }
 [data-dashboard-path="/dashboard"][data-dashboard-theme="dark"] section[aria-labelledby="work-center"] article{border-color:#1d3a3e!important}
+[data-dashboard-path="/dashboard"][data-dashboard-theme="dark"] section[aria-labelledby="work-center"] article :where(.bg-white,.bg-white\/70,.bg-white\/80){background:#0d2528!important;border-color:#24484c!important}
+[data-dashboard-path="/dashboard"][data-dashboard-theme="dark"] section[aria-labelledby="work-center"] article :where(.text-slate-600,.text-slate-700){color:#b5c5c7!important}
 @media(prefers-reduced-motion:reduce){[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{transition:none!important}}
