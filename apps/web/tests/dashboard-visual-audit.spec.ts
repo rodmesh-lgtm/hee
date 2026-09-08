@@ -107,16 +107,56 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
   return{...metrics,file,url:`${baseUrl}${input.path}`};
 }
 
+async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepage"|"register";viewportName:"public-desktop"|"public-mobile";viewport:{width:number;height:number}}){
+  const context=await browser.newContext({viewport:input.viewport});
+  const page=await context.newPage();
+  try{
+    const response=await page.goto(`${baseUrl}${input.path}`,{waitUntil:"networkidle"});
+    expect(response?.status()).toBe(200);
+    await expect(page.locator("body")).toBeVisible();
+    await page.waitForTimeout(250);
+    const metrics=await page.evaluate(()=>({
+      overflow:document.documentElement.scrollWidth-window.innerWidth,
+      bodyHeight:document.body.scrollHeight,
+      title:document.title,
+      legacyAbout:[...document.querySelectorAll("a")].some(link=>(link.textContent??"").trim()==="عن iR"),
+      appleRegistration:[...document.querySelectorAll("a")].some(link=>(link.textContent??"").includes("Apple")),
+    }));
+    if(input.name==="homepage"){
+      await expect(page.getByRole("heading",{name:/هويتك الرقمية والتسويقية/})).toBeVisible();
+      await expect(page.getByRole("link",{name:"عن INFRO"}).first()).toBeVisible();
+      expect(metrics.title).toContain("INFRO");
+      expect(metrics.legacyAbout).toBe(false);
+    }else{
+      await expect(page.getByRole("heading",{name:"إنشاء حساب INFRO"})).toBeVisible();
+      await expect(page.getByRole("link",{name:/Google/})).toBeVisible();
+      expect(metrics.appleRegistration).toBe(false);
+    }
+    expect(metrics.overflow).toBeLessThanOrEqual(2);
+    const file=`${input.viewportName}-${input.name}.png`;
+    await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
+    await writeFile(`${outDir}/${input.viewportName}-${input.name}.json`,JSON.stringify({...metrics,file,url:`${baseUrl}${input.path}`},null,2),"utf8");
+    return{...metrics,file,url:`${baseUrl}${input.path}`};
+  }finally{
+    await page.close();
+    await context.close();
+  }
+}
+
 test.describe.serial("authenticated INFRO visual audit",()=>{
   test.beforeAll(async()=>{await mkdir(outDir,{recursive:true});const connectionString=String(process.env.DATABASE_URL??"").trim();if(!connectionString)throw new Error("DATABASE_URL is required");pool=new Pool({connectionString,max:4});db=new PrismaClient({adapter:new PrismaPg(pool)});seeded=await seedWorkspace();});
   test.afterAll(async()=>{if(seeded)await cleanupWorkspace(seeded);await db?.$disconnect();await pool?.end();});
-  test("captures dense execution cards across desktop/mobile light/dark without overflow, collisions, light islands or compressed grids",async({browser})=>{
-    test.setTimeout(240_000);if(!seeded)throw new Error("visual fixture missing");
+  test("captures launch-critical public and authenticated surfaces without overflow, collisions, light islands or compressed grids",async({browser})=>{
+    test.setTimeout(300_000);if(!seeded)throw new Error("visual fixture missing");
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
     const viewports=[{name:"desktop",value:{width:1440,height:960}},{name:"mobile",value:{width:390,height:844}}] as const;
     const results:unknown[]=[];
     for(const viewport of viewports)for(const theme of ["light","dark"] as const){const context=await authenticatedContext(browser,viewport.value,theme,seeded.sessionToken);try{for(const route of routes)results.push(await auditRoute(context,{...route,theme,viewportName:viewport.name}));}finally{await context.close();}}
     for(const theme of ["light","dark"] as const){const context=await authenticatedContext(browser,{width:1536,height:1024},theme,seeded.sessionToken);try{results.push(await auditRoute(context,{path:"/dashboard",name:"command-space",theme,viewportName:"desktop-wide"}));}finally{await context.close();}}
+    for(const publicViewport of [{viewportName:"public-desktop" as const,viewport:{width:1440,height:960}},{viewportName:"public-mobile" as const,viewport:{width:390,height:844}}]){
+      results.push(await auditPublicRoute(browser,{path:"/",name:"homepage",...publicViewport}));
+      results.push(await auditPublicRoute(browser,{path:"/register",name:"register",...publicViewport}));
+    }
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
   });
 });
