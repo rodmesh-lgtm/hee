@@ -209,7 +209,7 @@ export async function completeSmartReminder(input: { businessId: string; actorUs
     if (!reminder || !["scheduled", "paused"].includes(reminder.status)) throw new Error("REMINDER_NOT_COMPLETABLE");
     await assertNoInFlightDelivery(tx, input.businessId, input.reminderId);
     await cancelQueuedDeliveries(tx, input.businessId, input.reminderId);
-    await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "status"='completed',"completedAt"=CURRENT_TIMESTAMP,"nextOccurrenceAt"=NULL,"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${input.reminderId} AND "businessId"=${input.businessId}`);
-    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.complete", targetType: "smart_reminder", targetId: input.reminderId, outcome: "success", database: tx });
+    await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "status"='completed',"completedAt"=CURRENT_TIMESTAMP,"nextOccurrenceAt"=NULL,"progressPercent"=100,"progressUpdatedAt"=CURRENT_TIMESTAMP,"workCompletedAt"=COALESCE("workCompletedAt",CURRENT_TIMESTAMP),"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${input.reminderId} AND "businessId"=${input.businessId}`);
+    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.complete", targetType: "smart_reminder", targetId: input.reminderId, outcome: "success", metadata: { progressPercent: 100 }, database: tx });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
