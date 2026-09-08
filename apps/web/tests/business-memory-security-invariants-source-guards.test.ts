@@ -31,7 +31,12 @@ test("Business Memory refuses deletion while a same-tenant Smart Reminder is lin
 
 test("Business Memory to Reminder handoff passes note identity but never tenant identity from the client",async()=>{
   const s=await readFile(actionsFile,"utf8");
-  assert.ok(s.includes('noteId:input.noteId'));
-  assert.ok(s.includes('source:"business-memory"'));
-  assert.ok(!s.includes('businessId:input.businessId'));
+  const start=s.indexOf('function continueToReminder(input:{noteId:string;title:string;body:string})');
+  const end=s.indexOf('\nasync function audit(',start);
+  assert.ok(start>=0&&end>start,"continueToReminder helper must keep a narrow client handoff contract");
+  const handoff=s.slice(start,end);
+  assert.ok(handoff.includes('noteId:input.noteId'));
+  assert.ok(handoff.includes('source:"business-memory"'));
+  assert.ok(!handoff.includes("businessId"));
+  assert.ok(s.includes('if(afterSave==="reminder")continueToReminder({noteId,title,body:structured.nextAction??body})'));
 });
