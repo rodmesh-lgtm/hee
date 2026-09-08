@@ -1,11 +1,11 @@
 /* INFRO dashboard interior — stable operational canvas without nested-column collisions. */
-[data-dashboard-path="/dashboard"] #dashboard-main-content{width:100%;max-width:none;margin-inline:0;padding-inline:0;container-type:inline-size;container-name:dashboard-canvas}
-[data-dashboard-path="/dashboard"] #dashboard-main-content>div{width:100%;min-width:0;gap:16px!important;grid-template-columns:1fr!important;align-items:start}
+[data-dashboard-path="/dashboard"] #dashboard-main-content{display:block!important;width:100%!important;max-width:none!important;margin-inline:0!important;padding-inline:0;container-type:inline-size;container-name:dashboard-canvas}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div{width:100%!important;max-width:none!important;margin-inline:0!important;min-width:0;gap:16px!important;grid-template-columns:1fr!important;align-items:start}
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{min-width:0;grid-column:auto!important;grid-row:auto!important}
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section{min-width:0;overflow:hidden}
 
 /* Execution center: preserve the component's own card anatomy. The group grid owns columns;
-   individual cards stay vertical so metadata, next action, progress and CTA can never auto-place
+   individual cards stay vertical so metadata, next action, progress and CTA never auto-place
    into competing CSS-grid cells. */
 [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]{background:var(--infro-surface,#fff)!important}
 [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:first-child{padding:18px 20px!important}
@@ -27,7 +27,7 @@
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3) :where(.rounded-\[22px\],.rounded-\[24px\],.rounded-2xl){border-radius:12px!important}
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3) :where(.tracking-\[\.16em\],.tracking-\[\.18em\]){letter-spacing:.08em!important}
 
-/* The split is based on the real dashboard canvas, not the browser viewport. */
+/* Split by the real usable dashboard canvas, not browser viewport width. */
 @container dashboard-canvas (min-width:1100px){
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div{grid-template-columns:repeat(12,minmax(0,1fr))!important}
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{grid-column:span 6!important;grid-row:auto!important;align-self:start}
