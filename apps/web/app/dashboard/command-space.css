@@ -1,0 +1,42 @@
+/* INFRO Command Space — operational hierarchy over presentation-card hierarchy. */
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div{display:grid;gap:12px}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child{border-radius:18px!important;box-shadow:0 16px 36px -34px rgba(7,24,27,.9)}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child>div:first-child{padding:20px!important}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child h1{margin-top:10px!important;font-size:1.55rem!important;line-height:1.2}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child p{margin-top:6px!important}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child div:has(>a[href="/dashboard/notes"]){margin-top:15px!important}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child a[href="/dashboard/notes"],
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child a[href="/dashboard/reminders"]{min-height:40px!important}
+
+/* Execution is the visual center of gravity. */
+[data-dashboard-path="/dashboard"] #work-center{font-size:1.02rem!important}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]{border-radius:16px!important;border-color:#cfdedd!important;box-shadow:0 12px 30px -28px rgba(7,24,27,.55)!important}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:first-child{padding:15px 16px!important;background:#f8fbfb}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{border-radius:11px!important;box-shadow:none!important;transition:border-color .16s ease,background-color .16s ease,transform .16s ease}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article:hover{border-color:#9ccbc6!important;background:#fbfefd;transform:translateY(-1px)}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article :where(a,button){min-height:40px}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] [role="progressbar"]{height:5px!important}
+
+/* Secondary dashboard surfaces should read as supporting context. */
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3){border-radius:15px!important;box-shadow:none!important}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3) article{box-shadow:none!important}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3) h2{letter-spacing:-.01em}
+
+@media(min-width:1280px){
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div{grid-template-columns:minmax(0,1.62fr) minmax(310px,.68fr);align-items:start}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child{grid-column:1/-1}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section[aria-labelledby="work-center"]{grid-column:1;grid-row:2/span 4}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3){grid-column:2}
+ [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:not(:first-child){grid-template-columns:1fr!important}
+}
+@media(max-width:767px){
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div{gap:10px}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child>div:first-child{padding:16px!important}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child h1{font-size:1.3rem!important}
+ [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:first-child{padding:13px!important}
+ [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{padding:13px!important}
+}
+[data-dashboard-path="/dashboard"][data-dashboard-theme="dark"] section[aria-labelledby="work-center"]{border-color:#24484c!important}
+[data-dashboard-path="/dashboard"][data-dashboard-theme="dark"] section[aria-labelledby="work-center"]>div:first-child{background:#0d2528!important;border-color:#1d3a3e!important}
+[data-dashboard-path="/dashboard"][data-dashboard-theme="dark"] section[aria-labelledby="work-center"] article:hover{border-color:#356268!important;background:#0c2225!important}
+@media(prefers-reduced-motion:reduce){[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{transition:none!important;transform:none!important}}

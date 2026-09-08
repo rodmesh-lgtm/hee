@@ -5,9 +5,10 @@ import { Prisma } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "../whatsapp/audit";
 import { normalizeE164 } from "../whatsapp/contact-domain";
-import { normalizeReminderRecurrence, normalizeReminderTimezone, reminderTemplateSupportsBodyParameter, validateReminderSchedule, type ReminderRecurrenceType } from "./domain";
+import { normalizeReminderChannels, normalizeReminderRecurrence, normalizeReminderTimezone, reminderTemplateSupportsBodyParameter, validateReminderSchedule, type ReminderDeliveryChannel, type ReminderRecurrenceType } from "./domain";
 
 const REMINDER_CONSENT_EVIDENCE = "dashboard_explicit_reminder_opt_in_v1";
+type WhatsAppSenderMode = "platform" | "tenant";
 
 function boundedText(value: string, max: number, code: string) {
   const normalized = value.normalize("NFKC").trim().replace(/\s+/g, " ");
@@ -18,9 +19,7 @@ function boundedText(value: string, max: number, code: string) {
 async function resolveSelfReminderRecipient(database: Prisma.TransactionClient, input: { businessId: string; requestedPhone?: string | null }) {
   const business = await database.business.findFirst({ where: { id: input.businessId, deletedAt: null }, select: { whatsapp: true, phone: true } });
   if (!business) throw new Error("REMINDER_BUSINESS_NOT_FOUND");
-  const allowed = [business.whatsapp, business.phone]
-    .map((value) => normalizeE164(value, "966"))
-    .filter((value): value is string => Boolean(value));
+  const allowed = [business.whatsapp, business.phone].map((value) => normalizeE164(value, "966")).filter((value): value is string => Boolean(value));
   const uniqueAllowed = [...new Set(allowed)];
   if (!uniqueAllowed.length) throw new Error("REMINDER_RECIPIENT_NOT_CONFIGURED");
   if (!input.requestedPhone) return uniqueAllowed[0];
@@ -67,35 +66,84 @@ async function cancelQueuedDeliveries(database: Prisma.TransactionClient, busine
 }
 
 export async function createSmartReminder(input: {
-  businessId: string; actorUserId: string; title: string; body: string; templateId: string; scheduledAt: Date; timezone: string;
-  recurrenceType?: ReminderRecurrenceType | string; recipientPhone?: string | null; recipientConsentAccepted: boolean;
+  businessId: string;
+  actorUserId: string;
+  title: string;
+  body: string;
+  templateId?: string | null;
+  businessNoteId?: string | null;
+  scheduledAt: Date;
+  timezone: string;
+  recurrenceType?: ReminderRecurrenceType | string;
+  recipientPhone?: string | null;
+  recipientConsentAccepted?: boolean;
+  deliveryChannels?: readonly (ReminderDeliveryChannel | string)[];
+  whatsappSenderMode?: WhatsAppSenderMode;
 }) {
-  if (!input.recipientConsentAccepted) throw new Error("REMINDER_RECIPIENT_CONSENT_REQUIRED");
+  const deliveryChannels = normalizeReminderChannels(input.deliveryChannels ?? ["in_app"]);
+  const wantsWhatsApp = deliveryChannels.includes("whatsapp");
+  const whatsappSenderMode: WhatsAppSenderMode = wantsWhatsApp ? (input.whatsappSenderMode ?? "platform") : "platform";
+  if (wantsWhatsApp && !input.recipientConsentAccepted) throw new Error("REMINDER_RECIPIENT_CONSENT_REQUIRED");
   const title = boundedText(input.title, 160, "REMINDER_TITLE_INVALID");
   const body = boundedText(input.body, 2000, "REMINDER_BODY_INVALID");
   const timezone = normalizeReminderTimezone(input.timezone);
   const scheduledAt = validateReminderSchedule({ scheduledAt: input.scheduledAt });
   const recurrenceType = normalizeReminderRecurrence(input.recurrenceType ?? "once");
   const id = randomUUID();
-  const consentedAt = new Date();
 
   await db.$transaction(async (tx) => {
-    const [template, recipientPhoneE164] = await Promise.all([
-      requireRunnableReminderTemplate(tx, { businessId: input.businessId, templateId: input.templateId }),
-      resolveSelfReminderRecipient(tx, { businessId: input.businessId, requestedPhone: input.recipientPhone }),
-    ]);
+    let connectionId: string | null = null;
+    let templateId: string | null = null;
+    let recipientPhoneE164: string | null = null;
+    let recipientConsentedAt: Date | null = null;
+    let recipientConsentEvidence: string | null = null;
+
+    if (input.businessNoteId) {
+      const note = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id" FROM "BusinessNote"
+        WHERE "id"=${input.businessNoteId} AND "businessId"=${input.businessId} AND "status" <> 'archived'
+        LIMIT 1
+      `);
+      if (!note[0]) throw new Error("REMINDER_NOTE_INVALID");
+    }
+
+    if (wantsWhatsApp) {
+      recipientPhoneE164 = await resolveSelfReminderRecipient(tx, { businessId: input.businessId, requestedPhone: input.recipientPhone });
+      recipientConsentedAt = new Date();
+      recipientConsentEvidence = REMINDER_CONSENT_EVIDENCE;
+
+      // Legacy tenant-bound reminders remain supported, but all newly-created customer
+      // reminders default to the dedicated INFRO REMINDER platform sender.
+      if (whatsappSenderMode === "tenant") {
+        if (!input.templateId) throw new Error("REMINDER_TEMPLATE_NOT_RUNNABLE");
+        const template = await requireRunnableReminderTemplate(tx, { businessId: input.businessId, templateId: input.templateId });
+        connectionId = template.connectionId;
+        templateId = template.id;
+      }
+    }
+
     await tx.$executeRaw(Prisma.sql`
       INSERT INTO "SmartReminder" (
-        "id", "businessId", "createdByUserId", "connectionId", "templateId", "title", "body", "recipientPhoneE164",
-        "recipientConsentedAt", "recipientConsentEvidence", "timezone", "scheduledAt", "nextOccurrenceAt", "recurrenceType", "status", "updatedAt"
+        "id", "businessId", "createdByUserId", "connectionId", "templateId", "businessNoteId", "title", "body", "recipientPhoneE164",
+        "recipientConsentedAt", "recipientConsentEvidence", "timezone", "scheduledAt", "nextOccurrenceAt", "recurrenceType", "deliveryChannels", "whatsappSenderMode", "status", "updatedAt"
       ) VALUES (
-        ${id}, ${input.businessId}, ${input.actorUserId}, ${template.connectionId}, ${template.id}, ${title}, ${body}, ${recipientPhoneE164},
-        ${consentedAt}, ${REMINDER_CONSENT_EVIDENCE}, ${timezone}, ${scheduledAt}, ${scheduledAt}, ${recurrenceType}, 'scheduled', CURRENT_TIMESTAMP
+        ${id}, ${input.businessId}, ${input.actorUserId}, ${connectionId}, ${templateId}, ${input.businessNoteId ?? null}, ${title}, ${body}, ${recipientPhoneE164},
+        ${recipientConsentedAt}, ${recipientConsentEvidence}, ${timezone}, ${scheduledAt}, ${scheduledAt}, ${recurrenceType}, ${deliveryChannels}, ${whatsappSenderMode}, 'scheduled', CURRENT_TIMESTAMP
       )
     `);
-    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.create", targetType: "smart_reminder", targetId: id, outcome: "success", metadata: { timezone, recurrenceType, connectionId: template.connectionId, templateId: template.id, reminderConsent: true }, database: tx });
+    await writeWhatsAppAuditLog({
+      businessId: input.businessId,
+      actorUserId: input.actorUserId,
+      action: "reminder.create",
+      targetType: "smart_reminder",
+      targetId: id,
+      outcome: "success",
+      metadata: { timezone, recurrenceType, channelCount: deliveryChannels.length, whatsappEnabled: wantsWhatsApp, whatsappSenderMode: wantsWhatsApp ? whatsappSenderMode : null, noteLinked: Boolean(input.businessNoteId) },
+      database: tx,
+    });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-  return { id, scheduledAt, timezone, recurrenceType };
+
+  return { id, scheduledAt, timezone, recurrenceType, deliveryChannels, whatsappSenderMode };
 }
 
 export async function updateSmartReminderContent(input: { businessId: string; actorUserId: string; reminderId: string; title: string; body: string }) {
@@ -105,10 +153,7 @@ export async function updateSmartReminderContent(input: { businessId: string; ac
     const reminder = await lockReminder(tx, input.businessId, input.reminderId);
     if (!reminder || !["scheduled", "paused"].includes(reminder.status)) throw new Error("REMINDER_NOT_EDITABLE");
     await assertNoInFlightDelivery(tx, input.businessId, input.reminderId);
-    await tx.$executeRaw(Prisma.sql`
-      UPDATE "SmartReminder" SET "title" = ${title}, "body" = ${body}, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${input.reminderId} AND "businessId" = ${input.businessId}
-    `);
+    await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "title"=${title}, "body"=${body}, "updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${input.reminderId} AND "businessId"=${input.businessId}`);
     await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.update", targetType: "smart_reminder", targetId: input.reminderId, outcome: "success", database: tx });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
@@ -119,10 +164,7 @@ export async function cancelSmartReminder(input: { businessId: string; actorUser
     if (!reminder || !["scheduled", "paused"].includes(reminder.status)) throw new Error("REMINDER_NOT_CANCELLABLE");
     await assertNoInFlightDelivery(tx, input.businessId, input.reminderId);
     await cancelQueuedDeliveries(tx, input.businessId, input.reminderId);
-    await tx.$executeRaw(Prisma.sql`
-      UPDATE "SmartReminder" SET "status" = 'cancelled', "cancelledAt" = CURRENT_TIMESTAMP, "nextOccurrenceAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${input.reminderId} AND "businessId" = ${input.businessId}
-    `);
+    await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "status"='cancelled',"cancelledAt"=CURRENT_TIMESTAMP,"nextOccurrenceAt"=NULL,"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${input.reminderId} AND "businessId"=${input.businessId}`);
     await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.cancel", targetType: "smart_reminder", targetId: input.reminderId, outcome: "success", database: tx });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
@@ -135,11 +177,7 @@ export async function rescheduleSmartReminder(input: { businessId: string; actor
     if (!reminder || !["scheduled", "paused"].includes(reminder.status)) throw new Error("REMINDER_NOT_RESCHEDULABLE");
     await assertNoInFlightDelivery(tx, input.businessId, input.reminderId);
     await cancelQueuedDeliveries(tx, input.businessId, input.reminderId);
-    await tx.$executeRaw(Prisma.sql`
-      UPDATE "SmartReminder"
-      SET "scheduledAt" = ${scheduledAt}, "nextOccurrenceAt" = ${scheduledAt}, "timezone" = ${timezone}, "status" = 'scheduled', "pausedAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${input.reminderId} AND "businessId" = ${input.businessId}
-    `);
+    await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "scheduledAt"=${scheduledAt},"nextOccurrenceAt"=${scheduledAt},"timezone"=${timezone},"status"='scheduled',"pausedAt"=NULL,"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${input.reminderId} AND "businessId"=${input.businessId}`);
     await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.reschedule", targetType: "smart_reminder", targetId: input.reminderId, outcome: "success", metadata: { timezone }, database: tx });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   return { scheduledAt, timezone };
@@ -150,10 +188,7 @@ export async function pauseSmartReminder(input: { businessId: string; actorUserI
     const reminder = await lockReminder(tx, input.businessId, input.reminderId);
     if (!reminder || reminder.status !== "scheduled" || !reminder.nextOccurrenceAt) throw new Error("REMINDER_NOT_PAUSABLE");
     await assertNoInFlightDelivery(tx, input.businessId, input.reminderId);
-    await tx.$executeRaw(Prisma.sql`
-      UPDATE "SmartReminder" SET "status" = 'paused', "pausedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${input.reminderId} AND "businessId" = ${input.businessId}
-    `);
+    await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "status"='paused',"pausedAt"=CURRENT_TIMESTAMP,"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${input.reminderId} AND "businessId"=${input.businessId}`);
     await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.pause", targetType: "smart_reminder", targetId: input.reminderId, outcome: "success", database: tx });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
@@ -163,10 +198,7 @@ export async function resumeSmartReminder(input: { businessId: string; actorUser
     const reminder = await lockReminder(tx, input.businessId, input.reminderId);
     if (!reminder || reminder.status !== "paused" || !reminder.nextOccurrenceAt) throw new Error("REMINDER_NOT_RESUMABLE");
     if (reminder.nextOccurrenceAt.getTime() <= Date.now()) throw new Error("REMINDER_RESCHEDULE_REQUIRED");
-    await tx.$executeRaw(Prisma.sql`
-      UPDATE "SmartReminder" SET "status" = 'scheduled', "pausedAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${input.reminderId} AND "businessId" = ${input.businessId}
-    `);
+    await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "status"='scheduled',"pausedAt"=NULL,"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${input.reminderId} AND "businessId"=${input.businessId}`);
     await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.resume", targetType: "smart_reminder", targetId: input.reminderId, outcome: "success", database: tx });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
@@ -177,10 +209,7 @@ export async function completeSmartReminder(input: { businessId: string; actorUs
     if (!reminder || !["scheduled", "paused"].includes(reminder.status)) throw new Error("REMINDER_NOT_COMPLETABLE");
     await assertNoInFlightDelivery(tx, input.businessId, input.reminderId);
     await cancelQueuedDeliveries(tx, input.businessId, input.reminderId);
-    await tx.$executeRaw(Prisma.sql`
-      UPDATE "SmartReminder" SET "status" = 'completed', "completedAt" = CURRENT_TIMESTAMP, "nextOccurrenceAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "id" = ${input.reminderId} AND "businessId" = ${input.businessId}
-    `);
-    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.complete", targetType: "smart_reminder", targetId: input.reminderId, outcome: "success", database: tx });
+    await tx.$executeRaw(Prisma.sql`UPDATE "SmartReminder" SET "status"='completed',"completedAt"=CURRENT_TIMESTAMP,"nextOccurrenceAt"=NULL,"progressPercent"=100,"progressUpdatedAt"=CURRENT_TIMESTAMP,"workCompletedAt"=COALESCE("workCompletedAt",CURRENT_TIMESTAMP),"updatedAt"=CURRENT_TIMESTAMP WHERE "id"=${input.reminderId} AND "businessId"=${input.businessId}`);
+    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, action: "reminder.complete", targetType: "smart_reminder", targetId: input.reminderId, outcome: "success", metadata: { progressPercent: 100 }, database: tx });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
