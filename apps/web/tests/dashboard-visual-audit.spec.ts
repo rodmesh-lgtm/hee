@@ -40,7 +40,7 @@ async function authenticatedContext(browser:Browser,viewport:{width:number;heigh
   return context;
 }
 
-async function auditRoute(context:BrowserContext,input:{path:string;name:string;theme:"light"|"dark";viewportName:string}){
+async function auditRoute(context:BrowserContext,input:{path:string;expectedPath?:string;name:string;theme:"light"|"dark";viewportName:string}){
   const page=await context.newPage();
   await page.goto(`${baseUrl}${input.path}`,{waitUntil:"networkidle"});
   expect(page.url()).not.toContain("/login");
@@ -55,7 +55,7 @@ async function auditRoute(context:BrowserContext,input:{path:string;name:string;
     return{path:root?.dataset.dashboardPath??null,theme:root?.dataset.dashboardTheme??null,overflow:document.documentElement.scrollWidth-window.innerWidth,largeLightSurfaces:largeLight,bodyHeight:document.body.scrollHeight};
   });
   expect(metrics.overflow).toBeLessThanOrEqual(2);
-  expect(metrics.path).toBe(input.path.split("?")[0]);
+  expect(metrics.path).toBe(input.expectedPath??input.path.split("?")[0]);
   if(input.theme==="dark")expect(metrics.largeLightSurfaces).toBe(0);
   const file=`${input.viewportName}-${input.theme}-${input.name}.png`;
   await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
@@ -75,7 +75,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       {path:"/dashboard/reminders",name:"smart-reminders"},
       {path:"/dashboard/digital-identity",name:"digital-identity"},
       {path:"/dashboard/billing/manage",name:"billing"},
-      {path:"/dashboard/whatsapp",name:"whatsapp-gate"},
+      {path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"},
     ];
     const viewports=[{name:"desktop",value:{width:1440,height:960}},{name:"mobile",value:{width:390,height:844}}] as const;
     const results:unknown[]=[];
