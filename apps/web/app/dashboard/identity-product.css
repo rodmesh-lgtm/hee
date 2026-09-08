@@ -9,7 +9,8 @@
 [data-dashboard-path="/dashboard/digital-identity"] main :where(input,select,textarea){border-radius:10px!important}
 [data-dashboard-path="/dashboard/digital-identity"] main :where(button,a){border-radius:10px!important}
 [data-dashboard-path="/dashboard/digital-identity"] main :where(button,a):focus-visible{outline:2px solid #12cdb8;outline-offset:2px}
-[data-dashboard-path="/dashboard/digital-identity"] main input[type="file"]{cursor:pointer}
+[data-dashboard-path="/dashboard/digital-identity"] main input[type="file"]{cursor:pointer;overflow:hidden;padding:0!important;color:#64748b;font-size:12px!important;line-height:44px}
+[data-dashboard-path="/dashboard/digital-identity"] main input[type="file"]::file-selector-button{height:44px;border:0;border-inline-end:1px solid #dbe6e5;background:#effbf9;padding-inline:14px;margin-inline-end:10px;color:#006f69;font:800 12px/1 system-ui;cursor:pointer}
 [data-dashboard-path="/dashboard/digital-identity"] main [role="status"],
 [data-dashboard-path="/dashboard/digital-identity"] main [role="alert"]{border-radius:11px!important}
 [data-dashboard-path="/dashboard/digital-identity"] main code{font-variant-numeric:tabular-nums}
@@ -30,4 +31,5 @@
 [data-dashboard-path="/dashboard/digital-identity"][data-dashboard-theme="dark"] #dashboard-main-content>div>section:first-child{background:rgba(10,31,34,.96)!important;border-color:#24484c!important}
 [data-dashboard-path="/dashboard/digital-identity"][data-dashboard-theme="dark"] main section,
 [data-dashboard-path="/dashboard/digital-identity"][data-dashboard-theme="dark"] main article{border-color:#24484c!important}
+[data-dashboard-path="/dashboard/digital-identity"][data-dashboard-theme="dark"] main input[type="file"]::file-selector-button{border-color:#31565a;background:#112b2e;color:#67e8d6}
 @media(prefers-reduced-motion:reduce){[data-dashboard-path="/dashboard/digital-identity"] main :where(button,a,input,select,textarea){transition:none!important}}
