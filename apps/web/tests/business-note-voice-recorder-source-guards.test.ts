@@ -5,6 +5,10 @@ import test from "node:test";
 const componentPath = new URL("../components/dashboard/business-note-voice-textarea.tsx", import.meta.url);
 const nextConfigPath = new URL("../next.config.ts", import.meta.url);
 
+function compact(source: string) {
+  return source.replace(/\s+/g, "");
+}
+
 test("voice recorder requests the microphone independently of AI readiness", async () => {
   const source = await readFile(componentPath, "utf8");
   const start = source.indexOf("async function startRecording()");
@@ -19,13 +23,16 @@ test("voice recorder requests the microphone independently of AI readiness", asy
 
 test("recorder visibly reports microphone acquisition and records before AI branching", async () => {
   const source = await readFile(componentPath, "utf8");
+  const normalized = compact(source);
   assert.match(source, /جارٍ فتح الميكروفون/);
-  assert.match(source, /MICROPHONE_REQUEST_TIMEOUT_MS = 15_000/);
-  assert.match(source, /recorder\.start\(750\)/);
-  assert.ok(source.includes("if (voiceAvailable) {\n          void transcribe(blob);"), "server transcription must branch only after the captured blob exists");
-  assert.match(source, /if \(!voiceAvailable\) startLiveBrowserTranscription\(\)/);
-  assert.match(source, /stream\.getTracks\(\)\.forEach/);
-  assert.match(source, /type="button" onClick=\{startRecording\}/);
+  assert.match(source, /MICROPHONE_REQUEST_TIMEOUT_MS\s*=\s*15_000/);
+  assert.ok(/(?:recorder|r)\.start\(750\)/.test(normalized), "MediaRecorder must start with the guarded 750ms chunk interval");
+  const blobIndex = normalized.indexOf("newBlob(");
+  const aiBranchIndex = normalized.indexOf("if(voiceAvailable){voidtranscribe(");
+  assert.ok(blobIndex >= 0 && aiBranchIndex > blobIndex, "server transcription must branch only after the captured blob exists");
+  assert.ok(normalized.includes("if(!voiceAvailable)startLiveBrowserTranscription()"), "browser transcription fallback must start only when server voice AI is unavailable");
+  assert.match(normalized, /(?:stream|s)\.getTracks\(\)\.forEach/);
+  assert.ok(normalized.includes('type="button"onClick={startRecording}'), "recording must remain an explicit user action");
 });
 
 test("browser live transcription can recover when server AI is unavailable", async () => {
