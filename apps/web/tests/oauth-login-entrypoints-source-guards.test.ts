@@ -23,11 +23,19 @@ test("login page retains supported OAuth entry points and server routes fail clo
   assert.match(oauth, /if \(!providerConfigured\(provider\)\)/);
 });
 
-test("OAuth start route remains login-only until consent-aware social registration exists", () => {
+test("OAuth registration requires explicit Terms and Privacy consent", () => {
   const route = source("app/api/auth/oauth/[provider]/route.ts");
+  const register = source("app/register/page.tsx");
   assert.match(route, /value === "google" \|\| value === "apple"/);
   assert.match(route, /searchParams\.get\("mode"\) === "register"/);
+  assert.match(route, /searchParams\.get\("consent"\) !== "accepted"/);
   assert.match(route, /\/register\?oauth=consent-required/);
+  assert.match(route, /registration \? "\/onboarding" : "\/dashboard"/);
+  assert.match(register, /mode=register&consent=accepted/);
+  assert.match(register, /المتابعة باستخدام Google/);
+  assert.match(register, /المتابعة باستخدام Apple/);
+  assert.match(register, /الشروط والأحكام/);
+  assert.match(register, /سياسة الخصوصية/);
 });
 
 test("login page renders safe user-facing OAuth failure feedback", () => {
