@@ -27,5 +27,8 @@ test("drawer remains keyboard accessible and modal",()=>{
   assert.match(source,/e\.key!=="Tab"/);
   assert.match(source,/role="dialog"/);
   assert.match(source,/aria-modal=/);
-  assert.match(source,/inert=!open/);
+  assert.match(source,/<aside inert=\{open\} className="fixed inset-y-0 right-0/);
+  assert.match(source,/<div inert=\{open\} className="lg:mr-\[248px\]"/);
+  assert.match(source,/<nav inert=\{open\} aria-label="التنقل السريع"/);
+  assert.match(source,/aria-hidden=\{!open\} inert=\{!open\}/);
 });
