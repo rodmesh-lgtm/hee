@@ -56,6 +56,7 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
   });
   expect(metrics.overflow).toBeLessThanOrEqual(2);
   expect(metrics.path).toBe(input.expectedPath??input.path.split("?")[0]);
+  expect(metrics.theme).toBe(input.theme);
   if(input.theme==="dark")expect(metrics.largeLightSurfaces).toBe(0);
   const file=`${input.viewportName}-${input.theme}-${input.name}.png`;
   await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
