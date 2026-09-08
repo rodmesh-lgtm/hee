@@ -22,3 +22,13 @@ test("product interface exposes real interaction and density states",async()=>{
   assert.match(source,/data-dashboard-theme="dark"/);
   assert.match(source,/prefers-reduced-motion:reduce/);
 });
+
+test("command space uses an asymmetric operational desktop and compact mobile hierarchy",async()=>{
+  const source=await readFile(productCssPath,"utf8");
+  assert.match(source,/data-dashboard-path="\/dashboard"/);
+  assert.match(source,/grid-template-columns:minmax\(0,1\.58fr\) minmax\(330px,\.72fr\)/);
+  assert.match(source,/section:nth-child\(2\).*grid-column:1/);
+  assert.match(source,/section:nth-child\(n\+3\).*grid-column:2/);
+  assert.match(source,/flex-basis:100%/);
+  assert.match(source,/--infro-pi-border:#24484c/);
+});
