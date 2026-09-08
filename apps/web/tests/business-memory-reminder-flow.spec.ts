@@ -7,6 +7,8 @@ const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 
 type Workspace = { userId:string; businessId:string; sessionToken:string };
 type Fixture = { a:Workspace; b:Workspace };
+type NoteRow = { id:string; title:string };
+type ReminderRow = { id:string; businessId:string; businessNoteId:string|null; status:string; deliveryChannels:string[] };
 let pool:Pool;
 let db:PrismaClient;
 let fixture:Fixture|null=null;
@@ -22,15 +24,32 @@ async function seedWorkspace(label:string):Promise<Workspace>{
 }
 
 async function cleanupWorkspace(value:Workspace){
-  await db.smartReminderDelivery.deleteMany({where:{businessId:value.businessId}});
-  await db.smartReminder.deleteMany({where:{businessId:value.businessId}});
-  await db.businessNote.deleteMany({where:{businessId:value.businessId}});
+  await pool.query('DELETE FROM "SmartReminderDelivery" WHERE "businessId"=$1',[value.businessId]);
+  await pool.query('DELETE FROM "SmartReminder" WHERE "businessId"=$1',[value.businessId]);
+  await pool.query('DELETE FROM "BusinessNote" WHERE "businessId"=$1',[value.businessId]);
   await db.whatsAppAuditLog.deleteMany({where:{businessId:value.businessId}});
   await db.analyticsEvent.deleteMany({where:{businessId:value.businessId}});
   await db.session.deleteMany({where:{userId:value.userId}});
   await db.business.deleteMany({where:{id:value.businessId}});
   await db.authIdentity.deleteMany({where:{userId:value.userId}});
   await db.user.deleteMany({where:{id:value.userId}});
+}
+
+async function noteByTitle(businessId:string,title:string){
+  const result=await pool.query<NoteRow>('SELECT "id","title" FROM "BusinessNote" WHERE "businessId"=$1 AND "title"=$2 LIMIT 1',[businessId,title]);
+  return result.rows[0]??null;
+}
+async function linkedReminder(businessId:string,noteId:string){
+  const result=await pool.query<ReminderRow>('SELECT "id","businessId","businessNoteId","status","deliveryChannels" FROM "SmartReminder" WHERE "businessId"=$1 AND "businessNoteId"=$2 LIMIT 1',[businessId,noteId]);
+  return result.rows[0]??null;
+}
+async function noteCount(businessId:string,noteId:string){
+  const result=await pool.query<{count:string}>('SELECT COUNT(*)::text AS "count" FROM "BusinessNote" WHERE "businessId"=$1 AND "id"=$2',[businessId,noteId]);
+  return Number(result.rows[0]?.count??0);
+}
+async function linkedReminderCount(businessId:string,noteId:string){
+  const result=await pool.query<{count:string}>('SELECT COUNT(*)::text AS "count" FROM "SmartReminder" WHERE "businessId"=$1 AND "businessNoteId"=$2',[businessId,noteId]);
+  return Number(result.rows[0]?.count??0);
 }
 
 async function authenticatedContext(browser:Browser,token:string):Promise<BrowserContext>{
@@ -81,9 +100,9 @@ test.describe.serial("Business Memory → Smart Reminder execution chain",()=>{
       await page.getByRole("button",{name:"حفظ وتفعيل التذكير"}).click();
       await expect(page).toHaveURL(/create=success/);
 
-      const note=await db.businessNote.findFirst({where:{businessId:fixture.a.businessId,title:"متابعة عرض عميل الاختبار"},select:{id:true,title:true}});
+      const note=await noteByTitle(fixture.a.businessId,"متابعة عرض عميل الاختبار");
       expect(note).not.toBeNull();
-      const reminder=await db.smartReminder.findFirst({where:{businessId:fixture.a.businessId,businessNoteId:note!.id},select:{id:true,businessId:true,businessNoteId:true,status:true,deliveryChannels:true}});
+      const reminder=await linkedReminder(fixture.a.businessId,note!.id);
       expect(reminder).not.toBeNull();
       expect(reminder!.businessId).toBe(fixture.a.businessId);
       expect(reminder!.businessNoteId).toBe(note!.id);
@@ -96,13 +115,13 @@ test.describe.serial("Business Memory → Smart Reminder execution chain",()=>{
       await noteCard.getByRole("button",{name:"حذف نهائي"}).click();
       await expect(page).toHaveURL(/delete=linked-reminder/);
       await expect(page.getByText("لا يمكن حذف هذه المذكرة نهائيًا لأنها مرتبطة بتذكير.",{exact:false})).toBeVisible();
-      expect(await db.businessNote.count({where:{id:note!.id,businessId:fixture.a.businessId}})).toBe(1);
+      expect(await noteCount(fixture.a.businessId,note!.id)).toBe(1);
     }finally{await context.close()}
   });
 
   test("rejects a cross-tenant note id when another business attempts to create a linked reminder",async({browser})=>{
     if(!fixture)throw new Error("fixture missing");
-    const note=await db.businessNote.findFirst({where:{businessId:fixture.a.businessId,title:"متابعة عرض عميل الاختبار"},select:{id:true}});
+    const note=await noteByTitle(fixture.a.businessId,"متابعة عرض عميل الاختبار");
     expect(note).not.toBeNull();
     const context=await authenticatedContext(browser,fixture.b.sessionToken);
     const page=await context.newPage();
@@ -112,7 +131,7 @@ test.describe.serial("Business Memory → Smart Reminder execution chain",()=>{
       await configureInAppReminder(page);
       await page.getByRole("button",{name:"حفظ وتفعيل التذكير"}).click();
       await expect(page).toHaveURL(/create=note-invalid/);
-      expect(await db.smartReminder.count({where:{businessId:fixture.b.businessId,businessNoteId:note!.id}})).toBe(0);
+      expect(await linkedReminderCount(fixture.b.businessId,note!.id)).toBe(0);
     }finally{await context.close()}
   });
 });
