@@ -42,9 +42,10 @@ async function authenticatedContext(browser:Browser,viewport:{width:number;heigh
 
 async function auditRoute(context:BrowserContext,input:{path:string;expectedPath?:string;name:string;theme:"light"|"dark";viewportName:string}){
   const page=await context.newPage();
-  await page.goto(`${baseUrl}${input.path}`,{waitUntil:"networkidle"});
+  await page.goto(`${baseUrl}${input.path}`,{waitUntil:"domcontentloaded"});
   expect(page.url()).not.toContain("/login");
   await expect(page.locator("[data-dashboard-path]")).toBeVisible();
+  await page.waitForTimeout(350);
   const metrics=await page.evaluate(()=>{
     const root=document.querySelector<HTMLElement>("[data-dashboard-path]");
     const largeLight=[...document.querySelectorAll<HTMLElement>("main section,main article")].filter(el=>{
