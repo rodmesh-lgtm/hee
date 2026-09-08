@@ -4,6 +4,7 @@ import test from "node:test";
 
 const homepage = new URL("../components/homepage-professional.tsx", import.meta.url);
 const page = new URL("../app/page.tsx", import.meta.url);
+const logo = new URL("../components/brand/ir-logo.tsx", import.meta.url);
 
 function normalize(value: string) {
   return value.replace(/\s+/g, " ");
@@ -49,4 +50,11 @@ test("public homepage does not regress to the retired purple interface palette",
   assert.match(source, /#00bfae/);
   assert.match(source, /#07181b/);
   assert.match(source, /#061619/);
+});
+
+test("shared INFRO lockup uses the current production logo asset", async () => {
+  const source = normalize(await readFile(logo, "utf8"));
+  assert.match(source, /src="\/brand\/ir-logo\.png"/);
+  assert.doesNotMatch(source, /ir-logo-original\.webp/);
+  assert.match(source, /YOUR DIGITAL &amp; MARKETING IDENTITY/);
 });
