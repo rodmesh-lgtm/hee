@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
 const homepage = new URL("../components/homepage-professional.tsx", import.meta.url);
 const page = new URL("../app/page.tsx", import.meta.url);
 const logo = new URL("../components/brand/ir-logo.tsx", import.meta.url);
+const approvedSymbol = new URL("../public/brand/infro-symbol-approved.png", import.meta.url);
 
 function normalize(value: string) {
   return value.replace(/\s+/g, " ");
@@ -62,9 +63,17 @@ test("public homepage does not regress to the retired purple interface palette",
 
 test("shared INFRO lockup uses the approved gradient symbol and never the retired mark", async () => {
   const source = normalize(await readFile(logo, "utf8"));
-  assert.match(source, /src="\/brand\/infro-symbol-approved\.svg"/);
+  assert.match(source, /src="\/brand\/infro-symbol-approved\.png"/);
   assert.match(source, /priority=\{priority\} unoptimized/);
   assert.doesNotMatch(source, /ir-logo-original\.webp/);
   assert.doesNotMatch(source, /src="\/brand\/ir-logo\.png"/);
   assert.match(source, /YOUR DIGITAL &amp; MARKETING IDENTITY/);
+});
+
+test("approved INFRO symbol is a complete transparent PNG rather than an embedded placeholder", async () => {
+  const [bytes, metadata] = await Promise.all([readFile(approvedSymbol), stat(approvedSymbol)]);
+  assert.deepEqual([...bytes.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.equal(bytes.readUInt32BE(16), 309);
+  assert.equal(bytes.readUInt32BE(20), 606);
+  assert.ok(metadata.size > 100_000);
 });
