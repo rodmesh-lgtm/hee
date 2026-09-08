@@ -34,7 +34,7 @@ export async function createSubscriptionAccessCodeAdminAction(
   const plan = await db.businessPlan.findFirst({ where: { code: planCode, isActive: true }, select: { id: true, code: true } });
   if (!plan || plan.code.toUpperCase() === "FREE") return { status: "error", message: "الباقة المختارة غير صالحة لهذا النوع من الأكواد." };
 
-  const plaintext = `HEE-${randomBytes(12).toString("hex").toUpperCase()}`;
+  const plaintext = `INFRO-${randomBytes(12).toString("hex").toUpperCase()}`;
   await db.subscriptionAccessCode.create({
     data: { codeHash: accessCodeHash(plaintext), label, planId: plan.id, createdByUserId: admin.id, maxRedemptions, expiresAt, whatsappMarketingEnabled },
   });

@@ -31,7 +31,7 @@ export function PublicSaveContact({ businessName, phone, whatsapp, email, websit
       whatsapp ? `TEL;TYPE=WORK:${escapeVcard(whatsapp)}` : "",
       email ? `EMAIL:${escapeVcard(email)}` : "",
       website ? `URL:${escapeVcard(website)}` : "",
-      publicUrl ? `NOTE:صفحة HEE ${escapeVcard(publicUrl)}` : "",
+      publicUrl ? `NOTE:صفحة INFRO ${escapeVcard(publicUrl)}` : "",
       address || city ? `ADR:;;${escapeVcard(address ?? "")};${escapeVcard(city ?? "")}` : "",
       "END:VCARD",
     ].filter(Boolean);

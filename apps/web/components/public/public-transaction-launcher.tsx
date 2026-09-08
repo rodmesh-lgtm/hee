@@ -146,7 +146,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
       {canBook ? <button ref={bookingOpenerRef} onClick={() => setBookingOpen(true)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#dcd5f4] bg-[#f7f4ff] px-4 text-sm font-black text-[#5d49cc]"><CalendarDays className="h-4 w-4" />حجز موعد</button> : null}
     </div>
 
-    {canRequest ? <PublicActionDialog open={requestOpen} onClose={() => setRequestOpen(false)} mode="request" businessName={businessName} whatsapp={whatsapp} phone={phone} title="طلب خدمة" description="سنسجل طلبك داخل HEE ثم نجهز التواصل مع المنشأة." ctaLabel="تسجيل الطلب والمتابعة" /> : null}
+    {canRequest ? <PublicActionDialog open={requestOpen} onClose={() => setRequestOpen(false)} mode="request" businessName={businessName} whatsapp={whatsapp} phone={phone} title="طلب خدمة" description="سنسجل طلبك داخل INFRO ثم نجهز التواصل مع المنشأة." ctaLabel="تسجيل الطلب والمتابعة" /> : null}
 
     {bookingOpen ? <div dir="rtl" className="fixed inset-0 z-[260] flex items-start justify-center overflow-y-auto bg-black/70 p-3 sm:items-center" style={{ paddingTop: "max(12px, env(safe-area-inset-top))", paddingBottom: "max(12px, env(safe-area-inset-bottom))" }} onClick={closeBooking}>
       <div ref={bookingDialogRef} role="dialog" aria-modal="true" aria-labelledby="hee-booking-title" aria-describedby="hee-booking-description" className="my-auto flex max-h-[calc(100dvh-24px)] w-full max-w-[520px] flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>

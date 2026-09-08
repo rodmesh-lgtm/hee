@@ -230,7 +230,7 @@ export function PublicActionDialog({ open, onClose, mode, businessName, whatsapp
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 bg-slate-950 px-4 py-4 sm:px-5">
           <div>
             <h3 id={titleId} className="text-lg font-black">{title ?? (mode === "request" ? "طلب / حجز" : "استفسار")}</h3>
-            <p id={descriptionId} className="mt-1 text-xs leading-6 text-slate-300">{description ?? (mode === "request" ? "سيتم تسجيل الطلب في HEE ثم تجهيز الرسالة عبر واتساب." : "أرسل استفسارك وسيتم فتح واتساب مباشرة.")}</p>
+            <p id={descriptionId} className="mt-1 text-xs leading-6 text-slate-300">{description ?? (mode === "request" ? "سيتم تسجيل الطلب في INFRO ثم تجهيز الرسالة عبر واتساب." : "أرسل استفسارك وسيتم فتح واتساب مباشرة.")}</p>
           </div>
           <button ref={closeButtonRef} type="button" disabled={submitting} onClick={safeClose} className="rounded-xl border border-white/15 p-2 text-slate-200 disabled:opacity-50" aria-label="إغلاق"><X className="h-4 w-4" /></button>
         </div>

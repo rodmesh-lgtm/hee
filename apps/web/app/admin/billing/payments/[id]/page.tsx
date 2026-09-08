@@ -31,7 +31,7 @@ export default async function AdminBillingPaymentDetailPage({ params }: { params
   return <main className="min-h-screen bg-[#f7f8fb] px-4 py-7 text-[#1f2552] sm:px-6" dir="rtl"><div className="mx-auto max-w-5xl space-y-5">
     <Link href="/admin/billing" className="text-xs font-black text-[#5d49cc]">← العودة إلى الفوترة</Link>
     <header className="rounded-[26px] border border-[#e7e4f0] bg-white p-5">
-      <div className="flex items-center gap-2 text-[#6f3bd2]"><ReceiptText className="h-5 w-5" /><span className="text-xs font-black">دليل دفعة اشتراك HEE</span></div>
+      <div className="flex items-center gap-2 text-[#6f3bd2]"><ReceiptText className="h-5 w-5" /><span className="text-xs font-black">دليل دفعة اشتراك INFRO</span></div>
       <h1 className="mt-2 text-2xl font-black">تفاصيل الدفعة</h1>
       <code className="mt-2 block break-all text-[11px] text-slate-400" dir="ltr">{payment.id}</code>
       <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-6 text-amber-900"><ShieldAlert className="ml-1 inline h-4 w-4" />هذه الصفحة للقراءة والتحقق فقط. لا تسمح بتعديل ledger أو subscription أو provider evidence يدويًا.</div>
