@@ -10,6 +10,7 @@ import { DashboardShell } from "../../components/dashboard/dashboard-shell";
 import "./dashboard-theme.css";
 import "./product-interface.css";
 import "./work-items.css";
+import "./product-shell.css";
 
 export const metadata:Metadata={title:"INFRO | لوحة التحكم",robots:{index:false,follow:false,noarchive:true,nocache:true}};
 
