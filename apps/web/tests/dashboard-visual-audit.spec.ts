@@ -54,11 +54,19 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
       return rgb.length===3&&rgb.every(v=>v>242);
     }).length;
     const dashboardGrid=document.querySelector<HTMLElement>("#dashboard-main-content>div");
-    const directChildren=dashboardGrid?[...dashboardGrid.children].map(el=>(el as HTMLElement).getBoundingClientRect()):[];
-    const compressedDirectChildren=window.innerWidth>=1280?directChildren.filter(r=>r.width>0&&r.width<Math.min(420,window.innerWidth*.28)).length:0;
-    const collisions=directChildren.flatMap((a,i)=>directChildren.slice(i+1).map(b=>({a,b}))).filter(({a,b})=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>2&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>2).length;
-    return{path:root?.dataset.dashboardPath??null,theme:root?.dataset.dashboardTheme??null,overflow:document.documentElement.scrollWidth-window.innerWidth,largeLightSurfaces:largeLight,bodyHeight:document.body.scrollHeight,compressedDirectChildren,collisions};
+    const canvasWidth=document.querySelector<HTMLElement>("#dashboard-main-content")?.getBoundingClientRect().width??0;
+    const directChildren=dashboardGrid?[...dashboardGrid.children].map((el,index)=>{const node=el as HTMLElement,r=node.getBoundingClientRect();return{index,tag:node.tagName.toLowerCase(),width:Math.round(r.width),height:Math.round(r.height),left:Math.round(r.left),top:Math.round(r.top),text:(node.innerText||"").replace(/\s+/g," ").trim().slice(0,80)}}):[];
+    const rects=directChildren.map(item=>({left:item.left,right:item.left+item.width,top:item.top,bottom:item.top+item.height,width:item.width,height:item.height}));
+    const splitExpected=canvasWidth>=1100;
+    const minExpectedWidth=splitExpected?Math.max(500,canvasWidth*.42):Math.max(0,canvasWidth-40);
+    const compressedDirectChildren=window.innerWidth>=1280?directChildren.filter(item=>item.width>0&&item.width<minExpectedWidth).length:0;
+    const collisions=rects.flatMap((a,i)=>rects.slice(i+1).map(b=>({a,b}))).filter(({a,b})=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>2&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>2).length;
+    return{path:root?.dataset.dashboardPath??null,theme:root?.dataset.dashboardTheme??null,overflow:document.documentElement.scrollWidth-window.innerWidth,largeLightSurfaces:largeLight,bodyHeight:document.body.scrollHeight,canvasWidth:Math.round(canvasWidth),splitExpected,minExpectedWidth:Math.round(minExpectedWidth),compressedDirectChildren,collisions,directChildren};
   });
+  const file=`${input.viewportName}-${input.theme}-${input.name}.png`;
+  await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
+  await writeFile(`${outDir}/${input.viewportName}-${input.theme}-${input.name}.json`,JSON.stringify({...metrics,file,url:`${baseUrl}${input.path}`},null,2),"utf8");
+  await page.close();
   expect(metrics.overflow).toBeLessThanOrEqual(2);
   expect(metrics.path).toBe(input.expectedPath??input.path.split("?")[0]);
   expect(metrics.theme).toBe(input.theme);
@@ -67,9 +75,6 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
     expect(metrics.compressedDirectChildren).toBe(0);
     expect(metrics.collisions).toBe(0);
   }
-  const file=`${input.viewportName}-${input.theme}-${input.name}.png`;
-  await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
-  await page.close();
   return{...metrics,file,url:`${baseUrl}${input.path}`};
 }
 
