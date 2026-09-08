@@ -20,6 +20,10 @@
 [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article [role="progressbar"]{height:4px!important}
 [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article :where(.text-amber-700,.text-amber-600,.text-rose-700,.text-rose-600){font-weight:800}
 
+/* Neutralize legacy wide-screen rules that forced every execution grid to one column. */
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div.space-y-4>section>div.grid,
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div.grid.grid-cols-2{min-width:0}
+
 /* Supporting context remains flat and readable. */
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3){min-width:0;border-radius:14px!important}
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3)>div{min-width:0;padding:16px!important}
@@ -36,11 +40,22 @@
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3){grid-column:span 6!important;align-self:start}
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>div{grid-column:span 6!important;align-self:start;min-width:0}
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>div>*{min-width:0}
+ [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div.space-y-4>section>div.grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+ [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div.grid.grid-cols-2{grid-template-columns:repeat(4,minmax(0,1fr))!important}
 }
 
-@container dashboard-canvas (max-width:1099px){
+@container dashboard-canvas (min-width:720px) and (max-width:1099px){
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div{grid-template-columns:1fr!important}
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{grid-column:auto!important;grid-row:auto!important}
+ [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div.space-y-4>section>div.grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div.grid.grid-cols-2{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+}
+
+@container dashboard-canvas (max-width:719px){
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div{grid-template-columns:1fr!important}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{grid-column:auto!important;grid-row:auto!important}
+ [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div.space-y-4>section>div.grid{grid-template-columns:1fr!important}
+ [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div.grid.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 
 @media(max-width:767px){
