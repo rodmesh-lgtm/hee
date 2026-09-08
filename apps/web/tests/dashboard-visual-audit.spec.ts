@@ -107,7 +107,7 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
   return{...metrics,file,url:`${baseUrl}${input.path}`};
 }
 
-async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepage"|"register";viewportName:"public-desktop"|"public-mobile";viewport:{width:number;height:number}}){
+async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepage"|"register"|"login";viewportName:string;viewport:{width:number;height:number}}){
   const context=await browser.newContext({viewport:input.viewport});
   const page=await context.newPage();
   try{
@@ -121,18 +121,22 @@ async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepag
       title:document.title,
       legacyAbout:[...document.querySelectorAll("a")].some(link=>(link.textContent??"").trim()==="عن iR"),
       appleRegistration:[...document.querySelectorAll("a")].some(link=>(link.textContent??"").includes("Apple")),
+      brokenImages:[...document.images].filter(image=>image.complete&&image.naturalWidth===0).map(image=>image.currentSrc||image.src),
     }));
     if(input.name==="homepage"){
       await expect(page.getByRole("heading",{name:/هويتك الرقمية والتسويقية/})).toBeVisible();
       await expect(page.getByRole("link",{name:"عن INFRO"}).first()).toBeVisible();
       expect(metrics.title).toContain("INFRO");
       expect(metrics.legacyAbout).toBe(false);
-    }else{
+    }else if(input.name==="register"){
       await expect(page.getByRole("heading",{name:"إنشاء حساب INFRO"})).toBeVisible();
       await expect(page.getByRole("link",{name:/Google/})).toBeVisible();
       expect(metrics.appleRegistration).toBe(false);
+    }else{
+      await expect(page.getByRole("heading",{name:"تسجيل الدخول"})).toBeVisible();
     }
     expect(metrics.overflow).toBeLessThanOrEqual(2);
+    expect(metrics.brokenImages).toEqual([]);
     const file=`${input.viewportName}-${input.name}.png`;
     await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
     await writeFile(`${outDir}/${input.viewportName}-${input.name}.json`,JSON.stringify({...metrics,file,url:`${baseUrl}${input.path}`},null,2),"utf8");
@@ -153,9 +157,10 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const results:unknown[]=[];
     for(const viewport of viewports)for(const theme of ["light","dark"] as const){const context=await authenticatedContext(browser,viewport.value,theme,seeded.sessionToken);try{for(const route of routes)results.push(await auditRoute(context,{...route,theme,viewportName:viewport.name}));}finally{await context.close();}}
     for(const theme of ["light","dark"] as const){const context=await authenticatedContext(browser,{width:1536,height:1024},theme,seeded.sessionToken);try{results.push(await auditRoute(context,{path:"/dashboard",name:"command-space",theme,viewportName:"desktop-wide"}));}finally{await context.close();}}
-    for(const publicViewport of [{viewportName:"public-desktop" as const,viewport:{width:1440,height:960}},{viewportName:"public-mobile" as const,viewport:{width:390,height:844}}]){
+    for(const publicViewport of [{viewportName:"public-desktop",viewport:{width:1440,height:960}},{viewportName:"public-tablet",viewport:{width:768,height:1024}},{viewportName:"public-mobile",viewport:{width:390,height:844}}]){
       results.push(await auditPublicRoute(browser,{path:"/",name:"homepage",...publicViewport}));
       results.push(await auditPublicRoute(browser,{path:"/register",name:"register",...publicViewport}));
+      results.push(await auditPublicRoute(browser,{path:"/login",name:"login",...publicViewport}));
     }
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
   });
