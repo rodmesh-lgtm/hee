@@ -5,6 +5,8 @@
   --infro-pi-control:44px;
   --infro-pi-accent:#12cdb8;
   --infro-pi-accent-strong:#079e91;
+  --infro-pi-border:#dbe6e5;
+  --infro-pi-muted:#64748b;
   --infro-pi-shadow:0 1px 2px rgba(7,24,27,.05),0 10px 28px -24px rgba(7,24,27,.28);
   font-feature-settings:"kern" 1,"liga" 1,"calt" 1;
   text-rendering:optimizeLegibility;
@@ -16,18 +18,14 @@
 [data-dashboard-path] :where(button,a)[aria-disabled="true"],[data-dashboard-path] button:disabled{cursor:not-allowed}
 
 /* Turn generic cards into product surfaces rather than poster panels. */
-[data-dashboard-path] main :where(section,article).bg-white{
-  box-shadow:var(--infro-pi-shadow);
-}
-[data-dashboard-path] main :where(.rounded-\[28px\],.rounded-\[30px\],.rounded-\[26px\]){
-  border-radius:20px;
-}
+[data-dashboard-path] main :where(section,article).bg-white{box-shadow:var(--infro-pi-shadow)}
+[data-dashboard-path] main :where(.rounded-\[28px\],.rounded-\[30px\],.rounded-\[26px\]){border-radius:20px}
 [data-dashboard-path] main :where(.rounded-\[24px\],.rounded-3xl){border-radius:18px}
 [data-dashboard-path] main :where(.rounded-2xl){border-radius:14px}
 [data-dashboard-path] main :where(.text-\[8px\],.text-\[9px\]){letter-spacing:normal}
 [data-dashboard-path] main [dir="ltr"]:where(.text-\[8px\],.text-\[9px\]){letter-spacing:.06em}
 
-/* Product shell: denser rail, unmistakable active state, operational top bar. */
+/* Product shell: compact navigation rail and persistent operational chrome. */
 [data-dashboard-path] > aside nav a{border:1px solid transparent}
 [data-dashboard-path] > aside nav a[aria-current="page"]{border-color:rgba(53,228,203,.18);box-shadow:inset 0 0 0 1px rgba(53,228,203,.035)}
 [data-dashboard-path] > aside nav a:not([aria-current="page"]):hover{border-color:rgba(255,255,255,.055)}
@@ -42,19 +40,51 @@
 [data-dashboard-path] :where([aria-current="page"],[aria-selected="true"]){isolation:isolate}
 [data-dashboard-path] progress{accent-color:var(--infro-pi-accent-strong)}
 
+/* Command Space is a work queue first: hero becomes a compact command header on desktop. */
+[data-dashboard-path="/dashboard"] main>div{display:grid;gap:14px}
+[data-dashboard-path="/dashboard"] main>div>section:first-child{position:relative;box-shadow:0 18px 45px -34px rgba(7,24,27,.62)}
+[data-dashboard-path="/dashboard"] main>div>section:first-child h1{letter-spacing:-.025em}
+[data-dashboard-path="/dashboard"] main>div>section:first-child a{white-space:nowrap}
+[data-dashboard-path="/dashboard"] main>div>section:nth-child(2){border-color:var(--infro-pi-border)}
+[data-dashboard-path="/dashboard"] main>div>section:nth-child(2)>div:first-child{background:linear-gradient(180deg,#fff,#fbfdfd)}
+[data-dashboard-path="/dashboard"] main>div>section:nth-child(2) article{box-shadow:none}
+[data-dashboard-path="/dashboard"] main>div>section:nth-child(2) article:hover{border-color:#9edfd7;box-shadow:0 8px 24px -22px rgba(7,24,27,.45)}
+
+/* Information-dense rows: metadata stays scannable and secondary to the next action. */
+[data-dashboard-path="/dashboard"] main>div>section:nth-child(n+2) :where(p,span){text-wrap:pretty}
+[data-dashboard-path="/dashboard"] main>div>section:nth-child(n+2) :where(a,button){scroll-margin-top:82px}
+
 @media (min-width:1024px){
-  [data-dashboard-path] main{padding-top:22px!important;padding-bottom:30px!important}
-  [data-dashboard-path] main > div{max-width:1480px;margin-inline:auto}
+  [data-dashboard-path] main{padding-top:18px!important;padding-bottom:30px!important}
+  [data-dashboard-path] main>div{max-width:1480px;margin-inline:auto}
+  [data-dashboard-path="/dashboard"] main>div>section:first-child>div:first-child{padding-top:22px!important;padding-bottom:22px!important}
+  [data-dashboard-path="/dashboard"] main>div>section:first-child{min-height:0}
+  [data-dashboard-path="/dashboard"] main>div>section:first-child a[class*="min-h-[190px]"]{min-height:158px}
+}
+@media (min-width:1280px){
+  [data-dashboard-path="/dashboard"] main>div{grid-template-columns:minmax(0,1.58fr) minmax(330px,.72fr);align-items:start}
+  [data-dashboard-path="/dashboard"] main>div>section:first-child{grid-column:1/-1}
+  [data-dashboard-path="/dashboard"] main>div>section:nth-child(2){grid-column:1;grid-row:2/span 3}
+  [data-dashboard-path="/dashboard"] main>div>section:nth-child(n+3){grid-column:2}
+  [data-dashboard-path="/dashboard"] main>div>section:nth-child(2) [class*="grid-cols"]{grid-template-columns:1fr!important}
 }
 @media (max-width:639px){
   [data-dashboard-path] main{padding-inline:12px!important}
   [data-dashboard-path] main :where(.rounded-\[28px\],.rounded-\[30px\],.rounded-\[26px\]){border-radius:16px}
+  [data-dashboard-path="/dashboard"] main>div{gap:12px}
+  [data-dashboard-path="/dashboard"] main>div>section:first-child>div:first-child{padding:18px!important}
+  [data-dashboard-path="/dashboard"] main>div>section:first-child h1{font-size:1.35rem!important}
+  [data-dashboard-path="/dashboard"] main>div>section:first-child a{flex:1 1 calc(50% - 4px);justify-content:center;padding-inline:10px}
+  [data-dashboard-path="/dashboard"] main>div>section:first-child a:last-child{flex-basis:100%}
 }
 @media(prefers-reduced-motion:reduce){[data-dashboard-path] :where(button,a,[role="button"],input,select,textarea){transition:none!important}}
 
 [data-dashboard-path][data-dashboard-theme="dark"]{
+  --infro-pi-border:#24484c;
+  --infro-pi-muted:#9fb3b5;
   --infro-pi-shadow:0 1px 1px rgba(0,0,0,.22),0 14px 34px -28px rgba(0,0,0,.85);
 }
 [data-dashboard-path][data-dashboard-theme="dark"] main :where(input,select,textarea):hover{border-color:#356166!important}
+[data-dashboard-path][data-dashboard-theme="dark"][data-dashboard-path="/dashboard"] main>div>section:nth-child(2)>div:first-child{background:#0d2528!important}
 [data-dashboard-path][data-dashboard-theme="light"] > aside nav a[aria-current="page"]{border-color:#a8e8df!important;box-shadow:inset -3px 0 0 #0ebaa8,0 5px 16px -14px rgba(0,143,135,.35)!important}
 [data-dashboard-path][data-dashboard-theme="light"] > aside nav a:not([aria-current="page"]):hover{border-color:#d8e8e5!important;background:#edf7f5!important}
