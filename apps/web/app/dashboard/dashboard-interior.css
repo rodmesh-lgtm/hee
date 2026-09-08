@@ -1,18 +1,21 @@
 /* INFRO dashboard interior — stable operational canvas without nested-column collisions. */
-[data-dashboard-path="/dashboard"] #dashboard-main-content{display:block!important;width:100%!important;max-width:none!important;margin-inline:0!important;padding-inline:0;container-type:inline-size;container-name:dashboard-canvas}
-[data-dashboard-path="/dashboard"] #dashboard-main-content>div{width:100%!important;max-width:none!important;margin-inline:0!important;min-width:0;gap:16px!important;grid-template-columns:1fr!important;align-items:start}
+[data-dashboard-path="/dashboard"] #dashboard-main-content{width:100%;max-width:none;margin-inline:0;padding-inline:0;container-type:inline-size;container-name:dashboard-canvas}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div{width:100%;min-width:0;gap:16px!important;grid-template-columns:1fr!important;align-items:start}
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{min-width:0;grid-column:auto!important;grid-row:auto!important}
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section{min-width:0;overflow:hidden}
 
-/* Execution center: work items read as operational rows whenever the canvas can support them. */
+/* Execution center: preserve the component's own card anatomy. The group grid owns columns;
+   individual cards stay vertical so metadata, next action, progress and CTA can never auto-place
+   into competing CSS-grid cells. */
 [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]{background:var(--infro-surface,#fff)!important}
 [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:first-child{padding:18px 20px!important}
-[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:not(:first-child){gap:0!important;padding:0!important;min-width:0}
-[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{display:grid!important;grid-template-columns:minmax(170px,1.15fr) minmax(220px,1.65fr) minmax(108px,.65fr)!important;align-items:center!important;gap:16px!important;min-width:0;min-height:108px!important;margin:0!important;padding:15px 18px!important;border:0!important;border-bottom:1px solid var(--infro-pi-border,#dbe6e5)!important;border-radius:0!important;background:transparent!important}
-[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article>*{min-width:0}
-[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article:last-child{border-bottom:0!important}
-[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article:hover{transform:none!important;background:rgba(18,205,184,.035)!important}
-[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article>a:last-child{justify-self:end;min-width:104px}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:nth-child(2){min-width:0}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:nth-child(2)>section{min-width:0;overflow:hidden}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:nth-child(2)>section>div:last-child{min-width:0}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{display:flex!important;min-width:0;min-height:0!important;flex-direction:column!important;align-items:stretch!important;gap:0!important;margin:0!important;padding:16px!important;border:1px solid var(--infro-pi-border,#dbe6e5)!important;border-radius:14px!important}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article>*{min-width:0;max-width:100%}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article:hover{transform:none!important}
+[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article>a:last-child{width:100%;align-self:stretch;justify-self:auto}
 [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article :where(.rounded-full){border-radius:8px!important}
 [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article [role="progressbar"]{height:4px!important}
 [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article :where(.text-amber-700,.text-amber-600,.text-rose-700,.text-rose-600){font-weight:800}
@@ -24,9 +27,7 @@
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3) :where(.rounded-\[22px\],.rounded-\[24px\],.rounded-2xl){border-radius:12px!important}
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3) :where(.tracking-\[\.16em\],.tracking-\[\.18em\]){letter-spacing:.08em!important}
 
-/* The split is based on the real dashboard canvas, not the browser viewport. A fixed sidebar can
-   leave a 1440px viewport with less than 1000px of usable content; splitting that in half caused
-   the Identity Journey and companion cards to collide. */
+/* The split is based on the real dashboard canvas, not the browser viewport. */
 @container dashboard-canvas (min-width:1100px){
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div{grid-template-columns:repeat(12,minmax(0,1fr))!important}
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{grid-column:span 6!important;grid-row:auto!important;align-self:start}
@@ -35,7 +36,6 @@
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3){grid-column:span 6!important;align-self:start}
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>div{grid-column:span 6!important;align-self:start;min-width:0}
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>div>*{min-width:0}
- [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:not(:first-child){grid-template-columns:1fr!important}
 }
 
 @container dashboard-canvas (max-width:1099px){
@@ -43,14 +43,9 @@
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{grid-column:auto!important;grid-row:auto!important}
 }
 
-@media(min-width:768px) and (max-width:1279px){
- [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{grid-template-columns:minmax(150px,1fr) minmax(210px,1.5fr) auto!important}
-}
 @media(max-width:767px){
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div{gap:10px!important}
- [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{display:flex!important;min-height:0!important;flex-direction:column!important;align-items:stretch!important;gap:10px!important;padding:14px!important}
- [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article>a:last-child{align-self:stretch;justify-self:auto}
+ [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{padding:14px!important}
 }
-[data-dashboard-path="/dashboard"][data-dashboard-theme="dark"] section[aria-labelledby="work-center"] article{border-color:#1d3a3e!important;background:transparent!important}
-[data-dashboard-path="/dashboard"][data-dashboard-theme="dark"] section[aria-labelledby="work-center"] article:hover{background:rgba(53,228,203,.045)!important}
+[data-dashboard-path="/dashboard"][data-dashboard-theme="dark"] section[aria-labelledby="work-center"] article{border-color:#1d3a3e!important}
 @media(prefers-reduced-motion:reduce){[data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{transition:none!important}}
