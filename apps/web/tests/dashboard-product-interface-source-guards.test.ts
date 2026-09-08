@@ -32,3 +32,14 @@ test("command space uses an asymmetric operational desktop and compact mobile hi
   assert.match(source,/flex-basis:100%/);
   assert.match(source,/--infro-pi-border:#24484c/);
 });
+
+test("business memory and reminders use compact operational workspace rules",async()=>{
+  const source=await readFile(productCssPath,"utf8");
+  assert.match(source,/data-dashboard-path="\/dashboard\/notes"/);
+  assert.match(source,/data-dashboard-path="\/dashboard\/reminders"/);
+  assert.match(source,/Metric strips: compact, glanceable and secondary to the queue\/editor/);
+  assert.match(source,/min-height:66px/);
+  assert.match(source,/font-variant-numeric:tabular-nums/);
+  assert.match(source,/article:hover/);
+  assert.match(source,/section\.bg-white:hover/);
+});
