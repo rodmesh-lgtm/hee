@@ -53,12 +53,20 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
       const rgb=getComputedStyle(el).backgroundColor.match(/\d+(?:\.\d+)?/g)?.slice(0,3).map(Number)??[];
       return rgb.length===3&&rgb.every(v=>v>242);
     }).length;
-    return{path:root?.dataset.dashboardPath??null,theme:root?.dataset.dashboardTheme??null,overflow:document.documentElement.scrollWidth-window.innerWidth,largeLightSurfaces:largeLight,bodyHeight:document.body.scrollHeight};
+    const dashboardGrid=document.querySelector<HTMLElement>("#dashboard-main-content>div");
+    const directChildren=dashboardGrid?[...dashboardGrid.children].map(el=>(el as HTMLElement).getBoundingClientRect()):[];
+    const compressedDirectChildren=window.innerWidth>=1280?directChildren.filter(r=>r.width>0&&r.width<Math.min(420,window.innerWidth*.28)).length:0;
+    const collisions=directChildren.flatMap((a,i)=>directChildren.slice(i+1).map(b=>({a,b}))).filter(({a,b})=>Math.min(a.right,b.right)-Math.max(a.left,b.left)>2&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>2).length;
+    return{path:root?.dataset.dashboardPath??null,theme:root?.dataset.dashboardTheme??null,overflow:document.documentElement.scrollWidth-window.innerWidth,largeLightSurfaces:largeLight,bodyHeight:document.body.scrollHeight,compressedDirectChildren,collisions};
   });
   expect(metrics.overflow).toBeLessThanOrEqual(2);
   expect(metrics.path).toBe(input.expectedPath??input.path.split("?")[0]);
   expect(metrics.theme).toBe(input.theme);
   if(input.theme==="dark")expect(metrics.largeLightSurfaces).toBe(0);
+  if(input.name==="command-space"&&input.viewportName==="desktop"){
+    expect(metrics.compressedDirectChildren).toBe(0);
+    expect(metrics.collisions).toBe(0);
+  }
   const file=`${input.viewportName}-${input.theme}-${input.name}.png`;
   await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
   await page.close();
@@ -69,7 +77,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
   test.beforeAll(async()=>{await mkdir(outDir,{recursive:true});const connectionString=String(process.env.DATABASE_URL??"").trim();if(!connectionString)throw new Error("DATABASE_URL is required");pool=new Pool({connectionString,max:4});db=new PrismaClient({adapter:new PrismaPg(pool)});seeded=await seedWorkspace();});
   test.afterAll(async()=>{if(seeded)await cleanupWorkspace(seeded);await db?.$disconnect();await pool?.end();});
 
-  test("captures desktop/mobile light/dark customer workspaces with overflow and dark-island checks",async({browser})=>{
+  test("captures desktop/mobile light/dark customer workspaces without overflow, dark islands, compressed grid children or collisions",async({browser})=>{
     test.setTimeout(240_000);if(!seeded)throw new Error("visual fixture missing");
     const routes=[
       {path:"/dashboard",name:"command-space"},
