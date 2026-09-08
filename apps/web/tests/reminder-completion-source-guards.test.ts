@@ -1,22 +1,20 @@
+import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { describe, expect, it } from "vitest";
+import test from "node:test";
 
-const root=process.cwd();
+const operationsPath=new URL("../app/lib/reminders/operations.ts",import.meta.url);
 
-describe("Smart Reminder completion source invariants",()=>{
-  it("closes both reminder lifecycle and work-progress state atomically",async()=>{
-    const source=await readFile(path.join(root,"app/lib/reminders/operations.ts"),"utf8");
-    const start=source.indexOf("export async function completeSmartReminder");
-    expect(start).toBeGreaterThanOrEqual(0);
-    const block=source.slice(start);
-    expect(block).toContain('WHERE "id"=${input.reminderId} AND "businessId"=${input.businessId}');
-    expect(block).toContain('"status"=\'completed\'');
-    expect(block).toContain('"progressPercent"=100');
-    expect(block).toContain('"progressUpdatedAt"=CURRENT_TIMESTAMP');
-    expect(block).toContain('"workCompletedAt"=COALESCE("workCompletedAt",CURRENT_TIMESTAMP)');
-    expect(block).toContain("assertNoInFlightDelivery");
-    expect(block).toContain("cancelQueuedDeliveries");
-    expect(block).toContain('action: "reminder.complete"');
-  });
+test("completed reminders close lifecycle and work-progress state atomically",async()=>{
+  const source=await readFile(operationsPath,"utf8");
+  const start=source.indexOf("export async function completeSmartReminder");
+  assert.ok(start>=0,"completeSmartReminder must exist");
+  const block=source.slice(start);
+  assert.match(block,/WHERE "id"=\$\{input\.reminderId\} AND "businessId"=\$\{input\.businessId\}/);
+  assert.match(block,/"status"='completed'/);
+  assert.match(block,/"progressPercent"=100/);
+  assert.match(block,/"progressUpdatedAt"=CURRENT_TIMESTAMP/);
+  assert.match(block,/"workCompletedAt"=COALESCE\("workCompletedAt",CURRENT_TIMESTAMP\)/);
+  assert.match(block,/assertNoInFlightDelivery/);
+  assert.match(block,/cancelQueuedDeliveries/);
+  assert.match(block,/action: "reminder\.complete"/);
 });
