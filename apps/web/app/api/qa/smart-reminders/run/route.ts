@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
@@ -15,9 +16,21 @@ const CONFIRM_VALUE = "run-due-reminders";
 const PREVIEW_REMINDER_FROM_EMAIL = "INFRO Reminders <reminder@ir.sa>";
 const TARGET_OCCURRENCE = new Date("2026-09-06T06:24:00.000Z");
 
+function isAuthorized(request: Request) {
+  const secret = String(process.env.CRON_SECRET ?? "");
+  if (secret.length < 32) return false;
+  const expected = Buffer.from(`Bearer ${secret}`);
+  const supplied = Buffer.from(request.headers.get("authorization") ?? "");
+  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+}
+
 export async function GET(request: Request) {
   if (process.env.VERCEL_ENV !== "preview" || process.env.VERCEL_GIT_COMMIT_REF !== APPROVED_PREVIEW_REF) {
     return NextResponse.json({ ok: false, error: "PREVIEW_ONLY" }, { status: 404 });
+  }
+
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   const url = new URL(request.url);
