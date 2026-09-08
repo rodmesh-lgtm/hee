@@ -1,6 +1,7 @@
 /* INFRO dashboard interior — stable operational canvas without nested-column collisions. */
 [data-dashboard-path="/dashboard"] #dashboard-main-content{width:100%;max-width:none;margin-inline:0;padding-inline:0}
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div{width:100%;min-width:0;gap:16px!important}
+[data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{min-width:0}
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section{min-width:0;overflow:hidden}
 
 /* Execution center: work items read as operational rows on desktop. */
@@ -23,23 +24,27 @@
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3) :where(.rounded-\[22px\],.rounded-\[24px\],.rounded-2xl){border-radius:12px!important}
 [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3) :where(.tracking-\[\.16em\],.tracking-\[\.18em\]){letter-spacing:.08em!important}
 
-/* Use the actual dashboard canvas. Never pin execution into a multi-row rail: that caused
-   the large empty area and compressed Identity Journey visible beside the fixed sidebar. */
+/* Use the actual dashboard canvas. Direct children may be sections or grouped divs;
+   every child must receive an explicit grid span so grouped operational cards never collapse
+   into a single 1/12 column. */
 @media(min-width:1280px){
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div{grid-template-columns:repeat(12,minmax(0,1fr))!important;align-items:start}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{grid-column:span 6!important;grid-row:auto!important;align-self:start}
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:first-child{grid-column:1/-1!important;grid-row:auto!important}
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section[aria-labelledby="work-center"]{grid-column:1/-1!important;grid-row:auto!important}
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section:nth-child(n+3){grid-column:span 6!important;grid-row:auto!important;align-self:start}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>div{grid-column:span 6!important;grid-row:auto!important;align-self:start;min-width:0}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>div>*{min-width:0}
  [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"]>div:not(:first-child){grid-template-columns:1fr!important}
 }
 @media(min-width:768px) and (max-width:1279px){
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div{grid-template-columns:1fr!important}
- [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section{grid-column:auto!important;grid-row:auto!important}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{grid-column:auto!important;grid-row:auto!important}
  [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{grid-template-columns:minmax(150px,1fr) minmax(210px,1.5fr) auto!important}
 }
 @media(max-width:767px){
  [data-dashboard-path="/dashboard"] #dashboard-main-content>div{grid-template-columns:1fr!important;gap:10px!important}
- [data-dashboard-path="/dashboard"] #dashboard-main-content>div>section{grid-column:auto!important;grid-row:auto!important}
+ [data-dashboard-path="/dashboard"] #dashboard-main-content>div>*{grid-column:auto!important;grid-row:auto!important}
  [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article{display:flex!important;min-height:0!important;flex-direction:column!important;align-items:stretch!important;gap:10px!important;padding:14px!important}
  [data-dashboard-path="/dashboard"] section[aria-labelledby="work-center"] article>a:last-child{align-self:stretch;justify-self:auto}
 }
