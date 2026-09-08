@@ -1,0 +1,41 @@
+/* INFRO WhatsApp product language — shared across center, campaigns, inbox and operations. */
+[data-dashboard-path^="/dashboard/whatsapp"] main{--wa-border:#d8e5e3;--wa-soft:#f7fbfa;--wa-accent:#0aa99d}
+[data-dashboard-path^="/dashboard/whatsapp"] main>div{gap:12px!important}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(section,article){scroll-margin-top:78px}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(.rounded-\[28px\],.rounded-\[26px\],.rounded-3xl){border-radius:16px!important}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(.rounded-2xl){border-radius:12px!important}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(button,a,input,select,textarea){outline-offset:2px}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(button,a):focus-visible{outline:2px solid var(--wa-accent);outline-offset:2px}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(button,a):active:not(:disabled){transform:translateY(1px)}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(input,select,textarea):hover{border-color:#b6d5d1}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(input,select,textarea):focus{border-color:var(--wa-accent)!important;box-shadow:0 0 0 3px rgba(10,169,157,.09)}
+
+/* Metrics remain glanceable; campaign/inbox work stays visually primary. */
+[data-dashboard-path^="/dashboard/whatsapp"] main .grid>article{box-shadow:none!important}
+[data-dashboard-path^="/dashboard/whatsapp"] main article:hover{border-color:#a9cfca!important}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(table){border-collapse:separate;border-spacing:0}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(th){font-size:11px;letter-spacing:0;font-weight:800}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where(td){vertical-align:middle}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where([role="status"],[role="alert"]){border-radius:11px!important}
+[data-dashboard-path^="/dashboard/whatsapp"] main :where([role="progressbar"],progress){height:6px;border-radius:999px;overflow:hidden}
+
+/* Campaign builder reads as a bounded workflow instead of one long form. */
+[data-dashboard-path^="/dashboard/whatsapp/campaigns"] main form{scroll-margin-top:78px}
+[data-dashboard-path^="/dashboard/whatsapp/campaigns"] main form>section,
+[data-dashboard-path^="/dashboard/whatsapp/campaigns"] main form>div{border-radius:13px}
+[data-dashboard-path^="/dashboard/whatsapp/campaigns"] main :where(input,select,textarea){min-height:44px}
+
+/* Inbox prioritizes conversation density and stable action targets. */
+[data-dashboard-path^="/dashboard/whatsapp/inbox"] main :where(button,a){min-height:40px}
+[data-dashboard-path^="/dashboard/whatsapp/inbox"] main article{border-radius:10px!important}
+
+@media(max-width:639px){
+ [data-dashboard-path^="/dashboard/whatsapp"] main{font-size:14px}
+ [data-dashboard-path^="/dashboard/whatsapp"] main :where(button,a,input,select){min-height:44px}
+ [data-dashboard-path^="/dashboard/whatsapp"] main :where(.overflow-x-auto){scrollbar-width:thin}
+ [data-dashboard-path^="/dashboard/whatsapp"] main :where(table){min-width:620px}
+}
+[data-dashboard-path^="/dashboard/whatsapp"][data-dashboard-theme="dark"] main{--wa-border:#234448;--wa-soft:#0d2528;--wa-accent:#48dfcf}
+[data-dashboard-path^="/dashboard/whatsapp"][data-dashboard-theme="dark"] main article:hover{border-color:#356268!important}
+[data-dashboard-path^="/dashboard/whatsapp"][data-dashboard-theme="dark"] main :where(input,select,textarea):hover{border-color:#31575b!important}
+@media(prefers-reduced-motion:reduce){[data-dashboard-path^="/dashboard/whatsapp"] main :where(button,a,article){transition:none!important;transform:none!important}}

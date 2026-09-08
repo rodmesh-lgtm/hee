@@ -8,6 +8,16 @@ import { getActiveBusinessForUser, getOwnedBusinessSummaries } from "../lib/acti
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
 import { DashboardShell } from "../../components/dashboard/dashboard-shell";
 import "./dashboard-theme.css";
+import "./product-interface.css";
+import "./work-items.css";
+import "./product-shell.css";
+import "./command-space.css";
+import "./whatsapp-product.css";
+import "./identity-product.css";
+import "./billing-product.css";
+import "./system-qa.css";
+import "./state-system.css";
+import "./dashboard-interior.css";
 
 export const metadata:Metadata={title:"INFRO | لوحة التحكم",robots:{index:false,follow:false,noarchive:true,nocache:true}};
 
