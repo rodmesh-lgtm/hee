@@ -55,7 +55,6 @@ function openAiApiKey() {
 
 export function businessMemoryAiReady() {
   if (process.env.INFRO_BUSINESS_MEMORY_AI_ENABLED === "false") return false;
-  if (process.env.INFRO_BUSINESS_VOICE_AI_ENABLED === "false") return false;
   return Boolean(openAiApiKey());
 }
 
