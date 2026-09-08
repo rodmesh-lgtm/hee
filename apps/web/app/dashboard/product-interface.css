@@ -1,0 +1,60 @@
+/* INFRO Product Interface 2026 — operational density, hierarchy and interaction language. */
+[data-dashboard-path]{
+  --infro-pi-radius:16px;
+  --infro-pi-radius-sm:11px;
+  --infro-pi-control:44px;
+  --infro-pi-accent:#12cdb8;
+  --infro-pi-accent-strong:#079e91;
+  --infro-pi-shadow:0 1px 2px rgba(7,24,27,.05),0 10px 28px -24px rgba(7,24,27,.28);
+  font-feature-settings:"kern" 1,"liga" 1,"calt" 1;
+  text-rendering:optimizeLegibility;
+}
+[data-dashboard-path] :where(button,a,input,select,textarea){-webkit-tap-highlight-color:transparent}
+[data-dashboard-path] :where(button,a,[role="button"]){transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease,box-shadow 140ms ease,transform 140ms ease}
+[data-dashboard-path] :where(button,a,[role="button"]):active:not(:disabled){transform:translateY(1px)}
+[data-dashboard-path] :where(button,a,input,select,textarea):focus-visible{outline:2px solid var(--infro-pi-accent)!important;outline-offset:2px}
+[data-dashboard-path] :where(button,a)[aria-disabled="true"],[data-dashboard-path] button:disabled{cursor:not-allowed}
+
+/* Turn generic cards into product surfaces rather than poster panels. */
+[data-dashboard-path] main :where(section,article).bg-white{
+  box-shadow:var(--infro-pi-shadow);
+}
+[data-dashboard-path] main :where(.rounded-\[28px\],.rounded-\[30px\],.rounded-\[26px\]){
+  border-radius:20px;
+}
+[data-dashboard-path] main :where(.rounded-\[24px\],.rounded-3xl){border-radius:18px}
+[data-dashboard-path] main :where(.rounded-2xl){border-radius:14px}
+[data-dashboard-path] main :where(.text-\[8px\],.text-\[9px\]){letter-spacing:normal}
+[data-dashboard-path] main [dir="ltr"]:where(.text-\[8px\],.text-\[9px\]){letter-spacing:.06em}
+
+/* Product shell: denser rail, unmistakable active state, operational top bar. */
+[data-dashboard-path] > aside nav a{border:1px solid transparent}
+[data-dashboard-path] > aside nav a[aria-current="page"]{border-color:rgba(53,228,203,.18);box-shadow:inset 0 0 0 1px rgba(53,228,203,.035)}
+[data-dashboard-path] > aside nav a:not([aria-current="page"]):hover{border-color:rgba(255,255,255,.055)}
+[data-dashboard-path] > div > header{box-shadow:0 1px 0 rgba(15,23,42,.025)}
+
+/* Product controls have visible affordance instead of blending into cards. */
+[data-dashboard-path] main :where(a,button).min-h-11{font-weight:750}
+[data-dashboard-path] main :where(input,select,textarea){transition:border-color 140ms ease,box-shadow 140ms ease,background-color 140ms ease}
+[data-dashboard-path] main :where(input,select,textarea):hover{border-color:#b8d2cf}
+
+/* Operational states: alerts, selected tabs and progress should read at a glance. */
+[data-dashboard-path] :where([aria-current="page"],[aria-selected="true"]){isolation:isolate}
+[data-dashboard-path] progress{accent-color:var(--infro-pi-accent-strong)}
+
+@media (min-width:1024px){
+  [data-dashboard-path] main{padding-top:22px!important;padding-bottom:30px!important}
+  [data-dashboard-path] main > div{max-width:1480px;margin-inline:auto}
+}
+@media (max-width:639px){
+  [data-dashboard-path] main{padding-inline:12px!important}
+  [data-dashboard-path] main :where(.rounded-\[28px\],.rounded-\[30px\],.rounded-\[26px\]){border-radius:16px}
+}
+@media(prefers-reduced-motion:reduce){[data-dashboard-path] :where(button,a,[role="button"],input,select,textarea){transition:none!important}}
+
+[data-dashboard-path][data-dashboard-theme="dark"]{
+  --infro-pi-shadow:0 1px 1px rgba(0,0,0,.22),0 14px 34px -28px rgba(0,0,0,.85);
+}
+[data-dashboard-path][data-dashboard-theme="dark"] main :where(input,select,textarea):hover{border-color:#356166!important}
+[data-dashboard-path][data-dashboard-theme="light"] > aside nav a[aria-current="page"]{border-color:#a8e8df!important;box-shadow:inset -3px 0 0 #0ebaa8,0 5px 16px -14px rgba(0,143,135,.35)!important}
+[data-dashboard-path][data-dashboard-theme="light"] > aside nav a:not([aria-current="page"]):hover{border-color:#d8e8e5!important;background:#edf7f5!important}
