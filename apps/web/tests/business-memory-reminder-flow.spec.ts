@@ -23,18 +23,6 @@ async function seedWorkspace(label:string):Promise<Workspace>{
   return{userId:user.id,businessId:business.id,sessionToken};
 }
 
-async function cleanupWorkspace(value:Workspace){
-  await pool.query('DELETE FROM "SmartReminderDelivery" WHERE "businessId"=$1',[value.businessId]);
-  await pool.query('DELETE FROM "SmartReminder" WHERE "businessId"=$1',[value.businessId]);
-  await pool.query('DELETE FROM "BusinessNote" WHERE "businessId"=$1',[value.businessId]);
-  await db.whatsAppAuditLog.deleteMany({where:{businessId:value.businessId}});
-  await db.analyticsEvent.deleteMany({where:{businessId:value.businessId}});
-  await db.session.deleteMany({where:{userId:value.userId}});
-  await db.business.deleteMany({where:{id:value.businessId}});
-  await db.authIdentity.deleteMany({where:{userId:value.userId}});
-  await db.user.deleteMany({where:{id:value.userId}});
-}
-
 async function noteByTitle(businessId:string,title:string){
   const result=await pool.query<NoteRow>('SELECT "id","title" FROM "BusinessNote" WHERE "businessId"=$1 AND "title"=$2 LIMIT 1',[businessId,title]);
   return result.rows[0]??null;
@@ -75,7 +63,8 @@ test.describe.serial("Business Memory → Smart Reminder execution chain",()=>{
   });
 
   test.afterAll(async()=>{
-    if(fixture){await cleanupWorkspace(fixture.a);await cleanupWorkspace(fixture.b)}
+    // The workflow database is disposable. Do not mutate append-only audit history merely to
+    // clean test fixtures; the entire PostgreSQL service is destroyed at the end of the job.
     await db?.$disconnect();
     await pool?.end();
   });
@@ -86,7 +75,7 @@ test.describe.serial("Business Memory → Smart Reminder execution chain",()=>{
     const page=await context.newPage();
     try{
       await page.goto(`${baseUrl}/dashboard/notes`,{waitUntil:"domcontentloaded"});
-      await expect(page.getByRole("heading",{name:"مذكرات الأعمال",exact:true})).toBeVisible();
+      await expect(page.locator("#dashboard-main-content").getByRole("heading",{name:"مذكرات الأعمال",exact:true})).toBeVisible();
       await page.locator('input[name="title"]').first().fill("متابعة عرض عميل الاختبار");
       await page.locator('textarea[name="body"]').first().fill("تمت مناقشة العرض مع العميل ويجب متابعة الموافقة النهائية.");
       await page.locator('textarea[name="nextAction"]').first().fill("اتصل بالعميل وتأكد من الموافقة النهائية على العرض.");
