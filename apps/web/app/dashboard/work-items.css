@@ -1,0 +1,135 @@
+/* INFRO operational work items — layered after the core Product Interface. */
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main article{
+  position:relative;
+  overflow:hidden;
+  border-radius:12px!important;
+  border-inline-start-width:3px!important;
+  border-inline-start-color:#cbd5e1!important;
+  box-shadow:none!important;
+}
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main article::before{
+  content:"";
+  position:absolute;
+  inset-block:0;
+  inset-inline-start:0;
+  width:2px;
+  background:transparent;
+  pointer-events:none;
+}
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main article:hover{
+  background:#fcfefe;
+  border-inline-start-color:#1bb9aa!important;
+}
+
+/* Provenance is functional: linked work visually reads as one workflow, not unrelated cards. */
+[data-dashboard-path="/dashboard/notes"] main article:has(a[href*="/dashboard/reminders"]),
+[data-dashboard-path="/dashboard/reminders"] main article:has(a[href*="/dashboard/notes"]){
+  border-inline-start-color:#0ea5a0!important;
+}
+[data-dashboard-path="/dashboard/notes"] main article:has(a[href*="/dashboard/reminders"])::before,
+[data-dashboard-path="/dashboard/reminders"] main article:has(a[href*="/dashboard/notes"])::before{
+  background:linear-gradient(180deg,#13c8b6,#0e8f89);
+}
+
+/* Filters and tabs behave as a command toolbar instead of decorative pills. */
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main form:has(input[type="search"]),
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main form:has(input[name="q"]){
+  border-color:var(--infro-pi-border)!important;
+  box-shadow:0 1px 2px rgba(7,24,27,.04);
+}
+[data-dashboard-path="/dashboard/notes"] main a[href*="view="],
+[data-dashboard-path="/dashboard/notes"] main a[href*="priority="],
+[data-dashboard-path="/dashboard/notes"] main a[href*="type="],
+[data-dashboard-path="/dashboard/reminders"] main a[href*="tab="]{
+  min-height:40px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid transparent;
+  font-weight:750;
+}
+[data-dashboard-path="/dashboard/notes"] main a[href*="view="]:hover,
+[data-dashboard-path="/dashboard/notes"] main a[href*="priority="]:hover,
+[data-dashboard-path="/dashboard/notes"] main a[href*="type="]:hover,
+[data-dashboard-path="/dashboard/reminders"] main a[href*="tab="]:hover{
+  border-color:#a7dcd6;
+  background:#f1faf8;
+}
+
+/* Expanded editors are secondary panels inside a work item, not another card hierarchy. */
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main details{
+  border-radius:10px!important;
+}
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main details>summary{
+  min-height:44px;
+  display:flex;
+  align-items:center;
+  cursor:pointer;
+  font-weight:800;
+}
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main details[open]{
+  border-color:#b9d9d5!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55);
+}
+
+/* Action clusters stay obviously interactive while metadata remains quiet. */
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main article :where(button,a){
+  min-height:40px;
+}
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main article :where(button,a):hover{
+  box-shadow:0 5px 14px -12px rgba(7,24,27,.45);
+}
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main article :where(.text-slate-400,.text-slate-500){
+  color:#65767a;
+}
+
+@media (min-width:1024px){
+  :is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main article{
+    padding-top:14px!important;
+    padding-bottom:14px!important;
+  }
+  :is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main form:has(input[type="search"]),
+  :is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main form:has(input[name="q"]){
+    position:sticky;
+    top:72px;
+    z-index:12;
+    background:rgba(255,255,255,.96);
+    backdrop-filter:blur(12px);
+  }
+}
+
+@media (max-width:639px){
+  :is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main article{
+    border-radius:11px!important;
+    border-inline-start-width:3px!important;
+  }
+  :is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main article :where(button,a){
+    min-height:44px;
+  }
+  [data-dashboard-path="/dashboard/notes"] main a[href*="view="],
+  [data-dashboard-path="/dashboard/notes"] main a[href*="priority="],
+  [data-dashboard-path="/dashboard/notes"] main a[href*="type="],
+  [data-dashboard-path="/dashboard/reminders"] main a[href*="tab="]{
+    min-height:44px;
+  }
+}
+
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"])[data-dashboard-theme="dark"] main article:hover{
+  background:#10292c!important;
+  border-inline-start-color:#35d4c3!important;
+}
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"])[data-dashboard-theme="dark"] main form:has(input[type="search"]),
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"])[data-dashboard-theme="dark"] main form:has(input[name="q"]){
+  background:rgba(10,31,34,.96)!important;
+}
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"])[data-dashboard-theme="dark"] main details[open]{
+  border-color:#31575b!important;
+  box-shadow:none;
+}
+:is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"])[data-dashboard-theme="dark"] main article :where(.text-slate-400,.text-slate-500){
+  color:#9eb2b4!important;
+}
+
+@media(prefers-reduced-motion:reduce){
+  :is([data-dashboard-path="/dashboard/notes"],[data-dashboard-path="/dashboard/reminders"]) main article{transition:none!important}
+}
