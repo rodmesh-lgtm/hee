@@ -20,6 +20,14 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // This is an async Server Component. It intentionally compares business due dates
+    // with the request-time server clock; the client-render purity rule is not applicable.
+    files: ["app/dashboard/notes/page.tsx"],
+    rules: {
+      "react-hooks/purity": "off",
+    },
+  },
+  {
     files: [
       "app/dashboard/branding/page.tsx",
       "components/dashboard/offer-designer.tsx",

@@ -10,9 +10,12 @@ const adminPage = readFileSync(join(root, "app/admin/whatsapp/reminders/page.tsx
 const actions = readFileSync(join(root, "app/actions/smart-reminders.ts"), "utf8");
 const vercelRunner = readFileSync(join(root, "app/lib/whatsapp/vercel-operations-runner.ts"), "utf8");
 
-test("reminder schema readiness uses non-throwing PostgreSQL relation probes", () => {
+test("reminder schema readiness probes all multi-channel boundaries without throwing", () => {
   assert.match(readiness, /to_regclass\('public\."SmartReminder"'\)/);
   assert.match(readiness, /to_regclass\('public\."SmartReminderDelivery"'\)/);
+  assert.match(readiness, /column_name='deliveryChannels'/);
+  assert.match(readiness, /column_name='channel'/);
+  assert.match(readiness, /to_regclass\('public\."SmartReminderNotification"'\)/);
 });
 
 test("customer and admin reminder pages fail closed before querying missing tables", () => {
@@ -23,7 +26,7 @@ test("customer and admin reminder pages fail closed before querying missing tabl
 });
 
 test("reminder writes and Vercel operations do not touch absent reminder tables", () => {
-  assert.match(actions, /if \(!await isSmartRemindersSchemaReady\(\)\) redirect\("\/dashboard\/reminders\?schema=pending"\)/);
-  assert.match(vercelRunner, /async function runReminderSchedules[\s\S]*?if \(!await isSmartRemindersSchemaReady\(\)\) return;/);
-  assert.match(vercelRunner, /async function runReminderDeliveries[\s\S]*?if \(!await isSmartRemindersSchemaReady\(\)\) return;/);
+  assert.match(actions, /if\s*\(\s*!await\s+isSmartRemindersSchemaReady\(\)\s*\)\s*redirect\("\/dashboard\/reminders\?schema=pending"\)/);
+  assert.match(vercelRunner, /async function runReminderSchedules[\s\S]*?if\s*\(\s*!await\s+isSmartRemindersSchemaReady\(\)\s*\)\s*return;/);
+  assert.match(vercelRunner, /async function runReminderDeliveries[\s\S]*?if\s*\(\s*!await\s+isSmartRemindersSchemaReady\(\)\s*\)\s*return;/);
 });

@@ -1,0 +1,19 @@
+/* INFRO Billing — transactional clarity and safe mobile interaction. */
+[data-dashboard-path^="/dashboard/billing"] #dashboard-main-content>div{display:grid;gap:12px!important}
+[data-dashboard-path^="/dashboard/billing"] main :where(section,article){border-radius:15px!important;box-shadow:none!important}
+[data-dashboard-path^="/dashboard/billing"] main :where(button,a,input,select){border-radius:10px!important}
+[data-dashboard-path^="/dashboard/billing"] main :where(button,a){min-height:42px}
+[data-dashboard-path^="/dashboard/billing"] main :where(button,a):focus-visible{outline:2px solid #12cdb8;outline-offset:2px}
+[data-dashboard-path^="/dashboard/billing"] main [role="alert"],
+[data-dashboard-path^="/dashboard/billing"] main [role="status"]{border-radius:11px!important}
+[data-dashboard-path^="/dashboard/billing"] main :where(table,code,.tabular-nums){font-variant-numeric:tabular-nums}
+[data-dashboard-path^="/dashboard/billing"] main table{width:100%;border-collapse:separate;border-spacing:0}
+[data-dashboard-path^="/dashboard/billing"] main :where(th,td){padding-block:11px}
+[data-dashboard-path^="/dashboard/billing"] main [role="progressbar"]{height:6px;border-radius:999px;overflow:hidden}
+@media(max-width:639px){
+ [data-dashboard-path^="/dashboard/billing"] #dashboard-main-content>div{gap:10px!important}
+ [data-dashboard-path^="/dashboard/billing"] main :where(button,a){min-height:44px}
+ [data-dashboard-path^="/dashboard/billing"] main .overflow-x-auto{margin-inline:-4px;padding-inline:4px}
+}
+[data-dashboard-path^="/dashboard/billing"][data-dashboard-theme="dark"] main :where(section,article){border-color:#24484c!important}
+@media(prefers-reduced-motion:reduce){[data-dashboard-path^="/dashboard/billing"] main :where(button,a,input,select){transition:none!important}}

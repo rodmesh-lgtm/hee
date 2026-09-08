@@ -1,0 +1,54 @@
+/* INFRO Product Shell — persistent command chrome for the customer workspace. */
+[data-dashboard-path]{--infro-shell-rail:248px;--infro-shell-top:62px}
+[data-dashboard-path]>aside{box-shadow:-16px 0 42px -38px rgba(0,0,0,.72)}
+[data-dashboard-path]>aside nav{scrollbar-width:thin;scrollbar-color:rgba(102,231,213,.16) transparent}
+[data-dashboard-path]>aside nav a{min-height:40px}
+[data-dashboard-path]>aside nav a[aria-current="page"]{background:linear-gradient(90deg,rgba(53,228,203,.11),rgba(255,255,255,.055))!important}
+[data-dashboard-path]>aside nav a[aria-current="page"] span:first-child{box-shadow:0 5px 18px -10px rgba(53,228,203,.9)}
+[data-dashboard-path]>aside nav a:not([aria-current="page"]):hover span:first-child{background:rgba(53,228,203,.07)}
+[data-dashboard-path]>div>header{height:var(--infro-shell-top);border-color:#dce7e6!important}
+[data-dashboard-path]>div>header h1{letter-spacing:-.012em}
+[data-dashboard-path]>div>header a,[data-dashboard-path]>div>header button{position:relative}
+[data-dashboard-path]>div>header a:hover,[data-dashboard-path]>div>header button:hover{border-color:#b8d9d5}
+[data-dashboard-path]>div>header [dir="ltr"]{letter-spacing:.055em}
+
+/* The rail communicates hierarchy without introducing fake product capabilities. */
+[data-dashboard-path]>aside nav a:nth-child(2),
+[data-dashboard-path]>aside nav a:nth-child(5),
+[data-dashboard-path]>aside nav a:nth-child(9),
+[data-dashboard-path]>aside nav a:nth-child(11){margin-top:9px}
+[data-dashboard-path]>aside nav a:nth-child(2)::before,
+[data-dashboard-path]>aside nav a:nth-child(5)::before,
+[data-dashboard-path]>aside nav a:nth-child(9)::before,
+[data-dashboard-path]>aside nav a:nth-child(11)::before{content:"";position:absolute;inset-inline:0;top:-5px;height:1px;background:rgba(255,255,255,.055)}
+
+/* Locked WhatsApp entry remains legible as an entitlement state, not a disabled mystery item. */
+[data-dashboard-path]>aside nav a[href*="feature=whatsapp-marketing"]{opacity:.78}
+[data-dashboard-path]>aside nav a[href*="feature=whatsapp-marketing"]:hover{opacity:1}
+
+/* Mobile bottom bar behaves like app chrome rather than a floating marketing card. */
+[data-dashboard-path]>nav[aria-label="التنقل السريع"]{border-color:#dce7e6!important;box-shadow:0 -12px 30px -28px rgba(7,24,27,.55)}
+[data-dashboard-path]>nav[aria-label="التنقل السريع"] a[aria-current="page"]{background:#e8f8f5;color:#087f77}
+[data-dashboard-path]>nav[aria-label="التنقل السريع"] a[aria-current="page"] svg{stroke-width:2.35}
+
+@media(min-width:1024px){
+  [data-dashboard-path]>aside{width:var(--infro-shell-rail)!important}
+  [data-dashboard-path]>div{margin-right:var(--infro-shell-rail)!important}
+  [data-dashboard-path]>div>header{padding-inline:22px!important}
+}
+@media(max-width:1023px){
+  [data-dashboard-path]>div>header{padding-inline:12px!important}
+  [data-dashboard-path]>div>header>div:last-child{gap:6px}
+}
+@media(max-width:639px){
+  [data-dashboard-path]{--infro-shell-top:58px}
+  [data-dashboard-path]>div>header{height:var(--infro-shell-top);padding-inline:10px!important}
+  [data-dashboard-path]>div>header h1{font-size:13px!important}
+  [data-dashboard-path]>nav[aria-label="التنقل السريع"]{padding-inline:6px!important}
+  [data-dashboard-path]>nav[aria-label="التنقل السريع"] :where(a,button){border-radius:11px!important}
+}
+[data-dashboard-path][data-dashboard-theme="dark"]>div>header{border-color:#1d3a3e!important;background:rgba(7,24,27,.9)!important}
+[data-dashboard-path][data-dashboard-theme="dark"]>div>header a:hover,[data-dashboard-path][data-dashboard-theme="dark"]>div>header button:hover{border-color:#31575b!important}
+[data-dashboard-path][data-dashboard-theme="dark"]>nav[aria-label="التنقل السريع"]{border-color:#1d3a3e!important;background:rgba(7,24,27,.96)!important}
+[data-dashboard-path][data-dashboard-theme="dark"]>nav[aria-label="التنقل السريع"] a[aria-current="page"]{background:rgba(53,228,203,.1)!important;color:#76f0df!important}
+@media(prefers-reduced-motion:reduce){[data-dashboard-path]>aside nav a,[data-dashboard-path]>div>header :where(a,button){transition:none!important}}

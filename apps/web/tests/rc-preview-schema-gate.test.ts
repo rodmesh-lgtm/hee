@@ -13,9 +13,12 @@ test("production build syncs then runs the RC Preview schema gate before compili
   assert.match(build, /^node scripts\/sync-rc-preview-schema\.mjs && node scripts\/assert-rc-preview-schema-current\.mjs && /);
 });
 
-test("RC Preview schema gate is scoped to Vercel Preview and hee-v6-rc", () => {
+test("Preview schema gate is scoped to Vercel Preview and explicitly approved refs", () => {
   assert.match(source, /VERCEL_ENV/);
-  assert.match(source, /VERCEL_GIT_COMMIT_REF === "hee-v6-rc"/);
+  assert.match(source, /VERCEL_GIT_COMMIT_REF/);
+  assert.match(source, /vercelEnv === "preview"/);
+  assert.match(source, /new Set\(\["hee-v6-rc", "infro-business-memory-2026"\]\)/);
+  assert.match(source, /previewSchemaRefs\.has\(gitRef\)/);
   assert.match(source, /DATABASE_URL is unavailable/);
 });
 
