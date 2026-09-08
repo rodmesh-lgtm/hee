@@ -52,9 +52,10 @@ test("public homepage does not regress to the retired purple interface palette",
   assert.match(source, /#061619/);
 });
 
-test("shared INFRO lockup uses the current production logo asset", async () => {
+test("shared INFRO lockup uses the approved gradient symbol and never the retired mark", async () => {
   const source = normalize(await readFile(logo, "utf8"));
-  assert.match(source, /src="\/brand\/ir-logo\.png"/);
+  assert.match(source, /src="\/brand\/infro-symbol-approved\.svg"/);
   assert.doesNotMatch(source, /ir-logo-original\.webp/);
+  assert.doesNotMatch(source, /src="\/brand\/ir-logo\.png"/);
   assert.match(source, /YOUR DIGITAL &amp; MARKETING IDENTITY/);
 });
