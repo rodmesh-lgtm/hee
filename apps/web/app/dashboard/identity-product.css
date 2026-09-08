@@ -1,0 +1,33 @@
+/* INFRO Digital Identity — asset/status workspace, not a marketing landing page. */
+[data-dashboard-path="/dashboard/digital-identity"] #dashboard-main-content>div{display:grid;gap:12px!important}
+[data-dashboard-path="/dashboard/digital-identity"] main section,
+[data-dashboard-path="/dashboard/digital-identity"] main article{border-radius:15px!important;box-shadow:none!important}
+[data-dashboard-path="/dashboard/digital-identity"] main>div>section:first-child{padding:18px!important;border-color:var(--infro-pi-border)!important}
+[data-dashboard-path="/dashboard/digital-identity"] main>div>section:first-child h1{font-size:1.5rem!important;letter-spacing:-.02em}
+[data-dashboard-path="/dashboard/digital-identity"] main>div>section:first-child p[dir="ltr"]{letter-spacing:.08em!important}
+[data-dashboard-path="/dashboard/digital-identity"] main article h2{letter-spacing:-.01em}
+[data-dashboard-path="/dashboard/digital-identity"] main :where(input,select,textarea){border-radius:10px!important}
+[data-dashboard-path="/dashboard/digital-identity"] main :where(button,a){border-radius:10px!important}
+[data-dashboard-path="/dashboard/digital-identity"] main :where(button,a):focus-visible{outline:2px solid #12cdb8;outline-offset:2px}
+[data-dashboard-path="/dashboard/digital-identity"] main input[type="file"]{cursor:pointer}
+[data-dashboard-path="/dashboard/digital-identity"] main [role="status"],
+[data-dashboard-path="/dashboard/digital-identity"] main [role="alert"]{border-radius:11px!important}
+[data-dashboard-path="/dashboard/digital-identity"] main code{font-variant-numeric:tabular-nums}
+[data-dashboard-path="/dashboard/digital-identity"] main form button{min-height:44px}
+
+/* Completion is a status matrix; keep it scan-friendly and quiet. */
+[data-dashboard-path="/dashboard/digital-identity"] main section:last-child>div:nth-child(2)>div{min-height:42px;border-radius:10px!important}
+
+@media(min-width:1100px){
+ [data-dashboard-path="/dashboard/digital-identity"] #dashboard-main-content>div>section:first-child{position:sticky;top:72px;z-index:8;background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
+}
+@media(max-width:639px){
+ [data-dashboard-path="/dashboard/digital-identity"] #dashboard-main-content>div{gap:10px!important}
+ [data-dashboard-path="/dashboard/digital-identity"] main>div>section:first-child{padding:15px!important}
+ [data-dashboard-path="/dashboard/digital-identity"] main>div>section:first-child h1{font-size:1.3rem!important}
+ [data-dashboard-path="/dashboard/digital-identity"] main :where(button,a){min-height:44px}
+}
+[data-dashboard-path="/dashboard/digital-identity"][data-dashboard-theme="dark"] #dashboard-main-content>div>section:first-child{background:rgba(10,31,34,.96)!important;border-color:#24484c!important}
+[data-dashboard-path="/dashboard/digital-identity"][data-dashboard-theme="dark"] main section,
+[data-dashboard-path="/dashboard/digital-identity"][data-dashboard-theme="dark"] main article{border-color:#24484c!important}
+@media(prefers-reduced-motion:reduce){[data-dashboard-path="/dashboard/digital-identity"] main :where(button,a,input,select,textarea){transition:none!important}}
