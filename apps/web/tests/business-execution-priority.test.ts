@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { prioritizeWork, rankWorkItem } from "../app/lib/business-execution/work-priority";
+import { prioritizeWork, rankWorkItem, workBucket } from "../app/lib/business-execution/work-priority";
 
 const now = new Date("2026-09-08T02:00:00.000Z");
 
@@ -16,6 +16,8 @@ function item(id:string, overrides:Record<string,unknown>={}) {
     scheduledAt:null,
     nextAction:null,
     updatedAt:new Date("2026-09-08T01:00:00.000Z"),
+    status:null,
+    timezone:"Asia/Riyadh",
     ...overrides,
   };
 }
@@ -58,4 +60,16 @@ test("ties are deterministic and prefer the earliest operational date", () => {
     item("earlier",{nextAction:"أ",businessDueAt:new Date("2026-09-09T02:00:00.000Z")}),
   ],now);
   assert.deepEqual(ranked.map(x=>x.id),["earlier","later"]);
+});
+
+test("daily execution buckets separate today next and waiting using real state", () => {
+  assert.equal(workBucket(item("blocked",{workHealth:"blocked"}),now),"today");
+  assert.equal(workBucket(item("paused",{kind:"reminder",status:"paused",scheduledAt:new Date("2026-09-07T02:00:00.000Z")}),now),"waiting");
+  assert.equal(workBucket(item("later",{businessDueAt:new Date("2026-09-09T02:00:00.000Z")}),now),"next");
+});
+
+test("today bucket respects the work timezone calendar day", () => {
+  const lateRiyadh=new Date("2026-09-08T20:30:00.000Z");
+  assert.equal(workBucket(item("same-day",{kind:"reminder",scheduledAt:new Date("2026-09-08T20:45:00.000Z"),timezone:"Asia/Riyadh"}),lateRiyadh),"today");
+  assert.equal(workBucket(item("next-day",{kind:"reminder",scheduledAt:new Date("2026-09-08T21:30:00.000Z"),timezone:"Asia/Riyadh"}),lateRiyadh),"next");
 });
