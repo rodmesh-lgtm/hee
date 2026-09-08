@@ -2,6 +2,7 @@ import "server-only";
 
 import type { PrismaClient } from "@prisma/client";
 import { db } from "../db";
+import { getInfroReminderWhatsAppPhoneNumberId } from "../reminders/platform-whatsapp";
 import { whatsAppCustomerServiceWindow } from "./inbox-domain";
 
 const CONVERSATION_LIMIT = 50;
@@ -9,6 +10,18 @@ const MESSAGE_LIMIT = 100;
 function boundedQuery(value: string | undefined) {
   const query = value?.trim() ?? "";
   return query.length > 0 && query.length <= 64 ? query : "";
+}
+
+function tenantInboxWhere(businessId: string, query: string) {
+  const platformPhoneNumberId = getInfroReminderWhatsAppPhoneNumberId();
+  return {
+    businessId,
+    ...(platformPhoneNumberId ? { NOT: { phoneNumberId: platformPhoneNumberId } } : {}),
+    ...(query ? { OR: [
+      { customerPhoneE164: { contains: query, mode: "insensitive" as const } },
+      { customerDisplayName: { contains: query, mode: "insensitive" as const } },
+    ] } : {}),
+  };
 }
 
 export async function getWhatsAppInbox(input: {
@@ -20,14 +33,9 @@ export async function getWhatsAppInbox(input: {
 }) {
   const database = input.database ?? db;
   const query = boundedQuery(input.query);
+  const where = tenantInboxWhere(input.businessId, query);
   const conversations = await database.whatsAppConversation.findMany({
-    where: {
-      businessId: input.businessId,
-      ...(query ? { OR: [
-        { customerPhoneE164: { contains: query, mode: "insensitive" } },
-        { customerDisplayName: { contains: query, mode: "insensitive" } },
-      ] } : {}),
-    },
+    where,
     orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }],
     take: CONVERSATION_LIMIT,
     select: {
@@ -39,7 +47,7 @@ export async function getWhatsAppInbox(input: {
   const requestedId = input.selectedConversationId?.trim();
   const selectedId = requestedId && requestedId.length <= 128 ? requestedId : conversations[0]?.id;
   const selected = selectedId ? await database.whatsAppConversation.findFirst({
-    where: { id: selectedId, businessId: input.businessId },
+    where: { ...where, id: selectedId },
     select: {
       id: true, customerPhoneE164: true, customerDisplayName: true,
       lastMessageAt: true, lastInboundAt: true, lastOutboundAt: true,

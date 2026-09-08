@@ -3,113 +3,33 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getActiveBusinessForUser } from "../lib/active-business";
+import { getCurrentUserForWrites } from "../lib/auth";
 import { db } from "../lib/db";
-import { reminderLocalDateTimeToUtc } from "../lib/reminders/domain";
+import { normalizeReminderChannels, reminderLocalDateTimeToUtc } from "../lib/reminders/domain";
+import { REMINDER_PRIORITIES, REMINDER_WORK_HEALTH, updateReminderExecutionContext } from "../lib/reminders/execution-context";
 import { cancelSmartReminder, completeSmartReminder, createSmartReminder, pauseSmartReminder, rescheduleSmartReminder, resumeSmartReminder, updateSmartReminderContent } from "../lib/reminders/operations";
+import { infroReminderWhatsAppReady } from "../lib/reminders/platform-whatsapp";
+import { updateReminderWorkProgress } from "../lib/reminders/progress";
 import { isSmartRemindersSchemaReady } from "../lib/reminders/schema-readiness";
-import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
-import { getWhatsAppWriteContext } from "../lib/whatsapp/rbac";
 
-const field = (form: FormData, key: string, max: number) => {
-  const value = String(form.get(key) ?? "").trim();
-  return value && value.length <= max ? value : null;
-};
+const MAX_ACTIVE_REMINDERS_PER_BUSINESS = 100;
+const field = (form: FormData, key: string, max: number) => { const value=String(form.get(key)??"").normalize("NFKC").trim(); return value&&value.length<=max?value:null; };
+function optionalDueAt(form:FormData){const raw=String(form.get("businessDueAt")??"").trim();if(!raw)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(raw))return undefined;const due=new Date(`${raw}T23:59:59.999Z`);return Number.isNaN(due.getTime())?undefined:due;}
 
-async function reminderContext() {
-  const context = await getWhatsAppWriteContext("automation.manage");
-  if (!context) redirect("/dashboard/reminders?access=denied");
-  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
-  if (!await isSmartRemindersSchemaReady()) redirect("/dashboard/reminders?schema=pending");
-  return context;
-}
+async function reminderContext(){const user=await getCurrentUserForWrites();const business=await getActiveBusinessForUser(user.id);if(!business)redirect("/dashboard?business=required");if(!await isSmartRemindersSchemaReady())redirect("/dashboard/reminders?schema=pending");return{userId:user.id,businessId:business.id};}
+function destinationFor(error:unknown,action:string){const code=error instanceof Error?error.message:"";if(code==="REMINDER_DELIVERY_IN_PROGRESS")return`/dashboard/reminders?${action}=busy`;if(code==="REMINDER_RESCHEDULE_REQUIRED")return`/dashboard/reminders?${action}=reschedule-required`;if(code==="REMINDER_LOCAL_TIME_INVALID")return`/dashboard/reminders?${action}=invalid-time`;if(code==="REMINDER_RECIPIENT_CONSENT_REQUIRED")return`/dashboard/reminders?${action}=consent-required`;if(code==="REMINDER_RECIPIENT_NOT_CONFIGURED")return`/dashboard/reminders?${action}=phone-required`;if(code==="REMINDER_DELIVERY_CHANNELS_INVALID")return`/dashboard/reminders?${action}=channels-required`;if(code==="REMINDER_NOTE_INVALID")return`/dashboard/reminders?${action}=note-invalid`;if(code==="REMINDER_PROGRESS_INVALID"||code==="REMINDER_PROGRESS_NOTE_INVALID")return`/dashboard/reminders?${action}=progress-invalid`;if(code==="REMINDER_PROGRESS_NOT_EDITABLE")return`/dashboard/reminders?${action}=progress-locked`;if(code.startsWith("REMINDER_EXECUTION_"))return`/dashboard/reminders?${action}=execution-invalid`;return`/dashboard/reminders?${action}=failed`;}
 
-function destinationFor(error: unknown, action: string) {
-  const code = error instanceof Error ? error.message : "";
-  if (code === "REMINDER_DELIVERY_IN_PROGRESS") return `/dashboard/reminders?${action}=busy`;
-  if (code === "REMINDER_RESCHEDULE_REQUIRED") return `/dashboard/reminders?${action}=reschedule-required`;
-  if (code === "REMINDER_LOCAL_TIME_INVALID") return `/dashboard/reminders?${action}=invalid-time`;
-  if (code === "REMINDER_RECIPIENT_CONSENT_REQUIRED") return `/dashboard/reminders?${action}=consent-required`;
-  return `/dashboard/reminders?${action}=failed`;
-}
+export async function createSmartReminderAction(form:FormData){const context=await reminderContext();const title=field(form,"title",160),body=field(form,"body",2000),businessNoteId=field(form,"businessNoteId",128),timezone=field(form,"timezone",64),localDateTime=field(form,"scheduledLocal",32),recurrenceType=field(form,"recurrenceType",16)??"once";const count=await db.$queryRaw<Array<{count:bigint}>>(Prisma.sql`SELECT COUNT(*)::bigint AS "count" FROM "SmartReminder" WHERE "businessId"=${context.businessId} AND "status" IN ('scheduled','paused')`);if(Number(count[0]?.count??0)>=MAX_ACTIVE_REMINDERS_PER_BUSINESS)redirect("/dashboard/reminders?create=limit");let deliveryChannels;try{deliveryChannels=normalizeReminderChannels(form.getAll("deliveryChannels").map(String));}catch{redirect("/dashboard/reminders?create=channels-required");}const wantsWhatsApp=deliveryChannels.includes("whatsapp");const recipientConsentAccepted = form.get("recipientConsentAccepted") === "on";if(!title||!body||!timezone||!localDateTime)redirect("/dashboard/reminders?create=invalid");if (wantsWhatsApp && !recipientConsentAccepted) redirect("/dashboard/reminders?create=consent-required");if(wantsWhatsApp&&!infroReminderWhatsAppReady())redirect("/dashboard/reminders?create=whatsapp-unavailable");try{const scheduledAt=reminderLocalDateTimeToUtc(localDateTime,timezone);await createSmartReminder({businessId:context.businessId,actorUserId:context.userId,title,body,businessNoteId,scheduledAt,timezone,recurrenceType,recipientConsentAccepted,deliveryChannels,whatsappSenderMode: "platform"});revalidatePath("/dashboard/reminders");revalidatePath("/dashboard/notes");}catch(error){redirect(destinationFor(error,"create"));}redirect("/dashboard/reminders?create=success");}
 
-export async function createSmartReminderAction(form: FormData) {
-  const context = await reminderContext();
-  const title = field(form, "title", 160);
-  const body = field(form, "body", 2000);
-  const templateId = field(form, "templateId", 128);
-  const timezone = field(form, "timezone", 64);
-  const localDateTime = field(form, "scheduledLocal", 32);
-  const recurrenceType = field(form, "recurrenceType", 16) ?? "once";
-  const recipientConsentAccepted = form.get("recipientConsentAccepted") === "on";
-  if (!title || !body || !templateId || !timezone || !localDateTime || !recipientConsentAccepted) redirect("/dashboard/reminders?create=consent-required");
-  try {
-    const scheduledAt = reminderLocalDateTimeToUtc(localDateTime, timezone);
-    await createSmartReminder({ businessId: context.businessId, actorUserId: context.userId, title, body, templateId, scheduledAt, timezone, recurrenceType, recipientConsentAccepted });
-    revalidatePath("/dashboard/reminders");
-  } catch (error) {
-    redirect(destinationFor(error, "create"));
-  }
-  redirect("/dashboard/reminders?create=success");
-}
+export async function updateSmartReminderAction(form:FormData){const context=await reminderContext();const reminderId=field(form,"reminderId",128),title=field(form,"title",160),body=field(form,"body",2000);if(!reminderId||!title||!body)redirect("/dashboard/reminders?update=invalid");try{await updateSmartReminderContent({businessId:context.businessId,actorUserId:context.userId,reminderId,title,body});revalidatePath("/dashboard/reminders");}catch(error){redirect(destinationFor(error,"update"));}redirect("/dashboard/reminders?update=success");}
 
-export async function updateSmartReminderAction(form: FormData) {
-  const context = await reminderContext();
-  const reminderId = field(form, "reminderId", 128), title = field(form, "title", 160), body = field(form, "body", 2000);
-  if (!reminderId || !title || !body) redirect("/dashboard/reminders?update=invalid");
-  try { await updateSmartReminderContent({ businessId: context.businessId, actorUserId: context.userId, reminderId, title, body }); revalidatePath("/dashboard/reminders"); }
-  catch (error) { redirect(destinationFor(error, "update")); }
-  redirect("/dashboard/reminders?update=success");
-}
+export async function updateSmartReminderExecutionContextAction(form:FormData){const context=await reminderContext();const reminderId=field(form,"reminderId",128),workHealth=String(form.get("workHealth")??""),priority=String(form.get("priority")??""),responsiblePerson=field(form,"responsiblePerson",160),nextAction=field(form,"nextAction",1200),businessDueAt=optionalDueAt(form);if(!reminderId||!REMINDER_WORK_HEALTH.includes(workHealth as never)||!REMINDER_PRIORITIES.includes(priority as never)||businessDueAt===undefined)redirect("/dashboard/reminders?execution=invalid");try{await updateReminderExecutionContext({businessId:context.businessId,actorUserId:context.userId,reminderId,workHealth,priority,responsiblePerson,businessDueAt,nextAction});revalidatePath("/dashboard/reminders");revalidatePath("/dashboard/notes");}catch(error){redirect(destinationFor(error,"execution"));}redirect("/dashboard/reminders?execution=success&tab=work");}
 
-export async function rescheduleSmartReminderAction(form: FormData) {
-  const context = await reminderContext();
-  const reminderId = field(form, "reminderId", 128), timezone = field(form, "timezone", 64), localDateTime = field(form, "scheduledLocal", 32);
-  if (!reminderId || !timezone || !localDateTime) redirect("/dashboard/reminders?reschedule=invalid");
-  try { const scheduledAt = reminderLocalDateTimeToUtc(localDateTime, timezone); await rescheduleSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId, scheduledAt, timezone }); revalidatePath("/dashboard/reminders"); }
-  catch (error) { redirect(destinationFor(error, "reschedule")); }
-  redirect("/dashboard/reminders?reschedule=success");
-}
-
-export async function pauseSmartReminderAction(form: FormData) {
-  const context = await reminderContext(); const reminderId = field(form, "reminderId", 128);
-  if (!reminderId) redirect("/dashboard/reminders?pause=invalid");
-  try { await pauseSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId }); revalidatePath("/dashboard/reminders"); }
-  catch (error) { redirect(destinationFor(error, "pause")); }
-  redirect("/dashboard/reminders?pause=success");
-}
-
-export async function resumeSmartReminderAction(form: FormData) {
-  const context = await reminderContext(); const reminderId = field(form, "reminderId", 128);
-  if (!reminderId) redirect("/dashboard/reminders?resume=invalid");
-  try { await resumeSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId }); revalidatePath("/dashboard/reminders"); }
-  catch (error) { redirect(destinationFor(error, "resume")); }
-  redirect("/dashboard/reminders?resume=success");
-}
-
-export async function cancelSmartReminderAction(form: FormData) {
-  const context = await reminderContext(); const reminderId = field(form, "reminderId", 128);
-  if (!reminderId) redirect("/dashboard/reminders?cancel=invalid");
-  try { await cancelSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId }); revalidatePath("/dashboard/reminders"); }
-  catch (error) { redirect(destinationFor(error, "cancel")); }
-  redirect("/dashboard/reminders?cancel=success");
-}
-
-export async function completeSmartReminderAction(form: FormData) {
-  const context = await reminderContext(); const reminderId = field(form, "reminderId", 128);
-  if (!reminderId) redirect("/dashboard/reminders?complete=invalid");
-  try { await completeSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId }); revalidatePath("/dashboard/reminders"); }
-  catch (error) { redirect(destinationFor(error, "complete")); }
-  redirect("/dashboard/reminders?complete=success");
-}
-
-export async function snoozeSmartReminderAction(form: FormData) {
-  const context = await reminderContext();
-  const reminderId = field(form, "reminderId", 128);
-  const minutes = Number(field(form, "minutes", 8));
-  if (!reminderId || ![10, 30, 60, 1440].includes(minutes)) redirect("/dashboard/reminders?snooze=invalid");
-  const rows = await db.$queryRaw<Array<{ timezone: string }>>(Prisma.sql`SELECT "timezone" FROM "SmartReminder" WHERE "id" = ${reminderId} AND "businessId" = ${context.businessId} LIMIT 1`);
-  if (!rows[0]) redirect("/dashboard/reminders?snooze=failed");
-  try { await rescheduleSmartReminder({ businessId: context.businessId, actorUserId: context.userId, reminderId, scheduledAt: new Date(Date.now() + minutes * 60_000), timezone: rows[0].timezone }); revalidatePath("/dashboard/reminders"); }
-  catch (error) { redirect(destinationFor(error, "snooze")); }
-  redirect("/dashboard/reminders?snooze=success");
-}
+export async function updateSmartReminderProgressAction(form:FormData){const context=await reminderContext();const reminderId=field(form,"reminderId",128),progressPercent=Number(String(form.get("progressPercent")??"")),progressNote=String(form.get("progressNote")??"").normalize("NFKC").trim().slice(0,1000);if(!reminderId)redirect("/dashboard/reminders?progress=invalid");try{await updateReminderWorkProgress({businessId:context.businessId,actorUserId:context.userId,reminderId,progressPercent,progressNote});revalidatePath("/dashboard/reminders");revalidatePath("/dashboard/notes");}catch(error){redirect(destinationFor(error,"progress"));}redirect("/dashboard/reminders?progress=success");}
+export async function rescheduleSmartReminderAction(form:FormData){const context=await reminderContext();const reminderId=field(form,"reminderId",128),timezone=field(form,"timezone",64),localDateTime=field(form,"scheduledLocal",32);if(!reminderId||!timezone||!localDateTime)redirect("/dashboard/reminders?reschedule=invalid");try{const scheduledAt=reminderLocalDateTimeToUtc(localDateTime,timezone);await rescheduleSmartReminder({businessId:context.businessId,actorUserId:context.userId,reminderId,scheduledAt,timezone});revalidatePath("/dashboard/reminders");}catch(error){redirect(destinationFor(error,"reschedule"));}redirect("/dashboard/reminders?reschedule=success&tab=upcoming");}
+export async function pauseSmartReminderAction(form:FormData){const context=await reminderContext(),reminderId=field(form,"reminderId",128);if(!reminderId)redirect("/dashboard/reminders?pause=invalid");try{await pauseSmartReminder({businessId:context.businessId,actorUserId:context.userId,reminderId});revalidatePath("/dashboard/reminders");}catch(error){redirect(destinationFor(error,"pause"));}redirect("/dashboard/reminders?pause=success&tab=paused");}
+export async function resumeSmartReminderAction(form:FormData){const context=await reminderContext(),reminderId=field(form,"reminderId",128);if(!reminderId)redirect("/dashboard/reminders?resume=invalid");try{await resumeSmartReminder({businessId:context.businessId,actorUserId:context.userId,reminderId});revalidatePath("/dashboard/reminders");}catch(error){redirect(destinationFor(error,"resume"));}redirect("/dashboard/reminders?resume=success&tab=upcoming");}
+export async function cancelSmartReminderAction(form:FormData){const context=await reminderContext(),reminderId=field(form,"reminderId",128);if(!reminderId)redirect("/dashboard/reminders?cancel=invalid");try{await cancelSmartReminder({businessId:context.businessId,actorUserId:context.userId,reminderId});revalidatePath("/dashboard/reminders");}catch(error){redirect(destinationFor(error,"cancel"));}redirect("/dashboard/reminders?cancel=success&tab=cancelled");}
+export async function completeSmartReminderAction(form:FormData){const context=await reminderContext(),reminderId=field(form,"reminderId",128);if(!reminderId)redirect("/dashboard/reminders?complete=invalid");try{await completeSmartReminder({businessId:context.businessId,actorUserId:context.userId,reminderId});revalidatePath("/dashboard/reminders");}catch(error){redirect(destinationFor(error,"complete"));}redirect("/dashboard/reminders?complete=success&tab=completed");}
+export async function snoozeSmartReminderAction(form:FormData){const context=await reminderContext(),reminderId=field(form,"reminderId",128),minutes=Number(field(form,"minutes",8));if(!reminderId||![10,30,60,1440].includes(minutes))redirect("/dashboard/reminders?snooze=invalid");const rows=await db.$queryRaw<Array<{timezone:string}>>(Prisma.sql`SELECT "timezone" FROM "SmartReminder" WHERE "id"=${reminderId} AND "businessId"=${context.businessId} LIMIT 1`);if(!rows[0])redirect("/dashboard/reminders?snooze=failed");try{await rescheduleSmartReminder({businessId:context.businessId,actorUserId:context.userId,reminderId,scheduledAt:new Date(Date.now()+minutes*60_000),timezone:rows[0].timezone});revalidatePath("/dashboard/reminders");}catch(error){redirect(destinationFor(error,"snooze"));}redirect("/dashboard/reminders?snooze=success&tab=upcoming");}
