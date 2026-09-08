@@ -41,6 +41,14 @@ test("public homepage exposes INFRO as the product brand while preserving ir.sa 
   }
 });
 
+test("public homepage describes slug availability truthfully before registration", async () => {
+  const source = normalize(await readFile(homepage, "utf8"));
+  assert.match(source, /تحقق وابدأ التسجيل/);
+  assert.match(source, /تحقق من توفر اسم منشأتك ثم ابدأ التسجيل\./);
+  assert.equal(source.includes("تحقق واحجز رابطك"), false);
+  assert.equal(source.includes("واحجز رابطها"), false);
+});
+
 test("public homepage does not regress to the retired purple interface palette", async () => {
   const source = normalize(await readFile(homepage, "utf8"));
   for (const retiredColor of ["#6841d8", "#5b34c9", "#f1ebff", "#17122a", "#141027"]) {
