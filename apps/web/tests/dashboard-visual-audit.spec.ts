@@ -98,7 +98,7 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
     expect(metrics.workCardChildOverflow).toBe(0);
     expect(metrics.statsCount).toBe(4);
     if(input.theme==="dark")expect(metrics.workCardLightIslands).toBe(0);
-    if(input.viewportName==="desktop"){
+    if(input.viewportName.startsWith("desktop")){
       expect(metrics.compressedDirectChildren).toBe(0);
       expect(metrics.collisions).toBe(0);
       if(metrics.canvasWidth>=1100)expect(metrics.statsRows).toBe(1);
@@ -116,6 +116,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const viewports=[{name:"desktop",value:{width:1440,height:960}},{name:"mobile",value:{width:390,height:844}}] as const;
     const results:unknown[]=[];
     for(const viewport of viewports)for(const theme of ["light","dark"] as const){const context=await authenticatedContext(browser,viewport.value,theme,seeded.sessionToken);try{for(const route of routes)results.push(await auditRoute(context,{...route,theme,viewportName:viewport.name}));}finally{await context.close();}}
+    for(const theme of ["light","dark"] as const){const context=await authenticatedContext(browser,{width:1536,height:1024},theme,seeded.sessionToken);try{results.push(await auditRoute(context,{path:"/dashboard",name:"command-space",theme,viewportName:"desktop-wide"}));}finally{await context.close();}}
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
   });
 });
