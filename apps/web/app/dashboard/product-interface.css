@@ -54,12 +54,58 @@
 [data-dashboard-path="/dashboard"] main>div>section:nth-child(n+2) :where(p,span){text-wrap:pretty}
 [data-dashboard-path="/dashboard"] main>div>section:nth-child(n+2) :where(a,button){scroll-margin-top:82px}
 
+/* Business Memory + Smart Reminders become actual workspaces, not marketing pages. */
+[data-dashboard-path="/dashboard/notes"] main>div,
+[data-dashboard-path="/dashboard/reminders"] main>div{display:grid;gap:12px}
+[data-dashboard-path="/dashboard/notes"] main>div>header,
+[data-dashboard-path="/dashboard/reminders"] main>div>header{border-radius:18px!important;padding:20px!important;box-shadow:0 16px 38px -32px rgba(7,24,27,.72)}
+[data-dashboard-path="/dashboard/notes"] main>div>header h1,
+[data-dashboard-path="/dashboard/reminders"] main>div>header h1{letter-spacing:-.02em;line-height:1.25}
+[data-dashboard-path="/dashboard/notes"] main>div>header p,
+[data-dashboard-path="/dashboard/reminders"] main>div>header p{max-width:70ch}
+
+/* Metric strips: compact, glanceable and secondary to the queue/editor. */
+[data-dashboard-path="/dashboard/notes"] main>div>section.grid.grid-cols-2,
+[data-dashboard-path="/dashboard/reminders"] main>div>section.grid.grid-cols-2{gap:8px!important}
+[data-dashboard-path="/dashboard/notes"] main>div>section.grid.grid-cols-2>div,
+[data-dashboard-path="/dashboard/reminders"] main>div>section.grid.grid-cols-2>div{min-height:72px;padding:12px!important;border-radius:12px!important;box-shadow:none!important}
+[data-dashboard-path="/dashboard/notes"] main>div>section.grid.grid-cols-2>div p:first-child,
+[data-dashboard-path="/dashboard/reminders"] main>div>section.grid.grid-cols-2>div p:first-child{font-size:10px!important;line-height:1.35}
+[data-dashboard-path="/dashboard/notes"] main>div>section.grid.grid-cols-2>div p:last-child,
+[data-dashboard-path="/dashboard/reminders"] main>div>section.grid.grid-cols-2>div p:last-child{font-variant-numeric:tabular-nums;line-height:1.1}
+
+/* Editors and filter/tool sections read like control panels. */
+[data-dashboard-path="/dashboard/notes"] main form,
+[data-dashboard-path="/dashboard/reminders"] main form{accent-color:var(--infro-pi-accent-strong)}
+[data-dashboard-path="/dashboard/notes"] main section.bg-white,
+[data-dashboard-path="/dashboard/reminders"] main section.bg-white{border-color:var(--infro-pi-border)!important}
+[data-dashboard-path="/dashboard/notes"] main section.bg-white:hover,
+[data-dashboard-path="/dashboard/reminders"] main section.bg-white:hover{border-color:#c3d8d5!important}
+[data-dashboard-path="/dashboard/notes"] main :where(input,select,textarea),
+[data-dashboard-path="/dashboard/reminders"] main :where(input,select,textarea){border-radius:10px!important;background-clip:padding-box}
+[data-dashboard-path="/dashboard/notes"] main :where(button,a),
+[data-dashboard-path="/dashboard/reminders"] main :where(button,a){border-radius:10px}
+
+/* Dense operational items: reduce decorative air and strengthen hover affordance. */
+[data-dashboard-path="/dashboard/notes"] main article,
+[data-dashboard-path="/dashboard/reminders"] main article{transition:border-color 140ms ease,box-shadow 140ms ease,background-color 140ms ease}
+[data-dashboard-path="/dashboard/notes"] main article:hover,
+[data-dashboard-path="/dashboard/reminders"] main article:hover{border-color:#9fd6d0!important;box-shadow:0 8px 24px -22px rgba(7,24,27,.45)}
+[data-dashboard-path="/dashboard/notes"] main article :where(.text-\[10px\],.text-\[11px\]),
+[data-dashboard-path="/dashboard/reminders"] main article :where(.text-\[10px\],.text-\[11px\]){line-height:1.4}
+
 @media (min-width:1024px){
   [data-dashboard-path] main{padding-top:18px!important;padding-bottom:30px!important}
   [data-dashboard-path] main>div{max-width:1480px;margin-inline:auto}
   [data-dashboard-path="/dashboard"] main>div>section:first-child>div:first-child{padding-top:22px!important;padding-bottom:22px!important}
   [data-dashboard-path="/dashboard"] main>div>section:first-child{min-height:0}
   [data-dashboard-path="/dashboard"] main>div>section:first-child a[class*="min-h-[190px]"]{min-height:158px}
+  [data-dashboard-path="/dashboard/notes"] main>div,
+  [data-dashboard-path="/dashboard/reminders"] main>div{gap:10px}
+  [data-dashboard-path="/dashboard/notes"] main>div>header,
+  [data-dashboard-path="/dashboard/reminders"] main>div>header{padding:18px 20px!important}
+  [data-dashboard-path="/dashboard/notes"] main>div>section.grid.grid-cols-2>div,
+  [data-dashboard-path="/dashboard/reminders"] main>div>section.grid.grid-cols-2>div{min-height:66px;padding:10px 12px!important}
 }
 @media (min-width:1280px){
   [data-dashboard-path="/dashboard"] main>div{grid-template-columns:minmax(0,1.58fr) minmax(330px,.72fr);align-items:start}
@@ -76,6 +122,12 @@
   [data-dashboard-path="/dashboard"] main>div>section:first-child h1{font-size:1.35rem!important}
   [data-dashboard-path="/dashboard"] main>div>section:first-child a{flex:1 1 calc(50% - 4px);justify-content:center;padding-inline:10px}
   [data-dashboard-path="/dashboard"] main>div>section:first-child a:last-child{flex-basis:100%}
+  [data-dashboard-path="/dashboard/notes"] main>div>header,
+  [data-dashboard-path="/dashboard/reminders"] main>div>header{padding:16px!important}
+  [data-dashboard-path="/dashboard/notes"] main>div>header h1,
+  [data-dashboard-path="/dashboard/reminders"] main>div>header h1{font-size:1.35rem!important}
+  [data-dashboard-path="/dashboard/notes"] main>div>section.grid.grid-cols-2,
+  [data-dashboard-path="/dashboard/reminders"] main>div>section.grid.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 @media(prefers-reduced-motion:reduce){[data-dashboard-path] :where(button,a,[role="button"],input,select,textarea){transition:none!important}}
 
@@ -86,5 +138,7 @@
 }
 [data-dashboard-path][data-dashboard-theme="dark"] main :where(input,select,textarea):hover{border-color:#356166!important}
 [data-dashboard-path][data-dashboard-theme="dark"][data-dashboard-path="/dashboard"] main>div>section:nth-child(2)>div:first-child{background:#0d2528!important}
+[data-dashboard-path][data-dashboard-theme="dark"] main section.bg-white:hover{border-color:#31555a!important}
+[data-dashboard-path][data-dashboard-theme="dark"] main article:hover{border-color:#356166!important;box-shadow:0 8px 24px -22px rgba(0,0,0,.72)}
 [data-dashboard-path][data-dashboard-theme="light"] > aside nav a[aria-current="page"]{border-color:#a8e8df!important;box-shadow:inset -3px 0 0 #0ebaa8,0 5px 16px -14px rgba(0,143,135,.35)!important}
 [data-dashboard-path][data-dashboard-theme="light"] > aside nav a:not([aria-current="page"]):hover{border-color:#d8e8e5!important;background:#edf7f5!important}
