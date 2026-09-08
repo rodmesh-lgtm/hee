@@ -1,0 +1,25 @@
+/* INFRO system QA layer: responsive/RTL/accessibility invariants shared by customer workspaces. */
+[data-dashboard-path] #dashboard-main-content{min-width:0}
+[data-dashboard-path] #dashboard-main-content :where(section,article,div,form,fieldset){min-width:0}
+[data-dashboard-path] #dashboard-main-content :where(img,video,canvas,svg){max-width:100%}
+[data-dashboard-path] #dashboard-main-content :where(input,textarea,select,button){font:inherit}
+[data-dashboard-path] #dashboard-main-content :where(button,a,input,textarea,select,[tabindex]):focus-visible{outline:2px solid #12cdb8;outline-offset:2px}
+[data-dashboard-path] #dashboard-main-content :where(button,[role="button"]):disabled{cursor:not-allowed;opacity:.58}
+[data-dashboard-path] #dashboard-main-content :where([role="status"],[aria-live="polite"]){isolation:isolate}
+[data-dashboard-path] #dashboard-main-content :where([role="alert"],[aria-live="assertive"]){isolation:isolate}
+[data-dashboard-path] #dashboard-main-content :where(table,code,time,[data-numeric]){font-variant-numeric:tabular-nums}
+[data-dashboard-path][dir="rtl"] #dashboard-main-content :where(input[type="email"],input[type="url"],input[type="tel"],code){direction:ltr;text-align:left}
+/* Tailwind's emerald-800/900 are darker than the shared dark palette unless explicitly remapped. */
+[data-dashboard-path][data-dashboard-theme="dark"] #dashboard-main-content :where(.text-emerald-800,.text-emerald-900){color:#6ee7b7!important}
+@media(max-width:390px){
+ [data-dashboard-path] #dashboard-main-content{overflow-x:clip}
+ [data-dashboard-path] #dashboard-main-content :where(.grid){min-width:0}
+ [data-dashboard-path] #dashboard-main-content :where(button,a[role="button"]){min-height:44px}
+ [data-dashboard-path] #dashboard-main-content :where(input,textarea,select){max-width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+ [data-dashboard-path] #dashboard-main-content *,[data-dashboard-path] #dashboard-main-content *::before,[data-dashboard-path] #dashboard-main-content *::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+@media(forced-colors:active){
+ [data-dashboard-path] #dashboard-main-content :where(button,a,input,textarea,select):focus-visible{outline:2px solid CanvasText}
+}

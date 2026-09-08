@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   ArrowLeft,
+  BarChart3,
   CheckCircle2,
   CircleAlert,
   ContactRound,
@@ -50,7 +51,7 @@ export default async function WhatsAppMarketingPage() {
     redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   }
 
-  const [connection, contacts, templates, campaigns, automations, conversations, integrations, eligibleAudienceRows, launchReadiness] = await Promise.all([
+  const [connection, contacts, templates, campaigns, automations, conversations, integrations, eligibleAudienceRows, performanceRows, launchReadiness] = await Promise.all([
     db.whatsAppConnection.findFirst({
       where: { businessId: context.businessId, provider: "meta" },
       select: { status: true, disabledAt: true, displayPhoneNumber: true, verifiedName: true },
@@ -72,11 +73,25 @@ export default async function WhatsAppMarketingPage() {
         AND consent."revokedAt" IS NULL
         AND consent."consentedAt" <= CURRENT_TIMESTAMP
     `),
+    db.whatsAppCampaignRecipient.groupBy({
+      by: ["status"],
+      where: { businessId: context.businessId },
+      _count: { _all: true },
+    }),
     getWhatsAppCampaignLaunchReadiness(),
   ]);
 
   const connected = connection?.status === "connected" && !connection.disabledAt;
   const eligibleAudience = eligibleAudienceRows[0]?.count ?? 0;
+  const recipientCount = (statuses: string[]) => performanceRows
+    .filter((row) => statuses.includes(row.status))
+    .reduce((sum, row) => sum + row._count._all, 0);
+  const sentRecipients = recipientCount(["sent", "delivered", "read"]);
+  const deliveredRecipients = recipientCount(["delivered", "read"]);
+  const readRecipients = recipientCount(["read"]);
+  const deliveryRate = sentRecipients ? deliveredRecipients / sentRecipients : 0;
+  const readRate = deliveredRecipients ? readRecipients / deliveredRecipients : 0;
+
   const launchSteps: ReadinessStep[] = [
     {
       title: "ربط الرقم الرسمي",
@@ -119,14 +134,15 @@ export default async function WhatsAppMarketingPage() {
   };
 
   const cards = [
-    { href: "/dashboard/whatsapp/contacts", title: "جهات الاتصال والاستيراد", text: "استيراد CSV أو Excel حتى 10,000 صف مع توحيد الأرقام وإزالة التكرار وتوثيق الموافقة الصريحة.", icon:ContactRound, state: contacts ? "ready" : "empty", status: contacts ? `${contacts} جهة اتصال` : "ابدأ بالاستيراد" },
-    { href: "/dashboard/whatsapp/templates", title: "قوالب Meta", text: "مزامنة القوالب الرسمية ومتابعة حالة الاعتماد قبل استخدامها في الإرسال.", icon:FileText, state: templates ? "ready" : connected ? "attention" : "empty", status: templates ? `${templates} قالب معتمد` : connected ? "تحتاج مزامنة" : "اربط الرقم أولًا" },
-    { href: "/dashboard/whatsapp/campaigns", title: "الحملات الجماعية", text: "أنشئ حملة من جهات الاتصال المؤهلة، راجع الجمهور والقالب، ثم جدولة الإرسال أو تشغيله بأمان.", icon:Megaphone, state: connected && templates && eligibleAudience && launchReadiness.ready ? "ready" : "attention", status: connected && templates && eligibleAudience && launchReadiness.ready ? "جاهز للتجهيز" : "متطلبات ناقصة" },
-    { href: "/dashboard/whatsapp/automations", title: "الأتمتة الذكية", text: "شغّل رسائل قالبية من أحداث موثوقة مع إعادة فحص الموافقة والانسحاب والاتصال قبل كل إرسال.", icon:Workflow, state: connected && templates ? "ready" : "attention", status: automations ? `${automations} أتمتة` : connected && templates ? "متاح للإنشاء" : "يتطلب ربطًا وقالبًا" },
-    { href: "/dashboard/whatsapp/integrations", title: "تكاملات المتاجر", text: "اربط Shopify رسميًا لتحويل الطلبات والسلال إلى أحداث تستخدمها مسارات واتساب. سلة وزد تبقيان مغلقتين حتى اكتمال الربط الرسمي.", icon:ShoppingBag, state: integrations ? "ready" : "empty", status: integrations ? `${integrations} تكامل` : "لا توجد تكاملات" },
-    { href: "/dashboard/whatsapp/inbox", title: "خدمة العملاء", text: "إدارة المحادثات والرد على العملاء ضمن نافذة الخدمة الرسمية من رقم منشأتك.", icon:MessageCircle, state: connected ? "ready" : "attention", status: connected ? `${conversations} محادثة` : "اربط الرقم أولًا" },
-    { href: "/dashboard/whatsapp/setup", title: "ربط الرقم الرسمي", text: "اربط WABA ورقم WhatsApp Business الخاصين بالمنشأة عبر Embedded Signup الرسمي من Meta.", icon:Link2, state: connected ? "ready" : "attention", status: connected ? "متصل رسميًا" : "يتطلب ربط Meta" },
-    { href: "/dashboard/whatsapp/audit", title: "الأمان والتدقيق", text: "راجع العمليات الحساسة لهذا النشاط دون عرض الرموز السرية أو محتوى الرسائل.", icon:ShieldCheck, state: "ready", status: "فعال" },
+    { href: "/dashboard/whatsapp/contacts", title: "جهات الاتصال والاستيراد", text: "استيراد CSV أو Excel حتى 10,000 صف مع توحيد الأرقام وإزالة التكرار وتوثيق الموافقة الصريحة.", icon: ContactRound, state: contacts ? "ready" : "empty", status: contacts ? `${contacts} جهة اتصال` : "ابدأ بالاستيراد" },
+    { href: "/dashboard/whatsapp/templates", title: "قوالب Meta", text: "مزامنة القوالب الرسمية ومتابعة حالة الاعتماد قبل استخدامها في الإرسال.", icon: FileText, state: templates ? "ready" : connected ? "attention" : "empty", status: templates ? `${templates} قالب معتمد` : connected ? "تحتاج مزامنة" : "اربط الرقم أولًا" },
+    { href: "/dashboard/whatsapp/campaigns", title: "الحملات الجماعية", text: "أنشئ حملة من جهات الاتصال المؤهلة، راجع الجمهور والقالب، ثم جدولة الإرسال أو تشغيله بأمان.", icon: Megaphone, state: connected && templates && eligibleAudience && launchReadiness.ready ? "ready" : "attention", status: connected && templates && eligibleAudience && launchReadiness.ready ? "جاهز للتجهيز" : "متطلبات ناقصة" },
+    { href: "/dashboard/whatsapp/insights", title: "الأداء والتقارير", text: "اقرأ الإرسال والتسليم والقراءة وحركة المحادثات وصحة الجمهور من بيانات نشاطك الفعلية، دون نسب إيراد غير مثبتة.", icon: BarChart3, state: sentRecipients ? "ready" : "empty", status: sentRecipients ? `${formatPercent(deliveryRate)} تسليم` : "بانتظار أول إرسال" },
+    { href: "/dashboard/whatsapp/automations", title: "الأتمتة الذكية", text: "شغّل رسائل قالبية من أحداث موثوقة مع إعادة فحص الموافقة والانسحاب والاتصال قبل كل إرسال.", icon: Workflow, state: connected && templates ? "ready" : "attention", status: automations ? `${automations} أتمتة` : connected && templates ? "متاح للإنشاء" : "يتطلب ربطًا وقالبًا" },
+    { href: "/dashboard/whatsapp/integrations", title: "تكاملات المتاجر", text: "اربط Shopify رسميًا لتحويل الطلبات والسلال إلى أحداث تستخدمها مسارات واتساب. سلة وزد تبقيان مغلقتين حتى اكتمال الربط الرسمي.", icon: ShoppingBag, state: integrations ? "ready" : "empty", status: integrations ? `${integrations} تكامل` : "لا توجد تكاملات" },
+    { href: "/dashboard/whatsapp/inbox", title: "خدمة العملاء", text: "إدارة المحادثات والرد على العملاء ضمن نافذة الخدمة الرسمية من رقم منشأتك.", icon: MessageCircle, state: connected ? "ready" : "attention", status: connected ? `${conversations} محادثة` : "اربط الرقم أولًا" },
+    { href: "/dashboard/whatsapp/setup", title: "ربط الرقم الرسمي", text: "اربط WABA ورقم WhatsApp Business الخاصين بالمنشأة عبر Embedded Signup الرسمي من Meta.", icon: Link2, state: connected ? "ready" : "attention", status: connected ? "متصل رسميًا" : "يتطلب ربط Meta" },
+    { href: "/dashboard/whatsapp/audit", title: "الأمان والتدقيق", text: "راجع العمليات الحساسة لهذا النشاط دون عرض الرموز السرية أو محتوى الرسائل.", icon: ShieldCheck, state: "ready", status: "فعال" },
   ] as const;
 
   return (
@@ -183,6 +199,7 @@ export default async function WhatsAppMarketingPage() {
             <div className="flex flex-wrap gap-2">
               <QuickLink href="/dashboard/whatsapp/campaigns" label="حملة جديدة" icon={<Rocket className="h-4 w-4" />} />
               <QuickLink href="/dashboard/whatsapp/contacts" label="استيراد جمهور" icon={<ContactRound className="h-4 w-4" />} />
+              <QuickLink href="/dashboard/whatsapp/insights" label="الأداء" icon={<BarChart3 className="h-4 w-4" />} />
               <QuickLink href="/dashboard/whatsapp/inbox" label="المحادثات" icon={<MessageCircle className="h-4 w-4" />} />
             </div>
           </div>
@@ -217,12 +234,13 @@ export default async function WhatsAppMarketingPage() {
         </div>
       </section>
 
-      <section aria-label="ملخص واتساب" className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
+      <section aria-label="ملخص واتساب" className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-6">
         <Metric label="جهات الاتصال" value={String(contacts)} helper={`${eligibleAudience} مؤهل للإرسال`} />
         <Metric label="قوالب معتمدة" value={String(templates)} helper="صالحة للاستخدام" />
         <Metric label="الحملات" value={String(campaigns)} helper="كل الحالات" />
-        <Metric label="الأتمتة" value={String(automations)} helper="المسارات المنشأة" />
-        <Metric label="المحادثات" value={String(conversations)} helper="سجل الخدمة" wide />
+        <Metric label="معدل التسليم" value={sentRecipients ? formatPercent(deliveryRate) : "—"} helper={sentRecipients ? `${sentRecipients} إرسال مؤكد` : "لا توجد بيانات بعد"} />
+        <Metric label="معدل القراءة" value={deliveredRecipients ? formatPercent(readRate) : "—"} helper={deliveredRecipients ? `${readRecipients} قراءة` : "لا توجد بيانات بعد"} />
+        <Metric label="المحادثات" value={String(conversations)} helper="سجل الخدمة" />
       </section>
 
       <section aria-label="أقسام تسويق واتساب">
@@ -265,9 +283,9 @@ function QuickLink({ href, label, icon }: { href: string; label: string; icon: R
   return <Link href={href} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[.06] px-3 text-[10px] font-black text-white transition hover:bg-white/[.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#35e4cb] motion-reduce:transition-none">{icon}{label}</Link>;
 }
 
-function Metric({ label, value, helper, wide = false }: { label: string; value: string; helper: string; wide?: boolean }) {
+function Metric({ label, value, helper }: { label: string; value: string; helper: string }) {
   return (
-    <article className={`min-w-0 rounded-[20px] border border-slate-200 bg-white p-3 sm:p-4 ${wide ? "col-span-2 lg:col-span-1" : ""}`}>
+    <article className="min-w-0 rounded-[20px] border border-slate-200 bg-white p-3 sm:p-4">
       <span className="block text-[9px] font-bold leading-4 text-slate-400">{label}</span>
       <b className="mt-1 block break-words text-xl font-black text-slate-900">{value}</b>
       <span className="mt-1 block text-[8px] text-slate-400">{helper}</span>
@@ -278,4 +296,8 @@ function Metric({ label, value, helper, wide = false }: { label: string; value: 
 function Status({ state, label }: { state: SectionState; label: string }) {
   const classes = state === "ready" ? "bg-emerald-50 text-emerald-700" : state === "attention" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600";
   return <span className={`max-w-[65%] rounded-full px-2.5 py-1 text-center text-[9px] font-black leading-4 ${classes}`}>{label}</span>;
+}
+
+function formatPercent(value: number) {
+  return new Intl.NumberFormat("ar-SA", { style: "percent", maximumFractionDigits: 1 }).format(value);
 }

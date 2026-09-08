@@ -4,16 +4,18 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "../whatsapp/audit";
-import { nextReminderOccurrence, normalizeReminderRecurrence, reminderDeliveryIdempotencyKey } from "./domain";
+import { nextReminderOccurrence, normalizeReminderChannels, normalizeReminderRecurrence, reminderDeliveryIdempotencyKey } from "./domain";
 
 type DueReminder = {
   id: string;
   businessId: string;
-  connectionId: string;
-  templateId: string;
+  connectionId: string | null;
+  templateId: string | null;
+  whatsappSenderMode: string;
   recurrenceType: string;
   timezone: string;
   nextOccurrenceAt: Date;
+  deliveryChannels: string[];
 };
 
 function nextFutureOccurrence(reminder: DueReminder, now: Date) {
@@ -34,34 +36,45 @@ function nextFutureOccurrence(reminder: DueReminder, now: Date) {
 async function scheduleNext(database: PrismaClient, now: Date) {
   return database.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<DueReminder[]>(Prisma.sql`
-      SELECT "id", "businessId", "connectionId", "templateId", "recurrenceType", "timezone", "nextOccurrenceAt"
+      SELECT "id", "businessId", "connectionId", "templateId", "whatsappSenderMode", "recurrenceType", "timezone", "nextOccurrenceAt", "deliveryChannels"
       FROM "SmartReminder"
       WHERE "status" = 'scheduled' AND "nextOccurrenceAt" IS NOT NULL AND "nextOccurrenceAt" <= ${now}
       ORDER BY "nextOccurrenceAt", "createdAt"
-      FOR UPDATE SKIP LOCKED
-      LIMIT 1
+      FOR UPDATE SKIP LOCKED LIMIT 1
     `);
     const reminder = rows[0];
     if (!reminder) return null;
+
     const future = nextFutureOccurrence(reminder, now);
-    const deliveryId = randomUUID();
-    const idempotencyKey = reminderDeliveryIdempotencyKey({ businessId: reminder.businessId, reminderId: reminder.id, occurrenceAt: reminder.nextOccurrenceAt });
-    const inserted = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      INSERT INTO "SmartReminderDelivery" (
-        "id", "businessId", "reminderId", "connectionId", "templateId", "occurrenceAt", "idempotencyKey", "status", "updatedAt"
-      ) VALUES (
-        ${deliveryId}, ${reminder.businessId}, ${reminder.id}, ${reminder.connectionId}, ${reminder.templateId},
-        ${reminder.nextOccurrenceAt}, ${idempotencyKey}, 'queued', CURRENT_TIMESTAMP
-      )
-      ON CONFLICT ("idempotencyKey") DO NOTHING
-      RETURNING "id"
-    `);
+    const channels = normalizeReminderChannels(reminder.deliveryChannels);
+    const senderMode = reminder.whatsappSenderMode === "platform" ? "platform" : "tenant";
+    let scheduled = 0;
+    let deduplicated = 0;
+
+    for (const channel of channels) {
+      if (channel === "whatsapp" && senderMode === "tenant" && (!reminder.connectionId || !reminder.templateId)) throw new Error("REMINDER_WHATSAPP_BINDING_MISSING");
+      const deliveryId = randomUUID();
+      const idempotencyKey = reminderDeliveryIdempotencyKey({ businessId: reminder.businessId, reminderId: reminder.id, occurrenceAt: reminder.nextOccurrenceAt, channel });
+      const inserted = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        INSERT INTO "SmartReminderDelivery" (
+          "id", "businessId", "reminderId", "connectionId", "templateId", "whatsappSenderMode", "occurrenceAt", "channel", "idempotencyKey", "status", "updatedAt"
+        ) VALUES (
+          ${deliveryId}, ${reminder.businessId}, ${reminder.id}, ${channel === "whatsapp" && senderMode === "tenant" ? reminder.connectionId : null}, ${channel === "whatsapp" && senderMode === "tenant" ? reminder.templateId : null},
+          ${channel === "whatsapp" ? senderMode : "platform"}, ${reminder.nextOccurrenceAt}, ${channel}, ${idempotencyKey}, 'queued', CURRENT_TIMESTAMP
+        )
+        ON CONFLICT ("idempotencyKey") DO NOTHING
+        RETURNING "id"
+      `);
+      if (inserted[0]) scheduled += 1;
+      else deduplicated += 1;
+    }
+
     await tx.$executeRaw(Prisma.sql`
       UPDATE "SmartReminder"
       SET "nextOccurrenceAt" = ${future.nextOccurrenceAt}, "updatedAt" = CURRENT_TIMESTAMP
       WHERE "id" = ${reminder.id} AND "businessId" = ${reminder.businessId} AND "nextOccurrenceAt" = ${reminder.nextOccurrenceAt}
     `);
-    return { ...reminder, deliveryId: inserted[0]?.id ?? null, idempotencyKey, nextScheduledOccurrenceAt: future.nextOccurrenceAt, skippedMissedOccurrences: future.skippedMissedOccurrences };
+    return { ...reminder, scheduled, deduplicated, nextScheduledOccurrenceAt: future.nextOccurrenceAt, skippedMissedOccurrences: future.skippedMissedOccurrences, channelCount: channels.length, senderMode };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
@@ -72,13 +85,11 @@ export async function runSmartReminderScheduler(input: { database?: PrismaClient
   let scheduled = 0;
   let deduplicated = 0;
   let skippedMissedOccurrences = 0;
-
   for (let index = 0; index < limit; index += 1) {
     const result = await scheduleNext(database, now);
     if (!result) break;
-    const wasDeduplicated = !result.deliveryId;
-    if (wasDeduplicated) deduplicated += 1;
-    else scheduled += 1;
+    scheduled += result.scheduled;
+    deduplicated += result.deduplicated;
     skippedMissedOccurrences += result.skippedMissedOccurrences;
     await writeWhatsAppAuditLog({
       businessId: result.businessId,
@@ -87,7 +98,7 @@ export async function runSmartReminderScheduler(input: { database?: PrismaClient
       targetType: "smart_reminder",
       targetId: result.id,
       outcome: "success",
-      metadata: { occurrenceAt: result.nextOccurrenceAt.toISOString(), deduplicated: wasDeduplicated, skippedMissedOccurrences: result.skippedMissedOccurrences },
+      metadata: { occurrenceAt: result.nextOccurrenceAt.toISOString(), channelCount: result.channelCount, scheduled: result.scheduled, deduplicated: result.deduplicated, skippedMissedOccurrences: result.skippedMissedOccurrences, whatsappSenderMode: result.senderMode },
       database,
     });
   }
