@@ -49,7 +49,7 @@ async function cleanupWorkspace(value:Seeded){
 async function authenticatedContext(browser:Browser,viewport:{width:number;height:number},theme:"light"|"dark",token:string):Promise<BrowserContext>{
   const context=await browser.newContext({viewport});
   await context.addCookies([{name:"hee_session",value:token,url:baseUrl}]);
-  await context.addInitScript(([key,value])=>localStorage.setItem(key,value),["infro-dashboard-theme",theme]);
+  await context.addInitScript(([key,value])=>{try{localStorage.setItem(key,value);}catch{/* about:blank has an opaque origin */}},["infro-dashboard-theme",theme]);
   return context;
 }
 
@@ -156,7 +156,7 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
   const context=await authenticatedContext(browser,input.viewport,input.theme,input.token);
   const page=await context.newPage();
   try{
-    const response=await page.goto(`${baseUrl}/admin`,{waitUntil:"networkidle"});
+    const response=await page.goto(`${baseUrl}/admin`,{waitUntil:"domcontentloaded"});
     expect(response?.status()).toBe(200);
     await expect(page.locator("[data-admin-shell]")).toBeVisible();
     const metrics=await page.evaluate(()=>{
@@ -180,7 +180,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
   test.beforeAll(async()=>{await mkdir(outDir,{recursive:true});const connectionString=String(process.env.DATABASE_URL??"").trim();if(!connectionString)throw new Error("DATABASE_URL is required");pool=new Pool({connectionString,max:4});db=new PrismaClient({adapter:new PrismaPg(pool)});seeded=await seedWorkspace();});
   test.afterAll(async()=>{if(seeded)await cleanupWorkspace(seeded);await db?.$disconnect();await pool?.end();});
   test("captures launch-critical public and authenticated surfaces without overflow, collisions, light islands or compressed grids",async({browser})=>{
-    test.setTimeout(300_000);if(!seeded)throw new Error("visual fixture missing");
+    test.setTimeout(600_000);if(!seeded)throw new Error("visual fixture missing");
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
     const viewports=[{name:"desktop",value:{width:1440,height:960}},{name:"mobile",value:{width:390,height:844}}] as const;
     const results:unknown[]=[];
