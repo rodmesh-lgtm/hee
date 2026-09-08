@@ -21,6 +21,16 @@ test("notes and reminders render as operational queues with visible provenance",
   assert.match(source,/linear-gradient\(180deg,#13c8b6,#0e8f89\)/);
 });
 
+test("reminder work items expose lifecycle severity and progress semantics",async()=>{
+  const source=await readFile(workItemsPath,"utf8");
+  assert.match(source,/Reminder lifecycle/);
+  assert.match(source,/article:has\(\.text-rose-700\)/);
+  assert.match(source,/article:has\(\.text-amber-700\)/);
+  assert.match(source,/article:has\(\.text-emerald-700\)/);
+  assert.match(source,/\[role="progressbar"\],progress/);
+  assert.match(source,/font-variant-numeric:tabular-nums/);
+});
+
 test("work queues preserve command tooling, mobile targets, dark mode and reduced motion",async()=>{
   const source=await readFile(workItemsPath,"utf8");
   assert.match(source,/form:has\(input\[name="q"\]\)/);
