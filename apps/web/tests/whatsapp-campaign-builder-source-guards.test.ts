@@ -7,15 +7,24 @@ const page = fs.readFileSync(path.join(process.cwd(), "app/dashboard/whatsapp/ca
 const wizard = fs.readFileSync(path.join(process.cwd(), "app/dashboard/whatsapp/campaigns/campaign-wizard.tsx"), "utf8");
 const actions = fs.readFileSync(path.join(process.cwd(), "app/actions/whatsapp-marketing.ts"), "utf8");
 
-test("campaign creation is a guided review flow without automatic sending", () => {
-  for (const label of ["التفاصيل", "الجمهور", "القالب", "المراجعة", "إنشاء وتثبيت الجمهور"]) {
+test("campaign creation is a five-step guided review flow without automatic sending", () => {
+  for (const label of ["الإعداد", "الجمهور", "الرسالة", "الأمان", "المراجعة", "إنشاء وتثبيت الجمهور"]) {
     assert.match(wizard, new RegExp(label));
   }
+  assert.match(wizard, /INFRO CAMPAIGN STUDIO/);
   assert.match(wizard, /لن يتم الإرسال الآن/);
   assert.match(wizard, /name="audienceKind"/);
   assert.match(wizard, /name="segmentId"/);
   assert.match(wizard, /templates\.filter\(\(template\) => template\.connectionId === connectionId\)/);
   assert.doesNotMatch(wizard, /launchWhatsAppCampaignAction|enqueueWhatsAppCampaign/);
+});
+
+test("campaign studio keeps a live summary without inventing launch state", () => {
+  assert.match(wizard, /ملخص الحملة الحي/);
+  assert.match(wizard, /LIVE SUMMARY/);
+  assert.match(wizard, /SAFE DRAFT/);
+  assert.match(wizard, /لا توجد عملية إرسال مرتبطة بزر إنشاء الحملة/);
+  assert.match(wizard, /بعد إنشاء الحملة ستظهر كبطاقة تشغيلية/);
 });
 
 test("campaign action validates tenant-bound static segments and freezes eligible recipients", () => {
@@ -33,4 +42,5 @@ test("guided builder preserves launch readiness and five-recipient canary contro
   assert.match(page, /بحد أقصى 5 مستلمين/);
   assert.match(page, /launchWhatsAppCampaignAction/);
   assert.match(page, /disabled=\{!launchReady\}/);
+  assert.match(wizard, /أول إرسال فعلي للمنشأة يبدأ بحد أقصى 5 مستلمين/);
 });

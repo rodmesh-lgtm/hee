@@ -6,19 +6,22 @@ const scheduler = readFileSync("app/lib/reminders/scheduler.ts", "utf8");
 
 test("reminder scheduler claims due work safely", () => {
   assert.match(scheduler, /FOR UPDATE SKIP LOCKED/);
-  assert.match(scheduler, /"status" = 'scheduled'/);
-  assert.match(scheduler, /"nextOccurrenceAt" <= \$\{now\}/);
-  assert.match(scheduler, /ORDER BY "nextOccurrenceAt", "createdAt"/);
+  assert.match(scheduler, /"status"\s*=\s*'scheduled'/);
+  assert.match(scheduler, /"nextOccurrenceAt"\s*<=\s*\$\{now\}/);
+  assert.match(scheduler, /ORDER BY\s+"nextOccurrenceAt"\s*,\s*"createdAt"/);
   assert.match(scheduler, /TransactionIsolationLevel\.Serializable/);
 });
 
-test("reminder scheduler preserves tenant fields in delivery job", () => {
-  assert.match(scheduler, /"businessId", "reminderId", "connectionId", "templateId"/);
+test("reminder scheduler preserves tenant fields and sender mode in channel jobs", () => {
+  assert.match(scheduler, /"businessId"\s*,\s*"reminderId"\s*,\s*"connectionId"\s*,\s*"templateId"\s*,\s*"whatsappSenderMode"\s*,\s*"occurrenceAt"\s*,\s*"channel"/);
   assert.match(scheduler, /\$\{reminder\.businessId\}/);
-  assert.match(scheduler, /\$\{reminder\.connectionId\}/);
-  assert.match(scheduler, /\$\{reminder\.templateId\}/);
-  assert.match(scheduler, /reminderDeliveryIdempotencyKey/);
-  assert.match(scheduler, /ON CONFLICT \("idempotencyKey"\) DO NOTHING/);
+  assert.match(scheduler, /senderMode === "tenant" \? reminder\.connectionId : null/);
+  assert.match(scheduler, /senderMode === "tenant" \? reminder\.templateId : null/);
+  assert.match(scheduler, /channel === "whatsapp" && senderMode === "tenant"/);
+  assert.match(scheduler, /normalizeReminderChannels\(reminder\.deliveryChannels\)/);
+  assert.match(scheduler, /for\s*\(\s*const channel of channels\s*\)/);
+  assert.match(scheduler, /reminderDeliveryIdempotencyKey\(\{\s*businessId:\s*reminder\.businessId,\s*reminderId:\s*reminder\.id,\s*occurrenceAt:\s*reminder\.nextOccurrenceAt,\s*channel\s*\}\)/);
+  assert.match(scheduler, /ON CONFLICT\s*\("idempotencyKey"\)\s*DO NOTHING/);
 });
 
 test("recurring scheduler uses timezone-aware domain calculation and prevents catch-up floods", () => {
