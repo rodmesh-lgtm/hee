@@ -12,6 +12,7 @@ const campaignLaunch=source("../app/actions/whatsapp-campaign-launch.ts");
 const deliveryQueue=source("../app/lib/whatsapp/delivery-queue.ts");
 const canary=source("../app/lib/whatsapp/campaign-canary-domain.ts");
 const identity=source("../app/actions/digital-identity.ts");
+const presence=source("../app/actions/digital-presence.ts");
 const checkout=source("../app/dashboard/billing/checkout/page.tsx");
 const receipt=source("../app/dashboard/billing/receipt/[billingId]/page.tsx");
 const billingLedger=source("../app/lib/billing-ledger.ts");
@@ -64,24 +65,31 @@ test("first real WhatsApp campaign canary remains capped at five until verified 
   assert.match(s,/state: "awaiting_delivery", queueLimit: 0/);
 });
 
-test("digital identity profile writes prove current owner and business before replacing files",async()=>{
-  const s=normalize(await readFile(identity,"utf8"));
-  assert.match(s,/getCurrentUserForWrites\(\)/);
-  assert.match(s,/getActiveBusinessForUser\(user\.id\)/);
-  assert.match(s,/where: \{ id: business\.id, ownerId: user\.id, deletedAt: null \}/);
-  assert.match(s,/updateMany\(\{ where: \{ id: business\.id, ownerId: user\.id, deletedAt: null \}/);
-  assert.match(s,/company-profile:\$\{business\.id\}/);
-  assert.match(s,/uploaded\.mimeType !== "application\/pdf"/);
+test("digital identity writes prove active owner and business before mutation",async()=>{
+  const profile=normalize(await readFile(identity,"utf8"));
+  const digitalPresence=normalize(await readFile(presence,"utf8"));
+  for(const s of [profile,digitalPresence]){
+    assert.match(s,/getCurrentUserForWrites\(\)/);
+    assert.match(s,/getActiveBusinessForUser\(user\.id\)/);
+    assert.match(s,/where: \{ id: business\.id, ownerId: user\.id, deletedAt: null \}/);
+    assert.match(s,/updateMany\(\{ where: \{ id: business\.id, ownerId: user\.id, deletedAt: null \}/);
+  }
+  assert.match(profile,/company-profile:\$\{business\.id\}/);
+  assert.match(profile,/uploaded\.mimeType !== "application\/pdf"/);
+  assert.match(digitalPresence,/consumePublicWriteLimit\(\{ scope: "digital-presence", businessId: business\.id, identity: user\.id/);
 });
 
-test("billing checkout and receipts are owner scoped and paid checkout remains gated",async()=>{
+test("billing checkout and receipts are owner and active-business scoped while paid checkout remains gated",async()=>{
   const checkoutSource=normalize(await readFile(checkout,"utf8"));
   const receiptSource=normalize(await readFile(receipt,"utf8"));
   const ledger=normalize(await readFile(billingLedger,"utf8"));
   const actions=normalize(await readFile(billingActions,"utf8"));
-  assert.match(checkoutSource,/getOwnedBillingPayment\(user\.id, billingId\)/);
+  for(const s of [checkoutSource,receiptSource]){
+    assert.match(s,/getActiveBusinessForUser\(user\.id\)/);
+    assert.match(s,/getOwnedBillingPayment\(user\.id, billingId\)/);
+    assert.match(s,/payment\.businessId !== business\.id|billing\.businessId !== business\.id/);
+  }
   assert.match(checkoutSource,/id: billing\.businessId, ownerId: user\.id, deletedAt: null/);
-  assert.match(receiptSource,/getOwnedBillingPayment\(user\.id, billingId\)/);
   assert.match(ledger,/WHERE bp\."id"=\$\{billingId\} AND b\."ownerId"=\$\{userId\}/);
   assert.match(actions,/paidCheckoutEntryAllowed\(user\.email\)/);
   assert.match(actions,/paidBillingTaxReady\(\)/);
