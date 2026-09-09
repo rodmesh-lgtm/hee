@@ -21,31 +21,26 @@ const contentSecurityPolicy = [
   "manifest-src 'self'",
 ].join("; ");
 
-const securityHeaders = [
+const baseSecurityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Dashboard previews intentionally frame the public HEE page on the same origin.
   // SAMEORIGIN keeps third-party framing blocked while allowing those previews to render.
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "Content-Security-Policy", value: contentSecurityPolicy },
-  {
-    key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=()",
-  },
   // Meta Embedded Signup uses an authenticated cross-origin popup. This retains
   // opener communication for that flow without allowing this application to be framed.
   { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
-  {
-    key: "Strict-Transport-Security",
-    value: "max-age=31536000; includeSubDomains",
-  },
+  { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
 ];
+
+const defaultPermissionsPolicy = "camera=(), microphone=(), geolocation=(), payment=()";
+const businessNotesPermissionsPolicy = "camera=(), microphone=(self), geolocation=(), payment=()";
 
 function serverActionOrigins() {
   const origins = ["ir.sa", "www.ir.sa"];
   if (process.env.VERCEL_ENV === "preview") origins.push("*.vercel.app");
-  if (process.env.NODE_ENV !== "production")
-    origins.push("localhost:3000", "127.0.0.1:3000", "*.app.github.dev");
+  if (process.env.NODE_ENV !== "production") origins.push("localhost:3000", "127.0.0.1:3000", "*.app.github.dev");
   return origins;
 }
 
@@ -63,7 +58,18 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      {
+        source: "/(.*)",
+        headers: [...baseSecurityHeaders, { key: "Permissions-Policy", value: defaultPermissionsPolicy }],
+      },
+      {
+        // Voice memos are intentionally the only browser surface allowed to request
+        // microphone access. The more-specific rule overrides the global deny policy.
+        source: "/dashboard/notes/:path*",
+        headers: [{ key: "Permissions-Policy", value: businessNotesPermissionsPolicy }],
+      },
+    ];
   },
 };
 

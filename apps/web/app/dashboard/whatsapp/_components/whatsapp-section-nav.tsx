@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ContactRound, FileText, Inbox, LayoutDashboard, Link2, Megaphone, Plug, ShieldCheck, Workflow } from "lucide-react";
+import { BarChart3, ContactRound, FileText, Inbox, LayoutDashboard, Link2, Megaphone, Plug, ShieldCheck, Workflow } from "lucide-react";
 
 const items = [
   ["/dashboard/whatsapp", "نظرة عامة", LayoutDashboard, true],
   ["/dashboard/whatsapp/contacts", "جهات الاتصال", ContactRound, false],
   ["/dashboard/whatsapp/templates", "القوالب", FileText, false],
   ["/dashboard/whatsapp/campaigns", "الحملات", Megaphone, false],
+  ["/dashboard/whatsapp/insights", "الأداء", BarChart3, false],
   ["/dashboard/whatsapp/automations", "الأتمتة", Workflow, false],
   ["/dashboard/whatsapp/integrations", "التكاملات", Plug, false],
   ["/dashboard/whatsapp/inbox", "المحادثات", Inbox, false],

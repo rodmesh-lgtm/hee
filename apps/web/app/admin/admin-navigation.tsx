@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, CircleHelp, CreditCard, FileText, KeyRound, LayoutDashboard, MessageCircleMore, Palette, ShoppingBag, Users, Building2, ArrowUpLeft, MoreHorizontal, X, type LucideIcon } from "lucide-react";
+import { BellRing, Boxes, CircleHelp, CreditCard, FileText, KeyRound, LayoutDashboard, MessageCircleMore, Palette, ShoppingBag, Users, Building2, ArrowUpLeft, MoreHorizontal, X, type LucideIcon } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: LucideIcon; badge?: string };
 type NavGroup = { label: string; eyebrow: string; items: NavItem[] };
@@ -12,7 +12,7 @@ const groups: NavGroup[] = [
   { label: "المنصة", eyebrow: "PLATFORM", items: [{ href: "/admin", label: "مركز القيادة", icon: LayoutDashboard }, { href: "/admin/design", label: "التصميم والهوية", icon: Palette, badge: "STUDIO" }, { href: "/admin/businesses", label: "المنشآت", icon: Building2 }] },
   { label: "العملاء والإيراد", eyebrow: "CUSTOMERS & REVENUE", items: [{ href: "/admin/customers", label: "العملاء والحسابات", icon: Users }, { href: "/admin/billing", label: "الاشتراكات والفوترة", icon: CreditCard }, { href: "/admin/access-codes", label: "أكواد الاشتراك", icon: KeyRound }] },
   { label: "التجارة", eyebrow: "COMMERCE", items: [{ href: "/admin/store-products", label: "منتجات المتجر", icon: Boxes }, { href: "/admin/store-orders", label: "طلبات المتجر", icon: ShoppingBag }, { href: "/admin/requests", label: "طلبات الإدارة", icon: FileText }] },
-  { label: "التشغيل", eyebrow: "OPERATIONS", items: [{ href: "/admin/whatsapp", label: "تشغيل واتساب", icon: MessageCircleMore }, { href: "/admin/support", label: "دعم العملاء", icon: CircleHelp }] },
+  { label: "التشغيل", eyebrow: "OPERATIONS", items: [{ href: "/admin/whatsapp", label: "تشغيل واتساب", icon: MessageCircleMore }, { href: "/admin/whatsapp/reminders", label: "التذكيرات الذكية", icon: BellRing, badge: "SMART" }, { href: "/admin/support", label: "دعم العملاء", icon: CircleHelp }] },
 ];
 
 function activeFor(pathname: string, href: string) {

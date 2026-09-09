@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "إنشاء حساب",
@@ -6,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function RegisterLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <Suspense fallback={<main className="min-h-screen bg-[#f4f8f8]" />}>{children}</Suspense>;
 }

@@ -3,6 +3,9 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { db } from "../db";
+import { processNextSmartReminderDelivery } from "../reminders/delivery-worker";
+import { isSmartRemindersSchemaReady } from "../reminders/schema-readiness";
+import { runSmartReminderScheduler } from "../reminders/scheduler";
 import { processNextWhatsAppAutomationDelivery } from "./automation-delivery-worker";
 import { processNextWhatsAppAutomationEvent } from "./automation-processor";
 import { scheduleInactiveCustomerAutomationEvents } from "./automation-scheduler";
@@ -75,64 +78,49 @@ async function runCampaigns(env: NodeJS.ProcessEnv) {
   const now = new Date();
   const batchSize = boundedBatch(env, "WHATSAPP_CAMPAIGN_BATCH_SIZE", 100, 200);
   const [due, active] = await Promise.all([
-    db.whatsAppCampaign.findMany({
-      where: { status: "scheduled", scheduledAt: { lte: now } },
-      select: { id: true, businessId: true },
-      orderBy: { scheduledAt: "asc" },
-      take: batchSize,
-    }),
-    db.whatsAppCampaign.findMany({
-      where: { status: { in: ["running", "paused"] } },
-      select: { id: true, businessId: true },
-      take: batchSize,
-    }),
+    db.whatsAppCampaign.findMany({ where: { status: "scheduled", scheduledAt: { lte: now } }, select: { id: true, businessId: true }, orderBy: { scheduledAt: "asc" }, take: batchSize }),
+    db.whatsAppCampaign.findMany({ where: { status: { in: ["running", "paused"] } }, select: { id: true, businessId: true }, take: batchSize }),
   ]);
   let failed = false;
   for (const campaign of due) {
-    try {
-      await enqueueWhatsAppCampaign({ businessId: campaign.businessId, campaignId: campaign.id, now });
-    } catch {
-      failed = true;
-    }
+    try { await enqueueWhatsAppCampaign({ businessId: campaign.businessId, campaignId: campaign.id, now }); } catch { failed = true; }
   }
-  for (const campaign of active) {
-    await reconcileWhatsAppCampaignCompletion({ businessId: campaign.businessId, campaignId: campaign.id, now });
-  }
+  for (const campaign of active) await reconcileWhatsAppCampaignCompletion({ businessId: campaign.businessId, campaignId: campaign.id, now });
   if (failed) throw new Error("WHATSAPP_CAMPAIGN_FAILED");
 }
 
 async function runDeliveries(env: NodeJS.ProcessEnv) {
   const batchSize = boundedBatch(env, "WHATSAPP_DELIVERY_BATCH_SIZE", 100, 500);
-  for (let index = 0; index < batchSize; index += 1) {
-    const result = await processNextWhatsAppDelivery();
-    if (!result.processed) break;
-  }
+  for (let index = 0; index < batchSize; index += 1) { const result = await processNextWhatsAppDelivery(); if (!result.processed) break; }
 }
 
 async function runReplies(env: NodeJS.ProcessEnv) {
   const batchSize = boundedBatch(env, "WHATSAPP_REPLY_BATCH_SIZE", 100, 500);
-  for (let index = 0; index < batchSize; index += 1) {
-    const result = await processNextWhatsAppReply();
-    if (!result.processed) break;
-  }
+  for (let index = 0; index < batchSize; index += 1) { const result = await processNextWhatsAppReply(); if (!result.processed) break; }
 }
 
 async function runAutomations(env: NodeJS.ProcessEnv) {
   const batchSize = boundedBatch(env, "WHATSAPP_AUTOMATION_BATCH_SIZE", 50, 200);
   const workerId = `vercel-automation-${randomUUID()}`;
-  for (let index = 0; index < batchSize; index += 1) {
-    const result = await processNextWhatsAppAutomationEvent({ workerId });
-    if (!result.processed && "empty" in result && result.empty) break;
-  }
+  for (let index = 0; index < batchSize; index += 1) { const result = await processNextWhatsAppAutomationEvent({ workerId }); if (!result.processed && "empty" in result && result.empty) break; }
 }
 
 async function runAutomationDeliveries(env: NodeJS.ProcessEnv) {
   const batchSize = boundedBatch(env, "WHATSAPP_AUTOMATION_DELIVERY_BATCH_SIZE", 100, 500);
   const workerId = `vercel-automation-delivery-${randomUUID()}`;
-  for (let index = 0; index < batchSize; index += 1) {
-    const result = await processNextWhatsAppAutomationDelivery({ workerId });
-    if (!result.processed) break;
-  }
+  for (let index = 0; index < batchSize; index += 1) { const result = await processNextWhatsAppAutomationDelivery({ workerId }); if (!result.processed) break; }
+}
+
+async function runReminderSchedules(env: NodeJS.ProcessEnv) {
+  if (!await isSmartRemindersSchemaReady()) return;
+  await runSmartReminderScheduler({ limit: boundedBatch(env, "WHATSAPP_REMINDER_SCHEDULE_BATCH_SIZE", 100, 500) });
+}
+
+async function runReminderDeliveries(env: NodeJS.ProcessEnv) {
+  if (!await isSmartRemindersSchemaReady()) return;
+  const batchSize = boundedBatch(env, "WHATSAPP_REMINDER_DELIVERY_BATCH_SIZE", 100, 500);
+  const workerId = `vercel-reminder-delivery-${randomUUID()}`;
+  for (let index = 0; index < batchSize; index += 1) { const result = await processNextSmartReminderDelivery({ workerId }); if (!result.processed) break; }
 }
 
 export async function runVercelWhatsAppStage(stage: StageName, env: NodeJS.ProcessEnv) {
@@ -148,5 +136,7 @@ export async function runVercelWhatsAppStage(stage: StageName, env: NodeJS.Proce
     case "whatsapp:automation-schedules": await scheduleInactiveCustomerAutomationEvents(); return;
     case "whatsapp:automations": return runAutomations(env);
     case "whatsapp:automation-deliveries": return runAutomationDeliveries(env);
+    case "whatsapp:reminder-schedules": return runReminderSchedules(env);
+    case "whatsapp:reminder-deliveries": return runReminderDeliveries(env);
   }
 }
