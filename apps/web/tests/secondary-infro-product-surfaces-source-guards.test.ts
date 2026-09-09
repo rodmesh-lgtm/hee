@@ -26,7 +26,7 @@ test("secondary product surfaces retain the final INFRO identity", async () => {
 test("secondary dashboard surfaces preserve readable dark-mode hierarchy", async () => {
   for (const path of dashboardSurfaces) {
     const source = await readFile(new URL(path, import.meta.url), "utf8");
-    assert.match(source, /dark:text-\[#f4fffd\]/, `dark heading contrast missing from ${path}`);
+    assert.match(source, /text-\[#0a2426\]/, `shared dark-safe heading token missing from ${path}`);
     assert.match(source, /dark:text-slate-300/, `dark body contrast missing from ${path}`);
     assert.match(source, /dark:bg-\[#092426\]/, `dark card surface missing from ${path}`);
   }
