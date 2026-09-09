@@ -132,7 +132,7 @@ test.describe.serial("subscription access-code lifecycle", () => {
       await page.getByRole("button", { name: "إنشاء كود آمن" }).click();
 
       const secret = (await page.locator("code").first().textContent())?.trim() ?? "";
-      expect(secret).toMatch(/^HEE-[A-F0-9]{24}$/);
+      expect(secret).toMatch(/^INFRO-[A-F0-9]{24}$/);
       await expect(page.getByText("لن يمكن استعادته لاحقًا", { exact: false })).toBeVisible();
 
       const storedCode = await db.subscriptionAccessCode.findFirst({
