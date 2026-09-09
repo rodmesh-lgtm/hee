@@ -14,12 +14,12 @@ test("dashboard surfaces company profile as a first-class readiness item", () =>
   assert.match(dashboard, /الملف التعريفي PDF/);
   assert.match(dashboard, /companyProfileUrl/);
   assert.match(dashboard, /\/dashboard\/digital-identity#company-profile/);
-  assert.match(dashboard, /مركز الأعمال/);
+  assert.match(dashboard, /INFRO COMMAND SPACE/);
 });
 
 test("digital identity company profile has a stable direct anchor", () => {
   assert.match(identity, /id="company-profile"/);
-  assert.match(identity, /يظهر في الصفحة العامة وفي المعاينة فورًا/);
+  assert.match(identity, /ليظهر في الصفحة العامة والمعاينة/);
 });
 
 test("owner preview renders company profile and digital identity extras", () => {

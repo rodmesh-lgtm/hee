@@ -8,7 +8,7 @@ test("customer dashboard exposes verification requests to every customer", () =>
   const nav = source("components/dashboard/dashboard-nav.ts");
   const page = source("app/dashboard/verification/page.tsx");
   const action = source("app/actions/verification.ts");
-  assert.match(nav, /توثيق الصفحة/);
+  assert.match(nav, /activePrefixes: \["\/dashboard\/verification"\]/);
   assert.match(nav, /\/dashboard\/verification/);
   assert.match(page, /requestVerificationAction/);
   assert.match(page, /إرسال طلب التوثيق/);

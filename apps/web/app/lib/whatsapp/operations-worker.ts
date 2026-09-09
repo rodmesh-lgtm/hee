@@ -14,6 +14,8 @@ export const WHATSAPP_OPERATION_STAGES = [
   "whatsapp:automation-schedules",
   "whatsapp:automations",
   "whatsapp:automation-deliveries",
+  "whatsapp:reminder-schedules",
+  "whatsapp:reminder-deliveries",
 ] as const;
 
 type StageName = (typeof WHATSAPP_OPERATION_STAGES)[number];

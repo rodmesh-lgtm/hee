@@ -1,144 +1,20 @@
 "use client";
-
 import Link from "next/link";
-import { useActionState, useCallback, useEffect, useRef, useState } from "react";
-import { BriefcaseBusiness, CheckCircle2, Eye, Loader2, Palette, RefreshCw, Save, Share2, UsersRound } from "lucide-react";
-import { publishBusinessAction, unpublishBusinessAction, type PublicationActionState } from "../../app/actions/publication";
+import { useActionState,useCallback,useEffect,useRef,useState } from "react";
+import { ArrowUpLeft,BriefcaseBusiness,CheckCircle2,Eye,Loader2,MapPin,Palette,RefreshCw,Save,Share2,Sparkles,UsersRound } from "lucide-react";
+import { publishBusinessAction,unpublishBusinessAction,type PublicationActionState } from "../../app/actions/publication";
 import { ConfirmSubmitButton } from "./confirm-submit-button";
-
-type BusinessEditorData = { name: string; shortDescription: string; description: string; phone: string; whatsapp: string; city: string; district: string; googleMapsLink: string; isPublished: boolean; slug: string };
-type Props = { business: BusinessEditorData; serviceCount: number; branchCount: number; contactCount: number };
-type ShareStatus = "idle" | "copied" | "failed";
-const emptyState: PublicationActionState = {};
-const inputClass = "h-11 w-full rounded-xl border border-[#e5e8f3] bg-[#fbfcff] px-3 text-sm text-[#20264f] outline-none transition focus:border-[#b7a9ef] focus:bg-white";
-const textareaClass = "min-h-[96px] w-full rounded-xl border border-[#e5e8f3] bg-[#fbfcff] px-3 py-3 text-sm text-[#20264f] outline-none transition focus:border-[#b7a9ef] focus:bg-white";
-function countLabel(n: number, singular: string, dual: string, plural: string) { if (n === 1) return `${singular} واحد`; if (n === 2) return dual; if (n >= 3 && n <= 10) return `${n} ${plural}`; return `${n} ${singular}`; }
-
-export function SimpleBusinessEditor({ business, serviceCount, branchCount, contactCount }: Props) {
-  const [publishState, publishAction, publishPending] = useActionState(publishBusinessAction, emptyState);
-  const [fields, setFields] = useState({ name: business.name, shortDescription: business.shortDescription, description: business.description, phone: business.phone, whatsapp: business.whatsapp, city: business.city, district: business.district, googleMapsLink: business.googleMapsLink });
-  const [status, setStatus] = useState<"saved" | "saving" | "error">("saved");
-  const [error, setError] = useState("");
-  const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
-  const timer = useRef<number | null>(null);
-  const lastSaved = useRef(fields);
-  const latestFields = useRef(fields);
-  const revision = useRef(0);
-  const saveChain = useRef<Promise<void>>(Promise.resolve());
-  const mounted = useRef(true);
-  const [previewVersion, setPreviewVersion] = useState(0);
-
-  const performSave = useCallback(async (next: typeof fields, saveRevision: number, updateUi = true) => {
-    const changed: Record<string, string> = {};
-    for (const key of Object.keys(next) as Array<keyof typeof next>) {
-      if (next[key] !== lastSaved.current[key]) changed[key] = next[key];
-    }
-    if (!Object.keys(changed).length) {
-      if (updateUi && mounted.current && saveRevision === revision.current) setStatus("saved");
-      return;
-    }
-
-    if (updateUi && mounted.current && saveRevision === revision.current) {
-      setStatus("saving");
-      setError("");
-    }
-    try {
-      const response = await fetch("/api/dashboard/business/autosave", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields: changed }),
-        keepalive: true,
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "تعذر الحفظ");
-      lastSaved.current = next;
-      if (updateUi && mounted.current && saveRevision === revision.current) {
-        setStatus("saved");
-        setPreviewVersion((value) => value + 1);
-      }
-    } catch (saveError) {
-      if (updateUi && mounted.current && saveRevision === revision.current) {
-        setStatus("error");
-        setError(saveError instanceof Error ? saveError.message : "تعذر الحفظ");
-      }
-    }
-  }, []);
-
-  const flushSave = useCallback((next = latestFields.current, saveRevision = revision.current, updateUi = true) => {
-    if (timer.current) {
-      window.clearTimeout(timer.current);
-      timer.current = null;
-    }
-    saveChain.current = saveChain.current.then(() => performSave(next, saveRevision, updateUi));
-    return saveChain.current;
-  }, [performSave]);
-
-  const queueSave = useCallback((next: typeof fields, saveRevision: number) => {
-    if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => {
-      timer.current = null;
-      void flushSave(next, saveRevision);
-    }, 700);
-  }, [flushSave]);
-
-  const update = (key: keyof typeof fields, value: string) => {
-    const next = { ...fields, [key]: value };
-    const nextRevision = revision.current + 1;
-    revision.current = nextRevision;
-    latestFields.current = next;
-    setFields(next);
-    setStatus("saving");
-    setError("");
-    queueSave(next, nextRevision);
-  };
-
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-      if (timer.current) window.clearTimeout(timer.current);
-      timer.current = null;
-      void flushSave(latestFields.current, revision.current, false);
-    };
-  }, [flushSave]);
-  useEffect(() => { if (publishState.success) window.location.reload(); }, [publishState.success]);
-
-  const publishBlocked = publishPending || status !== "saved";
-  const blurSave = () => { if (status === "saving") void flushSave(latestFields.current, revision.current); };
-
-  async function sharePublishedPage() {
-    const publicUrl = `${window.location.origin}/${business.slug}`;
-    setShareStatus("idle");
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: business.name, url: publicUrl });
-        return;
-      } catch (shareError) {
-        if (shareError instanceof DOMException && shareError.name === "AbortError") return;
-      }
-    }
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("clipboard-unavailable");
-      await navigator.clipboard.writeText(publicUrl);
-      setShareStatus("copied");
-    } catch {
-      setShareStatus("failed");
-    }
-  }
-
-  return <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:[direction:ltr]">
-    <div className="space-y-4 xl:[direction:rtl]">
-      <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h1 className="text-xl font-black text-[#20264f]">صفحتي</h1><span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${business.isPublished ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{business.isPublished ? "منشورة" : "غير منشورة"}</span></div><p className="mt-1 text-sm text-slate-500">عدّل أهم بيانات هويتك فقط. الحفظ تلقائي والمعاينة تتحدث معك.</p></div><div aria-live="polite" className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black ${status === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : status === "saving" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{status === "saving" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : status === "saved" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <RefreshCw className="h-3.5 w-3.5" />}{status === "saving" ? "جارٍ الحفظ" : status === "saved" ? "تم الحفظ" : error || "تعذر الحفظ"}</div></div></section>
-
-      <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="mb-4"><h2 className="font-black text-[#20264f]">الهوية الأساسية</h2><p className="mt-1 text-xs text-slate-500">هذه المعلومات هي التي يراها العميل أولاً.</p></div><div className="space-y-3"><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>اسم المنشأة</span><input value={fields.name} onChange={(e) => update("name", e.target.value)} onBlur={blurSave} className={inputClass} /></label><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>وصف مختصر</span><input value={fields.shortDescription} onChange={(e) => update("shortDescription", e.target.value)} onBlur={blurSave} placeholder="سطر واحد يوضح نشاطك" className={inputClass} /></label><details className="rounded-2xl border border-[#eceefa] bg-[#fbfcff] p-3"><summary className="cursor-pointer list-none text-sm font-black text-[#5c49cc]">معلومات إضافية</summary><div className="mt-3"><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>نبذة تفصيلية</span><textarea value={fields.description} onChange={(e) => update("description", e.target.value)} onBlur={blurSave} className={textareaClass} /></label></div></details></div></section>
-
-      <section className="rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div className="mb-4"><h2 className="font-black text-[#20264f]">التواصل والموقع</h2><p className="mt-1 text-xs text-slate-500">أضف ما تحتاجه فقط؛ الحقول الفارغة لا تظهر في الصفحة.</p></div><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>واتساب</span><input value={fields.whatsapp} onChange={(e) => update("whatsapp", e.target.value)} onBlur={blurSave} dir="ltr" inputMode="tel" autoComplete="tel" className={inputClass} /></label><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>الهاتف</span><input value={fields.phone} onChange={(e) => update("phone", e.target.value)} onBlur={blurSave} dir="ltr" inputMode="tel" autoComplete="tel" className={inputClass} /></label><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>المدينة</span><input value={fields.city} onChange={(e) => update("city", e.target.value)} onBlur={blurSave} autoComplete="address-level2" className={inputClass} /></label><label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>الحي</span><input value={fields.district} onChange={(e) => update("district", e.target.value)} onBlur={blurSave} autoComplete="address-level3" className={inputClass} /></label><label className="grid gap-1.5 text-xs font-bold text-slate-600 sm:col-span-2"><span>رابط Google Maps</span><input value={fields.googleMapsLink} onChange={(e) => update("googleMapsLink", e.target.value)} onBlur={blurSave} dir="ltr" inputMode="url" placeholder="https://maps.google.com/..." className={inputClass} /></label></div></section>
-
-      <section className="grid gap-3 sm:grid-cols-3"><Link href="/dashboard/branding" className="rounded-[22px] border border-[#e7e9f4] bg-white p-4 transition hover:border-[#cfc5f5]"><Palette className="h-5 w-5 text-[#6f3bd2]" /><b className="mt-3 block text-sm text-[#20264f]">الشعار والمظهر</b><span className="mt-1 block text-[11px] leading-5 text-slate-500">الشعار، الغلاف والثيمات</span></Link><Link href="/dashboard/directory" className="rounded-[22px] border border-[#e7e9f4] bg-white p-4 transition hover:border-[#cfc5f5]"><UsersRound className="h-5 w-5 text-[#6f3bd2]" /><b className="mt-3 block text-sm text-[#20264f]">الفروع والفريق</b><span className="mt-1 block text-[11px] leading-5 text-slate-500">{countLabel(branchCount, "فرع", "فرعان", "فروع")} · {countLabel(contactCount, "عضو", "عضوان", "أعضاء")}</span></Link><Link href="/dashboard/services" className="rounded-[22px] border border-[#e7e9f4] bg-white p-4 transition hover:border-[#cfc5f5]"><BriefcaseBusiness className="h-5 w-5 text-[#6f3bd2]" /><b className="mt-3 block text-sm text-[#20264f]">الخدمات</b><span className="mt-1 block text-[11px] leading-5 text-slate-500">{countLabel(serviceCount, "خدمة", "خدمتان", "خدمات")}</span></Link></section>
-
-      <section id="share" className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#e7e9f4] bg-white p-4 sm:p-5"><div><b className="text-sm text-[#20264f]">{business.isPublished ? "صفحتك متاحة للزوار" : "جاهز للمشاركة؟"}</b><p className="mt-1 text-xs text-slate-500">{business.isPublished ? "افتح الصفحة أو شارك رابطها مباشرة من هنا." : "عاين الصفحة أولاً ثم انشرها."}</p></div><div className="flex w-full flex-wrap gap-2 sm:w-auto"><a href="/preview" target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#ddd8f4] bg-white px-4 text-xs font-black text-[#5d49cc]"><Eye className="h-4 w-4" />معاينة</a>{!business.isPublished ? <form action={publishAction}><button disabled={publishBlocked} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-60"><Save className="h-4 w-4" />{publishPending ? "جارٍ النشر" : status === "saving" ? "انتظر الحفظ" : "نشر الصفحة"}</button></form> : <><a href={`/${business.slug}`} target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#6f3bd2] px-4 text-xs font-black text-white"><Eye className="h-4 w-4" />فتح الصفحة</a><button type="button" onClick={() => void sharePublishedPage()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#d9cff8] bg-[#f7f4ff] px-4 text-xs font-black text-[#5638b8]"><Share2 className="h-4 w-4" />مشاركة الرابط</button><form action={unpublishBusinessAction}><ConfirmSubmitButton label="إلغاء النشر" confirmMessage="إلغاء نشر الصفحة؟ لن يتمكن الزوار من فتحها حتى تنشرها مرة أخرى." showIcon={false} className="inline-flex min-h-11 items-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-xs font-black text-rose-700" /></form></>}</div><div aria-live="polite" aria-atomic="true" className="w-full text-xs font-bold">{shareStatus === "copied" ? <span className="text-emerald-700">تم نسخ رابط صفحتك.</span> : null}{shareStatus === "failed" ? <span className="text-rose-700">تعذر نسخ الرابط. افتح الصفحة وانسخ الرابط من المتصفح.</span> : null}{publishState.error ? <span className="text-rose-700">{publishState.error}</span> : null}</div></section>
-    </div>
-
-    <aside className="hidden xl:block xl:[direction:rtl]"><div className="sticky top-24 rounded-[28px] border border-[#e3e6f2] bg-white p-3 shadow-[0_26px_50px_-36px_rgba(31,37,82,.45)]"><div className="mb-3 flex items-center justify-between"><div><b className="text-sm text-[#20264f]">معاينة مباشرة</b><p className="text-[10px] text-slate-400">تتحدث بعد الحفظ</p></div><a href="/preview" target="_blank" className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#f4f1ff] px-2.5 text-[10px] font-black text-[#5d49cc]"><Eye className="h-3.5 w-3.5" />تكبير</a></div><div className="mx-auto w-[292px] overflow-hidden rounded-[30px] border-[6px] border-[#171b2e] bg-white"><iframe key={previewVersion} src={`/preview?v=${previewVersion}`} title="معاينة صفحة النشاط" className="h-[600px] w-full" /></div></div></aside>
-  </div>;
-}
+type BusinessEditorData={name:string;shortDescription:string;description:string;phone:string;whatsapp:string;city:string;district:string;googleMapsLink:string;isPublished:boolean;slug:string};type Props={business:BusinessEditorData;serviceCount:number;branchCount:number;contactCount:number};type ShareStatus="idle"|"copied"|"failed";const emptyState:PublicationActionState={};
+const inputClass="h-12 w-full rounded-xl border border-slate-200 bg-[#fbfdfd] px-3 text-sm text-slate-900 outline-none transition focus:border-[#00a99d] focus:bg-white focus:ring-4 focus:ring-[#35e4cb]/10";const textareaClass="min-h-[108px] w-full rounded-xl border border-slate-200 bg-[#fbfdfd] px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-[#00a99d] focus:bg-white focus:ring-4 focus:ring-[#35e4cb]/10";function countLabel(n:number,singular:string,dual:string,plural:string){if(n===1)return`${singular} واحد`;if(n===2)return dual;if(n>=3&&n<=10)return`${n} ${plural}`;return`${n} ${singular}`}
+export function SimpleBusinessEditor({business,serviceCount,branchCount,contactCount}:Props){const[publishState,publishAction,publishPending]=useActionState(publishBusinessAction,emptyState);const[fields,setFields]=useState({name:business.name,shortDescription:business.shortDescription,description:business.description,phone:business.phone,whatsapp:business.whatsapp,city:business.city,district:business.district,googleMapsLink:business.googleMapsLink});const[status,setStatus]=useState<"saved"|"saving"|"error">("saved"),[error,setError]=useState(""),[shareStatus,setShareStatus]=useState<ShareStatus>("idle");const timer=useRef<number|null>(null),lastSaved=useRef(fields),latestFields=useRef(fields),revision=useRef(0),saveChain=useRef<Promise<void>>(Promise.resolve()),mounted=useRef(true);const[previewVersion,setPreviewVersion]=useState(0);
+const performSave=useCallback(async(next:typeof fields,saveRevision:number,updateUi=true)=>{const changed:Record<string,string>={};for(const key of Object.keys(next) as Array<keyof typeof next>)if(next[key]!==lastSaved.current[key])changed[key]=next[key];if(!Object.keys(changed).length){if(updateUi&&mounted.current&&saveRevision===revision.current)setStatus("saved");return}if(updateUi&&mounted.current&&saveRevision===revision.current){setStatus("saving");setError("")}try{const response=await fetch("/api/dashboard/business/autosave",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields:changed}),keepalive:true});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||"تعذر الحفظ");lastSaved.current=next;if(updateUi&&mounted.current&&saveRevision===revision.current){setStatus("saved");setPreviewVersion(v=>v+1)}}catch(saveError){if(updateUi&&mounted.current&&saveRevision===revision.current){setStatus("error");setError(saveError instanceof Error?saveError.message:"تعذر الحفظ")}}},[]);const flushSave=useCallback((next=latestFields.current,saveRevision=revision.current,updateUi=true)=>{if(timer.current){window.clearTimeout(timer.current);timer.current=null}saveChain.current=saveChain.current.then(()=>performSave(next,saveRevision,updateUi));return saveChain.current},[performSave]);const queueSave=useCallback((next:typeof fields,saveRevision:number)=>{if(timer.current)window.clearTimeout(timer.current);timer.current=window.setTimeout(()=>{timer.current=null;void flushSave(next,saveRevision)},700)},[flushSave]);const update=(key:keyof typeof fields,value:string)=>{const next={...fields,[key]:value},nextRevision=revision.current+1;revision.current=nextRevision;latestFields.current=next;setFields(next);setStatus("saving");setError("");queueSave(next,nextRevision)};useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;if(timer.current)window.clearTimeout(timer.current);timer.current=null;void flushSave(latestFields.current,revision.current,false)}},[flushSave]);useEffect(()=>{if(publishState.success)window.location.reload()},[publishState.success]);const publishBlocked=publishPending||status!=="saved";const blurSave=()=>{if(status==="saving")void flushSave(latestFields.current,revision.current)};
+async function sharePublishedPage(){const publicUrl=`${window.location.origin}/${business.slug}`;setShareStatus("idle");if(navigator.share){try{await navigator.share({title:business.name,url:publicUrl});return}catch(shareError){if(shareError instanceof DOMException&&shareError.name==="AbortError")return}}try{if(!navigator.clipboard?.writeText)throw new Error("clipboard-unavailable");await navigator.clipboard.writeText(publicUrl);setShareStatus("copied")}catch{setShareStatus("failed")}}
+return <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px] xl:[direction:ltr]"><div className="space-y-5 xl:[direction:rtl]"><header className="relative overflow-hidden rounded-[30px] bg-[#07181b] p-6 text-white"><div className="absolute -left-14 -top-16 h-48 w-48 rounded-full bg-[#00e5a8]/10 blur-3xl"/><div className="relative flex flex-wrap items-end justify-between gap-4"><div><span className="inline-flex items-center gap-2 text-[9px] font-black tracking-[.18em] text-[#5cebd7]" dir="ltr"><Sparkles className="h-4 w-4"/>INFRO IDENTITY STUDIO</span><div className="mt-3 flex items-center gap-2"><h1 className="text-2xl font-black">ابنِ حضورك أمام العميل</h1><span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${business.isPublished?"bg-emerald-400/15 text-emerald-300":"bg-amber-300/15 text-amber-200"}`}>{business.isPublished?"منشورة":"غير منشورة"}</span></div><p className="mt-2 max-w-xl text-sm leading-7 text-slate-300">غيّر بيانات هويتك وشاهد النتيجة مباشرة. الحفظ تلقائي حتى يبقى تركيزك على الشكل والمحتوى.</p></div><div aria-live="polite" className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-black ${status==="error"?"border-rose-400/30 bg-rose-400/10 text-rose-200":status==="saving"?"border-amber-300/20 bg-amber-300/10 text-amber-200":"border-[#35e4cb]/20 bg-[#35e4cb]/10 text-[#71efdd]"}`}>{status==="saving"?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:status==="saved"?<CheckCircle2 className="h-3.5 w-3.5"/>:<RefreshCw className="h-3.5 w-3.5"/>}{status==="saving"?"جارٍ الحفظ":status==="saved"?"محفوظ تلقائيًا":error||"تعذر الحفظ"}</div></div></header>
+<StudioSection eyebrow="01 · IDENTITY" title="الهوية الأساسية" subtitle="هذه هي الكلمات الأولى التي يتعرف بها العميل على نشاطك."><div className="space-y-3"><Field label="اسم المنشأة"><input value={fields.name} onChange={e=>update("name",e.target.value)} onBlur={blurSave} className={inputClass}/></Field><Field label="الوصف المختصر"><input value={fields.shortDescription} onChange={e=>update("shortDescription",e.target.value)} onBlur={blurSave} placeholder="سطر واحد يوضح نشاطك" className={inputClass}/></Field><details className="group rounded-2xl border border-slate-200 bg-[#fbfdfd] p-3"><summary className="cursor-pointer list-none text-xs font-black text-[#008f87]">أضف نبذة تفصيلية <span className="text-slate-400">— اختياري</span></summary><div className="mt-3"><Field label="نبذة النشاط"><textarea value={fields.description} onChange={e=>update("description",e.target.value)} onBlur={blurSave} className={textareaClass}/></Field></div></details></div></StudioSection>
+<StudioSection eyebrow="02 · REACHABILITY" title="التواصل والموقع" subtitle="أضف القنوات التي تريد أن يستخدمها العميل فقط."><div className="grid gap-3 sm:grid-cols-2"><Field label="واتساب"><input value={fields.whatsapp} onChange={e=>update("whatsapp",e.target.value)} onBlur={blurSave} dir="ltr" inputMode="tel" autoComplete="tel" className={inputClass}/></Field><Field label="الهاتف"><input value={fields.phone} onChange={e=>update("phone",e.target.value)} onBlur={blurSave} dir="ltr" inputMode="tel" autoComplete="tel" className={inputClass}/></Field><Field label="المدينة"><input value={fields.city} onChange={e=>update("city",e.target.value)} onBlur={blurSave} autoComplete="address-level2" className={inputClass}/></Field><Field label="الحي"><input value={fields.district} onChange={e=>update("district",e.target.value)} onBlur={blurSave} autoComplete="address-level3" className={inputClass}/></Field><label className="sm:col-span-2 grid gap-1.5 text-xs font-bold text-slate-600"><span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-[#008f87]"/>رابط Google Maps</span><input value={fields.googleMapsLink} onChange={e=>update("googleMapsLink",e.target.value)} onBlur={blurSave} dir="ltr" inputMode="url" placeholder="https://maps.google.com/..." className={inputClass}/></label></div></StudioSection>
+<section className="grid gap-3 sm:grid-cols-3"><Quick href="/dashboard/branding" icon={<Palette className="h-5 w-5"/>} title="الشعار والمظهر" detail="الشعار، الغلاف والثيمات"/><Quick href="/dashboard/directory" icon={<UsersRound className="h-5 w-5"/>} title="الفروع والفريق" detail={`${countLabel(branchCount,"فرع","فرعان","فروع")} · ${countLabel(contactCount,"عضو","عضوان","أعضاء")}`}/><Quick href="/dashboard/services" icon={<BriefcaseBusiness className="h-5 w-5"/>} title="الخدمات" detail={countLabel(serviceCount,"خدمة","خدمتان","خدمات")}/></section>
+<section id="share" className="overflow-hidden rounded-[26px] border border-slate-200 bg-white"><div className="flex flex-wrap items-center justify-between gap-4 p-5"><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">PUBLISH & SHARE</span><b className="mt-1 block text-sm text-slate-950">{business.isPublished?"صفحتك متاحة للزوار":"جاهز لإظهار هويتك؟"}</b><p className="mt-1 text-xs text-slate-500">{business.isPublished?"افتح الصفحة أو شارك رابطها مباشرة.":"عاين النتيجة أولًا، ثم انشر عندما تصبح راضيًا عنها."}</p></div><div className="flex w-full flex-wrap gap-2 sm:w-auto"><a href="/preview" target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700"><Eye className="h-4 w-4"/>معاينة</a>{!business.isPublished?<form action={publishAction}><button disabled={publishBlocked} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#07181b] px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-60"><Save className="h-4 w-4 text-[#55e7d3]"/>{publishPending?"جارٍ النشر":status==="saving"?"انتظر الحفظ":"نشر الصفحة"}</button></form>:<><a href={`/${business.slug}`} target="_blank" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#07181b] px-4 text-xs font-black text-white"><Eye className="h-4 w-4 text-[#55e7d3]"/>فتح الصفحة</a><button type="button" onClick={()=>void sharePublishedPage()} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#effbf9] px-4 text-xs font-black text-[#007f78]"><Share2 className="h-4 w-4"/>مشاركة الرابط</button><form action={unpublishBusinessAction}><ConfirmSubmitButton label="إلغاء النشر" confirmMessage="إلغاء نشر الصفحة؟ لن يتمكن الزوار من فتحها حتى تنشرها مرة أخرى." showIcon={false} className="inline-flex min-h-11 items-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-xs font-black text-rose-700"/></form></>}</div><div aria-live="polite" aria-atomic="true" className="w-full text-xs font-bold">{shareStatus==="copied"?<span className="text-emerald-700">تم نسخ رابط صفحتك.</span>:null}{shareStatus==="failed"?<span className="text-rose-700">تعذر نسخ الرابط. افتح الصفحة وانسخ الرابط من المتصفح.</span>:null}{publishState.error?<span className="text-rose-700">{publishState.error}</span>:null}</div></div></section></div>
+<aside className="hidden xl:block xl:[direction:rtl]"><div className="sticky top-24 overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_28px_70px_-48px_rgba(7,24,27,.5)]"><div className="flex items-center justify-between border-b border-slate-100 p-4"><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">LIVE PREVIEW</span><b className="mt-1 block text-sm text-slate-950">كما يراك العميل</b><p className="text-[10px] text-slate-400">تتحدث بعد الحفظ</p></div><a href="/preview" target="_blank" className="inline-flex h-9 items-center gap-1 rounded-xl bg-[#effbf9] px-3 text-[10px] font-black text-[#007f78]">تكبير<ArrowUpLeft className="h-3.5 w-3.5"/></a></div><div className="bg-[radial-gradient(circle_at_50%_0%,rgba(53,228,203,.12),transparent_30%),#f5f8f8] p-5"><div className="mx-auto w-[292px] overflow-hidden rounded-[34px] border-[7px] border-[#07181b] bg-white shadow-2xl"><iframe key={previewVersion} src={`/preview?v=${previewVersion}`} title="معاينة صفحة النشاط" className="h-[600px] w-full"/></div></div></div></aside></div>}
+function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>{label}</span>{children}</label>}
+function StudioSection({eyebrow,title,subtitle,children}:{eyebrow:string;title:string;subtitle:string;children:React.ReactNode}){return <section className="rounded-[26px] border border-slate-200 bg-white p-5"><div className="mb-5"><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">{eyebrow}</span><h2 className="mt-1 text-base font-black text-slate-950">{title}</h2><p className="mt-1 text-xs text-slate-500">{subtitle}</p></div>{children}</section>}
+function Quick({href,icon,title,detail}:{href:string;icon:React.ReactNode;title:string;detail:string}){return <Link href={href} className="group rounded-[22px] border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-[#bcebe5] hover:shadow-[0_14px_34px_-28px_rgba(7,24,27,.45)]"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#effbf9] text-[#008f87] transition group-hover:bg-[#07181b] group-hover:text-[#55e7d3]">{icon}</span><b className="mt-3 block text-sm text-slate-950">{title}</b><span className="mt-1 block text-[11px] leading-5 text-slate-500">{detail}</span></Link>}

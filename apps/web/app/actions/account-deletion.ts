@@ -7,7 +7,7 @@ import { db } from "../lib/db";
 import { getCurrentUserForWrites, logoutSession } from "../lib/auth";
 import { isAdminEmail } from "../lib/admin";
 
-const CONFIRMATION = "DELETE MY HEE ACCOUNT";
+const CONFIRMATION = "DELETE MY INFRO ACCOUNT";
 const DELETION_EVENT = "account_deletion_completed";
 const SUPPORT_EVENT = "support_requested";
 

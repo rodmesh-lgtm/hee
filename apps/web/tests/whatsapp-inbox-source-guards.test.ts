@@ -5,17 +5,29 @@ import test from "node:test";
 
 const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 const inbox = source("app/lib/whatsapp/inbox.ts");
+const platformReminder = source("app/lib/reminders/platform-whatsapp.ts");
 const page = source("app/dashboard/whatsapp/inbox/page.tsx");
 
 test("inbox conversations and selected messages remain tenant scoped", () => {
-  assert.match(inbox, /businessId: input\.businessId/g);
-  assert.match(inbox, /where: \{ id: selectedId, businessId: input\.businessId \}/);
+  assert.match(inbox, /tenantInboxWhere\(input\.businessId, query\)/);
+  assert.match(inbox, /function tenantInboxWhere\(businessId: string, query: string\)/);
+  assert.match(inbox, /businessId,/);
+  assert.match(inbox, /where: \{ \.\.\.where, id: selectedId \}/);
   assert.match(inbox, /CONVERSATION_LIMIT = 50/);
   assert.match(inbox, /MESSAGE_LIMIT = 100/);
 });
 
+test("central INFRO REMINDER conversations can never surface in the tenant customer-service inbox", () => {
+  assert.match(inbox, /getInfroReminderWhatsAppPhoneNumberId/);
+  assert.match(inbox, /platformPhoneNumberId = getInfroReminderWhatsAppPhoneNumberId\(\)/);
+  assert.match(inbox, /NOT: \{ phoneNumberId: platformPhoneNumberId \}/);
+  assert.match(inbox, /where: \{ \.\.\.where, id: selectedId \}/);
+  assert.match(platformReminder, /function getInfroReminderWhatsAppPhoneNumberId/);
+  assert.match(platformReminder, /INFRO_REMINDER_WHATSAPP_PHONE_NUMBER_ID/);
+});
+
 test("the dashboard inbox uses server reads and awaits Next.js search params", () => {
-  assert.match(page, /const params = await searchParams/);
+  assert.match(page, /params=await searchParams/);
   assert.match(page, /getWhatsAppReadContext\("view"\)/);
   assert.match(page, /hasActiveWhatsAppMarketingEntitlement/);
   assert.match(page, /getWhatsAppInbox/);
@@ -23,10 +35,11 @@ test("the dashboard inbox uses server reads and awaits Next.js search params", (
 });
 
 test("free-form reply action is rendered only while the service window is open", () => {
+  assert.match(page, /const serviceOpen=inbox\.selected\?\.serviceWindow\.open\?\?false/);
+  assert.match(page, /serviceOpen\?<form action=\{enqueueWhatsAppReplyAction\}/);
   assert.match(page, /الرد الجديد يحتاج قالبًا معتمدًا/);
   assert.match(page, /انتهت مهلة الرد النصي المباشر حسب سياسة واتساب/);
   assert.match(page, /\/dashboard\/whatsapp\/templates/);
-  assert.match(page, /serviceWindow\.open \? <form action=\{enqueueWhatsAppReplyAction\}/);
 });
 
 test("inbox uses customer-facing delivery feedback without leaking internal operations", () => {

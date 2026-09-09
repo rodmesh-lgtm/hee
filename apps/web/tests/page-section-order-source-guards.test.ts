@@ -5,7 +5,7 @@ import test from "node:test";
 
 function source(path: string) { return readFileSync(resolve(process.cwd(), path), "utf8"); }
 
-test("customer page editor exposes touch-friendly section ordering", () => {
+test("customer page editor exposes touch and keyboard friendly section ordering", () => {
   const page = source("app/dashboard/my-page/page.tsx");
   const editor = source("components/dashboard/page-section-order-editor.tsx");
   assert.match(page, /PageSectionOrderEditor/);
@@ -13,7 +13,11 @@ test("customer page editor exposes touch-friendly section ordering", () => {
   assert.match(editor, /onPointerDown/);
   assert.match(editor, /onPointerMove/);
   assert.match(editor, /setPointerCapture/);
+  assert.match(editor, /draggingRef/);
   assert.match(editor, /touch-none/);
+  assert.match(editor, /moveBy/);
+  assert.match(editor, /نقل \$\{LABELS\[id\]\.title\} للأعلى/);
+  assert.match(editor, /نقل \$\{LABELS\[id\]\.title\} للأسفل/);
   assert.match(editor, /رتّب هويتك كما تريد/);
   assert.match(editor, /\/api\/dashboard\/page-modules\/order/);
 });

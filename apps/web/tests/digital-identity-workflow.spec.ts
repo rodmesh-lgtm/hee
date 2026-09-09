@@ -25,7 +25,7 @@ test("digital identity assets, presence and public access follow ownership and p
 
   try {
     await page.goto(`${baseUrl}/dashboard/digital-identity`, { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "الهوية الرقمية", exact: true })).toBeVisible();
+    await expect(page.locator("main").getByRole("heading", { name: "الهوية الرقمية", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "بطاقة الأعمال الرقمية" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "توقيع البريد" })).toBeVisible();
     await expect(page.getByText("api.qrserver.com")).toHaveCount(0);

@@ -58,11 +58,11 @@ test.describe.serial("central admin billing operations", () => {
       await expect(page.getByRole("heading", { name: "الاشتراكات والفوترة" })).toBeVisible();
       await expect(page.getByRole("cell", { name: "access_code", exact: true })).toBeVisible();
       await expect(page.getByText("moyasar", { exact: true }).first()).toBeVisible();
-      await expect(page.getByText(/لا تنشئ BillingPayment وهمية/)).toBeVisible();
+      await expect(page.getByText(/^نشطة(?: · .+)?$/).first()).toBeVisible();
       expect(await db.billingPayment.count({ where: { businessId: f.accessBusinessId } })).toBe(0);
       expect(await db.billingPayment.count({ where: { businessId: f.paidBusinessId } })).toBe(1);
 
-      await page.getByRole("link", { name: "فتح" }).click();
+      await page.getByRole("link", { name: "فتح", exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/admin/billing/payments/${f.paymentId}`));
       await expect(page.getByRole("heading", { name: "تفاصيل الدفعة" })).toBeVisible();
       await expect(page.getByText("not_registered", { exact: true })).toBeVisible();

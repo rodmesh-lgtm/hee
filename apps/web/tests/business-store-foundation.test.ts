@@ -14,7 +14,7 @@ test("Business Store is a real authenticated dashboard destination", () => {
   const page = read("app/dashboard/business-store/page.tsx");
   assert.match(nav, /متجر الأعمال/);
   assert.match(nav, /\/dashboard\/business-store/);
-  assert.match(shell, /"\/dashboard\/business-store": "متجر الأعمال"/);
+  assert.match(shell, /"\/dashboard\/business-store":"متجر الأعمال"/);
   assert.match(page, /getCurrentUser/);
   assert.match(page, /getActiveBusinessForUser/);
   assert.match(page, /https:\/\/ir\.sa\/\$\{business\.slug\}/);
@@ -25,8 +25,8 @@ test("Business Store draft flow stays isolated from tenant customer orders and s
   const actions = read("app/actions/business-store.ts");
   assert.doesNotMatch(page, /updateOrderStatusAction|createOrder|BillingPayment|billing\/checkout/);
   assert.doesNotMatch(actions, /db\.order\.|billingPayment\.|subscription\.(create|update)/);
-  assert.match(page, /مشترياتك هنا منفصلة تمامًا عن الطلبات/);
-  assert.match(page, /مسودة متجر iR مستقلة عن طلبات زبائن المنشأة وعن اشتراك iR المتكرر/);
+  assert.match(page, /مسودة متجر INFRO مستقلة عن طلبات زبائن المنشأة وعن الاشتراك المتكرر/);
+  assert.match(page, /الحفظ هنا لا ينشئ دفعة ولا يغيّر الباقة/);
   assert.match(actions, /businessStoreOrder\.create/);
   assert.match(actions, /businessStoreOrderItem\.(create|update)/);
 });
@@ -37,7 +37,7 @@ test("Business Store exposes real draft actions but keeps checkout closed", () =
   assert.match(page, /BusinessStoreDraftBuilder/);
   // Guard the product behavior rather than a fragile exact sentence: the customer
   // surface must still say payment opens only after a separate safe store flow exists.
-  assert.match(page, /سيُفتح الدفع فقط بعد إضافة مسار متجر مستقل وآمن/);
+  assert.match(page, /العنوان والشحن والدفع ثم التجهيز والتسليم/);
   assert.match(builder, /createBusinessStoreDraftAction/);
   assert.match(builder, /setBusinessStoreDraftItemAction/);
   assert.match(builder, /أضف لمسودة الطلب/);

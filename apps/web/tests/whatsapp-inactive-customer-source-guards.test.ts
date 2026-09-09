@@ -56,7 +56,7 @@ test("durable operations runs schedules before event and delivery workers", () =
 
 test("UI and server expose only triggers backed by trusted sources", () => {
   assert.match(page, /disabled=\{!configurableTriggers\.has\(trigger\)\}/);
-  assert.match(page, /السلة المتروكة بعد مرور المهلة التي تحددها/);
+  assert.match(page, /السلة المتروكة تنتظر المهلة المحددة/);
   assert.match(page, /WHATSAPP_ABANDONED_CART_DELAY_MINUTES/);
   assert.match(page, /name="apiEventName"/);
   assert.match(page, /pattern="\[a-z\]\[a-z0-9_\.:-\]\{0,63\}"/);

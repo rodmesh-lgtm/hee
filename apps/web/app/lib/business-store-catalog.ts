@@ -26,6 +26,22 @@ const SELECT_COLUMNS = Prisma.sql`
   "imageUrl", "maxQuantity", "isActive", "sortOrder", "createdAt", "updatedAt"
 `;
 
+function infroBrandText(value: string) {
+  return value.replace(/HEE/gi, "INFRO").replace(/hee\.sa/gi, "ir.sa");
+}
+function publicCatalogItem(row: Pick<BusinessStoreCatalogAdminItem,"sku"|"title"|"description"|"unitPrice"|"badge"|"category"|"imageUrl"|"maxQuantity">): BusinessStoreCatalogItem {
+  return {
+    sku: row.sku,
+    title: infroBrandText(row.title),
+    description: infroBrandText(row.description),
+    unitPrice: row.unitPrice,
+    badge: row.badge ? infroBrandText(row.badge) : null,
+    category: row.category,
+    imageUrl: row.imageUrl,
+    maxQuantity: row.maxQuantity,
+  };
+}
+
 export async function listBusinessStoreCatalogItems(): Promise<BusinessStoreCatalogItem[]> {
   const rows = await db.$queryRaw<BusinessStoreCatalogAdminItem[]>(Prisma.sql`
     SELECT ${SELECT_COLUMNS}
@@ -33,16 +49,7 @@ export async function listBusinessStoreCatalogItems(): Promise<BusinessStoreCata
     WHERE "isActive" = true
     ORDER BY "sortOrder" ASC, "createdAt" ASC
   `);
-  return rows.map(({ sku, title, description, unitPrice, badge, category, imageUrl, maxQuantity }) => ({
-    sku,
-    title,
-    description,
-    unitPrice,
-    badge,
-    category,
-    imageUrl,
-    maxQuantity,
-  }));
+  return rows.map(publicCatalogItem);
 }
 
 export async function listBusinessStoreCatalogProductsForAdmin(): Promise<BusinessStoreCatalogAdminItem[]> {
@@ -64,15 +71,5 @@ export async function getBusinessStoreCatalogItem(sku: unknown): Promise<Busines
     LIMIT 1
   `);
   const row = rows[0];
-  if (!row) return null;
-  return {
-    sku: row.sku,
-    title: row.title,
-    description: row.description,
-    unitPrice: row.unitPrice,
-    badge: row.badge,
-    category: row.category,
-    imageUrl: row.imageUrl,
-    maxQuantity: row.maxQuantity,
-  };
+  return row ? publicCatalogItem(row) : null;
 }

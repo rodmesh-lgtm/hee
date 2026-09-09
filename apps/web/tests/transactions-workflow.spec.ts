@@ -146,7 +146,8 @@ test.describe.serial("public transactions workflow", () => {
 
       await setSession(ownerPage, seeded.sessionToken);
       await ownerPage.goto(`${baseUrl}/dashboard/inbox`, { waitUntil: "domcontentloaded" });
-      await expect(ownerPage.getByRole("heading", { name: "الطلبات والحجوزات" })).toBeVisible();
+      const inboxMain = ownerPage.locator("#dashboard-main-content");
+      await expect(inboxMain.getByRole("heading", { name: "الطلبات والحجوزات" })).toBeVisible();
       await expect(ownerPage.getByText("عميل اختبار")).toBeVisible();
       await expect(ownerPage.getByText("استشارة لمدة ساعة")).toBeVisible();
       await ownerPage.getByRole("button", { name: "تأكيد الحجز" }).click();

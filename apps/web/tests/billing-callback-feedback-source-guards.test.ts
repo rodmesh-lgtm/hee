@@ -10,13 +10,13 @@ test("every explicit Moyasar callback outcome has customer-visible feedback", ()
   for (const match of callback.matchAll(/back\("([a-z0-9-]+)"\)/g)) codes.add(match[1]);
   assert.ok(codes.size >= 8, "callback outcome set unexpectedly shrank");
   for (const code of codes) {
-    assert.match(settings, new RegExp(`code === \\"${code}\\"|code === \\"[^\\"]+\\" \\|\\| code === \\"${code}\\"`), `missing customer feedback for billing=${code}`);
+    assert.match(settings, new RegExp(`code===\\"${code}\\"|code===\\"[^\\"]+\\"\\|\\|code===\\"${code}\\"`), `missing customer feedback for billing=${code}`);
   }
 });
 
 test("uncertain billing outcomes explicitly tell the customer not to duplicate payment", () => {
   for (const code of ["pending", "verification-unavailable", "failed"] as const) {
-    const start = settings.indexOf(`code === "${code}"`);
+    const start = settings.indexOf(`code==="${code}"`);
     assert.ok(start >= 0, `missing ${code} feedback`);
     const block = settings.slice(start, start + 1200);
     assert.match(block, /لا تعِد|لا تنشئ عملية أخرى/);
@@ -25,7 +25,7 @@ test("uncertain billing outcomes explicitly tell the customer not to duplicate p
 
 test("reversal outcomes explain that entitlement was not activated", () => {
   for (const code of ["payment-reversed", "checkout-expired", "checkout-consent-missing"] as const) {
-    const start = settings.indexOf(`code === "${code}"`);
+    const start = settings.indexOf(`code==="${code}"`);
     assert.ok(start >= 0, `missing ${code} feedback`);
     const block = settings.slice(start, start + 1600);
     assert.match(block, /لم يتم تفعيل|لم يتم تفعيل الاشتراك/);

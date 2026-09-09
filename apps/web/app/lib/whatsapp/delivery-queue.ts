@@ -130,9 +130,15 @@ export async function enqueueWhatsAppCampaign(input: {
       });
     }
     if (queueEligible.length > 0) {
-      await tx.whatsAppCampaign.update({ where: { id: campaign.id }, data: { status: "running", startedAt: now, pausedAt: null } });
+      await tx.whatsAppCampaign.updateMany({
+        where: { id: campaign.id, businessId: input.businessId },
+        data: { status: "running", startedAt: now, pausedAt: null },
+      });
     } else if (campaign.status !== "running") {
-      await tx.whatsAppCampaign.update({ where: { id: campaign.id }, data: { status: "completed", completedAt: now } });
+      await tx.whatsAppCampaign.updateMany({
+        where: { id: campaign.id, businessId: input.businessId },
+        data: { status: "completed", completedAt: now },
+      });
     }
     return {
       campaignId: campaign.id,

@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "../../../../lib/db";
+import { getInfroReminderWhatsAppConfig } from "../../../../lib/reminders/platform-whatsapp";
 import { getMetaWhatsAppConfig } from "../../../../lib/whatsapp/meta-config";
 import { verifyMetaWebhookChallenge, verifyMetaWebhookSignature } from "../../../../lib/whatsapp/webhook-security";
 import { readBoundedText } from "../../../../lib/request-body";
@@ -34,11 +35,8 @@ function eventType(change: MetaChange) {
 
 export async function GET(request: Request) {
   let config;
-  try {
-    config = getMetaWhatsAppConfig();
-  } catch {
-    return new NextResponse("Unavailable", { status: 503 });
-  }
+  try { config = getMetaWhatsAppConfig(); }
+  catch { return new NextResponse("Unavailable", { status: 503 }); }
   const url = new URL(request.url);
   const challenge = url.searchParams.get("hub.challenge");
   if (!challenge || challenge.length > 512) return new NextResponse("Bad Request", { status: 400 });
@@ -51,42 +49,26 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!String(request.headers.get("content-type") ?? "").toLowerCase().includes("application/json")) {
-    return NextResponse.json({ ok: false }, { status: 415 });
-  }
+  if (!String(request.headers.get("content-type") ?? "").toLowerCase().includes("application/json")) return NextResponse.json({ ok: false }, { status: 415 });
 
   let config;
-  try {
-    config = getMetaWhatsAppConfig();
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 503 });
-  }
+  try { config = getMetaWhatsAppConfig(); }
+  catch { return NextResponse.json({ ok: false }, { status: 503 }); }
 
   let rawBody: string;
-  try {
-    rawBody = await readBoundedText(request, MAX_WEBHOOK_BYTES);
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 413 });
-  }
+  try { rawBody = await readBoundedText(request, MAX_WEBHOOK_BYTES); }
+  catch { return NextResponse.json({ ok: false }, { status: 413 }); }
 
-  if (!verifyMetaWebhookSignature({
-    rawBody,
-    signatureHeader: request.headers.get("x-hub-signature-256"),
-    appSecret: config.META_APP_SECRET,
-  })) {
+  if (!verifyMetaWebhookSignature({ rawBody, signatureHeader: request.headers.get("x-hub-signature-256"), appSecret: config.META_APP_SECRET })) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
   let payload: MetaWebhook;
-  try {
-    payload = JSON.parse(rawBody) as MetaWebhook;
-  } catch {
-    return NextResponse.json({ ok: false }, { status: 400 });
-  }
-  if (payload.object !== "whatsapp_business_account" || !Array.isArray(payload.entry)) {
-    return NextResponse.json({ ok: true, ignored: true }, { status: 202 });
-  }
+  try { payload = JSON.parse(rawBody) as MetaWebhook; }
+  catch { return NextResponse.json({ ok: false }, { status: 400 }); }
+  if (payload.object !== "whatsapp_business_account" || !Array.isArray(payload.entry)) return NextResponse.json({ ok: true, ignored: true }, { status: 202 });
 
+  const platform = getInfroReminderWhatsAppConfig();
   const bodyDigest = createHash("sha256").update(rawBody, "utf8").digest("hex");
   let accepted = 0;
   for (let entryIndex = 0; entryIndex < payload.entry.length; entryIndex += 1) {
@@ -103,7 +85,8 @@ export async function POST(request: Request) {
         where: { provider: "meta", wabaId, phoneNumberId, disabledAt: null },
         select: { businessId: true },
       });
-      if (!connection) {
+      const isPlatformReminderSender = Boolean(platform && platform.wabaId === wabaId && platform.phoneNumberId === phoneNumberId);
+      if (!connection && !isPlatformReminderSender) {
         console.warn("[whatsapp-webhook] unresolved_connection", { wabaId, phoneNumberId });
         continue;
       }
@@ -113,7 +96,7 @@ export async function POST(request: Request) {
         where: { provider_providerEventId: { provider: "meta", providerEventId } },
         create: {
           id: randomUUID(),
-          businessId: connection.businessId,
+          businessId: connection?.businessId ?? null,
           provider: "meta",
           providerEventId,
           wabaId,
@@ -126,6 +109,5 @@ export async function POST(request: Request) {
       accepted += 1;
     }
   }
-
   return NextResponse.json({ ok: true, accepted }, { status: 202 });
 }

@@ -28,9 +28,9 @@ test("public analytics endpoint allowlists identity events", () => {
 });
 
 test("dashboard reports company-profile and social engagement", () => {
-  assert.match(dashboard, /تفاعل الهوية الرقمية/);
-  assert.match(dashboard, /فتح الملف التعريفي PDF/);
-  assert.match(dashboard, /انتقال للحسابات الرسمية/);
+  assert.match(dashboard, /profileOpens/);
+  assert.match(dashboard, /ملف الشركة/);
+  assert.match(dashboard, /حسابات رسمية/);
   assert.match(dashboard, /company_profile_click/);
   assert.match(dashboard, /social_click/);
 });

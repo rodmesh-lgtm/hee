@@ -138,7 +138,7 @@ function main() {
   const resend = required("RESEND_API_KEY");
   if (/replace|example|dummy|placeholder/i.test(resend)) throw new Error("RESEND_API_KEY must be a real production credential");
   const from = required("HEE_FROM_EMAIL");
-  if (!/@ir\.sa(?:>|\s|$)/i.test(from)) throw new Error("HEE_FROM_EMAIL must use the verified ir.sa sending domain");
+  if (from !== "INFRO <no-reply@ir.sa>") throw new Error("HEE_FROM_EMAIL must equal INFRO <no-reply@ir.sa> for production launch");
 
   const paymentProvider = required("PAYMENT_PROVIDER").toLowerCase();
   if (paymentProvider !== "moyasar") throw new Error("PAYMENT_PROVIDER must equal moyasar for paid production launch");

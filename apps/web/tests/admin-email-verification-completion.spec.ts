@@ -57,7 +57,7 @@ test("mailbox proof persists emailVerifiedAt and unlocks the allowlisted admin c
 
     await page.getByRole("button", { name: "تأكيد البريد والمتابعة" }).click();
     await page.waitForURL("**/admin", { timeout: 20_000 });
-    await expect(page.getByRole("heading", { name: "إدارة المنصة" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "مركز قيادة المنصة" })).toBeVisible();
 
     const verified = await db.user.findUnique({ where: { id: admin.id }, select: { emailVerifiedAt: true } });
     expect(verified?.emailVerifiedAt).toBeTruthy();

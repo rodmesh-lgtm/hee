@@ -1,14 +1,1 @@
-export default function AdminLoading() {
-  return (
-    <main dir="rtl" className="min-h-screen bg-[#f7f8fb] px-4 py-8 text-[#1f2552] sm:px-6" aria-busy="true" aria-live="polite">
-      <div className="mx-auto max-w-7xl space-y-5">
-        <div className="h-28 animate-pulse rounded-[26px] border border-[#e7e4f0] bg-white" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, index) => <div key={index} className="h-24 animate-pulse rounded-[20px] border border-[#e7e4f0] bg-white" />)}
-        </div>
-        <div className="h-80 animate-pulse rounded-[24px] border border-[#e7e4f0] bg-white" />
-        <p className="sr-only">جاري تحميل لوحة إدارة المنصة</p>
-      </div>
-    </main>
-  );
-}
+export default function AdminLoading(){return <div dir="rtl" className="space-y-6" aria-busy="true" aria-live="polite"><div className="relative h-36 overflow-hidden rounded-[28px] border border-slate-200 bg-white"><div className="absolute inset-0 animate-pulse bg-gradient-to-l from-transparent via-slate-50 to-transparent"/><div className="absolute right-6 top-7 h-3 w-32 rounded-full bg-slate-100"/><div className="absolute right-6 top-14 h-7 w-64 rounded-lg bg-slate-100"/><div className="absolute right-6 top-24 h-3 w-96 max-w-[70%] rounded-full bg-slate-100"/></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{Array.from({length:4}).map((_,i)=><div key={i} className="h-24 animate-pulse rounded-[20px] border border-slate-200 bg-white p-4"><div className="h-3 w-20 rounded bg-slate-100"/><div className="mt-3 h-7 w-24 rounded bg-slate-100"/></div>)}</div><div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white"><div className="flex h-16 items-center gap-3 border-b border-slate-100 px-5"><div className="h-9 w-9 animate-pulse rounded-xl bg-[#e9fbf8]"/><div><div className="h-3 w-28 animate-pulse rounded bg-slate-100"/><div className="mt-2 h-2 w-44 animate-pulse rounded bg-slate-100"/></div></div><div className="space-y-3 p-5">{Array.from({length:6}).map((_,i)=><div key={i} className="grid animate-pulse grid-cols-5 gap-5"><div className="h-4 rounded bg-slate-100"/><div className="h-4 rounded bg-slate-50"/><div className="h-4 rounded bg-slate-100"/><div className="h-4 rounded bg-slate-50"/><div className="h-4 rounded bg-slate-100"/></div>)}</div></div><p className="sr-only">جاري تحميل مركز تحكم INFRO</p></div>}

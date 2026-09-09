@@ -32,13 +32,14 @@ export async function scheduleInactiveCustomerAutomationEvents(input: {
     },
     orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
     take: automationLimit,
-    select: { id: true, businessId: true, triggerType: true, triggerConfig: true },
+    select: { id: true, businessId: true, triggerType: true, triggerConfig: true, connection: { select: { businessId: true, provider: true, status: true } } },
   });
 
   let emitted = 0;
   let scannedAutomations = 0;
   for (const automation of automations) {
     if (emitted >= eventLimit) break;
+    if (automation.connection.businessId !== automation.businessId || automation.connection.provider !== "meta" || automation.connection.status !== "connected") continue;
     let inactiveDays: number;
     try {
       const config = readAutomationTriggerConfig(automation.triggerConfig, automation.triggerType);

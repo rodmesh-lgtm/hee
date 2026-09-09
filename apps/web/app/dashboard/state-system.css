@@ -1,0 +1,13 @@
+/* INFRO operational state language: loading, empty, failure, success and pending. */
+[data-dashboard-path] #dashboard-main-content :where([role="alert"],[role="status"]){border-width:1px;border-style:solid;padding:12px 14px;line-height:1.65}
+[data-dashboard-path] #dashboard-main-content [aria-busy="true"]{cursor:progress}
+[data-dashboard-path] #dashboard-main-content [aria-busy="true"] :where(button,input,select,textarea){pointer-events:none}
+[data-dashboard-path] #dashboard-main-content :where([data-state="empty"],[data-empty-state]){border:1px dashed var(--infro-pi-border,#dbe6e5);border-radius:12px;padding:20px;text-align:center}
+[data-dashboard-path] #dashboard-main-content :where([data-state="loading"],[data-loading-state]){position:relative;overflow:hidden}
+[data-dashboard-path] #dashboard-main-content :where([data-state="loading"],[data-loading-state])::after{content:"";position:absolute;inset:0;transform:translateX(100%);background:linear-gradient(90deg,transparent,rgba(18,205,184,.08),transparent);animation:infro-state-scan 1.4s linear infinite}
+[data-dashboard-path] #dashboard-main-content :where([data-state="error"],[data-error-state]){border-color:rgba(244,63,94,.35)!important}
+[data-dashboard-path] #dashboard-main-content :where([data-state="success"],[data-success-state]){border-color:rgba(16,185,129,.35)!important}
+[data-dashboard-path] #dashboard-main-content :where([data-state="warning"],[data-warning-state]){border-color:rgba(245,158,11,.4)!important}
+[data-dashboard-path][data-dashboard-theme="dark"] #dashboard-main-content :where([data-state="empty"],[data-empty-state]){border-color:#31565a;background:#0b2023}
+@keyframes infro-state-scan{to{transform:translateX(-100%)}}
+@media(prefers-reduced-motion:reduce){[data-dashboard-path] #dashboard-main-content :where([data-state="loading"],[data-loading-state])::after{animation:none;display:none}}

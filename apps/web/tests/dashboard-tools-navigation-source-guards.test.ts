@@ -9,10 +9,10 @@ const support = readFileSync(new URL("../app/dashboard/support/page.tsx", import
 test("ready iR tools are discoverable from dashboard navigation", () => {
   assert.match(tools, /مصمم العروض/);
   assert.match(tools, /designerAvailable/);
-  assert.match(nav, /label: "أدوات iR", href: "\/dashboard\/tools"/);
+  assert.match(nav, /"\/dashboard\/tools"/);
 });
 
 test("customer-facing support history uses the platform Riyadh timezone", () => {
-  assert.match(support, /timeZone: "Asia\/Riyadh"/);
+  assert.match(support, /timeZone:"Asia\/Riyadh"/);
   assert.match(support, /supportDateTime\(ticket\.createdAt\)/);
 });

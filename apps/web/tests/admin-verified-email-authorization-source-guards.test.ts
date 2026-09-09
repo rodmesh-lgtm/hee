@@ -14,7 +14,7 @@ test("platform admin authorization and navigation require verified mailbox owner
 
   assert.match(admin, /if \(!user\.emailVerifiedAt \|\| !isAdminEmail\(user\.email\)\) notFound\(\)/);
   assert.match(admin, /isQaAuditModeUser\(user\.id\)/);
-  assert.match(dashboardLayout, /showAdminLink=\{!qaAuditUser && Boolean\(user\.emailVerifiedAt\) && isAdminEmail\(user\.email\)\}/);
+  assert.match(dashboardLayout, /showAdminLink=\{!qaAuditUser&&Boolean\(user\.emailVerifiedAt\)&&isAdminEmail\(user\.email\)\}/);
 
   // Registration intentionally establishes a normal customer session before the
   // verification email completes, so requireAdmin must never regress to email-only

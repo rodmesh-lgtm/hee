@@ -54,8 +54,8 @@ test("dashboard is discoverable but does not expose or claim active credentials"
   assert.match(center, /\/dashboard\/whatsapp\/integrations/);
   assert.match(page, /getWhatsAppReadContext\("connection\.manage"\)/);
   assert.match(page, /تم حفظ بيانات المتجر كبداية للربط/);
-  assert.match(page, /سلة وزد يبقيان في مرحلة الإعداد/);
-  assert.match(page, /لا تضع كلمات مرور أو مفاتيح سرية في هذه الصفحة/);
+  assert.match(page, /تبقى سلة وزد مغلقتين تشغيليًا/);
+  assert.match(page, /لا تطلب مفاتيح أو كلمات مرور/);
   assert.match(page, /Shopify متاح للربط الرسمي الآن/);
   assert.doesNotMatch(page, /select: \{[^}]*credentialEnvelope/);
   assert.doesNotMatch(page, /decryptWhatsAppCredential/);

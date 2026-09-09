@@ -120,8 +120,8 @@ test.describe.serial("customer dashboard functional surface", () => {
       await expect(page.locator('textarea[name="message"]')).toBeVisible();
 
       await page.goto(`${baseUrl}/dashboard/settings`, { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("link", { name: "إدارة الاشتراك والفوترة" })).toBeVisible();
-      await expect(page.getByRole("link", { name: "تنزيل نسخة من البيانات" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "إدارة الفوترة" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "تنزيل نسخة البيانات" })).toBeVisible();
     } finally {
       await cleanup(fixture);
     }

@@ -7,9 +7,9 @@ const actions = readFileSync(new URL("../app/actions/billing.ts", import.meta.ur
 
 test("customer can stop future renewal while subscription is past due", () => {
   assert.match(manage, /renewalCancellationAvailable/);
-  assert.match(manage, /\["active", "past_due"\]\.includes\(subscription\.status\)/);
-  assert.match(manage, /subscription\?\.status === "past_due"/);
-  assert.match(manage, /يمكنك إيقاف أي محاولات تجديد مستقبلية حتى أثناء تعثر الدفع/);
+  assert.match(manage, /\["active","past_due"\]\.includes\(subscription\.status\)/);
+  assert.match(manage, /subscription\?\.status==="past_due"/);
+  assert.match(manage, /يمكنك إيقاف المحاولات المستقبلية حتى أثناء تعثر الدفع/);
 });
 
 test("cancellation action handles both active and past-due subscriptions and revokes future payment use", () => {

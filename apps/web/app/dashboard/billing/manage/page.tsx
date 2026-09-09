@@ -1,119 +1,22 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarClock, CreditCard, KeyRound, ReceiptText, ShieldCheck } from "lucide-react";
+import { ArrowUpLeft, CalendarClock, CreditCard, KeyRound, ReceiptText, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 import { cancelAutoRenewAction } from "../../../actions/billing";
 import { redeemSubscriptionAccessCodeAction } from "../../../actions/subscription-access-code";
 import { getCurrentUser } from "../../../lib/auth";
 import { getActiveBusinessWithPlanForUser } from "../../../lib/active-business";
 import { db } from "../../../lib/db";
 import { CancelRenewalButton } from "../../../../components/billing/cancel-renewal-button";
-
-function dateText(value: Date | null) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeZone: "Asia/Riyadh" }).format(value);
-}
-
-function paymentStatus(status: string) {
-  const map: Record<string, string> = {
-    paid: "مدفوع",
-    created: "بانتظار الدفع",
-    initiated: "قيد التحقق",
-    authorized: "مصرح",
-    failed: "فشل",
-    refunded: "مسترد",
-    voided: "ملغى",
-    canceled: "ملغى",
-  };
-  return map[status] ?? "قيد المراجعة";
-}
-
-function paymentKind(kind: string) {
-  if (kind === "renewal") return "تجديد";
-  if (kind === "upgrade") return "ترقية";
-  return "اشتراك";
-}
-
-function accessCodeMessage(code?: string) {
-  const map: Record<string, { tone: string; text: string }> = {
-    activated: { tone: "border-emerald-200 bg-emerald-50 text-emerald-800", text: "تم تفعيل الباقة بواسطة كود الوصول. لا توجد عملية دفع مرتبطة بهذا التفعيل، وتبقى الباقة فعالة حتى إلغاء المنحة من الإدارة." },
-    "already-active": { tone: "border-blue-200 bg-blue-50 text-blue-800", text: "هذا الكود مفعل بالفعل لهذه المنشأة." },
-    "subscription-conflict": { tone: "border-amber-200 bg-amber-50 text-amber-900", text: "يوجد اشتراك مدفوع أو تجريبي قائم حاليًا. حفاظًا على الفوترة لا يمكن لكود الوصول استبداله أو إيقافه تلقائيًا." },
-    exhausted: { tone: "border-amber-200 bg-amber-50 text-amber-900", text: "وصل هذا الكود إلى الحد الأقصى للاستخدامات." },
-    revoked: { tone: "border-rose-200 bg-rose-50 text-rose-800", text: "سبق إلغاء منحة هذا الكود لهذه المنشأة ولا يمكن إعادة استخدامها تلقائيًا." },
-    unavailable: { tone: "border-amber-200 bg-amber-50 text-amber-900", text: "الباقة المرتبطة بهذا الكود غير متاحة حاليًا." },
-    "rate-limited": { tone: "border-amber-200 bg-amber-50 text-amber-900", text: "تم تجاوز عدد محاولات إدخال الأكواد المسموح بها مؤقتًا. حاول لاحقًا." },
-    invalid: { tone: "border-rose-200 bg-rose-50 text-rose-800", text: "الكود غير صحيح أو منتهي أو غير فعال." },
-    "missing-business": { tone: "border-rose-200 bg-rose-50 text-rose-800", text: "تعذر التحقق من ملكية المنشأة." },
-  };
-  return code ? map[code] : undefined;
-}
-
-export default async function BillingManagePage({ searchParams }: { searchParams: Promise<{ billing?: string; code?: string; feature?: string }> }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const business = await getActiveBusinessWithPlanForUser(user.id);
-  if (!business) redirect("/onboarding");
-  const params = await searchParams;
-
-  const [subscription, payments, paymentMethod] = await Promise.all([
-    db.subscription.findFirst({
-      where: { businessId: business.id, status: { in: ["active", "past_due"] } },
-      orderBy: { startsAt: "desc" },
-      select: { id: true, status: true, autoRenew: true, startsAt: true, endsAt: true, provider: true, plan: { select: { name: true, code: true, monthlyPrice: true } } },
-    }),
-    db.billingPayment.findMany({
-      where: { businessId: business.id },
-      orderBy: { createdAt: "desc" },
-      take: 24,
-      select: { id: true, kind: true, amount: true, currency: true, status: true, paidAt: true, createdAt: true, plan: { select: { name: true } } },
-    }),
-    db.billingPaymentMethod.findFirst({
-      where: { businessId: business.id, status: "active" },
-      orderBy: { createdAt: "desc" },
-      select: { brand: true, last4: true, provider: true },
-    }),
-  ]);
-
-  const now = new Date();
-  const accessCodeEffective = Boolean(subscription?.status === "active" && subscription.provider === "access_code" && subscription.endsAt === null);
-  const subscriptionStillEffective = Boolean(
-    subscription?.status === "active"
-      && (accessCodeEffective || Boolean(subscription.endsAt && subscription.endsAt.getTime() > now.getTime())),
-  );
-  const renewalCancellationAvailable = Boolean(subscription?.autoRenew && ["active", "past_due"].includes(subscription.status));
-  const effectivePlanName = subscriptionStillEffective ? subscription?.plan.name ?? "Free" : "Free";
-  const effectivePaidThrough = subscriptionStillEffective && !accessCodeEffective ? subscription?.endsAt ?? null : null;
-  const staleExpiredSubscription = Boolean(subscription?.status === "active" && subscription.provider !== "access_code" && subscription.endsAt && subscription.endsAt.getTime() <= now.getTime());
-  const codeMessage = accessCodeMessage(params.code);
-
-  return <div className="mx-auto max-w-3xl space-y-4 pb-8">
-    <section className="rounded-[24px] border border-[#e8e5f2] bg-white p-5">
-      <div className="flex items-start justify-between gap-3"><div><h1 className="text-xl font-black text-[#1f2552]">إدارة الاشتراك والفوترة</h1><p className="mt-1 text-sm leading-6 text-slate-500">تابع الباقة الفعالة والتجديد وسجل المدفوعات من مكان واحد.</p></div><span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><CreditCard className="h-5 w-5" /></span></div>
-      {params.billing === "renewal-canceled" ? <div role="status" className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-800">تم إيقاف التجديد التلقائي. ستظل أي فترة مدفوعة ما زالت سارية متاحة حتى نهايتها، ولن تبدأ دورة خصم مستقبلية جديدة.</div> : null}
-      {params.billing === "renewal-processing-future-canceled" ? <div role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-7 font-bold text-amber-950"><b>تم إيقاف التجديد للدورات المستقبلية الآن.</b><br />كانت دفعة التجديد الحالية قد بدأت بالفعل لدى مزود الدفع قبل طلب الإلغاء، لذلك قد تكتمل هذه العملية الجارية. لن تُستخدم وسيلة الدفع المحفوظة لدورة لاحقة. إذا اكتملت الدفعة الحالية فستُمنح الفترة التي دُفعت قيمتها، مع بقاء التجديد التالي متوقفًا.</div> : null}
-      {codeMessage ? <div role={codeMessage.tone.includes("rose") || codeMessage.tone.includes("amber") ? "alert" : "status"} className={`mt-4 rounded-2xl border p-3 text-sm font-bold leading-6 ${codeMessage.tone}`}>{codeMessage.text}</div> : null}
-      {staleExpiredSubscription ? <div role="alert" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 font-bold text-amber-950">انتهت الفترة المدفوعة المسجلة. يتم التعامل مع الصلاحيات الآن وفق الباقة الفعالة، حتى لو تأخرت مهمة التسوية الخلفية في تحديث السجل التاريخي.</div> : null}
-      {params.feature === "whatsapp-marketing" ? <div role="status" className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 p-3 text-sm leading-7 font-bold text-violet-900">ميزة WhatsApp Marketing تتطلب باقة iR مدفوعة وفعالة. اشتراك iR يغطي استخدام المنصة فقط؛ رسوم محادثات ورسائل Meta وأي رصيد مرتبط بها تحاسبها Meta بصورة مستقلة ولا تسجل كإيراد اشتراك iR.</div> : null}
-    </section>
-
-    <section className="grid gap-3 sm:grid-cols-2">
-      <article className="rounded-[22px] border border-[#e9e7f3] bg-white p-4"><span className="text-[10px] font-bold text-slate-400">الباقة الفعالة الآن</span><h2 className="mt-1 text-xl font-black text-[#1f2552]">{effectivePlanName}</h2><div className="mt-3 flex items-center gap-2 text-xs text-slate-600"><CalendarClock className="h-4 w-4 text-[#6543ce]" />{accessCodeEffective ? "مفعلة بكود وصول إداري حتى إلغاء المنحة" : effectivePaidThrough ? `صالحة حتى ${dateText(effectivePaidThrough)}` : "لا توجد دورة فوترة مدفوعة فعالة حاليًا"}</div><div className="mt-2 text-xs font-bold text-slate-600">{accessCodeEffective ? "لا يوجد تجديد تلقائي أو خصم مالي لهذا التفعيل" : subscription?.status === "past_due" ? (subscription.autoRenew ? "الدفع متأخر والتجديد التلقائي ما زال مفعّلًا حتى توقفه" : "الدفع متأخر والتجديد التلقائي متوقف") : subscriptionStillEffective && subscription?.autoRenew ? "التجديد التلقائي مفعل" : "التجديد التلقائي غير مفعل"}</div></article>
-      <article className="rounded-[22px] border border-[#e9e7f3] bg-white p-4"><span className="text-[10px] font-bold text-slate-400">وسيلة الدفع المحفوظة</span><div className="mt-2 flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-600" /><b className="text-sm text-[#252a4a]">{paymentMethod?.last4 ? `${paymentMethod.brand || "بطاقة"} •••• ${paymentMethod.last4}` : "لا توجد وسيلة دفع محفوظة"}</b></div><p className="mt-3 text-xs leading-6 text-slate-500">iR لا تخزن رقم البطاقة أو CVV. تُحفظ فقط بيانات عرض مقنّعة ورمز مزود الدفع مشفرًا.</p></article>
-    </section>
-
-    <section className="rounded-[22px] border border-[#e9e7f3] bg-white p-4 sm:p-5">
-      <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-[#6543ce]" /><h2 className="font-black text-[#1f2552]">لديك كود تفعيل؟</h2></div>
-      <p className="mt-2 text-xs leading-6 text-slate-500">أدخل كود الوصول الصادر من إدارة iR. لا ينشئ الكود دفعة وهمية، ولا يمكنه استبدال اشتراك مدفوع أو تجريبي قائم.</p>
-      <form action={redeemSubscriptionAccessCodeAction} className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <input name="accessCode" required autoComplete="off" maxLength={64} dir="ltr" aria-label="كود التفعيل" className="h-11 min-w-0 flex-1 rounded-xl border border-[#ddd8e9] px-3 text-sm font-bold uppercase outline-none focus:border-[#7658d7]" />
-        <button className="h-11 rounded-xl bg-[#5b3fd6] px-5 text-xs font-black text-white">تفعيل الكود</button>
-      </form>
-    </section>
-
-    {renewalCancellationAvailable ? <section className="rounded-[22px] border border-amber-200 bg-amber-50 p-4"><h2 className="font-black text-amber-950">إيقاف التجديد التلقائي</h2><p className="mt-2 text-xs leading-6 text-amber-900">{subscription?.status === "past_due" ? "يمكنك إيقاف أي محاولات تجديد مستقبلية حتى أثناء تعثر الدفع. إذا كانت عملية خصم قد بدأت بالفعل قبل طلبك فقد تكتمل تلك العملية الجارية، لكن لن تبدأ دورة لاحقة جديدة." : "لن يتم خصم دورة جديدة بعد نهاية الفترة الحالية. لا يؤدي هذا الإجراء إلى حذف بياناتك أو إيقاف الباقة المدفوعة فورًا."}</p><form action={cancelAutoRenewAction} className="mt-3"><CancelRenewalButton /></form></section> : null}
-
-    <section className="rounded-[24px] border border-[#e9e7f3] bg-white p-4 sm:p-5"><div className="flex items-center gap-2"><ReceiptText className="h-4 w-4 text-[#6543ce]" /><h2 className="font-black text-[#1f2552]">سجل المدفوعات</h2></div>{payments.length ? <div className="mt-4 divide-y divide-[#efedf5]">{payments.map((payment) => <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><b className="block text-sm text-[#252a4a]">{payment.plan.name} · {paymentKind(payment.kind)}</b><span className="mt-1 block text-[11px] text-slate-400">{dateText(payment.paidAt ?? payment.createdAt)}</span>{["paid", "refunded"].includes(payment.status) ? <Link href={`/dashboard/billing/receipt/${payment.id}`} className="mt-2 inline-flex min-h-11 items-center text-xs font-black text-[#5d49cc]">عرض إيصال الدفع</Link> : null}</div><div className="text-left" dir="rtl"><b className="block text-sm text-[#252a4a]">{(payment.amount / 100).toFixed(2)} ر.س</b><span className="mt-1 block text-[11px] font-bold text-slate-500">{paymentStatus(payment.status)}</span></div></div>)}</div> : <p className="mt-4 text-sm text-slate-500">لا توجد مدفوعات مسجلة حتى الآن.</p>}</section>
-
-    <div className="flex flex-wrap gap-2"><Link href="/dashboard/settings" className="inline-flex min-h-11 items-center rounded-xl border border-[#ddd8f4] px-4 text-xs font-black text-[#5d49cc]">العودة للحساب</Link><Link href="/dashboard/branding" className="inline-flex min-h-11 items-center rounded-xl bg-[#5b3fd6] px-4 text-xs font-black text-white">عرض الباقات</Link></div>
-  </div>;
-}
+function dateText(value:Date|null){return value?new Intl.DateTimeFormat("ar-SA",{dateStyle:"medium",timeZone:"Asia/Riyadh"}).format(value):"—"}
+function paymentStatus(status:string){return ({paid:"مدفوع",created:"بانتظار الدفع",initiated:"قيد التحقق",authorized:"مصرح",failed:"فشل",refunded:"مسترد",voided:"ملغى",canceled:"ملغى"} as Record<string,string>)[status]??"قيد المراجعة"}
+function paymentKind(kind:string){return kind==="renewal"?"تجديد":kind==="upgrade"?"ترقية":"اشتراك"}
+function accessCodeMessage(code?:string){const map:Record<string,{tone:string;text:string}>={activated:{tone:"border-emerald-200 bg-emerald-50 text-emerald-800",text:"تم تفعيل الباقة بواسطة كود الوصول. لا توجد عملية دفع مرتبطة بهذا التفعيل، وتبقى الباقة فعالة حتى إلغاء المنحة من الإدارة."},"already-active":{tone:"border-blue-200 bg-blue-50 text-blue-800",text:"هذا الكود مفعل بالفعل لهذه المنشأة."},"subscription-conflict":{tone:"border-amber-200 bg-amber-50 text-amber-900",text:"يوجد اشتراك مدفوع أو تجريبي قائم حاليًا. حفاظًا على الفوترة لا يمكن لكود الوصول استبداله أو إيقافه تلقائيًا."},exhausted:{tone:"border-amber-200 bg-amber-50 text-amber-900",text:"وصل هذا الكود إلى الحد الأقصى للاستخدامات."},revoked:{tone:"border-rose-200 bg-rose-50 text-rose-800",text:"سبق إلغاء منحة هذا الكود لهذه المنشأة ولا يمكن إعادة استخدامها تلقائيًا."},unavailable:{tone:"border-amber-200 bg-amber-50 text-amber-900",text:"الباقة المرتبطة بهذا الكود غير متاحة حاليًا."},"rate-limited":{tone:"border-amber-200 bg-amber-50 text-amber-900",text:"تم تجاوز عدد محاولات إدخال الأكواد المسموح بها مؤقتًا. حاول لاحقًا."},invalid:{tone:"border-rose-200 bg-rose-50 text-rose-800",text:"الكود غير صحيح أو منتهي أو غير فعال."},"missing-business":{tone:"border-rose-200 bg-rose-50 text-rose-800",text:"تعذر التحقق من ملكية المنشأة."}};return code?map[code]:undefined}
+export default async function BillingManagePage({searchParams}:{searchParams:Promise<{billing?:string;code?:string;feature?:string}>}){const user=await getCurrentUser();if(!user)redirect("/login");const business=await getActiveBusinessWithPlanForUser(user.id);if(!business)redirect("/onboarding");const params=await searchParams;const [subscription,payments,paymentMethod]=await Promise.all([db.subscription.findFirst({where:{businessId:business.id,status:{in:["active","past_due"]}},orderBy:{startsAt:"desc"},select:{id:true,status:true,autoRenew:true,startsAt:true,endsAt:true,provider:true,plan:{select:{name:true,code:true,monthlyPrice:true}}}}),db.billingPayment.findMany({where:{businessId:business.id},orderBy:{createdAt:"desc"},take:24,select:{id:true,kind:true,amount:true,currency:true,status:true,paidAt:true,createdAt:true,plan:{select:{name:true}}}}),db.billingPaymentMethod.findFirst({where:{businessId:business.id,status:"active"},orderBy:{createdAt:"desc"},select:{brand:true,last4:true,provider:true}})]);const now=new Date();const accessCodeEffective=Boolean(subscription?.status==="active"&&subscription.provider==="access_code"&&subscription.endsAt===null);const subscriptionStillEffective=Boolean(subscription?.status==="active"&&(accessCodeEffective||Boolean(subscription.endsAt&&subscription.endsAt.getTime()>now.getTime())));const renewalCancellationAvailable=Boolean(subscription?.autoRenew&&["active","past_due"].includes(subscription.status));const effectivePlanName=subscriptionStillEffective?subscription?.plan.name??"Free":"Free";const effectivePaidThrough=subscriptionStillEffective&&!accessCodeEffective?subscription?.endsAt??null:null;const staleExpiredSubscription=Boolean(subscription?.status==="active"&&subscription.provider!=="access_code"&&subscription.endsAt&&subscription.endsAt.getTime()<=now.getTime());const codeMessage=accessCodeMessage(params.code);const paidPayments=payments.filter(p=>p.status==="paid");
+return <div className="mx-auto max-w-5xl space-y-5 pb-8"><header className="relative overflow-hidden rounded-[30px] bg-[#07181b] p-6 text-white shadow-[0_28px_80px_-52px_rgba(7,24,27,.8)] sm:p-7"><div className="absolute -left-16 -top-20 h-56 w-56 rounded-full bg-[#00e5a8]/10 blur-3xl"/><div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><span className="inline-flex items-center gap-2 text-[9px] font-black tracking-[.18em] text-[#5cebd7]" dir="ltr"><Sparkles className="h-4 w-4"/>INFRO BILLING CENTER</span><h1 className="mt-3 text-2xl font-black sm:text-3xl">اشتراك واضح. فوترة يمكن تتبعها.</h1><p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">راجع الباقة الفعالة والتجديد ووسيلة الدفع وسجل العمليات دون خلط رسوم INFRO برسوم Meta أو إخفاء حالة عملية جارية.</p></div><div className="grid grid-cols-3 gap-2"><HeroStat label="الباقة" value={effectivePlanName}/><HeroStat label="مدفوعات ناجحة" value={String(paidPayments.length)}/><HeroStat label="التجديد" value={subscriptionStillEffective&&subscription?.autoRenew?"مفعّل":"متوقف"}/></div></div></header>
+{params.billing==="renewal-canceled"?<Notice tone="ok">تم إيقاف التجديد التلقائي. ستظل أي فترة مدفوعة ما زالت سارية متاحة حتى نهايتها، ولن تبدأ دورة خصم مستقبلية جديدة.</Notice>:null}{params.billing==="renewal-processing-future-canceled"?<Notice tone="warn"><b>تم إيقاف التجديد للدورات المستقبلية الآن.</b><br/>كانت دفعة التجديد الحالية قد بدأت بالفعل لدى مزود الدفع قبل طلب الإلغاء، لذلك قد تكتمل هذه العملية الجارية. لن تُستخدم وسيلة الدفع المحفوظة لدورة لاحقة.</Notice>:null}{codeMessage?<div role={codeMessage.tone.includes("rose")||codeMessage.tone.includes("amber")?"alert":"status"} className={`rounded-2xl border p-3 text-sm font-bold leading-7 ${codeMessage.tone}`}>{codeMessage.text}</div>:null}{staleExpiredSubscription?<Notice tone="warn">انتهت الفترة المدفوعة المسجلة. يتم التعامل مع الصلاحيات الآن وفق الباقة الفعالة، حتى لو تأخرت مهمة التسوية الخلفية في تحديث السجل التاريخي.</Notice>:null}{params.feature==="whatsapp-marketing"?<Notice tone="info">ميزة WhatsApp Marketing تتطلب باقة INFRO مدفوعة وفعالة. اشتراك INFRO يغطي استخدام المنصة فقط؛ رسوم رسائل Meta وأي رصيد مرتبط بها تحاسبها Meta بصورة مستقلة ولا تسجل كإيراد اشتراك INFRO.</Notice>:null}
+<section className="grid gap-4 lg:grid-cols-[1.15fr_.85fr]"><article className="overflow-hidden rounded-[26px] border border-slate-200 bg-white"><div className="border-b border-slate-100 bg-[linear-gradient(135deg,#effbf9,#fff)] p-5"><span className="text-[9px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">CURRENT ACCESS</span><div className="mt-2 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-2xl font-black text-slate-950">{effectivePlanName}</h2><p className="mt-1 text-xs text-slate-500">{accessCodeEffective?"وصول إداري بلا خصم مالي":effectivePaidThrough?`الفترة الحالية حتى ${dateText(effectivePaidThrough)}`:"لا توجد دورة مدفوعة فعالة"}</p></div><span className={`rounded-full px-3 py-1.5 text-[10px] font-black ${subscriptionStillEffective?"bg-emerald-100 text-emerald-700":"bg-slate-100 text-slate-600"}`}>{subscriptionStillEffective?"فعالة الآن":"الباقة المجانية"}</span></div></div><div className="grid gap-3 p-5 sm:grid-cols-2"><Metric icon={<CalendarClock className="h-4 w-4"/>} label="صلاحية الوصول" value={accessCodeEffective?"حتى إلغاء المنحة":effectivePaidThrough?dateText(effectivePaidThrough):"لا توجد فترة مدفوعة"}/><Metric icon={<WalletCards className="h-4 w-4"/>} label="التجديد" value={accessCodeEffective?"لا يوجد خصم":subscription?.status==="past_due"?(subscription.autoRenew?"متعثر ومحاولات التجديد مفعلة":"متعثر والتجديد متوقف"):subscriptionStillEffective&&subscription?.autoRenew?"تلقائي":"غير تلقائي"}/></div></article><article className="rounded-[26px] border border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><div><span className="text-[9px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">PAYMENT VAULT</span><h2 className="mt-1 font-black text-slate-950">وسيلة الدفع</h2></div><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#effbf9] text-[#008f87]"><ShieldCheck className="h-5 w-5"/></span></div><b dir="ltr" className="mt-5 block text-left text-lg text-slate-900">{paymentMethod?.last4?`${paymentMethod.brand||"Card"} •••• ${paymentMethod.last4}`:"لا توجد وسيلة محفوظة"}</b><p className="mt-3 text-xs leading-6 text-slate-500">INFRO لا تخزن رقم البطاقة أو CVV. تُحفظ فقط بيانات عرض مقنّعة ورمز مزود الدفع مشفرًا.</p></article></section>
+<section className="grid gap-4 lg:grid-cols-[.8fr_1.2fr]"><article className="rounded-[26px] border border-slate-200 bg-white p-5"><div className="flex items-start gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#effbf9] text-[#008f87]"><KeyRound className="h-4 w-4"/></span><div><h2 className="font-black text-slate-950">كود وصول إداري</h2><p className="mt-1 text-[11px] leading-6 text-slate-500">لا ينشئ دفعة وهمية ولا يستبدل اشتراكًا مدفوعًا أو تجريبيًا قائمًا.</p></div></div><form action={redeemSubscriptionAccessCodeAction} className="mt-4 space-y-2"><input name="accessCode" required autoComplete="off" maxLength={64} dir="ltr" aria-label="كود التفعيل" className="h-12 w-full rounded-xl border border-slate-200 bg-[#fbfdfd] px-3 text-sm font-bold uppercase outline-none transition focus:border-[#00a99d] focus:ring-4 focus:ring-[#35e4cb]/10" placeholder="INFRO-••••-••••"/><button className="h-11 w-full rounded-xl bg-[#07181b] px-5 text-xs font-black text-white transition hover:bg-[#0d292d]">تفعيل الكود</button></form></article>{renewalCancellationAvailable?<article className="rounded-[26px] border border-amber-200 bg-[linear-gradient(135deg,#fffbeb,#fff)] p-5"><span className="text-[9px] font-black tracking-[.14em] text-amber-700" dir="ltr">RENEWAL CONTROL</span><h2 className="mt-1 font-black text-amber-950">إيقاف التجديد التلقائي</h2><p className="mt-2 text-xs leading-6 text-amber-900">{subscription?.status==="past_due"?"يمكنك إيقاف المحاولات المستقبلية حتى أثناء تعثر الدفع. إذا بدأت عملية خصم قبل طلبك فقد تكتمل، لكن لن تبدأ دورة لاحقة جديدة.":"لن يتم خصم دورة جديدة بعد نهاية الفترة الحالية. لا يؤدي هذا إلى حذف بياناتك أو إيقاف الفترة المدفوعة فورًا."}</p><form action={cancelAutoRenewAction} className="mt-4"><CancelRenewalButton/></form></article>:<article className="rounded-[26px] border border-[#ccefe9] bg-[#effbf9] p-5"><ShieldCheck className="h-5 w-5 text-[#008f87]"/><b className="mt-3 block text-sm text-[#075d58]">لا توجد دورة تجديد تحتاج إجراءً</b><p className="mt-2 text-xs leading-6 text-[#17645f]">لن نعرض زر إلغاء غير قابل للتطبيق. عندما يوجد تجديد تلقائي فعلي ستظهر أدوات التحكم هنا.</p></article>}</section>
+<section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#effbf9] text-[#008f87]"><ReceiptText className="h-4 w-4"/></span><div><h2 className="font-black text-slate-950">سجل المدفوعات</h2><p className="mt-1 text-[11px] text-slate-400">آخر {payments.length} عملية مرتبطة بهذه المنشأة</p></div></div><span className="rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-black text-slate-500">{paidPayments.length} ناجحة</span></div>{payments.length?<div className="divide-y divide-slate-100">{payments.map(payment=><div key={payment.id} className="grid gap-3 p-4 transition hover:bg-[#fbfdfd] sm:grid-cols-[1fr_auto] sm:items-center"><div className="flex items-start gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-500"><CreditCard className="h-4 w-4"/></span><div><b className="block text-sm text-slate-900">{payment.plan.name} · {paymentKind(payment.kind)}</b><span className="mt-1 block text-[10px] text-slate-400">{dateText(payment.paidAt??payment.createdAt)}</span>{["paid","refunded"].includes(payment.status)?<Link href={`/dashboard/billing/receipt/${payment.id}`} className="mt-2 inline-flex items-center gap-1 text-[10px] font-black text-[#008f87]">عرض الإيصال<ArrowUpLeft className="h-3.5 w-3.5"/></Link>:null}</div></div><div className="flex items-center justify-between gap-4 sm:block sm:text-left"><span className={`rounded-full px-2.5 py-1 text-[9px] font-black ${payment.status==="paid"?"bg-emerald-50 text-emerald-700":payment.status==="failed"?"bg-rose-50 text-rose-700":"bg-slate-100 text-slate-600"}`}>{paymentStatus(payment.status)}</span><b className="mt-1 block text-sm text-slate-900">{(payment.amount/100).toFixed(2)} ر.س</b></div></div>)}</div>:<div className="p-10 text-center"><ReceiptText className="mx-auto h-7 w-7 text-slate-300"/><b className="mt-3 block text-sm text-slate-800">لا توجد مدفوعات مسجلة</b><p className="mt-1 text-xs text-slate-400">ستظهر العمليات هنا عند بدء اشتراك مدفوع.</p></div>}</section><div className="flex flex-wrap gap-2"><Link href="/dashboard/settings" className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700">العودة للحساب</Link><Link href="/dashboard/branding" className="inline-flex min-h-11 items-center rounded-xl bg-[#07181b] px-4 text-xs font-black text-white">عرض الباقات</Link></div></div>}
+function HeroStat({label,value}:{label:string;value:string}){return <div className="min-w-[88px] rounded-2xl border border-white/10 bg-white/[.06] px-3 py-3 text-center"><b className="block truncate text-sm text-white">{value}</b><span className="mt-1 block text-[8px] font-bold text-slate-400">{label}</span></div>}
+function Metric({icon,label,value}:{icon:React.ReactNode;label:string;value:string}){return <div className="rounded-2xl border border-slate-100 bg-[#fbfdfd] p-3"><span className="text-[#008f87]">{icon}</span><span className="mt-2 block text-[9px] text-slate-400">{label}</span><b className="mt-1 block text-xs text-slate-800">{value}</b></div>}
+function Notice({tone,children}:{tone:"ok"|"warn"|"info";children:React.ReactNode}){const cls=tone==="ok"?"border-emerald-200 bg-emerald-50 text-emerald-800":tone==="warn"?"border-amber-200 bg-amber-50 text-amber-950":"border-[#bfe9e3] bg-[#effbf9] text-[#075d58]";return <div role={tone==="warn"?"alert":"status"} className={`rounded-2xl border p-3 text-sm font-bold leading-7 ${cls}`}>{children}</div>}
