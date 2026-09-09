@@ -16,7 +16,7 @@ export default async function DashboardToolsPage() {
     <div className="space-y-5 pb-4">
       <section className="rounded-[28px] border border-[#dbe8e6] bg-[linear-gradient(135deg,#effbf9,#fff)] p-5 dark:border-[#164443] dark:bg-[linear-gradient(135deg,#082d2e,#061c1f)] sm:p-6">
         <span className="inline-flex items-center gap-2 rounded-full bg-[#e7f8f5] px-3 py-1 text-[11px] font-black text-[#007f76] dark:bg-[#0a3b3b] dark:text-[#43dfd0]"><Sparkles className="h-3.5 w-3.5" /> INFRO TOOLKIT</span>
-        <h1 className="mt-3 text-2xl font-black text-[#07181b] dark:text-[#f4fffd]">أدوات تنقل هويتك من الحضور إلى الإنجاز</h1>
+        <h1 className="mt-3 text-2xl font-black text-[#0a2426] dark:text-[#f4fffd]">أدوات تنقل هويتك من الحضور إلى الإنجاز</h1>
         <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-300">مساحة أدوات عملية مرتبطة بهويتك وبيانات منشأتك. ستجد هنا فقط ما يعمل فعلًا، مع توضيح جاهزية كل أداة ومتطلبات استخدامها.</p>
       </section>
 
@@ -27,7 +27,7 @@ export default async function DashboardToolsPage() {
             <span className={`rounded-full px-3 py-1 text-[10px] font-black ${designerAvailable ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300" : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"}`}>{designerAvailable ? "جاهز للاستخدام" : "متاح مع Business"}</span>
           </div>
           <p className="mt-5 text-[10px] font-black tracking-[.16em] text-[#008f87] dark:text-[#43dfd0]">OFFER STUDIO</p>
-          <h2 className="mt-2 text-lg font-black text-[#07181b] dark:text-[#f4fffd]">مصمم العروض</h2>
+          <h2 className="mt-2 text-lg font-black text-[#0a2426] dark:text-[#f4fffd]">مصمم العروض</h2>
           <p className="mt-2 text-sm leading-7 text-slate-500 dark:text-slate-300">حوّل اسم نشاطك وشعارك وألوان هويتك إلى عرض مربع جاهز للمشاركة، دون إعادة إدخال بيانات منشأتك.</p>
           {designerAvailable ? (
             <Link href="/dashboard/tools/offers" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#07181b] px-4 text-sm font-black text-white transition hover:bg-[#0d292d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16b9ab] focus-visible:ring-offset-2 dark:bg-[#24d4c5] dark:text-[#031615] dark:hover:bg-[#43dfd0] dark:focus-visible:ring-offset-[#092426]">فتح الاستوديو <ArrowLeft className="h-4 w-4" /></Link>
@@ -39,7 +39,7 @@ export default async function DashboardToolsPage() {
         <article className="rounded-[24px] border border-dashed border-[#bdebe5] bg-[#f8fdfc] p-5 dark:border-[#1d5a56] dark:bg-[#082426]">
           <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-[#008f87] ring-1 ring-[#dbe8e6] dark:bg-[#0a3b3b] dark:text-[#43dfd0] dark:ring-[#1d5a56]"><Sparkles className="h-5 w-5" /></span>
           <p className="mt-5 text-[10px] font-black tracking-[.16em] text-[#008f87] dark:text-[#43dfd0]">QUALITY PROMISE</p>
-          <h2 className="mt-2 text-lg font-black text-[#07181b] dark:text-[#f4fffd]">لا مكان لأدوات تجريبية داخل عملك</h2>
+          <h2 className="mt-2 text-lg font-black text-[#0a2426] dark:text-[#f4fffd]">لا مكان لأدوات تجريبية داخل عملك</h2>
           <p className="mt-2 text-sm leading-7 text-slate-500 dark:text-slate-300">أي أداة جديدة ستظهر هنا بعد اكتمال وظيفتها واختبارها فقط، لتبقى مساحة عملك واضحة وموثوقة.</p>
         </article>
       </section>
