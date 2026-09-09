@@ -12,6 +12,15 @@ test("first real campaign is limited to five recipients before any verified deli
   });
 });
 
+test("malformed prior-attempt counts cannot expand the first-campaign allowance", () => {
+  for (const priorAttemptCount of [-1, Number.NaN, Number.POSITIVE_INFINITY, 1.5]) {
+    assert.deepEqual(decideWhatsAppCampaignCanary({ hasVerifiedDelivery: false, priorAttemptCount }), {
+      state: "canary",
+      queueLimit: WHATSAPP_FIRST_CAMPAIGN_CANARY_LIMIT,
+    });
+  }
+});
+
 test("canary slots are shared across campaigns so repeated campaigns cannot bypass the business limit", () => {
   assert.deepEqual(decideWhatsAppCampaignCanary({ hasVerifiedDelivery: false, priorAttemptCount: 3 }), {
     state: "canary",
