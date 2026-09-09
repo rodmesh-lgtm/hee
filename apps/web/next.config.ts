@@ -8,14 +8,14 @@ const contentSecurityPolicy = [
   "form-action 'self'",
   // Moyasar's PCI-scoped payment form is loaded from its documented CDN. Do not widen
   // this to arbitrary HTTPS script/style origins.
-  "script-src 'self' 'unsafe-inline' https://cdn.moyasar.com https://connect.facebook.net",
-  "style-src 'self' 'unsafe-inline' https://cdn.moyasar.com",
+  "script-src 'self' 'unsafe-inline' https://cdn.moyasar.com https://connect.facebook.net https://eauthenticate.saudibusiness.gov.sa",
+  "style-src 'self' 'unsafe-inline' https://cdn.moyasar.com https://eauthenticate.saudibusiness.gov.sa",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   // Browser-side payment creation is performed by Moyasar Form against its API.
   // All other application API traffic remains same-origin.
-  "connect-src 'self' https://api.moyasar.com https://www.facebook.com https://graph.facebook.com wss:",
-  "frame-src 'self' https://www.facebook.com https://business.facebook.com",
+  "connect-src 'self' https://api.moyasar.com https://www.facebook.com https://graph.facebook.com https://eauthenticate.saudibusiness.gov.sa wss:",
+  "frame-src 'self' https://www.facebook.com https://business.facebook.com https://eauthenticate.saudibusiness.gov.sa",
   "media-src 'self' blob: https:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
