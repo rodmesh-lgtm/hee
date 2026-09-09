@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ReceiptText } from "lucide-react";
 import { getCurrentUser } from "../../../../lib/auth";
+import { getActiveBusinessForUser } from "../../../../lib/active-business";
 import { getOwnedBillingPayment } from "../../../../lib/billing-ledger";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +15,12 @@ function dateText(value: Date | null) {
 export default async function BillingReceiptPage({ params }: { params: Promise<{ billingId: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const business = await getActiveBusinessForUser(user.id);
+  if (!business) redirect("/onboarding");
   const { billingId } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(billingId)) notFound();
   const payment = await getOwnedBillingPayment(user.id, billingId);
-  if (!payment || !["paid", "refunded"].includes(payment.status)) notFound();
+  if (!payment || payment.businessId !== business.id || !["paid", "refunded"].includes(payment.status)) notFound();
 
   // Receipts are historical financial records. Never rebuild seller/tax data from the
   // current environment because changing legal configuration must not rewrite history.
@@ -35,7 +38,7 @@ export default async function BillingReceiptPage({ params }: { params: Promise<{
 
   return <div className="mx-auto max-w-2xl space-y-4 pb-8">
     <section className="rounded-[24px] border border-[#e8e5f2] bg-white p-5 sm:p-6">
-      <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><ReceiptText className="h-5 w-5" /></span><div><h1 className="text-xl font-black text-[#1f2552]">إيصال دفع iR</h1><p className="mt-1 text-xs text-slate-500"><span>رقم الإيصال: </span><span dir="ltr">{receiptNumber}</span></p></div></div>
+      <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#f1edff] text-[#6543ce]"><ReceiptText className="h-5 w-5" /></span><div><h1 className="text-xl font-black text-[#1f2552]">إيصال دفع INFRO</h1><p className="mt-1 text-xs text-slate-500"><span>رقم الإيصال: </span><span dir="ltr">{receiptNumber}</span></p></div></div>
       <div className="mt-5 grid gap-3 rounded-2xl bg-[#faf9fd] p-4 text-sm sm:grid-cols-2">
         <div><span className="block text-[10px] font-bold text-slate-400">المورد</span><b className="mt-1 block text-[#252a4a]">{payment.receiptSellerLegalName}</b><span className="mt-1 block text-xs text-slate-500">{payment.receiptSellerAddress}</span></div>
         <div><span className="block text-[10px] font-bold text-slate-400">تاريخ إصدار الإيصال</span><b className="mt-1 block text-[#252a4a]">{dateText(payment.receiptIssuedAt)}</b></div>

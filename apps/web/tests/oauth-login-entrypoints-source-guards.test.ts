@@ -23,7 +23,7 @@ test("login page retains supported OAuth entry points and server routes fail clo
   assert.match(oauth, /if \(!providerConfigured\(provider\)\)/);
 });
 
-test("OAuth registration requires explicit Terms and Privacy consent", () => {
+test("OAuth registration requires explicit Terms and Privacy consent for the approved launch provider", () => {
   const route = source("app/api/auth/oauth/[provider]/route.ts");
   const register = source("app/register/page.tsx");
   assert.match(route, /value === "google" \|\| value === "apple"/);
@@ -31,9 +31,9 @@ test("OAuth registration requires explicit Terms and Privacy consent", () => {
   assert.match(route, /searchParams\.get\("consent"\) !== "accepted"/);
   assert.match(route, /\/register\?oauth=consent-required/);
   assert.match(route, /registration \? "\/onboarding" : "\/dashboard"/);
-  assert.match(register, /mode=register&consent=accepted/);
+  assert.match(register, /\/api\/auth\/oauth\/google\?mode=register&consent=accepted/);
   assert.match(register, /المتابعة باستخدام Google/);
-  assert.match(register, /المتابعة باستخدام Apple/);
+  assert.doesNotMatch(register, /المتابعة باستخدام Apple/);
   assert.match(register, /الشروط والأحكام/);
   assert.match(register, /سياسة الخصوصية/);
 });

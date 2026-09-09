@@ -6,12 +6,13 @@ import test from "node:test";
 const homepage = readFileSync(resolve(process.cwd(), "components/homepage-professional.tsx"), "utf8");
 const page = readFileSync(resolve(process.cwd(), "app/page.tsx"), "utf8");
 
-test("homepage exposes a navigable and visible About iR section", () => {
-  assert.match(homepage, /href="#about">عن iR/);
+test("homepage exposes a navigable and visible About INFRO section", () => {
+  assert.match(homepage, /href="#about">عن INFRO/);
   assert.match(homepage, /<section id="about" aria-labelledby="about-title"/);
-  assert.match(homepage, /iR مشروع تقني سعودي/);
-  assert.match(homepage, /هوية أعمال رقمية موثوقة ومنظمة/);
+  assert.match(homepage, /INFRO مشروع تقني سعودي/);
+  assert.match(homepage, /هوية أعمال رقمية وتسويقية موثوقة ومنظمة/);
   assert.match(homepage, /الكيان القانوني: مجموعة طلبات المعلومات لخدمات الأعمال/);
+  assert.doesNotMatch(homepage, /href="#about">عن iR/);
 });
 
 test("About section accurately identifies the official Meta integration", () => {
