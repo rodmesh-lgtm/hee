@@ -15,6 +15,7 @@ for (const token of [
   "bg-sky-50",
   "bg-purple-50",
   "bg-violet-50",
+  "bg-\\[\\#f8fbfb\\]\\/55",
 ]) {
   test(`dark workspace theme owns ${token}`, () => {
     assert.ok(theme.includes(token), `${token} must have an explicit authenticated dark-theme mapping`);
@@ -23,6 +24,9 @@ for (const token of [
 
 test("business memory accent text remains readable in dark mode", () => {
   assert.match(theme, /text-\\\[\\#006f69\\\]/);
+  assert.match(theme, /text-\\\[\\#075d58\\\]/);
+  assert.match(theme, /text-\\\[\\#17645f\\\]/);
   assert.match(theme, /text-sky-900/);
   assert.match(theme, /text-purple-700/);
+  assert.match(theme, /text-amber-950/);
 });

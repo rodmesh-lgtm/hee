@@ -10,15 +10,16 @@ const store = read("app/dashboard/business-store/page.tsx");
 
 test("primary customer dashboard surfaces use the INFRO brand consistently", () => {
   for (const page of [verification, tools, identity, store]) assert.doesNotMatch(page, /HEE/);
-  assert.match(verification, /شارة توثيق (?:INFRO|iR)/);
-  assert.match(verification, /إدارة (?:INFRO|iR)/);
-  assert.match(tools, /أدوات (?:INFRO|iR)/);
+  assert.match(verification, /شارة توثيق INFRO/);
+  assert.match(verification, /إدارة INFRO/);
+  assert.match(tools, /أدوات INFRO/);
   assert.match(identity, /رابط INFRO الدائم/);
   assert.match(store, /INFRO BUSINESS STORE/);
 });
 
 test("customer-facing unavailable states explain reality without dead controls", () => {
-  assert.match(tools, /لن نعرض أدوات غير مكتملة داخل حسابك/);
+  assert.match(tools, /لا مكان لأدوات تجريبية داخل عملك/);
+  assert.match(tools, /أي أداة جديدة ستظهر هنا بعد اكتمال وظيفتها واختبارها فقط/);
   assert.match(tools, /href="\/dashboard\/settings"/);
   assert.match(store, /لا توجد منتجات متاحة حاليًا/);
   assert.match(store, /ستظهر المنتجات هنا تلقائيًا عند تفعيلها/);

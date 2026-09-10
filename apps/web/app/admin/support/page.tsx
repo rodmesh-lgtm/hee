@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Headphones, ShieldCheck, LockKeyhole, ArrowLeft, MessageSquareText, CheckCircle2 } from "lucide-react";
 import { requireAdmin } from "../../lib/admin";
 import { db } from "../../lib/db";

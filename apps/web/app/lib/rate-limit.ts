@@ -3,20 +3,6 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { db } from "./db";
 
-let lastPruneAt = 0;
-const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
-
-async function pruneExpiredRateLimits(nowMs: number) {
-  if (nowMs - lastPruneAt < PRUNE_INTERVAL_MS) return;
-  lastPruneAt = nowMs;
-  try {
-    await db.$executeRaw`DELETE FROM "RequestRateLimit" WHERE "updatedAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`;
-  } catch (error) {
-    // Rate limiting must not turn a cleanup failure into an authentication outage.
-    console.error("[rate-limit] failed to prune expired rows", error);
-  }
-}
-
 function hashKey(parts: string[]) {
   return createHash("sha256").update(parts.join("|")).digest("hex");
 }
@@ -46,10 +32,9 @@ export async function consumePublicWriteLimit(input: {
   const now = new Date();
   const cutoff = new Date(now.getTime() - windowSeconds * 1000);
 
-  // RequestRateLimit is created by the Prisma migration. Runtime traffic must never
-  // require CREATE TABLE/INDEX privileges or contend on DDL during serverless cold starts.
-  void pruneExpiredRateLimits(now.getTime());
-
+  // Expired-row pruning belongs to the controlled operational-retention job. Starting an
+  // unawaited DELETE from request traffic can outlive a serverless invocation and terminate
+  // a shared database connection while the request itself is still completing.
   const rows = await db.$queryRaw<Array<{ count: number; windowStart: Date }>>`
     INSERT INTO "RequestRateLimit" ("key", "windowStart", "count", "updatedAt")
     VALUES (${key}, ${now}, 1, ${now})

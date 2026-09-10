@@ -11,21 +11,21 @@ export function Footer() {
           <div className="flex items-center gap-3">
             <IrLogo className="h-12 w-12" />
             <div>
-              <div className="text-lg font-black text-slate-950 dark:text-white">iR</div>
-              <div className="text-xs font-bold text-violet-700 dark:text-violet-300">هوية أعمال رقمية</div>
+              <div className="text-lg font-black text-slate-950 dark:text-white">INFRO</div>
+              <div className="text-xs font-bold text-[#008f87] dark:text-[#67e8d6]">هويتك الرقمية والتسويقية</div>
             </div>
           </div>
           <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-            منصة هوية أعمال رقمية تساعد المنشآت على تقديم معلوماتها وخدماتها وفروعها وفريقها ووسائل التواصل في صفحة احترافية واحدة على ir.sa.
+            مساحة أعمال تجمع هويتك الرقمية وتسويقك وتذكيراتك وبياناتك التشغيلية في تجربة واحدة على ir.sa.
           </p>
         </div>
 
         <div>
           <h3 className="text-sm font-black text-slate-950 dark:text-white">روابط سريعة</h3>
           <ul className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-            <li><Link href="/#features" className="hover:text-violet-700">المزايا</Link></li>
-            <li><Link href="/#how-it-works" className="hover:text-violet-700">كيف تعمل</Link></li>
-            <li><Link href="/#pricing" className="hover:text-violet-700">الأسعار</Link></li>
+            <li><Link href="/#features" className="transition hover:text-[#008f87]">المزايا</Link></li>
+            <li><Link href="/#how-it-works" className="transition hover:text-[#008f87]">كيف تعمل</Link></li>
+            <li><Link href="/#pricing" className="transition hover:text-[#008f87]">الأسعار</Link></li>
           </ul>
         </div>
 
@@ -33,8 +33,8 @@ export function Footer() {
           <h3 className="text-sm font-black text-slate-950 dark:text-white">تواصل</h3>
           <div className="mt-3 space-y-3 text-sm text-slate-600 dark:text-slate-300">
             <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> السعودية</div>
-            <a className="flex items-center gap-2 hover:text-violet-700" href="mailto:support@ir.sa"><MessageCircle className="h-4 w-4" /> support@ir.sa</a>
-            <a className="flex items-center gap-2 hover:text-violet-700" href="https://ir.sa" target="_blank" rel="noreferrer"><Globe2 className="h-4 w-4" /> ir.sa</a>
+            <a className="flex items-center gap-2 transition hover:text-[#008f87]" href="mailto:support@ir.sa"><MessageCircle className="h-4 w-4" /> support@ir.sa</a>
+            <a className="flex items-center gap-2 transition hover:text-[#008f87]" href="https://ir.sa" target="_blank" rel="noreferrer"><Globe2 className="h-4 w-4" /> ir.sa</a>
             <span className="flex items-center gap-2"><Phone className="h-4 w-4" /> دعم رقمي من خلال المنصة</span>
           </div>
         </div>
@@ -42,11 +42,8 @@ export function Footer() {
 
       <div className="border-t border-slate-200 py-4 dark:border-slate-800">
         <Container className="flex flex-col items-center justify-between gap-3 text-sm text-slate-500 md:flex-row dark:text-slate-400">
-          <span>© 2026 iR. جميع الحقوق محفوظة.</span>
-          <span className="inline-flex items-center gap-2">
-            <Send className="h-4 w-4" />
-            هوية أعمال رقمية على ir.sa
-          </span>
+          <span>© 2026 INFRO. جميع الحقوق محفوظة.</span>
+          <span className="inline-flex items-center gap-2"><Send className="h-4 w-4" />هويتك الرقمية والتسويقية على ir.sa</span>
         </Container>
       </div>
     </footer>
