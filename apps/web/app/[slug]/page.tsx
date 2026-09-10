@@ -6,10 +6,11 @@ import { PublicBusinessPageV10Light } from "../../components/public-business-pag
 import { PublicBusinessAnalytics } from "../../components/public-business-analytics";
 import { PublicIdentityHighlights } from "../../components/public/public-identity-highlights";
 import { PublicTransactionLauncher } from "../../components/public/public-transaction-launcher";
-import { getPublicBusinessUrlFromRequest, isValidPublicSlug, normalizePublicSlug } from "../lib/public-url";
+import { getPublicBusinessUrlFromRequest, isRoutablePublicSlug, normalizePublicSlug } from "../lib/public-url";
 import { sanitizePublicBusiness } from "../lib/public-business-sanitize";
 import { isPreviewQaEnvironment } from "../lib/qa-audit";
 import { resolveBusinessSlugAlias } from "../lib/slug-alias";
+import { canBusinessUsePublicSlug } from "../lib/protected-public-slug";
 
 export const dynamic = "force-dynamic";
 const getPublicBusinessForRequest = cache((slug: string) => getBusinessPublic(slug));
@@ -32,10 +33,10 @@ function openingHoursSpecification(openingHours: Array<{ dayOfWeek: number; open
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const normalizedSlug = normalizePublicSlug(slug);
-  if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) return {};
+  if (!normalizedSlug || !isRoutablePublicSlug(normalizedSlug) || normalizedSlug !== slug) return {};
   const resolved = await getBusinessOrAlias(normalizedSlug);
   const business = resolved?.business;
-  if (!business || !business.isPublished) return {};
+  if (!business || !business.isPublished || !(await canBusinessUsePublicSlug(business.id, normalizedSlug))) return {};
   const canonicalUrl = `https://ir.sa/${business.slug}`;
   const title = business.metaTitle || `${business.name} | iR`;
   const description = business.metaDescription || business.shortDescription || business.description || `صفحة ${business.name}`;
@@ -46,9 +47,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function PublicBusinessPageRoute({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const normalizedSlug = normalizePublicSlug(slug);
-  if (!normalizedSlug || !isValidPublicSlug(normalizedSlug) || normalizedSlug !== slug) notFound();
+  if (!normalizedSlug || !isRoutablePublicSlug(normalizedSlug) || normalizedSlug !== slug) notFound();
   const resolved = await getBusinessOrAlias(normalizedSlug);
-  if (!resolved || !resolved.business.isPublished) notFound();
+  if (!resolved || !resolved.business.isPublished || !(await canBusinessUsePublicSlug(resolved.business.id, normalizedSlug))) notFound();
   if (resolved.isAlias) permanentRedirect(`/${resolved.business.slug}`);
 
   const business = resolved.business;
