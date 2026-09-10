@@ -112,7 +112,7 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
   return{...metrics,file,url:`${baseUrl}${input.path}`};
 }
 
-async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepage"|"register"|"login";viewportName:string;viewport:{width:number;height:number}}){
+async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepage"|"register"|"login"|"business-page";viewportName:string;viewport:{width:number;height:number}}){
   const context=await browser.newContext({viewport:input.viewport});
   const page=await context.newPage();
   try{
@@ -133,6 +133,11 @@ async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepag
       await expect(page.getByRole("link",{name:"عن INFRO"}).first()).toBeVisible();
       expect(metrics.title).toContain("INFRO");
       expect(metrics.legacyAbout).toBe(false);
+    }else if(input.name==="business-page"){
+      await expect(page.getByRole("heading",{name:"شركة الرواد للمقاولات"})).toBeVisible();
+      await expect(page.getByRole("region",{name:"إجراءات سريعة"})).toBeVisible();
+      await expect(page.getByRole("heading",{name:"اكتشف المنشأة"})).toBeVisible();
+      expect(await page.locator("[data-public-highlights-slot]").count()).toBe(1);
     }else if(input.name==="register"){
       await expect(page.getByRole("heading",{name:"إنشاء حساب INFRO"})).toBeVisible();
       await expect(page.getByRole("link",{name:/Google/})).toBeVisible();
@@ -205,6 +210,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       results.push(await auditPublicRoute(browser,{path:"/",name:"homepage",...publicViewport}));
       results.push(await auditPublicRoute(browser,{path:"/register",name:"register",...publicViewport}));
       results.push(await auditPublicRoute(browser,{path:"/login",name:"login",...publicViewport}));
+      results.push(await auditPublicRoute(browser,{path:"/demo",name:"business-page",...publicViewport}));
     }
     for(const adminViewport of [{viewportName:"desktop",viewport:{width:1440,height:960}},{viewportName:"tablet",viewport:{width:768,height:1024}},{viewportName:"mobile",viewport:{width:390,height:844}}])for(const theme of ["light","dark"] as const)results.push(...await auditAdminRoute(browser,{...adminViewport,theme,token:seeded.adminSessionToken,businessId:seeded.businessId}));
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
