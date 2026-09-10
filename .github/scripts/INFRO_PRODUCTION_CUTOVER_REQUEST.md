@@ -4,8 +4,9 @@ This marker is intentionally stored under `.github/scripts/` so the protected `R
 
 Approved launch request:
 
-- Candidate merge SHA: `48c6e3b087e5711084bba0773aeebc5e8e943191`
-- Requested at: `2026-09-10T02:35:00Z`
+- Verified application merge SHA: `48c6e3b087e5711084bba0773aeebc5e8e943191`
+- Cutover-pipeline repair merge SHA: `3fc3f9776dc41654f47ba5f0101f05aaff52515d`
+- Requested at: `2026-09-10T02:47:00Z`
 - Scope: Production web release to `ir.sa` only
 - Excluded: Production database migration, public paid checkout, Meta activation, and WhatsApp canary increase
 
