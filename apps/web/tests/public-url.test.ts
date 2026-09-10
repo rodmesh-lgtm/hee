@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   getPublicBusinessUrl,
+  isProtectedPublicSlug,
   isReservedPublicSlug,
+  isRoutablePublicSlug,
+  isSystemReservedPublicSlug,
   isValidPublicSlug,
   normalizePublicSlug,
   resolvePublicBusinessUrl,
@@ -50,6 +53,22 @@ test("blocks reserved app routes and protected prefixes from public business slu
   }
   assert.equal(isReservedPublicSlug("demo-store"), false);
   assert.equal(isValidPublicSlug("demo-store"), true);
+});
+
+test("blocks high-risk brand names from every customer slug validator", () => {
+  for (const slug of ["facebook", "instagram", "whatsapp", "meta", "google", "openai", "amazon", "aramco", "alrajhi", "snap-chat", "facebook-sa", "official-instagram", "brand-stc-ksa"]) {
+    assert.equal(isProtectedPublicSlug(slug), true, slug);
+    assert.equal(isReservedPublicSlug(slug), true, slug);
+    assert.equal(isValidPublicSlug(slug), false, slug);
+    assert.equal(isRoutablePublicSlug(slug), true, `${slug} remains routable only after an admin grant`);
+  }
+});
+
+test("never makes application routes eligible for an admin brand exception", () => {
+  for (const slug of ["admin", "dashboard", "api-company", "settings-brand"]) {
+    assert.equal(isSystemReservedPublicSlug(slug), true, slug);
+    assert.equal(isRoutablePublicSlug(slug), false, slug);
+  }
 });
 
 test("rejects empty and too-short public slugs", () => {
