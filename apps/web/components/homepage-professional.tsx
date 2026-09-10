@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BadgeCheck, BarChart3, Building2, Check, CheckCircle2, Eye, Link2, Loader2, Menu, MessageCircle, Palette, PhoneCall, ShieldCheck, Sparkles, X, XCircle } from "lucide-react";
 import { IrLogo } from "./brand/ir-logo";
 
-type Availability = "idle" | "checking" | "available" | "taken" | "invalid" | "error";
+type Availability = "idle" | "checking" | "available" | "taken" | "protected" | "invalid" | "error";
 
 const plans = [
   { name: "Free", price: "مجانًا", text: "ابدأ بهويتك الرقمية دون تعقيد.", items: ["صفحة أعمال INFRO", "حتى 3 منتجات", "فرع واحد", "معاينة قبل النشر"] },
@@ -41,7 +41,7 @@ export function HomepageProfessional() {
         const response = await fetch(`/api/public/slug-availability?slug=${encodeURIComponent(normalized)}`, { signal: controller.signal, cache: "no-store" });
         if (!response.ok) { setAvailability("error"); return; }
         const data = await response.json() as { available?: boolean; reason?: string };
-        setAvailability(data.available ? "available" : data.reason === "invalid" ? "invalid" : "taken");
+        setAvailability(data.available ? "available" : data.reason === "protected" ? "protected" : data.reason === "invalid" ? "invalid" : "taken");
       } catch (error) {
         if ((error as Error).name !== "AbortError") setAvailability("error");
       }
@@ -52,6 +52,7 @@ export function HomepageProfessional() {
   const status = effectiveAvailability === "checking" ? { text: "جارٍ التحقق من الرابط…", cls: "text-slate-500", icon: <Loader2 className="h-4 w-4 animate-spin" /> }
     : effectiveAvailability === "available" ? { text: `رائع، ir.sa/${normalized} متاح الآن`, cls: "text-emerald-700", icon: <CheckCircle2 className="h-4 w-4" /> }
     : effectiveAvailability === "taken" ? { text: "هذا الرابط مستخدم. جرّب اسمًا آخر مميزًا لمنشأتك.", cls: "text-rose-700", icon: <XCircle className="h-4 w-4" /> }
+    : effectiveAvailability === "protected" ? { text: "هذا الاسم محمي وغير متاح للحجز الذاتي. تخصيصه يتطلب تفويضًا ومراجعة إدارية.", cls: "text-amber-800", icon: <ShieldCheck className="h-4 w-4" /> }
     : effectiveAvailability === "invalid" ? { text: "اكتب 4 أحرف على الأقل باستخدام الإنجليزية والأرقام والشرطة -", cls: "text-amber-700", icon: <XCircle className="h-4 w-4" /> }
     : effectiveAvailability === "error" ? { text: "تعذر التحقق الآن. حاول مرة أخرى بعد قليل.", cls: "text-amber-700", icon: <XCircle className="h-4 w-4" /> }
     : null;
