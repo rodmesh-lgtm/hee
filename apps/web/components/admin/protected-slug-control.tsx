@@ -17,7 +17,7 @@ export async function ProtectedSlugControl({ businessId, currentSlug, result }: 
   const granted = protectedCurrent ? await hasProtectedSlugAdminGrant(businessId, currentSlug) : false;
   const message = result ? RESULT_MESSAGES[result] : null;
 
-  return <article className="rounded-[26px] border border-amber-200 bg-[linear-gradient(135deg,#fffaf0,#fff)] p-5">
+  return <article className="protected-slug-control rounded-[26px] border border-amber-200 bg-[linear-gradient(135deg,#fffaf0,#fff)] p-5">
     <div className="flex items-start gap-3">
       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-800"><ShieldAlert className="h-5 w-5" /></span>
       <div>
