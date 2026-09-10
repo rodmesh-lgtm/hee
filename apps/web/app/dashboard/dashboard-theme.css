@@ -33,7 +33,7 @@
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-slate-950,.text-slate-900,.text-slate-800,.text-slate-700,.text-\[\#20264f\]){color:#edf7f5!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-slate-600,.text-slate-500,.text-slate-400){color:#9aafad!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-emerald-700,.text-emerald-600){color:#6ee7b7!important}
-:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-amber-900,.text-amber-800,.text-amber-700,.text-amber-600){color:#fcd34d!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-amber-950,.text-amber-900,.text-amber-800,.text-amber-700,.text-amber-600){color:#fde68a!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-blue-700,.text-blue-600){color:#93c5fd!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-sky-950,.text-sky-900,.text-sky-800,.text-sky-700){color:#7dd3fc!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-purple-700,.text-violet-700){color:#c4b5fd!important}
