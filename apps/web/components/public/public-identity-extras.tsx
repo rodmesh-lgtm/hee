@@ -36,13 +36,13 @@ export function PublicIdentityExtras(props: PublicIdentityExtrasProps) {
 
   if (!profileUrl && !socials.length) return null;
 
-  return <section aria-label="الهوية الرقمية للمنشأة" className="mx-auto mb-20 w-full max-w-[580px] space-y-2 px-3 sm:px-4" dir="rtl">
-    {profileUrl ? <article id="company-profile-section" className="rounded-[18px] border border-[#e9e3ef] bg-white p-4 shadow-[0_8px_24px_rgba(55,35,70,.035)]">
+  return <section aria-label="الهوية الرقمية للمنشأة" className="mx-auto mb-20 w-full max-w-[760px] space-y-2.5 bg-[#f8fbfa] px-3 pb-6 sm:px-7" dir="rtl">
+    {profileUrl ? <article id="company-profile-section" className="rounded-[21px] border border-[#d7e6e3] bg-white p-4 shadow-[0_9px_28px_rgba(7,37,39,.045)]">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f3efff] text-[#6f3bd2]"><FileText className="h-5 w-5" /></span><div className="min-w-0"><h2 className="truncate text-sm font-black text-[#302638]">{String(props.companyProfileTitle ?? "").trim() || "الملف التعريفي للشركة"}</h2><p className="mt-1 text-[10px] text-[#786f7d]">الملف الرسمي للمنشأة بصيغة PDF</p></div></div>
-        <Link data-analytics-event="company_profile_click" href={profileUrl} target="_blank" rel="noreferrer noopener" className="shrink-0 rounded-xl bg-[#6f3bd2] px-4 py-2.5 text-xs font-black text-white">عرض الملف</Link>
+        <div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e2f8f4] text-[#008f87]"><FileText className="h-5 w-5" /></span><div className="min-w-0"><h2 className="truncate text-sm font-black text-[#102527]">{String(props.companyProfileTitle ?? "").trim() || "الملف التعريفي للشركة"}</h2><p className="mt-1 text-[10px] text-[#718583]">الملف الرسمي للمنشأة بصيغة PDF</p></div></div>
+        <Link data-analytics-event="company_profile_click" href={profileUrl} target="_blank" rel="noreferrer noopener" className="shrink-0 rounded-xl bg-[#073437] px-4 py-2.5 text-xs font-black text-[#69efd8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d]">عرض الملف</Link>
       </div>
     </article> : null}
-    {socials.length ? <article className="rounded-[18px] border border-[#e9e3ef] bg-white p-4 shadow-[0_8px_24px_rgba(55,35,70,.035)]"><div className="flex items-center gap-2"><Globe2 className="h-4 w-4 text-[#6f3bd2]" /><h2 className="text-sm font-black text-[#302638]">حساباتنا الرسمية</h2></div><div className="mt-3 flex flex-wrap gap-2">{socials.map(([label, href]) => <Link key={label} data-analytics-event="social_click" href={href} target="_blank" rel="noreferrer noopener" className="rounded-xl border border-[#e7e1ef] bg-[#faf8fd] px-3 py-2 text-xs font-black text-[#5d49cc]">{label}</Link>)}</div></article> : null}
+    {socials.length ? <article className="rounded-[21px] border border-[#d7e6e3] bg-white p-4 shadow-[0_9px_28px_rgba(7,37,39,.045)]"><div className="flex items-center gap-2"><Globe2 className="h-4 w-4 text-[#008f87]" /><h2 className="text-sm font-black text-[#102527]">حساباتنا الرسمية</h2></div><div className="mt-3 flex flex-wrap gap-2">{socials.map(([label, href]) => <Link key={label} data-analytics-event="social_click" href={href} target="_blank" rel="noreferrer noopener" className="rounded-xl border border-[#cfe4df] bg-[#f3f8f7] px-3 py-2 text-xs font-black text-[#087b75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d]">{label}</Link>)}</div></article> : null}
   </section>;
 }
