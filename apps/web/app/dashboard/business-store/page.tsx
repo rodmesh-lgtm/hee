@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck,ExternalLink,PackageCheck,QrCode,ShoppingBag,Sparkles,ArrowLeft,Layers3,ShieldCheck } from "lucide-react";
+import { BadgeCheck,ExternalLink,PackageCheck,QrCode,ShoppingBag,ArrowLeft,Layers3,ShieldCheck } from "lucide-react";
 import { BusinessStoreDraftBuilder } from "../../../components/business-store/business-store-draft-builder";
 import { getActiveBusinessForUser } from "../../lib/active-business";
 import { getCurrentUser } from "../../lib/auth";

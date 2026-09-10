@@ -2,6 +2,7 @@
 
 import { toPng } from "html-to-image";
 import { Download, Loader2, Mail, Share2 } from "lucide-react";
+import Image from "next/image";
 import { useRef, useState } from "react";
 
 type Props = {
@@ -64,7 +65,7 @@ export function IdentityAssets({ businessName, logoUrl, primaryColor, phone, wha
       <p className="mt-3 text-xs leading-6 text-slate-500">بطاقة PNG تُنشأ داخل متصفحك من بيانات المنشأة الحالية، بدون إرسال بيانات الهوية إلى خدمة تصميم خارجية.</p>
       <div ref={cardRef} className="relative mt-4 overflow-hidden rounded-[24px] border border-white/10 p-6 text-white shadow-[0_22px_60px_-36px_rgba(7,24,27,.9)]" style={{ background: `linear-gradient(135deg, ${color}, #07181b 72%)` }}>
         <div className="pointer-events-none absolute -left-12 -bottom-16 h-40 w-40 rounded-full bg-[#35e4cb]/20 blur-2xl" />
-        <div className="relative flex items-center gap-3">{logoUrl ? <img src={logoUrl} alt="" className="h-14 w-14 rounded-2xl border border-white/15 bg-white object-cover" /> : <div className="grid h-14 w-14 place-items-center rounded-2xl border border-white/15 bg-white/10 text-xl font-black">{businessName.slice(0, 1)}</div>}<div><div className="text-lg font-black">{businessName}</div><div className="mt-1 text-[10px] font-bold tracking-[.12em] text-white/70" dir="ltr">DIGITAL IDENTITY · INFRO</div></div></div>
+        <div className="relative flex items-center gap-3">{logoUrl ? <Image loader={({ src }) => src} unoptimized src={logoUrl} alt="" width={56} height={56} className="h-14 w-14 rounded-2xl border border-white/15 bg-white object-cover" /> : <div className="grid h-14 w-14 place-items-center rounded-2xl border border-white/15 bg-white/10 text-xl font-black">{businessName.slice(0, 1)}</div>}<div><div className="text-lg font-black">{businessName}</div><div className="mt-1 text-[10px] font-bold tracking-[.12em] text-white/70" dir="ltr">DIGITAL IDENTITY · INFRO</div></div></div>
         <div className="relative mt-6 space-y-1 text-xs text-white/85" dir="ltr">{contact ? <div>{contact}</div> : null}{email ? <div>{email}</div> : null}<div className="break-all">{website || publicUrl}</div></div>
       </div>
       <button type="button" onClick={downloadCard} disabled={exporting} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#07181b] px-4 text-xs font-black text-white transition hover:bg-[#0d2a2e] disabled:cursor-not-allowed disabled:opacity-60">{exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}تنزيل البطاقة PNG</button>

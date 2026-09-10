@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { Activity,ArrowLeft,BadgeCheck,BarChart3,BellRing,BriefcaseBusiness,Building2,CalendarClock,CheckCircle2,CircleAlert,Eye,FileText,Inbox,MailWarning,MousePointerClick,NotebookPen,Palette,Rocket,ShoppingBag,Sparkles,Store,Target,UserRound } from "lucide-react";
+import { Activity,ArrowLeft,BadgeCheck,BarChart3,BellRing,Building2,CalendarClock,CheckCircle2,CircleAlert,Eye,FileText,Inbox,MailWarning,MousePointerClick,NotebookPen,Palette,Rocket,ShoppingBag,Sparkles,Store,Target,UserRound } from "lucide-react";
 import { getCurrentUser } from "../lib/auth";
 import { getActiveBusinessWithPlanForUser } from "../lib/active-business";
 import { db } from "../lib/db";

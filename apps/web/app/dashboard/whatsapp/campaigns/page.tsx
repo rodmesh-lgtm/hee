@@ -14,7 +14,6 @@ import {
   Send,
   StopCircle,
   UsersRound,
-  XCircle,
 } from "lucide-react";
 import { launchWhatsAppCampaignAction } from "../../../actions/whatsapp-campaign-launch";
 import { operateWhatsAppCampaignAction } from "../../../actions/whatsapp-marketing";
@@ -107,7 +106,6 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
   const aggregateSent = aggregateCount("sent") + aggregateCount("delivered") + aggregateCount("read");
   const aggregateDelivered = aggregateCount("delivered") + aggregateCount("read");
   const aggregateRead = aggregateCount("read");
-  const aggregateFailed = aggregateCount("failed");
   const aggregateRecipients = campaigns.reduce((total, campaign) => total + campaign.totalRecipients, 0);
   const activeCampaigns = campaigns.filter((campaign) => ["scheduled", "running", "paused"].includes(campaign.status)).length;
   const deliveryRate = aggregateSent ? aggregateDelivered / aggregateSent : 0;
