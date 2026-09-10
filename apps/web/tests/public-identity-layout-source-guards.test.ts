@@ -41,3 +41,10 @@ test("public identity surfaces use the INFRO palette and canonical domain", () =
     assert.doesNotMatch(contents, /hee\.sa/i, file);
   }
 });
+
+test("customer business page uses only the approved compact iR mark", () => {
+  const renderer = source("components/public-business-page-v10-light.tsx");
+  assert.match(renderer, /import \{ IrMark \}/);
+  assert.equal((renderer.match(/<IrMark\b/g) || []).length, 2);
+  assert.doesNotMatch(renderer, /<IrLogo\b|showTagline/);
+});
