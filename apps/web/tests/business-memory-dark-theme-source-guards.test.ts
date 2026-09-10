@@ -15,6 +15,7 @@ for (const token of [
   "bg-sky-50",
   "bg-purple-50",
   "bg-violet-50",
+  "bg-\\[\\#f8fbfb\\]\\/55",
 ]) {
   test(`dark workspace theme owns ${token}`, () => {
     assert.ok(theme.includes(token), `${token} must have an explicit authenticated dark-theme mapping`);
