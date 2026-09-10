@@ -59,8 +59,10 @@ test("canonical cutover dispatches Preflight before Production Web Deploy and pi
   assert.match(workflow, /VERIFY_PRODUCTION_PREFLIGHT/);
   assert.match(workflow, /production-deploy\.yml\/dispatches/);
   assert.match(workflow, /DEPLOY_EXACT_RELEASE_TO_PRODUCTION/);
-  assert.match(workflow, /head_sha===sha/);
-  assert.match(workflow, /head_branch==='hee-v6-rc'/);
+  assert.match(workflow, /--arg sha "\$TARGET_SHA" --arg branch "\$RELEASE_BRANCH"/);
+  assert.match(workflow, /\.head_sha == \$sha/);
+  assert.match(workflow, /\.head_branch == \$branch/);
+  assert.doesNotMatch(workflow, /node - <<'NODE' "\$runs" "\$TARGET_SHA"/);
 });
 
 test("canonical cutover does not open paid checkout or bypass official deployment rollback machinery", () => {

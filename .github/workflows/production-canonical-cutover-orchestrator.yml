@@ -61,13 +61,10 @@ jobs:
           set -euo pipefail
           run_id=""
           for attempt in $(seq 1 180); do
-            runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20")"
-            run_json="$(node - <<'NODE' "$runs" "$TARGET_SHA"
-          const body=JSON.parse(process.argv[2]);
-          const sha=process.argv[3];
-          const run=(body.workflow_runs??[]).find((r)=>r.head_sha===sha&&r.event==='workflow_dispatch'&&r.head_branch==='hee-v6-rc');
-          process.stdout.write(run?JSON.stringify(run):'');
-          NODE
+            run_json="$(
+              gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20" |
+                jq -c --arg sha "$TARGET_SHA" --arg branch "$RELEASE_BRANCH" \
+                  '[.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch" and .head_branch == $branch)][0] // empty'
             )"
             if test -n "$run_json"; then
               run_id="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.id));' "$run_json")"
@@ -175,13 +172,10 @@ jobs:
           set -euo pipefail
           run_id=""
           for attempt in $(seq 1 240); do
-            runs="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-deploy.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20")"
-            run_json="$(node - <<'NODE' "$runs" "$TARGET_SHA"
-          const body=JSON.parse(process.argv[2]);
-          const sha=process.argv[3];
-          const run=(body.workflow_runs??[]).find((r)=>r.head_sha===sha&&r.event==='workflow_dispatch'&&r.head_branch==='hee-v6-rc');
-          process.stdout.write(run?JSON.stringify(run):'');
-          NODE
+            run_json="$(
+              gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-deploy.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20" |
+                jq -c --arg sha "$TARGET_SHA" --arg branch "$RELEASE_BRANCH" \
+                  '[.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch" and .head_branch == $branch)][0] // empty'
             )"
             if test -n "$run_json"; then
               run_id="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.id));' "$run_json")"
