@@ -7,6 +7,23 @@ function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
+const productionWorkflows = [
+  "../../.github/workflows/production-billing-rehearsal.yml",
+  "../../.github/workflows/production-deploy.yml",
+  "../../.github/workflows/production-enter-maintenance.yml",
+  "../../.github/workflows/production-launch-readiness.yml",
+  "../../.github/workflows/production-open-paid-checkout.yml",
+  "../../.github/workflows/production-preflight-v2.yml",
+];
+
+test("production workflows pin the canonical INFRO sender used by configuration attestations", () => {
+  for (const path of productionWorkflows) {
+    const workflow = source(path);
+    assert.match(workflow, /HEE_FROM_EMAIL: "INFRO <no-reply@ir\.sa>"/);
+    assert.doesNotMatch(workflow, /vars\.PRODUCTION_HEE_FROM_EMAIL/);
+  }
+});
+
 test("Preflight V2 writes an exact-SHA scoped HMAC attestation after read-only external proofs", () => {
   const workflow = source("../../.github/workflows/production-preflight-v2.yml");
   const attestation = source("../../.github/scripts/production-config-attestation.mjs");
