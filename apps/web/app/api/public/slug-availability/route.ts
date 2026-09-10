@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isBusinessSlugReserved } from "../../../lib/slug-alias";
-import { isReservedPublicSlug, isValidPublicSlug, normalizePublicSlug } from "../../../lib/public-url";
+import { isProtectedPublicSlug, isReservedPublicSlug, isValidPublicSlug, normalizePublicSlug } from "../../../lib/public-url";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,9 @@ export async function GET(request: NextRequest) {
 
   if (!slug) {
     return NextResponse.json({ slug, available: false, reason: "empty" }, { headers: { "Cache-Control": "no-store" } });
+  }
+  if (isProtectedPublicSlug(slug)) {
+    return NextResponse.json({ slug, available: false, reason: "protected" }, { headers: { "Cache-Control": "no-store" } });
   }
   if (!isValidPublicSlug(slug) || isReservedPublicSlug(slug)) {
     return NextResponse.json({ slug, available: false, reason: "invalid" }, { headers: { "Cache-Control": "no-store" } });
