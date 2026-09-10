@@ -41,6 +41,7 @@
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.text-\[\#006f69\],.text-\[\#007f76\],.text-\[\#008f87\],.text-\[\#009d93\],.text-\[\#075d58\],.text-\[\#17645f\]){color:#67e8d6!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-\[\#f3f6f6\],.bg-\[\#f4f7f7\],.bg-\[\#f8fbfb\],.bg-\[\#f8fbfb\]\/55,.bg-\[\#f8fbfb\]\/88,.bg-\[\#f8fbfb\]\/90,.bg-\[\#faf9ff\]){background-color:#061416!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.bg-\[linear-gradient\(135deg\2c \#effbf9\2c \#fff\)\]){background:#0d292b!important}
+[data-admin-shell][data-dashboard-theme="dark"] .protected-slug-control{background:#081d20!important;border-color:#72551d!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where(.shadow-sm){box-shadow:0 12px 30px -24px rgba(0,0,0,.75)!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] header{border-color:rgba(40,80,85,.7)!important}
 [data-dashboard-path][data-dashboard-theme="dark"] nav[aria-label="التنقل السريع"],[data-admin-shell][data-dashboard-theme="dark"] nav[aria-label="التنقل السريع للإدارة"]{background:rgba(8,25,28,.97)!important;border-color:#19383b!important}

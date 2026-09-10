@@ -4,9 +4,10 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getOwnedBusinessForWrite } from "../lib/ownership";
-import { isValidPublicSlug, normalizePublicSlug } from "../lib/public-url";
+import { isRoutablePublicSlug, normalizePublicSlug } from "../lib/public-url";
 import { db } from "../lib/db";
 import { isBusinessSlugReserved } from "../lib/slug-alias";
+import { canBusinessUsePublicSlug } from "../lib/protected-public-slug";
 
 export type PublicationActionState = { error?: string; success?: string };
 
@@ -29,7 +30,7 @@ export async function publishBusinessAction(previous: PublicationActionState, fo
   }
 
   const slug = normalizePublicSlug(business.slug);
-  if (!slug || !isValidPublicSlug(slug)) return { error: "الرابط العام غير صالح" };
+  if (!slug || !isRoutablePublicSlug(slug) || !(await canBusinessUsePublicSlug(business.id, slug))) return { error: "الرابط العام غير صالح أو يتطلب تفويضًا إداريًا" };
   try {
     if (await isBusinessSlugReserved(slug, business.id)) return { error: "الرابط العام مستخدم أو محفوظ لنشاط آخر" };
   } catch (error) {

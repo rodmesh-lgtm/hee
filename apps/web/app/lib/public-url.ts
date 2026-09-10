@@ -3,13 +3,39 @@ import { headers } from "next/headers";
 export const RESERVED_PUBLIC_SLUGS = new Set([
   "", "about", "admin", "api", "auth", "b", "blog", "business", "contact", "dashboard", "demo", "docs", "faq", "home", "index", "login", "logout", "onboarding", "preview", "pricing", "privacy", "register", "settings", "signup", "support", "terms", "_next",
 ]);
+
+/**
+ * High-risk names that customers must never be able to self-register. This is
+ * deliberately an exact-match registry: it prevents obvious impersonation
+ * without blocking legitimate dictionary-word combinations. An authorized
+ * administrator can assign one of these names through the audited admin flow.
+ */
+export const PROTECTED_PUBLIC_SLUGS = new Set([
+  "absher", "adidas", "airbnb", "alahli", "alibaba", "aliexpress", "alrajhi", "amazon", "apple", "aramco",
+  "booking", "chatgpt", "coca-cola", "discord", "dropbox", "ebay", "facebook", "face-book", "flynas",
+  "github", "gmail", "google", "hungerstation", "huawei", "infro", "instagram", "insta-gram", "ir-sa", "jahez",
+  "linkedin", "linked-in", "mada", "mcdonalds", "messenger", "meta", "microsoft", "mobily", "neom",
+  "netflix", "nike", "noon", "openai", "paypal", "pepsi", "pinterest", "reddit", "riyadbank", "sabic",
+  "sadad", "samsung", "saudia", "shopify", "snapchat", "snap-chat", "snb", "spotify", "starbucks",
+  "telegram", "tesla", "threads", "tiktok", "tik-tok", "twitch", "twitter", "uber", "visa", "whatsapp",
+  "whats-app", "youtube", "you-tube", "zain",
+]);
+const DISTINCTIVE_PROTECTED_SLUG_TOKENS = [
+  "absher", "adidas", "airbnb", "alahli", "alibaba", "aliexpress", "alrajhi", "amazon", "aramco", "chatgpt",
+  "coca-cola", "discord", "dropbox", "ebay", "facebook", "face-book", "flynas", "github", "gmail", "google",
+  "hungerstation", "huawei", "infro", "instagram", "insta-gram", "ir-sa", "jahez", "linkedin", "linked-in",
+  "mcdonalds", "messenger", "microsoft", "mobily", "neom", "netflix", "nike", "openai", "paypal", "pepsi",
+  "pinterest", "reddit", "riyadbank", "sabic", "sadad", "samsung", "saudia", "shopify", "snapchat",
+  "snap-chat", "snb", "spotify", "starbucks", "stc", "telegram", "tesla", "tiktok", "tik-tok", "twitch",
+  "twitter", "uber", "whatsapp", "whats-app", "youtube", "you-tube", "zain",
+] as const;
 export const MAX_PUBLIC_SLUG_LENGTH = 60;
 
 export function normalizePublicSlug(value: string) {
   return String(value ?? "").trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "");
 }
 
-export function isReservedPublicSlug(value: string) {
+export function isSystemReservedPublicSlug(value: string) {
   const normalized = normalizePublicSlug(value);
   if (!normalized) return true;
   if (normalized.length < 4 || normalized.length > MAX_PUBLIC_SLUG_LENGTH) return true;
@@ -18,13 +44,30 @@ export function isReservedPublicSlug(value: string) {
   return normalized.startsWith("api-") || normalized.startsWith("auth-") || normalized.startsWith("dashboard-") || normalized.startsWith("login-") || normalized.startsWith("signup-") || normalized.startsWith("settings-");
 }
 
-export function isValidPublicSlug(value: string) {
+export function isProtectedPublicSlug(value: string) {
+  const normalized = normalizePublicSlug(value);
+  if (PROTECTED_PUBLIC_SLUGS.has(normalized)) return true;
+  const bounded = `-${normalized}-`;
+  return DISTINCTIVE_PROTECTED_SLUG_TOKENS.some((mark) => bounded.includes(`-${mark}-`));
+}
+
+/** Customer-facing reservation policy. Protected names require admin assignment. */
+export function isReservedPublicSlug(value: string) {
+  return isSystemReservedPublicSlug(value) || isProtectedPublicSlug(value);
+}
+
+/** Syntax and application-route policy used when resolving an admin-approved URL. */
+export function isRoutablePublicSlug(value: string) {
   const normalized = normalizePublicSlug(value);
   if (!normalized || normalized.length < 4 || normalized.length > MAX_PUBLIC_SLUG_LENGTH) return false;
   if (!/^[a-z0-9-]+$/.test(normalized)) return false;
   if (normalized.startsWith("-") || normalized.endsWith("-")) return false;
-  if (isReservedPublicSlug(normalized)) return false;
-  return true;
+  return !isSystemReservedPublicSlug(normalized);
+}
+
+export function isValidPublicSlug(value: string) {
+  const normalized = normalizePublicSlug(value);
+  return isRoutablePublicSlug(normalized) && !isProtectedPublicSlug(normalized);
 }
 
 export function getCanonicalPublicBaseUrl() { return "https://ir.sa"; }
