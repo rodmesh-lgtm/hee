@@ -23,6 +23,8 @@ for (const token of [
 
 test("business memory accent text remains readable in dark mode", () => {
   assert.match(theme, /text-\\\[\\#006f69\\\]/);
+  assert.match(theme, /text-\\\[\\#075d58\\\]/);
+  assert.match(theme, /text-\\\[\\#17645f\\\]/);
   assert.match(theme, /text-sky-900/);
   assert.match(theme, /text-purple-700/);
   assert.match(theme, /text-amber-950/);
