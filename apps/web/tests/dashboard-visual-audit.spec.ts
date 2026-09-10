@@ -152,7 +152,7 @@ async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepag
   }
 }
 
-async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewportName:string;viewport:{width:number;height:number};token:string}){
+async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewportName:string;viewport:{width:number;height:number};token:string;businessId:string}){
   const context=await authenticatedContext(browser,input.viewport,input.theme,input.token);
   const page=await context.newPage();
   try{
@@ -169,7 +169,21 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
     const file=`${input.viewportName}-${input.theme}-admin-dashboard.png`;
     await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
     await writeFile(`${outDir}/${input.viewportName}-${input.theme}-admin-dashboard.json`,JSON.stringify({...metrics,file,url:`${baseUrl}/admin`},null,2),"utf8");
-    return{...metrics,file,url:`${baseUrl}/admin`};
+    const results:unknown[]=[{...metrics,file,url:`${baseUrl}/admin`}];
+    const detailPath=`/admin/businesses/${input.businessId}`;
+    const detailResponse=await page.goto(`${baseUrl}${detailPath}`,{waitUntil:"domcontentloaded"});
+    expect(detailResponse?.status()).toBe(200);
+    await expect(page.getByRole("heading",{name:"استثناء رابط علامة محمية"})).toBeVisible();
+    await expect(page.getByLabel("اسم الرابط المحمي")).toBeVisible();
+    await expect(page.getByLabel("مرجع التفويض أو مبرر الملكية")).toBeVisible();
+    const detailMetrics=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth-window.innerWidth,brokenImages:[...document.images].filter(image=>image.complete&&image.naturalWidth===0).map(image=>image.currentSrc||image.src)}));
+    expect(detailMetrics.overflow).toBeLessThanOrEqual(2);
+    expect(detailMetrics.brokenImages).toEqual([]);
+    const detailFile=`${input.viewportName}-${input.theme}-admin-protected-slug.png`;
+    await page.screenshot({path:`${outDir}/${detailFile}`,fullPage:true});
+    await writeFile(`${outDir}/${input.viewportName}-${input.theme}-admin-protected-slug.json`,JSON.stringify({...detailMetrics,file:detailFile,url:`${baseUrl}${detailPath}`},null,2),"utf8");
+    results.push({...detailMetrics,file:detailFile,url:`${baseUrl}${detailPath}`});
+    return results;
   }finally{
     await page.close();
     await context.close();
@@ -191,7 +205,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       results.push(await auditPublicRoute(browser,{path:"/register",name:"register",...publicViewport}));
       results.push(await auditPublicRoute(browser,{path:"/login",name:"login",...publicViewport}));
     }
-    for(const adminViewport of [{viewportName:"desktop",viewport:{width:1440,height:960}},{viewportName:"tablet",viewport:{width:768,height:1024}},{viewportName:"mobile",viewport:{width:390,height:844}}])for(const theme of ["light","dark"] as const)results.push(await auditAdminRoute(browser,{...adminViewport,theme,token:seeded.adminSessionToken}));
+    for(const adminViewport of [{viewportName:"desktop",viewport:{width:1440,height:960}},{viewportName:"tablet",viewport:{width:768,height:1024}},{viewportName:"mobile",viewport:{width:390,height:844}}])for(const theme of ["light","dark"] as const)results.push(...await auditAdminRoute(browser,{...adminViewport,theme,token:seeded.adminSessionToken,businessId:seeded.businessId}));
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
   });
 });
