@@ -176,9 +176,10 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
     await expect(page.getByRole("heading",{name:"استثناء رابط علامة محمية"})).toBeVisible();
     await expect(page.getByLabel("اسم الرابط المحمي")).toBeVisible();
     await expect(page.getByLabel("مرجع التفويض أو مبرر الملكية")).toBeVisible();
-    const detailMetrics=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth-window.innerWidth,brokenImages:[...document.images].filter(image=>image.complete&&image.naturalWidth===0).map(image=>image.currentSrc||image.src)}));
+    const detailMetrics=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth-window.innerWidth,brokenImages:[...document.images].filter(image=>image.complete&&image.naturalWidth===0).map(image=>image.currentSrc||image.src),protectedSurfaceBackground:getComputedStyle(document.querySelector<HTMLElement>(".protected-slug-control")!).backgroundColor}));
     expect(detailMetrics.overflow).toBeLessThanOrEqual(2);
     expect(detailMetrics.brokenImages).toEqual([]);
+    if(input.theme==="dark")expect(detailMetrics.protectedSurfaceBackground).toBe("rgb(8, 29, 32)");
     const detailFile=`${input.viewportName}-${input.theme}-admin-protected-slug.png`;
     await page.screenshot({path:`${outDir}/${detailFile}`,fullPage:true});
     await writeFile(`${outDir}/${input.viewportName}-${input.theme}-admin-protected-slug.json`,JSON.stringify({...detailMetrics,file:detailFile,url:`${baseUrl}${detailPath}`},null,2),"utf8");
