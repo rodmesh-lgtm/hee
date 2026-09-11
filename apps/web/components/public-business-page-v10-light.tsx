@@ -35,7 +35,7 @@ export function PublicBusinessPageV10Light({business,publicUrl}:Props){
   const location=[clean(business.city),clean(business.district)].filter(Boolean).join("، ");
   const category=clean(business.businessCategory)||clean(business.businessType);
   const about=clean(business.shortDescription)||clean(business.description);
-  const logo=assetUrl(business.logoUrl),cover=assetUrl(business.coverUrl),website=externalUrl(business.website);
+  const logo=assetUrl(business.logoUrl),website=externalUrl(business.website);
   const businessMap=externalUrl(business.googleMapsLink)||googleMapSearch(location);
   const activeServices=(business.services??[]).filter(s=>s.isActive!==false&&clean(s.name));
   const activeBranches=(business.branches??[]).filter(b=>b.isActive!==false&&clean(b.name));
@@ -58,11 +58,8 @@ export function PublicBusinessPageV10Light({business,publicUrl}:Props){
         <Link href="/" aria-label="iR - الصفحة الرئيسية" className="pointer-events-auto absolute left-3 top-3 grid h-12 w-12 place-items-center rounded-[17px] border border-white/80 bg-white/90 shadow-[0_10px_30px_rgba(7,37,39,.13)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] motion-reduce:transition-none sm:left-5 sm:top-5"><IrMark className="h-8" priority/></Link>
         <button type="button" onClick={()=>void share()} aria-label="مشاركة الصفحة" className="pointer-events-auto absolute right-3 top-3 grid h-12 w-12 place-items-center rounded-[17px] border border-white/80 bg-white/90 text-[#008f87] shadow-[0_10px_30px_rgba(7,37,39,.13)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] active:scale-95 motion-reduce:transition-none sm:right-5 sm:top-5"><Share2 className="h-[18px] w-[18px]"/></button>
       </div>
-      <header className="px-3 pt-3 text-center sm:px-7 sm:pt-5">
-        <div className="relative h-[190px] overflow-hidden rounded-[24px] border border-[#e3eae8] bg-[#f4f7f6] sm:h-[270px] sm:rounded-[28px]">
-          {cover?<img src={cover} alt={`صورة عرض ${business.name}`} className="h-full w-full object-cover" onError={e=>{e.currentTarget.style.display="none"}}/>:<div className="grid h-full place-items-center"><Sparkles className="h-12 w-12 text-[#00a99d]/35"/></div>}
-        </div>
-        <div className="relative mx-auto -mt-[46px] grid h-[94px] w-[94px] place-items-center overflow-hidden rounded-[29px] border-[4px] border-[#fbfdfc] bg-white shadow-[0_16px_40px_rgba(7,37,39,.16)] sm:-mt-[54px] sm:h-[108px] sm:w-[108px] sm:rounded-[33px]"><Sparkles className="h-8 w-8 text-[#00a99d]"/>{logo?<img src={logo} alt={`شعار ${business.name}`} className="absolute inset-0 h-full w-full object-cover" onError={e=>{e.currentTarget.style.display="none"}}/>:null}</div>
+      <header className="px-3 pt-20 text-center sm:px-7 sm:pt-24">
+        <div className="relative mx-auto grid h-[94px] w-[94px] place-items-center overflow-hidden rounded-[29px] border border-[#e0e8e6] bg-white shadow-[0_12px_32px_rgba(7,37,39,.1)] sm:h-[108px] sm:w-[108px] sm:rounded-[33px]"><Sparkles className="h-8 w-8 text-[#00a99d]"/>{logo?<img src={logo} alt={`شعار ${business.name}`} className="absolute inset-0 h-full w-full object-cover" onError={e=>{e.currentTarget.style.display="none"}}/>:null}</div>
         <div className="mx-auto mt-3 max-w-[640px]">
           <div className="flex items-center justify-center gap-2"><h1 className="text-[25px] font-black leading-tight tracking-tight text-[#0b282b] sm:text-[34px]">{business.name}</h1>{business.isVerified?<span title="منشأة موثقة"><BadgeCheck className="h-5 w-5 shrink-0 fill-[#168af6] text-white sm:h-6 sm:w-6"/></span>:null}</div>
           {category?<p className="mt-1.5 text-[11px] font-bold text-[#647b79] sm:text-sm">{category}</p>:null}
