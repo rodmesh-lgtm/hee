@@ -48,3 +48,21 @@ test("customer business page uses only the approved compact iR mark", () => {
   assert.equal((renderer.match(/<IrMark\b/g) || []).length, 2);
   assert.doesNotMatch(renderer, /<IrLogo\b|showTagline/);
 });
+
+test("customer identity begins with the cover and keeps platform controls floating", () => {
+  const renderer = source("components/public-business-page-v10-light.tsx");
+  assert.match(renderer, /pointer-events-none sticky top-0/);
+  assert.match(renderer, /alt=\{`صورة عرض \$\{business\.name\}`\}/);
+  assert.doesNotMatch(renderer, /<header className="[^"]*bg-\[#061b1e\]/);
+  assert.doesNotMatch(renderer, /linear-gradient\(155deg,#061b1e/);
+});
+
+test("official social accounts use recognizable platform controls", () => {
+  const highlights = source("components/public/public-identity-highlights.tsx");
+  assert.match(highlights, /FaInstagram/);
+  assert.match(highlights, /FaXTwitter/);
+  assert.match(highlights, /FaTiktok/);
+  assert.match(highlights, /FaSnapchat/);
+  assert.match(highlights, /FaFacebookF/);
+  assert.match(highlights, /socialLinks\.slice\(0,5\)/);
+});

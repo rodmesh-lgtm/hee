@@ -52,30 +52,26 @@ export function PublicBusinessPageV10Light({business,publicUrl}:Props){
   const toggle=(key:PanelKey)=>setOpenPanel(current=>current===key?null:key);
   async function share(){setShareStatus("idle");if(navigator.share){try{await navigator.share({title:business.name,url:publicUrl});return}catch(error){if(error instanceof DOMException&&error.name==="AbortError")return}}try{if(!navigator.clipboard?.writeText)throw new Error("clipboard-unavailable");await navigator.clipboard.writeText(publicUrl);setShareStatus("copied")}catch{setShareStatus("failed")}}
 
-  return <main dir="rtl" className="min-h-screen overflow-x-clip bg-[#eaf2f0] text-[#102527] selection:bg-[#82f4dc]">
-    <div className="relative mx-auto min-h-screen w-full max-w-[760px] bg-[#f8fbfa] shadow-[0_0_70px_rgba(4,25,28,.14)]">
-      <header className="relative isolate overflow-hidden bg-[#061b1e] text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(0,229,168,.24),transparent_34%),radial-gradient(circle_at_88%_28%,rgba(0,180,216,.2),transparent_30%),linear-gradient(155deg,#061b1e_0%,#0a2a2e_72%,#071d20_100%)]"/>
-        <div className="absolute -left-20 top-28 h-48 w-48 rounded-full border border-white/10"/><div className="absolute -right-24 top-12 h-56 w-56 rounded-full border border-[#35e4cb]/15"/>
-        <div className="relative z-10 flex items-center justify-between px-4 pb-4 pt-4 sm:px-7 sm:pt-6">
-          <Link href="/" aria-label="iR - الصفحة الرئيسية" className="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/[.07] backdrop-blur-xl transition hover:bg-white/[.11] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#35e4cb]"><IrMark className="h-8" priority/></Link>
-          <button type="button" onClick={()=>void share()} aria-label="مشاركة الصفحة" className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[.07] text-[#6df0dd] backdrop-blur-xl transition hover:bg-white/[.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#35e4cb] active:scale-95"><Share2 className="h-[18px] w-[18px]"/></button>
+  return <main dir="rtl" className="min-h-screen overflow-x-clip bg-[#edf4f2] text-[#102527] selection:bg-[#82f4dc]">
+    <div className="relative mx-auto min-h-screen w-full max-w-[760px] bg-[linear-gradient(180deg,#fbfdfc_0%,#f5faf8_100%)] shadow-[0_0_70px_rgba(4,25,28,.1)]">
+      <div dir="ltr" className="pointer-events-none sticky top-0 z-[150] mx-auto h-0 w-full">
+        <Link href="/" aria-label="iR - الصفحة الرئيسية" className="pointer-events-auto absolute left-3 top-3 grid h-12 w-12 place-items-center rounded-[17px] border border-white/80 bg-white/90 shadow-[0_10px_30px_rgba(7,37,39,.13)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] motion-reduce:transition-none sm:left-5 sm:top-5"><IrMark className="h-8" priority/></Link>
+        <button type="button" onClick={()=>void share()} aria-label="مشاركة الصفحة" className="pointer-events-auto absolute right-3 top-3 grid h-12 w-12 place-items-center rounded-[17px] border border-white/80 bg-white/90 text-[#008f87] shadow-[0_10px_30px_rgba(7,37,39,.13)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] active:scale-95 motion-reduce:transition-none sm:right-5 sm:top-5"><Share2 className="h-[18px] w-[18px]"/></button>
+      </div>
+      <header className="px-3 pt-3 text-center sm:px-7 sm:pt-5">
+        <div className="relative h-[190px] overflow-hidden rounded-[28px] border border-[#d7e6e3] bg-[#e7f3f0] shadow-[0_18px_50px_rgba(7,37,39,.1)] sm:h-[270px] sm:rounded-[36px]">
+          {cover?<img src={cover} alt={`صورة عرض ${business.name}`} className="h-full w-full object-cover" onError={e=>{e.currentTarget.style.display="none"}}/>:<div className="grid h-full place-items-center bg-[radial-gradient(circle_at_50%_20%,#d8f6ef,#edf7f4_65%)]"><Sparkles className="h-12 w-12 text-[#00a99d]/45"/></div>}
         </div>
-        <div className="relative z-10 px-3 pb-7 sm:px-7 sm:pb-9">
-          <div className="relative h-[190px] overflow-hidden rounded-[28px] border border-white/10 bg-[#0b3034] shadow-[0_22px_55px_rgba(0,0,0,.28)] sm:h-[260px] sm:rounded-[34px]">
-            {cover?<img src={cover} alt="" className="h-full w-full object-cover" onError={e=>{e.currentTarget.style.display="none"}}/>:<div className="grid h-full place-items-center"><Sparkles className="h-12 w-12 text-[#35e4cb]/50"/></div>}
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_24%,rgba(3,18,20,.2)_55%,rgba(3,18,20,.9)_100%)]"/>
-            <div className="absolute inset-x-4 bottom-4 flex items-end gap-3 sm:inset-x-6 sm:bottom-6 sm:gap-4">
-              <div className="relative grid h-[82px] w-[82px] shrink-0 place-items-center overflow-hidden rounded-[25px] border-2 border-white/80 bg-white shadow-[0_12px_30px_rgba(0,0,0,.28)] sm:h-[102px] sm:w-[102px] sm:rounded-[30px]"><Sparkles className="h-8 w-8 text-[#00a99d]"/>{logo?<img src={logo} alt={business.name} className="absolute inset-0 h-full w-full object-cover" onError={e=>{e.currentTarget.style.display="none"}}/>:null}</div>
-              <div className="min-w-0 flex-1 pb-1 text-right"><div className="flex items-center gap-2"><h1 className="truncate text-[23px] font-black leading-tight tracking-tight sm:text-[34px]">{business.name}</h1>{business.isVerified?<span title="منشأة موثقة"><BadgeCheck className="h-5 w-5 shrink-0 fill-[#35e4cb] text-[#062124] sm:h-6 sm:w-6"/></span>:null}</div>{category?<p className="mt-1 truncate text-[11px] font-bold text-white/65 sm:text-sm">{category}</p>:null}</div>
-            </div>
+        <div className="relative mx-auto -mt-[46px] grid h-[94px] w-[94px] place-items-center overflow-hidden rounded-[29px] border-[4px] border-[#fbfdfc] bg-white shadow-[0_16px_40px_rgba(7,37,39,.16)] sm:-mt-[54px] sm:h-[108px] sm:w-[108px] sm:rounded-[33px]"><Sparkles className="h-8 w-8 text-[#00a99d]"/>{logo?<img src={logo} alt={`شعار ${business.name}`} className="absolute inset-0 h-full w-full object-cover" onError={e=>{e.currentTarget.style.display="none"}}/>:null}</div>
+        <div className="mx-auto mt-3 max-w-[640px]">
+          <div className="flex items-center justify-center gap-2"><h1 className="text-[25px] font-black leading-tight tracking-tight text-[#0b282b] sm:text-[34px]">{business.name}</h1>{business.isVerified?<span title="منشأة موثقة"><BadgeCheck className="h-5 w-5 shrink-0 fill-[#00a99d] text-white sm:h-6 sm:w-6"/></span>:null}</div>
+          {category?<p className="mt-1.5 text-[11px] font-bold text-[#647b79] sm:text-sm">{category}</p>:null}
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[10px] sm:text-xs">
+            {location?<span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[#d9e8e5] bg-white px-3 text-[#526b68]"><MapPin className="h-3.5 w-3.5 text-[#008f87]"/>{location}</span>:null}
+            {workingHours?<span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[#d9e8e5] bg-white px-3 text-[#526b68]"><Clock3 className="h-3.5 w-3.5 text-[#008f87]"/>{workingHours}</span>:null}
+            {openNow!==null?<span className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 font-black ${openNow?"border-emerald-200 bg-emerald-50 text-emerald-700":"border-[#d9e8e5] bg-white text-[#718583]"}`}><span className={`h-2 w-2 rounded-full ${openNow?"bg-emerald-500":"bg-slate-400"}`}/>{openNow?"مفتوح الآن":"مغلق الآن"}</span>:null}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-[10px] sm:text-xs">
-            {location?<span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-white/10 bg-white/[.06] px-3 text-white/75"><MapPin className="h-3.5 w-3.5 text-[#55e8d3]"/>{location}</span>:null}
-            {workingHours?<span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-white/10 bg-white/[.06] px-3 text-white/75"><Clock3 className="h-3.5 w-3.5 text-[#55e8d3]"/>{workingHours}</span>:null}
-            {openNow!==null?<span className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 font-black ${openNow?"border-emerald-300/20 bg-emerald-300/10 text-[#84f3cf]":"border-white/10 bg-white/[.06] text-white/60"}`}><span className={`h-2 w-2 rounded-full ${openNow?"bg-[#53edb7] shadow-[0_0_12px_#53edb7]":"bg-white/35"}`}/>{openNow?"مفتوح الآن":"مغلق الآن"}</span>:null}
-          </div>
-          {about?<p className="mt-4 max-w-[640px] text-[12.5px] leading-7 text-white/68 sm:text-sm sm:leading-8">{about}</p>:null}
+          {about?<p className="mx-auto mt-3.5 max-w-[570px] text-[12.5px] leading-7 text-[#526866] sm:text-sm sm:leading-8">{about}</p>:null}
         </div>
       </header>
 
