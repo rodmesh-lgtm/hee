@@ -62,6 +62,19 @@ test("customer identity omits the cover and keeps platform controls floating", (
   assert.doesNotMatch(renderer, /shadow-\[0_0_70px/);
 });
 
+test("customer identity presents an INFRO passport with action-first pulse", () => {
+  const renderer = source("components/public-business-page-v10-light.tsx");
+  assert.match(renderer, /INFRO BUSINESS PASSPORT/);
+  assert.match(renderer, /ir\.sa\/\{business\.slug\}/);
+  assert.match(renderer, /aria-label="هوية المنشأة"/);
+  assert.match(renderer, /aria-label="إجراءات المنشأة"/);
+  assert.match(renderer, /aria-label="اعتمادات المنشأة"/);
+  assert.match(renderer, /تواصل عبر واتساب/);
+  assert.match(renderer, /BUSINESS RECORDS/);
+  assert.match(renderer, /object-contain/);
+  assert.doesNotMatch(renderer, /gridTemplateColumns/);
+});
+
 test("official social accounts use recognizable platform controls", () => {
   const highlights = source("components/public/public-identity-highlights.tsx");
   assert.match(highlights, /FaInstagram/);
