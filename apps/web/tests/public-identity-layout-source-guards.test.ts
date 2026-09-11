@@ -53,8 +53,12 @@ test("customer identity begins with the cover and keeps platform controls floati
   const renderer = source("components/public-business-page-v10-light.tsx");
   assert.match(renderer, /pointer-events-none sticky top-0/);
   assert.match(renderer, /alt=\{`صورة عرض \$\{business\.name\}`\}/);
+  assert.match(renderer, /min-h-screen overflow-x-clip bg-white/);
+  assert.match(renderer, /fill-\[#168af6\]/);
   assert.doesNotMatch(renderer, /<header className="[^"]*bg-\[#061b1e\]/);
   assert.doesNotMatch(renderer, /linear-gradient\(155deg,#061b1e/);
+  assert.doesNotMatch(renderer, /bg-\[linear-gradient\(180deg,#fbfdfc/);
+  assert.doesNotMatch(renderer, /shadow-\[0_0_70px/);
 });
 
 test("official social accounts use recognizable platform controls", () => {
