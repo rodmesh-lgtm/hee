@@ -141,7 +141,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
   if (!canRequest && !canBook) return null;
 
   return <>
-    <div dir="rtl" className="fixed inset-x-0 bottom-0 z-[120] mx-auto flex w-full max-w-[1080px] gap-2 border-t border-white/10 bg-[#061b1e]/95 p-3 shadow-[0_-18px_44px_rgba(3,18,20,.24)] backdrop-blur-xl" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+    <div dir="rtl" className="relative z-20 mx-auto mt-5 flex w-[calc(100%-2rem)] max-w-[1048px] gap-2 rounded-[20px] border border-[#cfe5e1] bg-white p-2.5 shadow-[0_14px_36px_rgba(3,55,58,.12)] sm:w-[calc(100%-5rem)]" aria-label="إجراءات الطلب والحجز">
       {canRequest ? <button onClick={() => setRequestOpen(true)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#00b99f,#00a6bd)] px-4 text-sm font-black text-[#041b1d] shadow-[0_9px_24px_rgba(0,203,178,.2)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><MessageCircle className="h-4 w-4" />طلب خدمة</button> : null}
       {canBook ? <button ref={bookingOpenerRef} onClick={() => setBookingOpen(true)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[.08] px-4 text-sm font-black text-white transition hover:bg-white/[.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><CalendarDays className="h-4 w-4 text-[#69efd8]" />حجز موعد</button> : null}
     </div>
