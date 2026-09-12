@@ -2,113 +2,994 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowUpLeft, BadgeCheck, BriefcaseBusiness, ChevronDown, Clock3, Globe2, Headphones, Images, Info, Mail, MapPin, MessageCircle, Phone, Share2, Sparkles, UserRound, type LucideIcon } from "lucide-react";
+import {
+  ArrowUpLeft,
+  BadgeCheck,
+  BriefcaseBusiness,
+  ChevronDown,
+  Clock3,
+  Globe2,
+  Headphones,
+  Images,
+  Info,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Share2,
+  Sparkles,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
 import { IrMark } from "./brand/ir-logo";
 import { getPublicOpenStatus } from "./public/public-page-utils";
+import type { PageModuleId, PageModuleState } from "../app/lib/page-modules";
 
-type Service={id:string|number;name?:string|null;description?:string|null;isActive?:boolean|null};
-type Branch={id:string|number;name?:string|null;city?:string|null;district?:string|null;address?:string|null;googleMapsLink?:string|null;isActive?:boolean|null};
-type Contact={id:string|number;name?:string|null;jobTitle?:string|null;imageUrl?:string|null;phone?:string|null;whatsapp?:string|null;isActive?:boolean|null;department?:{name?:string|null}|null};
-type Department={id:string|number;name?:string|null;isActive?:boolean|null;contacts?:Contact[]};
-type OpeningHour={dayOfWeek?:number|null;opensAt?:string|null;closesAt?:string|null;secondOpensAt?:string|null;secondClosesAt?:string|null;isClosed?:boolean|null};
-type GalleryItem={id:string|number;imageUrl?:string|null;title?:string|null;isActive?:boolean|null};
-type PublicBusiness={id:string|number;slug:string;name:string;nameEn?:string|null;description?:string|null;shortDescription?:string|null;businessCategory?:string|null;businessType?:string|null;city?:string|null;district?:string|null;address?:string|null;country?:string|null;phone?:string|null;whatsapp?:string|null;email?:string|null;website?:string|null;logoUrl?:string|null;coverUrl?:string|null;googleMapsLink?:string|null;workingHours?:string|null;isVerified?:boolean|null;services?:Service[];branches?:Branch[];contactPersons?:Contact[];departments?:Department[];openingHours?:OpeningHour[];galleryItems?:GalleryItem[]};
-type Props={business:PublicBusiness;qrDataUrl:string;publicUrl:string;demoMode?:boolean};
-type PanelKey="about"|"services"|"branches"|"team"|"work"|"contact";
-type IconType=LucideIcon;
+type Service = {
+  id: string | number;
+  name?: string | null;
+  description?: string | null;
+  isActive?: boolean | null;
+};
+type Branch = {
+  id: string | number;
+  name?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address?: string | null;
+  googleMapsLink?: string | null;
+  isActive?: boolean | null;
+};
+type Contact = {
+  id: string | number;
+  name?: string | null;
+  jobTitle?: string | null;
+  imageUrl?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+  isActive?: boolean | null;
+  department?: { name?: string | null } | null;
+};
+type Department = {
+  id: string | number;
+  name?: string | null;
+  isActive?: boolean | null;
+  contacts?: Contact[];
+};
+type OpeningHour = {
+  dayOfWeek?: number | null;
+  opensAt?: string | null;
+  closesAt?: string | null;
+  secondOpensAt?: string | null;
+  secondClosesAt?: string | null;
+  isClosed?: boolean | null;
+};
+type GalleryItem = {
+  id: string | number;
+  imageUrl?: string | null;
+  title?: string | null;
+  isActive?: boolean | null;
+};
+type PublicBusiness = {
+  id: string | number;
+  slug: string;
+  name: string;
+  nameEn?: string | null;
+  description?: string | null;
+  shortDescription?: string | null;
+  businessCategory?: string | null;
+  businessType?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address?: string | null;
+  country?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+  email?: string | null;
+  website?: string | null;
+  logoUrl?: string | null;
+  coverUrl?: string | null;
+  googleMapsLink?: string | null;
+  workingHours?: string | null;
+  isVerified?: boolean | null;
+  services?: Service[];
+  branches?: Branch[];
+  contactPersons?: Contact[];
+  departments?: Department[];
+  openingHours?: OpeningHour[];
+  galleryItems?: GalleryItem[];
+};
+type Props = {
+  business: PublicBusiness;
+  qrDataUrl: string;
+  publicUrl: string;
+  demoMode?: boolean;
+  pageModules?: PageModuleState[];
+};
+type PanelKey = "about" | "services" | "branches" | "team" | "work" | "contact";
+type IconType = LucideIcon;
 
-const clean=(value?:string|null)=>String(value??"").trim();
-const digits=(value?:string|null)=>clean(value).replace(/\D/g,"");
-function assetUrl(value?:string|null){const raw=clean(value);if(!raw)return null;if(/^(https?:\/\/|data:|blob:)/i.test(raw))return raw;if(raw.startsWith("/"))return raw;if(/^[\w@./-]+\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(raw))return`/${raw.replace(/^\/+/,"")}`;return null}
-function externalUrl(value?:string|null){const raw=clean(value);if(!raw)return null;try{const url=new URL(/^https?:\/\//i.test(raw)?raw:`https://${raw}`);if(!/^https?:$/.test(url.protocol)||!url.hostname.includes(".")||/\s/.test(url.href))return null;return url.toString()}catch{return null}}
-function googleMapSearch(query:string){const value=clean(query);return value?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`:null}
-function serviceCount(n:number){if(n===1)return"خدمة واحدة";if(n===2)return"خدمتان";if(n>=3&&n<=10)return`${n} خدمات`;return`${n} خدمة`}
-function branchCount(n:number){if(n===1)return"فرع واحد";if(n===2)return"فرعان";if(n>=3&&n<=10)return`${n} فروع`;return`${n} فرعًا`}
-function teamCount(n:number){if(n===1)return"ممثل واحد للمنشأة";if(n===2)return"ممثّلان للمنشأة";return`${n} من ممثلي المنشأة`}
-function photoCount(n:number){if(n===1)return"صورة مختارة";if(n===2)return"صورتان مختارتان";return`${n} صور مختارة`}
-function methodCount(n:number){if(n===1)return"وسيلة تواصل واحدة";if(n===2)return"وسيلتا تواصل";return`${n} وسائل تواصل`}
-function activityFocus(value?:string|null){const v=clean(value).toLowerCase();if(/مطعم|مقهى|ضياف|فندق|hotel|restaurant|hospitality/.test(v))return{eyebrow:"CUSTOMER EXPERIENCE",title:"ابدأ تجربتك معنا",items:["الخدمات المتاحة","ساعات العمل","الحجز والتواصل"]};if(/نقل|لوجست|شحن|توصيل|logistics|transport/.test(v))return{eyebrow:"OPERATIONS",title:"الوصول والخدمة في الوقت المناسب",items:["الفروع ونقاط الخدمة","قنوات العمليات","تواصل سريع"]};if(/صناع|مقاول|مصنع|industrial|manufactur/.test(v))return{eyebrow:"CAPABILITIES",title:"حلول وخبرات المنشأة",items:["الخدمات والتخصصات","الملف التعريفي","تواصل المبيعات"]};if(/مهني|استشار|تقن|professional|consult/.test(v))return{eyebrow:"EXPERTISE",title:"تعرّف على خبرتنا",items:["مجالات العمل","فريق المنشأة","طلب استشارة"]};return{eyebrow:"BUSINESS IDENTITY",title:"كل ما تحتاجه عن المنشأة",items:["من نحن","خدماتنا","تواصل معنا"]}}
-
-export function PublicBusinessPageV10Light({business,publicUrl}:Props){
-  const[openPanel,setOpenPanel]=useState<PanelKey|null>(null);
-  const[shareStatus,setShareStatus]=useState<"idle"|"copied"|"failed">("idle");
-  const phone=digits(business.phone),whatsapp=digits(business.whatsapp);
-  const location=[clean(business.city),clean(business.district)].filter(Boolean).join("، ");
-  const category=clean(business.businessCategory)||clean(business.businessType);
-  const focus=activityFocus(business.businessType||business.businessCategory);
-  const about=clean(business.shortDescription)||clean(business.description);
-  const logo=assetUrl(business.logoUrl),website=externalUrl(business.website);
-  const businessMap=externalUrl(business.googleMapsLink)||googleMapSearch(location);
-  const activeServices=(business.services??[]).filter(s=>s.isActive!==false&&clean(s.name));
-  const activeBranches=(business.branches??[]).filter(b=>b.isActive!==false&&clean(b.name));
-  const services=activeServices.slice(0,8),branches=activeBranches.slice(0,8);
-  const contacts=useMemo(()=>{const direct=(business.contactPersons??[]).filter(c=>c.isActive!==false&&clean(c.name));if(direct.length)return direct.slice(0,8);return(business.departments??[]).filter(d=>d.isActive!==false).flatMap(d=>(d.contacts??[]).filter(c=>c.isActive!==false&&clean(c.name)).map(c=>({...c,department:c.department??{name:d.name}}))).slice(0,8)},[business.contactPersons,business.departments]);
-  const gallery=(business.galleryItems??[]).filter(i=>i.isActive!==false&&assetUrl(i.imageUrl)).slice(0,6);
-  const openingHours=business.openingHours??[];
-  const activeHours=openingHours.find(i=>!i.isClosed&&i.opensAt&&i.closesAt);
-  const workingHours=clean(business.workingHours)||(activeHours?`${activeHours.opensAt} - ${activeHours.closesAt}`:"");
-  const openStatus=getPublicOpenStatus(openingHours.flatMap((item,index)=>typeof item.dayOfWeek==="number"?[{id:`v11-${index}`,dayOfWeek:item.dayOfWeek,opensAt:item.opensAt??null,closesAt:item.closesAt??null,secondOpensAt:item.secondOpensAt??null,secondClosesAt:item.secondClosesAt??null,isClosed:Boolean(item.isClosed)}]:[]));
-  const openNow=openStatus.label===null?null:openStatus.label==="مفتوح الآن";
-  const quickActions=[whatsapp?{key:"whatsapp",href:`https://wa.me/${whatsapp}`,icon:MessageCircle,label:"تواصل عبر واتساب",primary:true}:null,phone?{key:"phone",href:`tel:${phone}`,icon:Phone,label:"اتصال"}:null,businessMap?{key:"map",href:businessMap,icon:MapPin,label:"الاتجاهات"}:null,{key:"share",onClick:()=>void share(),icon:Share2,label:"مشاركة"}].filter(Boolean) as Array<{key:string;href?:string;onClick?:()=>void;icon:IconType;label:string;primary?:boolean}>;
-  const contactMethods=[phone,whatsapp,clean(business.email),website].filter(Boolean).length;
-  const toggle=(key:PanelKey)=>setOpenPanel(current=>current===key?null:key);
-  async function share(){setShareStatus("idle");if(navigator.share){try{await navigator.share({title:business.name,url:publicUrl});return}catch(error){if(error instanceof DOMException&&error.name==="AbortError")return}}try{if(!navigator.clipboard?.writeText)throw new Error("clipboard-unavailable");await navigator.clipboard.writeText(publicUrl);setShareStatus("copied")}catch{setShareStatus("failed")}}
-
-  return <main dir="rtl" className="min-h-screen overflow-x-clip bg-[#f7faf9] text-[#102527] selection:bg-[#82f4dc]">
-    <div className="relative mx-auto min-h-screen w-full max-w-[1080px] bg-white sm:border-x sm:border-[#e7eeec]">
-      <div dir="ltr" className="pointer-events-none sticky top-0 z-[150] mx-auto h-0 w-full">
-        <Link href="/" aria-label="INFRO - الصفحة الرئيسية" className="pointer-events-auto absolute left-3 top-3 grid h-12 w-12 place-items-center rounded-[17px] border border-white/80 bg-white/90 shadow-[0_10px_30px_rgba(7,37,39,.13)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] motion-reduce:transition-none sm:left-5 sm:top-5"><IrMark className="h-8" priority/></Link>
-        <button type="button" onClick={()=>void share()} aria-label="مشاركة الصفحة" className="pointer-events-auto absolute right-3 top-3 grid h-12 w-12 place-items-center rounded-[17px] border border-white/80 bg-white/90 text-[#008f87] shadow-[0_10px_30px_rgba(7,37,39,.13)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] active:scale-95 motion-reduce:transition-none sm:right-5 sm:top-5"><Share2 className="h-[18px] w-[18px]"/></button>
-      </div>
-      <header className="px-5 pb-6 pt-20 sm:px-10 sm:pb-9 sm:pt-24 lg:px-14">
-        <section aria-label="هوية المنشأة">
-          <div className="min-w-0">
-            <div className="flex items-start gap-4 sm:gap-6">
-              <div className="relative shrink-0">
-                <div className="relative grid h-[88px] w-[88px] place-items-center overflow-hidden rounded-[24px] border border-[#dce7e5] bg-white p-2 shadow-[0_12px_34px_rgba(7,37,39,.09)] sm:h-[112px] sm:w-[112px] sm:rounded-[30px]"><Sparkles className="h-7 w-7 text-[#00a99d]"/>{logo?<img src={logo} alt={`شعار ${business.name}`} className="absolute inset-2 h-[calc(100%-16px)] w-[calc(100%-16px)] object-contain" onError={e=>{e.currentTarget.style.display="none"}}/>:null}</div>
-                {business.isVerified?<span title="منشأة موثقة" className="absolute -bottom-1.5 -left-1.5 grid h-8 w-8 place-items-center rounded-full border-[3px] border-white bg-[#168af6]"><BadgeCheck className="h-[18px] w-[18px] fill-[#168af6] text-white"/></span>:null}
-              </div>
-              <div className="min-w-0 pt-1">
-                <div className="flex items-center gap-2"><h1 className="text-[25px] font-black leading-tight tracking-[-.03em] text-[#09272a] sm:text-[39px]">{business.name}</h1>{business.isVerified?<BadgeCheck aria-label="منشأة موثقة" className="h-5 w-5 shrink-0 fill-[#168af6] text-white sm:h-6 sm:w-6"/>:null}</div>
-                {category?<p className="mt-1.5 text-[12px] font-bold text-[#59716f] sm:text-[15px]">{category}</p>:null}
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10.5px] font-bold text-[#526b68] sm:text-xs">
-                  {location?<span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-[#008f87]"/>{location}</span>:null}
-                  {openNow!==null?<span className={`inline-flex items-center gap-1.5 ${openNow?"text-emerald-700":"text-[#718583]"}`}><span className={`h-2 w-2 rounded-full ${openNow?"bg-emerald-500":"bg-slate-400"}`}/>{openNow?"مفتوح الآن":"مغلق الآن"}</span>:null}
-                  {workingHours?<span className="hidden items-center gap-1.5 sm:inline-flex"><Clock3 className="h-3.5 w-3.5 text-[#008f87]"/>{workingHours}</span>:null}
-                  <span className="text-[#879795]" dir="ltr">ir.sa/{business.slug}</span>
-                </div>
-              </div>
-            </div>
-            {about?<p className="mt-5 max-w-[680px] text-[13px] font-medium leading-7 text-[#4e6664] sm:text-[15px] sm:leading-8">{about}</p>:null}
-          </div>
-        </section>
-      </header>
-
-      <div aria-live="polite" aria-atomic="true" className="pointer-events-none fixed inset-x-3 top-4 z-[160] mx-auto max-w-[340px] text-center">{shareStatus==="copied"?<span className="inline-flex rounded-full bg-[#071d20] px-4 py-2 text-xs font-bold text-white shadow-xl">تم نسخ رابط الصفحة</span>:null}{shareStatus==="failed"?<span className="inline-flex rounded-full bg-rose-700 px-4 py-2 text-xs font-bold text-white shadow-xl">تعذر نسخ الرابط. حاول مرة أخرى.</span>:null}</div>
-      <div className="border-y border-[#e3ebe9] bg-[#fbfdfc] px-5 py-4 sm:px-10 lg:px-14">
-        <section aria-label="إجراءات المنشأة" className="grid grid-cols-3 gap-2 lg:grid-cols-[minmax(280px,1fr)_repeat(3,120px)]">{quickActions.map(({key,...action})=><QuickAction key={key}{...action}/>)}</section>
-      </div>
-      <div className="px-5 pb-10 pt-5 sm:px-10 sm:pb-14 lg:px-14">
-        <section aria-label="اعتمادات المنشأة" className="grid grid-cols-3 divide-x divide-x-reverse divide-[#e3eae8] border-b border-[#e3eae8] pb-5"><Metric icon={BadgeCheck} value={business.isVerified?"موثق":"رقمية"} label={business.isVerified?"هوية معتمدة":"هوية أعمال"} blue={Boolean(business.isVerified)}/><Metric icon={BriefcaseBusiness} value={String(activeServices.length)} label={activeServices.length===1?"خدمة":"خدمات"}/><Metric icon={MapPin} value={String(activeBranches.length)} label={activeBranches.length===1?"فرع":"فروع"}/></section>
-        <section aria-label="الأولوية حسب نشاط المنشأة" className="mt-5 rounded-[20px] border border-[#cfe7e2] bg-[linear-gradient(135deg,#f3fffc,#ffffff)] p-4 sm:p-5"><div className="flex items-start justify-between gap-4"><div><span className="text-[9px] font-black tracking-[.16em] text-[#008f87]" dir="ltr">{focus.eyebrow}</span><h2 className="mt-1 text-[17px] font-black text-[#0b282b] sm:text-lg">{focus.title}</h2></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#dff8f2] text-[#008f87]"><Sparkles className="h-4 w-4"/></span></div><div className="mt-3 grid gap-2 sm:grid-cols-3">{focus.items.map((item,index)=><div key={item} className="flex items-center gap-2 rounded-xl border border-[#dcece8] bg-white/80 px-3 py-2.5 text-[11px] font-bold text-[#315856]"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#e7f8f4] text-[9px] font-black text-[#008f87]">{index+1}</span>{item}</div>)}</div></section>
-        <div data-public-highlights-slot className="mt-5"/>
-        <div className="mb-4 mt-8 flex items-end justify-between gap-3"><div><span className="text-[9px] font-black tracking-[.17em] text-[#008f87]" dir="ltr">EXPLORE</span><h2 className="mt-1 text-[20px] font-black tracking-tight text-[#0b282b] sm:text-2xl">تعرّف على المنشأة</h2></div><span className="text-[10px] font-bold text-[#718583]">معلومات واضحة ومباشرة</span></div>
-        <section className="grid gap-2.5 lg:grid-cols-2 lg:items-start">
-          {about?<AccordionRow title="عن المنشأة" subtitle="تعرف على هويتنا وقصتنا" icon={Info} open={openPanel==="about"} onClick={()=>toggle("about")}><p className="text-[13px] leading-7 text-[#526866]">{clean(business.description)||about}</p></AccordionRow>:null}
-          <AccordionRow title="خدماتنا" subtitle={activeServices.length?`${serviceCount(activeServices.length)} متاحة`:"لم تتم إضافة خدمات بعد"} icon={BriefcaseBusiness} open={openPanel==="services"} onClick={()=>toggle("services")}>{services.length?<div className="grid gap-2 sm:grid-cols-2">{services.map(service=><div key={String(service.id)} className="rounded-2xl border border-[#deebe8] bg-[#f3f8f7] px-4 py-3.5"><b className="block text-[13px] text-[#123033]">{clean(service.name)}</b>{clean(service.description)?<p className="mt-1.5 text-[11px] leading-5 text-[#667b79]">{clean(service.description)}</p>:null}</div>)}</div>:<EmptyState text="لم تتم إضافة خدمات بعد."/>}</AccordionRow>
-          <AccordionRow title="فروعنا" subtitle={activeBranches.length?branchCount(activeBranches.length):"لم تتم إضافة فروع بعد"} icon={MapPin} open={openPanel==="branches"} onClick={()=>toggle("branches")}>{branches.length?<div className="space-y-2">{branches.map(branch=>{const place=[branch.city,branch.district,branch.address].filter(Boolean).join("، ");const map=externalUrl(branch.googleMapsLink)||googleMapSearch(place);const content=<><div><b className="block text-[13px]">{clean(branch.name)}</b>{place?<span className="mt-1 block text-[11px] text-[#667b79]">{place}</span>:null}</div><MapPin className="h-4 w-4 text-[#008f87]"/></>;return map?<a key={String(branch.id)} href={map} target="_blank" rel="noreferrer" className="flex min-h-14 items-center justify-between rounded-2xl border border-[#deebe8] bg-[#f3f8f7] px-4 py-3 transition hover:border-[#9eddd2]">{content}</a>:<div key={String(branch.id)} className="flex min-h-14 items-center justify-between rounded-2xl border border-[#deebe8] bg-[#f3f8f7] px-4 py-3">{content}</div>})}</div>:<EmptyState text="لم تتم إضافة فروع بعد."/>}</AccordionRow>
-          {contacts.length?<AccordionRow title="فريق العمل" subtitle={teamCount(contacts.length)} icon={UserRound} open={openPanel==="team"} onClick={()=>toggle("team")}><div className="space-y-2">{contacts.map(contact=>{const image=assetUrl(contact.imageUrl),contactPhone=digits(contact.phone),contactWhatsapp=digits(contact.whatsapp);return <div key={String(contact.id)} className="flex items-center gap-3 rounded-2xl border border-[#deebe8] bg-[#f3f8f7] px-3 py-3"><div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[#dff7f2]"><UserRound className="h-5 w-5 text-[#008f87]"/>{image?<img src={image} alt="" className="absolute inset-0 h-full w-full object-cover"/>:null}</div><div className="min-w-0 flex-1"><b className="block truncate text-[12px]">{clean(contact.name)}</b><span className="mt-0.5 block truncate text-[10px] text-[#667b79]">{clean(contact.jobTitle)||clean(contact.department?.name)||"فريق العمل"}</span></div>{contactPhone?<a href={`tel:${contactPhone}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-[#008f87] shadow-sm" aria-label={`اتصال بـ${clean(contact.name)}`}><Phone className="h-4 w-4"/></a>:null}{contactWhatsapp?<a href={`https://wa.me/${contactWhatsapp}`} target="_blank" rel="noreferrer" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#dff8ef] text-emerald-700" aria-label={`واتساب ${clean(contact.name)}`}><MessageCircle className="h-4 w-4"/></a>:null}</div>})}</div></AccordionRow>:null}
-          {gallery.length?<AccordionRow title="أعمالنا" subtitle={photoCount(gallery.length)} icon={Images} open={openPanel==="work"} onClick={()=>toggle("work")}><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{gallery.map(item=><div key={String(item.id)} className="aspect-[4/3] overflow-hidden rounded-2xl bg-[#edf5f3]"><img src={assetUrl(item.imageUrl)||""} alt={clean(item.title)||"من أعمال المنشأة"} loading="lazy" className="h-full w-full object-cover transition duration-500 hover:scale-[1.03] motion-reduce:transition-none"/></div>)}</div></AccordionRow>:null}
-          <AccordionRow title="معلومات التواصل" subtitle={contactMethods?methodCount(contactMethods):"بيانات التواصل"} icon={Headphones} open={openPanel==="contact"} onClick={()=>toggle("contact")}>{contactMethods||businessMap?<div className="divide-y divide-[#dce9e6] rounded-2xl border border-[#deebe8] bg-[#f3f8f7] px-4">{phone?<ContactLine icon={Phone} label="الهاتف" value={clean(business.phone)||phone} href={`tel:${phone}`}/>:null}{whatsapp?<ContactLine icon={MessageCircle} label="واتساب" value={clean(business.whatsapp)||whatsapp} href={`https://wa.me/${whatsapp}`} green/>:null}{business.email?<ContactLine icon={Mail} label="البريد الإلكتروني" value={business.email} href={`mailto:${business.email}`}/>:null}{website?<ContactLine icon={Globe2} label="الموقع الإلكتروني" value={clean(business.website)} href={website}/>:null}{businessMap?<ContactLine icon={MapPin} label="الموقع" value={location||clean(business.address)||"فتح الخريطة"} href={businessMap}/>:null}</div>:<EmptyState text="لم تتم إضافة بيانات تواصل بعد."/>}</AccordionRow>
-        </section>
-        <footer className="mt-8 border-t border-[#e3eae8] px-1 py-6"><Link href="/" className="flex items-center justify-between gap-4 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d]" aria-label="أنشئ هويتك الرقمية عبر INFRO"><div className="flex items-center gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] border border-[#e0e8e6] bg-white"><IrMark className="h-7"/></span><p className="max-w-[210px] text-[10px] font-semibold leading-5 text-[#718583]">هوية رقمية وتسويقية موثوقة لمنشأتك</p></div><span className="shrink-0 text-[10px] font-black text-[#008f87]" dir="ltr">ir.sa</span></Link></footer>
-      </div>
-    </div>
-  </main>
+const clean = (value?: string | null) => String(value ?? "").trim();
+const digits = (value?: string | null) => clean(value).replace(/\D/g, "");
+function assetUrl(value?: string | null) {
+  const raw = clean(value);
+  if (!raw) return null;
+  if (/^(https?:\/\/|data:|blob:)/i.test(raw)) return raw;
+  if (raw.startsWith("/")) return raw;
+  if (/^[\w@./-]+\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(raw))
+    return `/${raw.replace(/^\/+/, "")}`;
+  return null;
+}
+function externalUrl(value?: string | null) {
+  const raw = clean(value);
+  if (!raw) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    if (
+      !/^https?:$/.test(url.protocol) ||
+      !url.hostname.includes(".") ||
+      /\s/.test(url.href)
+    )
+      return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+function googleMapSearch(query: string) {
+  const value = clean(query);
+  return value
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`
+    : null;
+}
+function serviceCount(n: number) {
+  if (n === 1) return "خدمة واحدة";
+  if (n === 2) return "خدمتان";
+  if (n >= 3 && n <= 10) return `${n} خدمات`;
+  return `${n} خدمة`;
+}
+function branchCount(n: number) {
+  if (n === 1) return "فرع واحد";
+  if (n === 2) return "فرعان";
+  if (n >= 3 && n <= 10) return `${n} فروع`;
+  return `${n} فرعًا`;
+}
+function teamCount(n: number) {
+  if (n === 1) return "ممثل واحد للمنشأة";
+  if (n === 2) return "ممثّلان للمنشأة";
+  return `${n} من ممثلي المنشأة`;
+}
+function photoCount(n: number) {
+  if (n === 1) return "صورة مختارة";
+  if (n === 2) return "صورتان مختارتان";
+  return `${n} صور مختارة`;
+}
+function methodCount(n: number) {
+  if (n === 1) return "وسيلة تواصل واحدة";
+  if (n === 2) return "وسيلتا تواصل";
+  return `${n} وسائل تواصل`;
+}
+function activityFocus(value?: string | null) {
+  const v = clean(value).toLowerCase();
+  if (/مطعم|مقهى|ضياف|فندق|hotel|restaurant|hospitality/.test(v))
+    return {
+      eyebrow: "CUSTOMER EXPERIENCE",
+      title: "ابدأ تجربتك معنا",
+      items: ["الخدمات المتاحة", "ساعات العمل", "الحجز والتواصل"],
+    };
+  if (/نقل|لوجست|شحن|توصيل|logistics|transport/.test(v))
+    return {
+      eyebrow: "OPERATIONS",
+      title: "الوصول والخدمة في الوقت المناسب",
+      items: ["الفروع ونقاط الخدمة", "قنوات العمليات", "تواصل سريع"],
+    };
+  if (/صناع|مقاول|مصنع|industrial|manufactur/.test(v))
+    return {
+      eyebrow: "CAPABILITIES",
+      title: "حلول وخبرات المنشأة",
+      items: ["الخدمات والتخصصات", "الملف التعريفي", "تواصل المبيعات"],
+    };
+  if (/مهني|استشار|تقن|professional|consult/.test(v))
+    return {
+      eyebrow: "EXPERTISE",
+      title: "تعرّف على خبرتنا",
+      items: ["مجالات العمل", "فريق المنشأة", "طلب استشارة"],
+    };
+  return {
+    eyebrow: "BUSINESS IDENTITY",
+    title: "كل ما تحتاجه عن المنشأة",
+    items: ["من نحن", "خدماتنا", "تواصل معنا"],
+  };
 }
 
-function Metric({icon:Icon,value,label,blue=false}:{icon:IconType;value:string;label:string;blue?:boolean}){return <div className="px-1 text-center"><Icon className={`mx-auto h-4 w-4 ${blue?"fill-[#168af6] text-white":"text-[#008f87]"}`}/><b className="mt-1.5 block text-[13px] text-[#102527]">{value}</b><span className="mt-0.5 block text-[9px] font-semibold text-[#718583]">{label}</span></div>}
-function QuickAction({href,onClick,icon:Icon,label,primary}:{href?:string;onClick?:()=>void;icon:IconType;label:string;primary?:boolean}){const c=`group flex min-h-[60px] items-center justify-center gap-2.5 rounded-[16px] border px-3 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] active:scale-[.98] ${primary?"col-span-3 border-[#073f3d] bg-[#073f3d] text-white shadow-[0_10px_24px_rgba(7,63,61,.14)] lg:col-span-1":"col-span-1 border-[#dce7e5] bg-white text-[#19383b] hover:border-[#9eddd2]"}`;const body=<><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${primary?"bg-white/10 text-[#7bf1dc]":"bg-[#eef8f6] text-[#008f87]"}`}><Icon className="h-[17px] w-[17px]"/></span><span>{label}</span>{primary?<ArrowUpLeft className="mr-auto h-4 w-4 text-[#7bf1dc] transition group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none"/>:null}</>;return href?<a href={href} target={href.startsWith("http")?"_blank":undefined} rel={href.startsWith("http")?"noreferrer":undefined} className={c}>{body}</a>:<button type="button" onClick={onClick} className={c}>{body}</button>}
-function AccordionRow({title,subtitle,icon:Icon,open,onClick,children}:{title:string;subtitle:string;icon:IconType;open:boolean;onClick:()=>void;children:React.ReactNode}){return <section className="overflow-hidden rounded-[16px] border border-[#e0e8e6] bg-white"><button type="button" onClick={onClick} aria-expanded={open} className="flex min-h-[70px] w-full items-center gap-3 px-4 py-3 text-right transition hover:bg-[#f7fbfa] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00a99d]"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#eaf8f5] text-[#008f87]"><Icon className="h-[18px] w-[18px]"/></span><span className="min-w-0 flex-1"><b className="block text-[13.5px] text-[#102527]">{title}</b><span className="mt-0.5 block text-[9.5px] font-semibold text-[#718583]">{subtitle}</span></span><span className={`grid h-8 w-8 place-items-center rounded-full bg-[#f4f8f7] text-[#008f87] transition-transform duration-200 motion-reduce:transition-none ${open?"rotate-180":""}`}><ChevronDown className="h-4 w-4"/></span></button>{open?<div className="border-t border-[#e5efed] px-3.5 pb-4 pt-3.5 sm:px-4">{children}</div>:null}</section>}
-function ContactLine({icon:Icon,label,value,href,green}:{icon:IconType;label:string;value:string;href:string;green?:boolean}){return <a href={href} target={href.startsWith("http")?"_blank":undefined} rel={href.startsWith("http")?"noreferrer":undefined} className="flex min-h-14 items-center gap-3 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d]"><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${green?"bg-[#dff8ef] text-emerald-700":"bg-white text-[#008f87]"}`}><Icon className="h-4 w-4"/></span><span className="min-w-0 flex-1"><b className="block text-[10px] text-[#667b79]">{label}</b><span className="mt-0.5 block truncate text-[12px] text-[#173437]">{value}</span></span></a>}
-function EmptyState({text}:{text:string}){return <div className="rounded-2xl border border-dashed border-[#cfe1dd] bg-[#f3f8f7] px-4 py-5 text-center text-[11px] leading-5 text-[#718583]">{text}</div>}
+export function PublicBusinessPageV10Light({
+  business,
+  publicUrl,
+  pageModules,
+}: Props) {
+  const [openPanel, setOpenPanel] = useState<PanelKey | null>(null);
+  const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
+  const phone = digits(business.phone),
+    whatsapp = digits(business.whatsapp);
+  const location = [clean(business.city), clean(business.district)]
+    .filter(Boolean)
+    .join("، ");
+  const category =
+    clean(business.businessCategory) || clean(business.businessType);
+  const focus = activityFocus(
+    business.businessType || business.businessCategory,
+  );
+  const moduleMap = useMemo(
+    () => new Map((pageModules ?? []).map((module) => [module.id, module])),
+    [pageModules],
+  );
+  const moduleVisible = (id: PageModuleId) =>
+    moduleMap.get(id)?.enabled !== false;
+  const moduleOrder = (id: PageModuleId) => moduleMap.get(id)?.sortOrder ?? 99;
+  const about = clean(business.shortDescription) || clean(business.description);
+  const logo = assetUrl(business.logoUrl),
+    website = externalUrl(business.website);
+  const businessMap =
+    externalUrl(business.googleMapsLink) || googleMapSearch(location);
+  const activeServices = (business.services ?? []).filter(
+    (s) => s.isActive !== false && clean(s.name),
+  );
+  const activeBranches = (business.branches ?? []).filter(
+    (b) => b.isActive !== false && clean(b.name),
+  );
+  const services = activeServices.slice(0, 8),
+    branches = activeBranches.slice(0, 8);
+  const contacts = useMemo(() => {
+    const direct = (business.contactPersons ?? []).filter(
+      (c) => c.isActive !== false && clean(c.name),
+    );
+    if (direct.length) return direct.slice(0, 8);
+    return (business.departments ?? [])
+      .filter((d) => d.isActive !== false)
+      .flatMap((d) =>
+        (d.contacts ?? [])
+          .filter((c) => c.isActive !== false && clean(c.name))
+          .map((c) => ({ ...c, department: c.department ?? { name: d.name } })),
+      )
+      .slice(0, 8);
+  }, [business.contactPersons, business.departments]);
+  const gallery = (business.galleryItems ?? [])
+    .filter((i) => i.isActive !== false && assetUrl(i.imageUrl))
+    .slice(0, 6);
+  const openingHours = business.openingHours ?? [];
+  const activeHours = openingHours.find(
+    (i) => !i.isClosed && i.opensAt && i.closesAt,
+  );
+  const workingHours =
+    clean(business.workingHours) ||
+    (activeHours ? `${activeHours.opensAt} - ${activeHours.closesAt}` : "");
+  const openStatus = getPublicOpenStatus(
+    openingHours.flatMap((item, index) =>
+      typeof item.dayOfWeek === "number"
+        ? [
+            {
+              id: `v11-${index}`,
+              dayOfWeek: item.dayOfWeek,
+              opensAt: item.opensAt ?? null,
+              closesAt: item.closesAt ?? null,
+              secondOpensAt: item.secondOpensAt ?? null,
+              secondClosesAt: item.secondClosesAt ?? null,
+              isClosed: Boolean(item.isClosed),
+            },
+          ]
+        : [],
+    ),
+  );
+  const openNow =
+    openStatus.label === null ? null : openStatus.label === "مفتوح الآن";
+  const quickActions = [
+    whatsapp
+      ? {
+          key: "whatsapp",
+          href: `https://wa.me/${whatsapp}`,
+          icon: MessageCircle,
+          label: "تواصل عبر واتساب",
+          primary: true,
+        }
+      : null,
+    phone
+      ? { key: "phone", href: `tel:${phone}`, icon: Phone, label: "اتصال" }
+      : null,
+    businessMap
+      ? { key: "map", href: businessMap, icon: MapPin, label: "الاتجاهات" }
+      : null,
+    {
+      key: "share",
+      onClick: () => void share(),
+      icon: Share2,
+      label: "مشاركة",
+    },
+  ].filter(Boolean) as Array<{
+    key: string;
+    href?: string;
+    onClick?: () => void;
+    icon: IconType;
+    label: string;
+    primary?: boolean;
+  }>;
+  const contactMethods = [
+    phone,
+    whatsapp,
+    clean(business.email),
+    website,
+  ].filter(Boolean).length;
+  const toggle = (key: PanelKey) =>
+    setOpenPanel((current) => (current === key ? null : key));
+  async function share() {
+    setShareStatus("idle");
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: business.name, url: publicUrl });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+      }
+    }
+    try {
+      if (!navigator.clipboard?.writeText)
+        throw new Error("clipboard-unavailable");
+      await navigator.clipboard.writeText(publicUrl);
+      setShareStatus("copied");
+    } catch {
+      setShareStatus("failed");
+    }
+  }
+
+  return (
+    <main
+      dir="rtl"
+      className="min-h-screen overflow-x-clip bg-[#f7faf9] text-[#102527] selection:bg-[#82f4dc]"
+    >
+      <div className="relative mx-auto min-h-screen w-full max-w-[1080px] bg-white sm:border-x sm:border-[#e7eeec]">
+        <div
+          dir="ltr"
+          className="pointer-events-none sticky top-0 z-[150] mx-auto h-0 w-full"
+        >
+          <Link
+            href="/"
+            aria-label="INFRO - الصفحة الرئيسية"
+            className="pointer-events-auto absolute left-3 top-3 grid h-12 w-12 place-items-center rounded-[17px] border border-white/80 bg-white/90 shadow-[0_10px_30px_rgba(7,37,39,.13)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] motion-reduce:transition-none sm:left-5 sm:top-5"
+          >
+            <IrMark className="h-8" priority />
+          </Link>
+          <button
+            type="button"
+            onClick={() => void share()}
+            aria-label="مشاركة الصفحة"
+            className="pointer-events-auto absolute right-3 top-3 grid h-12 w-12 place-items-center rounded-[17px] border border-white/80 bg-white/90 text-[#008f87] shadow-[0_10px_30px_rgba(7,37,39,.13)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] active:scale-95 motion-reduce:transition-none sm:right-5 sm:top-5"
+          >
+            <Share2 className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+        <header className="px-5 pb-6 pt-20 sm:px-10 sm:pb-9 sm:pt-24 lg:px-14">
+          <section aria-label="هوية المنشأة">
+            <div className="min-w-0">
+              <div className="flex items-start gap-4 sm:gap-6">
+                <div className="relative shrink-0">
+                  <div className="relative grid h-[88px] w-[88px] place-items-center overflow-hidden rounded-[24px] border border-[#dce7e5] bg-white p-2 shadow-[0_12px_34px_rgba(7,37,39,.09)] sm:h-[112px] sm:w-[112px] sm:rounded-[30px]">
+                    <Sparkles className="h-7 w-7 text-[#00a99d]" />
+                    {logo ? (
+                      <img
+                        src={logo}
+                        alt={`شعار ${business.name}`}
+                        className="absolute inset-2 h-[calc(100%-16px)] w-[calc(100%-16px)] object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                  {business.isVerified ? (
+                    <span
+                      title="منشأة موثقة"
+                      className="absolute -bottom-1.5 -left-1.5 grid h-8 w-8 place-items-center rounded-full border-[3px] border-white bg-[#168af6]"
+                    >
+                      <BadgeCheck className="h-[18px] w-[18px] fill-[#168af6] text-white" />
+                    </span>
+                  ) : null}
+                </div>
+                <div className="min-w-0 pt-1">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-[25px] font-black leading-tight tracking-[-.03em] text-[#09272a] sm:text-[39px]">
+                      {business.name}
+                    </h1>
+                    {business.isVerified ? (
+                      <BadgeCheck
+                        aria-label="منشأة موثقة"
+                        className="h-5 w-5 shrink-0 fill-[#168af6] text-white sm:h-6 sm:w-6"
+                      />
+                    ) : null}
+                  </div>
+                  {category ? (
+                    <p className="mt-1.5 text-[12px] font-bold text-[#59716f] sm:text-[15px]">
+                      {category}
+                    </p>
+                  ) : null}
+                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10.5px] font-bold text-[#526b68] sm:text-xs">
+                    {location ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-[#008f87]" />
+                        {location}
+                      </span>
+                    ) : null}
+                    {openNow !== null ? (
+                      <span
+                        className={`inline-flex items-center gap-1.5 ${openNow ? "text-emerald-700" : "text-[#718583]"}`}
+                      >
+                        <span
+                          className={`h-2 w-2 rounded-full ${openNow ? "bg-emerald-500" : "bg-slate-400"}`}
+                        />
+                        {openNow ? "مفتوح الآن" : "مغلق الآن"}
+                      </span>
+                    ) : null}
+                    {workingHours ? (
+                      <span className="hidden items-center gap-1.5 sm:inline-flex">
+                        <Clock3 className="h-3.5 w-3.5 text-[#008f87]" />
+                        {workingHours}
+                      </span>
+                    ) : null}
+                    <span className="text-[#879795]" dir="ltr">
+                      ir.sa/{business.slug}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {about ? (
+                <p className="mt-5 max-w-[680px] text-[13px] font-medium leading-7 text-[#4e6664] sm:text-[15px] sm:leading-8">
+                  {about}
+                </p>
+              ) : null}
+            </div>
+          </section>
+        </header>
+
+        <div
+          aria-live="polite"
+          aria-atomic="true"
+          className="pointer-events-none fixed inset-x-3 top-4 z-[160] mx-auto max-w-[340px] text-center"
+        >
+          {shareStatus === "copied" ? (
+            <span className="inline-flex rounded-full bg-[#071d20] px-4 py-2 text-xs font-bold text-white shadow-xl">
+              تم نسخ رابط الصفحة
+            </span>
+          ) : null}
+          {shareStatus === "failed" ? (
+            <span className="inline-flex rounded-full bg-rose-700 px-4 py-2 text-xs font-bold text-white shadow-xl">
+              تعذر نسخ الرابط. حاول مرة أخرى.
+            </span>
+          ) : null}
+        </div>
+        <div className="border-y border-[#e3ebe9] bg-[#fbfdfc] px-5 py-4 sm:px-10 lg:px-14">
+          <section
+            aria-label="إجراءات المنشأة"
+            className="grid grid-cols-3 gap-2 lg:grid-cols-[minmax(280px,1fr)_repeat(3,120px)]"
+          >
+            {quickActions.map(({ key, ...action }) => (
+              <QuickAction key={key} {...action} />
+            ))}
+          </section>
+        </div>
+        <div className="px-5 pb-10 pt-5 sm:px-10 sm:pb-14 lg:px-14">
+          <section
+            aria-label="اعتمادات المنشأة"
+            className="grid grid-cols-3 divide-x divide-x-reverse divide-[#e3eae8] border-b border-[#e3eae8] pb-5"
+          >
+            <Metric
+              icon={BadgeCheck}
+              value={business.isVerified ? "موثق" : "رقمية"}
+              label={business.isVerified ? "هوية معتمدة" : "هوية أعمال"}
+              blue={Boolean(business.isVerified)}
+            />
+            <Metric
+              icon={BriefcaseBusiness}
+              value={String(activeServices.length)}
+              label={activeServices.length === 1 ? "خدمة" : "خدمات"}
+            />
+            <Metric
+              icon={MapPin}
+              value={String(activeBranches.length)}
+              label={activeBranches.length === 1 ? "فرع" : "فروع"}
+            />
+          </section>
+          <section
+            aria-label="الأولوية حسب نشاط المنشأة"
+            className="mt-5 rounded-[20px] border border-[#cfe7e2] bg-[linear-gradient(135deg,#f3fffc,#ffffff)] p-4 sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span
+                  className="text-[9px] font-black tracking-[.16em] text-[#008f87]"
+                  dir="ltr"
+                >
+                  {focus.eyebrow}
+                </span>
+                <h2 className="mt-1 text-[17px] font-black text-[#0b282b] sm:text-lg">
+                  {focus.title}
+                </h2>
+              </div>
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#dff8f2] text-[#008f87]">
+                <Sparkles className="h-4 w-4" />
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {focus.items.map((item, index) => (
+                <div
+                  key={item}
+                  className="flex items-center gap-2 rounded-xl border border-[#dcece8] bg-white/80 px-3 py-2.5 text-[11px] font-bold text-[#315856]"
+                >
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#e7f8f4] text-[9px] font-black text-[#008f87]">
+                    {index + 1}
+                  </span>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </section>
+          <div data-public-highlights-slot className="mt-5" />
+          <div className="mb-4 mt-8 flex items-end justify-between gap-3">
+            <div>
+              <span
+                className="text-[9px] font-black tracking-[.17em] text-[#008f87]"
+                dir="ltr"
+              >
+                EXPLORE
+              </span>
+              <h2 className="mt-1 text-[20px] font-black tracking-tight text-[#0b282b] sm:text-2xl">
+                تعرّف على المنشأة
+              </h2>
+            </div>
+            <span className="text-[10px] font-bold text-[#718583]">
+              معلومات واضحة ومباشرة
+            </span>
+          </div>
+          <section className="grid gap-2.5 lg:grid-cols-2 lg:items-start">
+            {about && moduleVisible("about") ? (
+              <AccordionRow
+                order={moduleOrder("about")}
+                title="عن المنشأة"
+                subtitle="تعرف على هويتنا وقصتنا"
+                icon={Info}
+                open={openPanel === "about"}
+                onClick={() => toggle("about")}
+              >
+                <p className="text-[13px] leading-7 text-[#526866]">
+                  {clean(business.description) || about}
+                </p>
+              </AccordionRow>
+            ) : null}
+            {moduleVisible("services") ? <AccordionRow
+              order={moduleOrder("services")}
+              title="خدماتنا"
+              subtitle={
+                activeServices.length
+                  ? `${serviceCount(activeServices.length)} متاحة`
+                  : "لم تتم إضافة خدمات بعد"
+              }
+              icon={BriefcaseBusiness}
+              open={openPanel === "services"}
+              onClick={() => toggle("services")}
+            >
+              {services.length ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {services.map((service) => (
+                    <div
+                      key={String(service.id)}
+                      className="rounded-2xl border border-[#deebe8] bg-[#f3f8f7] px-4 py-3.5"
+                    >
+                      <b className="block text-[13px] text-[#123033]">
+                        {clean(service.name)}
+                      </b>
+                      {clean(service.description) ? (
+                        <p className="mt-1.5 text-[11px] leading-5 text-[#667b79]">
+                          {clean(service.description)}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState text="لم تتم إضافة خدمات بعد." />
+              )}
+            </AccordionRow> : null}
+            {moduleVisible("location") ? <AccordionRow
+              order={moduleOrder("location")}
+              title="فروعنا"
+              subtitle={
+                activeBranches.length
+                  ? branchCount(activeBranches.length)
+                  : "لم تتم إضافة فروع بعد"
+              }
+              icon={MapPin}
+              open={openPanel === "branches"}
+              onClick={() => toggle("branches")}
+            >
+              {branches.length ? (
+                <div className="space-y-2">
+                  {branches.map((branch) => {
+                    const place = [branch.city, branch.district, branch.address]
+                      .filter(Boolean)
+                      .join("، ");
+                    const map =
+                      externalUrl(branch.googleMapsLink) ||
+                      googleMapSearch(place);
+                    const content = (
+                      <>
+                        <div>
+                          <b className="block text-[13px]">
+                            {clean(branch.name)}
+                          </b>
+                          {place ? (
+                            <span className="mt-1 block text-[11px] text-[#667b79]">
+                              {place}
+                            </span>
+                          ) : null}
+                        </div>
+                        <MapPin className="h-4 w-4 text-[#008f87]" />
+                      </>
+                    );
+                    return map ? (
+                      <a
+                        key={String(branch.id)}
+                        href={map}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex min-h-14 items-center justify-between rounded-2xl border border-[#deebe8] bg-[#f3f8f7] px-4 py-3 transition hover:border-[#9eddd2]"
+                      >
+                        {content}
+                      </a>
+                    ) : (
+                      <div
+                        key={String(branch.id)}
+                        className="flex min-h-14 items-center justify-between rounded-2xl border border-[#deebe8] bg-[#f3f8f7] px-4 py-3"
+                      >
+                        {content}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <EmptyState text="لم تتم إضافة فروع بعد." />
+              )}
+            </AccordionRow> : null}
+            {contacts.length && moduleVisible("contactTeam") ? (
+              <AccordionRow
+                order={moduleOrder("contactTeam")}
+                title="فريق العمل"
+                subtitle={teamCount(contacts.length)}
+                icon={UserRound}
+                open={openPanel === "team"}
+                onClick={() => toggle("team")}
+              >
+                <div className="space-y-2">
+                  {contacts.map((contact) => {
+                    const image = assetUrl(contact.imageUrl),
+                      contactPhone = digits(contact.phone),
+                      contactWhatsapp = digits(contact.whatsapp);
+                    return (
+                      <div
+                        key={String(contact.id)}
+                        className="flex items-center gap-3 rounded-2xl border border-[#deebe8] bg-[#f3f8f7] px-3 py-3"
+                      >
+                        <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[#dff7f2]">
+                          <UserRound className="h-5 w-5 text-[#008f87]" />
+                          {image ? (
+                            <img
+                              src={image}
+                              alt=""
+                              className="absolute inset-0 h-full w-full object-cover"
+                            />
+                          ) : null}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <b className="block truncate text-[12px]">
+                            {clean(contact.name)}
+                          </b>
+                          <span className="mt-0.5 block truncate text-[10px] text-[#667b79]">
+                            {clean(contact.jobTitle) ||
+                              clean(contact.department?.name) ||
+                              "فريق العمل"}
+                          </span>
+                        </div>
+                        {contactPhone ? (
+                          <a
+                            href={`tel:${contactPhone}`}
+                            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-[#008f87] shadow-sm"
+                            aria-label={`اتصال بـ${clean(contact.name)}`}
+                          >
+                            <Phone className="h-4 w-4" />
+                          </a>
+                        ) : null}
+                        {contactWhatsapp ? (
+                          <a
+                            href={`https://wa.me/${contactWhatsapp}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#dff8ef] text-emerald-700"
+                            aria-label={`واتساب ${clean(contact.name)}`}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </a>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </AccordionRow>
+            ) : null}
+            {gallery.length && moduleVisible("portfolio") ? (
+              <AccordionRow
+                order={moduleOrder("portfolio")}
+                title="أعمالنا"
+                subtitle={photoCount(gallery.length)}
+                icon={Images}
+                open={openPanel === "work"}
+                onClick={() => toggle("work")}
+              >
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {gallery.map((item) => (
+                    <div
+                      key={String(item.id)}
+                      className="aspect-[4/3] overflow-hidden rounded-2xl bg-[#edf5f3]"
+                    >
+                      <img
+                        src={assetUrl(item.imageUrl) || ""}
+                        alt={clean(item.title) || "من أعمال المنشأة"}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition duration-500 hover:scale-[1.03] motion-reduce:transition-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </AccordionRow>
+            ) : null}
+            {moduleVisible("contact") ? <AccordionRow
+              order={moduleOrder("contact")}
+              title="معلومات التواصل"
+              subtitle={
+                contactMethods ? methodCount(contactMethods) : "بيانات التواصل"
+              }
+              icon={Headphones}
+              open={openPanel === "contact"}
+              onClick={() => toggle("contact")}
+            >
+              {contactMethods || businessMap ? (
+                <div className="divide-y divide-[#dce9e6] rounded-2xl border border-[#deebe8] bg-[#f3f8f7] px-4">
+                  {phone ? (
+                    <ContactLine
+                      icon={Phone}
+                      label="الهاتف"
+                      value={clean(business.phone) || phone}
+                      href={`tel:${phone}`}
+                    />
+                  ) : null}
+                  {whatsapp ? (
+                    <ContactLine
+                      icon={MessageCircle}
+                      label="واتساب"
+                      value={clean(business.whatsapp) || whatsapp}
+                      href={`https://wa.me/${whatsapp}`}
+                      green
+                    />
+                  ) : null}
+                  {business.email ? (
+                    <ContactLine
+                      icon={Mail}
+                      label="البريد الإلكتروني"
+                      value={business.email}
+                      href={`mailto:${business.email}`}
+                    />
+                  ) : null}
+                  {website ? (
+                    <ContactLine
+                      icon={Globe2}
+                      label="الموقع الإلكتروني"
+                      value={clean(business.website)}
+                      href={website}
+                    />
+                  ) : null}
+                  {businessMap ? (
+                    <ContactLine
+                      icon={MapPin}
+                      label="الموقع"
+                      value={
+                        location || clean(business.address) || "فتح الخريطة"
+                      }
+                      href={businessMap}
+                    />
+                  ) : null}
+                </div>
+              ) : (
+                <EmptyState text="لم تتم إضافة بيانات تواصل بعد." />
+              )}
+            </AccordionRow> : null}
+          </section>
+          <footer className="mt-8 border-t border-[#e3eae8] px-1 py-6">
+            <Link
+              href="/"
+              className="flex items-center justify-between gap-4 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d]"
+              aria-label="أنشئ هويتك الرقمية عبر INFRO"
+            >
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] border border-[#e0e8e6] bg-white">
+                  <IrMark className="h-7" />
+                </span>
+                <p className="max-w-[210px] text-[10px] font-semibold leading-5 text-[#718583]">
+                  هوية رقمية وتسويقية موثوقة لمنشأتك
+                </p>
+              </div>
+              <span
+                className="shrink-0 text-[10px] font-black text-[#008f87]"
+                dir="ltr"
+              >
+                ir.sa
+              </span>
+            </Link>
+          </footer>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function Metric({
+  icon: Icon,
+  value,
+  label,
+  blue = false,
+}: {
+  icon: IconType;
+  value: string;
+  label: string;
+  blue?: boolean;
+}) {
+  return (
+    <div className="px-1 text-center">
+      <Icon
+        className={`mx-auto h-4 w-4 ${blue ? "fill-[#168af6] text-white" : "text-[#008f87]"}`}
+      />
+      <b className="mt-1.5 block text-[13px] text-[#102527]">{value}</b>
+      <span className="mt-0.5 block text-[9px] font-semibold text-[#718583]">
+        {label}
+      </span>
+    </div>
+  );
+}
+function QuickAction({
+  href,
+  onClick,
+  icon: Icon,
+  label,
+  primary,
+}: {
+  href?: string;
+  onClick?: () => void;
+  icon: IconType;
+  label: string;
+  primary?: boolean;
+}) {
+  const c = `group flex min-h-[60px] items-center justify-center gap-2.5 rounded-[16px] border px-3 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] active:scale-[.98] ${primary ? "col-span-3 border-[#073f3d] bg-[#073f3d] text-white shadow-[0_10px_24px_rgba(7,63,61,.14)] lg:col-span-1" : "col-span-1 border-[#dce7e5] bg-white text-[#19383b] hover:border-[#9eddd2]"}`;
+  const body = (
+    <>
+      <span
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${primary ? "bg-white/10 text-[#7bf1dc]" : "bg-[#eef8f6] text-[#008f87]"}`}
+      >
+        <Icon className="h-[17px] w-[17px]" />
+      </span>
+      <span>{label}</span>
+      {primary ? (
+        <ArrowUpLeft className="mr-auto h-4 w-4 text-[#7bf1dc] transition group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none" />
+      ) : null}
+    </>
+  );
+  return href ? (
+    <a
+      href={href}
+      target={href.startsWith("http") ? "_blank" : undefined}
+      rel={href.startsWith("http") ? "noreferrer" : undefined}
+      className={c}
+    >
+      {body}
+    </a>
+  ) : (
+    <button type="button" onClick={onClick} className={c}>
+      {body}
+    </button>
+  );
+}
+function AccordionRow({
+  order,
+  title,
+  subtitle,
+  icon: Icon,
+  open,
+  onClick,
+  children,
+}: {
+  order: number;
+  title: string;
+  subtitle: string;
+  icon: IconType;
+  open: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section style={{order}} className="overflow-hidden rounded-[16px] border border-[#e0e8e6] bg-white">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-expanded={open}
+        className="flex min-h-[70px] w-full items-center gap-3 px-4 py-3 text-right transition hover:bg-[#f7fbfa] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00a99d]"
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[12px] bg-[#eaf8f5] text-[#008f87]">
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <b className="block text-[13.5px] text-[#102527]">{title}</b>
+          <span className="mt-0.5 block text-[9.5px] font-semibold text-[#718583]">
+            {subtitle}
+          </span>
+        </span>
+        <span
+          className={`grid h-8 w-8 place-items-center rounded-full bg-[#f4f8f7] text-[#008f87] transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+        >
+          <ChevronDown className="h-4 w-4" />
+        </span>
+      </button>
+      {open ? (
+        <div className="border-t border-[#e5efed] px-3.5 pb-4 pt-3.5 sm:px-4">
+          {children}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+function ContactLine({
+  icon: Icon,
+  label,
+  value,
+  href,
+  green,
+}: {
+  icon: IconType;
+  label: string;
+  value: string;
+  href: string;
+  green?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      target={href.startsWith("http") ? "_blank" : undefined}
+      rel={href.startsWith("http") ? "noreferrer" : undefined}
+      className="flex min-h-14 items-center gap-3 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d]"
+    >
+      <span
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${green ? "bg-[#dff8ef] text-emerald-700" : "bg-white text-[#008f87]"}`}
+      >
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <b className="block text-[10px] text-[#667b79]">{label}</b>
+        <span className="mt-0.5 block truncate text-[12px] text-[#173437]">
+          {value}
+        </span>
+      </span>
+    </a>
+  );
+}
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-[#cfe1dd] bg-[#f3f8f7] px-4 py-5 text-center text-[11px] leading-5 text-[#718583]">
+      {text}
+    </div>
+  );
+}
