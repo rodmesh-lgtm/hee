@@ -38,10 +38,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const business = resolved?.business;
   if (!business || !business.isPublished || !(await canBusinessUsePublicSlug(business.id, normalizedSlug))) return {};
   const canonicalUrl = `https://ir.sa/${business.slug}`;
-  const title = business.metaTitle || `${business.name} | iR`;
+  const title = business.metaTitle || `${business.name} | INFRO`;
   const description = business.metaDescription || business.shortDescription || business.description || `صفحة ${business.name}`;
-  const socialImageUrl = absolutePublicAssetUrl(business.coverUrl) || absolutePublicAssetUrl(business.logoUrl);
-  return { title: { absolute: title }, description, alternates: { canonical: canonicalUrl }, openGraph: { title, description, type: "website", url: canonicalUrl, siteName: "iR", locale: "ar_SA", images: socialImageUrl ? [{ url: socialImageUrl, alt: business.name }] : undefined }, twitter: { card: socialImageUrl ? "summary_large_image" : "summary", title, description, images: socialImageUrl ? [socialImageUrl] : undefined }, ...(isPreviewQaEnvironment() ? { robots: { index: false, follow: false } } : { robots: { index: true, follow: true } }) };
+  const socialImageUrl = absolutePublicAssetUrl(business.logoUrl);
+  return { title: { absolute: title }, description, alternates: { canonical: canonicalUrl }, openGraph: { title, description, type: "website", url: canonicalUrl, siteName: "INFRO", locale: "ar_SA", images: socialImageUrl ? [{ url: socialImageUrl, alt: business.name }] : undefined }, twitter: { card: socialImageUrl ? "summary" : "summary", title, description, images: socialImageUrl ? [socialImageUrl] : undefined }, ...(isPreviewQaEnvironment() ? { robots: { index: false, follow: false } } : { robots: { index: true, follow: true } }) };
 }
 
 export default async function PublicBusinessPageRoute({ params }: { params: Promise<{ slug: string }> }) {
@@ -66,7 +66,9 @@ export default async function PublicBusinessPageRoute({ params }: { params: Prom
   ].filter((item): item is [string, string] => Boolean(item[1]));
   const socialUrls = [safeExternalUrl(business.website), ...socialLinks.map((item) => item[1])].filter((value): value is string => Boolean(value));
   const logoUrl = absolutePublicAssetUrl(business.logoUrl);
-  const imageUrl = absolutePublicAssetUrl(business.coverUrl) || logoUrl;
+  // Customer identity pages intentionally have no cover image. Keep social
+  // previews aligned with the same logo-first composition shown on the page.
+  const imageUrl = logoUrl;
   const hours = openingHoursSpecification(business.openingHours);
   const structuredData = { "@context": "https://schema.org", "@type": "LocalBusiness", "@id": `${canonicalUrl}#business`, name: business.name, ...(business.nameEn ? { alternateName: business.nameEn } : {}), url: canonicalUrl, ...(business.description || business.shortDescription ? { description: business.shortDescription || business.description } : {}), ...(logoUrl ? { logo: logoUrl } : {}), ...(imageUrl ? { image: imageUrl } : {}), ...(business.phone ? { telephone: business.phone } : {}), ...(business.email ? { email: business.email } : {}), ...(business.address || business.city || business.district ? { address: { "@type": "PostalAddress", ...(business.address ? { streetAddress: business.address } : {}), ...(business.district ? { addressLocality: business.district } : {}), ...(business.city ? { addressRegion: business.city } : {}), ...(business.country ? { addressCountry: business.country } : { addressCountry: "SA" }) } } : {}), ...(hours.length ? { openingHoursSpecification: hours } : {}), ...(socialUrls.length ? { sameAs: socialUrls } : {}) };
   const hasWorkingHours = publicBusiness.openingHours.some((item) => !item.isClosed && Boolean(item.opensAt && item.closesAt));
