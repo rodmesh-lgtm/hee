@@ -64,7 +64,6 @@ test("customer identity omits the cover and keeps platform controls floating", (
 
 test("customer identity presents a clear business profile with action-first hierarchy", () => {
   const renderer = source("components/public-business-page-v10-light.tsx");
-  assert.match(renderer, /BUSINESS IDENTITY/);
   assert.match(renderer, /ir\.sa\/\{business\.slug\}/);
   assert.match(renderer, /aria-label="هوية المنشأة"/);
   assert.match(renderer, /aria-label="إجراءات المنشأة"/);
@@ -73,7 +72,7 @@ test("customer identity presents a clear business profile with action-first hier
   assert.match(renderer, /EXPLORE/);
   assert.match(renderer, /تعرّف على المنشأة/);
   assert.match(renderer, /max-w-\[1080px\]/);
-  assert.doesNotMatch(renderer, /INFRO BUSINESS PASSPORT/);
+  assert.doesNotMatch(renderer, /INFRO BUSINESS PASSPORT|BUSINESS IDENTITY/);
   assert.match(renderer, /object-contain/);
   assert.doesNotMatch(renderer, /gridTemplateColumns/);
 });
