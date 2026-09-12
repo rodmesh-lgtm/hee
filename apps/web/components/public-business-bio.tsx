@@ -10,7 +10,7 @@ type Service={id:string|number;name?:string|null;description?:string|null;isActi
 type Branch={id:string|number;name?:string|null;city?:string|null;district?:string|null;address?:string|null;googleMapsLink?:string|null;isActive?:boolean|null};
 type Contact={id:string|number;name?:string|null;jobTitle?:string|null;imageUrl?:string|null;phone?:string|null;whatsapp?:string|null;email?:string|null;isActive?:boolean|null;department?:{name?:string|null}|null};
 type GalleryItem={id:string|number;imageUrl?:string|null;title?:string|null;isActive?:boolean|null};
-type Business={id:string|number;slug:string;name:string;description?:string|null;shortDescription?:string|null;businessCategory?:string|null;businessType?:string|null;city?:string|null;district?:string|null;phone?:string|null;whatsapp?:string|null;email?:string|null;website?:string|null;logoUrl?:string|null;googleMapsLink?:string|null;isVerified?:boolean|null;services?:Service[];branches?:Branch[];contactPersons?:Contact[];galleryItems?:GalleryItem[]};
+type Business={id:string|number;slug:string;name:string;nameEn?:string|null;description?:string|null;shortDescription?:string|null;businessCategory?:string|null;businessType?:string|null;city?:string|null;district?:string|null;address?:string|null;country?:string|null;phone?:string|null;whatsapp?:string|null;email?:string|null;website?:string|null;logoUrl?:string|null;coverUrl?:string|null;googleMapsLink?:string|null;workingHours?:string|null;openingHours?:unknown[];isVerified?:boolean|null;services?:Service[];branches?:Branch[];contactPersons?:Contact[];galleryItems?:GalleryItem[]};
 type Props={business:Business;publicUrl:string;pageModules?:PageModuleState[]};
 
 const clean=(v?:string|null)=>String(v??"").trim();
