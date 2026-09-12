@@ -27,6 +27,7 @@ function branchCount(n:number){if(n===1)return"فرع واحد";if(n===2)return"
 function teamCount(n:number){if(n===1)return"ممثل واحد للمنشأة";if(n===2)return"ممثّلان للمنشأة";return`${n} من ممثلي المنشأة`}
 function photoCount(n:number){if(n===1)return"صورة مختارة";if(n===2)return"صورتان مختارتان";return`${n} صور مختارة`}
 function methodCount(n:number){if(n===1)return"وسيلة تواصل واحدة";if(n===2)return"وسيلتا تواصل";return`${n} وسائل تواصل`}
+function activityFocus(value?:string|null){const v=clean(value).toLowerCase();if(/مطعم|مقهى|ضياف|فندق|hotel|restaurant|hospitality/.test(v))return{eyebrow:"CUSTOMER EXPERIENCE",title:"ابدأ تجربتك معنا",items:["الخدمات المتاحة","ساعات العمل","الحجز والتواصل"]};if(/نقل|لوجست|شحن|توصيل|logistics|transport/.test(v))return{eyebrow:"OPERATIONS",title:"الوصول والخدمة في الوقت المناسب",items:["الفروع ونقاط الخدمة","قنوات العمليات","تواصل سريع"]};if(/صناع|مقاول|مصنع|industrial|manufactur/.test(v))return{eyebrow:"CAPABILITIES",title:"حلول وخبرات المنشأة",items:["الخدمات والتخصصات","الملف التعريفي","تواصل المبيعات"]};if(/مهني|استشار|تقن|professional|consult/.test(v))return{eyebrow:"EXPERTISE",title:"تعرّف على خبرتنا",items:["مجالات العمل","فريق المنشأة","طلب استشارة"]};return{eyebrow:"BUSINESS IDENTITY",title:"كل ما تحتاجه عن المنشأة",items:["من نحن","خدماتنا","تواصل معنا"]}}
 
 export function PublicBusinessPageV10Light({business,publicUrl}:Props){
   const[openPanel,setOpenPanel]=useState<PanelKey|null>(null);
@@ -34,6 +35,7 @@ export function PublicBusinessPageV10Light({business,publicUrl}:Props){
   const phone=digits(business.phone),whatsapp=digits(business.whatsapp);
   const location=[clean(business.city),clean(business.district)].filter(Boolean).join("، ");
   const category=clean(business.businessCategory)||clean(business.businessType);
+  const focus=activityFocus(business.businessType||business.businessCategory);
   const about=clean(business.shortDescription)||clean(business.description);
   const logo=assetUrl(business.logoUrl),website=externalUrl(business.website);
   const businessMap=externalUrl(business.googleMapsLink)||googleMapSearch(location);
@@ -88,6 +90,7 @@ export function PublicBusinessPageV10Light({business,publicUrl}:Props){
       </div>
       <div className="px-5 pb-10 pt-5 sm:px-10 sm:pb-14 lg:px-14">
         <section aria-label="اعتمادات المنشأة" className="grid grid-cols-3 divide-x divide-x-reverse divide-[#e3eae8] border-b border-[#e3eae8] pb-5"><Metric icon={BadgeCheck} value={business.isVerified?"موثق":"رقمية"} label={business.isVerified?"هوية معتمدة":"هوية أعمال"} blue={Boolean(business.isVerified)}/><Metric icon={BriefcaseBusiness} value={String(activeServices.length)} label={activeServices.length===1?"خدمة":"خدمات"}/><Metric icon={MapPin} value={String(activeBranches.length)} label={activeBranches.length===1?"فرع":"فروع"}/></section>
+        <section aria-label="الأولوية حسب نشاط المنشأة" className="mt-5 rounded-[20px] border border-[#cfe7e2] bg-[linear-gradient(135deg,#f3fffc,#ffffff)] p-4 sm:p-5"><div className="flex items-start justify-between gap-4"><div><span className="text-[9px] font-black tracking-[.16em] text-[#008f87]" dir="ltr">{focus.eyebrow}</span><h2 className="mt-1 text-[17px] font-black text-[#0b282b] sm:text-lg">{focus.title}</h2></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#dff8f2] text-[#008f87]"><Sparkles className="h-4 w-4"/></span></div><div className="mt-3 grid gap-2 sm:grid-cols-3">{focus.items.map((item,index)=><div key={item} className="flex items-center gap-2 rounded-xl border border-[#dcece8] bg-white/80 px-3 py-2.5 text-[11px] font-bold text-[#315856]"><span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#e7f8f4] text-[9px] font-black text-[#008f87]">{index+1}</span>{item}</div>)}</div></section>
         <div data-public-highlights-slot className="mt-5"/>
         <div className="mb-4 mt-8 flex items-end justify-between gap-3"><div><span className="text-[9px] font-black tracking-[.17em] text-[#008f87]" dir="ltr">EXPLORE</span><h2 className="mt-1 text-[20px] font-black tracking-tight text-[#0b282b] sm:text-2xl">تعرّف على المنشأة</h2></div><span className="text-[10px] font-bold text-[#718583]">معلومات واضحة ومباشرة</span></div>
         <section className="grid gap-2.5 lg:grid-cols-2 lg:items-start">
