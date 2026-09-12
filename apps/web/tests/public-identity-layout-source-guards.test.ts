@@ -53,7 +53,7 @@ test("customer identity omits the cover and keeps platform controls floating", (
   const renderer = source("components/public-business-page-v10-light.tsx");
   assert.match(renderer, /pointer-events-none sticky top-0/);
   assert.match(renderer, /alt=\{`شعار \$\{business\.name\}`\}/);
-  assert.match(renderer, /min-h-screen overflow-x-clip bg-white/);
+  assert.match(renderer, /min-h-screen overflow-x-clip bg-\[#f7faf9\]/);
   assert.match(renderer, /fill-\[#168af6\]/);
   assert.doesNotMatch(renderer, /business\.coverUrl|صورة عرض|\bcover\?/);
   assert.doesNotMatch(renderer, /<header className="[^"]*bg-\[#061b1e\]/);
@@ -62,15 +62,18 @@ test("customer identity omits the cover and keeps platform controls floating", (
   assert.doesNotMatch(renderer, /shadow-\[0_0_70px/);
 });
 
-test("customer identity presents an INFRO passport with action-first pulse", () => {
+test("customer identity presents a clear business profile with action-first hierarchy", () => {
   const renderer = source("components/public-business-page-v10-light.tsx");
-  assert.match(renderer, /INFRO BUSINESS PASSPORT/);
+  assert.match(renderer, /BUSINESS IDENTITY/);
   assert.match(renderer, /ir\.sa\/\{business\.slug\}/);
   assert.match(renderer, /aria-label="هوية المنشأة"/);
   assert.match(renderer, /aria-label="إجراءات المنشأة"/);
   assert.match(renderer, /aria-label="اعتمادات المنشأة"/);
   assert.match(renderer, /تواصل عبر واتساب/);
-  assert.match(renderer, /BUSINESS RECORDS/);
+  assert.match(renderer, /EXPLORE/);
+  assert.match(renderer, /تعرّف على المنشأة/);
+  assert.match(renderer, /max-w-\[1080px\]/);
+  assert.doesNotMatch(renderer, /INFRO BUSINESS PASSPORT/);
   assert.match(renderer, /object-contain/);
   assert.doesNotMatch(renderer, /gridTemplateColumns/);
 });
