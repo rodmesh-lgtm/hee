@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizePageModulesInput } from "../app/lib/page-modules";
+import { applyActivityPagePreset, getDefaultPageModules, normalizePageModulesInput } from "../app/lib/page-modules";
 
 test("normalizes JSON page module payloads from form input", () => {
   const payload = JSON.stringify([
@@ -37,4 +37,16 @@ test("sanitizes unsafe business and careers URLs in contact module config", () =
 
   assert.equal(contact?.config.businessLinkUrl, "");
   assert.equal(contact?.config.careersExternalUrl, "");
+});
+
+test("activity presets change module priority while preserving configured content", () => {
+  const industrial = getDefaultPageModules("صناعة / مقاولات / صيانة");
+  assert.deepEqual(industrial.slice(0, 4).map((module) => module.id), ["services", "products", "companyProfile", "contactTeam"]);
+
+  const configured = industrial.map((module) => module.id === "companyProfile"
+    ? { ...module, config: { ...module.config, title: "ملفنا المؤسسي" } }
+    : module);
+  const professional = applyActivityPagePreset(configured, "استشارات / خدمات مهنية");
+  assert.deepEqual(professional.slice(0, 4).map((module) => module.id), ["services", "portfolio", "contactTeam", "companyProfile"]);
+  assert.equal(professional.find((module) => module.id === "companyProfile")?.config.title, "ملفنا المؤسسي");
 });

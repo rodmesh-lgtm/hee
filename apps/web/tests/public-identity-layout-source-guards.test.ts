@@ -48,3 +48,41 @@ test("customer business page uses only the approved compact iR mark", () => {
   assert.equal((renderer.match(/<IrMark\b/g) || []).length, 2);
   assert.doesNotMatch(renderer, /<IrLogo\b|showTagline/);
 });
+
+test("customer identity omits the cover and keeps platform controls floating", () => {
+  const renderer = source("components/public-business-page-v10-light.tsx");
+  assert.match(renderer, /pointer-events-none sticky top-0/);
+  assert.match(renderer, /alt=\{`شعار \$\{business\.name\}`\}/);
+  assert.match(renderer, /min-h-screen overflow-x-clip bg-\[#f7faf9\]/);
+  assert.match(renderer, /fill-\[#168af6\]/);
+  assert.doesNotMatch(renderer, /business\.coverUrl|صورة عرض|\bcover\?/);
+  assert.doesNotMatch(renderer, /<header className="[^"]*bg-\[#061b1e\]/);
+  assert.doesNotMatch(renderer, /linear-gradient\(155deg,#061b1e/);
+  assert.doesNotMatch(renderer, /bg-\[linear-gradient\(180deg,#fbfdfc/);
+  assert.doesNotMatch(renderer, /shadow-\[0_0_70px/);
+});
+
+test("customer identity presents a clear business profile with action-first hierarchy", () => {
+  const renderer = source("components/public-business-page-v10-light.tsx");
+  assert.match(renderer, /ir\.sa\/\{business\.slug\}/);
+  assert.match(renderer, /aria-label="هوية المنشأة"/);
+  assert.match(renderer, /aria-label="إجراءات المنشأة"/);
+  assert.match(renderer, /aria-label="اعتمادات المنشأة"/);
+  assert.match(renderer, /تواصل عبر واتساب/);
+  assert.match(renderer, /EXPLORE/);
+  assert.match(renderer, /تعرّف على المنشأة/);
+  assert.match(renderer, /max-w-\[1080px\]/);
+  assert.doesNotMatch(renderer, /INFRO BUSINESS PASSPORT|BUSINESS IDENTITY/);
+  assert.match(renderer, /object-contain/);
+  assert.doesNotMatch(renderer, /gridTemplateColumns/);
+});
+
+test("official social accounts use recognizable platform controls", () => {
+  const highlights = source("components/public/public-identity-highlights.tsx");
+  assert.match(highlights, /FaInstagram/);
+  assert.match(highlights, /FaXTwitter/);
+  assert.match(highlights, /FaTiktok/);
+  assert.match(highlights, /FaSnapchat/);
+  assert.match(highlights, /FaFacebookF/);
+  assert.match(highlights, /socialLinks\.slice\(0,5\)/);
+});

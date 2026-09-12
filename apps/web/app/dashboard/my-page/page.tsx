@@ -35,6 +35,7 @@ export default async function DashboardMyPage() {
   return <div className="space-y-5">
     <SimpleBusinessEditor business={{
       name: business.name,
+      businessType: business.businessType,
       shortDescription: business.shortDescription ?? "",
       description: business.description ?? "",
       phone: business.phone ?? "",
