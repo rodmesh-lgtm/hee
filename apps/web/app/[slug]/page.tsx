@@ -2,7 +2,7 @@ import { cache } from "react";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getBusinessPublic } from "../lib/public-business";
-import { PublicBusinessPageV10Light } from "../../components/public-business-page-v10-light";
+import { PublicBusinessBio } from "../../components/public-business-bio";
 import { PublicBusinessAnalytics } from "../../components/public-business-analytics";
 import { PublicIdentityHighlights } from "../../components/public/public-identity-highlights";
 import { PublicTransactionLauncher } from "../../components/public/public-transaction-launcher";
@@ -21,9 +21,6 @@ export const dynamic = "force-dynamic";
 const getPublicBusinessForRequest = cache((slug: string) =>
   getBusinessPublic(slug),
 );
-function makeQrUrl(url: string) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
-}
 function safeJsonLd(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
@@ -177,7 +174,6 @@ export default async function PublicBusinessPageRoute({
   );
   const canonicalUrl = `https://ir.sa/${business.slug}`;
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
-  const qrDataUrl = makeQrUrl(publicUrl);
   const socialLinks = [
     ["Instagram", safeExternalUrl(business.instagramUrl)],
     ["X", safeExternalUrl(business.xUrl)],
@@ -238,12 +234,11 @@ export default async function PublicBusinessPageRoute({
       />
       <PublicBusinessAnalytics slug={business.slug} />
       <div>
-        <PublicBusinessPageV10Light
-          business={publicBusiness}
-          qrDataUrl={qrDataUrl}
-          publicUrl={publicUrl}
-          pageModules={pageModules}
-        />
+      <PublicBusinessBio
+        business={publicBusiness}
+        publicUrl={publicUrl}
+        pageModules={pageModules}
+      />
       </div>
       <PublicIdentityHighlights
         companyProfileUrl={publicBusiness.companyProfileUrl}
