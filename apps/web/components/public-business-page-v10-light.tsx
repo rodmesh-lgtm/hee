@@ -59,7 +59,7 @@ export function PublicBusinessPageV10Light({business,publicUrl}:Props){
         <button type="button" onClick={()=>void share()} aria-label="مشاركة الصفحة" className="pointer-events-auto absolute right-3 top-3 grid h-12 w-12 place-items-center rounded-[17px] border border-white/80 bg-white/90 text-[#008f87] shadow-[0_10px_30px_rgba(7,37,39,.13)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] active:scale-95 motion-reduce:transition-none sm:right-5 sm:top-5"><Share2 className="h-[18px] w-[18px]"/></button>
       </div>
       <header className="px-5 pb-6 pt-20 sm:px-10 sm:pb-9 sm:pt-24 lg:px-14">
-        <section aria-label="هوية المنشأة" className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-end">
+        <section aria-label="هوية المنشأة">
           <div className="min-w-0">
             <div className="flex items-start gap-4 sm:gap-6">
               <div className="relative shrink-0">
@@ -73,15 +73,11 @@ export function PublicBusinessPageV10Light({business,publicUrl}:Props){
                   {location?<span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-[#008f87]"/>{location}</span>:null}
                   {openNow!==null?<span className={`inline-flex items-center gap-1.5 ${openNow?"text-emerald-700":"text-[#718583]"}`}><span className={`h-2 w-2 rounded-full ${openNow?"bg-emerald-500":"bg-slate-400"}`}/>{openNow?"مفتوح الآن":"مغلق الآن"}</span>:null}
                   {workingHours?<span className="hidden items-center gap-1.5 sm:inline-flex"><Clock3 className="h-3.5 w-3.5 text-[#008f87]"/>{workingHours}</span>:null}
+                  <span className="text-[#879795]" dir="ltr">ir.sa/{business.slug}</span>
                 </div>
               </div>
             </div>
             {about?<p className="mt-5 max-w-[680px] text-[13px] font-medium leading-7 text-[#4e6664] sm:text-[15px] sm:leading-8">{about}</p>:null}
-          </div>
-          <div className="hidden lg:block">
-            <span className="block text-[9px] font-black tracking-[.2em] text-[#008f87]" dir="ltr">BUSINESS IDENTITY</span>
-            <span className="mt-2 block truncate text-sm font-bold text-[#516966]" dir="ltr">ir.sa/{business.slug}</span>
-            <p className="mt-2 text-[11px] leading-5 text-[#82918f]">المرجع الرقمي الرسمي للمنشأة</p>
           </div>
         </section>
       </header>
