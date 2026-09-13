@@ -64,11 +64,15 @@ export function EmbeddedSignupButton({ appId, configId, graphVersion }: { appId:
   const launch = () => startTransition(async () => {
     setMessage(null);
     if (!sdkReady || !window.FB) { setMessage("تعذر تحميل واجهة Meta. حاول مجددًا."); return; }
-    const session = await startWhatsAppEmbeddedSignupAction();
-    if (!session.ok) { setMessage("تعذر إنشاء جلسة ربط آمنة."); return; }
     try {
+      // FB.login must run in the original click activation. Awaiting a server
+      // round trip first makes browsers treat Meta's window as an unsolicited
+      // popup and silently blocks Embedded Signup.
       const assetsPromise = waitForEmbeddedSignupAssets();
-      const [authorizationCode, assets] = await Promise.all([loginForCode(configId), assetsPromise]);
+      const authorizationCodePromise = loginForCode(configId);
+      const sessionPromise = startWhatsAppEmbeddedSignupAction();
+      const [session, authorizationCode, assets] = await Promise.all([sessionPromise, authorizationCodePromise, assetsPromise]);
+      if (!session.ok) { setMessage("تعذر إنشاء جلسة ربط آمنة."); return; }
       const result = await completeWhatsAppEmbeddedSignupAction({ state: session.state, authorizationCode, ...assets });
       setMessage(result.ok ? "تم التحقق من WABA والرقم وربطهما بنشاطك." : result.error === "asset-assigned" ? "هذه الأصول مرتبطة بنشاط آخر." : result.error === "asset-invalid" ? "الرقم لا يتبع حساب WABA المحدد." : "لم يكتمل الربط. يمكنك المحاولة مجددًا بأمان.");
     } catch {
