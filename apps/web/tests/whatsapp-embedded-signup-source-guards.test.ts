@@ -47,6 +47,15 @@ test("embedded signup client accepts only exact Meta origins and backend revalid
   assert.match(service, /ASSET_ID\.test\(input\.phoneNumberId\)/);
 });
 
+test("embedded signup opens Meta before yielding the browser click activation", () => {
+  const loginStart = client.indexOf("const authorizationCodePromise = loginForCode(configId)");
+  const firstAwait = client.indexOf("await Promise.all([sessionPromise, authorizationCodePromise, assetsPromise])");
+
+  assert.ok(loginStart >= 0, "Meta login must be started from the click handler");
+  assert.ok(firstAwait > loginStart, "Meta login must begin before the click handler yields");
+  assert.doesNotMatch(client, /await startWhatsAppEmbeddedSignupAction\(\)/);
+});
+
 test("Meta calls are bounded, no-store, bearer authenticated, and errors exclude provider payloads", () => {
   assert.match(service, /AbortSignal\.timeout\(GRAPH_TIMEOUT_MS\)/);
   assert.match(service, /cache: "no-store"/);
