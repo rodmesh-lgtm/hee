@@ -105,14 +105,14 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     setTarget(mount);
   }, []);
 
-  const closeBooking = () => {
+  const closeBooking = useCallback(() => {
     if (submittingRef.current) return;
     setBookingOpen(false);
     setError("");
     setSuccess("");
     setAvailabilityError("");
     bookingId.current = null;
-  };
+  }, []);
 
   useEffect(() => {
     if (!bookingOpen) return;
@@ -157,7 +157,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
       document.body.style.paddingRight = previousPaddingRight;
       bookingOpener?.focus();
     };
-  }, [bookingOpen]);
+  }, [bookingOpen, closeBooking]);
 
   useEffect(() => {
     if (!bookingOpen || !values.serviceId) {
@@ -281,7 +281,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
               <div className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-2">
                 {availabilityDays.map((day) => {
                   const selected = values.bookingDate === day.date;
-                  return <button key={day.date} type="button" disabled={!day.available} aria-pressed={selected} aria-label={day.available ? `اختيار ${dayName(day.date)} ${compactDate(day.date)}` : `${dayName(day.date)} ${compactDate(day.date)} غير متاح`} onClick={() => setValues((current) => ({ ...current, bookingDate: day.date, bookingTime: "" }))} className={`min-h-[72px] min-w-[82px] snap-start rounded-2xl border px-2 py-2 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#009eac] bg-[#e8fbfb] text-[#07545d] shadow-[0_7px_18px_rgba(0,158,172,.12)]" : day.available ? "border-[#d7e6e3] bg-white text-[#244246] hover:border-[#8dd9d3]" : "border-slate-100 bg-slate-50 text-slate-300"}`}>
+                  return <button key={day.date} type="button" data-booking-date={day.date} disabled={!day.available} aria-pressed={selected} aria-label={day.available ? `اختيار ${dayName(day.date)} ${compactDate(day.date)}` : `${dayName(day.date)} ${compactDate(day.date)} غير متاح`} onClick={() => setValues((current) => ({ ...current, bookingDate: day.date, bookingTime: "" }))} className={`min-h-[72px] min-w-[82px] snap-start rounded-2xl border px-2 py-2 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#009eac] bg-[#e8fbfb] text-[#07545d] shadow-[0_7px_18px_rgba(0,158,172,.12)]" : day.available ? "border-[#d7e6e3] bg-white text-[#244246] hover:border-[#8dd9d3]" : "border-slate-100 bg-slate-50 text-slate-300"}`}>
                     <span className="block text-[10px] font-bold">{dayName(day.date)}</span>
                     <b className="mt-1 block text-[11px]">{compactDate(day.date)}</b>
                     <span className={`mt-1 block text-[8px] font-black ${day.available ? "text-emerald-600" : "text-slate-300"}`}>{day.available ? `${day.slots.length} موعد` : "غير متاح"}</span>
@@ -295,7 +295,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {selectedDay.slots.map((time) => {
                   const selected = values.bookingTime === time;
-                  return <button key={time} type="button" aria-pressed={selected} aria-label={`موعد ${time}`} onClick={() => setValues((current) => ({ ...current, bookingTime: time }))} className={`relative min-h-11 rounded-xl border px-2 text-[11px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#008f9f] bg-[#073f43] text-white" : "border-[#d7e6e3] bg-[#f8fbfa] text-[#25474a] hover:border-[#8dd9d3]"}`}>
+                  return <button key={time} type="button" data-booking-time={time} aria-pressed={selected} aria-label={`موعد ${time}`} onClick={() => setValues((current) => ({ ...current, bookingTime: time }))} className={`relative min-h-11 rounded-xl border px-2 text-[11px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#008f9f] bg-[#073f43] text-white" : "border-[#d7e6e3] bg-[#f8fbfa] text-[#25474a] hover:border-[#8dd9d3]"}`}>
                     {selected ? <Check className="absolute left-1.5 top-1.5 h-3 w-3 text-[#68ead7]" /> : null}{displayTime(time)}
                   </button>;
                 })}
