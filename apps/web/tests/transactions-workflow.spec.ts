@@ -90,6 +90,7 @@ test.describe.serial("public transactions workflow", () => {
 
     try {
       await publicPage.goto(`${baseUrl}/${seeded.slug}`, { waitUntil: "domcontentloaded" });
+      await expect(publicPage.getByText("الرياض", { exact: true })).toHaveCount(0);
       const requestButton = publicPage.getByRole("button", { name: "طلب خدمة" });
       await expect(requestButton).toBeVisible();
       await requestButton.click();
@@ -132,8 +133,12 @@ test.describe.serial("public transactions workflow", () => {
       await bookingDialog.getByLabel("الاسم").fill("عميل اختبار");
       await bookingDialog.getByLabel("رقم الجوال").fill("0500000011");
       await bookingDialog.getByLabel("الخدمة").selectOption(seeded.serviceId);
-      await bookingDialog.getByLabel("التاريخ").fill(tomorrow);
-      await bookingDialog.getByLabel("الوقت").fill("10:00");
+      const tomorrowButton = bookingDialog.locator(`[data-booking-date="${tomorrow}"]`);
+      await expect(tomorrowButton).toBeEnabled({ timeout: 20_000 });
+      await tomorrowButton.click();
+      const tenOClock = bookingDialog.locator('[data-booking-time="10:00"]');
+      await expect(tenOClock).toBeVisible();
+      await tenOClock.click();
       await bookingSubmit.click();
       await expect(publicPage.getByText("تم تسجيل الحجز بنجاح وسيظهر مباشرة لدى المنشأة.")).toBeVisible({ timeout: 20_000 });
 
@@ -143,6 +148,15 @@ test.describe.serial("public transactions workflow", () => {
       expect(persisted?.status).toBe("pending");
       expect(persisted?.bookingDate).toBe(tomorrow);
       expect(persisted?.bookingTime).toBe("10:00");
+
+      const refreshedAvailability = await publicPage.request.get(
+        `${baseUrl}/api/public/bookings?slug=${seeded.slug}&serviceId=${seeded.serviceId}`,
+      );
+      expect(refreshedAvailability.status()).toBe(200);
+      const availabilityPayload = await refreshedAvailability.json() as { days: Array<{ date: string; available: boolean; slots: string[] }> };
+      const tomorrowAvailability = availabilityPayload.days.find((day) => day.date === tomorrow);
+      expect(tomorrowAvailability?.available).toBe(true);
+      expect(tomorrowAvailability?.slots).not.toContain("10:00");
 
       await setSession(ownerPage, seeded.sessionToken);
       await ownerPage.goto(`${baseUrl}/dashboard/inbox`, { waitUntil: "domcontentloaded" });
