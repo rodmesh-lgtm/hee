@@ -413,12 +413,6 @@ export function PublicBusinessPageV10Light({
                     </p>
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10.5px] font-bold text-[#526b68] sm:text-xs">
-                    {location ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 text-[#008f87]" />
-                        {location}
-                      </span>
-                    ) : null}
                     {openNow !== null ? (
                       <span
                         className={`inline-flex items-center gap-1.5 ${openNow ? "text-emerald-700" : "text-[#718583]"}`}
