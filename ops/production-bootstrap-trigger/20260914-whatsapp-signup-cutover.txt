@@ -1,0 +1,3 @@
+Release intent: promote the verified WhatsApp Embedded Signup popup activation fix after RC Quality succeeds.
+Previous verified release: c0a34641ef64e3ba971d572fcfe070ca1cda0c34
+Requested by project owner on 2026-09-14.
