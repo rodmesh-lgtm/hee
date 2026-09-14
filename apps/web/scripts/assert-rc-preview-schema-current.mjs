@@ -4,7 +4,7 @@ import pg from "pg";
 
 const vercelEnv = String(process.env.VERCEL_ENV ?? "").trim().toLowerCase();
 const gitRef = String(process.env.VERCEL_GIT_COMMIT_REF ?? "").trim();
-const previewSchemaRefs = new Set(["hee-v6-rc", "infro-business-memory-2026"]);
+const previewSchemaRefs = new Set(["hee-v6-rc", "infro-business-memory-2026", "refine/public-bio-priority-hierarchy"]);
 const isManagedPreview = vercelEnv === "preview" && previewSchemaRefs.has(gitRef);
 
 if (!isManagedPreview) {
