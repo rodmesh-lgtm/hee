@@ -94,7 +94,7 @@ test("digital identity assets, presence and public access follow ownership and p
       await anonymousPage.goto(`${baseUrl}/${business.slug}`, { waitUntil: "domcontentloaded" });
       await expect(anonymousPage).toHaveTitle("هوية رقمية تجريبية");
       await expect(anonymousPage.getByText("الملف التعريفي الرسمي")).toBeVisible();
-      await expect(anonymousPage.getByRole("link", { name: "فتح" })).toBeVisible();
+      await expect(anonymousPage.getByRole("link", { name: "عرض" })).toBeVisible();
       await expect(anonymousPage.getByText("حساباتنا الرسمية")).toBeVisible();
       await expect(anonymousPage.getByRole("link", { name: "حساب المنشأة على Instagram" })).toHaveAttribute("href", "https://instagram.com/hee.test");
       const publicPdf = await anonymousPage.request.get(`${baseUrl}${stored!.companyProfileUrl}`);
