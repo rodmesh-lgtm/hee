@@ -89,6 +89,131 @@ async function existingSubmission(businessId: string, idempotencyKey: string) {
   return rows[0]?.targetId ?? null;
 }
 
+const availabilityResponseHeaders = { "Cache-Control": "private, no-store, max-age=0" };
+
+function riyadhDateKey() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function dayOfWeekForDate(date: string) {
+  const localNoon = new Date(`${date}T12:00:00+03:00`);
+  return (localNoon.getUTCDay() + 6) % 7;
+}
+
+function timeFromMinutes(minutes: number) {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+export async function GET(request: Request) {
+  const requestUrl = new URL(request.url);
+  const slug = normalizePublicSlug(requestUrl.searchParams.get("slug") ?? "");
+  const serviceId = text(requestUrl.searchParams.get("serviceId"), 80);
+  if (!slug || !serviceId) {
+    return NextResponse.json({ ok: false, error: "اختر خدمة لعرض المواعيد" }, { status: 400, headers: availabilityResponseHeaders });
+  }
+
+  try {
+    const business = await db.business.findFirst({
+      where: {
+        slug,
+        deletedAt: null,
+        isPublished: true,
+        bookingAvailable: true,
+        owner: { deletedAt: null, emailVerifiedAt: { not: null } },
+      },
+      select: {
+        id: true,
+        openingHours: {
+          select: { dayOfWeek: true, opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
+        },
+        services: {
+          where: { id: serviceId, deletedAt: null, isActive: true, bookingEnabled: true },
+          select: { id: true, durationMinutes: true },
+          take: 1,
+        },
+      },
+    });
+    const service = business?.services[0];
+    if (!business || !service) {
+      return NextResponse.json({ ok: false, error: "الحجز أو الخدمة غير متاحين" }, { status: 409, headers: availabilityResponseHeaders });
+    }
+
+    const today = riyadhDateKey();
+    const lastDay = shiftBookingDate(today, 29);
+    const queryStart = shiftBookingDate(today, -1);
+    const queryEnd = shiftBookingDate(lastDay, 1);
+    const existingBookings = await db.$queryRaw<ExistingBookingRange[]>`
+      SELECT
+        b."id",
+        b."bookingDate",
+        b."bookingTime",
+        COALESCE(
+          snapshot."durationMinutes",
+          CASE WHEN linked_service."durationMinutes" BETWEEN 5 AND 1440 THEN linked_service."durationMinutes" ELSE 30 END
+        )::int AS "durationMinutes"
+      FROM "Booking" b
+      LEFT JOIN "BookingDurationSnapshot" snapshot ON snapshot."bookingId" = b."id"
+      LEFT JOIN "Service" linked_service ON linked_service."id" = b."serviceId"
+      WHERE b."businessId" = ${business.id}
+        AND b."serviceId" = ${service.id}
+        AND b."status" IN ('pending', 'confirmed')
+        AND b."bookingDate" >= ${queryStart}
+        AND b."bookingDate" <= ${queryEnd}
+    `;
+
+    const durationMinutes = normalizedBookingDuration(service.durationMinutes);
+    const schedules = new Map(business.openingHours.map((item) => [item.dayOfWeek, item]));
+    const minimumStart = Date.now() + 5 * 60 * 1000;
+    const days = Array.from({ length: 30 }, (_, offset) => {
+      const date = shiftBookingDate(today, offset);
+      const dayOfWeek = dayOfWeekForDate(date);
+      const schedule = schedules.get(dayOfWeek) ?? null;
+      const previousSchedule = schedules.get(previousDay(dayOfWeek)) ?? null;
+      const previousDate = shiftBookingDate(date, -1);
+      const nextDate = shiftBookingDate(date, 1);
+      const dateOffsets = new Map([[previousDate, -1440], [date, 0], [nextDate, 1440]]);
+      const slots: string[] = [];
+
+      for (let minute = 0; minute < 1440; minute += 30) {
+        const time = timeFromMinutes(minute);
+        const start = riyadhDate(date, time);
+        if (!start || start.getTime() < minimumStart) continue;
+        const insideSchedule =
+          bookingWithinWorkingHours(time, durationMinutes, schedule) ||
+          bookingWithinPreviousOvernightWorkingHours(time, durationMinutes, previousSchedule);
+        if (!insideSchedule) continue;
+        const overlaps = existingBookings.some((item) => {
+          const offsetMinutes = dateOffsets.get(item.bookingDate);
+          if (offsetMinutes === undefined) return false;
+          const existingStart = offsetMinutes + bookingMinutes(item.bookingTime);
+          return bookingIntervalsOverlap(minute, durationMinutes, existingStart, normalizedBookingDuration(item.durationMinutes));
+        });
+        if (!overlaps) slots.push(time);
+      }
+
+      return { date, dayOfWeek, available: slots.length > 0, slots };
+    });
+
+    return NextResponse.json(
+      { ok: true, timezone: "Asia/Riyadh", durationMinutes, days },
+      { headers: availabilityResponseHeaders },
+    );
+  } catch (error) {
+    console.error("[public-booking] availability_lookup_failed", error);
+    return NextResponse.json(
+      { ok: false, error: "تعذر تحميل المواعيد المتاحة الآن" },
+      { status: 503, headers: { ...availabilityResponseHeaders, "Retry-After": "30" } },
+    );
+  }
+}
+
 export async function POST(request: Request) {
   let body: BookingPayload;
   try {
