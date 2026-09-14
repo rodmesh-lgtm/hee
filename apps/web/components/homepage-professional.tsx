@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import Script from "next/script";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BadgeCheck, BarChart3, Building2, Check, CheckCircle2, Eye, Link2, Loader2, Menu, MessageCircle, Palette, PhoneCall, ShieldCheck, Sparkles, X, XCircle } from "lucide-react";
 import { IrLogo } from "./brand/ir-logo";
@@ -19,6 +21,11 @@ const samples = [
   ["متجر", "المنتجات · التواصل · الفروع", "◆"],
   ["شركة خدمات", "الخدمات · الفريق · التواصل", "◈"],
 ];
+
+const trustSeal = {
+  certificateNumber: "0000321894",
+  token: "M2J3UGwxOXk4OVpzT2F1bW1zSVI0Zz09",
+} as const;
 
 function Logo({ header = false }: { header?: boolean }) {
   return <IrLogo className={header ? "h-9 sm:h-11" : "h-10"} priority={header} />;
@@ -139,6 +146,28 @@ export function HomepageProfessional() {
 
     <section className="px-4 pb-16 sm:px-6 sm:pb-20"><div className="mx-auto max-w-5xl rounded-[32px] border border-[#d7e9e7] bg-[linear-gradient(135deg,#f5fffd,#fff)] p-7 text-center sm:p-10"><Sparkles className="mx-auto h-8 w-8 text-[#008f87]"/><h2 className="mt-3 text-2xl font-black sm:text-3xl">اسم منشأتك يستحق رابطًا يليق بها.</h2><p className="mx-auto mt-3 max-w-xl leading-7 text-slate-600">تحقق من توفره الآن وابدأ بناء حضورك الرقمي والتسويقي على INFRO.</p><Link href="#home" className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#008f87] px-7 font-black text-white">تحقق من اسم رابطك <ArrowLeft className="h-4 w-4"/></Link></div></section>
 
-    <footer className="bg-[#061619] px-4 py-10 text-white sm:px-6"><div className="mx-auto flex max-w-6xl flex-col gap-7 md:flex-row md:items-center md:justify-between"><div><Logo/><p className="mt-3 max-w-md text-sm leading-7 text-white/60">INFRO منصة سعودية لهويتك الرقمية والتسويقية. اجمع حضور منشأتك وأدوات عملك في مساحة واحدة مترابطة.</p></div><div className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-bold text-white/70"><Link href="#about">عن INFRO</Link><Link href="/privacy">سياسة الخصوصية</Link><Link href="/terms">الشروط والأحكام</Link><Link href="/contact">تواصل معنا</Link><Link href="/login">تسجيل الدخول</Link></div></div></footer>
+    <footer className="bg-[#061619] px-4 py-10 text-white sm:px-6">
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-col gap-7 md:flex-row md:items-center md:justify-between">
+          <div><Logo/><p className="mt-3 max-w-md text-sm leading-7 text-white/60">INFRO منصة سعودية لهويتك الرقمية والتسويقية. اجمع حضور منشأتك وأدوات عملك في مساحة واحدة مترابطة.</p></div>
+          <div className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-bold text-white/70"><Link href="#about">عن INFRO</Link><Link href="/privacy">سياسة الخصوصية</Link><Link href="/terms">الشروط والأحكام</Link><Link href="/contact">تواصل معنا</Link><Link href="/login">تسجيل الدخول</Link></div>
+        </div>
+        <div className="mt-8 border-t border-white/10 pt-6" aria-label="توثيق المتجر الإلكتروني">
+          <a
+            href={`https://eauthenticate.saudibusiness.gov.sa/certificate-details/${trustSeal.certificateNumber}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mx-auto flex w-fit min-w-44 flex-col items-center justify-center rounded-2xl px-5 py-3 text-center text-sm font-bold text-white/80 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300 sm:mx-0"
+            aria-label="عرض شهادة توثيق INFRO لدى المركز السعودي للأعمال"
+          >
+            <Image src="/images/sbc.png" alt="المركز السعودي للأعمال" width="72" height="52" loading="lazy" className="mb-1.5 h-[52px] w-[72px] object-contain" />
+            <span>موثق لدى منصة الأعمال</span>
+            <span className="mt-1 text-[11px] font-medium leading-none text-white/55 tabular-nums" dir="rtl">رقم الشهادة: {trustSeal.certificateNumber}</span>
+          </a>
+          <div className="sbc-verify-seal h-0 overflow-hidden" data-token={trustSeal.token} data-position="bottom-left" aria-hidden="true" />
+          <Script id="saudi-business-trust-seal" src="https://eauthenticate.saudibusiness.gov.sa/EAuthSealApi/seal.js" strategy="afterInteractive" />
+        </div>
+      </div>
+    </footer>
   </main>;
 }

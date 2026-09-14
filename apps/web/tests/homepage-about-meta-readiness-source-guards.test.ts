@@ -29,3 +29,11 @@ test("official contact number is visible and actionable without ambiguity", () =
   assert.match(homepage, /href="https:\/\/wa\.me\/966564212464"/);
   assert.equal((homepage.match(/0564212464/g) ?? []).length, 1);
 });
+
+test("homepage footer publishes the official Saudi Business Center trust seal", () => {
+  assert.match(homepage, /<footer[\s\S]*className="sbc-verify-seal [^"]*"/);
+  assert.match(homepage, /M2J3UGwxOXk4OVpzT2F1bW1zSVI0Zz09/);
+  assert.match(homepage, /رقم الشهادة: \{trustSeal\.certificateNumber\}/);
+  assert.match(homepage, /0000321894/);
+  assert.match(homepage, /eauthenticate\.saudibusiness\.gov\.sa\/EAuthSealApi\/seal\.js/);
+});
