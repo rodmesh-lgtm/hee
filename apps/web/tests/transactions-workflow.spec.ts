@@ -16,6 +16,10 @@ function riyadhDateKey(offsetDays: number) {
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
+function horizontalOverflow(page: Page) {
+  return page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+}
+
 function dayIndexForRiyadhDate(date: string) {
   const localNoon = new Date(`${date}T12:00:00+03:00`);
   return (localNoon.getUTCDay() + 6) % 7;
