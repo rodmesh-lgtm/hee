@@ -17,7 +17,6 @@ import {
   MessageCircle,
   Phone,
   Share2,
-  Sparkles,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -196,7 +195,7 @@ function activityFocus(value?: string | null) {
       items: ["مجالات العمل", "فريق المنشأة", "طلب استشارة"],
     };
   return {
-    eyebrow: "BUSINESS IDENTITY",
+    eyebrow: "هوية المنشأة",
     title: "كل ما تحتاجه عن المنشأة",
     items: ["من نحن", "خدماتنا", "تواصل معنا"],
   };
@@ -375,7 +374,7 @@ export function PublicBusinessPageV10Light({
               <div className="flex items-start gap-4 sm:gap-6">
                 <div className="relative shrink-0">
                   <div className="relative grid h-[88px] w-[88px] place-items-center overflow-hidden rounded-[24px] border border-[#dce7e5] bg-white p-2 shadow-[0_12px_34px_rgba(7,37,39,.09)] sm:h-[112px] sm:w-[112px] sm:rounded-[30px]">
-                    <Sparkles className="h-7 w-7 text-[#00a99d]" />
+                    <span aria-hidden="true" className="text-2xl font-black text-[#008f87]">{business.name.trim().charAt(0)}</span>
                     {logo ? (
                       <img
                         src={logo}
@@ -516,7 +515,7 @@ export function PublicBusinessPageV10Light({
                 </h2>
               </div>
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#dff8f2] text-[#008f87]">
-                <Sparkles className="h-4 w-4" />
+                <BriefcaseBusiness className="h-4 w-4" />
               </span>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
