@@ -328,10 +328,14 @@ export async function POST(request: Request) {
 
   const localNoon = new Date(`${bookingDate}T12:00:00+03:00`);
   const dayOfWeek = (localNoon.getUTCDay() + 6) % 7;
-  let schedule: { opensAt: string | null; closesAt: string | null; secondOpensAt: string | null; secondClosesAt: string | null; isClosed: boolean } | null;
-  let previousSchedule: typeof schedule;
+  type Schedule = Omit<WorkingHoursState, "dayOfWeek">;
+  let schedule: Schedule | null;
+  let previousSchedule: Schedule | null;
+  let dateOverride: AvailabilityOverrideState | null;
+  let previousDateOverride: AvailabilityOverrideState | null;
+  const previousBookingDate = shiftBookingDate(bookingDate, -1);
   try {
-    [schedule, previousSchedule] = await Promise.all([
+    [schedule, previousSchedule, dateOverride, previousDateOverride] = await Promise.all([
       db.workingHours.findUnique({
         where: { businessId_dayOfWeek: { businessId: business.id, dayOfWeek } },
         select: { opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
@@ -340,15 +344,36 @@ export async function POST(request: Request) {
         where: { businessId_dayOfWeek: { businessId: business.id, dayOfWeek: previousDay(dayOfWeek) } },
         select: { opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
       }),
+      db.bookingAvailabilityOverride.findUnique({
+        where: { businessId_date: { businessId: business.id, date: bookingDate } },
+        select: { date: true, opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
+      }),
+      db.bookingAvailabilityOverride.findUnique({
+        where: { businessId_date: { businessId: business.id, date: previousBookingDate } },
+        select: { date: true, opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
+      }),
     ]);
   } catch (error) {
     console.error("[public-booking] schedule_lookup_failed", error);
     return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
   }
-  const inTodayWindow = bookingWithinWorkingHours(bookingTime, durationMinutes, schedule);
-  const inPreviousOvernightWindow = bookingWithinPreviousOvernightWorkingHours(bookingTime, durationMinutes, previousSchedule);
-  if (!inTodayWindow && !inPreviousOvernightWindow) {
-    return NextResponse.json({ ok: false, error: schedule || previousSchedule ? "مدة الخدمة لا تقع بالكامل داخل ساعات العمل" : "لم يتم ضبط ساعات العمل لهذا اليوم" }, { status: 409 });
+  const insideResolvedSchedule = bookingInsideResolvedSchedule(
+    bookingTime,
+    durationMinutes,
+    dateOverride,
+    schedule,
+    previousDateOverride,
+    previousSchedule,
+  );
+  if (!insideResolvedSchedule) {
+    return NextResponse.json({
+      ok: false,
+      error: dateOverride?.isClosed
+        ? "هذا التاريخ مغلق للحجز"
+        : schedule || previousSchedule || dateOverride || previousDateOverride
+          ? "مدة الخدمة لا تقع بالكامل داخل الأوقات المتاحة"
+          : "لم يتم ضبط أوقات الحجز لهذا اليوم",
+    }, { status: 409 });
   }
 
   try {
@@ -414,14 +439,28 @@ export async function POST(request: Request) {
           AND "dayOfWeek" IN (${dayOfWeek}, ${previousDayOfWeek})
         FOR SHARE
       `;
+      const currentOverrides = await tx.$queryRaw<AvailabilityOverrideState[]>`
+        SELECT "date", "opensAt", "closesAt", "secondOpensAt", "secondClosesAt", "isClosed"
+        FROM "BookingAvailabilityOverride"
+        WHERE "businessId" = ${business.id}
+          AND "date" IN (${bookingDate}, ${previousBookingDate})
+        FOR SHARE
+      `;
       const hoursByDay = new Map(currentHours.map((item) => [item.dayOfWeek, item]));
+      const overridesByDate = new Map(currentOverrides.map((item) => [item.date, item]));
       const currentSchedule = hoursByDay.get(dayOfWeek) ?? null;
       const currentPreviousSchedule = hoursByDay.get(previousDayOfWeek) ?? null;
-      const currentInTodayWindow = bookingWithinWorkingHours(bookingTime, currentDurationMinutes, currentSchedule);
-      const currentInPreviousOvernightWindow = bookingWithinPreviousOvernightWorkingHours(bookingTime, currentDurationMinutes, currentPreviousSchedule);
-      if (!currentInTodayWindow && !currentInPreviousOvernightWindow) throw new Error("PUBLIC_BOOKING_SCHEDULE_CHANGED");
+      const currentDateOverride = overridesByDate.get(bookingDate) ?? null;
+      const currentPreviousDateOverride = overridesByDate.get(previousBookingDate) ?? null;
+      if (!bookingInsideResolvedSchedule(
+        bookingTime,
+        currentDurationMinutes,
+        currentDateOverride,
+        currentSchedule,
+        currentPreviousDateOverride,
+        currentPreviousSchedule,
+      )) throw new Error("PUBLIC_BOOKING_SCHEDULE_CHANGED");
 
-      const previousBookingDate = shiftBookingDate(bookingDate, -1);
       const nextBookingDate = shiftBookingDate(bookingDate, 1);
       const existingBookings = await tx.$queryRaw<ExistingBookingRange[]>`
         SELECT
