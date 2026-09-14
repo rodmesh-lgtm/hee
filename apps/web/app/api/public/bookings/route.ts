@@ -33,6 +33,29 @@ type WorkingHoursState = {
   isClosed: boolean;
 };
 
+type AvailabilityOverrideState = Omit<WorkingHoursState, "dayOfWeek"> & {
+  date: string;
+};
+
+function bookingInsideResolvedSchedule(
+  time: string,
+  durationMinutes: number,
+  dateOverride: AvailabilityOverrideState | null,
+  weeklySchedule: Omit<WorkingHoursState, "dayOfWeek"> | null,
+  previousDateOverride: AvailabilityOverrideState | null,
+  previousWeeklySchedule: Omit<WorkingHoursState, "dayOfWeek"> | null,
+) {
+  if (dateOverride) return bookingWithinWorkingHours(time, durationMinutes, dateOverride);
+  return (
+    bookingWithinWorkingHours(time, durationMinutes, weeklySchedule) ||
+    bookingWithinPreviousOvernightWorkingHours(
+      time,
+      durationMinutes,
+      previousDateOverride ?? previousWeeklySchedule,
+    )
+  );
+}
+
 function text(value: unknown, max: number) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized.length <= max ? normalized : null;
@@ -119,6 +142,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: "اختر خدمة لعرض المواعيد" }, { status: 400, headers: availabilityResponseHeaders });
   }
 
+  const today = riyadhDateKey();
+  const lastDay = shiftBookingDate(today, 29);
+
   try {
     const business = await db.business.findFirst({
       where: {
@@ -133,6 +159,10 @@ export async function GET(request: Request) {
         openingHours: {
           select: { dayOfWeek: true, opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
         },
+        bookingAvailabilityOverrides: {
+          where: { date: { gte: shiftBookingDate(today, -1), lte: lastDay } },
+          select: { date: true, opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
+        },
         services: {
           where: { id: serviceId, deletedAt: null, isActive: true, bookingEnabled: true },
           select: { id: true, durationMinutes: true },
@@ -145,8 +175,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة غير متاحين" }, { status: 409, headers: availabilityResponseHeaders });
     }
 
-    const today = riyadhDateKey();
-    const lastDay = shiftBookingDate(today, 29);
     const queryStart = shiftBookingDate(today, -1);
     const queryEnd = shiftBookingDate(lastDay, 1);
     const existingBookings = await db.$queryRaw<ExistingBookingRange[]>`
@@ -170,6 +198,7 @@ export async function GET(request: Request) {
 
     const durationMinutes = normalizedBookingDuration(service.durationMinutes);
     const schedules = new Map(business.openingHours.map((item) => [item.dayOfWeek, item]));
+    const overrides = new Map(business.bookingAvailabilityOverrides.map((item) => [item.date, item]));
     const minimumStart = Date.now() + 5 * 60 * 1000;
     const days = Array.from({ length: 30 }, (_, offset) => {
       const date = shiftBookingDate(today, offset);
@@ -177,6 +206,8 @@ export async function GET(request: Request) {
       const schedule = schedules.get(dayOfWeek) ?? null;
       const previousSchedule = schedules.get(previousDay(dayOfWeek)) ?? null;
       const previousDate = shiftBookingDate(date, -1);
+      const dateOverride = overrides.get(date) ?? null;
+      const previousDateOverride = overrides.get(previousDate) ?? null;
       const nextDate = shiftBookingDate(date, 1);
       const dateOffsets = new Map([[previousDate, -1440], [date, 0], [nextDate, 1440]]);
       const slots: string[] = [];
@@ -185,9 +216,14 @@ export async function GET(request: Request) {
         const time = timeFromMinutes(minute);
         const start = riyadhDate(date, time);
         if (!start || start.getTime() < minimumStart) continue;
-        const insideSchedule =
-          bookingWithinWorkingHours(time, durationMinutes, schedule) ||
-          bookingWithinPreviousOvernightWorkingHours(time, durationMinutes, previousSchedule);
+        const insideSchedule = bookingInsideResolvedSchedule(
+          time,
+          durationMinutes,
+          dateOverride,
+          schedule,
+          previousDateOverride,
+          previousSchedule,
+        );
         if (!insideSchedule) continue;
         const overlaps = existingBookings.some((item) => {
           const offsetMinutes = dateOffsets.get(item.bookingDate);
