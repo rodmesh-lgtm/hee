@@ -17,7 +17,7 @@ test("Preview schema gate is scoped to Vercel Preview and explicitly approved re
   assert.match(source, /VERCEL_ENV/);
   assert.match(source, /VERCEL_GIT_COMMIT_REF/);
   assert.match(source, /vercelEnv === "preview"/);
-  assert.match(source, /new Set\(\["hee-v6-rc", "infro-business-memory-2026"\]\)/);
+  assert.match(source, /new Set\(\["hee-v6-rc", "infro-business-memory-2026", "refine\\/public-bio-priority-hierarchy"\]\)/);
   assert.match(source, /previewSchemaRefs\.has\(gitRef\)/);
   assert.match(source, /DATABASE_URL is unavailable/);
 });
