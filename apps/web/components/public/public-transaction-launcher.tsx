@@ -159,20 +159,33 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     };
   }, [bookingOpen, closeBooking]);
 
-  useEffect(() => {
-    if (!bookingOpen || !values.serviceId) {
-      setAvailabilityState("idle");
-      setAvailabilityDays([]);
-      setAvailabilityError("");
-      setDurationMinutes(null);
-      return;
-    }
+  function openBooking() {
+    setAvailabilityState("idle");
+    setAvailabilityDays([]);
+    setAvailabilityError("");
+    setDurationMinutes(null);
+    setValues((current) => ({ ...current, serviceId: "", bookingDate: "", bookingTime: "" }));
+    setBookingOpen(true);
+  }
 
-    const controller = new AbortController();
+  function selectService(serviceId: string) {
+    setAvailabilityState(serviceId ? "loading" : "idle");
+    setAvailabilityDays([]);
+    setAvailabilityError("");
+    setDurationMinutes(null);
+    setValues((current) => ({ ...current, serviceId, bookingDate: "", bookingTime: "" }));
+  }
+
+  function retryAvailability() {
     setAvailabilityState("loading");
     setAvailabilityError("");
-    setValues((current) => ({ ...current, bookingDate: "", bookingTime: "" }));
+    setAvailabilityVersion((current) => current + 1);
+  }
 
+  useEffect(() => {
+    if (!bookingOpen || !values.serviceId) return;
+
+    const controller = new AbortController();
     const query = new URLSearchParams({ slug, serviceId: values.serviceId });
     fetch(`/api/public/bookings?${query.toString()}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
@@ -231,6 +244,8 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
       if (!response.ok) {
         setError(payload?.error || "تعذر تسجيل الحجز الآن. حاول مرة أخرى.");
         setValues((current) => ({ ...current, bookingTime: "" }));
+        setAvailabilityState("loading");
+        setAvailabilityError("");
         setAvailabilityVersion((current) => current + 1);
         return;
       }
@@ -248,7 +263,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
   const content = <>
     <div dir="rtl" className="relative z-20 mx-auto flex w-full gap-2 rounded-[20px] border border-[#cfe5e1] bg-white p-2.5 shadow-[0_14px_36px_rgba(3,55,58,.12)] sm:w-[calc(100%-5rem)]" aria-label="إجراءات الطلب والحجز">
       {canRequest ? <button onClick={() => setRequestOpen(true)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#00b99f,#00a6bd)] px-4 text-sm font-black text-[#041b1d] shadow-[0_9px_24px_rgba(0,203,178,.2)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><MessageCircle className="h-4 w-4" />طلب خدمة</button> : null}
-      {canBook ? <button ref={bookingOpenerRef} onClick={() => setBookingOpen(true)} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#d6e9e8] bg-[#eef7f8] px-4 text-sm font-black text-[#12384a] transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><CalendarDays className="h-4 w-4 text-[#008f9f]" />حجز موعد</button> : null}
+      {canBook ? <button ref={bookingOpenerRef} onClick={openBooking} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl border border-[#d6e9e8] bg-[#eef7f8] px-4 text-sm font-black text-[#12384a] transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><CalendarDays className="h-4 w-4 text-[#008f9f]" />حجز موعد</button> : null}
     </div>
 
     {canRequest ? <PublicActionDialog open={requestOpen} onClose={() => setRequestOpen(false)} mode="request" businessName={businessName} whatsapp={whatsapp} phone={phone} title="طلب خدمة" description="سنسجل طلبك داخل INFRO ثم نجهز التواصل مع المنشأة." ctaLabel="تسجيل الطلب والمتابعة" /> : null}
@@ -267,14 +282,14 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
 
           <label className="grid gap-1.5 text-xs font-bold text-slate-600">
             <span>الخدمة</span>
-            <select aria-label="الخدمة" value={values.serviceId} onChange={(event) => setValues((current) => ({ ...current, serviceId: event.target.value, bookingDate: "", bookingTime: "" }))} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15">
+            <select aria-label="الخدمة" value={values.serviceId} onChange={(event) => selectService(event.target.value)} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15">
               <option value="">اختر الخدمة</option>
               {bookableServices.map((service) => <option key={service.id} value={service.id}>{service.name}{service.durationMinutes ? ` · ${service.durationMinutes} دقيقة` : ""}</option>)}
             </select>
           </label>
 
           {availabilityState === "loading" ? <div role="status" className="flex min-h-24 items-center justify-center gap-2 rounded-2xl border border-[#dce9e6] bg-[#f7fbfa] text-xs font-bold text-[#58726f]"><LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" />جارٍ تحميل المواعيد المتاحة</div> : null}
-          {availabilityState === "error" ? <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-6 text-amber-800"><p>{availabilityError}</p><button type="button" onClick={() => setAvailabilityVersion((current) => current + 1)} className="mt-2 min-h-10 rounded-xl border border-amber-300 bg-white px-3">إعادة المحاولة</button></div> : null}
+          {availabilityState === "error" ? <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-6 text-amber-800"><p>{availabilityError}</p><button type="button" onClick={retryAvailability} className="mt-2 min-h-10 rounded-xl border border-amber-300 bg-white px-3">إعادة المحاولة</button></div> : null}
           {availabilityState === "ready" ? <>
             <fieldset aria-label="التاريخ" className="min-w-0">
               <div className="mb-2 flex items-center justify-between gap-3"><legend className="text-xs font-black text-slate-700">اختر اليوم</legend><span className="text-[10px] font-bold text-slate-400">30 يومًا قادمة</span></div>
