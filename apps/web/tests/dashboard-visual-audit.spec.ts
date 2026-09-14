@@ -137,7 +137,8 @@ async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepag
       await expect(page.getByRole("heading",{name:"شركة الرواد للمقاولات"})).toBeVisible();
       await expect(page.locator('section[aria-labelledby="intent-title"]')).toBeVisible();
       await expect(page.getByRole("heading",{name:"أبرز ما نقدمه"})).toBeVisible();
-      expect(await page.locator("[data-public-highlights-slot]").count()).toBe(1);
+      expect(await page.locator("[data-public-social-slot]").count()).toBe(1);
+      expect(await page.locator("[data-public-profile-slot]").count()).toBe(1);
     }else if(input.name==="register"){
       await expect(page.getByRole("heading",{name:"إنشاء حساب INFRO"})).toBeVisible();
       await expect(page.getByRole("link",{name:/Google/})).toBeVisible();
