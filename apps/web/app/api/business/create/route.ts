@@ -9,6 +9,7 @@ import { isValidPublicSlug, normalizePublicSlug } from "../../../lib/public-url"
 import { getPlanEntitlements } from "../../../lib/plan-entitlements";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
+import { getDefaultPageModules, serializePageModules } from "../../../lib/page-modules";
 
 async function ensureBusinessPlan(code: "FREE" | "BUSINESS" | "PRO") {
   const planNameMap = { FREE: "Free", BUSINESS: "Business", PRO: "Pro" } as const;
@@ -77,7 +78,8 @@ export async function POST(request: Request) {
         for (let attempt = 0; attempt < 5 && slugTaken; attempt += 1) { finalSlug = generatedPublicSlug(); if (!isValidPublicSlug(finalSlug)) continue; slugTaken = await slugReservedInTransaction(tx, finalSlug); }
         if (slugTaken || !isValidPublicSlug(finalSlug)) return { kind: "slug-generation-failed" as const };
       }
-      const business = await tx.business.create({ data: { ownerId: user.id, ...parsed.data, slug: finalSlug, isVerified: false, isPublished: false, publishedAt: null, onboardingCompleted: true, onboardingStep: "profile_created", planId: freePlan.id }, select: { id: true, slug: true } });
+      const pageModules = serializePageModules(getDefaultPageModules(parsed.data.businessType));
+      const business = await tx.business.create({ data: { ownerId: user.id, ...parsed.data, slug: finalSlug, pageModules: pageModules as unknown as Prisma.InputJsonValue, isVerified: false, isPublished: false, publishedAt: null, onboardingCompleted: true, onboardingStep: "profile_created", planId: freePlan.id }, select: { id: true, slug: true } });
       return { kind: "created" as const, business };
     });
     if (result.kind === "exists") return NextResponse.json({ error: "يوجد نشاط مرتبط بهذا الحساب بالفعل" }, { status: 409 });

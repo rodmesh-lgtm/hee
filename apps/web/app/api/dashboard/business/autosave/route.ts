@@ -7,8 +7,9 @@ import { db } from "../../../../lib/db";
 import { normalizeGoogleMapsUrl } from "../../../../lib/google-maps-url";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../../lib/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../../lib/request-body";
+import { applyActivityPagePreset, serializePageModules } from "../../../../lib/page-modules";
 
-const schema = z.object({ fields: z.object({ name: z.string().trim().min(2).max(120).optional(), shortDescription: z.string().trim().max(160).optional(), description: z.string().trim().max(4000).optional(), whatsapp: z.string().trim().max(40).optional(), phone: z.string().trim().max(40).optional(), city: z.string().trim().max(80).optional(), district: z.string().trim().max(80).optional(), googleMapsLink: z.string().trim().max(500).optional() }).strict() }).strict();
+const schema = z.object({ fields: z.object({ name: z.string().trim().min(2).max(120).optional(), businessType: z.string().trim().min(1).max(120).optional(), shortDescription: z.string().trim().max(160).optional(), description: z.string().trim().max(4000).optional(), whatsapp: z.string().trim().max(40).optional(), phone: z.string().trim().max(40).optional(), city: z.string().trim().max(80).optional(), district: z.string().trim().max(80).optional(), googleMapsLink: z.string().trim().max(500).optional() }).strict() }).strict();
 
 export async function POST(request: Request) {
   const business = await getOwnedBusinessForApiWrite();
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
   const updates: Prisma.BusinessUpdateInput = {};
   const changedKeys: string[] = [];
   if (typeof fields.name === "string" && fields.name !== business.name) { updates.name = fields.name; changedKeys.push("name"); }
+  if (typeof fields.businessType === "string" && fields.businessType !== business.businessType) { updates.businessType = fields.businessType; updates.businessCategory = fields.businessType; changedKeys.push("businessType"); }
   if (typeof fields.shortDescription === "string" && fields.shortDescription !== (business.shortDescription ?? "")) { updates.shortDescription = fields.shortDescription || null; changedKeys.push("shortDescription"); }
   if (typeof fields.description === "string" && fields.description !== (business.description ?? "")) { updates.description = fields.description || null; changedKeys.push("description"); }
   if (typeof fields.whatsapp === "string" && fields.whatsapp !== (business.whatsapp ?? "")) { updates.whatsapp = fields.whatsapp || null; changedKeys.push("whatsapp"); }
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`business-autosave:${business.id}`}))`;
       const current = await tx.business.findFirst({
         where: { id: business.id, ownerId: business.ownerId, deletedAt: null },
-        select: { isPublished: true, whatsapp: true, phone: true, email: true, website: true },
+        select: { isPublished: true, whatsapp: true, phone: true, email: true, website: true, businessType: true, pageModules: true },
       });
       if (!current) return "missing" as const;
 
@@ -67,6 +69,9 @@ export async function POST(request: Request) {
       const nextPhone = writesPhone ? (fields.phone?.trim() || null) : current.phone?.trim();
       if (current.isPublished && !Boolean(nextWhatsapp || nextPhone || current.email?.trim() || current.website?.trim())) {
         return "contact-required" as const;
+      }
+      if (typeof fields.businessType === "string" && fields.businessType !== current.businessType) {
+        updates.pageModules = serializePageModules(applyActivityPagePreset(current.pageModules, fields.businessType)) as unknown as Prisma.InputJsonValue;
       }
 
       const updated = await tx.business.updateMany({

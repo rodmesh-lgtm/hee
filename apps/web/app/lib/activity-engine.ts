@@ -8,6 +8,10 @@ export type ActivityId =
   | "RETAIL"
   | "REAL_ESTATE"
   | "TRAINING"
+  | "INDUSTRIAL"
+  | "LOGISTICS"
+  | "PROFESSIONAL"
+  | "HOSPITALITY"
   | "GENERAL";
 
 export type ActionFieldKey =
@@ -130,6 +134,34 @@ export const ACTIVITY_PROFILES: Record<ActivityId, ActivityProfile> = {
     formFields: ["name", "phone", "service", "message", "notes"],
     recommendedModules: { booking: true, catalog: false },
   },
+  INDUSTRIAL: {
+    id: "INDUSTRIAL", labelAr: "صناعة / مقاولات / صيانة",
+    aliases: ["industrial", "contracting", "maintenance", "manufacturing", "صناعة", "صناعي", "مقاولات", "صيانة", "تشغيل"],
+    primaryActionLabel: "اختر القسم", requestTitle: "طلب أعمال جديد",
+    formFields: ["name", "phone", "service", "message", "notes"],
+    recommendedModules: { booking: false, catalog: true },
+  },
+  LOGISTICS: {
+    id: "LOGISTICS", labelAr: "نقل / لوجستيات",
+    aliases: ["logistics", "shipping", "transport", "freight", "لوجستيات", "نقل", "شحن", "تخليص"],
+    primaryActionLabel: "اختر جهة التواصل", requestTitle: "طلب خدمة لوجستية",
+    formFields: ["name", "phone", "service", "message", "notes"],
+    recommendedModules: { booking: false, catalog: false },
+  },
+  PROFESSIONAL: {
+    id: "PROFESSIONAL", labelAr: "استشارات / خدمات مهنية",
+    aliases: ["professional", "engineering", "architecture", "legal", "استشارات", "هندسة", "هندسي", "محاماة", "محاسبة"],
+    primaryActionLabel: "ابدأ استفسارك", requestTitle: "استفسار مهني جديد",
+    formFields: ["name", "phone", "service", "message", "notes"],
+    recommendedModules: { booking: true, catalog: false },
+  },
+  HOSPITALITY: {
+    id: "HOSPITALITY", labelAr: "ضيافة / تموين / فعاليات",
+    aliases: ["hospitality", "catering", "events", "hotel", "ضيافة", "تموين", "فعاليات", "فندق"],
+    primaryActionLabel: "اطلب عرضًا", requestTitle: "طلب ضيافة أو تموين",
+    formFields: ["name", "phone", "date", "service", "quantity", "notes"],
+    recommendedModules: { booking: true, catalog: true },
+  },
   GENERAL: {
     id: "GENERAL",
     labelAr: "نشاط عام",
@@ -151,6 +183,10 @@ const EXPLICIT_ACTIVITY_KEYS = new Set<ActivityId>([
   "RETAIL",
   "REAL_ESTATE",
   "TRAINING",
+  "INDUSTRIAL",
+  "LOGISTICS",
+  "PROFESSIONAL",
+  "HOSPITALITY",
   "GENERAL",
 ]);
 
@@ -176,6 +212,11 @@ export function resolveActivityId(businessType: string | null | undefined): Acti
 
   const normalized = normalizeText(raw);
 
+  const exactLabelMatch = (Object.values(ACTIVITY_PROFILES) as ActivityProfile[]).find(
+    (profile) => normalizeText(profile.labelAr) === normalized,
+  );
+  if (exactLabelMatch) return exactLabelMatch.id;
+
   const bestMatch = (Object.values(ACTIVITY_PROFILES) as ActivityProfile[]).find((profile) =>
     profile.aliases.some((alias) => normalized.includes(normalizeText(alias))),
   );
@@ -198,6 +239,10 @@ export function activitySelectorOptions() {
     { value: "RETAIL", label: "متجر" },
     { value: "REAL_ESTATE", label: "عقارات" },
     { value: "TRAINING", label: "تدريب" },
+    { value: "INDUSTRIAL", label: "صناعة / مقاولات / صيانة" },
+    { value: "LOGISTICS", label: "نقل / لوجستيات" },
+    { value: "PROFESSIONAL", label: "استشارات / خدمات مهنية" },
+    { value: "HOSPITALITY", label: "ضيافة / تموين / فعاليات" },
     { value: "GENERAL", label: "نشاط عام" },
   ];
 }

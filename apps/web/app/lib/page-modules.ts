@@ -180,7 +180,21 @@ const ACTIVITY_PRESETS: Record<ActivityId, Partial<Record<PageModuleId, boolean>
   RETAIL: { products: true, services: false, request: false, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: false, externalStore: true, companyProfile: false },
   REAL_ESTATE: { products: false, services: false, request: true, inquiry: true, location: true, hours: false, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: false },
   TRAINING: { products: false, services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: true },
+  INDUSTRIAL: { products: true, services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: true },
+  LOGISTICS: { products: false, services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: true },
+  PROFESSIONAL: { products: false, services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: true },
+  HOSPITALITY: { products: true, services: true, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: true, contactTeam: true, portfolio: true, companyProfile: true },
   GENERAL: { products: false, services: false, request: true, inquiry: true, location: true, hours: true, about: true, contact: true, links: false, contactTeam: true, portfolio: true, companyProfile: true },
+};
+
+const ACTIVITY_MODULE_ORDER: Partial<Record<ActivityId, PageModuleId[]>> = {
+  CLINIC: ["services", "request", "contactTeam", "location", "hours", "about", "contact", "portfolio", "companyProfile", "links", "inquiry", "products", "externalStore"],
+  RESTAURANT: ["products", "request", "location", "hours", "services", "contact", "contactTeam", "links", "inquiry", "portfolio", "companyProfile", "externalStore"],
+  RETAIL: ["products", "externalStore", "inquiry", "contactTeam", "location", "hours", "about", "contact", "links", "services", "request", "portfolio", "companyProfile"],
+  INDUSTRIAL: ["services", "products", "companyProfile", "contactTeam", "portfolio", "location", "contact", "hours", "request", "inquiry", "links", "externalStore"],
+  LOGISTICS: ["services", "companyProfile", "contactTeam", "location", "portfolio", "contact", "hours", "request", "inquiry", "links", "products", "externalStore"],
+  PROFESSIONAL: ["services", "portfolio", "contactTeam", "companyProfile", "request", "location", "contact", "hours", "inquiry", "links", "products", "externalStore"],
+  HOSPITALITY: ["products", "services", "location", "request", "portfolio", "contactTeam", "hours", "contact", "links", "inquiry", "companyProfile", "externalStore"],
 };
 
 function moduleEnabledByPreset(activityId: ActivityId, moduleId: PageModuleId) {
@@ -189,8 +203,9 @@ function moduleEnabledByPreset(activityId: ActivityId, moduleId: PageModuleId) {
 
 export function getDefaultPageModules(businessType: string | null | undefined): PageModuleState[] {
   const activityId = resolveActivityId(businessType);
-
-  return PAGE_MODULE_IDS.map((id, index) => ({
+  const preferred = ACTIVITY_MODULE_ORDER[activityId] ?? PAGE_MODULE_IDS;
+  const orderedIds = [...preferred, ...PAGE_MODULE_IDS.filter((id) => !preferred.includes(id))];
+  return orderedIds.map((id, index) => ({
     id,
     enabled: moduleEnabledByPreset(activityId, id),
     sortOrder: index,
@@ -397,6 +412,15 @@ export function normalizePageModules(raw: unknown, businessType: string | null |
 
 export function normalizePageModulesForPersistence(raw: unknown, businessType: string | null | undefined): PageModuleState[] {
   return normalizePageModulesInput(raw, businessType);
+}
+
+/** Reapply an activity preset without discarding content already configured inside modules. */
+export function applyActivityPagePreset(raw: unknown, businessType: string): PageModuleState[] {
+  const current = new Map(normalizePageModulesInput(raw, businessType).map((module) => [module.id, module]));
+  return getDefaultPageModules(businessType).map((preset) => ({
+    ...preset,
+    config: current.get(preset.id)?.config ?? preset.config,
+  }));
 }
 
 export function serializePageModules(modules: PageModuleState[]) {

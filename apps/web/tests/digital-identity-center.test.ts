@@ -46,7 +46,7 @@ test("public sanitizer and published page expose only the approved company profi
   assert.doesNotMatch(sanitizer, /ownerId/);
   assert.match(publicPage, /publicBusiness\.companyProfileUrl/);
   assert.match(publicPage, /PublicIdentityHighlights/);
-  assert.match(highlights, /عرض الملف الرسمي للمنشأة/);
+  assert.match(highlights, /المستند الرسمي للمنشأة/);
 });
 
 test("vCard export is authenticated and does not expose internal identifiers", () => {

@@ -3,14 +3,11 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
 import { db } from "../lib/db";
-import { PublicBusinessPageV10Light } from "../../components/public-business-page-v10-light";
+import { PublicBusinessBio } from "../../components/public-business-bio";
 import { PublicIdentityExtras } from "../../components/public/public-identity-extras";
 import { getPublicBusinessUrlFromRequest } from "../lib/public-url";
 import { sanitizePublicBusiness } from "../lib/public-business-sanitize";
-
-function makeQrUrl(url: string) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
-}
+import { normalizePageModules } from "../lib/page-modules";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -36,8 +33,9 @@ export default async function OwnerPreviewPage() {
   if (!business) redirect("/onboarding");
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
   const publicBusiness = sanitizePublicBusiness(business);
+  const pageModules = normalizePageModules(business.pageModules, business.businessType);
   return <>
-    <PublicBusinessPageV10Light business={publicBusiness} qrDataUrl={makeQrUrl(publicUrl)} publicUrl={publicUrl} />
+    <PublicBusinessBio business={publicBusiness} publicUrl={publicUrl} pageModules={pageModules} />
     <PublicIdentityExtras
       companyProfileUrl={business.companyProfileUrl}
       companyProfileTitle={business.companyProfileTitle}

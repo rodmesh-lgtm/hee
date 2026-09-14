@@ -12,22 +12,37 @@ test("public identity extras are no longer rendered as a detached bottom block",
   assert.doesNotMatch(route, /mx-auto mb-20 w-full max-w-\[580px\]/);
 });
 
-test("identity highlights mount in the explicit public-page slot", () => {
-  const renderer = source("components/public-business-page-v10-light.tsx");
+test("identity extras mount in their intended positions inside the public canvas", () => {
+  const renderer = source("components/public-business-bio.tsx");
   const highlights = source("components/public/public-identity-highlights.tsx");
-  assert.match(renderer, /data-public-highlights-slot/);
-  assert.match(highlights, /const attachMount = useCallback/);
-  assert.match(highlights, /\[data-public-highlights-slot\]/);
-  assert.match(highlights, /slot\.append\(mount\)/);
-  assert.doesNotMatch(highlights, /details\.prepend\(mount\)/);
-  assert.match(highlights, /setTarget\(mount\)/);
+  assert.match(renderer, /data-public-social-slot/);
+  assert.match(renderer, /data-public-profile-slot/);
+  assert.match(renderer, /data-public-transactions-slot/);
+  assert.match(highlights, /attachSocialMount/);
+  assert.match(highlights, /attachProfileMount/);
+  assert.match(highlights, /\[data-public-social-slot\]/);
+  assert.match(highlights, /\[data-public-profile-slot\]/);
+  assert.match(highlights, /createPortal\(<SocialChannels/);
+  assert.match(highlights, /createPortal\(<CompanyProfile/);
   assert.match(highlights, /data-public-identity-highlights/);
-  assert.match(highlights, /data-public-identity-mount/);
-  assert.match(highlights, /createPortal\(<Highlights/);
   assert.match(highlights, /الملف التعريفي للشركة/);
   assert.match(highlights, /حساباتنا الرسمية/);
 });
 
+test("approved business identity hierarchy stays fixed and avoids AI visual clichés", () => {
+  const renderer = source("components/public-business-bio.tsx");
+  const social = renderer.indexOf("data-public-social-slot");
+  const intent = renderer.indexOf('aria-labelledby="intent-title"');
+  const branches = renderer.indexOf('id="branches"');
+  const contacts = renderer.indexOf('id="contact"');
+  const highlights = renderer.indexOf('id="highlights"');
+  const profile = renderer.indexOf("data-public-profile-slot");
+  assert.ok(social > 0 && social < intent);
+  assert.ok(intent < branches && branches < contacts);
+  assert.ok(contacts < highlights && highlights < profile);
+  assert.match(renderer, /max-w-\[520px\]/);
+  assert.doesNotMatch(renderer, /Sparkles|وصول ذكي/);
+});
 test("public identity surfaces use the INFRO palette and canonical domain", () => {
   const files = [
     "components/public-business-page-v10-light.tsx",
@@ -53,7 +68,7 @@ test("customer identity omits the cover and keeps platform controls floating", (
   const renderer = source("components/public-business-page-v10-light.tsx");
   assert.match(renderer, /pointer-events-none sticky top-0/);
   assert.match(renderer, /alt=\{`شعار \$\{business\.name\}`\}/);
-  assert.match(renderer, /min-h-screen overflow-x-clip bg-white/);
+  assert.match(renderer, /min-h-screen overflow-x-clip bg-\[#f7faf9\]/);
   assert.match(renderer, /fill-\[#168af6\]/);
   assert.doesNotMatch(renderer, /business\.coverUrl|صورة عرض|\bcover\?/);
   assert.doesNotMatch(renderer, /<header className="[^"]*bg-\[#061b1e\]/);
@@ -62,15 +77,17 @@ test("customer identity omits the cover and keeps platform controls floating", (
   assert.doesNotMatch(renderer, /shadow-\[0_0_70px/);
 });
 
-test("customer identity presents an INFRO passport with action-first pulse", () => {
+test("customer identity presents a clear business profile with action-first hierarchy", () => {
   const renderer = source("components/public-business-page-v10-light.tsx");
-  assert.match(renderer, /INFRO BUSINESS PASSPORT/);
   assert.match(renderer, /ir\.sa\/\{business\.slug\}/);
   assert.match(renderer, /aria-label="هوية المنشأة"/);
   assert.match(renderer, /aria-label="إجراءات المنشأة"/);
   assert.match(renderer, /aria-label="اعتمادات المنشأة"/);
   assert.match(renderer, /تواصل عبر واتساب/);
-  assert.match(renderer, /BUSINESS RECORDS/);
+  assert.match(renderer, /EXPLORE/);
+  assert.match(renderer, /تعرّف على المنشأة/);
+  assert.match(renderer, /max-w-\[1080px\]/);
+  assert.doesNotMatch(renderer, /INFRO BUSINESS PASSPORT|BUSINESS IDENTITY/);
   assert.match(renderer, /object-contain/);
   assert.doesNotMatch(renderer, /gridTemplateColumns/);
 });

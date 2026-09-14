@@ -1,4 +1,4 @@
-import { PublicBusinessPageV10Light } from "../../components/public-business-page-v10-light";
+import { PublicBusinessBio } from "../../components/public-business-bio";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -8,7 +8,7 @@ export const metadata = {
   },
 };
 
-type DemoBusiness = Parameters<typeof PublicBusinessPageV10Light>[0]["business"];
+type DemoBusiness = Parameters<typeof PublicBusinessBio>[0]["business"];
 
 const demoBusiness: DemoBusiness = {
   id: "hee-demo",
@@ -49,19 +49,14 @@ const demoBusiness: DemoBusiness = {
     { id: "b2", name: "فرع شمال الرياض", city: "الرياض", district: "الياسمين", address: "طريق أنس بن مالك", googleMapsLink: "https://maps.google.com/?q=Riyadh", isActive: true },
     { id: "b3", name: "فرع جدة", city: "جدة", district: "الروضة", address: "شارع الأمير سلطان", googleMapsLink: "https://maps.google.com/?q=Jeddah", isActive: true },
   ],
-  contactPersons: [],
-  departments: [
-    { id: "d1", name: "المبيعات", isActive: true, contacts: [
-      { id: "c1", name: "محمد العتيبي", jobTitle: "ممثل مبيعات", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true },
-      { id: "c2", name: "سارة القحطاني", jobTitle: "علاقات العملاء", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true },
-    ]},
-    { id: "d2", name: "العمليات", isActive: true, contacts: [
-      { id: "c3", name: "خالد الحربي", jobTitle: "مدير العمليات", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true },
-      { id: "c4", name: "نورة الشهري", jobTitle: "خدمة العملاء", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true },
-    ]},
+  contactPersons: [
+    { id: "c1", name: "محمد العتيبي", jobTitle: "ممثل مبيعات", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true, department: { name: "المبيعات" } },
+    { id: "c2", name: "سارة القحطاني", jobTitle: "علاقات العملاء", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true, department: { name: "المبيعات" } },
+    { id: "c3", name: "خالد الحربي", jobTitle: "مدير العمليات", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true, department: { name: "العمليات" } },
+    { id: "c4", name: "نورة الشهري", jobTitle: "خدمة العملاء", imageUrl: null, phone: "+966500000001", whatsapp: "+966500000001", isActive: true, department: { name: "خدمة العملاء" } },
   ],
 };
 
 export default function DemoPage() {
-  return <PublicBusinessPageV10Light business={demoBusiness} qrDataUrl="" publicUrl="https://ir.sa/demo" demoMode />;
+  return <PublicBusinessBio business={demoBusiness} publicUrl="https://ir.sa/demo" />;
 }

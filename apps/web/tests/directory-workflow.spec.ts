@@ -88,9 +88,9 @@ test.describe.serial("HEE directory workflow", () => {
 
       await page.goto(`${baseUrl}/${slug}`, { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("heading", { name: "شركة دليل الاختبار" })).toBeVisible();
-      await page.getByRole("button", { name: /فروعنا/ }).click();
+      await expect(page.getByRole("heading", { name: "فروعنا" })).toBeVisible();
       await expect(page.getByText("فرع جدة الرئيسي")).toBeVisible();
-      await page.getByRole("button", { name: /فريق العمل/ }).click();
+      await expect(page.getByText("اختر القسم وسنوصلك بالشخص المناسب")).toBeVisible();
       await expect(page.getByText("مسؤول مبيعات جدة")).toBeVisible();
       await expect(page.getByText("مسؤول مبيعات", { exact: true })).toBeVisible();
     } finally {
