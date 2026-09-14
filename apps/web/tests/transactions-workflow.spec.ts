@@ -58,6 +58,7 @@ async function cleanup(seed: Seeded) {
   await db.analyticsEvent.deleteMany({ where: { businessId: seed.businessId } });
   await db.$executeRaw`DELETE FROM "PublicSubmission" WHERE "businessId" = ${seed.businessId}`;
   await db.booking.deleteMany({ where: { businessId: seed.businessId } });
+  await db.bookingAvailabilityOverride.deleteMany({ where: { businessId: seed.businessId } });
   await db.orderItem.deleteMany({ where: { order: { businessId: seed.businessId } } });
   await db.order.deleteMany({ where: { businessId: seed.businessId } });
   await db.product.deleteMany({ where: { businessId: seed.businessId } });
@@ -188,6 +189,59 @@ test.describe.serial("public transactions workflow", () => {
       await expect(ownerPage.getByText("ملغي", { exact: true })).toBeVisible();
     } finally {
       await publicPage.close();
+      await ownerPage.close();
+      await cleanup(seeded);
+    }
+  });
+
+  test("lets the owner set a specific available or closed date and applies it publicly", async ({ browser, request }) => {
+    test.setTimeout(60_000);
+    const seeded = await seed();
+    const closedDate = riyadhDateKey(1);
+    const specialOpenDate = riyadhDateKey(2);
+    const ownerPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+
+    try {
+      await db.bookingAvailabilityOverride.createMany({
+        data: [
+          { businessId: seeded.businessId, date: closedDate, isClosed: true, note: "إجازة" },
+          { businessId: seeded.businessId, date: specialOpenDate, isClosed: false, opensAt: "13:00", closesAt: "15:00", note: "دوام خاص" },
+        ],
+      });
+
+      const availability = await request.get(
+        `${baseUrl}/api/public/bookings?slug=${seeded.slug}&serviceId=${seeded.serviceId}`,
+      );
+      expect(availability.status()).toBe(200);
+      const payload = await availability.json() as { days: Array<{ date: string; available: boolean; slots: string[] }> };
+      const closed = payload.days.find((day) => day.date === closedDate);
+      const special = payload.days.find((day) => day.date === specialOpenDate);
+      expect(closed).toEqual(expect.objectContaining({ available: false, slots: [] }));
+      expect(special?.slots).toEqual(["13:00", "13:30", "14:00"]);
+
+      const blockedId = crypto.randomUUID();
+      const blocked = await request.post(`${baseUrl}/api/public/bookings`, {
+        headers: { "Idempotency-Key": blockedId },
+        data: { slug: seeded.slug, name: "عميل يوم مغلق", phone: "0500000301", serviceId: seeded.serviceId, bookingDate: closedDate, bookingTime: "10:00", requestId: blockedId },
+      });
+      expect(blocked.status()).toBe(409);
+      expect((await blocked.json()).error).toContain("مغلق");
+
+      const allowedId = crypto.randomUUID();
+      const allowed = await request.post(`${baseUrl}/api/public/bookings`, {
+        headers: { "Idempotency-Key": allowedId },
+        data: { slug: seeded.slug, name: "عميل دوام خاص", phone: "0500000302", serviceId: seeded.serviceId, bookingDate: specialOpenDate, bookingTime: "13:00", requestId: allowedId },
+      });
+      expect(allowed.status()).toBe(201);
+
+      await setSession(ownerPage, seeded.sessionToken);
+      await ownerPage.goto(`${baseUrl}/dashboard/working-hours`, { waitUntil: "domcontentloaded" });
+      await expect(ownerPage.getByRole("heading", { name: "المواعيد والحجوزات", exact: true })).toBeVisible();
+      await expect(ownerPage.getByRole("form", { name: "إضافة توفر لتاريخ محدد" })).toBeVisible();
+      await expect(ownerPage.getByText("التواريخ الخاصة القادمة")).toBeVisible();
+      await expect(ownerPage.getByText("دوام خاص")).toBeVisible();
+      await expect.poll(() => horizontalOverflow(ownerPage)).toBeLessThanOrEqual(2);
+    } finally {
       await ownerPage.close();
       await cleanup(seeded);
     }
