@@ -17,7 +17,7 @@ function optionalInt(formData: FormData, key: string, min: number, max: number) 
   return Number.isInteger(value) && value >= min && value <= max ? value : undefined;
 }
 function refresh(slug: string) {
-  revalidatePath("/dashboard"); revalidatePath("/dashboard/services"); revalidatePath("/dashboard/my-page"); revalidatePath("/dashboard/inbox"); revalidatePath("/preview"); revalidatePath(`/${slug}`);
+  revalidatePath("/dashboard"); revalidatePath("/dashboard/services"); revalidatePath("/dashboard/working-hours"); revalidatePath("/dashboard/my-page"); revalidatePath("/dashboard/inbox"); revalidatePath("/preview"); revalidatePath(`/${slug}`);
 }
 async function lockServiceScope(tx: Prisma.TransactionClient, businessId: string) { await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:services`}))`; }
 
