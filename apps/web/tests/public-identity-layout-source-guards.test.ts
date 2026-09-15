@@ -25,23 +25,28 @@ test("identity extras mount in their intended positions inside the public canvas
   assert.match(highlights, /createPortal\(<SocialChannels/);
   assert.match(highlights, /createPortal\(<CompanyProfile/);
   assert.match(highlights, /data-public-identity-highlights/);
-  assert.match(highlights, /الملف التعريفي للشركة/);
+  assert.match(highlights, /الملف التعريفي الرسمي/);
+  assert.match(highlights, /فتح الملف/);
   assert.match(highlights, /حساباتنا الرسمية/);
 });
 
 test("approved business identity hierarchy stays fixed and avoids AI visual clichés", () => {
   const renderer = source("components/public-business-bio.tsx");
+  const profile = renderer.indexOf("data-public-profile-slot");
   const social = renderer.indexOf("data-public-social-slot");
   const intent = renderer.indexOf('aria-labelledby="intent-title"');
+  const transactions = renderer.indexOf("data-public-transactions-slot");
   const branches = renderer.indexOf('id="branches"');
   const contacts = renderer.indexOf('id="contact"');
   const highlights = renderer.indexOf('id="highlights"');
-  const profile = renderer.indexOf("data-public-profile-slot");
-  assert.ok(social > 0 && social < intent);
-  assert.ok(intent < branches && branches < contacts);
-  assert.ok(contacts < highlights && highlights < profile);
+  const destinations = renderer.indexOf('id="destinations"');
+  assert.ok(profile > 0 && profile < social);
+  assert.ok(social < intent && intent < transactions);
+  assert.ok(transactions < branches && branches < contacts);
+  assert.ok(contacts < highlights && highlights < destinations);
   assert.match(renderer, /max-w-\[520px\]/);
   assert.doesNotMatch(renderer, /Sparkles|وصول ذكي/);
+  assert.doesNotMatch(renderer, /الرد خلال 5 دقائق|محدّث اليوم/);
 });
 test("public identity surfaces use the INFRO palette and canonical domain", () => {
   const files = [
@@ -67,7 +72,7 @@ test("customer business page uses only the approved compact iR mark", () => {
 test("customer identity omits the cover and keeps platform controls floating", () => {
   const renderer = source("components/public-business-page-v10-light.tsx");
   assert.match(renderer, /pointer-events-none sticky top-0/);
-  assert.match(renderer, /alt=\{`شعار \$\{business\.name\}`\}/);
+  assert.match(renderer, /alt=\{`شعار \${business\.name}`\}/);
   assert.match(renderer, /min-h-screen overflow-x-clip bg-\[#f7faf9\]/);
   assert.match(renderer, /fill-\[#168af6\]/);
   assert.doesNotMatch(renderer, /business\.coverUrl|صورة عرض|\bcover\?/);
