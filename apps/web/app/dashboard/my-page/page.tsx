@@ -5,6 +5,7 @@ import { getOwnedBusinessForRead } from "../../lib/ownership";
 import { normalizePageModules, type PageModuleId } from "../../lib/page-modules";
 import { SimpleBusinessEditor } from "../../../components/dashboard/simple-business-editor";
 import { PageSectionOrderEditor } from "../../../components/dashboard/page-section-order-editor";
+import { BottomActionBarEditor } from "../../../components/dashboard/bottom-action-bar-editor";
 
 const managedIds = new Set<PageModuleId>(["about", "services", "location", "contactTeam", "portfolio", "contact"]);
 
@@ -47,5 +48,6 @@ export default async function DashboardMyPage() {
       slug: business.slug,
     }} serviceCount={business.services.length} branchCount={business.branches.length} contactCount={business.contactPersons.length} />
     <PageSectionOrderEditor initialOrder={moduleOrder} />
+    <BottomActionBarEditor initialActions={normalizePageModules(business.pageModules, business.businessType).find((module) => module.id === "contact")?.config.bottomActions} />
   </div>;
 }
