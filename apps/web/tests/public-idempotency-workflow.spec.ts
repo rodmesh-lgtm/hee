@@ -54,6 +54,7 @@ test.describe("public write idempotency", () => {
         isPublished: true,
         publishedAt: new Date(),
         bookingAvailable: true,
+        bookingSlotMinutes: 60,
         acceptOnlineOrders: true,
       },
     });
