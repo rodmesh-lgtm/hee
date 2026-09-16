@@ -69,6 +69,7 @@ async function cleanup(seed: Seeded) {
   await db.customer.deleteMany({ where: { businessId: seed.businessId } });
   await db.workingHours.deleteMany({ where: { businessId: seed.businessId } });
   await db.service.deleteMany({ where: { businessId: seed.businessId } });
+  await db.branch.deleteMany({ where: { businessId: seed.businessId } });
   await db.business.delete({ where: { id: seed.businessId } });
   await db.session.deleteMany({ where: { userId: seed.userId } });
   await db.user.delete({ where: { id: seed.userId } });
@@ -158,10 +159,11 @@ test.describe.serial("public transactions workflow", () => {
         `${baseUrl}/api/public/bookings?slug=${seeded.slug}&serviceId=${seeded.serviceId}`,
       );
       expect(refreshedAvailability.status()).toBe(200);
-      const availabilityPayload = await refreshedAvailability.json() as { days: Array<{ date: string; available: boolean; slots: string[] }> };
+      const availabilityPayload = await refreshedAvailability.json() as { days: Array<{ date: string; available: boolean; slots: string[]; slotDetails: Array<{ start: string; remaining: number; capacity: number }> }> };
       const tomorrowAvailability = availabilityPayload.days.find((day) => day.date === tomorrow);
       expect(tomorrowAvailability?.available).toBe(true);
-      expect(tomorrowAvailability?.slots).not.toContain("10:00");
+      expect(tomorrowAvailability?.slots).toContain("10:00");
+      expect(tomorrowAvailability?.slotDetails.find((slot) => slot.start === "10:00")).toEqual(expect.objectContaining({ remaining: 9, capacity: 10 }));
 
       await setSession(ownerPage, seeded.sessionToken);
       await ownerPage.goto(`${baseUrl}/dashboard/inbox`, { waitUntil: "domcontentloaded" });
@@ -221,7 +223,7 @@ test.describe.serial("public transactions workflow", () => {
       const closed = payload.days.find((day) => day.date === closedDate);
       const special = payload.days.find((day) => day.date === specialOpenDate);
       expect(closed).toEqual(expect.objectContaining({ available: false, slots: [] }));
-      expect(special?.slots).toEqual(["13:00", "13:30", "14:00"]);
+      expect(special?.slots).toEqual(["13:00"]);
 
       const blockedId = crypto.randomUUID();
       const blocked = await request.post(`${baseUrl}/api/public/bookings`, {
@@ -251,7 +253,43 @@ test.describe.serial("public transactions workflow", () => {
     }
   });
 
-  test("keeps overnight availability on the starting day and blocks cross-midnight overlap", async ({ request }) => {
+  test("uses independent slot duration and capacity for every branch", async ({ request }) => {
+    const seeded = await seed();
+    const date = riyadhDateKey(1);
+    try {
+      const [smallBranch, largeBranch] = await db.$transaction([
+        db.branch.create({ data: { businessId: seeded.businessId, name: "فرع صغير", isActive: true, bookingEnabled: true, bookingSlotMinutes: 30, bookingCapacity: 1 } }),
+        db.branch.create({ data: { businessId: seeded.businessId, name: "فرع كبير", isActive: true, bookingEnabled: true, bookingSlotMinutes: 120, bookingCapacity: 2 } }),
+      ]);
+
+      const availability = await request.get(`${baseUrl}/api/public/bookings?slug=${seeded.slug}&serviceId=${seeded.serviceId}&branchId=${largeBranch.id}`);
+      expect(availability.status()).toBe(200);
+      const payload = await availability.json() as { slotMinutes: number; capacity: number; days: Array<{ date: string; slotDetails: Array<{ start: string; end: string; remaining: number }> }> };
+      expect(payload).toEqual(expect.objectContaining({ slotMinutes: 120, capacity: 2 }));
+      expect(payload.days.find((day) => day.date === date)?.slotDetails.find((slot) => slot.start === "08:00")).toEqual(expect.objectContaining({ end: "10:00", remaining: 2 }));
+
+      const book = async (branchId: string, phone: string, bookingTime: string) => {
+        const requestId = crypto.randomUUID();
+        return request.post(`${baseUrl}/api/public/bookings`, {
+          headers: { "Idempotency-Key": requestId },
+          data: { slug: seeded.slug, name: `عميل ${phone}`, phone, serviceId: seeded.serviceId, branchId, bookingDate: date, bookingTime, requestId },
+        });
+      };
+
+      expect((await book(smallBranch.id, "0500000401", "08:00")).status()).toBe(201);
+      const smallFull = await book(smallBranch.id, "0500000402", "08:00");
+      expect(smallFull.status()).toBe(409);
+      expect((await smallFull.json()).error).toContain("اكتملت سعة");
+
+      expect((await book(largeBranch.id, "0500000403", "08:00")).status()).toBe(201);
+      expect((await book(largeBranch.id, "0500000404", "08:00")).status()).toBe(201);
+      expect((await book(largeBranch.id, "0500000405", "08:00")).status()).toBe(409);
+    } finally {
+      await cleanup(seeded);
+    }
+  });
+
+  test("keeps overnight slots aligned and enforces capacity atomically", async ({ request }) => {
     test.setTimeout(60_000);
     const seeded = await seed();
     const overnightDate = riyadhDateKey(2);
@@ -263,6 +301,7 @@ test.describe.serial("public transactions workflow", () => {
         where: { businessId: seeded.businessId },
         data: { isClosed: true, opensAt: null, closesAt: null, secondOpensAt: null, secondClosesAt: null },
       });
+      await db.business.update({ where: { id: seeded.businessId }, data: { bookingSlotMinutes: 120, bookingCapacity: 1 } });
       await db.workingHours.update({
         where: { businessId_dayOfWeek: { businessId: seeded.businessId, dayOfWeek: overnightDay } },
         data: { isClosed: false, opensAt: "20:00", closesAt: "02:00" },
@@ -271,29 +310,29 @@ test.describe.serial("public transactions workflow", () => {
       const firstId = crypto.randomUUID();
       const first = await request.post(`${baseUrl}/api/public/bookings`, {
         headers: { "Idempotency-Key": firstId },
-        data: { slug: seeded.slug, name: "عميل ليلي 1", phone: "0500000101", serviceId: seeded.serviceId, bookingDate: overnightDate, bookingTime: "23:30", requestId: firstId },
+        data: { slug: seeded.slug, name: "عميل ليلي 1", phone: "0500000101", serviceId: seeded.serviceId, bookingDate: overnightDate, bookingTime: "22:00", requestId: firstId },
       });
       expect(first.status()).toBe(201);
 
       const conflictingId = crypto.randomUUID();
       const conflicting = await request.post(`${baseUrl}/api/public/bookings`, {
         headers: { "Idempotency-Key": conflictingId },
-        data: { slug: seeded.slug, name: "عميل ليلي 2", phone: "0500000102", serviceId: seeded.serviceId, bookingDate: followingDate, bookingTime: "00:00", requestId: conflictingId },
+        data: { slug: seeded.slug, name: "عميل ليلي 2", phone: "0500000102", serviceId: seeded.serviceId, bookingDate: overnightDate, bookingTime: "22:00", requestId: conflictingId },
       });
       expect(conflicting.status()).toBe(409);
-      expect((await conflicting.json()).error).toContain("يتداخل");
+      expect((await conflicting.json()).error).toContain("اكتملت سعة");
 
       const allowedId = crypto.randomUUID();
       const allowed = await request.post(`${baseUrl}/api/public/bookings`, {
         headers: { "Idempotency-Key": allowedId },
-        data: { slug: seeded.slug, name: "عميل ليلي 3", phone: "0500000103", serviceId: seeded.serviceId, bookingDate: followingDate, bookingTime: "01:00", requestId: allowedId },
+        data: { slug: seeded.slug, name: "عميل ليلي 3", phone: "0500000103", serviceId: seeded.serviceId, bookingDate: followingDate, bookingTime: "00:00", requestId: allowedId },
       });
       expect(allowed.status()).toBe(201);
 
       const stored = await db.booking.findMany({ where: { businessId: seeded.businessId }, orderBy: [{ bookingDate: "asc" }, { bookingTime: "asc" }], select: { bookingDate: true, bookingTime: true } });
       expect(stored).toEqual([
-        { bookingDate: overnightDate, bookingTime: "23:30" },
-        { bookingDate: followingDate, bookingTime: "01:00" },
+        { bookingDate: overnightDate, bookingTime: "22:00" },
+        { bookingDate: followingDate, bookingTime: "00:00" },
       ]);
     } finally {
       await cleanup(seeded);

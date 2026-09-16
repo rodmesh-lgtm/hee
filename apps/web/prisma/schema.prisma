@@ -123,6 +123,8 @@ model Business {
   workingHours String?
   deliveryAvailable Boolean @default(false)
   bookingAvailable Boolean @default(false)
+  bookingSlotMinutes Int @default(120)
+  bookingCapacity Int @default(10)
   acceptOnlineOrders Boolean @default(false)
   xUrl String?
   instagramUrl String?
@@ -337,8 +339,10 @@ model Booking {
   businessId String
   customerId String
   serviceId String?
+  branchId String?
   bookingDate String
   bookingTime String
+  slotEndTime String?
   notes String?
   status String @default("pending")
   createdAt DateTime @default(now())
@@ -346,9 +350,11 @@ model Booking {
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
   service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
   @@index([businessId])
   @@index([customerId])
   @@index([serviceId])
+  @@index([branchId, bookingDate, bookingTime])
   @@index([bookingDate])
 }
 
@@ -651,11 +657,15 @@ model Branch {
   googleMapsLink String?
   isMain Boolean @default(false)
   isActive Boolean @default(true)
+  bookingEnabled Boolean @default(true)
+  bookingSlotMinutes Int @default(120)
+  bookingCapacity Int @default(10)
   sortOrder Int @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   contacts ContactPerson[]
+  bookings Booking[]
   @@index([businessId])
   @@index([isActive])
   @@index([sortOrder])

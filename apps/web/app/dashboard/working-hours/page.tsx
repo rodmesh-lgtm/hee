@@ -5,21 +5,23 @@ import {
   CalendarCheck2,
   CalendarDays,
   CalendarOff,
+  Building2,
   CheckCircle2,
   Clock3,
   Inbox,
   MoonStar,
   Plus,
   Power,
-  Sparkles,
   SunMedium,
   Trash2,
+  UsersRound,
 } from "lucide-react";
 import { db } from "../../lib/db";
 import { getOwnedBusinessForRead } from "../../lib/ownership";
 import {
   deleteBookingAvailabilityOverrideAction,
   updateWorkingHoursAction,
+  updateBookingSlotSettingsAction,
   upsertBookingAvailabilityOverrideAction,
 } from "../../actions/working-hours";
 import { updateBookingAvailabilityAction } from "../../actions/services";
@@ -72,6 +74,13 @@ export default async function DashboardWorkingHoursPage({
     select: {
       id: true,
       bookingAvailable: true,
+      bookingSlotMinutes: true,
+      bookingCapacity: true,
+      branches: {
+        where: { isActive: true },
+        orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }],
+        select: { id: true, name: true, city: true, bookingEnabled: true, bookingSlotMinutes: true, bookingCapacity: true },
+      },
       openingHours: { orderBy: { dayOfWeek: "asc" } },
       services: {
         where: { deletedAt: null, isActive: true, bookingEnabled: true },
@@ -104,6 +113,8 @@ export default async function DashboardWorkingHoursPage({
             ? "أدخل وقت بداية ونهاية صحيحًا للتاريخ المتاح."
             : error === "override-window"
               ? "الفترات الخاصة بهذا التاريخ غير مكتملة أو متداخلة."
+              : error === "slot-settings"
+                ? "تعذر حفظ الفترات. اختر مدة بين 15 دقيقة و8 ساعات بخطوات ربع ساعة، وسعة بين 1 و500 عميل."
               : null;
 
   return <div className="space-y-4 pb-24 lg:pb-4">
@@ -125,7 +136,7 @@ export default async function DashboardWorkingHoursPage({
       </div>
     </section>
 
-    {saved ? <div role="status" className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700"><CheckCircle2 className="h-4 w-4" />{saved === "override-deleted" ? "تم حذف إعداد التاريخ الخاص." : saved === "override" ? "تم حفظ توفر التاريخ المحدد." : "تم حفظ جدول المواعيد الأسبوعي."}</div> : null}
+    {saved ? <div role="status" className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700"><CheckCircle2 className="h-4 w-4" />{saved === "override-deleted" ? "تم حذف إعداد التاريخ الخاص." : saved === "override" ? "تم حفظ توفر التاريخ المحدد." : saved === "slots" ? "تم حفظ مدة الفترات وسعة الحجز لكل فرع." : "تم حفظ جدول المواعيد الأسبوعي."}</div> : null}
     {errorMessage ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold leading-7 text-rose-700">{errorMessage}</div> : null}
 
     <section className="grid gap-4 xl:grid-cols-[1fr_1.15fr]">
@@ -154,6 +165,26 @@ export default async function DashboardWorkingHoursPage({
         {!bookableCount ? <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] font-bold leading-5 text-amber-800">لا توجد خدمة مفعّلة للحجز. فعّل «قابلة للحجز» وحدد مدة الخدمة.</p> : null}
       </article>
     </section>
+
+    <form action={updateBookingSlotSettingsAction} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
+      <div className="flex flex-col gap-3 border-b border-slate-100 bg-[#fbfdfd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><UsersRound className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">SMART CAPACITY</span><h2 className="mt-1 text-sm font-black text-slate-950">الفترات الذكية وسعة الفروع</h2></div></div>
+        <p className="max-w-lg text-[9px] leading-5 text-slate-400">يُقسّم وقت العمل إلى فترات متتابعة. مثال: 8:00–10:00 ثم 10:00–12:00، وتغلق الفترة تلقائيًا عند اكتمال سعتها.</p>
+      </div>
+      <div className="grid gap-3 p-4 sm:p-5">
+        <article className="grid gap-3 rounded-2xl border border-slate-200 bg-[#f8fbfb] p-4 md:grid-cols-[1fr_180px_180px] md:items-end">
+          <div><b className="text-sm text-slate-900">الإعداد الافتراضي</b><p className="mt-1 text-[10px] leading-5 text-slate-500">يُستخدم للمنشأة إذا لم تكن هناك فروع، ويكون نقطة البداية لأي فرع جديد.</p></div>
+          <SlotDurationField label="مدة الفترة" name="defaultSlotMinutes" value={business.bookingSlotMinutes} />
+          <NumberField label="العملاء لكل فترة" name="defaultCapacity" value={business.bookingCapacity} min={1} max={500} />
+        </article>
+        {business.branches.length ? <div className="grid gap-3 lg:grid-cols-2">{business.branches.map((branch) => <article key={branch.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-start justify-between gap-3"><div className="flex items-center gap-2"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><Building2 className="h-4 w-4" /></span><div><b className="block text-xs text-slate-900">{branch.name}</b>{branch.city ? <span className="text-[9px] text-slate-400">{branch.city}</span> : null}</div></div><label className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-[#f8fbfb] px-3 text-[9px] font-black text-slate-600"><input type="checkbox" name={`enabled-${branch.id}`} defaultChecked={branch.bookingEnabled} className="h-4 w-4 accent-[#00a99d]" />يستقبل حجوزات</label></div>
+          <div className="mt-3 grid grid-cols-2 gap-2"><SlotDurationField label="مدة الفترة" name={`slot-${branch.id}`} value={branch.bookingSlotMinutes} /><NumberField label="سعة الفترة" name={`capacity-${branch.id}`} value={branch.bookingCapacity} min={1} max={500} /></div>
+          <p className="mt-2 text-[9px] font-bold text-[#008f87]">كل فترة تستقبل حتى {branch.bookingCapacity} عميل · {branch.bookingSlotMinutes / 60 >= 1 ? `${branch.bookingSlotMinutes / 60} ساعة` : `${branch.bookingSlotMinutes} دقيقة`}</p>
+        </article>)}</div> : <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-[10px] font-bold text-slate-500">لا توجد فروع بعد؛ سيُستخدم الإعداد الافتراضي للمنشأة.</p>}
+      </div>
+      <div className="flex justify-end border-t border-slate-100 bg-[#fbfdfd] px-4 py-3 sm:px-5"><button className="h-11 rounded-xl bg-[#07181b] px-5 text-[11px] font-black text-white">حفظ إعدادات الفترات والفروع</button></div>
+    </form>
 
     <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
       <div className="flex flex-col gap-3 border-b border-slate-100 bg-[#fbfdfd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
@@ -198,6 +229,15 @@ export default async function DashboardWorkingHoursPage({
 
 function TimeField({ label, name, value }: { label: string; name: string; value: string }) {
   return <label className="grid min-w-0 gap-1 text-[9px] font-bold text-slate-500"><span>{label}</span><input type="time" name={name} defaultValue={value} className={timeClass} /></label>;
+}
+
+function NumberField({ label, name, value, min, max, step = 1 }: { label: string; name: string; value: number; min: number; max: number; step?: number }) {
+  return <label className="grid min-w-0 gap-1 text-[9px] font-bold text-slate-500"><span>{label}</span><input type="number" inputMode="numeric" name={name} defaultValue={value} min={min} max={max} step={step} required className={fieldClass} /></label>;
+}
+
+function SlotDurationField({ label, name, value }: { label: string; name: string; value: number }) {
+  const listId = `slot-options-${name}`;
+  return <label className="grid min-w-0 gap-1 text-[9px] font-bold text-slate-500"><span>{label}</span><input type="number" inputMode="numeric" name={name} defaultValue={value} min={15} max={480} step={15} list={listId} required className={fieldClass} aria-describedby={`${listId}-hint`} /><datalist id={listId}><option value="15" label="ربع ساعة" /><option value="30" label="نصف ساعة" /><option value="60" label="ساعة" /><option value="90" label="ساعة ونصف" /><option value="120" label="ساعتان" /><option value="180" label="3 ساعات" /><option value="240" label="4 ساعات" /></datalist><small id={`${listId}-hint`} className="text-[8px] font-medium text-slate-400">بالدقائق؛ مضاعفات 15</small></label>;
 }
 
 function StatusItem({ done, label }: { done: boolean; label: string }) {

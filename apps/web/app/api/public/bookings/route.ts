@@ -11,6 +11,7 @@ type BookingPayload = {
   name?: unknown;
   phone?: unknown;
   serviceId?: unknown;
+  branchId?: unknown;
   bookingDate?: unknown;
   bookingTime?: unknown;
   notes?: unknown;
@@ -22,6 +23,14 @@ type ExistingBookingRange = {
   bookingDate: string;
   bookingTime: string;
   durationMinutes: number;
+};
+
+type PublicBookingBranch = {
+  id: string;
+  name: string;
+  city: string | null;
+  bookingSlotMinutes: number;
+  bookingCapacity: number;
 };
 
 type WorkingHoursState = {
@@ -54,6 +63,26 @@ function bookingInsideResolvedSchedule(
       previousDateOverride ?? previousWeeklySchedule,
     )
   );
+}
+
+function bookingAlignedToResolvedSchedule(
+  time: string,
+  slotMinutes: number,
+  dateOverride: AvailabilityOverrideState | null,
+  weeklySchedule: Omit<WorkingHoursState, "dayOfWeek"> | null,
+  previousDateOverride: AvailabilityOverrideState | null,
+  previousWeeklySchedule: Omit<WorkingHoursState, "dayOfWeek"> | null,
+) {
+  const minute = bookingMinutes(time);
+  const current = dateOverride ?? weeklySchedule;
+  const anchors = [current?.opensAt, current?.secondOpensAt]
+    .filter((candidate): candidate is string => Boolean(candidate))
+    .map(bookingMinutes);
+  const previous = previousDateOverride ?? previousWeeklySchedule;
+  for (const [open, close] of [[previous?.opensAt, previous?.closesAt], [previous?.secondOpensAt, previous?.secondClosesAt]]) {
+    if (open && close && bookingMinutes(close) <= bookingMinutes(open)) anchors.push(bookingMinutes(open) - 1440);
+  }
+  return anchors.some((anchor) => minute >= anchor && (minute - anchor) % slotMinutes === 0);
 }
 
 function text(value: unknown, max: number) {
@@ -138,6 +167,7 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const slug = normalizePublicSlug(requestUrl.searchParams.get("slug") ?? "");
   const serviceId = text(requestUrl.searchParams.get("serviceId"), 80);
+  const requestedBranchId = text(requestUrl.searchParams.get("branchId"), 80);
   if (!slug || !serviceId) {
     return NextResponse.json({ ok: false, error: "اختر خدمة لعرض المواعيد" }, { status: 400, headers: availabilityResponseHeaders });
   }
@@ -156,6 +186,8 @@ export async function GET(request: Request) {
       },
       select: {
         id: true,
+        bookingSlotMinutes: true,
+        bookingCapacity: true,
         openingHours: {
           select: { dayOfWeek: true, opensAt: true, closesAt: true, secondOpensAt: true, secondClosesAt: true, isClosed: true },
         },
@@ -168,12 +200,29 @@ export async function GET(request: Request) {
           select: { id: true, durationMinutes: true },
           take: 1,
         },
+        branches: {
+          where: { isActive: true, bookingEnabled: true },
+          orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }],
+          select: { id: true, name: true, city: true, bookingSlotMinutes: true, bookingCapacity: true },
+        },
       },
     });
     const service = business?.services[0];
     if (!business || !service) {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة غير متاحين" }, { status: 409, headers: availabilityResponseHeaders });
     }
+    const publicBranches: PublicBookingBranch[] = business.branches;
+    const selectedBranch = requestedBranchId
+      ? publicBranches.find((branch) => branch.id === requestedBranchId) ?? null
+      : publicBranches.length === 1 ? publicBranches[0] : null;
+    if (requestedBranchId && !selectedBranch) {
+      return NextResponse.json({ ok: false, error: "الفرع غير متاح للحجز" }, { status: 409, headers: availabilityResponseHeaders });
+    }
+    if (publicBranches.length > 1 && !selectedBranch) {
+      return NextResponse.json({ ok: true, timezone: "Asia/Riyadh", branches: publicBranches, requiresBranch: true, days: [] }, { headers: availabilityResponseHeaders });
+    }
+    const slotMinutes = selectedBranch?.bookingSlotMinutes ?? business.bookingSlotMinutes;
+    const capacity = selectedBranch?.bookingCapacity ?? business.bookingCapacity;
 
     const queryStart = shiftBookingDate(today, -1);
     const queryEnd = shiftBookingDate(lastDay, 1);
@@ -190,13 +239,13 @@ export async function GET(request: Request) {
       LEFT JOIN "BookingDurationSnapshot" snapshot ON snapshot."bookingId" = b."id"
       LEFT JOIN "Service" linked_service ON linked_service."id" = b."serviceId"
       WHERE b."businessId" = ${business.id}
-        AND b."serviceId" = ${service.id}
+        AND (${selectedBranch?.id ?? null}::text IS NULL AND b."branchId" IS NULL OR b."branchId" = ${selectedBranch?.id ?? null})
         AND b."status" IN ('pending', 'confirmed')
         AND b."bookingDate" >= ${queryStart}
         AND b."bookingDate" <= ${queryEnd}
     `;
 
-    const durationMinutes = normalizedBookingDuration(service.durationMinutes);
+    const durationMinutes = slotMinutes;
     const schedules = new Map(business.openingHours.map((item) => [item.dayOfWeek, item]));
     const overrides = new Map(business.bookingAvailabilityOverrides.map((item) => [item.date, item]));
     const minimumStart = Date.now() + 5 * 60 * 1000;
@@ -211,8 +260,9 @@ export async function GET(request: Request) {
       const nextDate = shiftBookingDate(date, 1);
       const dateOffsets = new Map([[previousDate, -1440], [date, 0], [nextDate, 1440]]);
       const slots: string[] = [];
+      const slotDetails: Array<{ start: string; end: string; capacity: number; remaining: number }> = [];
 
-      for (let minute = 0; minute < 1440; minute += 30) {
+      for (let minute = 0; minute < 1440; minute += 15) {
         const time = timeFromMinutes(minute);
         const start = riyadhDate(date, time);
         if (!start || start.getTime() < minimumStart) continue;
@@ -225,20 +275,25 @@ export async function GET(request: Request) {
           previousSchedule,
         );
         if (!insideSchedule) continue;
-        const overlaps = existingBookings.some((item) => {
+        if (!bookingAlignedToResolvedSchedule(time, slotMinutes, dateOverride, schedule, previousDateOverride, previousSchedule)) continue;
+        const occupied = existingBookings.filter((item) => {
           const offsetMinutes = dateOffsets.get(item.bookingDate);
           if (offsetMinutes === undefined) return false;
           const existingStart = offsetMinutes + bookingMinutes(item.bookingTime);
           return bookingIntervalsOverlap(minute, durationMinutes, existingStart, normalizedBookingDuration(item.durationMinutes));
-        });
-        if (!overlaps) slots.push(time);
+        }).length;
+        const remaining = Math.max(0, capacity - occupied);
+        if (remaining > 0) {
+          slots.push(time);
+          slotDetails.push({ start: time, end: timeFromMinutes((minute + slotMinutes) % 1440), capacity, remaining });
+        }
       }
 
-      return { date, dayOfWeek, available: slots.length > 0, slots };
+      return { date, dayOfWeek, available: slots.length > 0, slots, slotDetails };
     });
 
     return NextResponse.json(
-      { ok: true, timezone: "Asia/Riyadh", durationMinutes, days },
+      { ok: true, timezone: "Asia/Riyadh", durationMinutes, slotMinutes, capacity, branches: publicBranches, selectedBranchId: selectedBranch?.id ?? null, days },
       { headers: availabilityResponseHeaders },
     );
   } catch (error) {
@@ -265,6 +320,7 @@ export async function POST(request: Request) {
   const name = text(body.name, 120);
   const phone = normalizedPhone(body.phone);
   const serviceId = text(body.serviceId, 80);
+  const branchId = text(body.branchId, 80);
   const bookingDate = validDate(body.bookingDate);
   const bookingTime = validTime(body.bookingTime);
   const notes = text(body.notes, 1000);
@@ -274,7 +330,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "بيانات الحجز غير مكتملة" }, { status: 400 });
   }
 
-  let business: { id: string; bookingAvailable: boolean } | null;
+  let business: { id: string; bookingAvailable: boolean; bookingSlotMinutes: number; bookingCapacity: number } | null;
   try {
     business = await db.business.findFirst({
       where: {
@@ -283,7 +339,7 @@ export async function POST(request: Request) {
         isPublished: true,
         owner: { deletedAt: null, emailVerifiedAt: { not: null } },
       },
-      select: { id: true, bookingAvailable: true },
+      select: { id: true, bookingAvailable: true, bookingSlotMinutes: true, bookingCapacity: true },
     });
   } catch (error) {
     console.error("[public-booking] business_lookup_failed", error);
@@ -324,7 +380,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
   }
   if (!service) return NextResponse.json({ ok: false, error: "الخدمة غير متاحة للحجز" }, { status: 409 });
-  const durationMinutes = normalizedBookingDuration(service.durationMinutes);
+  let activeBranches: Array<{ id: string; bookingSlotMinutes: number; bookingCapacity: number }>;
+  try {
+    activeBranches = await db.branch.findMany({
+      where: { businessId: business.id, isActive: true, bookingEnabled: true },
+      select: { id: true, bookingSlotMinutes: true, bookingCapacity: true },
+    });
+  } catch (error) {
+    console.error("[public-booking] branch_lookup_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
+  const selectedBranch = branchId ? activeBranches.find((branch) => branch.id === branchId) ?? null : activeBranches.length === 1 ? activeBranches[0] : null;
+  if (activeBranches.length > 1 && !selectedBranch) return NextResponse.json({ ok: false, error: "اختر الفرع المطلوب" }, { status: 400 });
+  if (branchId && !selectedBranch) return NextResponse.json({ ok: false, error: "الفرع غير متاح للحجز" }, { status: 409 });
+  const durationMinutes = selectedBranch?.bookingSlotMinutes ?? business.bookingSlotMinutes;
 
   const localNoon = new Date(`${bookingDate}T12:00:00+03:00`);
   const dayOfWeek = (localNoon.getUTCDay() + 6) % 7;
@@ -375,6 +444,9 @@ export async function POST(request: Request) {
           : "لم يتم ضبط أوقات الحجز لهذا اليوم",
     }, { status: 409 });
   }
+  if (!bookingAlignedToResolvedSchedule(bookingTime, durationMinutes, dateOverride, schedule, previousDateOverride, previousSchedule)) {
+    return NextResponse.json({ ok: false, error: "اختر إحدى الفترات المحددة للفرع" }, { status: 409 });
+  }
 
   try {
     const address = requestClientAddress(request) || "unknown";
@@ -401,16 +473,16 @@ export async function POST(request: Request) {
       `;
       if (previous[0]?.targetId) return { id: previous[0].targetId, replayed: true };
 
-      // Serialize bookings per service, not per calendar day. Overnight services can
-      // otherwise race across midnight (for example Monday 23:30 vs Tuesday 00:00).
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-service:${business.id}:${serviceId}`}))`;
+      // Serialize the exact branch/date/slot capacity check so simultaneous visitors
+      // cannot exceed the configured seat count.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-slot:${business.id}:${selectedBranch?.id ?? "business"}:${bookingDate}:${bookingTime}`}))`;
 
       // Re-prove every mutable public-booking invariant at commit time. SHARE locks keep
       // publication, mailbox ownership, booking availability and service eligibility from
       // changing between this decision and the insert. The preflight above remains only a
       // fast user-facing rejection path; it is never the final authorization decision.
-      const eligibleTargets = await tx.$queryRaw<Array<{ serviceId: string; durationMinutes: number | null }>>`
-        SELECT s."id" AS "serviceId", s."durationMinutes"
+      const eligibleTargets = await tx.$queryRaw<Array<{ serviceId: string; bookingSlotMinutes: number; bookingCapacity: number }>>`
+        SELECT s."id" AS "serviceId", b."bookingSlotMinutes", b."bookingCapacity"
         FROM "Business" b
         JOIN "User" u ON u."id" = b."ownerId"
         JOIN "Service" s ON s."businessId" = b."id"
@@ -429,7 +501,19 @@ export async function POST(request: Request) {
       `;
       const currentService = eligibleTargets[0];
       if (!currentService) throw new Error("PUBLIC_BOOKING_TARGET_UNAVAILABLE");
-      const currentDurationMinutes = normalizedBookingDuration(currentService.durationMinutes);
+      const currentBranches = selectedBranch ? await tx.$queryRaw<Array<{ id: string; bookingSlotMinutes: number; bookingCapacity: number }>>`
+        SELECT "id", "bookingSlotMinutes", "bookingCapacity"
+        FROM "Branch"
+        WHERE "id" = ${selectedBranch.id}
+          AND "businessId" = ${business.id}
+          AND "isActive" = true
+          AND "bookingEnabled" = true
+        FOR SHARE
+      ` : [];
+      const currentBranch = currentBranches[0] ?? null;
+      if (selectedBranch && !currentBranch) throw new Error("PUBLIC_BOOKING_TARGET_UNAVAILABLE");
+      const currentDurationMinutes = currentBranch?.bookingSlotMinutes ?? currentService.bookingSlotMinutes;
+      const currentCapacity = currentBranch?.bookingCapacity ?? currentService.bookingCapacity;
 
       const previousDayOfWeek = previousDay(dayOfWeek);
       const currentHours = await tx.$queryRaw<WorkingHoursState[]>`
@@ -460,6 +544,14 @@ export async function POST(request: Request) {
         currentPreviousDateOverride,
         currentPreviousSchedule,
       )) throw new Error("PUBLIC_BOOKING_SCHEDULE_CHANGED");
+      if (!bookingAlignedToResolvedSchedule(
+        bookingTime,
+        currentDurationMinutes,
+        currentDateOverride,
+        currentSchedule,
+        currentPreviousDateOverride,
+        currentPreviousSchedule,
+      )) throw new Error("PUBLIC_BOOKING_SCHEDULE_CHANGED");
 
       const nextBookingDate = shiftBookingDate(bookingDate, 1);
       const existingBookings = await tx.$queryRaw<ExistingBookingRange[]>`
@@ -475,7 +567,7 @@ export async function POST(request: Request) {
         LEFT JOIN "BookingDurationSnapshot" snapshot ON snapshot."bookingId" = b."id"
         LEFT JOIN "Service" service ON service."id" = b."serviceId"
         WHERE b."businessId" = ${business.id}
-          AND b."serviceId" = ${serviceId}
+          AND (${currentBranch?.id ?? null}::text IS NULL AND b."branchId" IS NULL OR b."branchId" = ${currentBranch?.id ?? null})
           AND b."status" IN ('pending', 'confirmed')
           AND (
             b."bookingDate" = ${previousBookingDate}
@@ -485,12 +577,11 @@ export async function POST(request: Request) {
       `;
       const requestedStart = bookingMinutes(bookingTime);
       const offsets = new Map([[previousBookingDate, -1440], [bookingDate, 0], [nextBookingDate, 1440]]);
-      if (existingBookings.some((item) => {
+      const occupiedSeats = existingBookings.filter((item) => {
         const existingStart = (offsets.get(item.bookingDate) ?? 0) + bookingMinutes(item.bookingTime);
         return bookingIntervalsOverlap(requestedStart, currentDurationMinutes, existingStart, normalizedBookingDuration(item.durationMinutes));
-      })) {
-        throw new Error("PUBLIC_BOOKING_SLOT_TAKEN");
-      }
+      }).length;
+      if (occupiedSeats >= currentCapacity) throw new Error("PUBLIC_BOOKING_SLOT_FULL");
 
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`customer:${business.id}:${phone}`}))`;
       let customer = await tx.customer.findFirst({
@@ -509,8 +600,10 @@ export async function POST(request: Request) {
           businessId: business.id,
           customerId: customer.id,
           serviceId: currentService.serviceId,
+          branchId: currentBranch?.id ?? null,
           bookingDate,
           bookingTime,
+          slotEndTime: timeFromMinutes((bookingMinutes(bookingTime) + currentDurationMinutes) % 1440),
           notes: notes || null,
           status: "pending",
         },
@@ -529,8 +622,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, bookingId: result.id, replayed: result.replayed }, { status: result.replayed ? 200 : 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "PUBLIC_BOOKING_SLOT_TAKEN") {
-      return NextResponse.json({ ok: false, error: "هذا الوقت يتداخل مع حجز قائم للخدمة" }, { status: 409 });
+    if (error instanceof Error && error.message === "PUBLIC_BOOKING_SLOT_FULL") {
+      return NextResponse.json({ ok: false, error: "اكتملت سعة هذه الفترة. اختر الفترة التالية المتاحة." }, { status: 409 });
     }
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_TARGET_UNAVAILABLE") {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة لم يعودا متاحين لهذا النشاط" }, { status: 409 });

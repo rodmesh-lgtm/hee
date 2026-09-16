@@ -20,12 +20,14 @@ type Props = {
   bookingAvailable: boolean;
   hasWorkingHours: boolean;
   services: Service[];
+  branches: Array<{ id: string; name: string | null; city: string | null; bookingEnabled: boolean; bookingSlotMinutes: number; bookingCapacity: number }>;
 };
 
 type BookingValues = {
   name: string;
   phone: string;
   serviceId: string;
+  branchId: string;
   bookingDate: string;
   bookingTime: string;
   notes: string;
@@ -36,6 +38,7 @@ type AvailabilityDay = {
   dayOfWeek: number;
   available: boolean;
   slots: string[];
+  slotDetails?: Array<{ start: string; end: string; capacity: number; remaining: number }>;
 };
 
 type AvailabilityPayload = {
@@ -63,7 +66,7 @@ function displayTime(time: string) {
   return new Intl.DateTimeFormat("ar-SA", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Riyadh" }).format(new Date(`2020-01-01T${time}:00+03:00`));
 }
 
-export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone, bookingAvailable, hasWorkingHours, services }: Props) {
+export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone, bookingAvailable, hasWorkingHours, services, branches }: Props) {
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -79,6 +82,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     name: "",
     phone: "",
     serviceId: "",
+    branchId: branches.filter((branch) => branch.bookingEnabled).length === 1 ? branches.find((branch) => branch.bookingEnabled)?.id ?? "" : "",
     bookingDate: "",
     bookingTime: "",
     notes: "",
@@ -92,6 +96,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     () => services.filter((service) => service.bookingEnabled && service.name),
     [services],
   );
+  const bookableBranches = useMemo(() => branches.filter((branch) => branch.bookingEnabled && branch.name), [branches]);
   const canBook = bookingAvailable && hasWorkingHours && bookableServices.length > 0;
   const canRequest = Boolean(whatsapp?.trim() || phone?.trim());
   const selectedDay = availabilityDays.find((day) => day.date === values.bookingDate) ?? null;
@@ -164,7 +169,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     setAvailabilityDays([]);
     setAvailabilityError("");
     setDurationMinutes(null);
-    setValues((current) => ({ ...current, serviceId: "", bookingDate: "", bookingTime: "" }));
+    setValues((current) => ({ ...current, serviceId: "", branchId: bookableBranches.length === 1 ? bookableBranches[0].id : "", bookingDate: "", bookingTime: "" }));
     setBookingOpen(true);
   }
 
@@ -176,6 +181,13 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     setValues((current) => ({ ...current, serviceId, bookingDate: "", bookingTime: "" }));
   }
 
+  function selectBranch(branchId: string) {
+    setAvailabilityState(values.serviceId ? "loading" : "idle");
+    setAvailabilityDays([]);
+    setAvailabilityError("");
+    setValues((current) => ({ ...current, branchId, bookingDate: "", bookingTime: "" }));
+  }
+
   function retryAvailability() {
     setAvailabilityState("loading");
     setAvailabilityError("");
@@ -183,10 +195,11 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
   }
 
   useEffect(() => {
-    if (!bookingOpen || !values.serviceId) return;
+    if (!bookingOpen || !values.serviceId || (bookableBranches.length > 1 && !values.branchId)) return;
 
     const controller = new AbortController();
     const query = new URLSearchParams({ slug, serviceId: values.serviceId });
+    if (values.branchId) query.set("branchId", values.branchId);
     fetch(`/api/public/bookings?${query.toString()}`, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
         const payload = (await response.json().catch(() => null)) as AvailabilityPayload | null;
@@ -209,14 +222,14 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
       });
 
     return () => controller.abort();
-  }, [availabilityVersion, bookingOpen, slug, values.serviceId]);
+  }, [availabilityVersion, bookingOpen, bookableBranches.length, slug, values.branchId, values.serviceId]);
 
   async function submitBooking(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submittingRef.current) return;
     const phoneDigits = values.phone.replace(/\D/g, "");
-    if (!values.name.trim() || phoneDigits.length < 8 || phoneDigits.length > 15 || !values.serviceId || !values.bookingDate || !values.bookingTime) {
-      setError("أكمل الاسم والجوال والخدمة واختر موعدًا متاحًا.");
+    if (!values.name.trim() || phoneDigits.length < 8 || phoneDigits.length > 15 || !values.serviceId || (bookableBranches.length > 1 && !values.branchId) || !values.bookingDate || !values.bookingTime) {
+      setError("أكمل الاسم والجوال والفرع والخدمة واختر فترة متاحة.");
       return;
     }
 
@@ -234,6 +247,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
           name: values.name.trim(),
           phone: values.phone.trim(),
           serviceId: values.serviceId,
+          branchId: values.branchId || undefined,
           bookingDate: values.bookingDate,
           bookingTime: values.bookingTime,
           notes: values.notes.trim(),
@@ -284,11 +298,13 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
             <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>رقم الجوال</span><input dir="ltr" inputMode="tel" autoComplete="tel" value={values.phone} onChange={(event) => setValues((current) => ({ ...current, phone: event.target.value }))} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15" /></label>
           </div>
 
+          {bookableBranches.length ? <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>الفرع</span><select aria-label="الفرع" value={values.branchId} onChange={(event) => selectBranch(event.target.value)} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15"><option value="">اختر الفرع</option>{bookableBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}{branch.city ? ` · ${branch.city}` : ""}</option>)}</select></label> : null}
+
           <label className="grid gap-1.5 text-xs font-bold text-slate-600">
             <span>الخدمة</span>
             <select aria-label="الخدمة" value={values.serviceId} onChange={(event) => selectService(event.target.value)} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15">
               <option value="">اختر الخدمة</option>
-              {bookableServices.map((service) => <option key={service.id} value={service.id}>{service.name}{service.durationMinutes ? ` · ${service.durationMinutes} دقيقة` : ""}</option>)}
+              {bookableServices.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
             </select>
           </label>
 
@@ -303,19 +319,20 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
                   return <button key={day.date} type="button" data-booking-date={day.date} disabled={!day.available} aria-pressed={selected} aria-label={day.available ? `اختيار ${dayName(day.date)} ${compactDate(day.date)}` : `${dayName(day.date)} ${compactDate(day.date)} غير متاح`} onClick={() => setValues((current) => ({ ...current, bookingDate: day.date, bookingTime: "" }))} className={`min-h-[72px] min-w-[82px] snap-start rounded-2xl border px-2 py-2 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#009eac] bg-[#e8fbfb] text-[#07545d] shadow-[0_7px_18px_rgba(0,158,172,.12)]" : day.available ? "border-[#d7e6e3] bg-white text-[#244246] hover:border-[#8dd9d3]" : "border-slate-100 bg-slate-50 text-slate-300"}`}>
                     <span className="block text-[10px] font-bold">{dayName(day.date)}</span>
                     <b className="mt-1 block text-[11px]">{compactDate(day.date)}</b>
-                    <span className={`mt-1 block text-[8px] font-black ${day.available ? "text-emerald-600" : "text-slate-300"}`}>{day.available ? `${day.slots.length} موعد` : "غير متاح"}</span>
+                    <span className={`mt-1 block text-[8px] font-black ${day.available ? "text-emerald-600" : "text-slate-300"}`}>{day.available ? `${day.slots.length} فترة` : "غير متاح"}</span>
                   </button>;
                 })}
               </div>
             </fieldset>
 
             {selectedDay?.available ? <fieldset aria-label="الوقت">
-              <div className="mb-2 flex items-center justify-between gap-3"><legend className="text-xs font-black text-slate-700">اختر الوقت</legend>{durationMinutes ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400"><Clock3 className="h-3 w-3" />مدة الخدمة {durationMinutes} دقيقة</span> : null}</div>
+              <div className="mb-2 flex items-center justify-between gap-3"><legend className="text-xs font-black text-slate-700">اختر الفترة</legend>{durationMinutes ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400"><Clock3 className="h-3 w-3" />مدة الفترة {durationMinutes} دقيقة</span> : null}</div>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {selectedDay.slots.map((time) => {
+                {(selectedDay.slotDetails ?? selectedDay.slots.map((time) => ({ start: time, end: time, capacity: 1, remaining: 1 }))).map((slot) => {
+                  const time = slot.start;
                   const selected = values.bookingTime === time;
-                  return <button key={time} type="button" data-booking-time={time} aria-pressed={selected} aria-label={`موعد ${time}`} onClick={() => setValues((current) => ({ ...current, bookingTime: time }))} className={`relative min-h-11 rounded-xl border px-2 text-[11px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#008f9f] bg-[#073f43] text-white" : "border-[#d7e6e3] bg-[#f8fbfa] text-[#25474a] hover:border-[#8dd9d3]"}`}>
-                    {selected ? <Check className="absolute left-1.5 top-1.5 h-3 w-3 text-[#68ead7]" /> : null}{displayTime(time)}
+                  return <button key={time} type="button" data-booking-time={time} aria-pressed={selected} aria-label={`فترة من ${displayTime(time)} إلى ${displayTime(slot.end)}، متبقي ${slot.remaining}`} onClick={() => setValues((current) => ({ ...current, bookingTime: time }))} className={`relative min-h-14 rounded-xl border px-2 py-2 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#008f9f] bg-[#073f43] text-white" : "border-[#d7e6e3] bg-[#f8fbfa] text-[#25474a] hover:border-[#8dd9d3]"}`}>
+                    {selected ? <Check className="absolute left-1.5 top-1.5 h-3 w-3 text-[#68ead7]" /> : null}<span className="block" dir="rtl">{displayTime(time)} – {displayTime(slot.end)}</span><small className={`mt-1 block text-[8px] ${selected ? "text-[#68ead7]" : slot.remaining <= 2 ? "text-amber-600" : "text-emerald-600"}`}>متبقي {slot.remaining} من {slot.capacity}</small>
                   </button>;
                 })}
               </div>

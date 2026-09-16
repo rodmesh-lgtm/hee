@@ -51,6 +51,54 @@ function refreshAppointmentPaths(slug: string) {
   revalidatePath(`/${slug}`);
 }
 
+function boundedInteger(raw: string, minimum: number, maximum: number) {
+  if (!/^\d+$/.test(raw)) return null;
+  const parsed = Number(raw);
+  return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : null;
+}
+
+export async function updateBookingSlotSettingsAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+
+  const defaultDuration = boundedInteger(value(formData, "defaultSlotMinutes"), 15, 480);
+  const defaultCapacity = boundedInteger(value(formData, "defaultCapacity"), 1, 500);
+  if (!defaultDuration || defaultDuration % 15 !== 0 || !defaultCapacity) {
+    redirect("/dashboard/working-hours?error=slot-settings");
+  }
+
+  const branches = await db.branch.findMany({
+    where: { businessId: business.id, isActive: true },
+    select: { id: true },
+  });
+  const branchUpdates = branches.map((branch) => {
+    const capacity = boundedInteger(value(formData, `capacity-${branch.id}`), 1, 500);
+    const slotMinutes = boundedInteger(value(formData, `slot-${branch.id}`), 15, 480);
+    if (!capacity || !slotMinutes || slotMinutes % 15 !== 0) return null;
+    return db.branch.updateMany({
+      where: { id: branch.id, businessId: business.id },
+      data: {
+        bookingEnabled: formData.get(`enabled-${branch.id}`) === "on",
+        bookingCapacity: capacity,
+        bookingSlotMinutes: slotMinutes,
+      },
+    });
+  });
+  if (branchUpdates.some((operation) => operation === null)) {
+    redirect("/dashboard/working-hours?error=slot-settings");
+  }
+
+  await db.$transaction([
+    db.business.updateMany({
+      where: { id: business.id, ownerId: business.ownerId, deletedAt: null },
+      data: { bookingSlotMinutes: defaultDuration, bookingCapacity: defaultCapacity },
+    }),
+    ...branchUpdates.filter((operation): operation is NonNullable<typeof operation> => operation !== null),
+  ]);
+  refreshAppointmentPaths(business.slug);
+  redirect("/dashboard/working-hours?saved=slots");
+}
+
 export async function upsertBookingAvailabilityOverrideAction(formData: FormData) {
   const business = await getOwnedBusinessForWrite();
   if (!business) redirect("/login");
