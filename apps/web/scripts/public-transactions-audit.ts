@@ -60,7 +60,7 @@ async function main() {
       status: "pending",
     },
   });
-  await expectBlocked("Active booking slot uniqueness", () => db.booking.create({
+  const capacityPeerBooking = await db.booking.create({
     data: {
       businessId: business.id,
       customerId: customer.id,
@@ -69,7 +69,20 @@ async function main() {
       bookingTime: "10:30",
       status: "confirmed",
     },
-  }));
+  });
+  const bookingIndexes = await db.$queryRaw<Array<{ indexname: string }>>`
+    SELECT "indexname"
+    FROM "pg_indexes"
+    WHERE "schemaname" = 'public'
+      AND "tablename" = 'Booking'
+      AND "indexname" IN ('Booking_active_service_slot_unique', 'Booking_branch_slot_capacity_lookup_idx')
+  `;
+  if (bookingIndexes.some((index) => index.indexname === "Booking_active_service_slot_unique")) {
+    throw new Error("Legacy single-booking slot uniqueness index still exists");
+  }
+  if (!bookingIndexes.some((index) => index.indexname === "Booking_branch_slot_capacity_lookup_idx")) {
+    throw new Error("Branch slot capacity lookup index is missing");
+  }
   await expectBlocked("Booking date shape constraint", () => db.$executeRaw`UPDATE "Booking" SET "bookingDate" = '30/12/2099' WHERE "id" = ${booking.id}`);
   await expectBlocked("Booking calendar validity constraint", () => db.$executeRaw`UPDATE "Booking" SET "bookingDate" = '2099-02-30' WHERE "id" = ${booking.id}`);
   await expectBlocked("Booking status constraint", () => db.$executeRaw`UPDATE "Booking" SET "status" = 'typo_status' WHERE "id" = ${booking.id}`);
@@ -101,6 +114,7 @@ async function main() {
     SELECT COUNT(*)::int AS "count" FROM "BookingDurationSnapshot" WHERE "bookingId" = ${booking.id}
   `;
   if ((snapshotAfterBookingDelete[0]?.count ?? -1) !== 0) throw new Error("Booking duration snapshot cascade: orphan row remains");
+  await db.booking.delete({ where: { id: capacityPeerBooking.id } });
   await db.orderItem.deleteMany({ where: { orderId: order.id } });
   await db.order.delete({ where: { id: order.id } });
   await db.product.delete({ where: { id: product.id } });
