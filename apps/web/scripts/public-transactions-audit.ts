@@ -71,7 +71,7 @@ async function main() {
     },
   });
   const bookingIndexes = await db.$queryRaw<Array<{ indexname: string }>>`
-    SELECT "indexname"
+    SELECT "indexname"::text AS "indexname"
     FROM "pg_indexes"
     WHERE "schemaname" = 'public'
       AND "tablename" = 'Booking'
