@@ -354,7 +354,7 @@ model Booking {
   @@index([businessId])
   @@index([customerId])
   @@index([serviceId])
-  @@index([branchId, bookingDate, bookingTime])
+  @@index([businessId, branchId, bookingDate, bookingTime, status], map: "Booking_branch_slot_capacity_lookup_idx")
   @@index([bookingDate])
 }
 
