@@ -6,6 +6,7 @@ const schema = readFileSync(new URL("../prisma/schema.prisma", import.meta.url),
 const migration = readFileSync(new URL("../prisma/migrations/20260916190000_add_branch_booking_slots/migration.sql", import.meta.url), "utf8");
 const capacityMigration = readFileSync(new URL("../prisma/migrations/20260916223000_allow_branch_slot_capacity/migration.sql", import.meta.url), "utf8");
 const legacyActivationMigration = readFileSync(new URL("../prisma/migrations/20260917083000_activate_legacy_booking_services/migration.sql", import.meta.url), "utf8");
+const bookingHoursMigration = readFileSync(new URL("../prisma/migrations/20260917084500_initialize_booking_hours/migration.sql", import.meta.url), "utf8");
 const route = readFileSync(new URL("../app/api/public/bookings/route.ts", import.meta.url), "utf8");
 const action = readFileSync(new URL("../app/actions/working-hours.ts", import.meta.url), "utf8");
 const serviceActions = readFileSync(new URL("../app/actions/services.ts", import.meta.url), "utf8");
@@ -28,6 +29,10 @@ test("existing booking businesses and their first service cannot remain stuck in
   assert.match(serviceActions, /business\.bookingAvailable && bookableCount === 0/);
   assert.match(serviceActions, /if \(bookableCount === 0\)/);
   assert.match(serviceActions, /data: \{ bookingEnabled: true \}/);
+  assert.match(bookingHoursMigration, /generate_series\(0, 6\)/);
+  assert.match(bookingHoursMigration, /'08:00'/);
+  assert.match(bookingHoursMigration, /'18:00'/);
+  assert.match(serviceActions, /ensureDefaultBookingHours/);
 });
 
 test("public booking capacity is branch-scoped serialized and rechecked at commit", () => {

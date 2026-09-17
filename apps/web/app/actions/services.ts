@@ -20,6 +20,13 @@ function refresh(slug: string) {
   revalidatePath("/dashboard"); revalidatePath("/dashboard/services"); revalidatePath("/dashboard/working-hours"); revalidatePath("/dashboard/my-page"); revalidatePath("/dashboard/inbox"); revalidatePath("/preview"); revalidatePath(`/${slug}`);
 }
 async function lockServiceScope(tx: Prisma.TransactionClient, businessId: string) { await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:services`}))`; }
+async function ensureDefaultBookingHours(tx: Prisma.TransactionClient, businessId: string) {
+  const hoursCount = await tx.workingHours.count({ where: { businessId } });
+  if (hoursCount > 0) return;
+  await tx.workingHours.createMany({
+    data: Array.from({ length: 7 }, (_, dayOfWeek) => ({ businessId, dayOfWeek, opensAt: "08:00", closesAt: "18:00", isClosed: false })),
+  });
+}
 
 export async function addSimpleServiceAction(formData: FormData) {
   const business = await ownedBusiness(); if (!business) return;
@@ -32,7 +39,9 @@ export async function addSimpleServiceAction(formData: FormData) {
     if (limitReached(serviceCount, entitlements.serviceLimit)) return "limit" as const;
     const bookableCount = await tx.service.count({ where: { businessId: business.id, deletedAt: null, isActive: true, bookingEnabled: true } });
     const max = await tx.service.aggregate({ where: { businessId: business.id, deletedAt: null }, _max: { sortOrder: true } });
-    await tx.service.create({ data: { businessId: business.id, name, description: description || null, price: 0, isActive: true, bookingEnabled: business.bookingAvailable && bookableCount === 0, sortOrder: (max._max.sortOrder ?? -1) + 1 } });
+    const autoEnableBooking = business.bookingAvailable && bookableCount === 0;
+    await tx.service.create({ data: { businessId: business.id, name, description: description || null, price: 0, isActive: true, bookingEnabled: autoEnableBooking, sortOrder: (max._max.sortOrder ?? -1) + 1 } });
+    if (autoEnableBooking) await ensureDefaultBookingHours(tx, business.id);
     return "created" as const;
   });
   if (result !== "created") return; refresh(business.slug);
@@ -66,6 +75,7 @@ export async function updateBookingAvailabilityAction(formData: FormData) {
         data: { bookingEnabled: true },
       });
     }
+    await ensureDefaultBookingHours(tx, business.id);
   });
   refresh(business.slug);
 }
