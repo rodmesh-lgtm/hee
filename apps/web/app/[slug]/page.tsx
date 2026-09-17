@@ -257,8 +257,6 @@ export default async function PublicBusinessPageRoute({
           name: branch.name,
           city: branch.city,
           bookingEnabled: branch.bookingEnabled,
-          bookingSlotMinutes: branch.bookingSlotMinutes,
-          bookingCapacity: branch.bookingCapacity,
         }))}
         services={publicBusiness.services.map((service) => ({
           id: service.id,

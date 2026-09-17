@@ -159,11 +159,13 @@ test.describe.serial("public transactions workflow", () => {
         `${baseUrl}/api/public/bookings?slug=${seeded.slug}&serviceId=${seeded.serviceId}`,
       );
       expect(refreshedAvailability.status()).toBe(200);
-      const availabilityPayload = await refreshedAvailability.json() as { days: Array<{ date: string; available: boolean; slots: string[]; slotDetails: Array<{ start: string; remaining: number; capacity: number }> }> };
+      const availabilityPayload = await refreshedAvailability.json() as { days: Array<{ date: string; available: boolean; slots: string[]; slotDetails: Array<{ start: string; end: string }> }> };
       const tomorrowAvailability = availabilityPayload.days.find((day) => day.date === tomorrow);
       expect(tomorrowAvailability?.available).toBe(true);
       expect(tomorrowAvailability?.slots).toContain("10:00");
-      expect(tomorrowAvailability?.slotDetails.find((slot) => slot.start === "10:00")).toEqual(expect.objectContaining({ remaining: 9, capacity: 10 }));
+      expect(tomorrowAvailability?.slotDetails.find((slot) => slot.start === "10:00")).toEqual({ start: "10:00", end: "12:00" });
+      expect(tomorrowAvailability?.slotDetails.find((slot) => slot.start === "10:00")).not.toHaveProperty("remaining");
+      expect(tomorrowAvailability?.slotDetails.find((slot) => slot.start === "10:00")).not.toHaveProperty("capacity");
 
       await setSession(ownerPage, seeded.sessionToken);
       await ownerPage.goto(`${baseUrl}/dashboard/inbox`, { waitUntil: "domcontentloaded" });
@@ -264,9 +266,10 @@ test.describe.serial("public transactions workflow", () => {
 
       const availability = await request.get(`${baseUrl}/api/public/bookings?slug=${seeded.slug}&serviceId=${seeded.serviceId}&branchId=${largeBranch.id}`);
       expect(availability.status()).toBe(200);
-      const payload = await availability.json() as { slotMinutes: number; capacity: number; days: Array<{ date: string; slotDetails: Array<{ start: string; end: string; remaining: number }> }> };
-      expect(payload).toEqual(expect.objectContaining({ slotMinutes: 120, capacity: 2 }));
-      expect(payload.days.find((day) => day.date === date)?.slotDetails.find((slot) => slot.start === "08:00")).toEqual(expect.objectContaining({ end: "10:00", remaining: 2 }));
+      const payload = await availability.json() as { slotMinutes: number; days: Array<{ date: string; slotDetails: Array<{ start: string; end: string }> }> };
+      expect(payload).toEqual(expect.objectContaining({ slotMinutes: 120 }));
+      expect(payload).not.toHaveProperty("capacity");
+      expect(payload.days.find((day) => day.date === date)?.slotDetails.find((slot) => slot.start === "08:00")).toEqual({ start: "08:00", end: "10:00" });
 
       const book = async (branchId: string, phone: string, bookingTime: string) => {
         const requestId = crypto.randomUUID();

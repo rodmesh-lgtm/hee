@@ -212,6 +212,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة غير متاحين" }, { status: 409, headers: availabilityResponseHeaders });
     }
     const publicBranches: PublicBookingBranch[] = business.branches;
+    const publicBranchSummaries = publicBranches.map((branch) => ({
+      id: branch.id,
+      name: branch.name,
+      city: branch.city,
+      bookingSlotMinutes: branch.bookingSlotMinutes,
+    }));
     const selectedBranch = requestedBranchId
       ? publicBranches.find((branch) => branch.id === requestedBranchId) ?? null
       : publicBranches.length === 1 ? publicBranches[0] : null;
@@ -219,7 +225,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: false, error: "الفرع غير متاح للحجز" }, { status: 409, headers: availabilityResponseHeaders });
     }
     if (publicBranches.length > 1 && !selectedBranch) {
-      return NextResponse.json({ ok: true, timezone: "Asia/Riyadh", branches: publicBranches, requiresBranch: true, days: [] }, { headers: availabilityResponseHeaders });
+      return NextResponse.json({ ok: true, timezone: "Asia/Riyadh", branches: publicBranchSummaries, requiresBranch: true, days: [] }, { headers: availabilityResponseHeaders });
     }
     const slotMinutes = selectedBranch?.bookingSlotMinutes ?? business.bookingSlotMinutes;
     const capacity = selectedBranch?.bookingCapacity ?? business.bookingCapacity;
@@ -260,7 +266,7 @@ export async function GET(request: Request) {
       const nextDate = shiftBookingDate(date, 1);
       const dateOffsets = new Map([[previousDate, -1440], [date, 0], [nextDate, 1440]]);
       const slots: string[] = [];
-      const slotDetails: Array<{ start: string; end: string; capacity: number; remaining: number }> = [];
+      const slotDetails: Array<{ start: string; end: string }> = [];
 
       for (let minute = 0; minute < 1440; minute += 15) {
         const time = timeFromMinutes(minute);
@@ -285,7 +291,7 @@ export async function GET(request: Request) {
         const remaining = Math.max(0, capacity - occupied);
         if (remaining > 0) {
           slots.push(time);
-          slotDetails.push({ start: time, end: timeFromMinutes((minute + slotMinutes) % 1440), capacity, remaining });
+          slotDetails.push({ start: time, end: timeFromMinutes((minute + slotMinutes) % 1440) });
         }
       }
 
@@ -293,7 +299,15 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(
-      { ok: true, timezone: "Asia/Riyadh", durationMinutes, slotMinutes, capacity, branches: publicBranches, selectedBranchId: selectedBranch?.id ?? null, days },
+      {
+        ok: true,
+        timezone: "Asia/Riyadh",
+        durationMinutes,
+        slotMinutes,
+        branches: publicBranchSummaries,
+        selectedBranchId: selectedBranch?.id ?? null,
+        days,
+      },
       { headers: availabilityResponseHeaders },
     );
   } catch (error) {

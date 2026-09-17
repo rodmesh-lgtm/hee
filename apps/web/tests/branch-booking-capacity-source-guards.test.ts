@@ -43,9 +43,14 @@ test("public booking capacity is branch-scoped serialized and rechecked at commi
   assert.match(route, /slotEndTime:/);
 });
 
-test("visitor selects a branch and sees range capacity and remaining seats", () => {
+test("visitor selects a branch without seeing capacity or remaining seats", () => {
   assert.match(launcher, /aria-label="الفرع"/);
   assert.match(launcher, /مدة الفترة/);
-  assert.match(launcher, /متبقي \{slot\.remaining\} من \{slot\.capacity\}/);
+  assert.match(launcher, /متاح للحجز/);
+  assert.doesNotMatch(launcher, /slot\.remaining/);
+  assert.doesNotMatch(launcher, /slot\.capacity/);
+  assert.match(route, /const publicBranchSummaries = publicBranches\.map/);
+  assert.doesNotMatch(route, /branches: publicBranches[,}]/);
+  assert.doesNotMatch(route, /slotDetails\.push\(\{[^}]*capacity/);
   assert.match(launcher, /branchId: values\.branchId/);
 });

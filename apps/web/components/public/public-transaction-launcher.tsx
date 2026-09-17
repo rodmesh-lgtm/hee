@@ -20,7 +20,7 @@ type Props = {
   bookingAvailable: boolean;
   hasWorkingHours: boolean;
   services: Service[];
-  branches: Array<{ id: string; name: string | null; city: string | null; bookingEnabled: boolean; bookingSlotMinutes: number; bookingCapacity: number }>;
+  branches: Array<{ id: string; name: string | null; city: string | null; bookingEnabled: boolean }>;
 };
 
 type BookingValues = {
@@ -38,7 +38,7 @@ type AvailabilityDay = {
   dayOfWeek: number;
   available: boolean;
   slots: string[];
-  slotDetails?: Array<{ start: string; end: string; capacity: number; remaining: number }>;
+  slotDetails?: Array<{ start: string; end: string }>;
 };
 
 type AvailabilityPayload = {
@@ -328,11 +328,11 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
             {selectedDay?.available ? <fieldset aria-label="الوقت">
               <div className="mb-2 flex items-center justify-between gap-3"><legend className="text-xs font-black text-slate-700">اختر الفترة</legend>{durationMinutes ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400"><Clock3 className="h-3 w-3" />مدة الفترة {durationMinutes} دقيقة</span> : null}</div>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {(selectedDay.slotDetails ?? selectedDay.slots.map((time) => ({ start: time, end: time, capacity: 1, remaining: 1 }))).map((slot) => {
+                {(selectedDay.slotDetails ?? selectedDay.slots.map((time) => ({ start: time, end: time }))).map((slot) => {
                   const time = slot.start;
                   const selected = values.bookingTime === time;
-                  return <button key={time} type="button" data-booking-time={time} aria-pressed={selected} aria-label={`فترة من ${displayTime(time)} إلى ${displayTime(slot.end)}، متبقي ${slot.remaining}`} onClick={() => setValues((current) => ({ ...current, bookingTime: time }))} className={`relative min-h-14 rounded-xl border px-2 py-2 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#008f9f] bg-[#073f43] text-white" : "border-[#d7e6e3] bg-[#f8fbfa] text-[#25474a] hover:border-[#8dd9d3]"}`}>
-                    {selected ? <Check className="absolute left-1.5 top-1.5 h-3 w-3 text-[#68ead7]" /> : null}<span className="block" dir="rtl">{displayTime(time)} – {displayTime(slot.end)}</span><small className={`mt-1 block text-[8px] ${selected ? "text-[#68ead7]" : slot.remaining <= 2 ? "text-amber-600" : "text-emerald-600"}`}>متبقي {slot.remaining} من {slot.capacity}</small>
+                  return <button key={time} type="button" data-booking-time={time} aria-pressed={selected} aria-label={`فترة من ${displayTime(time)} إلى ${displayTime(slot.end)}، متاحة للحجز`} onClick={() => setValues((current) => ({ ...current, bookingTime: time }))} className={`relative min-h-14 rounded-xl border px-2 py-2 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#008f9f] bg-[#073f43] text-white" : "border-[#d7e6e3] bg-[#f8fbfa] text-[#25474a] hover:border-[#8dd9d3]"}`}>
+                    {selected ? <Check className="absolute left-1.5 top-1.5 h-3 w-3 text-[#68ead7]" /> : null}<span className="block" dir="rtl">{displayTime(time)} – {displayTime(slot.end)}</span><small className={`mt-1 block text-[8px] ${selected ? "text-[#68ead7]" : "text-emerald-600"}`}>متاح للحجز</small>
                   </button>;
                 })}
               </div>
