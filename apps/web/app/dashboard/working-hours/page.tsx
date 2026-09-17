@@ -162,7 +162,7 @@ export default async function DashboardWorkingHoursPage({
           <Link href="/dashboard/services" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#bdebe5] bg-[#effbf9] px-3 text-[10px] font-black text-[#08756e]">إعداد الخدمات <ArrowLeft className="h-3.5 w-3.5" /></Link>
           <Link href="/dashboard/inbox" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-[10px] font-black text-slate-600">عرض الحجوزات <ArrowLeft className="h-3.5 w-3.5" /></Link>
         </div>
-        {!bookableCount ? <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] font-bold leading-5 text-amber-800">لا توجد خدمة مفعّلة للحجز. فعّل «قابلة للحجز» وحدد مدة الخدمة.</p> : null}
+        {!bookableCount ? <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] font-bold leading-5 text-amber-800">لا توجد خدمة مفعّلة للحجز. فعّل «قابلة للحجز» من إعدادات الخدمات.</p> : null}
       </article>
     </section>
 

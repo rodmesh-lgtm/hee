@@ -30,8 +30,9 @@ export async function addSimpleServiceAction(formData: FormData) {
     await lockServiceScope(tx, business.id);
     const serviceCount = await tx.service.count({ where: { businessId: business.id, deletedAt: null } });
     if (limitReached(serviceCount, entitlements.serviceLimit)) return "limit" as const;
+    const bookableCount = await tx.service.count({ where: { businessId: business.id, deletedAt: null, isActive: true, bookingEnabled: true } });
     const max = await tx.service.aggregate({ where: { businessId: business.id, deletedAt: null }, _max: { sortOrder: true } });
-    await tx.service.create({ data: { businessId: business.id, name, description: description || null, price: 0, isActive: true, bookingEnabled: false, sortOrder: (max._max.sortOrder ?? -1) + 1 } });
+    await tx.service.create({ data: { businessId: business.id, name, description: description || null, price: 0, isActive: true, bookingEnabled: business.bookingAvailable && bookableCount === 0, sortOrder: (max._max.sortOrder ?? -1) + 1 } });
     return "created" as const;
   });
   if (result !== "created") return; refresh(business.slug);
@@ -54,7 +55,18 @@ export async function updateSimpleServiceAction(formData: FormData) {
 export async function updateBookingAvailabilityAction(formData: FormData) {
   const business = await ownedBusiness(); if (!business) return;
   const enabled = formData.get("bookingAvailable") === "on";
-  await db.business.updateMany({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, data: { bookingAvailable: enabled } });
+  await db.$transaction(async (tx) => {
+    await lockServiceScope(tx, business.id);
+    await tx.business.updateMany({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, data: { bookingAvailable: enabled } });
+    if (!enabled) return;
+    const bookableCount = await tx.service.count({ where: { businessId: business.id, deletedAt: null, isActive: true, bookingEnabled: true } });
+    if (bookableCount === 0) {
+      await tx.service.updateMany({
+        where: { businessId: business.id, deletedAt: null, isActive: true },
+        data: { bookingEnabled: true },
+      });
+    }
+  });
   refresh(business.slug);
 }
 
