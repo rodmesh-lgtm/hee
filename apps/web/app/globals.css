@@ -71,6 +71,25 @@
 
 @supports(padding:max(0px)){[data-dashboard-path],[data-admin-shell]{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}}
 
+/* Launch-quality visual system for INFRO public, customer, and platform surfaces. */
+[data-infro-home]{--infro-home-ink:#07181b;--infro-home-brand:#008f87;--infro-home-mint:#35e4cb;background:linear-gradient(180deg,#fff 0%,#fbfefd 100%)}
+[data-infro-home] section{scroll-margin-top:96px}
+[data-infro-home] h1,[data-infro-home] h2,[data-infro-home] h3{text-wrap:balance;letter-spacing:-.025em}
+[data-infro-home] p{text-wrap:pretty}
+[data-infro-home] header{box-shadow:0 16px 50px -28px rgba(0,95,88,.34)}
+[data-infro-home] .infro-product-preview{transform:perspective(1100px) rotateY(5deg) rotateX(1deg);transform-origin:center;transition:transform 320ms cubic-bezier(.2,.8,.2,1),box-shadow 320ms ease}
+[data-infro-home] .infro-home-card{box-shadow:0 22px 55px -42px rgba(0,95,88,.34);transition:transform 220ms cubic-bezier(.2,.8,.2,1),border-color 220ms ease,box-shadow 220ms ease}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){[data-infro-home] .infro-product-preview:hover{transform:perspective(1100px) rotateY(1deg) translateY(-4px)}[data-infro-home] .infro-home-card:hover{transform:translateY(-4px);border-color:#a8e3dc;box-shadow:0 30px 70px -44px rgba(0,95,88,.45)}}
+
+/* Readable operational typography: launch dashboards must not rely on 7–11px text. */
+:is([data-dashboard-path],[data-admin-shell]) :where([class~="text-[7px]"],[class~="text-[8px]"],[class~="text-[9px]"]){font-size:.75rem!important;line-height:1.45!important}
+:is([data-dashboard-path],[data-admin-shell]) :where([class~="text-[10px]"]){font-size:.8125rem!important;line-height:1.55!important}
+:is([data-dashboard-path],[data-admin-shell]) :where([class~="text-[11px]"]){font-size:.875rem!important;line-height:1.6!important}
+.infro-dashboard-home>section,.infro-dashboard-home>div>section,.infro-admin-home>section,.infro-admin-home>article{box-shadow:0 18px 55px -46px rgba(7,24,27,.42)}
+.infro-dashboard-home :where(section,article),.infro-admin-home :where(section,article){border-color:color-mix(in srgb,var(--infro-border,#dbe8e6) 82%,transparent)}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){.infro-dashboard-home a.rounded-2xl:hover,.infro-admin-home a.rounded-2xl:hover{transform:translateY(-2px)}}
+@media(max-width:767px){[data-infro-home] .infro-product-preview{transform:none}[data-infro-home] h1{font-size:clamp(2.1rem,10vw,3rem)}.infro-dashboard-home,.infro-admin-home{padding-bottom:.5rem}}
+
 /* Public business profile */
 [data-renderer="hee-v3-smart-business-profile"]{--hee-card-border:#e1e9e5;--hee-card-shadow:0 18px 46px -40px rgba(4,54,43,.42);background:radial-gradient(circle at 92% 0%,rgba(16,185,129,.055),transparent 24rem),linear-gradient(180deg,#f8fbf9 0%,#f5f8f6 55%,#f7f9f8 100%)}
 [data-renderer="hee-v3-smart-business-profile"] section{isolation:isolate}[data-renderer="hee-v3-smart-business-profile"] section:not(:first-child){box-shadow:var(--hee-card-shadow)}[data-renderer="hee-v3-smart-business-profile"] h2{letter-spacing:-.018em}[data-renderer="hee-v3-smart-business-profile"] p{text-wrap:pretty}[data-renderer="hee-v3-smart-business-profile"] a,[data-renderer="hee-v3-smart-business-profile"] button{touch-action:manipulation}[data-renderer="hee-v3-smart-business-profile"] img{-webkit-user-drag:none}[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto{scrollbar-width:none;overscroll-behavior-inline:contain}[data-renderer="hee-v3-smart-business-profile"] .overflow-x-auto::-webkit-scrollbar{display:none}

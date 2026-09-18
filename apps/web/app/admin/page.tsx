@@ -38,7 +38,7 @@ export default async function AdminPage({searchParams}:{searchParams:Promise<{q?
   const publicationRate=businessCount?Math.round((publishedCount/businessCount)*100):0;
   const verificationRate=businessCount?Math.round((verifiedCount/businessCount)*100):0;
 
-  return <div dir="rtl" className="space-y-4 sm:space-y-5">
+  return <div dir="rtl" className="infro-admin-home space-y-5 sm:space-y-6">
     <section className="relative overflow-hidden rounded-[28px] border border-[#153438] bg-[#07181b] text-white shadow-[0_22px_70px_-44px_rgba(7,24,27,.75)]">
       <div className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#00d8c6]/12 blur-3xl"/>
       <div className="relative grid xl:grid-cols-[1fr_430px]">
