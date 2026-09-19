@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type BrowserContext } from "@playwright/test";
+import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
@@ -53,12 +53,25 @@ async function authenticatedContext(browser:Browser,viewport:{width:number;heigh
   return context;
 }
 
+async function assertLanguageClearOfNavigation(page:Page){
+  const collision=await page.evaluate(()=>{
+    const language=document.querySelector<HTMLElement>("[data-language-switcher]")?.getBoundingClientRect();
+    if(!language)return false;
+    return [...document.querySelectorAll<HTMLElement>('nav[aria-label="التنقل السريع"],nav[aria-label="التنقل السريع للإدارة"]')].some(nav=>{
+      const r=nav.getBoundingClientRect();
+      return r.width>0&&r.height>0&&Math.min(r.right,language.right)>Math.max(r.left,language.left)&&Math.min(r.bottom,language.bottom)>Math.max(r.top,language.top);
+    });
+  });
+  expect(collision).toBe(false);
+}
+
 async function auditRoute(context:BrowserContext,input:{path:string;expectedPath?:string;name:string;theme:"light"|"dark";viewportName:string}){
   const page=await context.newPage();
   await page.goto(`${baseUrl}${input.path}`,{waitUntil:"domcontentloaded"});
   expect(page.url()).not.toContain("/login");
   await expect(page.locator("[data-dashboard-path]")).toBeVisible();
   await page.waitForTimeout(350);
+  await assertLanguageClearOfNavigation(page);
   const metrics=await page.evaluate(()=>{
     const root=document.querySelector<HTMLElement>("[data-dashboard-path]");
     const isLightSurface=(el:HTMLElement,minWidth=140,minHeight=72)=>{const r=el.getBoundingClientRect();if(r.width<minWidth||r.height<minHeight)return false;const rgb=getComputedStyle(el).backgroundColor.match(/\d+(?:\.\d+)?/g)?.slice(0,3).map(Number)??[];return rgb.length===3&&rgb.every(v=>v>220)};
@@ -183,6 +196,7 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
     const response=await page.goto(`${baseUrl}/admin`,{waitUntil:"domcontentloaded"});
     expect(response?.status()).toBe(200);
     await expect(page.locator("[data-admin-shell]")).toBeVisible();
+    await assertLanguageClearOfNavigation(page);
     const metrics=await page.evaluate(()=>{
       const lightSurfaces=[...document.querySelectorAll<HTMLElement>("main section,main article")].filter(el=>{const r=el.getBoundingClientRect();const rgb=getComputedStyle(el).backgroundColor.match(/\d+(?:\.\d+)?/g)?.slice(0,3).map(Number)??[];return r.width>=140&&r.height>=72&&rgb.length===3&&rgb.every(value=>value>220)}).length;
       return{overflow:document.documentElement.scrollWidth-window.innerWidth,brokenImages:[...document.images].filter(image=>image.complete&&image.naturalWidth===0).map(image=>image.currentSrc||image.src),lightSurfaces};
@@ -221,6 +235,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
   test("captures launch-critical public and authenticated surfaces without overflow, collisions, light islands or compressed grids",async({browser})=>{
     test.setTimeout(600_000);if(!seeded)throw new Error("visual fixture missing");
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/tools",name:"tools"},{path:"/dashboard/verification",name:"verification"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
+    routes.push({path:"/dashboard/my-page",name:"my-page"},{path:"/dashboard/working-hours",name:"booking-schedule"},{path:"/dashboard/services",name:"services"},{path:"/dashboard/inbox",name:"inbox"},{path:"/dashboard/settings",name:"settings"});
     const viewports=[{name:"desktop",value:{width:1440,height:960}},{name:"mobile",value:{width:390,height:844}}] as const;
     const results:unknown[]=[];
     for(const viewport of viewports)for(const theme of ["light","dark"] as const){const context=await authenticatedContext(browser,viewport.value,theme,seeded.sessionToken);try{for(const route of routes)results.push(await auditRoute(context,{...route,theme,viewportName:viewport.name}));}finally{await context.close();}}

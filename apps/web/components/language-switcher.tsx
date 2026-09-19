@@ -11,11 +11,12 @@ export function LanguageSwitcher({ locale }: { locale: AppLocale }) {
   const query = search.toString();
   const returnTo = `${pathname || "/"}${query ? `?${query}` : ""}`;
   const messages = GLOBAL_MESSAGES[locale];
-  const hasMobileDashboardNav = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  const hasMobileDashboardNav = pathname === "/dashboard" || pathname.startsWith("/dashboard/") || pathname === "/admin" || pathname.startsWith("/admin/");
 
   return (
     <details
-      className={`group fixed left-4 z-[90] ${hasMobileDashboardNav ? "bottom-24 lg:bottom-4" : "bottom-4"}`}
+      data-language-switcher
+      className={`group fixed left-4 z-[25] ${hasMobileDashboardNav ? "bottom-[calc(6rem+env(safe-area-inset-bottom))] lg:bottom-4" : "bottom-4"}`}
       dir={LOCALE_META[locale].dir}
     >
       <summary

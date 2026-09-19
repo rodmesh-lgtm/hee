@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Keep the shared language control above public mobile action ribbons. */
+@media(max-width:767px){body:has([data-public-profile-slot]) [data-language-switcher]{bottom:calc(6rem + env(safe-area-inset-bottom))}}
+
 :root { --background:#f8fafc; --foreground:#0f172a; }
 @theme inline { --color-background:var(--background); --color-foreground:var(--foreground); --font-sans:var(--font-ibm-plex-sans-arabic),var(--font-inter),sans-serif; --font-mono:var(--font-inter),monospace; }
 *{box-sizing:border-box} html{scroll-behavior:smooth;color-scheme:light} body{margin:0;background:var(--background);color:var(--foreground);font-family:var(--font-ibm-plex-sans-arabic),var(--font-inter),sans-serif;text-rendering:optimizeLegibility} button,a{-webkit-tap-highlight-color:transparent}:where(a,button,input,textarea,select,summary,[tabindex]):focus-visible{outline:3px solid #00bfae;outline-offset:3px}:where(button,input,textarea,select):disabled{cursor:not-allowed}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}::selection{background:rgba(53,228,203,.28)}
