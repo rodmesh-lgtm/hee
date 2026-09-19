@@ -59,6 +59,23 @@ test("missing automation credential is created through the official project endp
   assert.deepEqual(JSON.parse(String(changes[0].init.body)), { generate: { note: "GitHub production readiness checks" } });
 });
 
+test("authenticated maintenance checks prove UI and write blocking without weakening deployment protection", async () => {
+  const { verifyStagedProduction } = await import(script);
+  const body = "<html><title>INFRO — صيانة مجدولة</title></html>";
+  const mock = fixture({
+    "/api/maintenance/status": { releaseSha: sha, environment: "production", maintenance: true },
+    "/register": new Response(body, { status: 503, headers: { "content-type": "text/html" } }),
+    "/api/public/orders": new Response(body, { status: 503, headers: { "content-type": "text/html" } }),
+  });
+  await verifyStagedProduction({ ...config, ...mock, expectedMaintenance: true });
+  assert.equal(mock.calls.length, 6);
+  assert.deepEqual(mock.calls.filter(call => call.url.hostname === "owned.vercel.app").map(call => call.url.pathname), ["/api/release", "/api/maintenance/status", "/register", "/api/public/orders"]);
+  const write = mock.calls.at(-1);
+  assert.equal(write?.init.method, "POST");
+  assert.equal(new Headers(write?.init.headers).get("content-type"), "application/json");
+  assert.equal(write?.init.body, "{}");
+});
+
 test("foreign URLs fail before any credential leaves the process", async () => {
   const { verifyStagedProduction } = await import(script);
   for (const deploymentUrl of ["https://external.example", "https://owned.vercel.app@external.example", "http://owned.vercel.app", "https://owned.vercel.app/?redirect=external"]) {
