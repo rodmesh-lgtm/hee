@@ -56,9 +56,19 @@ test("public homepage does not regress to the retired purple interface palette",
     assert.equal(source.toLowerCase().includes(retiredColor), false, `retired public palette remains: ${retiredColor}`);
   }
   assert.match(source, /#008f87/);
-  assert.match(source, /#00bfae/);
+  assert.match(source, /HomePhonePreview/);
   assert.match(source, /#07181b/);
   assert.match(source, /#061619/);
+});
+
+test("homepage previews the actual mobile customer page rather than a disconnected mockup", async () => {
+  const source = await readFile(new URL("../components/home-phone-preview.tsx", import.meta.url), "utf8");
+  assert.match(source, /PHONE_WIDTH = 390/);
+  assert.match(source, /PHONE_HEIGHT = 844/);
+  assert.match(source, /src="\/demo"/);
+  assert.match(source, /ResizeObserver/);
+  assert.match(source, /inert/);
+  assert.match(source, /href="\/demo"/);
 });
 
 test("shared INFRO lockup uses the approved gradient symbol and never the retired mark", async () => {

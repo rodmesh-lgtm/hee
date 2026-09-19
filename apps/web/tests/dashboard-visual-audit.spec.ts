@@ -133,6 +133,24 @@ async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepag
       await expect(page.getByRole("link",{name:"عن INFRO"}).first()).toBeVisible();
       expect(metrics.title).toContain("INFRO");
       expect(metrics.legacyAbout).toBe(false);
+      const screen=page.locator("[data-home-phone-screen]");
+      await screen.scrollIntoViewIfNeeded();
+      await expect(page.frameLocator('iframe[title="نموذج صفحة عميل INFRO"]').locator("h1")).toContainText("شركة الرواد للمقاولات");
+      const phone=await screen.boundingBox();
+      expect(phone).not.toBeNull();
+      expect(phone!.height/phone!.width).toBeCloseTo(844/390,1);
+      const frame=page.frameLocator('iframe[title="نموذج صفحة عميل INFRO"]');
+      await expect(frame.locator("[data-public-profile-slot]")).toHaveCount(1);
+      if(input.viewport.width<1024){
+        const opener=page.getByRole("button",{name:"فتح القائمة"});
+        await opener.click();
+        const menu=page.getByRole("dialog",{name:"قائمة التنقل"});
+        await expect(menu).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(menu).not.toBeVisible();
+        await expect(opener).toBeFocused();
+      }
+      await page.evaluate(()=>window.scrollTo(0,0));
     }else if(input.name==="business-page"){
       await expect(page.getByRole("heading",{name:"شركة الرواد للمقاولات"})).toBeVisible();
       await expect(page.locator('section[aria-labelledby="intent-title"]')).toBeVisible();

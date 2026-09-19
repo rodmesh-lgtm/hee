@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { HomePhonePreview } from "./home-phone-preview";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, BadgeCheck, BarChart3, BriefcaseBusiness, Building2, Check, CheckCircle2, Eye, Link2, Loader2, Menu, MessageCircle, Palette, PhoneCall, ShieldCheck, Sparkles, Stethoscope, Store, UtensilsCrossed, X, XCircle } from "lucide-react";
 import { IrLogo } from "./brand/ir-logo";
 
@@ -27,6 +27,17 @@ function Logo({ header = false }: { header?: boolean }) {
 
 export function HomepageProfessional() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = menuRef.current;
+    if (!dialog) return;
+    if (menuOpen) dialog.showModal();
+    else dialog.close();
+    if (!menuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [menuOpen]);
   const [slug, setSlug] = useState("");
   const [availability, setAvailability] = useState<Availability>("idle");
   const normalized = useMemo(() => slug.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 60), [slug]);
@@ -58,7 +69,7 @@ export function HomepageProfessional() {
     : effectiveAvailability === "error" ? { text: "تعذر التحقق الآن. حاول مرة أخرى بعد قليل.", cls: "text-amber-700", icon: <XCircle className="h-4 w-4" /> }
     : null;
 
-  return <main id="home" data-infro-home dir="rtl" className="min-h-screen overflow-hidden bg-white text-slate-950">
+  return <main id="home" data-infro-home dir="rtl" className="min-h-screen overflow-x-clip bg-white text-slate-950">
     <header className="sticky top-2 z-50 mx-2 rounded-full border border-[#d9ebe8] bg-white/95 shadow-[0_10px_34px_rgba(0,95,88,.10)] backdrop-blur-xl sm:top-3 sm:mx-3 lg:mx-auto lg:max-w-[1180px]">
       <div dir="ltr" className="flex h-[58px] items-center justify-between gap-2 px-3 sm:h-[68px] sm:px-5">
         <Link href="/" aria-label="INFRO" className="shrink-0"><Logo header /></Link>
@@ -72,18 +83,24 @@ export function HomepageProfessional() {
         <div dir="rtl" className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <Link href="/login" className="inline-flex h-10 items-center rounded-full px-2.5 text-[12px] font-black text-slate-700 hover:bg-[#effbf9] sm:px-4 sm:text-sm">دخول</Link>
           <Link href="/register" className="inline-flex h-10 items-center rounded-full bg-[#008f87] px-3 text-[12px] font-black text-white shadow-sm hover:bg-[#007d75] sm:px-5 sm:text-sm">ابدأ مجانًا</Link>
-          <button className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d9ebe8] lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة"><Menu className="h-5 w-5" /></button>
+          <button className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d9ebe8] lg:hidden" type="button" onClick={() => setMenuOpen(true)} aria-expanded={menuOpen} aria-controls="home-mobile-menu" aria-label="فتح القائمة"><Menu className="h-5 w-5" /></button>
         </div>
       </div>
     </header>
 
-    {menuOpen && <div className="fixed inset-0 z-[100] lg:hidden"><button aria-label="إغلاق القائمة" className="absolute inset-0 bg-[#061619]/35 backdrop-blur-sm" onClick={() => setMenuOpen(false)} /><div className="absolute inset-x-2 top-2 rounded-[28px] bg-white p-4 shadow-2xl"><div dir="ltr" className="flex items-center justify-between"><Logo header /><button onClick={() => setMenuOpen(false)} className="grid h-10 w-10 place-items-center rounded-full bg-[#eef8f7]" aria-label="إغلاق"><X className="h-5 w-5" /></button></div><nav className="mt-4 grid gap-1 text-right font-black">{[["#about","عن INFRO"],["#features","المميزات"],["#samples","نماذج الصفحات"],["#pricing","الباقات"]].map(([href,label]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)} className="rounded-2xl px-4 py-3 hover:bg-[#effbf9]">{label}</Link>)}</nav><div className="mt-4 grid grid-cols-2 gap-2"><Link href="/register" className="rounded-full bg-[#008f87] px-4 py-3 text-center text-sm font-black text-white">ابدأ مجانًا</Link><Link href="/login" className="rounded-full border border-[#bdebe5] px-4 py-3 text-center text-sm font-black">تسجيل الدخول</Link></div></div></div>}
+    <dialog ref={menuRef} id="home-mobile-menu" aria-label="قائمة التنقل" onCancel={() => setMenuOpen(false)} onClick={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }} className="fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none bg-transparent p-2 backdrop:bg-[#061619]/40 backdrop:backdrop-blur-sm">
+      <div className="max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-[28px] bg-white p-4 shadow-2xl">
+        <div dir="ltr" className="flex items-center justify-between"><Logo header /><button type="button" onClick={() => setMenuOpen(false)} className="grid h-11 w-11 place-items-center rounded-full bg-[#eef8f7]" aria-label="إغلاق القائمة"><X className="h-5 w-5" /></button></div>
+        <nav aria-label="التنقل على الجوال" className="mt-4 grid gap-1 text-right font-bold">{[["#about","عن INFRO"],["#features","المميزات"],["#samples","نماذج الصفحات"],["#pricing","الباقات"]].map(([href,label]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)} className="rounded-2xl px-4 py-3 hover:bg-[#effbf9]">{label}</Link>)}</nav>
+        <div className="mt-4 grid grid-cols-2 gap-2"><Link href="/register" className="rounded-full bg-[#008f87] px-4 py-3 text-center text-sm font-black text-white">ابدأ مجانًا</Link><Link href="/login" className="rounded-full border border-[#bdebe5] px-4 py-3 text-center text-sm font-black">تسجيل الدخول</Link></div>
+      </div>
+    </dialog>
 
     <section className="relative bg-[radial-gradient(circle_at_15%_20%,rgba(0,191,174,.14),transparent_30%),radial-gradient(circle_at_90%_5%,rgba(8,191,232,.13),transparent_28%),linear-gradient(180deg,#f5fffd_0%,#fff_100%)] px-4 pb-14 pt-10 sm:px-6 sm:pt-14 lg:pb-20 lg:pt-20">
       <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[.82fr_1.18fr] lg:gap-14">
         <div className="order-2 mx-auto w-full max-w-[300px] sm:max-w-[330px] lg:order-1">
-          <div className="infro-product-preview rounded-[40px] border-[6px] border-[#07181b] bg-[#07181b] p-2 shadow-[0_38px_90px_-34px_rgba(0,95,88,.48)]"><div className="overflow-hidden rounded-[29px] bg-white"><div className="relative h-28 overflow-hidden bg-[radial-gradient(circle_at_20%_0%,rgba(53,228,203,.42),transparent_42%),linear-gradient(135deg,#08282c,#00bfae)]"><div className="absolute inset-x-5 top-4 flex items-center justify-between text-[11px] font-black text-white/80"><span>ir.sa/your-business</span><BadgeCheck className="h-4 w-4 text-[#8ff5e6]" /></div></div><div className="-mt-10 px-5 pb-6 text-center"><div className="relative mx-auto grid h-[78px] w-[78px] place-items-center rounded-[24px] border-4 border-white bg-white shadow-[0_18px_45px_-22px_rgba(7,24,27,.55)]"><Image src="/brand/infro-symbol-approved.png" alt="رمز INFRO" width={52} height={52} priority /></div><div className="mt-3 flex items-center justify-center gap-1.5"><h3 className="text-lg font-black">منشأتك</h3><BadgeCheck className="h-4 w-4 fill-sky-500 text-white" /></div><p className="mt-1 text-xs text-slate-500">كل ما يحتاجه عميلك في صفحة واحدة</p><div className="mt-4 grid grid-cols-2 gap-2">{["الخدمات","الفروع","حجز موعد","تواصل معنا"].map(x => <div key={x} className="rounded-2xl border border-[#e0ecea] bg-[#fbfefd] px-3 py-3 text-xs font-black shadow-[0_8px_24px_-20px_rgba(7,24,27,.45)]">{x}</div>)}</div></div></div></div>
-          <div className="-mt-7 mr-auto w-fit rounded-2xl border border-[#d7ece9] bg-white px-3.5 py-2.5 text-xs font-black shadow-lg sm:text-sm"><ShieldCheck className="ml-2 inline h-4 w-4 text-[#008f87]" />صفحتك. هويتك.</div>
+          <HomePhonePreview />
+
         </div>
 
         <div className="order-1 text-center lg:order-2 lg:text-right">
@@ -92,8 +109,8 @@ export function HomepageProfessional() {
           <p className="mx-auto mt-4 max-w-xl text-[14px] leading-7 text-slate-600 sm:text-lg sm:leading-8 lg:mx-0">اجمع هوية منشأتك وحضورها الرقمي وتذكيرات أعمالك وتسويق واتساب في تجربة واحدة مترابطة وسهلة الإدارة.</p>
 
           <div className={`mx-auto mt-6 max-w-xl rounded-[22px] border bg-white p-2 shadow-[0_18px_45px_-25px_rgba(0,143,135,.30)] transition ${effectiveAvailability === "available" ? "border-emerald-300" : effectiveAvailability === "taken" ? "border-rose-300" : "border-[#bdebe5]"} lg:mx-0`}>
-            <div dir="ltr" className="flex min-w-0 items-center gap-1 rounded-2xl bg-[#f5fffd] px-3"><span className="shrink-0 text-base font-black text-[#008f87]">ir.sa/</span><input value={slug} onChange={e => setSlug(e.target.value)} dir="ltr" inputMode="url" autoComplete="off" spellCheck={false} placeholder="your-business" aria-label="تحقق من توفر اسم رابط منشأتك" className="h-14 min-w-0 flex-1 bg-transparent px-1 text-left text-base font-semibold outline-none"/></div>
-            <Link aria-disabled={effectiveAvailability !== "available"} href={registerHref} className={`mt-2 inline-flex h-13 w-full items-center justify-center rounded-2xl px-6 text-sm font-black text-white transition ${effectiveAvailability === "available" ? "bg-[#008f87] hover:bg-[#007d75]" : "pointer-events-none bg-slate-400"}`}>تحقق وابدأ التسجيل</Link>
+            <div dir="ltr" className="flex min-w-0 items-center gap-1 rounded-2xl bg-[#f5fffd] px-3"><span className="shrink-0 text-base font-black text-[#008f87]">ir.sa/</span><input value={slug} onChange={e => { setSlug(e.target.value); setAvailability("idle"); }} dir="ltr" inputMode="url" autoComplete="off" spellCheck={false} placeholder="your-business" aria-label="تحقق من توفر اسم رابط منشأتك" className="h-14 min-w-0 flex-1 bg-transparent px-1 text-left text-base font-semibold outline-none"/></div>
+            <Link tabIndex={effectiveAvailability === "available" ? 0 : -1} aria-disabled={effectiveAvailability !== "available"} href={registerHref} className={`mt-2 inline-flex h-13 w-full items-center justify-center rounded-2xl px-6 text-sm font-black text-white transition ${effectiveAvailability === "available" ? "bg-[#008f87] hover:bg-[#007d75]" : "pointer-events-none bg-slate-400"}`}>تحقق وابدأ التسجيل</Link>
           </div>
           <div className="mx-auto mt-2 min-h-6 max-w-xl lg:mx-0">{status ? <p aria-live="polite" className={`inline-flex items-center gap-2 text-xs font-bold sm:text-sm ${status.cls}`}>{status.icon}{status.text}</p> : <p className="text-[11px] font-bold text-slate-500 sm:text-xs">اكتب اسم منشأتك بالإنجليزية وسنتحقق من توفره مباشرة.</p>}</div>
 
