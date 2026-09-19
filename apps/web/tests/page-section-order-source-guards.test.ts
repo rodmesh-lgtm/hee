@@ -19,7 +19,32 @@ test("customer page editor exposes touch and keyboard friendly section ordering"
   assert.match(editor, /نقل \$\{LABELS\[id\]\.title\} للأعلى/);
   assert.match(editor, /نقل \$\{LABELS\[id\]\.title\} للأسفل/);
   assert.match(editor, /رتّب هويتك كما تريد/);
+  assert.match(editor, /request:\{title:"الحجز والطلب"/);
+  assert.match(editor, /hours:\{title:"ساعات العمل"/);
   assert.match(editor, /\/api\/dashboard\/page-modules\/order/);
+});
+
+test("saved module order is reflected by the public customer renderer", () => {
+  const renderer = source("components/public-business-bio.tsx");
+  const route = source("app/api/dashboard/page-modules/order/route.ts");
+  assert.match(renderer, /sectionOrder=/);
+  assert.match(renderer, /data-public-module="request"/);
+  assert.match(renderer, /data-public-module="location"/);
+  assert.match(renderer, /data-public-module="contactTeam"/);
+  assert.match(renderer, /data-public-module="hours"/);
+  assert.match(renderer, /style=\{\{order:sectionOrder\("services","portfolio"\)\}\}/);
+  assert.match(route, /"request", "services", "portfolio", "location", "contactTeam", "hours", "contact", "about"/);
+});
+
+test("bottom actions preserve stored order and support pointer and touch sorting", () => {
+  const editor = source("components/dashboard/bottom-action-bar-editor.tsx");
+  assert.match(editor, /sort\(\(left, right\) => left\.sortOrder - right\.sortOrder\)/);
+  assert.match(editor, /onPointerDown/);
+  assert.match(editor, /onPointerMove/);
+  assert.match(editor, /setPointerCapture/);
+  assert.match(editor, /touch-none/);
+  assert.match(editor, /void persist\(actionsRef\.current\)/);
+  assert.doesNotMatch(editor, /\bdraggable\b/);
 });
 
 test("section ordering write is ownership-scoped, serialized and bounded", () => {

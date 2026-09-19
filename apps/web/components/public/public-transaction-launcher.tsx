@@ -272,16 +272,15 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     }
   }
 
-  if (!canRequest && !bookingAvailable) return null;
+  if (!canRequest && !canBook) return null;
 
   const content = <>
     <section dir="rtl" className="relative z-20 mx-auto mt-3 w-full rounded-[22px] border border-[#cfe5e1] bg-white/95 p-3 shadow-[0_14px_36px_rgba(3,55,58,.10)] sm:w-[calc(100%-2rem)]" aria-label="إجراءات الطلب والحجز">
       <div className="mb-2 flex items-center justify-between gap-3 px-1"><div><span className="text-[9px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">CONNECT WITH US</span><h2 className="mt-0.5 text-sm font-black text-[#12384a]">اختر طريقة التواصل المناسبة</h2></div><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><MessageCircle className="h-4 w-4" /></span></div>
       <div className="grid gap-2 min-[420px]:grid-cols-2">
         {canRequest ? <button onClick={() => setRequestOpen(true)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,#00b99f,#00a6bd)] px-3 text-[13px] font-black text-[#041b1d] shadow-[0_7px_18px_rgba(0,203,178,.16)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><MessageCircle className="h-4 w-4" />طلب خدمة</button> : null}
-        {canBook ? <button ref={bookingOpenerRef} onClick={openBooking} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#8dd9d3] bg-[#eefbf9] px-3 text-[13px] font-black text-[#07545d] transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><CalendarDays className="h-4 w-4 text-[#008f9f]" />حجز موعد</button> : bookingAvailable ? <div className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-[#d5e4e2] bg-[#f8fbfa] px-3 text-center text-[11px] font-bold text-[#6a817f]"><CalendarDays className="h-4 w-4 text-[#8aa7a3]" />الحجز قيد الإعداد</div> : null}
+        {canBook ? <button ref={bookingOpenerRef} onClick={openBooking} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#8dd9d3] bg-[#eefbf9] px-3 text-[13px] font-black text-[#07545d] transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><CalendarDays className="h-4 w-4 text-[#008f9f]" />حجز موعد</button> : null}
       </div>
-      {bookingAvailable && !canBook ? <p className="mt-2 text-center text-[10px] font-semibold text-[#829593]">ستظهر المواعيد هنا بعد إضافة خدمة قابلة للحجز من لوحة المنشأة.</p> : null}
     </section>
 
     {canRequest ? <PublicActionDialog open={requestOpen} onClose={() => setRequestOpen(false)} mode="request" businessName={businessName} whatsapp={whatsapp} phone={phone} title="طلب خدمة" description="سنسجل طلبك داخل INFRO ثم نجهز التواصل مع المنشأة." ctaLabel="تسجيل الطلب والمتابعة" /> : null}

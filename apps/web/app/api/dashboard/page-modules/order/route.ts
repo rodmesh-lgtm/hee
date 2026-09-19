@@ -8,7 +8,7 @@ import { normalizePageModulesForPersistence, serializePageModules, type PageModu
 import { consumePublicWriteLimit, requestClientAddress } from "../../../../lib/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../../lib/request-body";
 
-const reorderableIds = ["about", "services", "location", "contactTeam", "portfolio", "contact"] as const satisfies readonly PageModuleId[];
+const reorderableIds = ["request", "services", "portfolio", "location", "contactTeam", "hours", "contact", "about"] as const satisfies readonly PageModuleId[];
 const reorderableSet = new Set<string>(reorderableIds);
 
 const schema = z.object({
