@@ -61,9 +61,6 @@ jobs:
       S3_FORCE_PATH_STYLE: ${{ vars.PRODUCTION_S3_FORCE_PATH_STYLE }}
       GOOGLE_CLIENT_ID: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.PRODUCTION_GOOGLE_CLIENT_SECRET }}
-      # One-time, fail-closed metadata repair: reuse the encrypted Google OAuth
-      # records already held by Vercel Preview without exposing their values.
-      RECOVER_GOOGLE_OAUTH_FROM_PREVIEW: "true"
       APPLE_CLIENT_ID: ${{ secrets.PRODUCTION_APPLE_CLIENT_ID }}
       APPLE_TEAM_ID: ${{ secrets.PRODUCTION_APPLE_TEAM_ID }}
       APPLE_KEY_ID: ${{ secrets.PRODUCTION_APPLE_KEY_ID }}
