@@ -54,3 +54,9 @@ test("visitor selects a branch without seeing capacity or remaining seats", () =
   assert.doesNotMatch(route, /slotDetails\.push\(\{[^}]*capacity/);
   assert.match(launcher, /branchId: values\.branchId/);
 });
+
+test("booking dialog keeps its form inside the responsive modal width", () => {
+  assert.match(launcher, /overflow-x-hidden overflow-y-auto/);
+  assert.equal((launcher.match(/grid min-w-0 gap-1\.5 text-xs font-bold text-slate-600/g) ?? []).length, 2);
+  assert.equal((launcher.match(/h-11 min-w-0 w-full rounded-xl/g) ?? []).length, 2);
+});
