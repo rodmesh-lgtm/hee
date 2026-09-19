@@ -17,6 +17,7 @@ function fixture(overrides: Record<string, unknown> = {}, existingSecret = true)
     "/api/release": { releaseSha: sha, environment: "production" },
     "/api/maintenance/status": { releaseSha: sha, environment: "production", maintenance: false },
     "/api/health/web-ready": { ready: true },
+    "/api/auth/oauth/google": new Response(null, { status: 307, headers: { location: "https://accounts.google.com/o/oauth2/v2/auth?client_id=client.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fir.sa%2Fapi%2Fauth%2Foauth%2Fgoogle%2Fcallback&response_type=code&code_challenge_method=S256&state=state&nonce=nonce" } }),
     ...overrides,
   };
   const fetchImpl = async (input: string, init: RequestInit) => {
@@ -43,9 +44,9 @@ test("authenticated stage checks reuse the project credential and verify all cus
   const { verifyStagedProduction } = await import(script);
   const mock = fixture();
   await verifyStagedProduction({ ...config, ...mock });
-  assert.equal(mock.calls.length, 12);
+  assert.equal(mock.calls.length, 13);
   assert.ok(mock.calls.every(call => call.init.method !== "PATCH"));
-  assert.deepEqual(mock.calls.filter(call => call.url.hostname === "owned.vercel.app").map(call => call.url.pathname), ["/api/release", "/api/maintenance/status", "/api/health/web-ready", "/", "/register", "/login", "/terms", "/privacy", "/contact", "/demo"]);
+  assert.deepEqual(mock.calls.filter(call => call.url.hostname === "owned.vercel.app").map(call => call.url.pathname), ["/api/release", "/api/maintenance/status", "/api/health/web-ready", "/api/auth/oauth/google", "/", "/register", "/login", "/terms", "/privacy", "/contact", "/demo"]);
 });
 
 test("missing automation credential is created through the official project endpoint only", async () => {
@@ -89,6 +90,19 @@ test("release mismatch, maintenance and unhealthy runtime prevent stage success"
     const mock = fixture(overrides);
     await assert.rejects(verifyStagedProduction({ ...config, ...mock }));
     assert.equal(mock.calls.length, 5, "do not proceed to surface checks after failed readiness");
+  }
+});
+
+test("missing or malformed Google OAuth runtime configuration blocks promotion", async () => {
+  const { verifyStagedProduction } = await import(script);
+  for (const response of [
+    new Response(null, { status: 307, headers: { location: "https://ir.sa/register?oauth=provider-unavailable" } }),
+    new Response(null, { status: 307, headers: { location: "https://accounts.google.com/o/oauth2/v2/auth?client_id=bad&redirect_uri=https%3A%2F%2Fevil.example%2Fcallback" } }),
+    new Response(null, { status: 500 }),
+  ]) {
+    const mock = fixture({ "/api/auth/oauth/google": response });
+    await assert.rejects(verifyStagedProduction({ ...config, ...mock }), /Google OAuth/);
+    assert.equal(mock.calls.at(-1)?.url.pathname, "/api/auth/oauth/google");
   }
 });
 
