@@ -185,7 +185,7 @@ jobs:
         run: |
           set -euo pipefail
           release_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/release)"
-          ready_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/health/ready)"
+          ready_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/health/web-ready)"
           node - <<'NODE' "$release_json" "$ready_json" "$TARGET_SHA"
           const release=JSON.parse(process.argv[2]);
           const ready=JSON.parse(process.argv[3]);
