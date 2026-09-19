@@ -18,7 +18,9 @@
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] :where(.bg-\[\#07181b\],.bg-\[\#061619\],.bg-\[\#061416\],.bg-\[\#092426\],.bg-\[\#0a2225\],.bg-\[\#0b2529\],.bg-\[\#0c2528\],.bg-\[\#0d2528\]) :where(.bg-white\/\[\.025\],.bg-white\/\[\.035\],.bg-white\/\[\.04\],.bg-white\/\[\.05\],.bg-white\/\[\.06\],.bg-white\/10){background-color:#f5f9f8!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] .infro-theme-toggle{background:#fff!important;border-color:#dbe8e6!important;color:#334155!important}
 
-/* Dark mode owns every neutral surface in the authenticated workspace. */
+/* Neutral surfaces and text must also remain legible in dark mode. */
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where([class~="bg-[#f8fbfb]/40"]){background-color:#0d2528!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] :where([class~="text-[#08756e]"],[class~="text-[#007d75]"],[class~="text-[#00877f]"]){color:#67e8d6!important}
 /* Mint remains the accent, with a readable foreground on light surfaces. */
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] :where([class~="text-[#66e7d5]"],[class~="text-[#6eead8]"],[class~="text-[#35e4cb]"],[class~="text-[#8ff5e6]"],[class~="text-[#4ee7d4]"],[class~="text-[#a8f2e8]"]){color:#00766e!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] :where(.text-slate-400){color:#64748b!important}
