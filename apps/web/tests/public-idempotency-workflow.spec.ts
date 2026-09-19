@@ -72,17 +72,18 @@ test.describe("public write idempotency", () => {
       const bookingPayload = { slug: business.slug, name: "عميل تكرار", phone: "0500000111", serviceId: service.id, bookingDate, bookingTime: "11:00", requestId: bookingKey };
       const firstBooking = await request.post(`${baseUrl}/api/public/bookings`, { headers: { "Idempotency-Key": bookingKey }, data: bookingPayload });
       expect(firstBooking.status()).toBe(201);
-      const firstBookingBody = await firstBooking.json() as { bookingId?: string; replayed?: boolean };
+      const firstBookingBody = await firstBooking.json() as { bookingId?: string; replayed?: boolean; whatsappConfirmationQueued?: boolean };
       expect(firstBookingBody.bookingId).toBeTruthy();
       expect(firstBookingBody.replayed).toBe(false);
+      expect(firstBookingBody.whatsappConfirmationQueued).toBe(false);
 
       await db.business.update({ where: { id: business.id }, data: { bookingAvailable: false } });
       await db.service.update({ where: { id: service.id }, data: { isActive: false, bookingEnabled: false } });
 
       const replayBooking = await request.post(`${baseUrl}/api/public/bookings`, { headers: { "Idempotency-Key": bookingKey }, data: bookingPayload });
       expect(replayBooking.status()).toBe(200);
-      const replayBookingBody = await replayBooking.json() as { bookingId?: string; replayed?: boolean };
-      expect(replayBookingBody).toEqual({ ok: true, bookingId: firstBookingBody.bookingId, replayed: true });
+      const replayBookingBody = await replayBooking.json() as { bookingId?: string; replayed?: boolean; whatsappConfirmationQueued?: boolean };
+      expect(replayBookingBody).toEqual({ ok: true, bookingId: firstBookingBody.bookingId, replayed: true, whatsappConfirmationQueued: false });
       expect(await db.booking.count({ where: { businessId: business.id } })).toBe(1);
 
       const orderKey = crypto.randomUUID();
