@@ -27,8 +27,11 @@ test("server verifies phone ownership and blocks cross-tenant Meta asset reuse",
   assert.match(service, /META_PHONE_NOT_OWNED_BY_WABA/);
   assert.match(service, /businessId: \{ not: input\.businessId \}/);
   assert.match(service, /WHATSAPP_ASSET_ALREADY_ASSIGNED/);
-  assert.match(schema, /@@unique\(\[provider, wabaId\]/);
+  assert.match(service, /pg_advisory_xact_lock\(hashtext/);
+  assert.match(schema, /@@index\(\[provider, wabaId\]/);
   assert.match(schema, /@@unique\(\[provider, phoneNumberId\]/);
+  assert.match(service, /purpose === "marketing" \? \{ marketingEnabled: true \} : \{ bookingEnabled: true \}/);
+  assert.match(service, /marketingEnabled: purpose === "marketing", bookingEnabled: purpose === "booking"/);
 });
 
 test("tokens are encrypted immediately and never returned to the client", () => {

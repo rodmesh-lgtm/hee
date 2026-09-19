@@ -9,10 +9,12 @@ import {
   CheckCircle2,
   Clock3,
   Inbox,
+  MessageCircle,
   MoonStar,
   Plus,
   Power,
   SunMedium,
+  Store,
   Trash2,
   UsersRound,
 } from "lucide-react";
@@ -23,8 +25,21 @@ import {
   updateWorkingHoursAction,
   updateBookingSlotSettingsAction,
   upsertBookingAvailabilityOverrideAction,
+  configureBookingWhatsAppConfirmationAction,
+  syncBookingWhatsAppTemplatesAction,
+  toggleBookingWhatsAppConfirmationAction,
+  useMarketingNumberForBookingsAction,
+  connectSallaBookingStoreAction,
+  reconnectSallaBookingStoreAction,
+  disconnectSallaBookingStoreAction,
+  syncSallaBookingOrdersAction,
 } from "../../actions/working-hours";
 import { updateBookingAvailabilityAction } from "../../actions/services";
+import { getMetaEmbeddedSignupPublicConfig } from "../../lib/whatsapp/meta-config";
+import { bookingConfirmationTemplateSupportsParameters, BOOKING_CONFIRMATION_TEMPLATE_EXAMPLE } from "../../lib/whatsapp/booking-confirmation-domain";
+import { EmbeddedSignupButton } from "../whatsapp/setup/embedded-signup-button";
+import { hasActiveBusinessSubscription } from "../../lib/subscription-entitlement";
+import { sallaConfigured } from "../../lib/commerce/salla-config";
 
 const days = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"];
 const timeClass = "h-11 min-w-0 rounded-xl border border-slate-200 bg-[#f8fbfb] px-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#00a99d] focus:bg-white focus:ring-4 focus:ring-[#35e4cb]/10";
@@ -65,6 +80,8 @@ export default async function DashboardWorkingHoursPage({
   const params = searchParams ? await searchParams : {};
   const saved = Array.isArray(params.saved) ? params.saved[0] : params.saved;
   const error = Array.isArray(params.error) ? params.error[0] : params.error;
+  const whatsappResult = Array.isArray(params.whatsapp) ? params.whatsapp[0] : params.whatsapp;
+  const sallaResult = Array.isArray(params.salla) ? params.salla[0] : params.salla;
   const activeBusiness = await getOwnedBusinessForRead();
   if (!activeBusiness) redirect("/onboarding");
 
@@ -91,6 +108,26 @@ export default async function DashboardWorkingHoursPage({
         orderBy: { date: "asc" },
         take: 30,
       },
+      whatsappConnections: {
+        where: { provider: "meta", status: "connected", disabledAt: null },
+        select: { id: true, displayPhoneNumber: true, verifiedName: true, marketingEnabled: true, bookingEnabled: true },
+      },
+      whatsappTemplates: {
+        where: { provider: "meta", status: "approved" },
+        select: { id: true, connectionId: true, name: true, language: true, components: true, parameterFormat: true },
+      },
+      whatsappAutomations: {
+        where: { triggerType: "booking_confirmation", status: { in: ["active", "paused"] } },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+        select: { id: true, status: true, connectionId: true, actionConfig: true },
+      },
+      whatsappCommerceIntegrations: {
+        where: { provider: "salla" },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+        select: { id: true, externalStoreId: true, displayName: true, status: true, lastWebhookAt: true, lastErrorCode: true },
+      },
     },
   });
   if (!business) redirect("/onboarding");
@@ -101,6 +138,20 @@ export default async function DashboardWorkingHoursPage({
   const openCount = 7 - closedCount;
   const bookableCount = business.services.length;
   const ready = business.bookingAvailable && bookableCount > 0 && openCount > 0;
+  const subscriptionActive = await hasActiveBusinessSubscription({ businessId: business.id });
+  const publicMetaConfig = getMetaEmbeddedSignupPublicConfig();
+  const bookingConnection = business.whatsappConnections.find((connection) => connection.bookingEnabled) ?? null;
+  const marketingConnection = business.whatsappConnections.find((connection) => connection.marketingEnabled) ?? null;
+  const eligibleBookingTemplates = bookingConnection ? business.whatsappTemplates.filter((template) => (
+    template.connectionId === bookingConnection.id
+    && bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)
+  )) : [];
+  const bookingAutomation = business.whatsappAutomations[0] ?? null;
+  const sallaIntegration = business.whatsappCommerceIntegrations[0] ?? null;
+  const sallaReady = sallaConfigured();
+  const eligibleSallaOrders = sallaIntegration?.status === "active" ? await db.commerceBookingEligibility.count({
+    where: { businessId: business.id, integrationId: sallaIntegration.id, provider: "salla", eligible: true },
+  }) : 0;
 
   const errorMessage =
     error === "time"
@@ -164,6 +215,53 @@ export default async function DashboardWorkingHoursPage({
         </div>
         {!bookableCount ? <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] font-bold leading-5 text-amber-800">لا توجد خدمة مفعّلة للحجز. فعّل «قابلة للحجز» من إعدادات الخدمات.</p> : null}
       </article>
+    </section>
+
+    <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
+      <div className="border-b border-slate-100 bg-[#fbfdfd] p-4 sm:p-5"><div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><MessageCircle className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">BOOKING WHATSAPP</span><h2 className="mt-1 text-base font-black text-slate-950">رقم واتساب مستقل لتأكيد المواعيد</h2><p className="mt-2 max-w-3xl text-[10px] leading-6 text-slate-500">عيّن رقمًا للحجوزات فقط، أو استخدم رقم التسويق نفسه. رسائل الحملات لا تنتقل تلقائيًا إلى رقم الحجوزات، وكل تأكيد يستخدم قالبًا خدميًا معتمدًا من Meta.</p></div></div></div>
+      {whatsappResult ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["enabled","paused","number-linked","templates-synced"].includes(whatsappResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{whatsappResult === "enabled" ? "تم تفعيل إرسال تأكيدات الحجز عبر واتساب." : whatsappResult === "paused" ? "تم إيقاف تأكيدات واتساب مؤقتًا." : whatsappResult === "number-linked" ? "تم تعيين رقم التسويق نفسه لخدمة الحجوزات." : whatsappResult === "templates-synced" ? "تم تحديث قوالب رقم الحجوزات من Meta." : whatsappResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لاستخدام الحجز وتأكيداته." : "لم تكتمل العملية. راجع اتصال الرقم والقالب المعتمد ثم حاول مجددًا."}</p> : null}
+      <div className="grid gap-4 p-4 sm:p-5 xl:grid-cols-[.9fr_1.1fr]">
+        <article className="rounded-2xl border border-slate-200 bg-[#f8fbfb] p-4">
+          <div className="flex items-center justify-between gap-3"><div><b className="text-sm text-slate-900">رقم الإرسال</b><span className="mt-1 block text-[9px] text-slate-400">يمكن أن يكون مستقلًا أو مشتركًا مع التسويق</span></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-black ${bookingConnection ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{bookingConnection ? "متصل" : "غير معين"}</span></div>
+          {bookingConnection ? <div className="mt-4 rounded-xl border border-emerald-100 bg-white p-3"><b className="block text-xs text-slate-800">{bookingConnection.verifiedName || "رقم واتساب الحجوزات"}</b><span dir="ltr" className="mt-1 block text-right text-[10px] font-bold text-[#008f87]">{bookingConnection.displayPhoneNumber || "رقم متصل عبر Meta"}</span><span className="mt-2 block text-[8px] text-slate-400">{bookingConnection.marketingEnabled ? "يُستخدم للحجوزات والتسويق" : "مخصص للحجوزات"}</span></div> : null}
+          <div className="mt-4 grid gap-2">
+            {marketingConnection && marketingConnection.id !== bookingConnection?.id ? <form action={useMarketingNumberForBookingsAction}><button disabled={!subscriptionActive} className="min-h-11 w-full rounded-xl border border-[#9fddd6] bg-white px-3 text-[10px] font-black text-[#08756e] disabled:opacity-50">استخدام رقم التسويق نفسه</button></form> : null}
+            {publicMetaConfig && subscriptionActive ? <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="mb-3 text-[9px] leading-5 text-slate-500">{bookingConnection ? "لربط رقم آخر بدل الرقم الحالي، افتح ربط Meta واختر الرقم المطلوب للحجوزات." : "اربط رقم WhatsApp Business الذي سيُرسل تفاصيل المواعيد."}</p><EmbeddedSignupButton {...publicMetaConfig} purpose="booking" /></div> : !subscriptionActive ? <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800">ربط رقم الحجوزات متاح بعد تفعيل اشتراك المنشأة.</p> : <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800">إعداد Embedded Signup غير متاح في هذه البيئة حاليًا.</p>}
+          </div>
+        </article>
+        <article className="rounded-2xl border border-slate-200 p-4">
+          <div className="flex items-center justify-between gap-3"><div><b className="text-sm text-slate-900">تأكيد الحجز التلقائي</b><span className="mt-1 block text-[9px] text-slate-400">يُرسل بعد تثبيت الحجز ولا يعطل الحجز عند تأخر Meta</span></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-black ${bookingAutomation?.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{bookingAutomation?.status === "active" ? "مفعّل" : bookingAutomation?.status === "paused" ? "متوقف مؤقتًا" : "غير مفعّل"}</span></div>
+          {bookingAutomation ? <form action={toggleBookingWhatsAppConfirmationAction} className="mt-4"><input type="hidden" name="automationId" value={bookingAutomation.id}/><input type="hidden" name="operation" value={bookingAutomation.status === "active" ? "pause" : "resume"}/><button className="min-h-11 w-full rounded-xl bg-[#07181b] px-4 text-[10px] font-black text-white">{bookingAutomation.status === "active" ? "إيقاف التأكيدات مؤقتًا" : "استئناف التأكيدات"}</button></form> : eligibleBookingTemplates.length ? <form action={configureBookingWhatsAppConfirmationAction} className="mt-4 grid gap-3"><label className="grid gap-1.5 text-[10px] font-black text-slate-600"><span>قالب تأكيد الموعد المعتمد</span><select name="templateId" required className={fieldClass}><option value="">اختر القالب</option>{eligibleBookingTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · {template.language}</option>)}</select></label><button className="min-h-11 rounded-xl bg-[#07181b] px-4 text-[10px] font-black text-white">تفعيل التأكيد التلقائي</button></form> : <div className="mt-4 space-y-3"><p className="text-[10px] leading-5 text-slate-500">بعد ربط الرقم، أنشئ في Meta قالب Utility عربيًا بالمتغيرات السبعة التالية ثم حدّث القوالب.</p><pre dir="rtl" className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-[9px] leading-5 text-slate-600">{BOOKING_CONFIRMATION_TEMPLATE_EXAMPLE}</pre>{bookingConnection ? <form action={syncBookingWhatsAppTemplatesAction}><input type="hidden" name="connectionId" value={bookingConnection.id}/><button className="min-h-11 w-full rounded-xl border border-[#9fddd6] bg-[#effbf9] px-4 text-[10px] font-black text-[#08756e]">تحديث القوالب من Meta</button></form> : null}</div>}
+        </article>
+      </div>
+    </section>
+
+    <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
+      <div className="border-b border-slate-100 bg-[#fbfdfd] p-4 sm:p-5">
+        <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><Store className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">SALLA BOOKING ACCESS</span><h2 className="mt-1 text-base font-black text-slate-950">ربط متجر سلة والتحقق من أهلية الحجز</h2><p className="mt-2 max-w-3xl text-[10px] leading-6 text-slate-500">بعد الربط الرسمي، لا يُقبل الحجز إلا إذا كان رقم الجوال مستخدمًا في طلب مدفوع ومؤكد من متجر هذه المنشأة. الإلغاء أو الاسترداد يلغي أهلية ذلك الطلب تلقائيًا، ولا تنتقل بيانات أي متجر إلى منشأة أخرى.</p></div></div>
+      </div>
+      {sallaResult ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["connected","disconnected","synced"].includes(sallaResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{sallaResult === "connected" ? "تم ربط متجر سلة، وبدأت المزامنة الأولية للطلبات." : sallaResult === "synced" ? "تم تحديث الطلبات المدفوعة والمؤكدة من سلة." : sallaResult === "disconnected" ? "تم فصل متجر سلة وإيقاف شرط الطلب المدفوع للحجز." : sallaResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لربط سلة." : sallaResult === "not-configured" ? "إعداد تطبيق سلة في بيئة INFRO غير مكتمل حاليًا." : sallaResult === "store-mismatch" ? "معرّف التاجر لا يطابق المتجر الذي منحتَه صلاحية الربط." : sallaResult === "store-assigned" ? "هذا المتجر مرتبط بمنشأة أخرى ولا يمكن مشاركته." : sallaResult === "cancelled" ? "أُلغي ربط سلة دون تغيير الإعدادات." : sallaResult === "sync-failed" ? "تعذر تحديث الطلبات الآن؛ بقيت آخر أهلية موثوقة محفوظة بأمان." : "لم يكتمل ربط سلة. تحقق من معرّف التاجر وأعد المحاولة."}</p> : null}
+      <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_1fr]">
+        <article className="rounded-2xl border border-slate-200 bg-[#f8fbfb] p-4">
+          <div className="flex items-center justify-between gap-3"><div><b className="text-sm text-slate-900">حالة المتجر</b><span className="mt-1 block text-[9px] text-slate-400">تفويض OAuth رسمي دون طلب كلمة مرور المتجر</span></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-black ${sallaIntegration?.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{sallaIntegration?.status === "active" ? "متصل" : sallaIntegration ? "غير مكتمل" : "غير مربوط"}</span></div>
+          {sallaIntegration ? <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3"><b className="block text-xs text-slate-800">{sallaIntegration.displayName || "متجر سلة"}</b><span dir="ltr" className="mt-1 block text-right text-[10px] font-bold text-[#008f87]">Merchant #{sallaIntegration.externalStoreId}</span><span className="mt-2 block text-[8px] text-slate-400">{sallaIntegration.lastWebhookAt ? `آخر تحديث طلبات: ${sallaIntegration.lastWebhookAt.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}` : "بانتظار أول حدث طلب من سلة"}</span>{sallaIntegration.lastErrorCode ? <span className="mt-2 block text-[9px] font-bold text-rose-600">يحتاج الربط إلى مراجعة أو إعادة تفويض.</span> : null}</div> : null}
+          <div className="mt-4 grid gap-2">
+            {!sallaIntegration ? <form action={connectSallaBookingStoreAction} className="grid gap-2 sm:grid-cols-[1fr_auto]"><label className="grid gap-1.5 text-[9px] font-bold text-slate-500"><span>معرّف التاجر في سلة</span><input name="merchantId" inputMode="numeric" pattern="[0-9]{1,32}" required maxLength={32} dir="ltr" className={fieldClass} placeholder="123456789" /></label><button disabled={!subscriptionActive || !sallaReady} className="min-h-11 self-end rounded-xl bg-[#07181b] px-5 text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50">ربط متجر سلة</button></form> : sallaIntegration.status !== "active" ? <form action={reconnectSallaBookingStoreAction}><input type="hidden" name="integrationId" value={sallaIntegration.id}/><button disabled={!subscriptionActive || !sallaReady} className="min-h-11 w-full rounded-xl bg-[#07181b] px-5 text-[10px] font-black text-white disabled:cursor-not-allowed disabled:opacity-50">إكمال الربط الرسمي</button></form> : null}
+            {!sallaReady ? <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[9px] font-bold leading-5 text-amber-800">يلزم إكمال مفاتيح تطبيق سلة وWebhook في بيئة INFRO قبل إتاحة الربط للعملاء.</p> : null}
+            {sallaIntegration && sallaIntegration.status !== "disconnected" ? <form action={disconnectSallaBookingStoreAction}><input type="hidden" name="integrationId" value={sallaIntegration.id}/><button className="min-h-11 w-full rounded-xl border border-rose-200 bg-white px-4 text-[10px] font-black text-rose-700">فصل متجر سلة</button></form> : null}
+            {sallaIntegration?.status === "active" ? <form action={syncSallaBookingOrdersAction}><input type="hidden" name="integrationId" value={sallaIntegration.id}/><button className="min-h-11 w-full rounded-xl border border-[#9fddd6] bg-[#effbf9] px-4 text-[10px] font-black text-[#08756e]">تحديث الطلبات الآن</button></form> : null}
+          </div>
+        </article>
+        <article className="rounded-2xl border border-slate-200 p-4">
+          <b className="text-sm text-slate-900">سياسة السماح بالحجز</b>
+          <div className="mt-4 grid gap-2 text-[10px] leading-5">
+            <div className="rounded-xl bg-emerald-50 p-3 text-emerald-800"><b className="block">طلب مدفوع ومؤكد</b><span>يسمح لصاحب رقم الجوال بالحجز في صفحة هذه المنشأة.</span></div>
+            <div className="rounded-xl bg-rose-50 p-3 text-rose-800"><b className="block">طلب غير مدفوع أو ملغي أو مسترد</b><span>لا يمنح أهلية الحجز، ولا تظهر للزائر أي تفاصيل عن الطلب.</span></div>
+            <div className="rounded-xl bg-slate-50 p-3 text-slate-600"><b className="block">عزل كامل بين العملاء</b><span>الأهلية مرتبطة بالمنشأة والمتجر ورقم الجوال؛ طلب متجر آخر لا يسمح بالحجز هنا.</span></div>
+          </div>
+          {sallaIntegration?.status === "active" ? <p className="mt-4 text-[9px] font-bold text-[#008f87]">طلبات مؤهلة متزامنة حاليًا: {eligibleSallaOrders}</p> : <p className="mt-4 text-[9px] font-bold text-slate-400">يبدأ تطبيق الشرط فقط بعد اكتمال الربط الرسمي.</p>}
+        </article>
+      </div>
     </section>
 
     <form action={updateBookingSlotSettingsAction} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">

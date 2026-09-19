@@ -28,7 +28,8 @@ test("operations migration constrains release provenance and sanitized errors", 
 test("operations entrypoint is disabled by default and never logs provider errors", () => {
   const worker = source("app/lib/whatsapp/operations-worker.ts");
   const entrypoint = source("scripts/whatsapp-operations-worker.ts");
-  assert.match(worker, /WHATSAPP_MARKETING_WORKER_ENABLED !== "true"/);
+  assert.match(worker, /WHATSAPP_MARKETING_WORKER_ENABLED === "true"/);
+  assert.match(worker, /INFRO_BOOKING_WORKER_ENABLED === "true"/);
   assert.match(worker, /WHATSAPP_RELEASE_SHA_REQUIRED/);
   assert.match(worker, /shell: false/);
   assert.doesNotMatch(worker, /console\.(log|error)/);

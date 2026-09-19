@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { db } from "../db";
 import { processNextSmartReminderDelivery } from "../reminders/delivery-worker";
+import { processNextSallaWebhookEvent } from "../commerce/salla-webhook-processor";
 import { isSmartRemindersSchemaReady } from "../reminders/schema-readiness";
 import { runSmartReminderScheduler } from "../reminders/scheduler";
 import { processNextWhatsAppAutomationDelivery } from "./automation-delivery-worker";
@@ -62,6 +63,15 @@ async function runShopifyWebhooks(env: NodeJS.ProcessEnv) {
   const workerId = `vercel-shopify-${randomUUID()}`;
   for (let index = 0; index < batchSize; index += 1) {
     const result = await processNextShopifyWebhookEvent({ workerId });
+    if (!result.processed) break;
+  }
+}
+
+async function runSallaWebhooks(env: NodeJS.ProcessEnv) {
+  const batchSize = boundedBatch(env, "SALLA_WEBHOOK_BATCH_SIZE", 100, 500);
+  const workerId = `vercel-salla-${randomUUID()}`;
+  for (let index = 0; index < batchSize; index += 1) {
+    const result = await processNextSallaWebhookEvent({ workerId });
     if (!result.processed) break;
   }
 }
@@ -129,6 +139,7 @@ export async function runVercelWhatsAppStage(stage: StageName, env: NodeJS.Proce
     case "whatsapp:webhooks": return runWebhooks(env);
     case "whatsapp:shopify-subscriptions": return runShopifySubscriptions(env);
     case "whatsapp:shopify-webhooks": return runShopifyWebhooks(env);
+    case "whatsapp:salla-webhooks": return runSallaWebhooks(env);
     case "whatsapp:shopify-abandoned-carts": return runAbandonedCarts(env);
     case "whatsapp:campaigns": return runCampaigns(env);
     case "whatsapp:deliveries": return runDeliveries(env);

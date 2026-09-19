@@ -119,6 +119,23 @@ function productionOauthReadiness() {
   }
 }
 
+function productionSallaReadiness() {
+  const names = [
+    "SALLA_CLIENT_ID",
+    "SALLA_CLIENT_SECRET",
+    "SALLA_WEBHOOK_SECRET",
+    "WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY",
+    "WHATSAPP_COMMERCE_CREDENTIAL_KEY_VERSION",
+  ];
+  const values = optionalValues(names);
+  if (!values.some(Boolean)) return;
+  if (!values.every(Boolean)) throw new Error("Salla commerce integration must be fully configured or fully disabled in production");
+  strongSecret("SALLA_CLIENT_SECRET", 16);
+  strongSecret("SALLA_WEBHOOK_SECRET", 16);
+  strictBase64Key("WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY");
+  if (!/^[A-Za-z0-9._-]{1,32}$/.test(values[4])) throw new Error("WHATSAPP_COMMERCE_CREDENTIAL_KEY_VERSION is invalid");
+}
+
 function main() {
   if (String(process.env.APP_ENV ?? "").trim().toLowerCase() !== "production") {
     throw new Error("APP_ENV must be production for the launch audit");
@@ -174,6 +191,7 @@ function main() {
   // Social providers are opt-in. A partially configured provider fails closed; a
   // fully absent provider remains disabled until its credentials are added.
   productionOauthReadiness();
+  productionSallaReadiness();
 
   console.log("launch-config-audit: PASS");
 }

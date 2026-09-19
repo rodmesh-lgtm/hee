@@ -10,8 +10,12 @@ test("WhatsApp persistence remains tenant scoped and credentials are envelope-on
   assert.match(schema, /model WhatsAppConnection[\s\S]*businessId String/);
   assert.match(schema, /credentialEnvelope Json/);
   assert.doesNotMatch(schema, /accessToken String|systemUserToken String/);
-  assert.match(schema, /@@unique\(\[businessId, provider\]/);
   assert.match(schema, /@@unique\(\[provider, phoneNumberId\]/);
+  assert.match(schema, /marketingEnabled Boolean @default\(true\)/);
+  assert.match(schema, /bookingEnabled Boolean @default\(false\)/);
+  const purposeMigration = source("prisma/migrations/20260919143000_split_whatsapp_booking_and_marketing_numbers/migration.sql");
+  assert.match(purposeMigration, /WhatsAppConnection_one_marketing_number_per_business/);
+  assert.match(purposeMigration, /WhatsAppConnection_one_booking_number_per_business/);
 });
 
 test("marketing consent is explicit, revocable and unique per tenant destination", () => {

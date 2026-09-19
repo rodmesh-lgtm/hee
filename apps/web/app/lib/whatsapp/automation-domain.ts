@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 
 export const WHATSAPP_AUTOMATION_TRIGGER_TYPES = [
-  "welcome", "appointment_reminder", "follow_up", "order_update",
+  "welcome", "booking_confirmation", "appointment_reminder", "follow_up", "order_update",
   "inactive_customer", "abandoned_cart", "api_event",
 ] as const;
 
 export type WhatsAppAutomationTriggerType = typeof WHATSAPP_AUTOMATION_TRIGGER_TYPES[number];
 export const WHATSAPP_CONFIGURABLE_TRIGGER_TYPES = [
-  "welcome", "appointment_reminder", "follow_up", "order_update", "inactive_customer", "abandoned_cart", "api_event",
+  "welcome", "booking_confirmation", "appointment_reminder", "follow_up", "order_update", "inactive_customer", "abandoned_cart", "api_event",
 ] as const satisfies readonly WhatsAppAutomationTriggerType[];
 
 export const WHATSAPP_ORDER_EVENT_STATUSES = ["pending", "confirmed", "processing", "completed", "cancelled"] as const;
@@ -136,6 +136,7 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
 export function automationMatchesEvent(input: { triggerType: string; triggerConfig: unknown; subjectType: string }) {
   const config = readAutomationTriggerConfig(input.triggerConfig, input.triggerType);
   if (input.triggerType === "welcome") return input.subjectType === "contact.consent_granted";
+  if (input.triggerType === "booking_confirmation") return input.subjectType === "booking.created";
   if (input.triggerType === "appointment_reminder") return input.subjectType === "booking.reminder";
   if (input.triggerType === "follow_up") return input.subjectType === "order.completed" || input.subjectType === "booking.completed";
   if (input.triggerType === "inactive_customer") return input.subjectType === "customer.inactive";

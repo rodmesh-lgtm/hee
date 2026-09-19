@@ -55,6 +55,29 @@ export async function getBusinessPublic(slug: string) {
           bookingCapacity: true,
         },
       },
+      whatsappAutomations: {
+        where: {
+          status: "active",
+          triggerType: "booking_confirmation",
+          connection: { provider: "meta", status: "connected", disabledAt: null, bookingEnabled: true },
+        },
+        orderBy: { activatedAt: "desc" },
+        take: 1,
+        select: {
+          actionConfig: true,
+          connectionId: true,
+          connection: { select: { status: true, disabledAt: true, verifiedName: true, displayPhoneNumber: true } },
+        },
+      },
+      whatsappTemplates: {
+        where: { provider: "meta", status: "approved" },
+        select: { id: true, connectionId: true, components: true, parameterFormat: true },
+      },
+      whatsappCommerceIntegrations: {
+        where: { provider: "salla", status: "active" },
+        take: 1,
+        select: { id: true },
+      },
       // ContactPerson is the canonical team table. Loading the same rows again
       // through Department.contacts doubled the public query and payload without
       // adding any information used by the current renderer.

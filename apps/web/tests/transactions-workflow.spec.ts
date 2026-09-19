@@ -47,6 +47,7 @@ async function seed(): Promise<Seeded> {
       onboardingCompleted: true,
     },
   });
+  await db.subscription.create({ data: { businessId: business.id, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 24 * 60 * 60 * 1000), autoRenew: false } });
   const service = await db.service.create({ data: { businessId: business.id, name: "استشارة لمدة ساعة", price: 150, durationMinutes: 60, bookingEnabled: true, isActive: true } });
   await db.workingHours.createMany({ data: Array.from({ length: 7 }, (_, dayOfWeek) => ({ businessId: business.id, dayOfWeek, opensAt: "08:00", closesAt: "23:00", isClosed: false })) });
   const sessionToken = crypto.randomUUID();
@@ -70,6 +71,7 @@ async function cleanup(seed: Seeded) {
   await db.workingHours.deleteMany({ where: { businessId: seed.businessId } });
   await db.service.deleteMany({ where: { businessId: seed.businessId } });
   await db.branch.deleteMany({ where: { businessId: seed.businessId } });
+  await db.subscription.deleteMany({ where: { businessId: seed.businessId } });
   await db.business.delete({ where: { id: seed.businessId } });
   await db.session.deleteMany({ where: { userId: seed.userId } });
   await db.user.delete({ where: { id: seed.userId } });

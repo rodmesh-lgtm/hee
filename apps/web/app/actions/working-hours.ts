@@ -5,6 +5,12 @@ import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { getOwnedBusinessForWrite } from "../lib/ownership";
 import { isValidWorkingTime, validateWorkingHoursWindow } from "../lib/working-hours-validation";
+import { createWhatsAppAutomation, operateWhatsAppAutomation } from "../lib/whatsapp/automation-operations";
+import { hasActiveBusinessSubscription } from "../lib/subscription-entitlement";
+import { syncMetaWhatsAppTemplates } from "../lib/whatsapp/template-sync";
+import { disconnectWhatsAppCommerceIntegration, registerWhatsAppCommerceIntegration } from "../lib/whatsapp/commerce-integrations";
+import { createSallaAuthorization } from "../lib/commerce/salla-oauth";
+import { syncSallaBookingOrders } from "../lib/commerce/salla-order-sync";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -97,6 +103,173 @@ export async function updateBookingSlotSettingsAction(formData: FormData) {
   ]);
   refreshAppointmentPaths(business.slug);
   redirect("/dashboard/working-hours?saved=slots");
+}
+
+export async function configureBookingWhatsAppConfirmationAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?whatsapp=subscription-required");
+  const templateId = value(formData, "templateId");
+  if (!/^[0-9a-f-]{36}$/i.test(templateId)) redirect("/dashboard/working-hours?whatsapp=invalid-template");
+
+  let previousAutomationId: string | null = null;
+  try {
+    const previous = await db.whatsAppAutomation.findFirst({
+      where: { businessId: business.id, triggerType: "booking_confirmation", status: "active" },
+      select: { id: true },
+    });
+    previousAutomationId = previous?.id ?? null;
+    const created = await createWhatsAppAutomation({
+      businessId: business.id,
+      actorUserId: business.ownerId,
+      name: "تأكيد حجز الموعد",
+      triggerType: "booking_confirmation",
+      templateId,
+      cooldownMinutes: 0,
+    });
+    if (previousAutomationId) {
+      await operateWhatsAppAutomation({ businessId: business.id, actorUserId: business.ownerId, automationId: previousAutomationId, operation: "pause" });
+    }
+    try {
+      await operateWhatsAppAutomation({ businessId: business.id, actorUserId: business.ownerId, automationId: created.id, operation: "activate" });
+    } catch (error) {
+      if (previousAutomationId) {
+        await operateWhatsAppAutomation({ businessId: business.id, actorUserId: business.ownerId, automationId: previousAutomationId, operation: "resume" }).catch(() => undefined);
+      }
+      throw error;
+    }
+    refreshAppointmentPaths(business.slug);
+    redirect("/dashboard/working-hours?whatsapp=enabled");
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/dashboard/working-hours?whatsapp=failed");
+  }
+}
+
+export async function toggleBookingWhatsAppConfirmationAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  const automationId = value(formData, "automationId");
+  const operation = value(formData, "operation");
+  if (!/^[0-9a-f-]{36}$/i.test(automationId) || !["pause", "resume"].includes(operation)) redirect("/dashboard/working-hours?whatsapp=invalid");
+  try {
+    await operateWhatsAppAutomation({ businessId: business.id, actorUserId: business.ownerId, automationId, operation: operation as "pause" | "resume" });
+    refreshAppointmentPaths(business.slug);
+    redirect(`/dashboard/working-hours?whatsapp=${operation === "pause" ? "paused" : "enabled"}`);
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/dashboard/working-hours?whatsapp=failed");
+  }
+}
+
+export async function useMarketingNumberForBookingsAction() {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?whatsapp=subscription-required");
+  const connection = await db.whatsAppConnection.findFirst({
+    where: { businessId: business.id, provider: "meta", marketingEnabled: true, status: "connected", disabledAt: null },
+    select: { id: true },
+  });
+  if (!connection) redirect("/dashboard/working-hours?whatsapp=marketing-number-unavailable");
+  await db.$transaction([
+    db.whatsAppConnection.updateMany({
+      where: { businessId: business.id, provider: "meta", bookingEnabled: true, id: { not: connection.id } },
+      data: { bookingEnabled: false },
+    }),
+    db.whatsAppConnection.update({ where: { id: connection.id }, data: { bookingEnabled: true } }),
+  ]);
+  refreshAppointmentPaths(business.slug);
+  redirect("/dashboard/working-hours?whatsapp=number-linked");
+}
+
+export async function syncBookingWhatsAppTemplatesAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?whatsapp=subscription-required");
+  const connectionId = value(formData, "connectionId");
+  const connection = await db.whatsAppConnection.findFirst({
+    where: { id: connectionId, businessId: business.id, provider: "meta", bookingEnabled: true, status: "connected", disabledAt: null },
+    select: { id: true },
+  });
+  if (!connection) redirect("/dashboard/working-hours?whatsapp=number-unavailable");
+  try {
+    await syncMetaWhatsAppTemplates({ businessId: business.id, connectionId: connection.id });
+    revalidatePath("/dashboard/working-hours");
+    redirect("/dashboard/working-hours?whatsapp=templates-synced");
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/dashboard/working-hours?whatsapp=sync-failed");
+  }
+}
+
+export async function connectSallaBookingStoreAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?salla=subscription-required");
+  const merchantId = value(formData, "merchantId");
+  if (!/^\d{1,32}$/.test(merchantId)) redirect("/dashboard/working-hours?salla=invalid-merchant");
+  try {
+    const integration = await registerWhatsAppCommerceIntegration({
+      businessId: business.id,
+      actorUserId: business.ownerId,
+      provider: "salla",
+      externalStoreId: merchantId,
+      displayName: "متجر سلة",
+    });
+    if (integration.status === "active") redirect("/dashboard/working-hours?salla=connected");
+    const authorizationUrl = await createSallaAuthorization({ businessId: business.id, userId: business.ownerId, integrationId: integration.id });
+    redirect(authorizationUrl);
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    const code = error instanceof Error ? error.message : "";
+    redirect(`/dashboard/working-hours?salla=${code.startsWith("SALLA_CONFIG_INVALID") ? "not-configured" : "start-failed"}`);
+  }
+}
+
+export async function reconnectSallaBookingStoreAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?salla=subscription-required");
+  const integrationId = value(formData, "integrationId");
+  if (!/^[0-9a-f-]{36}$/i.test(integrationId)) redirect("/dashboard/working-hours?salla=invalid");
+  try {
+    redirect(await createSallaAuthorization({ businessId: business.id, userId: business.ownerId, integrationId }));
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    const code = error instanceof Error ? error.message : "";
+    redirect(`/dashboard/working-hours?salla=${code.startsWith("SALLA_CONFIG_INVALID") ? "not-configured" : "start-failed"}`);
+  }
+}
+
+export async function disconnectSallaBookingStoreAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  const integrationId = value(formData, "integrationId");
+  if (!/^[0-9a-f-]{36}$/i.test(integrationId)) redirect("/dashboard/working-hours?salla=invalid");
+  try {
+    await disconnectWhatsAppCommerceIntegration({ businessId: business.id, actorUserId: business.ownerId, integrationId });
+    refreshAppointmentPaths(business.slug);
+    redirect("/dashboard/working-hours?salla=disconnected");
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/dashboard/working-hours?salla=disconnect-failed");
+  }
+}
+
+export async function syncSallaBookingOrdersAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?salla=subscription-required");
+  const integrationId = value(formData, "integrationId");
+  if (!/^[0-9a-f-]{36}$/i.test(integrationId)) redirect("/dashboard/working-hours?salla=invalid");
+  try {
+    await syncSallaBookingOrders({ businessId: business.id, integrationId, actorUserId: business.ownerId });
+    refreshAppointmentPaths(business.slug);
+    redirect("/dashboard/working-hours?salla=synced");
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/dashboard/working-hours?salla=sync-failed");
+  }
 }
 
 export async function upsertBookingAvailabilityOverrideAction(formData: FormData) {
