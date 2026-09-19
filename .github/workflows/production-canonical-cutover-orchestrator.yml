@@ -35,8 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$TARGET_SHA" != "" && test "${#TARGET_SHA}" -eq 40
-          commit_json="$(gh api "/repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}")"
-          message="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.commit?.message??""));' "$commit_json")"
+          message="$(gh api "/repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}" --jq '.commit.message')"
           if ! grep -Fq '[production-cutover]' <<<"$message"; then
             echo "No [production-cutover] marker on the green release commit; canonical Production remains unchanged."
             exit 0
