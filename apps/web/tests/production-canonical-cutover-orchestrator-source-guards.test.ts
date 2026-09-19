@@ -17,6 +17,8 @@ test("canonical cutover runs only after green release-branch RC and explicit com
   assert.match(workflow, /\[production-cutover\]/);
   assert.match(workflow, /test "\$branch_sha" = "\$TARGET_SHA"/);
   assert.match(workflow, /environment: production/);
+  assert.match(workflow, /--jq '\.commit\.message'/);
+  assert.doesNotMatch(workflow, /"\$commit_json"/);
 });
 
 test("central admin domain is registered only after read-only Preflight succeeds and before Production deploy", () => {
