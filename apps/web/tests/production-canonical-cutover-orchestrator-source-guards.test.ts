@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 
@@ -22,7 +22,7 @@ test("canonical redirect check accepts HTTP CRLF headers and rejects foreign des
       ["https://vercel.com/sso-api", false],
     ] as const) {
       writeFileSync(headers, `HTTP/2 308\r\nLocation: ${location}\r\n\r\n`);
-      const result = spawnSync("bash", ["-o", "pipefail", "-c", command], {
+      const result: SpawnSyncReturns<string> = spawnSync("bash", ["-o", "pipefail", "-c", command], {
         env: { ...process.env, www_headers: headers }, encoding: "utf8",
       });
       assert.equal(result.status === 0, accepted, location);
