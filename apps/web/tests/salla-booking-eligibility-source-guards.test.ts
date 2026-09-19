@@ -57,6 +57,8 @@ test("Salla connection imports historical orders and supports an explicit refres
   assert.match(oauth, /externalStoreId: store\.merchantId/);
   assert.doesNotMatch(page, /name="merchantId"/);
   assert.match(page, /سيتعرّف INFRO على المتجر المصرّح به/);
+  assert.match(page, /بانتظار إكمال الموافقة داخل سلة/);
+  assert.match(page, /!sallaIntegration\.externalStoreId\.startsWith\("pending:"\)/);
   assert.match(orderSync, /per_page", "30"/);
 });
 
