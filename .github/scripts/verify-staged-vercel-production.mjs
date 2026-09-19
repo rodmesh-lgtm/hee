@@ -66,6 +66,27 @@ export async function verifyStagedProduction({
     }
     await response.body?.cancel();
   }
+  async function probeGoogleOAuth() {
+    const response = await fetchImpl(new URL('/api/auth/oauth/google', url).href, {
+      headers: { 'x-vercel-protection-bypass': secret },
+      redirect: 'manual', signal: AbortSignal.timeout(20_000),
+    });
+    if (![302, 303, 307, 308].includes(response.status)) {
+      throw new Error(`Staged Google OAuth start failed (HTTP ${response.status})`);
+    }
+    const location = response.headers.get('location');
+    if (!location) throw new Error('Staged Google OAuth start omitted its redirect');
+    const authorization = new URL(location);
+    if (authorization.origin !== 'https://accounts.google.com' || authorization.pathname !== '/o/oauth2/v2/auth' ||
+        !authorization.searchParams.get('client_id')?.endsWith('.apps.googleusercontent.com') ||
+        authorization.searchParams.get('redirect_uri') !== 'https://ir.sa/api/auth/oauth/google/callback' ||
+        authorization.searchParams.get('response_type') !== 'code' ||
+        authorization.searchParams.get('code_challenge_method') !== 'S256' ||
+        !authorization.searchParams.get('state') || !authorization.searchParams.get('nonce')) {
+      throw new Error('Staged Google OAuth authorization redirect is invalid');
+    }
+    await response.body?.cancel();
+  }
   const release = await probe('/api/release', true);
   const status = await probe('/api/maintenance/status', true);
   const webReady = await probe('/api/health/web-ready', true);
@@ -76,6 +97,7 @@ export async function verifyStagedProduction({
     throw new Error('Staged Production must be exact-SHA and out of maintenance');
   }
   if (webReady.ready !== true) throw new Error('Staged Production core web runtime is not ready');
+  await probeGoogleOAuth();
   for (const path of ['/', '/register', '/login', '/terms', '/privacy', '/contact', '/demo']) {
     await probe(path);
   }

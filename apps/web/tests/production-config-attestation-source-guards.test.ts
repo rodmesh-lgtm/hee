@@ -160,4 +160,8 @@ test("GitHub launch-state remains attested closed baseline while live paid state
   assert.match(sync, /key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false"/);
   assert.match(sync, /key: "BILLING_REHEARSAL_USER_EMAIL", value: ""/);
   assert.match(sync, /paid launch defaults closed/);
+  assert.match(sync, /const optionalSensitiveKeys = \[/);
+  assert.match(sync, /\.filter\(\(key\) => String\(process\.env\[key\] \?\? ""\)\.trim\(\)\)/);
+  assert.match(sync, /OAuth credentials must be fully configured or omitted from production sync/);
+  assert.doesNotMatch(sync.slice(sensitiveKeysStart, sync.indexOf("const optionalSensitiveKeys")), /GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|APPLE_CLIENT_ID/);
 });

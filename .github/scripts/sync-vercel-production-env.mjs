@@ -162,13 +162,32 @@ const sensitiveKeys = [
   "DATABASE_URL", "SESSION_SECRET", "RESEND_API_KEY", "CRON_SECRET",
   "MOYASAR_PUBLISHABLE_KEY", "MOYASAR_SECRET_KEY", "MOYASAR_WEBHOOK_SECRET",
   "BILLING_TOKEN_ENCRYPTION_KEY", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY",
+];
+const optionalSensitiveKeys = [
   "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "APPLE_CLIENT_ID", "APPLE_TEAM_ID",
   "APPLE_KEY_ID", "APPLE_PRIVATE_KEY",
 ];
 
+// Optional provider credentials may be managed directly in Vercel. Never replace
+// an existing encrypted credential with an empty GitHub secret during a release.
+// When GitHub supplies one member of a provider set, require the complete set so
+// a deploy cannot persist a partially configured provider.
+for (const [provider, keys] of [
+  ["Google", ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]],
+  ["Apple", ["APPLE_CLIENT_ID", "APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY"]],
+]) {
+  const configured = keys.filter((key) => String(process.env[key] ?? "").trim()).length;
+  if (configured !== 0 && configured !== keys.length) {
+    throw new Error(`${provider} OAuth credentials must be fully configured or omitted from production sync`);
+  }
+}
+
 const entries = [
   ...plainKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "plain", target: ["production"] })),
   ...sensitiveKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "sensitive", target: ["production"] })),
+  ...optionalSensitiveKeys
+    .filter((key) => String(process.env[key] ?? "").trim())
+    .map((key) => ({ key, value: String(process.env[key]).trim(), type: "sensitive", target: ["production"] })),
   { key: "HEE_FROM_EMAIL", value: CANONICAL_FROM_EMAIL, type: "plain", target: ["production"] },
   { key: "PAID_CHECKOUT_PUBLIC_ENABLED", value: "false", type: "plain", target: ["production"] },
   { key: "BILLING_REHEARSAL_USER_EMAIL", value: "", type: "plain", target: ["production"] },

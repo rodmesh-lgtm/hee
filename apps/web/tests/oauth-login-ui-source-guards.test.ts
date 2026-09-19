@@ -6,6 +6,7 @@ const page = readFileSync(new URL("../app/login/page.tsx", import.meta.url), "ut
 const client = readFileSync(new URL("../app/login/login-content.tsx", import.meta.url), "utf8");
 
 test("login derives external provider visibility from server configuration", () => {
+  assert.match(page, /dynamic = "force-dynamic"/);
   assert.match(page, /providerConfigured\("google"\)/);
   assert.match(page, /providerConfigured\("apple"\)/);
   assert.match(page, /googleEnabled=\{providerConfigured\("google"\)\}/);

@@ -4,6 +4,8 @@ import test from "node:test";
 
 const page = readFileSync(new URL("../app/login/page.tsx", import.meta.url), "utf8");
 const client = readFileSync(new URL("../app/login/login-content.tsx", import.meta.url), "utf8");
+const registerPage = readFileSync(new URL("../app/register/page.tsx", import.meta.url), "utf8");
+const registerClient = readFileSync(new URL("../app/register/register-content.tsx", import.meta.url), "utf8");
 const launch = readFileSync(new URL("../scripts/launch-config-audit.ts", import.meta.url), "utf8");
 
 test("every social provider shown to customers is gated by runtime readiness and audited", () => {
@@ -13,6 +15,10 @@ test("every social provider shown to customers is gated by runtime readiness and
   }
   assert.match(client, /googleEnabled \?/);
   assert.match(client, /appleEnabled \?/);
+  assert.match(registerPage, /googleEnabled=\{providerConfigured\("google"\)\}/);
+  assert.match(registerClient, /googleEnabled \? <div/);
+  assert.match(page, /dynamic = "force-dynamic"/);
+  assert.match(registerPage, /dynamic = "force-dynamic"/);
   assert.match(launch, /productionOauthReadiness\(\)/);
   assert.doesNotMatch(launch, /Google OAuth must be fully configured or fully disabled/);
   assert.doesNotMatch(launch, /Apple OAuth must be fully configured or fully disabled/);
