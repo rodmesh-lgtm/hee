@@ -163,5 +163,10 @@ test("GitHub launch-state remains attested closed baseline while live paid state
   assert.match(sync, /const optionalSensitiveKeys = \[/);
   assert.match(sync, /\.filter\(\(key\) => String\(process\.env\[key\] \?\? ""\)\.trim\(\)\)/);
   assert.match(sync, /OAuth credentials must be fully configured or omitted from production sync/);
+  assert.match(sync, /RECOVER_GOOGLE_OAUTH_FROM_PREVIEW/);
+  assert.match(sync, /Vercel remains the credential source/);
+  assert.match(sync, /method: "DELETE"/);
+  assert.match(sync, /method: "PATCH", body: JSON\.stringify\(\{ target: plan\.target \}\)/);
+  assert.match(sync, /values never read or logged/);
   assert.doesNotMatch(sync.slice(sensitiveKeysStart, sync.indexOf("const optionalSensitiveKeys")), /GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|APPLE_CLIENT_ID/);
 });

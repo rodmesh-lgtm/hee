@@ -182,6 +182,87 @@ for (const [provider, keys] of [
   }
 }
 
+// One-time recovery for credentials that were originally created in Vercel for
+// Preview, then shadowed in Production by an empty GitHub Actions secret. Vercel
+// never returns sensitive values, so recovery changes only the target metadata:
+// it removes the empty Production-only record and extends the existing encrypted
+// Preview record to Production. Every record shape is validated before mutation.
+async function recoverGoogleOAuthFromPreview() {
+  if (!enabled("RECOVER_GOOGLE_OAUTH_FROM_PREVIEW")) return;
+
+  const keys = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"];
+  if (keys.some((key) => String(process.env[key] ?? "").trim())) {
+    throw new Error("Google OAuth recovery requires GitHub OAuth secrets to be omitted so Vercel remains the credential source");
+  }
+
+  const listEnvironment = async () => {
+    const listed = await vercelJson(
+      `https://api.vercel.com/v10/projects/${project}/env?teamId=${team}&limit=100`,
+    );
+    if (!listed.response.ok) {
+      throw new Error(`Unable to inspect Vercel environment before Google OAuth recovery (HTTP ${listed.response.status})`);
+    }
+    return Array.isArray(listed.body?.envs) ? listed.body.envs : [];
+  };
+
+  const envs = await listEnvironment();
+  const plans = keys.map((key) => {
+    const records = envs.filter((item) => item?.key === key && !item?.gitBranch);
+    const usable = records.filter((item) => ["sensitive", "encrypted"].includes(String(item?.type ?? "")));
+    const targets = (item) => Array.isArray(item?.target) ? item.target.map(String) : [String(item?.target ?? "")];
+    const shared = usable.filter((item) => targets(item).includes("production") && targets(item).includes("preview"));
+    if (shared.length === 1) return { key, state: "ready" };
+    if (shared.length > 1) throw new Error(`${key} has multiple shared Vercel records; refusing automatic recovery`);
+
+    const preview = usable.filter((item) => targets(item).includes("preview") && !targets(item).includes("production"));
+    const production = records.filter((item) => targets(item).includes("production") && !targets(item).includes("preview"));
+    if (preview.length !== 1 || production.length > 1 || !preview[0]?.id || production.some((item) => !item?.id)) {
+      throw new Error(`${key} does not have the unique recoverable Vercel record shape`);
+    }
+    return {
+      key,
+      state: "repair",
+      previewId: String(preview[0].id),
+      productionId: production[0]?.id ? String(production[0].id) : null,
+      target: [...new Set([...targets(preview[0]).filter(Boolean), "production"])],
+    };
+  });
+
+  for (const plan of plans) {
+    if (plan.state !== "repair" || !plan.productionId) continue;
+    const removed = await vercelJson(
+      `https://api.vercel.com/v9/projects/${project}/env/${encodeURIComponent(plan.productionId)}?teamId=${team}`,
+      { method: "DELETE" },
+    );
+    if (!removed.response.ok && removed.response.status !== 404) {
+      throw new Error(`Unable to remove shadowing Production record for ${plan.key} (HTTP ${removed.response.status})`);
+    }
+  }
+
+  for (const plan of plans) {
+    if (plan.state !== "repair") continue;
+    const patched = await vercelJson(
+      `https://api.vercel.com/v9/projects/${project}/env/${encodeURIComponent(plan.previewId)}?teamId=${team}`,
+      { method: "PATCH", body: JSON.stringify({ target: plan.target }) },
+    );
+    if (!patched.response.ok) {
+      throw new Error(`Unable to extend encrypted Vercel record for ${plan.key} to Production (HTTP ${patched.response.status})`);
+    }
+  }
+
+  const verified = await listEnvironment();
+  for (const key of keys) {
+    const shared = verified.filter((item) => {
+      const targets = Array.isArray(item?.target) ? item.target.map(String) : [String(item?.target ?? "")];
+      return item?.key === key && !item?.gitBranch && targets.includes("production") && targets.includes("preview");
+    });
+    if (shared.length !== 1) throw new Error(`${key} recovery verification failed`);
+  }
+  console.log(`vercel-google-oauth-recovery: PASS (${plans.filter((plan) => plan.state === "repair").length} record targets repaired; values never read or logged)`);
+}
+
+await recoverGoogleOAuthFromPreview();
+
 const entries = [
   ...plainKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "plain", target: ["production"] })),
   ...sensitiveKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "sensitive", target: ["production"] })),

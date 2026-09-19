@@ -120,6 +120,7 @@ test("production web deployment rebuilds the exact content-proven SHA with one r
   assert.match(workflow, /VERCEL_CLI_VERSION: 59\.3\.0/);
   assert.match(workflow, /RELEASE_SHA: \$\{\{ github\.sha \}\}/);
   assert.match(workflow, /node \.github\/scripts\/sync-vercel-production-env\.mjs/);
+  assert.match(workflow, /RECOVER_GOOGLE_OAUTH_FROM_PREVIEW: "true"/);
   assert.match(sync, /process\.env\.RELEASE_SHA !== process\.env\.GITHUB_SHA/);
   assert.match(sync, /"RELEASE_SHA"/);
   assert.match(sync, /api\.vercel\.com\/v10\/projects/);
