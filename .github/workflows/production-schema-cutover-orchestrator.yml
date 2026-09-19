@@ -1,0 +1,196 @@
+name: Production Schema Cutover Orchestrator
+
+on:
+  push:
+    branches: [hee-v6-rc]
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: production-canonical-cutover
+  cancel-in-progress: false
+
+jobs:
+  cutover:
+    if: ${{ contains(github.event.head_commit.message, '[production-schema-cutover]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+    env:
+      TARGET_SHA: ${{ github.sha }}
+      RELEASE_BRANCH: hee-v6-rc
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Require unchanged release head
+        run: |
+          set -euo pipefail
+          test "$TARGET_SHA" != "" && test "${#TARGET_SHA}" -eq 40
+          branch_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')"
+          test "$branch_sha" = "$TARGET_SHA" || (echo "Release branch moved before schema cutover" && exit 1)
+
+      - name: Require successful exact-SHA RC Quality
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 240); do
+            run_json="$(
+              gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/rc-quality.yml/runs?branch=${RELEASE_BRANCH}&event=push&per_page=20" |
+                jq -c --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .event == "push")][0] // empty'
+            )"
+            if test -n "$run_json"; then
+              status="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.status??""));' "$run_json")"
+              conclusion="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.conclusion??""));' "$run_json")"
+              if test "$status" = "completed"; then
+                test "$conclusion" = "success" || (echo "RC Quality failed: ${conclusion}" && exit 1)
+                echo "rc-quality: PASS sha=${TARGET_SHA}"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for exact-SHA RC Quality"
+          exit 1
+
+      - name: Dispatch exact-head Production Preflight V2
+        run: |
+          set -euo pipefail
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/dispatches" \
+            -f ref="$RELEASE_BRANCH" \
+            -f 'inputs[confirmation]=VERIFY_PRODUCTION_PREFLIGHT'
+
+      - name: Require successful Production Preflight V2
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 180); do
+            run_json="$(
+              gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-preflight-v2.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20" |
+                jq -c --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch")][0] // empty'
+            )"
+            if test -n "$run_json"; then
+              status="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.status??""));' "$run_json")"
+              conclusion="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.conclusion??""));' "$run_json")"
+              if test "$status" = "completed"; then
+                test "$conclusion" = "success" || (echo "Production Preflight V2 failed: ${conclusion}" && exit 1)
+                echo "production-preflight-v2: PASS sha=${TARGET_SHA}"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for Production Preflight V2"
+          exit 1
+
+      - name: Re-prove unchanged head before maintenance
+        run: |
+          set -euo pipefail
+          branch_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')"
+          test "$branch_sha" = "$TARGET_SHA" || (echo "Release branch moved after Preflight" && exit 1)
+
+      - name: Enter verified Production maintenance
+        run: |
+          set -euo pipefail
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-enter-maintenance.yml/dispatches" \
+            -f ref="$RELEASE_BRANCH" \
+            -f 'inputs[confirmation]=ENTER_PRODUCTION_MAINTENANCE'
+
+      - name: Require successful maintenance entry
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 300); do
+            run_json="$(
+              gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-enter-maintenance.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20" |
+                jq -c --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch")][0] // empty'
+            )"
+            if test -n "$run_json"; then
+              status="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.status??""));' "$run_json")"
+              conclusion="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.conclusion??""));' "$run_json")"
+              if test "$status" = "completed"; then
+                test "$conclusion" = "success" || (echo "Maintenance entry failed: ${conclusion}" && exit 1)
+                echo "production-maintenance: PASS sha=${TARGET_SHA}"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for Production maintenance entry"
+          exit 1
+
+      - name: Apply backed-up Production migrations
+        run: |
+          set -euo pipefail
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-migrations.yml/dispatches" \
+            -f ref="$RELEASE_BRANCH" \
+            -f 'inputs[confirmation]=APPLY_PRODUCTION_MIGRATIONS' \
+            -f 'inputs[writes_paused_confirmation]=PRODUCTION_WRITES_PAUSED'
+
+      - name: Require successful Production migrations
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 360); do
+            run_json="$(
+              gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-migrations.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20" |
+                jq -c --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch")][0] // empty'
+            )"
+            if test -n "$run_json"; then
+              status="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.status??""));' "$run_json")"
+              conclusion="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.conclusion??""));' "$run_json")"
+              if test "$status" = "completed"; then
+                test "$conclusion" = "success" || (echo "Production migrations failed: ${conclusion}; maintenance remains active" && exit 1)
+                echo "production-migrations: PASS sha=${TARGET_SHA}"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for Production migrations; maintenance remains active"
+          exit 1
+
+      - name: Re-prove unchanged head before deployment
+        run: |
+          set -euo pipefail
+          branch_sha="$(gh api "/repos/${GITHUB_REPOSITORY}/branches/${RELEASE_BRANCH}" --jq '.commit.sha')"
+          test "$branch_sha" = "$TARGET_SHA" || (echo "Release branch moved after migrations" && exit 1)
+
+      - name: Deploy exact migrated release to Production
+        run: |
+          set -euo pipefail
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-deploy.yml/dispatches" \
+            -f ref="$RELEASE_BRANCH" \
+            -f 'inputs[confirmation]=DEPLOY_EXACT_RELEASE_TO_PRODUCTION'
+
+      - name: Require successful Production deployment
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 300); do
+            run_json="$(
+              gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/production-deploy.yml/runs?branch=${RELEASE_BRANCH}&event=workflow_dispatch&per_page=20" |
+                jq -c --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .event == "workflow_dispatch")][0] // empty'
+            )"
+            if test -n "$run_json"; then
+              status="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.status??""));' "$run_json")"
+              conclusion="$(node -e 'const b=JSON.parse(process.argv[1]);process.stdout.write(String(b.conclusion??""));' "$run_json")"
+              if test "$status" = "completed"; then
+                test "$conclusion" = "success" || (echo "Production deployment failed: ${conclusion}" && exit 1)
+                echo "production-deploy: PASS sha=${TARGET_SHA}"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for Production deployment"
+          exit 1
+
+      - name: Verify canonical release
+        run: |
+          set -euo pipefail
+          release_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/release)"
+          ready_json="$(curl --silent --show-error --fail --max-time 20 https://ir.sa/api/health/ready)"
+          node - <<'NODE' "$release_json" "$ready_json" "$TARGET_SHA"
+          const release=JSON.parse(process.argv[2]);
+          const ready=JSON.parse(process.argv[3]);
+          const sha=process.argv[4];
+          if(release.releaseSha!==sha||release.environment!=="production")throw new Error("Canonical release mismatch");
+          if(ready.ready!==true)throw new Error("Canonical runtime is not ready");
+          NODE
+          echo "production-schema-cutover: PASS sha=${TARGET_SHA} canonical=https://ir.sa"
