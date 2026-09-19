@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
+import { assertCleanPrismaMigrationHistory } from "../scripts/clean-prisma-migration-history";
 
 function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -63,7 +64,19 @@ test("production migration restores and proves the exact pre-migration backup fr
   assert.match(proof, /digest/);
   assert.match(proof, /checksum/);
   assert.match(proof, /Backup restore Prisma migration history does not exactly match production source/);
+  assert.match(proof, /assertCleanPrismaMigrationHistory/);
   assert.match(proof, /_prisma_migrations/);
+});
+
+test("migration history accepts a resolved rollback audit trail but rejects unresolved or ambiguous applications", () => {
+  const applied = (name: string) => ({ migration_name: name, finished_at: new Date(), rolled_back_at: null });
+  const rolledBack = (name: string) => ({ migration_name: name, finished_at: null, rolled_back_at: new Date() });
+
+  assert.doesNotThrow(() => assertCleanPrismaMigrationHistory([applied("one"), rolledBack("two"), applied("two")]));
+  assert.throws(() => assertCleanPrismaMigrationHistory([]), /does not contain Prisma migration history/);
+  assert.throws(() => assertCleanPrismaMigrationHistory([{ migration_name: "one", finished_at: null, rolled_back_at: null }]), /unresolved failed migration/);
+  assert.throws(() => assertCleanPrismaMigrationHistory([rolledBack("one")]), /exactly one successful application/);
+  assert.throws(() => assertCleanPrismaMigrationHistory([applied("one"), applied("one")]), /exactly one successful application/);
 });
 
 test("production migration proves pre-existing critical column data is unchanged while permitting additive schema", () => {

@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import { Client } from "pg";
+import { assertCleanPrismaMigrationHistory } from "./clean-prisma-migration-history";
 
 const sourceUrl = String(process.env.SOURCE_DATABASE_URL ?? "").trim();
 const restoreUrl = String(process.env.RESTORE_DATABASE_URL ?? "").trim();
@@ -112,12 +113,13 @@ async function main() {
   }
 
   const [sourceMigrations, restoreMigrations] = await Promise.all([migrationSignature(source), migrationSignature(restore)]);
-  if (!restoreMigrations.length || restoreMigrations.some((row) => !row.finished_at || row.rolled_back_at)) {
-    throw new Error("Restored database does not contain a clean applied Prisma migration history");
-  }
   if (JSON.stringify(sourceMigrations) !== JSON.stringify(restoreMigrations)) {
     throw new Error("Backup restore Prisma migration history does not exactly match production source");
   }
+  // Prisma retains audit rows for migrations that were explicitly marked rolled
+  // back and then successfully reapplied. Accept that valid history, but reject
+  // unresolved failures, rollback-only migrations, or duplicate successes.
+  assertCleanPrismaMigrationHistory(restoreMigrations);
 
   console.log(`production-backup-restore-proof: PASS (${tables.length} critical table fingerprints + financial ledger + exact migration history)`);
 }
