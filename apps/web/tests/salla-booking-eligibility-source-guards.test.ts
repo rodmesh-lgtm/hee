@@ -23,12 +23,13 @@ test("Salla order eligibility is tenant and integration scoped", () => {
   assert.match(migration, /phoneE164" IS NULL OR "phoneE164" ~/);
 });
 
-test("public booking re-proves active subscription and paid Salla order at commit time", () => {
-  assert.match(bookingRoute, /sallaBookingGate/);
+test("public booking re-proves active subscription and paid commerce order at commit time", () => {
+  assert.match(bookingRoute, /commerceBookingGate/);
   assert.match(bookingRoute, /CommerceBookingEligibility/);
   assert.match(bookingRoute, /booking_eligibility\."phoneE164" = \$\{bookingPhoneE164\}/);
   assert.match(bookingRoute, /booking_eligibility\."eligible" = true/);
   assert.match(bookingRoute, /eligibility_integration\."status" = 'active'/);
+  assert.match(bookingRoute, /'salla','zid','shopify','woocommerce'/);
   assert.match(bookingRoute, /SubscriptionAccessGrant/);
   assert.match(bookingRoute, /TransactionIsolationLevel\.Serializable/);
 });
@@ -62,10 +63,10 @@ test("Salla connection imports historical orders and supports an explicit refres
   assert.match(orderSync, /per_page", "30"/);
 });
 
-test("booking settings disclose when Salla gate becomes active without exposing order data publicly", () => {
-  assert.match(page, /SALLA BOOKING ACCESS/);
+test("booking settings disclose when the multi-store gate becomes active without exposing order data publicly", () => {
+  assert.match(page, /MULTI-STORE BOOKING ACCESS/);
   assert.match(page, /يبدأ تطبيق الشرط فقط بعد اكتمال الربط الرسمي/);
-  assert.match(page, /لا تنتقل بيانات أي متجر إلى منشأة أخرى/);
+  assert.match(page, /لا تنتقل البيانات بين المنشآت/);
   assert.doesNotMatch(bookingRoute, /externalOrderId.*NextResponse/);
 });
 

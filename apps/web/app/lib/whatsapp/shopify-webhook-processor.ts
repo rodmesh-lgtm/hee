@@ -140,6 +140,50 @@ export async function processShopifyWebhookEvent(input: {
         select: { id: true },
       });
       if (!leased) throw new Error("WHATSAPP_SHOPIFY_WEBHOOK_LEASE_LOST");
+      const bookingEligibility = mapping.eligibility;
+      if (bookingEligibility) {
+        const currentEligibility = await tx.commerceBookingEligibility.findUnique({
+          where: { integrationId_externalOrderId: { integrationId: event.integrationId, externalOrderId: bookingEligibility.externalOrderId } },
+          select: { providerUpdatedAt: true },
+        });
+        const staleEligibility = Boolean(currentEligibility?.providerUpdatedAt && currentEligibility.providerUpdatedAt > bookingEligibility.providerUpdatedAt);
+        if (!staleEligibility) await tx.commerceBookingEligibility.upsert({
+          where: { integrationId_externalOrderId: { integrationId: event.integrationId, externalOrderId: bookingEligibility.externalOrderId } },
+          create: {
+            businessId: event.businessId,
+            integrationId: event.integrationId,
+            provider: "shopify",
+            externalOrderId: bookingEligibility.externalOrderId,
+            phoneE164: bookingEligibility.phoneE164,
+            paymentStatus: bookingEligibility.externalStatus,
+            orderStatus: bookingEligibility.externalStatus,
+            eligible: bookingEligibility.eligible,
+            providerUpdatedAt: bookingEligibility.providerUpdatedAt,
+            sourceEventId: event.webhookId,
+          },
+          update: {
+            businessId: event.businessId,
+            phoneE164: bookingEligibility.phoneE164,
+            paymentStatus: bookingEligibility.externalStatus,
+            orderStatus: bookingEligibility.externalStatus,
+            eligible: bookingEligibility.eligible,
+            providerUpdatedAt: bookingEligibility.providerUpdatedAt,
+            sourceEventId: event.webhookId,
+          },
+        });
+      }
+      if (mapping.kind === "eligibility") {
+        await tx.whatsAppShopifyWebhookEvent.update({
+          where: { id: event.id },
+          data: { status: "processed", processedAt: now, leaseOwner: null, leaseExpiresAt: null, lastErrorCode: null },
+        });
+        await writeWhatsAppAuditLog({
+          businessId: event.businessId, actorType: "worker", action: "commerce.shopify.webhook.process",
+          targetType: "shopify_webhook_event", targetId: event.id, outcome: "success",
+          metadata: { status: "processed", bookingEligible: mapping.eligibility.eligible }, database: tx,
+        });
+        return { processed: true as const, ignored: false as const, bookingEligibility: mapping.eligibility.eligible };
+      }
       const current = await tx.whatsAppAutomationCart.findUnique({
         where: { businessId_cartId: { businessId: event.businessId, cartId: mapping.transition.cartId } },
         select: { contactId: true },

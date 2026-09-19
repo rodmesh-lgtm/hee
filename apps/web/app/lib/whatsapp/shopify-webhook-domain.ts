@@ -10,8 +10,17 @@ export type ShopifyCartTransition = {
   phoneE164: string | null;
 };
 
+export type ShopifyBookingEligibility = {
+  externalOrderId: string;
+  phoneE164: string | null;
+  eligible: boolean;
+  externalStatus: string;
+  providerUpdatedAt: Date;
+};
+
 export type ShopifyWebhookMapping =
-  | { kind: "transition"; transition: ShopifyCartTransition }
+  | { kind: "transition"; transition: ShopifyCartTransition; eligibility: ShopifyBookingEligibility | null }
+  | { kind: "eligibility"; eligibility: ShopifyBookingEligibility }
   | { kind: "ignored"; reason: "topic_unsupported" | "payload_invalid" | "cart_id_missing" };
 
 function record(value: unknown): RecordValue | null {
@@ -59,17 +68,26 @@ export function mapShopifyCommerceWebhook(input: {
   triggeredAt: Date | null;
   receivedAt: Date;
 }): ShopifyWebhookMapping {
-  if (!["checkouts/create", "checkouts/update", "orders/create"].includes(input.topic)) {
+  if (!["checkouts/create", "checkouts/update", "orders/create", "orders/updated"].includes(input.topic)) {
     return { kind: "ignored", reason: "topic_unsupported" };
   }
   const payload = record(input.payload);
   if (!payload) return { kind: "ignored", reason: "payload_invalid" };
-  const order = input.topic === "orders/create";
+  const order = input.topic === "orders/create" || input.topic === "orders/updated";
+  const orderId = order ? scalarId(payload.id) : "";
+  const financialStatus = order && typeof payload.financial_status === "string" ? payload.financial_status.trim().toLowerCase().slice(0, 40) : "";
+  const eligibility = order && orderId ? {
+    externalOrderId: orderId.slice(0, 255),
+    phoneE164: phone(payload),
+    eligible: financialStatus === "paid" && !payload.cancelled_at,
+    externalStatus: (payload.cancelled_at ? "cancelled" : financialStatus || "unknown").slice(0, 100),
+    providerUpdatedAt: payloadDate(payload, input.triggeredAt ?? input.receivedAt),
+  } satisfies ShopifyBookingEligibility : null;
   const identity = order
     ? scalarId(payload.checkout_token) || scalarId(payload.checkout_id) || scalarId(payload.cart_token)
     : scalarId(payload.token) || scalarId(payload.id) || scalarId(payload.cart_token);
   const cartId = boundedCartId(identity);
-  if (!cartId) return { kind: "ignored", reason: "cart_id_missing" };
+  if (!cartId) return eligibility ? { kind: "eligibility", eligibility } : { kind: "ignored", reason: "cart_id_missing" };
   const occurredAt = input.triggeredAt ?? payloadDate(payload, input.receivedAt);
   return {
     kind: "transition",
@@ -79,5 +97,6 @@ export function mapShopifyCommerceWebhook(input: {
       occurredAt,
       phoneE164: phone(payload),
     },
+    eligibility,
   };
 }

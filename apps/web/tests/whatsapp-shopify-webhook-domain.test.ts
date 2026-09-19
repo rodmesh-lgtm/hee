@@ -14,13 +14,14 @@ test("Shopify checkout events remain active and never infer abandonment or conse
   assert.deepEqual(result, {
     kind: "transition",
     transition: { cartId: "shopify:checkout-token", state: "active", occurredAt: new Date("2026-08-28T19:59:00.000Z"), phoneE164: "+966564212464" },
+    eligibility: null,
   });
 });
 
 test("Shopify order completion maps to the same checkout token", () => {
   const result = mapShopifyCommerceWebhook({
     topic: "orders/create",
-    payload: { id: 999, checkout_token: "checkout-token", customer: { phone: "+966564212464" } },
+    payload: { id: 999, checkout_token: "checkout-token", financial_status: "paid", customer: { phone: "+966564212464" } },
     triggeredAt: receivedAt,
     receivedAt,
   });
@@ -28,7 +29,20 @@ test("Shopify order completion maps to the same checkout token", () => {
   if (result.kind === "transition") {
     assert.equal(result.transition.cartId, "shopify:checkout-token");
     assert.equal(result.transition.state, "completed");
+    assert.equal(result.eligibility?.eligible, true);
+    assert.equal(result.eligibility?.externalOrderId, "999");
   }
+});
+
+test("Shopify order updates revoke booking eligibility after cancellation", () => {
+  const result = mapShopifyCommerceWebhook({
+    topic: "orders/updated",
+    payload: { id: 999, financial_status: "paid", cancelled_at: "2026-08-28T20:01:00Z", phone: "+966564212464" },
+    triggeredAt: receivedAt,
+    receivedAt,
+  });
+  assert.equal(result.kind, "eligibility");
+  if (result.kind === "eligibility") assert.equal(result.eligibility.eligible, false);
 });
 
 test("unsupported topics and payloads without checkout identity are ignored", () => {
