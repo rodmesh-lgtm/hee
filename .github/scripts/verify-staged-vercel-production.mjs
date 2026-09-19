@@ -1,0 +1,98 @@
+import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
+
+// Vercel's official automation-bypass API, also used by `vercel curl`.
+// Keep credentials in memory and never follow redirects with either credential.
+export async function verifyStagedProduction({
+  deploymentUrl, projectId, teamId, releaseSha, token,
+  fetchImpl = fetch, wait = delay,
+}) {
+  const url = new URL(deploymentUrl);
+  if (url.protocol !== 'https:' || !url.hostname.endsWith('.vercel.app') ||
+      url.username || url.password || url.port || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('Invalid staged Vercel deployment URL');
+  }
+  if (!projectId || !teamId || !token || !/^[a-f0-9]{40}$/.test(releaseSha)) {
+    throw new Error('Missing or invalid production verification configuration');
+  }
+
+  async function api(path, body) {
+    const response = await fetchImpl(`https://api.vercel.com${path}?teamId=${encodeURIComponent(teamId)}`, {
+      method: body ? 'PATCH' : 'GET',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      redirect: 'manual', signal: AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) throw new Error(`Vercel project verification API failed (HTTP ${response.status})`);
+    return response.json();
+  }
+
+  const deployment = await api(`/v13/deployments/${encodeURIComponent(url.hostname)}`);
+  if (String(deployment.projectId ?? deployment.project?.id ?? '') !== projectId ||
+      String(deployment.state ?? deployment.readyState ?? '') !== 'READY' || deployment.target !== 'production' ||
+      deployment.url !== url.hostname) {
+    throw new Error('Staged deployment identity or readiness mismatch before authenticated probe');
+  }
+  const project = await api(`/v9/projects/${encodeURIComponent(projectId)}`);
+  if (project.id !== projectId || project.accountId !== teamId) {
+    throw new Error('Unexpected Vercel project or team');
+  }
+  function automationSecret(settings) {
+    return Object.keys(settings ?? {}).find(key => settings[key]?.scope === 'automation-bypass');
+  }
+  let secret = automationSecret(project.protectionBypass);
+  if (!secret) {
+    const generated = await api(`/v1/projects/${encodeURIComponent(projectId)}/protection-bypass`, {
+      generate: { note: 'GitHub production readiness checks' },
+    });
+    secret = automationSecret(generated.protectionBypass);
+    if (!secret) throw new Error('Vercel did not return an automation credential');
+    // Allow Vercel's newly created credential to propagate before its first use.
+    await wait(1000);
+  }
+
+  async function probe(path, json = false) {
+    const response = await fetchImpl(new URL(path, url).href, {
+      headers: { 'x-vercel-protection-bypass': secret },
+      redirect: 'manual', signal: AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) throw new Error(`Staged probe ${path} failed (HTTP ${response.status})`);
+    if (json) {
+      if (!response.headers.get('content-type')?.includes('application/json')) {
+        throw new Error(`Staged probe ${path} did not return JSON`);
+      }
+      return response.json();
+    }
+    await response.body?.cancel();
+  }
+  const release = await probe('/api/release', true);
+  const status = await probe('/api/maintenance/status', true);
+  const webReady = await probe('/api/health/web-ready', true);
+  if (release.releaseSha !== releaseSha || release.environment !== 'production') {
+    throw new Error('Staged release provenance mismatch');
+  }
+  if (status.releaseSha !== releaseSha || status.environment !== 'production' || status.maintenance !== false) {
+    throw new Error('Staged Production must be exact-SHA and out of maintenance');
+  }
+  if (webReady.ready !== true) throw new Error('Staged Production core web runtime is not ready');
+  for (const path of ['/', '/register', '/login', '/terms', '/privacy', '/contact', '/demo']) {
+    await probe(path);
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    await verifyStagedProduction({
+      deploymentUrl: readFileSync(process.argv[2], 'utf8').trim(),
+      projectId: process.env.VERCEL_PROJECT_ID,
+      teamId: process.env.VERCEL_ORG_ID,
+      releaseSha: process.env.GITHUB_SHA,
+      token: process.env.VERCEL_TOKEN,
+    });
+    console.log(`staged-production-smoke: PASS for ${process.env.GITHUB_SHA}; core web runtime ready; canonical domain is still unchanged`);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : 'Staged verification failed');
+    process.exitCode = 1;
+  }
+}
