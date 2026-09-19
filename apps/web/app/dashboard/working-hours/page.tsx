@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   ArrowLeft,
+  Activity,
   CalendarCheck2,
   CalendarDays,
   CalendarOff,
@@ -47,6 +48,7 @@ import { EmbeddedSignupButton } from "../whatsapp/setup/embedded-signup-button";
 import { hasActiveBusinessSubscription } from "../../lib/subscription-entitlement";
 import { sallaConfigured } from "../../lib/commerce/salla-config";
 import { shopifyConfigured } from "../../lib/whatsapp/shopify-config";
+import { commerceHealthTone, commerceIntegrationHealth } from "../../lib/commerce/integration-health";
 
 const days = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"];
 const timeClass = "h-11 min-w-0 rounded-xl border border-slate-200 bg-[#f8fbfb] px-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#00a99d] focus:bg-white focus:ring-4 focus:ring-[#35e4cb]/10";
@@ -133,7 +135,7 @@ export default async function DashboardWorkingHoursPage({
       },
       whatsappCommerceIntegrations: {
         orderBy: { updatedAt: "desc" },
-        select: { id: true, provider: true, externalStoreId: true, displayName: true, status: true, lastWebhookAt: true, lastErrorCode: true },
+        select: { id: true, provider: true, externalStoreId: true, displayName: true, status: true, connectedAt: true, lastWebhookAt: true, lastErrorCode: true },
       },
     },
   });
@@ -161,6 +163,12 @@ export default async function DashboardWorkingHoursPage({
   const sallaReady = sallaConfigured();
   const shopifyReady = shopifyConfigured();
   const activeCommerceProviders = [sallaIntegration, shopifyIntegration, zidIntegration, wooCommerceIntegration].filter((integration) => integration?.status === "active").length;
+  const commerceProviders = [
+    { label: "سلة", integration: sallaIntegration, detail: "OAuth + Webhooks + مزامنة احتياطية" },
+    { label: "Shopify", integration: shopifyIntegration, detail: "OAuth + Webhooks موقعة + مزامنة احتياطية" },
+    { label: "زد", integration: zidIntegration, detail: "بانتظار تفعيل تطبيق زد الرسمي" },
+    { label: "WooCommerce", integration: wooCommerceIntegration, detail: "مزامنة تلقائية كل 10 دقائق" },
+  ].map((provider) => ({ ...provider, health: commerceIntegrationHealth(provider.integration) }));
 
   const errorMessage =
     error === "time"
@@ -247,18 +255,18 @@ export default async function DashboardWorkingHoursPage({
 
     <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
       <div className="border-b border-slate-100 bg-[#fbfdfd] p-4 sm:p-5">
-        <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><Store className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">MULTI-STORE BOOKING ACCESS</span><h2 className="mt-1 text-base font-black text-slate-950">ربط المتاجر والتحقق من أهلية الحجز</h2><p className="mt-2 max-w-3xl text-[10px] leading-6 text-slate-500">يدعم INFRO سلة وShopify، مع تهيئة زد وWooCommerce. بعد تفعيل أي متجر، لا يُقبل الحجز إلا لرقم مستخدم في طلب مدفوع ومؤكد لدى المنشأة. الإلغاء أو الاسترداد يلغي أهلية الطلب، ولا تنتقل البيانات بين المنشآت.</p></div></div>
+        <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><Store className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">MULTI-STORE BOOKING ACCESS</span><h2 className="mt-1 text-base font-black text-slate-950">ربط المتاجر والتحقق من أهلية الحجز</h2><p className="mt-2 max-w-3xl text-[10px] leading-6 text-slate-500">يدعم INFRO سلة وShopify وWooCommerce، ويعرض جاهزية زد دون ادعاء ربط غير مكتمل. بعد تفعيل أي متجر، لا يُقبل الحجز إلا لرقم مستخدم في طلب مدفوع ومؤكد لدى المنشأة. الإلغاء أو الاسترداد يلغي أهلية الطلب، ولا تنتقل البيانات بين المنشآت.</p></div></div>
       </div>
-      <div className="grid gap-2 border-b border-slate-100 bg-white p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-4">
-        {[
-          ["سلة", sallaIntegration, "ربط OAuth مباشر"],
-          ["Shopify", shopifyIntegration, "OAuth + Webhooks موقعة"],
-          ["زد", zidIntegration, "OAuth + Webhooks الطلبات"],
-          ["WooCommerce", wooCommerceIntegration, "REST API لمتجر WordPress"],
-        ].map(([label, integration, detail]) => {
-          const connected = typeof integration === "object" && integration !== null && "status" in integration && integration.status === "active";
-          return <div key={String(label)} className="rounded-2xl border border-slate-200 bg-[#f8fbfb] p-3"><div className="flex items-center justify-between gap-2"><b className="text-xs text-slate-900">{String(label)}</b><span className={`rounded-full px-2 py-1 text-[8px] font-black ${connected ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{connected ? "متصل" : "غير متصل"}</span></div><span className="mt-2 block text-[9px] leading-5 text-slate-500">{String(detail)}</span></div>;
-        })}
+      <div className="border-b border-slate-100 bg-white p-4 sm:p-5">
+        <div className="mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-[#008f87]" /><b className="text-xs text-slate-900">مركز صحة التكاملات</b><span className="text-[9px] text-slate-400">مراقبة المزامنة والتنبيه قبل تأثر أهلية الحجز</span></div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {commerceProviders.map(({ label, integration, detail, health }) => <article key={label} className={`rounded-2xl border p-3 ${commerceHealthTone(health.tone)}`}>
+            <div className="flex items-center justify-between gap-2"><b className="text-xs">{label}</b><span className="rounded-full border border-current/10 bg-white/70 px-2 py-1 text-[8px] font-black">{health.label}</span></div>
+            <span className="mt-2 block text-[9px] font-bold leading-5 opacity-80">{detail}</span>
+            <span className="mt-1 block text-[8px] leading-4 opacity-70">{health.detail}</span>
+            {integration?.lastWebhookAt ? <time className="mt-2 block text-[8px] font-bold opacity-70" dateTime={integration.lastWebhookAt.toISOString()}>آخر تحديث: {integration.lastWebhookAt.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}</time> : null}
+          </article>)}
+        </div>
       </div>
       {sallaResult ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["connected","disconnected","synced"].includes(sallaResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{sallaResult === "connected" ? "تم ربط متجر سلة، وبدأت المزامنة الأولية للطلبات." : sallaResult === "synced" ? "تم تحديث الطلبات المدفوعة والمؤكدة من سلة." : sallaResult === "disconnected" ? "تم فصل متجر سلة وإيقاف شرط الطلب المدفوع للحجز." : sallaResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لربط سلة." : sallaResult === "not-configured" ? "إعداد تطبيق سلة في بيئة INFRO غير مكتمل حاليًا." : sallaResult === "store-mismatch" ? "معرّف التاجر لا يطابق المتجر الذي منحتَه صلاحية الربط." : sallaResult === "store-assigned" ? "هذا المتجر مرتبط بمنشأة أخرى ولا يمكن مشاركته." : sallaResult === "cancelled" ? "أُلغي ربط سلة دون تغيير الإعدادات." : sallaResult === "sync-failed" ? "تعذر تحديث الطلبات الآن؛ بقيت آخر أهلية موثوقة محفوظة بأمان." : "لم يكتمل ربط سلة. تحقق من معرّف التاجر وأعد المحاولة."}</p> : null}
       <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_1fr]">
