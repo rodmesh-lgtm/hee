@@ -24,6 +24,7 @@ async function cleanup(businessId: string, userId: string) {
   await db.customer.deleteMany({ where: { businessId } });
   await db.workingHours.deleteMany({ where: { businessId } });
   await db.service.deleteMany({ where: { businessId } });
+  await db.subscription.deleteMany({ where: { businessId } });
   await db.business.delete({ where: { id: businessId } });
   await db.user.delete({ where: { id: userId } });
 }
@@ -44,10 +45,12 @@ test.describe("public write idempotency", () => {
   test("replays successful booking and order writes before mutable availability checks", async ({ request }) => {
     test.setTimeout(60_000);
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const plan = await db.businessPlan.upsert({ where: { code: "FREE" }, update: { isActive: true }, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true } });
     const user = await db.user.create({ data: { name: "Idempotency Owner", email: `idem-${suffix}@hee.test`, passwordHash: "test-only", emailVerifiedAt: new Date() } });
     const business = await db.business.create({
       data: {
         ownerId: user.id,
+        planId: plan.id,
         name: "منشأة اختبار التكرار",
         slug: `idem-${suffix}`,
         businessType: "خدمات",
@@ -58,6 +61,7 @@ test.describe("public write idempotency", () => {
         acceptOnlineOrders: true,
       },
     });
+    await db.subscription.create({ data: { businessId: business.id, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 24 * 60 * 60 * 1000), autoRenew: false } });
     const service = await db.service.create({ data: { businessId: business.id, name: "استشارة", price: 100, durationMinutes: 30, bookingEnabled: true, isActive: true } });
     const product = await db.product.create({ data: { businessId: business.id, name: "منتج اختبار", price: 7500, isActive: true } });
     await db.workingHours.createMany({ data: Array.from({ length: 7 }, (_, dayOfWeek) => ({ businessId: business.id, dayOfWeek, opensAt: "08:00", closesAt: "23:00", isClosed: false })) });
