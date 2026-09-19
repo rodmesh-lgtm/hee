@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 
@@ -7,6 +9,28 @@ const workflow = readFileSync(
   resolve(process.cwd(), "../../.github/workflows/production-canonical-cutover-orchestrator.yml"),
   "utf8",
 );
+
+test("canonical redirect check accepts HTTP CRLF headers and rejects foreign destinations", () => {
+  const command = workflow.split("\n").find(line => line.includes("^location:"))?.trim();
+  assert.ok(command);
+  const directory = mkdtempSync(resolve(tmpdir(), "infro-redirect-test-"));
+  const headers = resolve(directory, "headers");
+  try {
+    for (const [location, accepted] of [
+      ["https://ir.sa/", true], ["https://ir.sa", true],
+      ["https://ir.sa.evil.example/", false], ["http://ir.sa/", false],
+      ["https://vercel.com/sso-api", false],
+    ] as const) {
+      writeFileSync(headers, `HTTP/2 308\r\nLocation: ${location}\r\n\r\n`);
+      const result = spawnSync("bash", ["-o", "pipefail", "-c", command], {
+        env: { ...process.env, www_headers: headers }, encoding: "utf8",
+      });
+      assert.equal(result.status === 0, accepted, location);
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test("canonical cutover runs only after green release-branch RC and explicit commit marker", () => {
   assert.match(workflow, /workflow_run:/);

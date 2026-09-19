@@ -222,7 +222,7 @@ jobs:
           set -euo pipefail
           www_headers="$(mktemp)"
           curl --silent --show-error --head --dump-header "$www_headers" --output /dev/null --max-time 20 https://www.ir.sa/
-          grep -Eqi '^location: https://ir\.sa/?\r?$' "$www_headers" || (echo "www.ir.sa does not redirect canonically to ir.sa" && exit 1)
+          tr -d '\r' < "$www_headers" | grep -Eqi '^location: https://ir\.sa/?$' || (echo "www.ir.sa does not redirect canonically to ir.sa" && exit 1)
           admin_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 https://admin.ir.sa/)"
           case "$admin_code" in
             200|301|302|303|307|308) ;;
