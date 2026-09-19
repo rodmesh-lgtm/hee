@@ -22,7 +22,8 @@
 /* Mint remains the accent, with a readable foreground on light surfaces. */
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] :where([class~="text-[#66e7d5]"],[class~="text-[#6eead8]"],[class~="text-[#35e4cb]"],[class~="text-[#8ff5e6]"],[class~="text-[#4ee7d4]"],[class~="text-[#a8f2e8]"]){color:#00766e!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] :where(.text-slate-400){color:#64748b!important}
-:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] :where(.text-emerald-300){color:#047857!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] :where(.text-emerald-200,.text-emerald-300){color:#047857!important}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] :where([class~="text-[#7af0df]"],[class~="text-[#5cebd7]"]){color:#00766e!important}
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] :where(.text-amber-200,.text-amber-300){color:#92400e!important}
 
 :is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"]{--infro-surface:#0b2023;--infro-surface-soft:#0d2528;--infro-border:#19383b;--infro-muted:#9aafad;--infro-ink:#edf7f5;background:radial-gradient(circle at 12% 0%,rgba(0,216,198,.055),transparent 24rem),#061416!important;color:#edf7f5}
