@@ -244,7 +244,7 @@ test.describe.serial("public transactions workflow", () => {
 
       await setSession(ownerPage, seeded.sessionToken);
       await ownerPage.goto(`${baseUrl}/dashboard/working-hours`, { waitUntil: "domcontentloaded" });
-      await expect(ownerPage.getByRole("heading", { name: "المواعيد والحجوزات", exact: true })).toBeVisible();
+      await expect(ownerPage.locator("#dashboard-main-content").getByRole("heading", { name: "المواعيد والحجوزات", exact: true })).toBeVisible();
       await expect(ownerPage.getByRole("form", { name: "إضافة توفر لتاريخ محدد" })).toBeVisible();
       await expect(ownerPage.getByText("التواريخ الخاصة القادمة")).toBeVisible();
       await expect(ownerPage.getByText("دوام خاص")).toBeVisible();
