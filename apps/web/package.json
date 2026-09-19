@@ -35,6 +35,7 @@
     "whatsapp:webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-webhook-worker.ts",
     "whatsapp:shopify-webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-shopify-webhook-worker.ts",
     "whatsapp:salla-webhooks": "NODE_OPTIONS=--conditions=react-server tsx scripts/salla-webhook-worker.ts",
+    "whatsapp:commerce-periodic-sync": "NODE_OPTIONS=--conditions=react-server tsx scripts/commerce-periodic-sync-worker.ts",
     "whatsapp:shopify-abandoned-carts": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-shopify-abandoned-cart-worker.ts",
     "whatsapp:shopify-subscriptions": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-shopify-subscription-worker.ts",
     "whatsapp:deliveries": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-delivery-worker.ts",
