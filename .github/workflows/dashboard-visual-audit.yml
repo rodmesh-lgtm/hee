@@ -42,6 +42,8 @@ jobs:
       INFRO_VISUAL_AUDIT_DIR: /tmp/infro-visual-audit
       INFRO_REMINDER_WHATSAPP_ENABLED: "false"
       HEE_ADMIN_EMAILS: infro-visual-admin@hee.test
+      GOOGLE_CLIENT_ID: infro-visual-audit.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: ci-visual-google-secret-not-for-production
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@v7
