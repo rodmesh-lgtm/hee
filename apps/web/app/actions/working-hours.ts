@@ -8,8 +8,8 @@ import { isValidWorkingTime, validateWorkingHoursWindow } from "../lib/working-h
 import { createWhatsAppAutomation, operateWhatsAppAutomation } from "../lib/whatsapp/automation-operations";
 import { hasActiveBusinessSubscription } from "../lib/subscription-entitlement";
 import { syncMetaWhatsAppTemplates } from "../lib/whatsapp/template-sync";
-import { disconnectWhatsAppCommerceIntegration, registerWhatsAppCommerceIntegration } from "../lib/whatsapp/commerce-integrations";
-import { createSallaAuthorization } from "../lib/commerce/salla-oauth";
+import { disconnectWhatsAppCommerceIntegration } from "../lib/whatsapp/commerce-integrations";
+import { createSallaAuthorization, prepareSallaIntegration } from "../lib/commerce/salla-oauth";
 import { syncSallaBookingOrders } from "../lib/commerce/salla-order-sync";
 
 function value(formData: FormData, key: string) {
@@ -202,20 +202,12 @@ export async function syncBookingWhatsAppTemplatesAction(formData: FormData) {
   }
 }
 
-export async function connectSallaBookingStoreAction(formData: FormData) {
+export async function connectSallaBookingStoreAction() {
   const business = await getOwnedBusinessForWrite();
   if (!business) redirect("/login");
   if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?salla=subscription-required");
-  const merchantId = value(formData, "merchantId");
-  if (!/^\d{1,32}$/.test(merchantId)) redirect("/dashboard/working-hours?salla=invalid-merchant");
   try {
-    const integration = await registerWhatsAppCommerceIntegration({
-      businessId: business.id,
-      actorUserId: business.ownerId,
-      provider: "salla",
-      externalStoreId: merchantId,
-      displayName: "متجر سلة",
-    });
+    const integration = await prepareSallaIntegration({ businessId: business.id, userId: business.ownerId });
     if (integration.status === "active") redirect("/dashboard/working-hours?salla=connected");
     const authorizationUrl = await createSallaAuthorization({ businessId: business.id, userId: business.ownerId, integrationId: integration.id });
     redirect(authorizationUrl);

@@ -48,7 +48,7 @@ export async function syncSallaBookingOrders(input: { businessId: string; integr
     for (; page <= maxPages; page += 1) {
       const url = new URL("https://api.salla.dev/admin/v2/orders");
       url.searchParams.set("page", String(page));
-      url.searchParams.set("per_page", "100");
+      url.searchParams.set("per_page", "30");
       const response = await fetch(url, {
         headers: { authorization: `Bearer ${token}`, accept: "application/json" },
         cache: "no-store",
@@ -77,7 +77,7 @@ export async function syncSallaBookingOrders(input: { businessId: string; integr
       completedPages += 1;
       const totalPagesRaw = payload.pagination?.totalPages ?? payload.pagination?.total_pages;
       const totalPages = typeof totalPagesRaw === "number" ? totalPagesRaw : Number(totalPagesRaw);
-      if (payload.data.length < 100 || Number.isFinite(totalPages) && page >= totalPages) break;
+      if (payload.data.length < 30 || Number.isFinite(totalPages) && page >= totalPages) break;
     }
     await db.$transaction(async (tx) => {
       await tx.whatsAppCommerceIntegration.updateMany({ where: { id: integration.id, businessId: input.businessId, status: "active" }, data: { lastWebhookAt: new Date(), lastErrorCode: null } });
