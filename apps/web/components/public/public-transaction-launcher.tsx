@@ -18,6 +18,9 @@ type Props = {
   whatsapp: string | null;
   phone: string | null;
   bookingAvailable: boolean;
+  sallaBookingEligibilityRequired: boolean;
+  whatsappBookingConfirmationAvailable: boolean;
+  whatsappBookingSender: string | null;
   hasWorkingHours: boolean;
   services: Service[];
   branches: Array<{ id: string; name: string | null; city: string | null; bookingEnabled: boolean }>;
@@ -31,6 +34,7 @@ type BookingValues = {
   bookingDate: string;
   bookingTime: string;
   notes: string;
+  whatsappConfirmationConsent: boolean;
 };
 
 type AvailabilityDay = {
@@ -66,7 +70,7 @@ function displayTime(time: string) {
   return new Intl.DateTimeFormat("ar-SA", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Riyadh" }).format(new Date(`2020-01-01T${time}:00+03:00`));
 }
 
-export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone, bookingAvailable, hasWorkingHours, services, branches }: Props) {
+export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone, bookingAvailable, sallaBookingEligibilityRequired, whatsappBookingConfirmationAvailable, whatsappBookingSender, hasWorkingHours, services, branches }: Props) {
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -86,6 +90,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     bookingDate: "",
     bookingTime: "",
     notes: "",
+    whatsappConfirmationConsent: false,
   });
   const bookingId = useRef<string | null>(null);
   const bookingDialogRef = useRef<HTMLDivElement | null>(null);
@@ -169,7 +174,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     setAvailabilityDays([]);
     setAvailabilityError("");
     setDurationMinutes(null);
-    setValues((current) => ({ ...current, serviceId: "", branchId: bookableBranches.length === 1 ? bookableBranches[0].id : "", bookingDate: "", bookingTime: "" }));
+    setValues((current) => ({ ...current, serviceId: "", branchId: bookableBranches.length === 1 ? bookableBranches[0].id : "", bookingDate: "", bookingTime: "", whatsappConfirmationConsent: false }));
     setBookingOpen(true);
   }
 
@@ -251,10 +256,11 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
           bookingDate: values.bookingDate,
           bookingTime: values.bookingTime,
           notes: values.notes.trim(),
+          whatsappConfirmationConsent: values.whatsappConfirmationConsent,
           requestId: id,
         }),
       });
-      const payload = (await response.json().catch(() => null)) as { error?: string; bookingId?: string } | null;
+      const payload = (await response.json().catch(() => null)) as { error?: string; bookingId?: string; whatsappConfirmationQueued?: boolean } | null;
       if (!response.ok) {
         setError(payload?.error || "تعذر تسجيل الحجز الآن. حاول مرة أخرى.");
         setValues((current) => ({ ...current, bookingTime: "" }));
@@ -263,7 +269,9 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
         setAvailabilityVersion((current) => current + 1);
         return;
       }
-      setSuccess("تم تسجيل الحجز بنجاح وسيظهر مباشرة لدى المنشأة.");
+      setSuccess(payload?.whatsappConfirmationQueued
+        ? "تم تسجيل الحجز، وجارٍ إرسال تفاصيل الموعد إلى رقمك عبر واتساب من رقم المنشأة."
+        : "تم تسجيل الحجز بنجاح وسيظهر مباشرة لدى المنشأة.");
     } catch {
       setError("تعذر الاتصال بالخدمة الآن. حاول مرة أخرى.");
     } finally {
@@ -339,6 +347,8 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
           </> : null}
 
           <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>ملاحظات <small className="font-normal text-slate-400">اختياري</small></span><textarea value={values.notes} maxLength={1000} onChange={(event) => setValues((current) => ({ ...current, notes: event.target.value }))} className="min-h-[76px] rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 py-2.5 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15" /></label>
+          {sallaBookingEligibilityRequired ? <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold leading-6 text-amber-900">لإتمام الحجز، استخدم رقم الجوال نفسه المسجل في طلبك المدفوع والمؤكد من متجر المنشأة.</p> : null}
+          {whatsappBookingConfirmationAvailable ? <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#bdebe5] bg-[#effbf9] p-3 text-xs leading-6 text-[#315b5d]"><input type="checkbox" checked={values.whatsappConfirmationConsent} onChange={(event) => setValues((current) => ({ ...current, whatsappConfirmationConsent: event.target.checked }))} className="mt-1 h-5 w-5 shrink-0 accent-[#00a99d]"/><span><b className="block text-[#07545d]">إرسال تأكيد الموعد عبر واتساب</b>أوافق على استلام تأكيد هذا الحجز وتحديثاته من {whatsappBookingSender || businessName} على رقم الجوال الذي أدخلته.</span></label> : null}
           {error ? <p role="alert" aria-live="assertive" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">{error}</p> : null}
           <button disabled={submitting || availabilityState !== "ready" || !values.bookingDate || !values.bookingTime} className="h-12 w-full rounded-2xl bg-[linear-gradient(135deg,#073437,#0b5955)] text-sm font-black text-white shadow-[0_10px_25px_rgba(7,52,55,.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? "جارٍ تسجيل الحجز..." : "تأكيد الحجز"}</button>
         </form>}

@@ -10,6 +10,13 @@ import { writeWhatsAppAuditLog } from "./audit";
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const GRAPH_TIMEOUT_MS = 12_000;
 const ASSET_ID = /^\d{1,32}$/;
+export const WHATSAPP_CONNECTION_PURPOSES = ["marketing", "booking"] as const;
+export type WhatsAppConnectionPurpose = (typeof WHATSAPP_CONNECTION_PURPOSES)[number];
+
+function connectionPurpose(value: string): WhatsAppConnectionPurpose {
+  if (!(WHATSAPP_CONNECTION_PURPOSES as readonly string[]).includes(value)) throw new Error("WHATSAPP_CONNECTION_PURPOSE_INVALID");
+  return value as WhatsAppConnectionPurpose;
+}
 
 type GraphObject = Record<string, unknown>;
 
@@ -76,20 +83,21 @@ async function subscribeApp(accessToken: string, wabaId: string) {
   });
 }
 
-export async function createEmbeddedSignupSession(input: { businessId: string; userId: string }) {
+export async function createEmbeddedSignupSession(input: { businessId: string; userId: string; purpose: WhatsAppConnectionPurpose }) {
+  const purpose = connectionPurpose(input.purpose);
   const state = randomBytes(32).toString("base64url");
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
   const session = await db.$transaction(async (tx) => {
     await tx.whatsAppEmbeddedSignupSession.updateMany({
-      where: { businessId: input.businessId, initiatedByUserId: input.userId, status: { in: ["created", "exchanging", "token_exchanged"] } },
+      where: { businessId: input.businessId, initiatedByUserId: input.userId, purpose, status: { in: ["created", "exchanging", "token_exchanged"] } },
       data: { status: "cancelled", consumedAt: now, lastErrorCode: "superseded" },
     });
     const created = await tx.whatsAppEmbeddedSignupSession.create({
-      data: { businessId: input.businessId, initiatedByUserId: input.userId, stateDigest: digestState(state), expiresAt },
+      data: { businessId: input.businessId, initiatedByUserId: input.userId, stateDigest: digestState(state), expiresAt, purpose },
       select: { id: true, expiresAt: true },
     });
-    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.userId, action: "connection.signup.start", targetType: "signup_session", targetId: created.id, outcome: "success", database: tx });
+    await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.userId, action: "connection.signup.start", targetType: "signup_session", targetId: created.id, outcome: "success", metadata: { purpose }, database: tx });
     return created;
   });
   return { ...session, state };
@@ -102,7 +110,9 @@ export async function completeEmbeddedSignup(input: {
   authorizationCode: string;
   wabaId: string;
   phoneNumberId: string;
+  purpose: WhatsAppConnectionPurpose;
 }) {
+  const purpose = connectionPurpose(input.purpose);
   if (!ASSET_ID.test(input.wabaId) || !ASSET_ID.test(input.phoneNumberId) || input.state.length < 32 || input.state.length > 128 || input.authorizationCode.length < 8 || input.authorizationCode.length > 4096) {
     throw new Error("WHATSAPP_SIGNUP_INPUT_INVALID");
   }
@@ -111,7 +121,7 @@ export async function completeEmbeddedSignup(input: {
   let session = await db.whatsAppEmbeddedSignupSession.findFirst({
     where: { stateDigest, businessId: input.businessId, initiatedByUserId: input.userId },
   });
-  if (!session || session.expiresAt <= new Date() || ["connected", "cancelled", "expired"].includes(session.status)) throw new Error("WHATSAPP_SIGNUP_SESSION_INVALID");
+  if (!session || session.purpose !== purpose || session.expiresAt <= new Date() || ["connected", "cancelled", "expired"].includes(session.status)) throw new Error("WHATSAPP_SIGNUP_SESSION_INVALID");
 
   let storedEnvelope = envelope(session.credentialEnvelope);
   let accessToken: string;
@@ -135,18 +145,47 @@ export async function completeEmbeddedSignup(input: {
     const phone = await verifiedPhoneAsset(accessToken, input.wabaId, input.phoneNumberId);
     await subscribeApp(accessToken, input.wabaId);
     await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`whatsapp-waba:meta:${input.wabaId}`}))`;
       const collision = await tx.whatsAppConnection.findFirst({
         where: { provider: "meta", OR: [{ wabaId: input.wabaId }, { phoneNumberId: input.phoneNumberId }], businessId: { not: input.businessId } },
         select: { id: true },
       });
       if (collision) throw new Error("WHATSAPP_ASSET_ALREADY_ASSIGNED");
-      const connection = await tx.whatsAppConnection.upsert({
-        where: { businessId_provider: { businessId: input.businessId, provider: "meta" } },
-        create: { businessId: input.businessId, provider: "meta", status: "connected", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, displayPhoneNumber: phone.displayPhoneNumber, verifiedName: phone.verifiedName, credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue, connectedAt: new Date() },
-        update: { status: "connected", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, displayPhoneNumber: phone.displayPhoneNumber, verifiedName: phone.verifiedName, credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue, connectedAt: new Date(), disabledAt: null, lastErrorCode: null },
+      const existing = await tx.whatsAppConnection.findUnique({
+        where: { provider_phoneNumberId: { provider: "meta", phoneNumberId: input.phoneNumberId } },
+        select: { id: true, businessId: true, marketingEnabled: true, bookingEnabled: true },
       });
+      if (existing && existing.businessId !== input.businessId) throw new Error("WHATSAPP_ASSET_ALREADY_ASSIGNED");
+      await tx.whatsAppConnection.updateMany({
+        where: {
+          businessId: input.businessId,
+          provider: "meta",
+          ...(existing ? { id: { not: existing.id } } : {}),
+          ...(purpose === "marketing" ? { marketingEnabled: true } : { bookingEnabled: true }),
+        },
+        data: purpose === "marketing" ? { marketingEnabled: false } : { bookingEnabled: false },
+      });
+      const sharedData = {
+        status: "connected",
+        wabaId: input.wabaId,
+        phoneNumberId: input.phoneNumberId,
+        displayPhoneNumber: phone.displayPhoneNumber,
+        verifiedName: phone.verifiedName,
+        credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue,
+        connectedAt: new Date(),
+        disabledAt: null,
+        lastErrorCode: null,
+      } as const;
+      const connection = existing
+        ? await tx.whatsAppConnection.update({
+          where: { id: existing.id },
+          data: { ...sharedData, ...(purpose === "marketing" ? { marketingEnabled: true } : { bookingEnabled: true }) },
+        })
+        : await tx.whatsAppConnection.create({
+          data: { businessId: input.businessId, provider: "meta", ...sharedData, marketingEnabled: purpose === "marketing", bookingEnabled: purpose === "booking" },
+        });
       await tx.whatsAppEmbeddedSignupSession.update({ where: { id: session.id }, data: { status: "connected", consumedAt: new Date(), lastErrorCode: null, credentialEnvelope: Prisma.JsonNull } });
-      await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.userId, action: "connection.signup.complete", targetType: "connection", targetId: connection.id, outcome: "success", metadata: { provider: "meta" }, database: tx });
+      await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.userId, action: "connection.signup.complete", targetType: "connection", targetId: connection.id, outcome: "success", metadata: { provider: "meta", purpose }, database: tx });
     });
   } catch (error) {
     const code = error instanceof Error && /^(META_|WHATSAPP_)[A-Z0-9_]+$/.test(error.message) ? error.message : "META_ASSET_VERIFICATION_FAILED";

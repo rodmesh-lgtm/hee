@@ -17,7 +17,7 @@ test("Vercel invokes authenticated operations and reminder maintenance schedules
   assert.match(route, /CRON_SECRET/);
   assert.match(route, /timingSafeEqual/);
   assert.match(route, /export const maxDuration = 300/);
-  assert.match(route, /WHATSAPP_MARKETING_WORKER_ENABLED !== "true"/);
+  assert.match(route, /whatsappOperationsEnabled\(process\.env\)/);
   assert.match(route, /state.*leased/);
   assert.match(route, /INTERVAL '10 minutes'/);
   assert.match(route, /VERCEL_GIT_COMMIT_SHA/);

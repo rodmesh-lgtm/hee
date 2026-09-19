@@ -53,13 +53,13 @@ export default async function WhatsAppMarketingPage() {
 
   const [connection, contacts, templates, campaigns, automations, conversations, integrations, eligibleAudienceRows, performanceRows, launchReadiness] = await Promise.all([
     db.whatsAppConnection.findFirst({
-      where: { businessId: context.businessId, provider: "meta" },
+      where: { businessId: context.businessId, provider: "meta", marketingEnabled: true },
       select: { status: true, disabledAt: true, displayPhoneNumber: true, verifiedName: true },
     }),
     db.whatsAppContact.count({ where: { businessId: context.businessId } }),
-    db.whatsAppTemplate.count({ where: { businessId: context.businessId, provider: "meta", status: "approved" } }),
+    db.whatsAppTemplate.count({ where: { businessId: context.businessId, provider: "meta", status: "approved", connection: { marketingEnabled: true } } }),
     db.whatsAppCampaign.count({ where: { businessId: context.businessId } }),
-    db.whatsAppAutomation.count({ where: { businessId: context.businessId } }),
+    db.whatsAppAutomation.count({ where: { businessId: context.businessId, triggerType: { not: "booking_confirmation" } } }),
     db.whatsAppConversation.count({ where: { businessId: context.businessId } }),
     db.whatsAppCommerceIntegration.count({ where: { businessId: context.businessId } }),
     db.$queryRaw<Array<{ count: number }>>(Prisma.sql`

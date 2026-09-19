@@ -42,6 +42,20 @@ test("enabled production worker requires exact release provenance", async () => 
   assert.equal(state.writes.length, 0);
 });
 
+test("booking operations can run independently from marketing campaigns", async () => {
+  const state = databaseDouble();
+  const stages: string[] = [];
+  const sha = "b".repeat(40);
+  const result = await runWhatsAppOperations({
+    database: state.database as never,
+    env: { NODE_ENV: "production", INFRO_BOOKING_WORKER_ENABLED: "true", RELEASE_SHA: sha },
+    now: () => new Date("2026-09-19T18:00:00Z"),
+    runStage: async (stage) => { stages.push(stage); },
+  });
+  assert.equal(result.enabled, true);
+  assert.deepEqual(stages, WHATSAPP_OPERATION_STAGES);
+});
+
 test("successful cycle runs every durable stage and records an exact-SHA heartbeat", async () => {
   const state = databaseDouble();
   const stages: string[] = [];

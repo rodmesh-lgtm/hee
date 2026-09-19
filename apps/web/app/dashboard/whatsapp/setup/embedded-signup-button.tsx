@@ -56,7 +56,7 @@ function loginForCode(configId: string) {
   });
 }
 
-export function EmbeddedSignupButton({ appId, configId, graphVersion }: { appId: string; configId: string; graphVersion: string }) {
+export function EmbeddedSignupButton({ appId, configId, graphVersion, purpose = "marketing" }: { appId: string; configId: string; graphVersion: string; purpose?: "marketing" | "booking" }) {
   const [sdkReady, setSdkReady] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -70,11 +70,11 @@ export function EmbeddedSignupButton({ appId, configId, graphVersion }: { appId:
       // popup and silently blocks Embedded Signup.
       const assetsPromise = waitForEmbeddedSignupAssets();
       const authorizationCodePromise = loginForCode(configId);
-      const sessionPromise = startWhatsAppEmbeddedSignupAction();
+      const sessionPromise = startWhatsAppEmbeddedSignupAction(purpose);
       const [session, authorizationCode, assets] = await Promise.all([sessionPromise, authorizationCodePromise, assetsPromise]);
       if (!session.ok) { setMessage("تعذر إنشاء جلسة ربط آمنة."); return; }
-      const result = await completeWhatsAppEmbeddedSignupAction({ state: session.state, authorizationCode, ...assets });
-      setMessage(result.ok ? "تم التحقق من WABA والرقم وربطهما بنشاطك." : result.error === "asset-assigned" ? "هذه الأصول مرتبطة بنشاط آخر." : result.error === "asset-invalid" ? "الرقم لا يتبع حساب WABA المحدد." : "لم يكتمل الربط. يمكنك المحاولة مجددًا بأمان.");
+      const result = await completeWhatsAppEmbeddedSignupAction({ state: session.state, authorizationCode, purpose, ...assets });
+      setMessage(result.ok ? `تم التحقق من الرقم وتعيينه لخدمة ${purpose === "booking" ? "الحجوزات" : "التسويق"}.` : result.error === "asset-assigned" ? "هذه الأصول مرتبطة بنشاط آخر." : result.error === "asset-invalid" ? "الرقم لا يتبع حساب WABA المحدد." : "لم يكتمل الربط. يمكنك المحاولة مجددًا بأمان.");
     } catch {
       setMessage("أُلغي التسجيل أو لم تُرجع Meta بيانات الربط المكتملة.");
     }

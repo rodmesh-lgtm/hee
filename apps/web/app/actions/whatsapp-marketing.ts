@@ -247,7 +247,7 @@ export async function createWhatsAppCampaignAction(form: FormData) {
     const now = new Date();
     const campaign = await db.$transaction(async (tx) => {
       const template = await tx.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId, provider: "meta", status: "approved" }, select: { id: true } });
-      const connection = await tx.whatsAppConnection.findFirst({ where: { id: connectionId, businessId: context.businessId, provider: "meta", status: "connected", disabledAt: null }, select: { id: true } });
+      const connection = await tx.whatsAppConnection.findFirst({ where: { id: connectionId, businessId: context.businessId, provider: "meta", status: "connected", disabledAt: null, marketingEnabled: true }, select: { id: true } });
       if (!template || !connection) throw new Error("WHATSAPP_CAMPAIGN_CONFIGURATION_INVALID");
 
       let audienceDefinition: Prisma.InputJsonValue;

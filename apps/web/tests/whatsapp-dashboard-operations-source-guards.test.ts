@@ -53,7 +53,8 @@ test("automation management is explicit, tenant scoped and connected to durable 
 test("automation workers keep every related record inside the event tenant", () => {
   assert.match(automationProcessor, /where: \{ id: event\.contactId, businessId: event\.businessId \}/);
   assert.match(automationProcessor, /businessId_phoneE164: \{ businessId: event\.businessId/);
-  assert.match(automationProcessor, /connection: \{ businessId: event\.businessId, provider: "meta", status: "connected" \}/g);
+  assert.match(automationProcessor, /connection: \{[\s\S]*businessId: event\.businessId,[\s\S]*provider: "meta",[\s\S]*status: "connected",[\s\S]*bookingEnabled: true/);
+  assert.match(automationProcessor, /marketingEnabled: true/);
   assert.match(automationProcessor, /businessId: event\.businessId, automationId: automation\.id, contactId: contact\.id/);
   assert.match(automationProcessor, /WHATSAPP_AUTOMATION_TENANT_MISMATCH/);
   assert.match(automationProcessor, /where: \{ id: event\.id, businessId: event\.businessId \}/g);

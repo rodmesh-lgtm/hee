@@ -45,11 +45,11 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
 
   const [connection, templates] = await Promise.all([
     db.whatsAppConnection.findFirst({
-      where: { businessId: context.businessId, provider: "meta" },
+      where: { businessId: context.businessId, provider: "meta", marketingEnabled: true },
       select: { id: true, status: true, disabledAt: true, verifiedName: true, displayPhoneNumber: true },
     }),
     db.whatsAppTemplate.findMany({
-      where: { businessId: context.businessId, provider: "meta" },
+      where: { businessId: context.businessId, provider: "meta", connection: { marketingEnabled: true } },
       orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
       take: 200,
       select: { id: true, connectionId: true, name: true, language: true, category: true, status: true, providerStatus: true, parameterFormat: true, qualityScore: true, rejectedReason: true, components: true, lastSyncedAt: true },

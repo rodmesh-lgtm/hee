@@ -5,7 +5,9 @@ import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-e
 import { getWhatsAppWriteContext } from "../lib/whatsapp/rbac";
 import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 import { completeEmbeddedSignup, createEmbeddedSignupSession } from "../lib/whatsapp/embedded-signup";
+import type { WhatsAppConnectionPurpose } from "../lib/whatsapp/embedded-signup";
 import { enqueueWhatsAppReply } from "../lib/whatsapp/reply-queue";
+import { hasActiveBusinessSubscription } from "../lib/subscription-entitlement";
 const text = (data: FormData, key: string, max: number) => { const value = String(data.get(key) ?? "").trim(); return value.length > 0 && value.length <= max ? value : null; };
 export async function enqueueWhatsAppReplyAction(formData: FormData) {
   const context = await getWhatsAppWriteContext("reply"); if (!context) redirect("/dashboard/whatsapp/inbox?access=denied");
@@ -19,25 +21,32 @@ export async function enqueueWhatsAppReplyAction(formData: FormData) {
   redirect(`/dashboard/whatsapp/inbox?conversation=${encodeURIComponent(conversationId)}&reply=${outcome}`);
 }
 
-export async function startWhatsAppEmbeddedSignupAction() {
+async function purposeEntitled(businessId: string, purpose: WhatsAppConnectionPurpose) {
+  return purpose === "marketing"
+    ? hasActiveWhatsAppMarketingEntitlement({ businessId })
+    : hasActiveBusinessSubscription({ businessId });
+}
+
+export async function startWhatsAppEmbeddedSignupAction(purpose: WhatsAppConnectionPurpose = "marketing") {
   const context = await getWhatsAppWriteContext("connection.manage");
   if (!context) return { ok: false as const, error: "forbidden" };
-  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) return { ok: false as const, error: "entitlement-required" };
+  if (!await purposeEntitled(context.businessId, purpose)) return { ok: false as const, error: "entitlement-required" };
   try {
-    const session = await createEmbeddedSignupSession({ businessId: context.businessId, userId: context.userId });
+    const session = await createEmbeddedSignupSession({ businessId: context.businessId, userId: context.userId, purpose });
     return { ok: true as const, state: session.state, expiresAt: session.expiresAt.toISOString() };
   } catch {
     return { ok: false as const, error: "unavailable" };
   }
 }
 
-export async function completeWhatsAppEmbeddedSignupAction(input: { state: string; authorizationCode: string; wabaId: string; phoneNumberId: string }) {
+export async function completeWhatsAppEmbeddedSignupAction(input: { state: string; authorizationCode: string; wabaId: string; phoneNumberId: string; purpose: WhatsAppConnectionPurpose }) {
   const context = await getWhatsAppWriteContext("connection.manage");
   if (!context) return { ok: false as const, error: "forbidden" };
-  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) return { ok: false as const, error: "entitlement-required" };
+  if (!await purposeEntitled(context.businessId, input.purpose)) return { ok: false as const, error: "entitlement-required" };
   try {
     await completeEmbeddedSignup({ businessId: context.businessId, userId: context.userId, ...input });
     revalidatePath("/dashboard/whatsapp/setup");
+    revalidatePath("/dashboard/working-hours");
     return { ok: true as const };
   } catch (error) {
     const code = error instanceof Error ? error.message : "";

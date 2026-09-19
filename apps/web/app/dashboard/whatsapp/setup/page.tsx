@@ -37,7 +37,7 @@ export default async function WhatsAppSetupPage() {
 
   const [connection, latestSession, templateSummary, campaignCount, conversationCount] = await Promise.all([
     db.whatsAppConnection.findFirst({
-      where: { businessId: context.businessId, provider: "meta" },
+      where: { businessId: context.businessId, provider: "meta", marketingEnabled: true },
       select: {
         id: true,
         status: true,
@@ -52,13 +52,13 @@ export default async function WhatsAppSetupPage() {
       },
     }),
     db.whatsAppEmbeddedSignupSession.findFirst({
-      where: { businessId: context.businessId },
+      where: { businessId: context.businessId, purpose: "marketing" },
       orderBy: { createdAt: "desc" },
       select: { status: true, expiresAt: true, consumedAt: true, lastErrorCode: true, createdAt: true },
     }),
     db.whatsAppTemplate.groupBy({
       by: ["status"],
-      where: { businessId: context.businessId, provider: "meta" },
+      where: { businessId: context.businessId, provider: "meta", connection: { marketingEnabled: true } },
       _count: { _all: true },
     }),
     db.whatsAppCampaign.count({ where: { businessId: context.businessId } }),

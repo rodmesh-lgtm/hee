@@ -1,10 +1,18 @@
 import { Prisma } from "@prisma/client";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 import { normalizePublicSlug } from "../../../lib/public-url";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
 import { bookingIntervalsOverlap, bookingMinutes, bookingWithinPreviousOvernightWorkingHours, bookingWithinWorkingHours, normalizedBookingDuration } from "../../../lib/booking-time";
+import { emitInternalWhatsAppAutomationEvent } from "../../../lib/whatsapp/automation-event-producer";
+import { processWhatsAppAutomationEvent } from "../../../lib/whatsapp/automation-processor";
+import { processNextWhatsAppAutomationDelivery } from "../../../lib/whatsapp/automation-delivery-worker";
+import { normalizeE164 } from "../../../lib/whatsapp/contact-domain";
+import { hasActiveBusinessSubscription } from "../../../lib/subscription-entitlement";
+import { sallaBookingGate } from "../../../lib/commerce/booking-eligibility";
+
+export const maxDuration = 60;
 
 type BookingPayload = {
   slug?: unknown;
@@ -16,6 +24,7 @@ type BookingPayload = {
   bookingTime?: unknown;
   notes?: unknown;
   requestId?: unknown;
+  whatsappConfirmationConsent?: unknown;
 };
 
 type ExistingBookingRange = {
@@ -94,6 +103,15 @@ function normalizedPhone(value: unknown) {
   const raw = typeof value === "string" ? value.trim() : "";
   const digits = raw.replace(/\D/g, "");
   return digits.length >= 8 && digits.length <= 15 ? digits : null;
+}
+
+function bookingWhatsAppPhone(value: unknown) {
+  if (typeof value !== "string") return null;
+  const direct = normalizeE164(value);
+  if (direct) return direct;
+  const digits = value.replace(/\D/g, "");
+  if (digits.startsWith("966")) return normalizeE164(`+${digits}`);
+  return normalizeE164(value, "966");
 }
 
 function requestKey(value: unknown) {
@@ -208,7 +226,7 @@ export async function GET(request: Request) {
       },
     });
     const service = business?.services[0];
-    if (!business || !service) {
+    if (!business || !service || !await hasActiveBusinessSubscription({ businessId: business.id })) {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة غير متاحين" }, { status: 409, headers: availabilityResponseHeaders });
     }
     const publicBranches: PublicBookingBranch[] = business.branches;
@@ -332,15 +350,18 @@ export async function POST(request: Request) {
 
   const slug = normalizePublicSlug(String(body.slug ?? ""));
   const name = text(body.name, 120);
-  const phone = normalizedPhone(body.phone);
+  const bookingPhoneE164 = bookingWhatsAppPhone(body.phone);
+  const phone = bookingPhoneE164 ? bookingPhoneE164.slice(1) : normalizedPhone(body.phone);
   const serviceId = text(body.serviceId, 80);
   const branchId = text(body.branchId, 80);
   const bookingDate = validDate(body.bookingDate);
   const bookingTime = validTime(body.bookingTime);
   const notes = text(body.notes, 1000);
   const idempotencyKey = requestKey(request.headers.get("idempotency-key") || body.requestId);
+  const whatsappConfirmationConsent = body.whatsappConfirmationConsent === true;
+  const whatsappPhone = whatsappConfirmationConsent ? bookingPhoneE164 : null;
 
-  if (!slug || !name || !phone || !serviceId || !bookingDate || !bookingTime || notes === null || !idempotencyKey) {
+  if (!slug || !name || !phone || !bookingPhoneE164 || !serviceId || !bookingDate || !bookingTime || notes === null || !idempotencyKey || (whatsappConfirmationConsent && !whatsappPhone)) {
     return NextResponse.json({ ok: false, error: "بيانات الحجز غير مكتملة" }, { status: 400 });
   }
 
@@ -360,11 +381,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
   }
   if (!business) return NextResponse.json({ ok: false }, { status: 404 });
+  if (!await hasActiveBusinessSubscription({ businessId: business.id })) {
+    return NextResponse.json({ ok: false, error: "الحجز متوقف لأن اشتراك المنشأة غير نشط" }, { status: 409 });
+  }
 
   try {
     const replayTargetId = await existingSubmission(business.id, idempotencyKey);
     if (replayTargetId) {
-      return NextResponse.json({ ok: true, bookingId: replayTargetId, replayed: true }, { status: 200 });
+      const confirmationEvent = await db.whatsAppAutomationEvent.findUnique({
+        where: { businessId_source_externalEventId: { businessId: business.id, source: "ir.booking.confirmation", externalEventId: replayTargetId } },
+        select: { id: true },
+      });
+      return NextResponse.json({ ok: true, bookingId: replayTargetId, replayed: true, whatsappConfirmationQueued: Boolean(confirmationEvent) }, { status: 200 });
     }
   } catch (error) {
     console.error("[public-booking] idempotency_lookup_failed", error);
@@ -478,6 +506,19 @@ export async function POST(request: Request) {
   }
 
   try {
+    const eligibility = await sallaBookingGate({ businessId: business.id, phoneE164: bookingPhoneE164 });
+    if (eligibility.required && !eligibility.eligible) {
+      return NextResponse.json({
+        ok: false,
+        error: "استخدم رقم الجوال المسجل في طلب مدفوع ومؤكد من متجر هذه المنشأة.",
+      }, { status: 403 });
+    }
+  } catch (error) {
+    console.error("[public-booking] commerce_eligibility_lookup_failed", error);
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
+
+  try {
     const result = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`public-booking:${business.id}:${idempotencyKey}`}))`;
       const previous = await tx.$queryRaw<Array<{ targetId: string | null }>>`
@@ -485,7 +526,7 @@ export async function POST(request: Request) {
         WHERE "businessId" = ${business.id} AND "scope" = 'booking' AND "idempotencyKey" = ${idempotencyKey}
         LIMIT 1
       `;
-      if (previous[0]?.targetId) return { id: previous[0].targetId, replayed: true };
+      if (previous[0]?.targetId) return { id: previous[0].targetId, replayed: true, confirmationEventId: null };
 
       // Serialize the exact branch/date/slot capacity check so simultaneous visitors
       // cannot exceed the configured seat count.
@@ -511,10 +552,61 @@ export async function POST(request: Request) {
           AND s."deletedAt" IS NULL
           AND s."isActive" = true
           AND s."bookingEnabled" = true
+          AND EXISTS (
+            SELECT 1
+            FROM "Subscription" subscription
+            WHERE subscription."businessId" = b."id"
+              AND subscription."status" = 'active'
+              AND subscription."startsAt" <= CURRENT_TIMESTAMP
+              AND (
+                (subscription."provider" IS DISTINCT FROM 'access_code' AND subscription."endsAt" > CURRENT_TIMESTAMP)
+                OR (
+                  subscription."provider" = 'access_code'
+                  AND subscription."autoRenew" = false
+                  AND subscription."endsAt" IS NULL
+                  AND EXISTS (
+                    SELECT 1
+                    FROM "SubscriptionAccessGrant" access_grant
+                    JOIN "SubscriptionAccessCode" access_code ON access_code."id" = access_grant."codeId"
+                    WHERE access_grant."subscriptionId" = subscription."id"
+                      AND access_grant."businessId" = b."id"
+                      AND access_grant."revokedAt" IS NULL
+                      AND access_code."isActive" = true
+                      AND access_code."revokedAt" IS NULL
+                      AND (access_code."expiresAt" IS NULL OR access_code."expiresAt" > CURRENT_TIMESTAMP)
+                  )
+                )
+              )
+          )
+          AND (
+            NOT EXISTS (
+              SELECT 1 FROM "WhatsAppCommerceIntegration" salla_integration
+              WHERE salla_integration."businessId" = b."id"
+                AND salla_integration."provider" = 'salla'
+                AND salla_integration."status" = 'active'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM "CommerceBookingEligibility" booking_eligibility
+              JOIN "WhatsAppCommerceIntegration" eligibility_integration
+                ON eligibility_integration."id" = booking_eligibility."integrationId"
+               AND eligibility_integration."businessId" = booking_eligibility."businessId"
+              WHERE booking_eligibility."businessId" = b."id"
+                AND booking_eligibility."provider" = 'salla'
+                AND booking_eligibility."phoneE164" = ${bookingPhoneE164}
+                AND booking_eligibility."eligible" = true
+                AND eligibility_integration."provider" = 'salla'
+                AND eligibility_integration."status" = 'active'
+            )
+          )
         FOR SHARE OF b, u, s
       `;
       const currentService = eligibleTargets[0];
-      if (!currentService) throw new Error("PUBLIC_BOOKING_TARGET_UNAVAILABLE");
+      if (!currentService) {
+        const gate = await sallaBookingGate({ businessId: business.id, phoneE164: bookingPhoneE164, database: tx });
+        if (gate.required && !gate.eligible) throw new Error("PUBLIC_BOOKING_CUSTOMER_INELIGIBLE");
+        throw new Error("PUBLIC_BOOKING_TARGET_UNAVAILABLE");
+      }
       const currentBranches = selectedBranch ? await tx.$queryRaw<Array<{ id: string; bookingSlotMinutes: number; bookingCapacity: number }>>`
         SELECT "id", "bookingSlotMinutes", "bookingCapacity"
         FROM "Branch"
@@ -631,16 +723,67 @@ export async function POST(request: Request) {
         INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId")
         VALUES (${business.id}, 'booking', ${idempotencyKey}, ${booking.id})
       `;
-      return { id: booking.id, replayed: false };
+      let confirmationEventId: string | null = null;
+      if (whatsappConfirmationConsent && whatsappPhone) {
+        await tx.whatsAppContact.upsert({
+          where: { businessId_phoneE164: { businessId: business.id, phoneE164: whatsappPhone } },
+          create: { businessId: business.id, phoneE164: whatsappPhone, displayName: name, source: "booking" },
+          update: { displayName: name },
+          select: { id: true },
+        });
+        await tx.whatsAppConsent.upsert({
+          where: { businessId_phoneE164: { businessId: business.id, phoneE164: whatsappPhone } },
+          create: {
+            businessId: business.id,
+            customerId: customer.id,
+            phoneE164: whatsappPhone,
+            source: "booking",
+            evidence: `public_booking_confirmation_opt_in:v1:${idempotencyKey}`,
+            consentedAt: new Date(),
+          },
+          update: {
+            customerId: customer.id,
+            source: "booking",
+            evidence: `public_booking_confirmation_opt_in:v1:${idempotencyKey}`,
+            consentedAt: new Date(),
+            revokedAt: null,
+          },
+        });
+        const emitted = await emitInternalWhatsAppAutomationEvent({
+          database: tx,
+          businessId: business.id,
+          source: "ir.booking.confirmation",
+          externalEventId: booking.id,
+          triggerType: "booking_confirmation",
+          subjectType: "booking.created",
+          subjectId: booking.id,
+          customerPhone: whatsappPhone,
+        });
+        confirmationEventId = emitted.emitted ? emitted.eventId : null;
+      }
+      return { id: booking.id, replayed: false, confirmationEventId };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-    return NextResponse.json({ ok: true, bookingId: result.id, replayed: result.replayed }, { status: result.replayed ? 200 : 201 });
+    if (result.confirmationEventId) {
+      after(async () => {
+        try {
+          const processed = await processWhatsAppAutomationEvent({ eventId: result.confirmationEventId!, workerId: `booking-${result.id}` });
+          for (let index = 0; index < processed.jobs; index += 1) await processNextWhatsAppAutomationDelivery();
+        } catch (error) {
+          console.error("[public-booking] whatsapp_confirmation_deferred", error instanceof Error ? error.message : "unknown");
+        }
+      });
+    }
+    return NextResponse.json({ ok: true, bookingId: result.id, replayed: result.replayed, whatsappConfirmationQueued: Boolean(result.confirmationEventId) }, { status: result.replayed ? 200 : 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_SLOT_FULL") {
       return NextResponse.json({ ok: false, error: "اكتملت سعة هذه الفترة. اختر الفترة التالية المتاحة." }, { status: 409 });
     }
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_TARGET_UNAVAILABLE") {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة لم يعودا متاحين لهذا النشاط" }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PUBLIC_BOOKING_CUSTOMER_INELIGIBLE") {
+      return NextResponse.json({ ok: false, error: "استخدم رقم الجوال المسجل في طلب مدفوع ومؤكد من متجر هذه المنشأة." }, { status: 403 });
     }
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_SCHEDULE_CHANGED") {
       return NextResponse.json({ ok: false, error: "تغيرت ساعات العمل أو مدة الخدمة. اختر موعدًا متاحًا من جديد." }, { status: 409 });

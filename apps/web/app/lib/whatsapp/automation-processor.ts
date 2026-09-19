@@ -4,6 +4,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { automationIdempotencyKey, automationMatchesEvent, automationRetryAt, normalizeAutomationTriggerType, readTemplateActionConfig } from "./automation-domain";
 import { writeWhatsAppAuditLog } from "./audit";
+import { bookingConfirmationTemplateSupportsParameters, buildBookingConfirmationTemplateParameters } from "./booking-confirmation-domain";
 
 type AutomationDb = Pick<PrismaClient, "whatsAppAutomationEvent">;
 const MAX_EVENT_ATTEMPTS = 8;
@@ -98,6 +99,34 @@ export async function processWhatsAppAutomationEvent(input: {
         select: { revokedAt: true },
       });
       let eventSkipReason: string | null = null;
+      let bookingConfirmationParameters: ReturnType<typeof buildBookingConfirmationTemplateParameters> | null = null;
+      if (event.triggerType === "booking_confirmation") {
+        const booking = event.subjectType === "booking.created" ? await tx.booking.findFirst({
+          where: { id: event.subjectId, businessId: event.businessId, status: { in: ["pending", "confirmed"] } },
+          select: {
+            id: true,
+            bookingDate: true,
+            bookingTime: true,
+            slotEndTime: true,
+            business: { select: { name: true } },
+            service: { select: { name: true } },
+            branch: { select: { name: true } },
+          },
+        }) : null;
+        if (!booking || !booking.service) {
+          eventSkipReason = "booking_no_longer_available";
+        } else {
+          bookingConfirmationParameters = buildBookingConfirmationTemplateParameters({
+            businessName: booking.business.name,
+            serviceName: booking.service.name,
+            branchName: booking.branch?.name ?? null,
+            bookingDate: booking.bookingDate,
+            bookingTime: booking.bookingTime,
+            slotEndTime: booking.slotEndTime,
+            bookingId: booking.id,
+          });
+        }
+      }
       if (event.triggerType === "abandoned_cart") {
         const cart = event.subjectType === "cart.abandoned" ? await tx.whatsAppAutomationCart.findUnique({
           where: { businessId_cartId: { businessId: event.businessId, cartId: event.subjectId } },
@@ -111,7 +140,13 @@ export async function processWhatsAppAutomationEvent(input: {
         where: {
           businessId: event.businessId, status: "active", triggerType: event.triggerType,
           ...(event.automationId ? { id: event.automationId } : {}),
-          connection: { businessId: event.businessId, provider: "meta", status: "connected" },
+          connection: {
+            businessId: event.businessId,
+            provider: "meta",
+            status: "connected",
+            disabledAt: null,
+            ...(event.triggerType === "booking_confirmation" ? { bookingEnabled: true } : { marketingEnabled: true }),
+          },
         },
         select: { id: true, businessId: true, connectionId: true, triggerType: true, triggerConfig: true, actionType: true, actionConfig: true, cooldownMinutes: true },
       });
@@ -146,17 +181,29 @@ export async function processWhatsAppAutomationEvent(input: {
             connectionId: automation.connectionId,
             provider: "meta",
             status: "approved",
-            connection: { businessId: event.businessId, provider: "meta", status: "connected" },
+            connection: {
+              businessId: event.businessId,
+              provider: "meta",
+              status: "connected",
+              disabledAt: null,
+              ...(event.triggerType === "booking_confirmation" ? { bookingEnabled: true } : { marketingEnabled: true }),
+            },
           },
-          select: { id: true },
+          select: { id: true, components: true, parameterFormat: true },
         });
         if (!template) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_NOT_APPROVED");
+        if (event.triggerType === "booking_confirmation" && !bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)) {
+          throw new Error("WHATSAPP_BOOKING_CONFIRMATION_TEMPLATE_INVALID");
+        }
+        const templateParameters = event.triggerType === "booking_confirmation"
+          ? bookingConfirmationParameters
+          : action.parameters;
         await tx.whatsAppAutomationJob.upsert({
           where: { runId: run.id },
           create: {
             businessId: event.businessId, automationId: automation.id, runId: run.id,
             connectionId: automation.connectionId, contactId: contact.id, templateId: template.id,
-            idempotencyKey: key, templateParameters: action.parameters as Prisma.InputJsonValue | undefined,
+            idempotencyKey: key, templateParameters: templateParameters as Prisma.InputJsonValue | undefined,
           },
           update: {},
         });

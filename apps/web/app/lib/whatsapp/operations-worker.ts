@@ -7,6 +7,7 @@ export const WHATSAPP_OPERATION_STAGES = [
   "whatsapp:webhooks",
   "whatsapp:shopify-subscriptions",
   "whatsapp:shopify-webhooks",
+  "whatsapp:salla-webhooks",
   "whatsapp:shopify-abandoned-carts",
   "whatsapp:campaigns",
   "whatsapp:deliveries",
@@ -32,6 +33,11 @@ function stageErrorCode(stage: StageName) {
   return `WHATSAPP_${stage.slice("whatsapp:".length).replaceAll("-", "_").toUpperCase()}_FAILED`;
 }
 
+export function whatsappOperationsEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.WHATSAPP_MARKETING_WORKER_ENABLED === "true"
+    || env.INFRO_BOOKING_WORKER_ENABLED === "true";
+}
+
 export function runNpmStage(stage: StageName, env: NodeJS.ProcessEnv = process.env) {
   return new Promise<void>((resolve, reject) => {
     const child = spawn("npm", ["run", "--silent", stage], { env, stdio: "inherit", shell: false });
@@ -50,7 +56,7 @@ export async function runWhatsAppOperations(input: {
   runStage?: (stage: StageName, env: NodeJS.ProcessEnv) => Promise<void>;
 }) {
   const env = input.env ?? process.env;
-  if (env.WHATSAPP_MARKETING_WORKER_ENABLED !== "true") return { enabled: false as const, completedStages: [] as StageName[] };
+  if (!whatsappOperationsEnabled(env)) return { enabled: false as const, completedStages: [] as StageName[] };
   const sha = releaseSha(env);
   const now = input.now ?? (() => new Date());
   const startedAt = now();

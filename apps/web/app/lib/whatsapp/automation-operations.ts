@@ -5,6 +5,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "./audit";
 import { buildAutomationTriggerConfig, normalizeAutomationTriggerType, readAutomationTriggerConfig, readTemplateActionConfig, templateHasVariables, WHATSAPP_CONFIGURABLE_TRIGGER_TYPES } from "./automation-domain";
+import { bookingConfirmationTemplateSupportsParameters } from "./booking-confirmation-domain";
 
 type AutomationOperationsDb = Pick<PrismaClient, "$transaction">;
 type AutomationOperation = "activate" | "pause" | "resume";
@@ -19,7 +20,7 @@ async function lockAutomation(tx: Prisma.TransactionClient, businessId: string, 
 }
 
 async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
-  businessId: string; connectionId?: string; actionConfig: unknown;
+  businessId: string; connectionId?: string; actionConfig: unknown; triggerType: string;
 }) {
   const action = readTemplateActionConfig(input.actionConfig);
   if (action.parameters?.length) throw new Error("WHATSAPP_AUTOMATION_PARAMETERS_UNSUPPORTED");
@@ -30,11 +31,20 @@ async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
       provider: "meta",
       status: "approved",
       ...(input.connectionId ? { connectionId: input.connectionId } : {}),
-      connection: { businessId: input.businessId, provider: "meta", status: "connected" },
+      connection: {
+        businessId: input.businessId,
+        provider: "meta",
+        status: "connected",
+        disabledAt: null,
+        ...(input.triggerType === "booking_confirmation" ? { bookingEnabled: true } : { marketingEnabled: true }),
+      },
     },
-    select: { id: true, connectionId: true, components: true },
+    select: { id: true, connectionId: true, components: true, parameterFormat: true },
   });
-  if (!template || templateHasVariables(template.components)) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_NOT_RUNNABLE");
+  const runnable = template && (input.triggerType === "booking_confirmation"
+    ? bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)
+    : !templateHasVariables(template.components));
+  if (!template || !runnable) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_NOT_RUNNABLE");
   return template;
 }
 
@@ -55,10 +65,12 @@ export async function createWhatsAppAutomation(input: {
   }
   if (!/^[0-9a-f-]{36}$/i.test(input.templateId)) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_INVALID");
 
+  const effectiveCooldownMinutes = triggerType === "booking_confirmation" ? 0 : input.cooldownMinutes;
   return database.$transaction(async (tx) => {
     const template = await assertRunnableTemplate(tx, {
       businessId: input.businessId,
       actionConfig: { templateId: input.templateId },
+      triggerType,
     });
     const automation = await tx.whatsAppAutomation.create({
       data: {
@@ -71,7 +83,7 @@ export async function createWhatsAppAutomation(input: {
         triggerConfig,
         actionType: "send_template",
         actionConfig: { templateId: template.id },
-        cooldownMinutes: input.cooldownMinutes,
+        cooldownMinutes: effectiveCooldownMinutes,
         createdByUserId: input.actorUserId,
       },
       select: { id: true, status: true },
@@ -83,7 +95,7 @@ export async function createWhatsAppAutomation(input: {
       targetType: "automation",
       targetId: automation.id,
       outcome: "success",
-      metadata: { triggerType, cooldownMinutes: input.cooldownMinutes },
+      metadata: { triggerType, cooldownMinutes: effectiveCooldownMinutes },
       database: tx,
     });
     return automation;
@@ -122,8 +134,21 @@ export async function operateWhatsAppAutomation(input: {
         businessId: input.businessId,
         connectionId: automation.connectionId,
         actionConfig: automation.actionConfig,
+        triggerType: automation.triggerType,
       });
       readAutomationTriggerConfig(automation.triggerConfig, automation.triggerType);
+      if (automation.triggerType === "booking_confirmation") {
+        const alreadyActive = await tx.whatsAppAutomation.findFirst({
+          where: {
+            businessId: input.businessId,
+            triggerType: "booking_confirmation",
+            status: "active",
+            id: { not: automation.id },
+          },
+          select: { id: true },
+        });
+        if (alreadyActive) throw new Error("WHATSAPP_BOOKING_CONFIRMATION_ALREADY_ACTIVE");
+      }
       nextStatus = "active";
     }
 

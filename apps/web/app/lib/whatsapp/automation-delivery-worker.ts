@@ -9,6 +9,7 @@ import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./cr
 import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, retryDelayMs } from "./delivery-domain";
 import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "./meta-config";
+import { hasActiveBusinessSubscription } from "../subscription-entitlement";
 
 const MAX_ATTEMPTS = 8;
 type JsonRecord = Record<string, unknown>;
@@ -95,11 +96,6 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   const job = await claimNext(database, input.workerId ?? `automation-delivery-${randomUUID()}`, now);
   if (!job) return { processed: false as const };
 
-  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: job.businessId, database, now })) {
-    await releaseAs(database, job, "cancelled", now, "WHATSAPP_MARKETING_ENTITLEMENT_REQUIRED");
-    return { processed: true as const, result: "entitlement_required" as const, jobId: job.id };
-  }
-
   const context = await database.whatsAppAutomationJob.findFirst({
     where: { id: job.id, businessId: job.businessId, automationId: job.automationId, runId: job.runId, connectionId: job.connectionId },
     select: {
@@ -108,12 +104,19 @@ export async function processNextWhatsAppAutomationDelivery(input: {
       run: { select: { event: { select: { triggerType: true, subjectType: true, subjectId: true, occurredAt: true } } } },
       contact: { select: { id: true, phoneE164: true, displayName: true, optedOutAt: true } },
       template: { select: { provider: true, status: true, name: true, language: true } },
-      connection: { select: { provider: true, status: true, phoneNumberId: true, credentialEnvelope: true } },
+      connection: { select: { provider: true, status: true, phoneNumberId: true, credentialEnvelope: true, marketingEnabled: true, bookingEnabled: true } },
     },
   });
   if (!context) {
     await releaseAs(database, job, "failed", now, "WHATSAPP_AUTOMATION_DELIVERY_CONTEXT_MISSING");
     return { processed: true as const, result: "failed" as const, jobId: job.id };
+  }
+  const entitled = context.run.event.triggerType === "booking_confirmation"
+    ? await hasActiveBusinessSubscription({ businessId: job.businessId, database, now })
+    : await hasActiveWhatsAppMarketingEntitlement({ businessId: job.businessId, database, now });
+  if (!entitled) {
+    await releaseAs(database, job, "cancelled", now, context.run.event.triggerType === "booking_confirmation" ? "BUSINESS_SUBSCRIPTION_REQUIRED" : "WHATSAPP_MARKETING_ENTITLEMENT_REQUIRED");
+    return { processed: true as const, result: "entitlement_required" as const, jobId: job.id };
   }
   if (context.automation.status === "paused") {
     await releaseAs(database, job, "retry_scheduled", now, "AUTOMATION_PAUSED", new Date(now.getTime() + 60_000));
@@ -123,12 +126,29 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     await releaseAs(database, job, "cancelled", now, "AUTOMATION_OR_CONNECTION_NOT_ACTIVE");
     return { processed: true as const, result: "cancelled" as const, jobId: job.id };
   }
+  const connectionPurposeActive = context.run.event.triggerType === "booking_confirmation"
+    ? context.connection.bookingEnabled
+    : context.connection.marketingEnabled;
+  if (!connectionPurposeActive) {
+    await releaseAs(database, job, "cancelled", now, "WHATSAPP_CONNECTION_PURPOSE_INACTIVE");
+    return { processed: true as const, result: "cancelled" as const, jobId: job.id };
+  }
   if (context.run.event.triggerType === "appointment_reminder") {
     const booking = context.run.event.subjectType === "booking.reminder" ? await database.booking.findFirst({
       where: { id: context.run.event.subjectId, businessId: job.businessId, status: "confirmed" }, select: { id: true },
     }) : null;
     if (!booking) {
       await releaseAs(database, job, "cancelled", now, "BOOKING_NO_LONGER_CONFIRMED");
+      return { processed: true as const, result: "booking_closed" as const, jobId: job.id };
+    }
+  }
+  if (context.run.event.triggerType === "booking_confirmation") {
+    const booking = context.run.event.subjectType === "booking.created" ? await database.booking.findFirst({
+      where: { id: context.run.event.subjectId, businessId: job.businessId, status: { in: ["pending", "confirmed"] } },
+      select: { id: true },
+    }) : null;
+    if (!booking) {
+      await releaseAs(database, job, "cancelled", now, "BOOKING_NO_LONGER_AVAILABLE");
       return { processed: true as const, result: "booking_closed" as const, jobId: job.id };
     }
   }

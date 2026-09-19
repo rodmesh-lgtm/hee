@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { db } from "../../../lib/db";
-import { runWhatsAppOperations } from "../../../lib/whatsapp/operations-worker";
+import { runWhatsAppOperations, whatsappOperationsEnabled } from "../../../lib/whatsapp/operations-worker";
 import { runVercelWhatsAppStage } from "../../../lib/whatsapp/vercel-operations-runner";
 
 export const runtime = "nodejs";
@@ -43,7 +43,7 @@ async function acquireLease() {
 
 export async function GET(request: Request) {
   if (!isAuthorized(request)) return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
-  if (process.env.WHATSAPP_MARKETING_WORKER_ENABLED !== "true") {
+  if (!whatsappOperationsEnabled(process.env)) {
     return NextResponse.json({ ok: true, enabled: false });
   }
   if (!(await acquireLease())) return NextResponse.json({ ok: true, enabled: true, busy: true });
