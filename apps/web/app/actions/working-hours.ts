@@ -8,9 +8,12 @@ import { isValidWorkingTime, validateWorkingHoursWindow } from "../lib/working-h
 import { createWhatsAppAutomation, operateWhatsAppAutomation } from "../lib/whatsapp/automation-operations";
 import { hasActiveBusinessSubscription } from "../lib/subscription-entitlement";
 import { syncMetaWhatsAppTemplates } from "../lib/whatsapp/template-sync";
-import { disconnectWhatsAppCommerceIntegration } from "../lib/whatsapp/commerce-integrations";
+import { disconnectWhatsAppCommerceIntegration, registerWhatsAppCommerceIntegration } from "../lib/whatsapp/commerce-integrations";
+import { createShopifyAuthorization } from "../lib/whatsapp/shopify-commerce";
 import { createSallaAuthorization, prepareSallaIntegration } from "../lib/commerce/salla-oauth";
 import { syncSallaBookingOrders } from "../lib/commerce/salla-order-sync";
+import { connectWooCommerceBookingStore, syncWooCommerceBookingOrders } from "../lib/commerce/woocommerce-commerce";
+import { syncShopifyBookingOrders } from "../lib/commerce/shopify-order-sync";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -261,6 +264,102 @@ export async function syncSallaBookingOrdersAction(formData: FormData) {
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error) throw error;
     redirect("/dashboard/working-hours?salla=sync-failed");
+  }
+}
+
+export async function connectWooCommerceBookingStoreAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?woocommerce=subscription-required");
+  try {
+    const integration = await connectWooCommerceBookingStore({
+      businessId: business.id,
+      actorUserId: business.ownerId,
+      storeUrl: value(formData, "storeUrl"),
+      consumerKey: value(formData, "consumerKey"),
+      consumerSecret: value(formData, "consumerSecret"),
+    });
+    await syncWooCommerceBookingOrders({ businessId: business.id, integrationId: integration.id, actorUserId: business.ownerId });
+    refreshAppointmentPaths(business.slug);
+    redirect("/dashboard/working-hours?woocommerce=connected");
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    const code = error instanceof Error ? error.message : "";
+    redirect(`/dashboard/working-hours?woocommerce=${code === "WOOCOMMERCE_STORE_ALREADY_ASSIGNED" ? "store-assigned" : code === "WOOCOMMERCE_STORE_UNSAFE" ? "unsafe" : "failed"}`);
+  }
+}
+
+export async function syncWooCommerceBookingOrdersAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  const integrationId = value(formData, "integrationId");
+  if (!/^[0-9a-f-]{36}$/i.test(integrationId)) redirect("/dashboard/working-hours?woocommerce=invalid");
+  try {
+    await syncWooCommerceBookingOrders({ businessId: business.id, integrationId, actorUserId: business.ownerId });
+    refreshAppointmentPaths(business.slug);
+    redirect("/dashboard/working-hours?woocommerce=synced");
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/dashboard/working-hours?woocommerce=sync-failed");
+  }
+}
+
+export async function disconnectWooCommerceBookingStoreAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  const integrationId = value(formData, "integrationId");
+  if (!/^[0-9a-f-]{36}$/i.test(integrationId)) redirect("/dashboard/working-hours?woocommerce=invalid");
+  try {
+    const integration = await db.whatsAppCommerceIntegration.findFirst({ where: { id: integrationId, businessId: business.id, provider: "woocommerce" }, select: { id: true } });
+    if (!integration) throw new Error("WOOCOMMERCE_INTEGRATION_UNAVAILABLE");
+    await disconnectWhatsAppCommerceIntegration({ businessId: business.id, actorUserId: business.ownerId, integrationId });
+    refreshAppointmentPaths(business.slug);
+    redirect("/dashboard/working-hours?woocommerce=disconnected");
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/dashboard/working-hours?woocommerce=disconnect-failed");
+  }
+}
+
+export async function connectShopifyBookingStoreAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?shopify=subscription-required");
+  try {
+    const registered = await registerWhatsAppCommerceIntegration({ businessId: business.id, actorUserId: business.ownerId, provider: "shopify", externalStoreId: value(formData, "shopDomain") });
+    const current = await db.whatsAppCommerceIntegration.findFirst({ where: { id: registered.id, businessId: business.id, provider: "shopify" }, select: { status: true } });
+    if (current?.status === "active") redirect("/dashboard/working-hours?shopify=connected");
+    redirect(await createShopifyAuthorization({ businessId: business.id, userId: business.ownerId, integrationId: registered.id }));
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    const code = error instanceof Error ? error.message : "";
+    redirect(`/dashboard/working-hours?shopify=${code.startsWith("SHOPIFY_CONFIG_INVALID") ? "not-configured" : "failed"}`);
+  }
+}
+
+export async function disconnectShopifyBookingStoreAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  const integrationId = value(formData, "integrationId");
+  const integration = await db.whatsAppCommerceIntegration.findFirst({ where: { id: integrationId, businessId: business.id, provider: "shopify" }, select: { id: true } });
+  if (!integration) redirect("/dashboard/working-hours?shopify=invalid");
+  await disconnectWhatsAppCommerceIntegration({ businessId: business.id, actorUserId: business.ownerId, integrationId });
+  refreshAppointmentPaths(business.slug);
+  redirect("/dashboard/working-hours?shopify=disconnected");
+}
+
+export async function syncShopifyBookingOrdersAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  const integrationId = value(formData, "integrationId");
+  if (!/^[0-9a-f-]{36}$/i.test(integrationId)) redirect("/dashboard/working-hours?shopify=invalid");
+  try {
+    await syncShopifyBookingOrders({ businessId: business.id, integrationId, actorUserId: business.ownerId });
+    refreshAppointmentPaths(business.slug);
+    redirect("/dashboard/working-hours?shopify=synced");
+  } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    redirect("/dashboard/working-hours?shopify=sync-failed");
   }
 }
 

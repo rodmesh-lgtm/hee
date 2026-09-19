@@ -5,7 +5,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "./audit";
 
-export const WHATSAPP_COMMERCE_PROVIDERS = ["salla", "zid", "shopify"] as const;
+export const WHATSAPP_COMMERCE_PROVIDERS = ["salla", "zid", "shopify", "woocommerce"] as const;
 export type WhatsAppCommerceProvider = (typeof WHATSAPP_COMMERCE_PROVIDERS)[number];
 type CommerceDb = Pick<PrismaClient, "$transaction">;
 
@@ -17,6 +17,18 @@ export function normalizeCommerceStoreId(providerValue: string, value: string) {
   if (provider === "zid" && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(storeId)) throw new Error("WHATSAPP_COMMERCE_STORE_ID_INVALID");
   if (provider === "shopify" && (!/^[a-z0-9][a-z0-9-]{0,61}\.myshopify\.com$/.test(storeId) || storeId.length > 255)) {
     throw new Error("WHATSAPP_COMMERCE_STORE_ID_INVALID");
+  }
+  if (provider === "woocommerce") {
+    let url: URL;
+    try { url = new URL(storeId); } catch { throw new Error("WHATSAPP_COMMERCE_STORE_ID_INVALID"); }
+    const hostname = url.hostname.toLowerCase();
+    const forbidden = hostname === "localhost" || hostname.endsWith(".local") || hostname === "0.0.0.0"
+      || /^127\./.test(hostname) || /^10\./.test(hostname) || /^192\.168\./.test(hostname)
+      || /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) || hostname === "::1";
+    if (url.protocol !== "https:" || url.username || url.password || url.port || forbidden || !hostname.includes(".") || url.pathname !== "/" || url.search || url.hash) {
+      throw new Error("WHATSAPP_COMMERCE_STORE_ID_INVALID");
+    }
+    return { provider, storeId: url.origin };
   }
   return { provider, storeId };
 }

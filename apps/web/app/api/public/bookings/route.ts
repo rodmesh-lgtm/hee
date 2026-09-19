@@ -10,7 +10,7 @@ import { processWhatsAppAutomationEvent } from "../../../lib/whatsapp/automation
 import { processNextWhatsAppAutomationDelivery } from "../../../lib/whatsapp/automation-delivery-worker";
 import { normalizeE164 } from "../../../lib/whatsapp/contact-domain";
 import { hasActiveBusinessSubscription } from "../../../lib/subscription-entitlement";
-import { sallaBookingGate } from "../../../lib/commerce/booking-eligibility";
+import { commerceBookingGate } from "../../../lib/commerce/booking-eligibility";
 
 export const maxDuration = 60;
 
@@ -506,7 +506,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const eligibility = await sallaBookingGate({ businessId: business.id, phoneE164: bookingPhoneE164 });
+    const eligibility = await commerceBookingGate({ businessId: business.id, phoneE164: bookingPhoneE164 });
     if (eligibility.required && !eligibility.eligible) {
       return NextResponse.json({
         ok: false,
@@ -580,10 +580,10 @@ export async function POST(request: Request) {
           )
           AND (
             NOT EXISTS (
-              SELECT 1 FROM "WhatsAppCommerceIntegration" salla_integration
-              WHERE salla_integration."businessId" = b."id"
-                AND salla_integration."provider" = 'salla'
-                AND salla_integration."status" = 'active'
+              SELECT 1 FROM "WhatsAppCommerceIntegration" commerce_integration
+              WHERE commerce_integration."businessId" = b."id"
+                AND commerce_integration."provider" IN ('salla','zid','shopify','woocommerce')
+                AND commerce_integration."status" = 'active'
             )
             OR EXISTS (
               SELECT 1
@@ -592,10 +592,10 @@ export async function POST(request: Request) {
                 ON eligibility_integration."id" = booking_eligibility."integrationId"
                AND eligibility_integration."businessId" = booking_eligibility."businessId"
               WHERE booking_eligibility."businessId" = b."id"
-                AND booking_eligibility."provider" = 'salla'
+                AND booking_eligibility."provider" IN ('salla','zid','shopify','woocommerce')
                 AND booking_eligibility."phoneE164" = ${bookingPhoneE164}
                 AND booking_eligibility."eligible" = true
-                AND eligibility_integration."provider" = 'salla'
+                AND eligibility_integration."provider" IN ('salla','zid','shopify','woocommerce')
                 AND eligibility_integration."status" = 'active'
             )
           )
@@ -603,7 +603,7 @@ export async function POST(request: Request) {
       `;
       const currentService = eligibleTargets[0];
       if (!currentService) {
-        const gate = await sallaBookingGate({ businessId: business.id, phoneE164: bookingPhoneE164, database: tx });
+        const gate = await commerceBookingGate({ businessId: business.id, phoneE164: bookingPhoneE164, database: tx });
         if (gate.required && !gate.eligible) throw new Error("PUBLIC_BOOKING_CUSTOMER_INELIGIBLE");
         throw new Error("PUBLIC_BOOKING_TARGET_UNAVAILABLE");
       }

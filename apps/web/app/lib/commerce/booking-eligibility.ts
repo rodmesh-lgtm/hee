@@ -6,14 +6,16 @@ import { db } from "../db";
 
 type EligibilityDatabase = Pick<PrismaClient, "whatsAppCommerceIntegration" | "commerceBookingEligibility">;
 
-export async function sallaBookingGate(input: {
+export const BOOKING_COMMERCE_PROVIDERS = ["salla", "zid", "shopify", "woocommerce"] as const;
+
+export async function commerceBookingGate(input: {
   businessId: string;
   phoneE164: string;
   database?: EligibilityDatabase;
 }) {
   const database = input.database ?? db;
   const integration = await database.whatsAppCommerceIntegration.findFirst({
-    where: { businessId: input.businessId, provider: "salla", status: "active" },
+    where: { businessId: input.businessId, provider: { in: [...BOOKING_COMMERCE_PROVIDERS] }, status: "active" },
     select: { id: true },
   });
   if (!integration) return { required: false as const, eligible: true as const };
@@ -22,10 +24,13 @@ export async function sallaBookingGate(input: {
       businessId: input.businessId,
       phoneE164: input.phoneE164,
       eligible: true,
-      provider: "salla",
-      integration: { provider: "salla", status: "active" },
+      provider: { in: [...BOOKING_COMMERCE_PROVIDERS] },
+      integration: { provider: { in: [...BOOKING_COMMERCE_PROVIDERS] }, status: "active" },
     },
     select: { id: true },
   });
   return { required: true as const, eligible: Boolean(eligibleOrder) };
 }
+
+/** @deprecated Kept for compatibility with older callers. */
+export const sallaBookingGate = commerceBookingGate;

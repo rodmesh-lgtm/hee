@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { syncShopifyBookingOrders } from "../../../../../lib/commerce/shopify-order-sync";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../../../lib/whatsapp/feature-entitlement";
+import { hasActiveBusinessSubscription } from "../../../../../lib/subscription-entitlement";
 import { getWhatsAppWriteContext } from "../../../../../lib/whatsapp/rbac";
 import { completeShopifyAuthorization } from "../../../../../lib/whatsapp/shopify-commerce";
 import { getShopifyConfig, shopifyAppOrigin } from "../../../../../lib/whatsapp/shopify-config";
@@ -7,7 +9,7 @@ import { normalizeShopifyDomain, verifyShopifyOAuthHmac } from "../../../../../l
 
 function back(request: Request, result: string) {
   const origin = shopifyAppOrigin();
-  return NextResponse.redirect(new URL(`/dashboard/whatsapp/integrations?shopify=${encodeURIComponent(result)}`, origin || new URL(request.url).origin));
+  return NextResponse.redirect(new URL(`/dashboard/working-hours?shopify=${encodeURIComponent(result)}`, origin || new URL(request.url).origin));
 }
 
 function single(params: URLSearchParams, key: string) {
@@ -34,9 +36,14 @@ export async function GET(request: Request) {
 
   const context = await getWhatsAppWriteContext("connection.manage");
   if (!context) return back(request, "forbidden");
-  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) return back(request, "entitlement-required");
+  const [marketingEntitled, subscribed] = await Promise.all([
+    hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId }),
+    hasActiveBusinessSubscription({ businessId: context.businessId }),
+  ]);
+  if (!marketingEntitled && !subscribed) return back(request, "entitlement-required");
   try {
-    await completeShopifyAuthorization({ businessId: context.businessId, userId: context.userId, state, code, shop });
+    const connected = await completeShopifyAuthorization({ businessId: context.businessId, userId: context.userId, state, code, shop });
+    after(async () => { await syncShopifyBookingOrders({ businessId: context.businessId, integrationId: connected.integrationId, actorUserId: context.userId }).catch(() => undefined); });
     return back(request, "connected");
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
