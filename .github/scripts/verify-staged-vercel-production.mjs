@@ -6,6 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 // Keep credentials in memory and never follow redirects with either credential.
 export async function verifyStagedProduction({
   deploymentUrl, projectId, teamId, releaseSha, token,
+  expectedMaintenance = false,
   fetchImpl = fetch, wait = delay,
 }) {
   const url = new URL(deploymentUrl);
@@ -13,7 +14,7 @@ export async function verifyStagedProduction({
       url.username || url.password || url.port || url.pathname !== '/' || url.search || url.hash) {
     throw new Error('Invalid staged Vercel deployment URL');
   }
-  if (!projectId || !teamId || !token || !/^[a-f0-9]{40}$/.test(releaseSha)) {
+  if (!projectId || !teamId || !token || !/^[a-f0-9]{40}$/.test(releaseSha) || typeof expectedMaintenance !== 'boolean') {
     throw new Error('Missing or invalid production verification configuration');
   }
 
@@ -52,18 +53,24 @@ export async function verifyStagedProduction({
     await wait(1000);
   }
 
-  async function probe(path, json = false) {
+  async function probe(path, { json = false, text = false, expectedStatus = 200, method = 'GET', body } = {}) {
     const response = await fetchImpl(new URL(path, url).href, {
-      headers: { 'x-vercel-protection-bypass': secret },
+      method,
+      headers: {
+        'x-vercel-protection-bypass': secret,
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      ...(body === undefined ? {} : { body }),
       redirect: 'manual', signal: AbortSignal.timeout(20_000),
     });
-    if (!response.ok) throw new Error(`Staged probe ${path} failed (HTTP ${response.status})`);
+    if (response.status !== expectedStatus) throw new Error(`Staged probe ${path} failed (HTTP ${response.status})`);
     if (json) {
       if (!response.headers.get('content-type')?.includes('application/json')) {
         throw new Error(`Staged probe ${path} did not return JSON`);
       }
       return response.json();
     }
+    if (text) return response.text();
     await response.body?.cancel();
   }
   async function probeGoogleOAuth() {
@@ -87,14 +94,22 @@ export async function verifyStagedProduction({
     }
     await response.body?.cancel();
   }
-  const release = await probe('/api/release', true);
-  const status = await probe('/api/maintenance/status', true);
-  const webReady = await probe('/api/health/web-ready', true);
+  const release = await probe('/api/release', { json: true });
+  const status = await probe('/api/maintenance/status', { json: true });
+  const webReady = expectedMaintenance ? null : await probe('/api/health/web-ready', { json: true });
   if (release.releaseSha !== releaseSha || release.environment !== 'production') {
     throw new Error('Staged release provenance mismatch');
   }
-  if (status.releaseSha !== releaseSha || status.environment !== 'production' || status.maintenance !== false) {
-    throw new Error('Staged Production must be exact-SHA and out of maintenance');
+  if (status.releaseSha !== releaseSha || status.environment !== 'production' || status.maintenance !== expectedMaintenance) {
+    throw new Error(`Staged Production must be exact-SHA and ${expectedMaintenance ? 'in' : 'out of'} maintenance`);
+  }
+  if (expectedMaintenance) {
+    const ui = await probe('/register', { text: true, expectedStatus: 503 });
+    const write = await probe('/api/public/orders', { text: true, expectedStatus: 503, method: 'POST', body: '{}' });
+    if (!ui.includes('صيانة مجدولة') || !write.includes('صيانة مجدولة')) {
+      throw new Error('Staged maintenance response body is missing');
+    }
+    return;
   }
   if (webReady.ready !== true) throw new Error('Staged Production core web runtime is not ready');
   await probeGoogleOAuth();
@@ -105,14 +120,17 @@ export async function verifyStagedProduction({
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
+    const mode = process.argv[3] ?? 'live';
+    if (!['live', 'maintenance'].includes(mode)) throw new Error('Invalid staged verification mode');
     await verifyStagedProduction({
       deploymentUrl: readFileSync(process.argv[2], 'utf8').trim(),
       projectId: process.env.VERCEL_PROJECT_ID,
       teamId: process.env.VERCEL_ORG_ID,
       releaseSha: process.env.GITHUB_SHA,
       token: process.env.VERCEL_TOKEN,
+      expectedMaintenance: mode === 'maintenance',
     });
-    console.log(`staged-production-smoke: PASS for ${process.env.GITHUB_SHA}; core web runtime ready; canonical domain is still unchanged`);
+    console.log(`staged-production-smoke: PASS for ${process.env.GITHUB_SHA}; ${mode === 'maintenance' ? 'maintenance gate proven' : 'core web runtime ready'}; canonical domain is still unchanged`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : 'Staged verification failed');
     process.exitCode = 1;
