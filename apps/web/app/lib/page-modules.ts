@@ -49,6 +49,10 @@ export type CompanyProfileConfig = {
   visible?: boolean;
 };
 
+export type BottomActionId = "whatsapp" | "phone" | "email" | "website" | "share";
+
+export type BottomActionConfig = { id: BottomActionId; enabled: boolean; sortOrder: number; label?: string };
+
 export type PageModuleConfig = {
   title?: string;
   ctaLabel?: string;
@@ -72,6 +76,7 @@ export type PageModuleConfig = {
   productExternalLinks?: Record<string, string>;
   salesTeam?: ContactTeamMember[];
   customerServiceTeam?: ContactTeamMember[];
+  bottomActions?: BottomActionConfig[];
   portfolioItems?: PortfolioItem[];
   companyProfile?: CompanyProfileConfig;
 };
@@ -144,6 +149,13 @@ function baseModuleConfig(id: PageModuleId): PageModuleConfig {
         businessLinkType: "website",
         businessLinkUrl: "",
         businessLinkLabel: "",
+        bottomActions: [
+          { id: "whatsapp", enabled: true, sortOrder: 0, label: "واتساب" },
+          { id: "phone", enabled: true, sortOrder: 1, label: "اتصال" },
+          { id: "email", enabled: true, sortOrder: 2, label: "بريد" },
+          { id: "website", enabled: true, sortOrder: 3, label: "الموقع" },
+          { id: "share", enabled: true, sortOrder: 4, label: "مشاركة" },
+        ],
       };
     case "links":
       return { title: PAGE_MODULE_LABELS.links };
@@ -269,6 +281,7 @@ function normalizeConfig(id: PageModuleId, raw: unknown) {
     ...(source.businessLinkType === "website" || source.businessLinkType === "store" ? { businessLinkType: source.businessLinkType } : {}),
     ...(typeof source.businessLinkUrl === "string" ? { businessLinkUrl: normalizeSafeHttpUrl(source.businessLinkUrl) } : {}),
     ...(typeof source.businessLinkLabel === "string" ? { businessLinkLabel: source.businessLinkLabel } : {}),
+    ...(Array.isArray(source.bottomActions) ? { bottomActions: source.bottomActions.map((entry, index) => { const item = entry as Record<string, unknown>; const id = String(item.id ?? ""); return { id: (["whatsapp","phone","email","website","share"] as const).includes(id as never) ? id as BottomActionId : "share", enabled: item.enabled !== false, sortOrder: Number.isFinite(item.sortOrder) ? Number(item.sortOrder) : index, label: typeof item.label === "string" ? item.label.trim().slice(0, 24) : undefined }; }).filter((entry, index, all) => all.findIndex((candidate) => candidate.id === entry.id) === index).sort((left, right) => left.sortOrder - right.sortOrder).slice(0, 5) } : {}),
     ...(typeof source.serviceSectionTitle === "string" ? { serviceSectionTitle: source.serviceSectionTitle } : {}),
     ...(typeof source.externalStoreUrl === "string" ? { externalStoreUrl: normalizeSafeHttpUrl(source.externalStoreUrl) } : {}),
     ...(Array.isArray(source.featuredProductIds)

@@ -56,11 +56,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const city = normalize(body.city);
+  if (city.length < 2) return NextResponse.json({ error: "مدينة المقر الرئيسي مطلوبة" }, { status: 400 });
+
   const requestedSlug = normalizePublicSlug(normalize(body.slug));
   const initialSlug = requestedSlug || generatedPublicSlug();
   // Branding assets are trusted only when they enter through HEE's validated upload/storage
   // path. Never accept a client-supplied logo URL during tenant creation.
-  const payload = { name: normalize(body.name), slug: initialSlug, businessType: normalize(body.businessType), shortDescription: normalize(body.shortDescription), description: normalize(body.description), city: normalize(body.city), whatsapp: normalize(body.whatsapp), phone: normalize(body.phone), address: normalize(body.address), logoUrl: "", primaryColor: "#6f3bd2", entityType: normalize(body.entityType), businessCategory: normalize(body.businessCategory), onboardingCompleted: true, onboardingStep: "profile_created" };
+  const payload = { name: normalize(body.name), slug: initialSlug, businessType: normalize(body.businessType), shortDescription: normalize(body.shortDescription), description: normalize(body.description), city, whatsapp: normalize(body.whatsapp), phone: normalize(body.phone), address: normalize(body.address), logoUrl: "", primaryColor: "#6f3bd2", entityType: normalize(body.entityType), businessCategory: normalize(body.businessCategory), onboardingCompleted: true, onboardingStep: "profile_created" };
   const parsed = businessSchema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "بيانات النشاط غير صالحة" }, { status: 400 });
   if (!isValidPublicSlug(parsed.data.slug)) return NextResponse.json({ error: "الرابط العام غير متاح" }, { status: 409 });

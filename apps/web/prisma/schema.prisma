@@ -123,6 +123,8 @@ model Business {
   workingHours String?
   deliveryAvailable Boolean @default(false)
   bookingAvailable Boolean @default(false)
+  bookingSlotMinutes Int @default(120)
+  bookingCapacity Int @default(10)
   acceptOnlineOrders Boolean @default(false)
   xUrl String?
   instagramUrl String?
@@ -151,6 +153,7 @@ model Business {
   orders Order[]
   bookings Booking[]
   openingHours WorkingHours[]
+  bookingAvailabilityOverrides BookingAvailabilityOverride[]
   socialLinks SocialLink[]
   galleryItems GalleryItem[]
   subscriptions Subscription[]
@@ -336,8 +339,10 @@ model Booking {
   businessId String
   customerId String
   serviceId String?
+  branchId String?
   bookingDate String
   bookingTime String
+  slotEndTime String?
   notes String?
   status String @default("pending")
   createdAt DateTime @default(now())
@@ -345,9 +350,11 @@ model Booking {
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
   service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
   @@index([businessId])
   @@index([customerId])
   @@index([serviceId])
+  @@index([businessId, branchId, bookingDate, bookingTime, status], map: "Booking_branch_slot_capacity_lookup_idx")
   @@index([bookingDate])
 }
 
@@ -366,6 +373,23 @@ model WorkingHours {
   @@unique([businessId, dayOfWeek])
   @@index([businessId])
   @@index([dayOfWeek])
+}
+
+model BookingAvailabilityOverride {
+  id String @id @default(uuid())
+  businessId String
+  date String
+  isClosed Boolean @default(false)
+  opensAt String?
+  closesAt String?
+  secondOpensAt String?
+  secondClosesAt String?
+  note String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  @@unique([businessId, date], map: "BookingAvailabilityOverride_business_date_unique")
+  @@index([businessId, date], map: "BookingAvailabilityOverride_business_date_idx")
 }
 
 model GalleryItem {
@@ -633,11 +657,15 @@ model Branch {
   googleMapsLink String?
   isMain Boolean @default(false)
   isActive Boolean @default(true)
+  bookingEnabled Boolean @default(true)
+  bookingSlotMinutes Int @default(120)
+  bookingCapacity Int @default(10)
   sortOrder Int @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   contacts ContactPerson[]
+  bookings Booking[]
   @@index([businessId])
   @@index([isActive])
   @@index([sortOrder])

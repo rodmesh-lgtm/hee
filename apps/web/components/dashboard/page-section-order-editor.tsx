@@ -4,11 +4,11 @@ import { useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, GripVertical, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import type { PageModuleId } from "../../app/lib/page-modules";
 
-type ManagedId = Extract<PageModuleId, "about" | "services" | "location" | "contactTeam" | "portfolio" | "contact">;
+type ManagedId = Extract<PageModuleId, "request" | "services" | "portfolio" | "location" | "contactTeam" | "hours" | "contact" | "about">;
 type Props = { initialOrder: ManagedId[] };
 type SaveState = "idle" | "saving" | "saved" | "error";
-const DEFAULT_ORDER: ManagedId[] = ["about", "services", "portfolio", "location", "contactTeam", "contact"];
-const LABELS: Record<ManagedId,{title:string;description:string;eyebrow:string}>={about:{title:"عن المنشأة",description:"قصتك ونبذتك التعريفية",eyebrow:"STORY"},services:{title:"الخدمات",description:"ما الذي تقدمه لعملائك",eyebrow:"OFFER"},portfolio:{title:"أعمالنا",description:"صور ونماذج أعمالك",eyebrow:"PROOF"},location:{title:"الفروع والموقع",description:"أماكن تواجد النشاط",eyebrow:"PLACE"},contactTeam:{title:"فريق العمل",description:"الأشخاص الذين يمثلون نشاطك",eyebrow:"PEOPLE"},contact:{title:"معلومات التواصل",description:"قنوات التواصل الرسمية",eyebrow:"CONNECT"}};
+const DEFAULT_ORDER: ManagedId[] = ["request", "services", "portfolio", "location", "contactTeam", "hours", "contact", "about"];
+const LABELS: Record<ManagedId,{title:string;description:string;eyebrow:string}>={request:{title:"الحجز والطلب",description:"الحجز الذكي وطلب الخدمة عند تفعيله",eyebrow:"BOOK"},services:{title:"الخدمات",description:"ما الذي تقدمه لعملائك",eyebrow:"OFFER"},portfolio:{title:"أعمالنا",description:"صور ونماذج أعمالك",eyebrow:"PROOF"},location:{title:"الفروع والموقع",description:"أماكن تواجد النشاط",eyebrow:"PLACE"},contactTeam:{title:"فريق العمل",description:"الأشخاص الذين يمثلون نشاطك",eyebrow:"PEOPLE"},hours:{title:"ساعات العمل",description:"الأيام والأوقات المتاحة",eyebrow:"HOURS"},contact:{title:"معلومات التواصل",description:"قنوات التواصل الرسمية",eyebrow:"CONNECT"},about:{title:"عن المنشأة",description:"قصتك ونبذتك التعريفية",eyebrow:"STORY"}};
 function sameOrder(a:ManagedId[],b:ManagedId[]){return a.length===b.length&&a.every((x,i)=>x===b[i])}
 
 export function PageSectionOrderEditor({initialOrder}:Props){

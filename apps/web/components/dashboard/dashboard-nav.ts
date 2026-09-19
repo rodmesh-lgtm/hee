@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   Bell,
   BellRing,
+  CalendarDays,
   Home,
   Inbox,
   LifeBuoy,
@@ -27,9 +28,10 @@ export type DashboardNavItem = { label: string; href: string; icon: NavIcon; exa
 /** Customer navigation stays intentionally compact. Advanced editing surfaces remain reachable from their parent studios instead of competing for attention in the rail. */
 export const dashboardNavItems: DashboardNavItem[] = [
   { label: "مركز العمل", href: "/dashboard", icon: Home, exact: true },
-  { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound, activePrefixes: ["/dashboard/services", "/dashboard/products", "/dashboard/catalog", "/dashboard/gallery", "/dashboard/offers", "/dashboard/contact-links", "/dashboard/working-hours", "/dashboard/page-builder", "/dashboard/page-customization", "/dashboard/preview", "/dashboard/share", "/dashboard/branding", "/dashboard/directory", "/dashboard/tools"] },
+  { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound, activePrefixes: ["/dashboard/services", "/dashboard/products", "/dashboard/catalog", "/dashboard/gallery", "/dashboard/offers", "/dashboard/contact-links", "/dashboard/page-builder", "/dashboard/page-customization", "/dashboard/preview", "/dashboard/share", "/dashboard/branding", "/dashboard/directory", "/dashboard/tools"] },
   { label: "الهوية الرقمية", href: "/dashboard/digital-identity", icon: BadgeCheck, activePrefixes: ["/dashboard/verification"] },
-  { label: "الطلبات والحجوزات", href: "/dashboard/inbox", icon: Inbox },
+  { label: "الطلبات", href: "/dashboard/inbox", icon: Inbox },
+  { label: "المواعيد والحجوزات", href: "/dashboard/working-hours", icon: CalendarDays },
   { label: "تسويق واتساب", href: "/dashboard/whatsapp", icon: WhatsAppIcon, activePrefixes: ["/dashboard/whatsapp"] },
   { label: "التذكيرات الذكية", href: "/dashboard/reminders", icon: BellRing },
   { label: "الإشعارات", href: "/dashboard/notifications", icon: Bell },

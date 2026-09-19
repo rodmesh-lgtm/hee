@@ -31,7 +31,7 @@ function Item({ href, label, icon: Icon, badge, compact = false }: NavItem & { c
 }
 
 export function AdminDesktopNavigation() {
-  return <nav className="flex-1 overflow-y-auto px-3.5 py-4 [scrollbar-width:thin]" aria-label="تنقل إدارة المنصة">{groups.map((group, index) => <section key={group.eyebrow} className={index ? "mt-6" : ""}><div className="mb-2 flex items-center justify-between px-3"><p className="text-[8px] font-black tracking-[.18em] text-slate-600" dir="ltr">{group.eyebrow}</p><span className="text-[8px] font-bold text-slate-600">{group.label}</span></div><div className="space-y-1">{group.items.map((item) => <Item key={item.href} {...item} />)}</div></section>)}</nav>;
+  return <nav className="flex-1 overflow-y-auto px-3.5 py-4 [scrollbar-width:thin]" aria-label="تنقل إدارة المنصة">{groups.map((group, index) => <section key={group.eyebrow} className={index ? "mt-6" : ""}><div className="mb-2 flex flex-col items-start gap-1 px-3"><p className="text-[8px] font-black tracking-[.1em] text-slate-600" dir="ltr">{group.eyebrow}</p><span className="text-[8px] font-bold text-slate-600">{group.label}</span></div><div className="space-y-1">{group.items.map((item) => <Item key={item.href} {...item} />)}</div></section>)}</nav>;
 }
 
 const mobilePrimary: NavItem[] = [

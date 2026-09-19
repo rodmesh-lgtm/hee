@@ -17,9 +17,16 @@ function optionalInt(formData: FormData, key: string, min: number, max: number) 
   return Number.isInteger(value) && value >= min && value <= max ? value : undefined;
 }
 function refresh(slug: string) {
-  revalidatePath("/dashboard"); revalidatePath("/dashboard/services"); revalidatePath("/dashboard/my-page"); revalidatePath("/dashboard/inbox"); revalidatePath("/preview"); revalidatePath(`/${slug}`);
+  revalidatePath("/dashboard"); revalidatePath("/dashboard/services"); revalidatePath("/dashboard/working-hours"); revalidatePath("/dashboard/my-page"); revalidatePath("/dashboard/inbox"); revalidatePath("/preview"); revalidatePath(`/${slug}`);
 }
 async function lockServiceScope(tx: Prisma.TransactionClient, businessId: string) { await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${businessId}:services`}))`; }
+async function ensureDefaultBookingHours(tx: Prisma.TransactionClient, businessId: string) {
+  const hoursCount = await tx.workingHours.count({ where: { businessId } });
+  if (hoursCount > 0) return;
+  await tx.workingHours.createMany({
+    data: Array.from({ length: 7 }, (_, dayOfWeek) => ({ businessId, dayOfWeek, opensAt: "08:00", closesAt: "18:00", isClosed: false })),
+  });
+}
 
 export async function addSimpleServiceAction(formData: FormData) {
   const business = await ownedBusiness(); if (!business) return;
@@ -30,8 +37,11 @@ export async function addSimpleServiceAction(formData: FormData) {
     await lockServiceScope(tx, business.id);
     const serviceCount = await tx.service.count({ where: { businessId: business.id, deletedAt: null } });
     if (limitReached(serviceCount, entitlements.serviceLimit)) return "limit" as const;
+    const bookableCount = await tx.service.count({ where: { businessId: business.id, deletedAt: null, isActive: true, bookingEnabled: true } });
     const max = await tx.service.aggregate({ where: { businessId: business.id, deletedAt: null }, _max: { sortOrder: true } });
-    await tx.service.create({ data: { businessId: business.id, name, description: description || null, price: 0, isActive: true, bookingEnabled: false, sortOrder: (max._max.sortOrder ?? -1) + 1 } });
+    const autoEnableBooking = business.bookingAvailable && bookableCount === 0;
+    await tx.service.create({ data: { businessId: business.id, name, description: description || null, price: 0, isActive: true, bookingEnabled: autoEnableBooking, sortOrder: (max._max.sortOrder ?? -1) + 1 } });
+    if (autoEnableBooking) await ensureDefaultBookingHours(tx, business.id);
     return "created" as const;
   });
   if (result !== "created") return; refresh(business.slug);
@@ -54,7 +64,19 @@ export async function updateSimpleServiceAction(formData: FormData) {
 export async function updateBookingAvailabilityAction(formData: FormData) {
   const business = await ownedBusiness(); if (!business) return;
   const enabled = formData.get("bookingAvailable") === "on";
-  await db.business.updateMany({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, data: { bookingAvailable: enabled } });
+  await db.$transaction(async (tx) => {
+    await lockServiceScope(tx, business.id);
+    await tx.business.updateMany({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, data: { bookingAvailable: enabled } });
+    if (!enabled) return;
+    const bookableCount = await tx.service.count({ where: { businessId: business.id, deletedAt: null, isActive: true, bookingEnabled: true } });
+    if (bookableCount === 0) {
+      await tx.service.updateMany({
+        where: { businessId: business.id, deletedAt: null, isActive: true },
+        data: { bookingEnabled: true },
+      });
+    }
+    await ensureDefaultBookingHours(tx, business.id);
+  });
   refresh(business.slug);
 }
 

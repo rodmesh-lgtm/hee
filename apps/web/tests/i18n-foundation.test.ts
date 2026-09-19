@@ -49,5 +49,6 @@ test("locale preference is strict, durable and cannot become an open redirect", 
 test("global language control stays clear of the mobile dashboard navigation", () => {
   const switcher = read("components/language-switcher.tsx");
   assert.match(switcher, /pathname === "\/dashboard" \|\| pathname\.startsWith\("\/dashboard\/"\)/);
-  assert.match(switcher, /bottom-24 lg:bottom-4/);
+  assert.match(switcher, /bottom-\[calc\(6rem\+env\(safe-area-inset-bottom\)\)\] lg:bottom-4/);
+  assert.match(switcher, /pathname === "\/admin"/);
 });

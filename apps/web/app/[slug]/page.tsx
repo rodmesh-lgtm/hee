@@ -252,6 +252,12 @@ export default async function PublicBusinessPageRoute({
         phone={publicBusiness.phone}
         bookingAvailable={publicBusiness.bookingAvailable}
         hasWorkingHours={hasWorkingHours}
+        branches={publicBusiness.branches.map((branch) => ({
+          id: branch.id,
+          name: branch.name,
+          city: branch.city,
+          bookingEnabled: branch.bookingEnabled,
+        }))}
         services={publicBusiness.services.map((service) => ({
           id: service.id,
           name: service.name,

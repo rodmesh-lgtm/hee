@@ -32,6 +32,8 @@ async function seed(): Promise<Seeded> {
       isPublished: true,
       publishedAt: new Date(),
       bookingAvailable: true,
+      bookingSlotMinutes: 60,
+      bookingCapacity: 1,
       onboardingCompleted: true,
     },
   });
@@ -71,7 +73,7 @@ test.describe.serial("booking duration snapshot workflow", () => {
     await pool?.end();
   });
 
-  test("keeps the original occupied duration after the service duration changes", async ({ request }) => {
+  test("keeps the original slot duration after the service duration changes", async ({ request }) => {
     test.setTimeout(60_000);
     const seeded = await seed();
     const date = riyadhDateKey(2);
@@ -88,9 +90,9 @@ test.describe.serial("booking duration snapshot workflow", () => {
 
       await db.service.update({ where: { id: seeded.serviceId }, data: { durationMinutes: 30 } });
 
-      const overlapping = await postBooking(request, seeded, date, "10:45", "0500000202");
+      const overlapping = await postBooking(request, seeded, date, "10:00", "0500000202");
       expect(overlapping.status()).toBe(409);
-      expect((await overlapping.json()).error).toContain("يتداخل");
+      expect((await overlapping.json()).error).toContain("اكتملت");
 
       const boundary = await postBooking(request, seeded, date, "11:00", "0500000203");
       expect(boundary.status()).toBe(201);

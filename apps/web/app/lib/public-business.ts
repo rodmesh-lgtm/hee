@@ -50,6 +50,9 @@ export async function getBusinessPublic(slug: string) {
           address: true,
           googleMapsLink: true,
           isActive: true,
+          bookingEnabled: true,
+          bookingSlotMinutes: true,
+          bookingCapacity: true,
         },
       },
       // ContactPerson is the canonical team table. Loading the same rows again
