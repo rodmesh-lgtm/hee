@@ -52,6 +52,12 @@ test("Salla connection imports historical orders and supports an explicit refres
   assert.match(workingHoursActions, /syncSallaBookingOrdersAction/);
   assert.match(oauth, /pg_advisory_xact_lock\(hashtext/);
   assert.match(oauth, /SALLA_STORE_ALREADY_ASSIGNED/);
+  assert.match(oauth, /externalStoreId: `pending:\$\{randomUUID\(\)\}`/);
+  assert.match(oauth, /discoveringStore/);
+  assert.match(oauth, /externalStoreId: store\.merchantId/);
+  assert.doesNotMatch(page, /name="merchantId"/);
+  assert.match(page, /سيتعرّف INFRO على المتجر المصرّح به/);
+  assert.match(orderSync, /per_page", "30"/);
 });
 
 test("booking settings disclose when Salla gate becomes active without exposing order data publicly", () => {

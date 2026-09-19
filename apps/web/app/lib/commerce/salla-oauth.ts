@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 
 import { db } from "../db";
@@ -26,6 +26,39 @@ function digest(value: string) {
 function safeFailure(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   return /^SALLA_[A-Z0-9_]+$/.test(message) ? message : "SALLA_ACTIVATION_FAILED";
+}
+
+export async function prepareSallaIntegration(input: { businessId: string; userId: string }) {
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`salla-connect:${input.businessId}`}))`;
+    const existing = await tx.whatsAppCommerceIntegration.findFirst({
+      where: { businessId: input.businessId, provider: "salla" },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, status: true },
+    });
+    if (existing) return existing;
+    const integration = await tx.whatsAppCommerceIntegration.create({
+      data: {
+        id: randomUUID(),
+        businessId: input.businessId,
+        provider: "salla",
+        externalStoreId: `pending:${randomUUID()}`,
+        displayName: "متجر سلة",
+      },
+      select: { id: true, status: true },
+    });
+    await writeWhatsAppAuditLog({
+      businessId: input.businessId,
+      actorUserId: input.userId,
+      action: "commerce.integration.register",
+      targetType: "commerce_integration",
+      targetId: integration.id,
+      outcome: "success",
+      metadata: { provider: "salla", storeIdentity: "discovered_after_oauth" },
+      database: tx,
+    });
+    return integration;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
 export async function createSallaAuthorization(input: { businessId: string; userId: string; integrationId: string }) {
@@ -143,7 +176,8 @@ export async function completeSallaAuthorization(input: { businessId: string; us
 
     const token = await exchangeCode(input.code);
     const store = await verifyStore(token.accessToken);
-    if (store.merchantId !== claimed.expectedMerchantId) throw new Error("SALLA_STORE_OWNERSHIP_MISMATCH");
+    const discoveringStore = claimed.expectedMerchantId.startsWith("pending:");
+    if (!discoveringStore && store.merchantId !== claimed.expectedMerchantId) throw new Error("SALLA_STORE_OWNERSHIP_MISMATCH");
     const config = getSallaConfig();
     const credentialEnvelope = encryptCommerceCredential({
       plaintext: JSON.stringify({
@@ -170,8 +204,15 @@ export async function completeSallaAuthorization(input: { businessId: string; us
       });
       if (collision) throw new Error("SALLA_STORE_ALREADY_ASSIGNED");
       const updated = await tx.whatsAppCommerceIntegration.updateMany({
-        where: { id: integrationId, businessId: input.businessId, provider: "salla", externalStoreId: store.merchantId, status: { in: ["draft", "disconnected"] } },
+        where: {
+          id: integrationId,
+          businessId: input.businessId,
+          provider: "salla",
+          ...(discoveringStore ? { externalStoreId: claimed.expectedMerchantId } : { externalStoreId: store.merchantId }),
+          status: { in: ["draft", "disconnected"] },
+        },
         data: {
+          externalStoreId: store.merchantId,
           status: "active",
           credentialEnvelope: credentialEnvelope as unknown as Prisma.InputJsonValue,
           displayName: store.name,
