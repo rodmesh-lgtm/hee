@@ -2,6 +2,7 @@ import "server-only";
 
 import type { PrismaClient } from "@prisma/client";
 import { db } from "../db";
+import { getInfroReminderWhatsAppPhoneNumberId } from "../reminders/platform-whatsapp";
 import { whatsAppCustomerServiceWindow } from "./inbox-domain";
 
 export const WHATSAPP_CARE_OPERATIONS_LIMIT = 100;
@@ -28,10 +29,12 @@ export async function getWhatsAppCareOperations(input: {
   const query = boundedSearch(input.query);
   const filter = safeFilter(input.filter);
   const now = input.now ?? new Date();
+  const platformPhoneNumberId = getInfroReminderWhatsAppPhoneNumberId();
 
   const conversations = await database.whatsAppConversation.findMany({
     where: {
       businessId: input.businessId,
+      ...(platformPhoneNumberId ? { NOT: { phoneNumberId: platformPhoneNumberId } } : {}),
       ...(query ? {
         OR: [
           { customerPhoneE164: { contains: query, mode: "insensitive" } },

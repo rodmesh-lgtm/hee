@@ -45,7 +45,8 @@ export async function getWhatsAppInbox(input: {
     },
   });
   const requestedId = input.selectedConversationId?.trim();
-  const selectedId = requestedId && requestedId.length <= 128 ? requestedId : conversations[0]?.id;
+  // No implicit selection: returning to the list must work on narrow screens.
+  const selectedId = requestedId && requestedId.length <= 128 ? requestedId : undefined;
   const selected = selectedId ? await database.whatsAppConversation.findFirst({
     where: { ...where, id: selectedId },
     select: {
@@ -62,8 +63,21 @@ export async function getWhatsAppInbox(input: {
     },
   }) : null;
   const now = input.now ?? new Date();
+  const [customer, history] = selected ? await Promise.all([database.whatsAppContact.findFirst({
+    where: { businessId: input.businessId, phoneE164: selected.customerPhoneE164 },
+    select: { id: true, displayName: true, createdAt: true, optedOutAt: true,
+      tagMemberships: { where: { businessId: input.businessId }, take: 20, orderBy: { createdAt: "desc" },
+        select: { tag: { select: { name: true } } } },
+    },
+  }), database.whatsAppConversation.findMany({
+    where: { ...tenantInboxWhere(input.businessId, ""), customerPhoneE164: selected.customerPhoneE164, id: { not: selected.id } },
+    orderBy: [{ lastMessageAt: "desc" }, { id: "desc" }], take: 10,
+    select: { id: true, lastMessageAt: true, lastInboundAt: true, lastOutboundAt: true },
+  })]) : [null, []];
   return {
     conversations,
+    customer,
+    history,
     selected: selected ? { ...selected, messages: [...selected.messages].reverse(), serviceWindow: whatsAppCustomerServiceWindow(selected.lastInboundAt, now) } : null,
     query,
     limits: { conversations: CONVERSATION_LIMIT, messages: MESSAGE_LIMIT },

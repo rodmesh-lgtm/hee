@@ -15,6 +15,11 @@ test("customer care triage reads remain tenant scoped and bounded", () => {
   assert.match(care, /WHATSAPP_CARE_FILTERS\.includes/);
 });
 
+test("customer care excludes the central reminder sender just like the inbox", () => {
+  assert.match(care, /platformPhoneNumberId = getInfroReminderWhatsAppPhoneNumberId\(\)/);
+  assert.match(care, /NOT: \{ phoneNumberId: platformPhoneNumberId \}/);
+});
+
 test("needs-reply is derived from inbound versus outbound activity, not invented unread state", () => {
   assert.match(care, /conversation\.lastInboundAt > conversation\.lastOutboundAt/);
   assert.match(page, /آخر تفاعل وارد لم يتبعه صادر/);
