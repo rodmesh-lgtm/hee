@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "../db";
 import { processNextSmartReminderDelivery } from "../reminders/delivery-worker";
 import { processNextSallaWebhookEvent } from "../commerce/salla-webhook-processor";
+import { runPeriodicCommerceOrderSync } from "../commerce/periodic-order-sync";
 import { isSmartRemindersSchemaReady } from "../reminders/schema-readiness";
 import { runSmartReminderScheduler } from "../reminders/scheduler";
 import { processNextWhatsAppAutomationDelivery } from "./automation-delivery-worker";
@@ -140,6 +141,7 @@ export async function runVercelWhatsAppStage(stage: StageName, env: NodeJS.Proce
     case "whatsapp:shopify-subscriptions": return runShopifySubscriptions(env);
     case "whatsapp:shopify-webhooks": return runShopifyWebhooks(env);
     case "whatsapp:salla-webhooks": return runSallaWebhooks(env);
+    case "whatsapp:commerce-periodic-sync": await runPeriodicCommerceOrderSync({ env }); return;
     case "whatsapp:shopify-abandoned-carts": return runAbandonedCarts(env);
     case "whatsapp:campaigns": return runCampaigns(env);
     case "whatsapp:deliveries": return runDeliveries(env);

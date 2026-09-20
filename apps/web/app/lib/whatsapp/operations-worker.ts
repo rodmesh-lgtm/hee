@@ -8,6 +8,7 @@ export const WHATSAPP_OPERATION_STAGES = [
   "whatsapp:shopify-subscriptions",
   "whatsapp:shopify-webhooks",
   "whatsapp:salla-webhooks",
+  "whatsapp:commerce-periodic-sync",
   "whatsapp:shopify-abandoned-carts",
   "whatsapp:campaigns",
   "whatsapp:deliveries",
