@@ -25,6 +25,9 @@ function productionQaNotFoundResponse() { return new NextResponse(null, { status
 function withPrivateHeaders(response: NextResponse) { response.headers.set("X-Robots-Tag", "noindex, nofollow,noarchive"); response.headers.set("Cache-Control", "private, no-store, max-age=0"); response.headers.set("Pragma", "no-cache"); response.headers.set("Expires", "0"); response.headers.set("Referrer-Policy", "no-referrer"); return response; }
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl; const adminHost = isAdminControlHost(request); const host = requestHostname(request); const productionMainHost = host === "ir.sa" || host === "www.ir.sa";
+  // The approved public symbol is also used by the isolated admin shell.
+  // Allow only this asset's reads; all other non-admin paths remain denied.
+  if (adminHost && pathname === "/brand/infro-symbol-approved.png" && (request.method === "GET" || request.method === "HEAD")) return withPrivateHeaders(NextResponse.next());
   if (adminHost) { if (pathname === "/") { const url = request.nextUrl.clone(); url.pathname = "/admin"; return withPrivateHeaders(NextResponse.rewrite(url)); } if (pathname === "/login") { const url = request.nextUrl.clone(); url.pathname = "/admin-login"; return withPrivateHeaders(NextResponse.rewrite(url)); } if (pathname === "/admin-login" || pathname === "/admin" || pathname.startsWith("/admin/")) return withPrivateHeaders(NextResponse.next()); return adminControlPlaneNotFoundResponse(); }
   if (productionMaintenanceEnabled() && !isMaintenanceControlRead(request, pathname)) return maintenanceResponse();
   const isQaPath = pathname === "/qa" || pathname.startsWith("/qa/"); if (isProduction() && isQaPath) return productionQaNotFoundResponse();
