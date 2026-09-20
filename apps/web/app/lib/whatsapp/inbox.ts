@@ -4,6 +4,7 @@ import type { PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { getInfroReminderWhatsAppPhoneNumberId } from "../reminders/platform-whatsapp";
 import { whatsAppCustomerServiceWindow } from "./inbox-domain";
+import { whatsAppCareSlaState } from "./care-domain";
 
 const CONVERSATION_LIMIT = 50;
 const MESSAGE_LIMIT = 100;
@@ -40,7 +41,8 @@ export async function getWhatsAppInbox(input: {
     take: CONVERSATION_LIMIT,
     select: {
       id: true, customerPhoneE164: true, customerDisplayName: true,
-      lastMessageAt: true, lastInboundAt: true, lastOutboundAt: true,
+      lastMessageAt: true, lastInboundAt: true, lastOutboundAt: true, priority: true, slaDueAt: true,
+      assignee: { select: { id: true, name: true } },
       messages: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1, select: { direction: true, messageType: true, textBody: true, status: true } },
     },
   });
@@ -51,7 +53,8 @@ export async function getWhatsAppInbox(input: {
     where: { ...where, id: selectedId },
     select: {
       id: true, customerPhoneE164: true, customerDisplayName: true,
-      lastMessageAt: true, lastInboundAt: true, lastOutboundAt: true,
+      lastMessageAt: true, lastInboundAt: true, lastOutboundAt: true, priority: true, assignedToUserId: true, assignedAt: true, slaDueAt: true, slaRespondedAt: true,
+      assignee: { select: { id: true, name: true } },
       messages: {
         orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: MESSAGE_LIMIT,
         select: {
@@ -78,7 +81,7 @@ export async function getWhatsAppInbox(input: {
     conversations,
     customer,
     history,
-    selected: selected ? { ...selected, messages: [...selected.messages].reverse(), serviceWindow: whatsAppCustomerServiceWindow(selected.lastInboundAt, now) } : null,
+    selected: selected ? { ...selected, messages: [...selected.messages].reverse(), serviceWindow: whatsAppCustomerServiceWindow(selected.lastInboundAt, now), sla: whatsAppCareSlaState({ ...selected, now }) } : null,
     query,
     limits: { conversations: CONVERSATION_LIMIT, messages: MESSAGE_LIMIT },
   };

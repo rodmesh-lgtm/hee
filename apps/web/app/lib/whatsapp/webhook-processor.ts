@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { getInfroReminderWhatsAppConfig } from "../reminders/platform-whatsapp";
+import { whatsAppCareSlaDueAt } from "./care-domain";
 import { nextWhatsAppMessageStatus, type WhatsAppMessageStatus } from "./message-domain";
 import { parseInboundMessages, parseStatusReceipts } from "./webhook-message-parser";
 
@@ -83,11 +84,12 @@ async function processInbound(tx: Tx, event: ClaimedEvent) {
   const messages = parseInboundMessages(webhookValue(event.payload));
 
   for (const incoming of messages) {
-    const conversation: { id: string; businessId: string } = await tx.whatsAppConversation.upsert({
+    const inboundAt = incoming.providerTimestamp ?? new Date();
+    const conversation: { id: string; businessId: string; priority: string } = await tx.whatsAppConversation.upsert({
       where: { businessId_phoneNumberId_customerPhoneE164: { businessId: event.businessId, phoneNumberId: event.phoneNumberId, customerPhoneE164: incoming.customerPhoneE164 } },
-      create: { id: randomUUID(), businessId: event.businessId, phoneNumberId: event.phoneNumberId, customerPhoneE164: incoming.customerPhoneE164, customerDisplayName: incoming.customerDisplayName, lastMessageAt: incoming.providerTimestamp, lastInboundAt: incoming.providerTimestamp },
-      update: { ...(incoming.customerDisplayName ? { customerDisplayName: incoming.customerDisplayName } : {}), lastMessageAt: incoming.providerTimestamp, lastInboundAt: incoming.providerTimestamp },
-      select: { id: true, businessId: true },
+      create: { id: randomUUID(), businessId: event.businessId, phoneNumberId: event.phoneNumberId, customerPhoneE164: incoming.customerPhoneE164, customerDisplayName: incoming.customerDisplayName, lastMessageAt: inboundAt, lastInboundAt: inboundAt },
+      update: { ...(incoming.customerDisplayName ? { customerDisplayName: incoming.customerDisplayName } : {}), lastMessageAt: inboundAt, lastInboundAt: inboundAt },
+      select: { id: true, businessId: true, priority: true },
     });
     if (conversation.businessId !== event.businessId) throw new Error("WHATSAPP_CONVERSATION_TENANT_MISMATCH");
 
@@ -99,6 +101,12 @@ async function processInbound(tx: Tx, event: ClaimedEvent) {
       if (existing.businessId !== event.businessId || existing.conversationId !== conversation.id) throw new Error("WHATSAPP_MESSAGE_ID_TENANT_COLLISION");
       continue;
     }
+
+    await tx.whatsAppConversation.update({
+      where: { id_businessId: { id: conversation.id, businessId: event.businessId } },
+      data: { slaDueAt: whatsAppCareSlaDueAt(conversation.priority, inboundAt), slaRespondedAt: null },
+      select: { id: true },
+    });
 
     await tx.whatsAppMessage.create({
       data: { id: randomUUID(), businessId: event.businessId, conversationId: conversation.id, provider: event.provider, providerMessageId: incoming.providerMessageId, direction: "inbound", messageType: incoming.messageType, status: "received", textBody: incoming.textBody, payload: incoming.payload as Prisma.InputJsonValue, providerTimestamp: incoming.providerTimestamp },

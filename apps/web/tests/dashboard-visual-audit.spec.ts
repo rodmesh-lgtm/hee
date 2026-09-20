@@ -296,7 +296,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       const foreignContact=await db.whatsAppContact.create({data:{businessId:outsider.id,phoneE164:phone,displayName:"PRIVATE_OTHER_TENANT",source:"inbound"}});
       const foreignTag=await db.whatsAppContactTag.create({data:{businessId:outsider.id,name:"PRIVATE_OTHER_TAG",normalizedName:"private_other_tag"}});
       await db.whatsAppContactTagMembership.create({data:{businessId:outsider.id,contactId:foreignContact.id,tagId:foreignTag.id}});
-      const selected=await db.whatsAppConversation.create({data:{businessId,phoneNumberId:"inbox-primary",customerPhoneE164:phone,customerDisplayName:"عميل مراجعة المحادثات",lastInboundAt:new Date(),lastMessageAt:new Date()}});
+      const selected=await db.whatsAppConversation.create({data:{businessId,phoneNumberId:"inbox-primary",customerPhoneE164:phone,customerDisplayName:"عميل مراجعة المحادثات",lastInboundAt:new Date(),lastMessageAt:new Date(),assignedToUserId:seeded.userId,assignedAt:new Date(),priority:"urgent",slaDueAt:new Date(Date.now()+15*60_000)}});
       const related=await db.whatsAppConversation.create({data:{businessId,phoneNumberId:"inbox-secondary",customerPhoneE164:phone,lastMessageAt:new Date(Date.now()-3_600_000)}});
       const foreign=await db.whatsAppConversation.create({data:{businessId:outsider.id,phoneNumberId:"inbox-foreign",customerPhoneE164:phone,customerDisplayName:"PRIVATE_OTHER_TENANT",lastMessageAt:new Date()}});
       await db.whatsAppMessage.create({data:{businessId,conversationId:selected.id,providerMessageId:`visual-${crypto.randomUUID()}`,direction:"inbound",messageType:"text",status:"received",textBody:"أرغب بمتابعة الخدمة"}});
@@ -308,6 +308,9 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           const conversation=page.locator(`a[href="/dashboard/whatsapp/inbox?conversation=${selected.id}"]`);
           await expect(conversation).toBeVisible();
           await conversation.click();
+          await expect(page.getByRole("region",{name:"إدارة خدمة المحادثة"})).toContainText("عاجلة");
+          await expect(page.getByRole("region",{name:"إدارة خدمة المحادثة"})).toContainText("مالك المنشأة");
+          await expect(page.getByRole("button",{name:"حفظ المتابعة",exact:true})).toBeVisible();
           await page.getByText("سجل العميل والوسوم",{exact:true}).click();
           await expect(page.getByRole("list",{name:"وسوم العميل"})).toContainText("متابعة خدمة");
           await expect(page.getByRole("region",{name:"محادثات العميل الأخرى"}).locator(`a[href$="${related.id}"]`)).toBeVisible();
@@ -334,6 +337,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         const page=await viewerContext.newPage();
         await page.goto(`${baseUrl}/dashboard/whatsapp/inbox?conversation=${selected.id}`,{waitUntil:"domcontentloaded"});
         await expect(page.getByText("صلاحيتك تتيح مشاهدة المحادثة فقط.",{exact:false})).toBeVisible();
+        await expect(page.getByText("يحتاج التعديل إلى صلاحية إدارة صندوق المحادثات.",{exact:false})).toBeVisible();
+        await expect(page.getByRole("button",{name:"حفظ المتابعة",exact:true})).toHaveCount(0);
         await expect(page.getByRole("button",{name:"إرسال الرد",exact:true})).toHaveCount(0);
       }finally{await viewerContext.close();}
     }finally{

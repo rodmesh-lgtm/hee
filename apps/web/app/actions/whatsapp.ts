@@ -8,6 +8,8 @@ import { completeEmbeddedSignup, createEmbeddedSignupSession } from "../lib/what
 import type { WhatsAppConnectionPurpose } from "../lib/whatsapp/embedded-signup";
 import { enqueueWhatsAppReply } from "../lib/whatsapp/reply-queue";
 import { hasActiveBusinessSubscription } from "../lib/subscription-entitlement";
+import { isWhatsAppCarePriority } from "../lib/whatsapp/care-domain";
+import { updateWhatsAppConversationCare } from "../lib/whatsapp/care-management";
 const text = (data: FormData, key: string, max: number) => { const value = String(data.get(key) ?? "").trim(); return value.length > 0 && value.length <= max ? value : null; };
 export async function enqueueWhatsAppReplyAction(formData: FormData) {
   const context = await getWhatsAppWriteContext("reply"); if (!context) redirect("/dashboard/whatsapp/inbox?access=denied");
@@ -19,6 +21,26 @@ export async function enqueueWhatsAppReplyAction(formData: FormData) {
   catch (error) { const code = error instanceof Error ? error.message : ""; outcome = code === "WHATSAPP_REPLY_WINDOW_CLOSED" ? "window-closed" : code === "WHATSAPP_REPLY_QUEUE_FULL" ? "queue-full" : "unavailable"; }
   revalidatePath("/dashboard/whatsapp/inbox");
   redirect(`/dashboard/whatsapp/inbox?conversation=${encodeURIComponent(conversationId)}&reply=${outcome}`);
+}
+
+export async function updateWhatsAppConversationCareAction(formData: FormData) {
+  const context = await getWhatsAppWriteContext("inbox.manage");
+  if (!context) redirect("/dashboard/whatsapp/inbox?access=denied");
+  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
+  const conversationId = text(formData, "conversationId", 128);
+  const priorityValue = text(formData, "priority", 16);
+  const assigneeValue = String(formData.get("assignedToUserId") ?? "").trim();
+  const assignedToUserId = assigneeValue && assigneeValue.length <= 128 ? assigneeValue : null;
+  if (!conversationId || !priorityValue || !isWhatsAppCarePriority(priorityValue)) redirect("/dashboard/whatsapp/inbox?care=invalid");
+  let outcome = "updated";
+  try {
+    await updateWhatsAppConversationCare({ businessId: context.businessId, actorUserId: context.userId, conversationId, assignedToUserId, priority: priorityValue });
+  } catch {
+    outcome = "unavailable";
+  }
+  revalidatePath("/dashboard/whatsapp/inbox");
+  revalidatePath("/dashboard/whatsapp/inbox/operations");
+  redirect(`/dashboard/whatsapp/inbox?conversation=${encodeURIComponent(conversationId)}&care=${outcome}`);
 }
 
 async function purposeEntitled(businessId: string, purpose: WhatsAppConnectionPurpose) {
