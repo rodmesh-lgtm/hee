@@ -50,16 +50,24 @@ export async function runPeriodicCommerceOrderSync(input: { env?: NodeJS.Process
     });
     for (const integration of integrations) {
       attempted += 1;
+      let outcome = "success";
       try {
         await syncIntegration(provider, integration.businessId, integration.id);
         succeeded += 1;
       } catch {
+        outcome = "failed";
         failed += 1;
         await db.whatsAppCommerceIntegration.updateMany({
           where: { id: integration.id, businessId: integration.businessId, status: "active" },
           data: { lastErrorCode: `${provider.toUpperCase()}_ORDER_SYNC_FAILED` },
         }).catch(() => undefined);
       }
+      // Operational metadata only; never store credentials, order payloads or exception messages.
+      await db.analyticsEvent.create({ data: {
+        businessId: integration.businessId,
+        eventType: "commerce_periodic_sync_result",
+        metadata: { integrationId: integration.id, provider, outcome },
+      } }).catch(() => undefined);
     }
   }
   return { attempted, succeeded, failed };

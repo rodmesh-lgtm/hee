@@ -30,10 +30,16 @@ async function seedWorkspace():Promise<Seeded>{
   const admin=await db.user.upsert({where:{email:"infro-visual-admin@hee.test"},update:{name:"INFRO Visual Admin",deletedAt:null,emailVerifiedAt:new Date()},create:{name:"INFRO Visual Admin",email:"infro-visual-admin@hee.test",passwordHash:"visual-only",emailVerifiedAt:new Date()}});
   const adminSessionToken=crypto.randomUUID();
   await db.session.create({data:{token:adminSessionToken,userId:admin.id,expiresAt:new Date(Date.now()+60*60*1000)}});
+  const store=await db.whatsAppCommerceIntegration.create({data:{businessId:business.id,provider:"salla",externalStoreId:`visual-${suffix}`,displayName:"متجر اختبار متأخر",status:"active",connectedAt:new Date(Date.now()-86_400_000),lastWebhookAt:new Date(Date.now()-86_400_000),credentialEnvelope:{testSecret:"DO_NOT_RENDER_COMMERCE_SECRET"}}});
+  await db.whatsAppCommerceIntegration.create({data:{businessId:business.id,provider:"woocommerce",externalStoreId:`https://visual-${suffix}.example.com`,status:"active",connectedAt:new Date(),credentialEnvelope:{testSecret:"DO_NOT_RENDER_COMMERCE_SECRET"},lastErrorCode:"https://unsafe.example/token=DO_NOT_RENDER_COMMERCE_SECRET"}});
+  await db.sallaWebhookEvent.create({data:{businessId:business.id,integrationId:store.id,eventId:`visual-${suffix}`,eventType:"order.updated",merchantId:"123",payload:{testSecret:"DO_NOT_RENDER_COMMERCE_SECRET"},status:"failed",attemptCount:3,lastErrorCode:"SALLA_ORDER_SYNC_FAILED"}});
+  await db.analyticsEvent.create({data:{businessId:business.id,eventType:"commerce_periodic_sync_result",metadata:{integrationId:store.id,provider:"salla",outcome:"failed"}}});
   return{userId:user.id,businessId:business.id,sessionToken,adminUserId:admin.id,adminSessionToken};
 }
 
 async function cleanupWorkspace(value:Seeded){
+  await db.sallaWebhookEvent.deleteMany({where:{businessId:value.businessId}});
+  await db.whatsAppCommerceIntegration.deleteMany({where:{businessId:value.businessId}});
   await db.workingHours.deleteMany({where:{businessId:value.businessId}});
   await db.analyticsEvent.deleteMany({where:{businessId:value.businessId}});
   await db.$executeRaw(Prisma.sql`DELETE FROM "BusinessNote" WHERE "businessId"=${value.businessId}`);
@@ -212,6 +218,19 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
     await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
     await writeFile(`${outDir}/${input.viewportName}-${input.theme}-admin-dashboard.json`,JSON.stringify({...metrics,file,url:`${baseUrl}/admin`},null,2),"utf8");
     const results:unknown[]=[{...metrics,file,url:`${baseUrl}/admin`}];
+    const commerceResponse=await page.goto(`${baseUrl}/admin/commerce`,{waitUntil:"domcontentloaded",timeout:30_000});
+    expect(commerceResponse?.status()).toBe(200);
+    await expect(page.getByRole("heading",{name:"صحة تكاملات المتاجر",exact:true})).toBeVisible();
+    await expect(page.getByText("المزامنة متأخرة",{exact:true})).toBeVisible();
+    await expect(page.getByText("COMMERCE_OPERATION_FAILED",{exact:true})).toBeVisible();
+    await expect(page.locator("main")).not.toContainText("DO_NOT_RENDER_COMMERCE_SECRET");
+    await assertLanguageClearOfNavigation(page);
+    const commerceMetrics=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth-innerWidth,lightSurfaces:[...document.querySelectorAll<HTMLElement>("main section,main article")].filter(el=>{const r=el.getBoundingClientRect();const rgb=getComputedStyle(el).backgroundColor.match(/\d+(?:\.\d+)?/g)?.slice(0,3).map(Number)??[];return r.width>=140&&r.height>=72&&rgb.length===3&&rgb.every(value=>value>220)}).length}));
+    expect(commerceMetrics.overflow).toBeLessThanOrEqual(2);
+    if(input.theme==="dark")expect(commerceMetrics.lightSurfaces).toBe(0);
+    const commerceFile=`${input.viewportName}-${input.theme}-admin-commerce.png`;
+    await page.screenshot({path:`${outDir}/${commerceFile}`,fullPage:true});
+    results.push({...commerceMetrics,file:commerceFile,url:`${baseUrl}/admin/commerce`});
     const detailPath=`/admin/businesses/${input.businessId}`;
     const detailResponse=await page.goto(`${baseUrl}${detailPath}`,{waitUntil:"domcontentloaded"});
     expect(detailResponse?.status()).toBe(200);
@@ -236,6 +255,11 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
 test.describe.serial("authenticated INFRO visual audit",()=>{
   test.beforeAll(async()=>{await mkdir(outDir,{recursive:true});const connectionString=String(process.env.DATABASE_URL??"").trim();if(!connectionString)throw new Error("DATABASE_URL is required");pool=new Pool({connectionString,max:4});db=new PrismaClient({adapter:new PrismaPg(pool)});seeded=await seedWorkspace();});
   test.afterAll(async()=>{if(seeded)await cleanupWorkspace(seeded);await db?.$disconnect();await pool?.end();});
+  test("commerce operations deny a regular customer session",async({browser})=>{
+    if(!seeded)throw new Error("visual fixture missing");
+    const context=await authenticatedContext(browser,{width:390,height:844},"light",seeded.sessionToken);
+    try{const page=await context.newPage();await page.goto(`${baseUrl}/admin/commerce`);await expect(page).toHaveURL(/\/admin-login/);await expect(page.getByRole("heading",{name:"صحة تكاملات المتاجر",exact:true})).toHaveCount(0);}finally{await context.close();}
+  });
   test("captures launch-critical public and authenticated surfaces without overflow, collisions, light islands or compressed grids",async({browser})=>{
     test.setTimeout(600_000);if(!seeded)throw new Error("visual fixture missing");
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/tools",name:"tools"},{path:"/dashboard/verification",name:"verification"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
@@ -260,7 +284,31 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     await db.subscription.create({data:{businessId:business.id,planId:business.planId!,status:"active",provider:"internal",startsAt:new Date(Date.now()-60_000),endsAt:new Date(Date.now()+86_400_000),autoRenew:false}});
     await db.workingHours.createMany({data:Array.from({length:7},(_,dayOfWeek)=>({businessId:business.id,dayOfWeek,opensAt:"08:00",closesAt:"23:00",isClosed:false}))});
     await db.service.updateMany({where:{businessId:business.id},data:{sortOrder:2,bookingEnabled:true,durationMinutes:60}});
-    await db.service.create({data:{businessId:business.id,name:"الخدمة المقدمة أولاً",price:100,sortOrder:0,isActive:true,bookingEnabled:true,durationMinutes:60}});
+    await db.service.create({data:{businessId:business.id,name:"الخدمة المقدمة أولاً",price:100,sortOrder:3,isActive:true,bookingEnabled:true,durationMinutes:60}});
+    const editorContext=await authenticatedContext(browser,{width:1440,height:1200},"light",seeded.sessionToken);
+    try{
+      const editor=await editorContext.newPage();
+      await editor.goto(`${baseUrl}/dashboard/services`,{waitUntil:"networkidle"});
+      const handle=editor.getByRole("button",{name:"اسحب لترتيب الخدمة المقدمة أولاً",exact:true});
+      await handle.scrollIntoViewIfNeeded();
+      const from=await handle.boundingBox();
+      const to=await editor.getByRole("button",{name:"اسحب لترتيب استشارة أعمال",exact:true}).boundingBox();
+      const serviceSave=editor.waitForResponse(response=>response.url().endsWith("/api/dashboard/services/order")&&response.request().method()==="POST",{timeout:15_000});
+      await editor.mouse.move(from!.x+20,from!.y+20);await editor.mouse.down();await editor.mouse.move(to!.x+20,to!.y+20);await editor.mouse.up();
+      expect((await serviceSave).status()).toBe(200);
+      expect((await db.service.findMany({where:{businessId:business.id},orderBy:{sortOrder:"asc"}}))[0].name).toBe("الخدمة المقدمة أولاً");
+      await editor.goto(`${baseUrl}/dashboard/my-page`,{waitUntil:"networkidle"});
+      const sections=editor.getByRole("list",{name:"ترتيب أقسام الصفحة"}).getByRole("listitem");
+      const movedId=await sections.last().getAttribute("data-section-id");
+      await editor.getByRole("list",{name:"ترتيب أقسام الصفحة"}).scrollIntoViewIfNeeded();
+      const sectionFrom=await sections.last().getByRole("button",{name:/^اسحب لترتيب/}).boundingBox();
+      const sectionTo=await sections.first().boundingBox();
+      const sectionSave=editor.waitForResponse(response=>response.url().endsWith("/api/dashboard/page-modules/order")&&response.request().method()==="POST",{timeout:15_000});
+      await editor.mouse.move(sectionFrom!.x+20,sectionFrom!.y+20);await editor.mouse.down();await editor.mouse.move(sectionFrom!.x+20,sectionTo!.y+20);await editor.mouse.up();
+      expect((await sectionSave).status()).toBe(200);
+      await editor.reload({waitUntil:"networkidle"});
+      await expect(editor.getByRole("list",{name:"ترتيب أقسام الصفحة"}).getByRole("listitem").first()).toHaveAttribute("data-section-id",movedId!);
+    }finally{await editorContext.close();}
     const layouts=["عيادة","مطعم","متجر","مقاولات","لوجستيات","استشارات","ضيافة"];
     for(const [index,businessType] of layouts.entries()){
       const modules=getDefaultPageModules(businessType);

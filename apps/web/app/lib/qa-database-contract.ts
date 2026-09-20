@@ -78,6 +78,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260919143000_split_whatsapp_booking_and_marketing_numbers",
   "20260919173000_salla_booking_eligibility",
   "20260919221500_expand_booking_commerce_providers",
+  "20260920103000_fix_e164_database_checks",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;
