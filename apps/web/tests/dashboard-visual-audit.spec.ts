@@ -284,7 +284,31 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     await db.subscription.create({data:{businessId:business.id,planId:business.planId!,status:"active",provider:"internal",startsAt:new Date(Date.now()-60_000),endsAt:new Date(Date.now()+86_400_000),autoRenew:false}});
     await db.workingHours.createMany({data:Array.from({length:7},(_,dayOfWeek)=>({businessId:business.id,dayOfWeek,opensAt:"08:00",closesAt:"23:00",isClosed:false}))});
     await db.service.updateMany({where:{businessId:business.id},data:{sortOrder:2,bookingEnabled:true,durationMinutes:60}});
-    await db.service.create({data:{businessId:business.id,name:"الخدمة المقدمة أولاً",price:100,sortOrder:0,isActive:true,bookingEnabled:true,durationMinutes:60}});
+    await db.service.create({data:{businessId:business.id,name:"الخدمة المقدمة أولاً",price:100,sortOrder:3,isActive:true,bookingEnabled:true,durationMinutes:60}});
+    const editorContext=await authenticatedContext(browser,{width:1440,height:1200},"light",seeded.sessionToken);
+    try{
+      const editor=await editorContext.newPage();
+      await editor.goto(`${baseUrl}/dashboard/services`,{waitUntil:"networkidle"});
+      const handle=editor.getByRole("button",{name:"اسحب لترتيب الخدمة المقدمة أولاً",exact:true});
+      await handle.scrollIntoViewIfNeeded();
+      const from=await handle.boundingBox();
+      const to=await editor.getByRole("button",{name:"اسحب لترتيب استشارة أعمال",exact:true}).boundingBox();
+      const serviceSave=editor.waitForResponse(response=>response.url().endsWith("/api/dashboard/services/order")&&response.request().method()==="POST",{timeout:15_000});
+      await editor.mouse.move(from!.x+20,from!.y+20);await editor.mouse.down();await editor.mouse.move(to!.x+20,to!.y+20);await editor.mouse.up();
+      expect((await serviceSave).status()).toBe(200);
+      expect((await db.service.findMany({where:{businessId:business.id},orderBy:{sortOrder:"asc"}}))[0].name).toBe("الخدمة المقدمة أولاً");
+      await editor.goto(`${baseUrl}/dashboard/my-page`,{waitUntil:"networkidle"});
+      const sections=editor.getByRole("list",{name:"ترتيب أقسام الصفحة"}).getByRole("listitem");
+      const movedId=await sections.last().getAttribute("data-section-id");
+      await editor.getByRole("list",{name:"ترتيب أقسام الصفحة"}).scrollIntoViewIfNeeded();
+      const sectionFrom=await sections.last().getByRole("button",{name:/^اسحب لترتيب/}).boundingBox();
+      const sectionTo=await sections.first().boundingBox();
+      const sectionSave=editor.waitForResponse(response=>response.url().endsWith("/api/dashboard/page-modules/order")&&response.request().method()==="POST",{timeout:15_000});
+      await editor.mouse.move(sectionFrom!.x+20,sectionFrom!.y+20);await editor.mouse.down();await editor.mouse.move(sectionFrom!.x+20,sectionTo!.y+20);await editor.mouse.up();
+      expect((await sectionSave).status()).toBe(200);
+      await editor.reload({waitUntil:"networkidle"});
+      await expect(editor.getByRole("list",{name:"ترتيب أقسام الصفحة"}).getByRole("listitem").first()).toHaveAttribute("data-section-id",movedId!);
+    }finally{await editorContext.close();}
     const layouts=["عيادة","مطعم","متجر","مقاولات","لوجستيات","استشارات","ضيافة"];
     for(const [index,businessType] of layouts.entries()){
       const modules=getDefaultPageModules(businessType);
