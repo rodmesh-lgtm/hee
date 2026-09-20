@@ -260,7 +260,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     await db.subscription.create({data:{businessId:business.id,planId:business.planId!,status:"active",provider:"internal",startsAt:new Date(Date.now()-60_000),endsAt:new Date(Date.now()+86_400_000),autoRenew:false}});
     await db.workingHours.createMany({data:Array.from({length:7},(_,dayOfWeek)=>({businessId:business.id,dayOfWeek,opensAt:"08:00",closesAt:"23:00",isClosed:false}))});
     await db.service.updateMany({where:{businessId:business.id},data:{sortOrder:2,bookingEnabled:true,durationMinutes:60}});
-    await db.service.create({data:{businessId:business.id,name:"الخدمة المقدمة أولاً",sortOrder:0,isActive:true,bookingEnabled:true,durationMinutes:60}});
+    await db.service.create({data:{businessId:business.id,name:"الخدمة المقدمة أولاً",price:100,sortOrder:0,isActive:true,bookingEnabled:true,durationMinutes:60}});
     const layouts=["عيادة","مطعم","متجر","مقاولات","لوجستيات","استشارات","ضيافة"];
     for(const [index,businessType] of layouts.entries()){
       const modules=getDefaultPageModules(businessType);

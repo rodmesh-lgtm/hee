@@ -39,7 +39,7 @@ test("commerce-only cycles never process outbound or marketing queues", async ()
 
 test("commerce mode requires explicit enablement and exact production provenance", async () => {
   const state = databaseDouble();
-  const disabled = await runWhatsAppOperations({ database: state.database as never, env: { INFRO_COMMERCE_WORKER_ENABLED: "false" } });
+  const disabled = await runWhatsAppOperations({ database: state.database as never, env: { NODE_ENV: "test", INFRO_COMMERCE_WORKER_ENABLED: "false" } });
   assert.equal(disabled.enabled, false);
   await assert.rejects(runWhatsAppOperations({ database: state.database as never, env: { NODE_ENV: "production", INFRO_COMMERCE_WORKER_ENABLED: "true" } }), /WHATSAPP_RELEASE_SHA_REQUIRED/);
   assert.equal(state.writes.length, 0);
