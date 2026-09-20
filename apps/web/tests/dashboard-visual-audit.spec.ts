@@ -47,9 +47,14 @@ async function cleanupWorkspace(value:Seeded){
   await db.service.deleteMany({where:{businessId:value.businessId}});
   await db.subscription.deleteMany({where:{businessId:value.businessId}});
   await db.session.deleteMany({where:{userId:value.userId}});
-  await db.business.deleteMany({where:{id:value.businessId}});
-  await db.authIdentity.deleteMany({where:{userId:value.userId}});
-  await db.user.deleteMany({where:{id:value.userId}});
+  // Audit entries are append-only. Keep their tenant and actor in this disposable
+  // test database; its container teardown removes the database as a whole.
+  const hasAudit=await db.whatsAppAuditLog.count({where:{businessId:value.businessId}})>0;
+  if(!hasAudit){
+    await db.business.deleteMany({where:{id:value.businessId}});
+    await db.authIdentity.deleteMany({where:{userId:value.userId}});
+    await db.user.deleteMany({where:{id:value.userId}});
+  }
   await db.session.deleteMany({where:{userId:value.adminUserId}});
   await db.user.deleteMany({where:{id:value.adminUserId,businesses:{none:{}}}});
 }
@@ -290,7 +295,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     await db.businessMember.create({data:{businessId,userId:viewer.id,role:"viewer",status:"active"}});
     const phone="+966500000721";
     try{
-      const contact=await db.whatsAppContact.create({data:{businessId,phoneE164:phone,displayName:"عميل مراجعة المحادثات",source:"inbound"}});
+      const optedOutAt=new Date("2026-01-01T00:00:00.000Z");
+      const contact=await db.whatsAppContact.create({data:{businessId,phoneE164:phone,displayName:"عميل مراجعة المحادثات",source:"inbound",optedOutAt}});
       const tag=await db.whatsAppContactTag.create({data:{businessId,name:"متابعة خدمة",normalizedName:"متابعة خدمة"}});
       await db.whatsAppContactTagMembership.create({data:{businessId,contactId:contact.id,tagId:tag.id}});
       const foreignContact=await db.whatsAppContact.create({data:{businessId:outsider.id,phoneE164:phone,displayName:"PRIVATE_OTHER_TENANT",source:"inbound"}});
@@ -300,6 +306,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       const related=await db.whatsAppConversation.create({data:{businessId,phoneNumberId:"inbox-secondary",customerPhoneE164:phone,lastMessageAt:new Date(Date.now()-3_600_000)}});
       const foreign=await db.whatsAppConversation.create({data:{businessId:outsider.id,phoneNumberId:"inbox-foreign",customerPhoneE164:phone,customerDisplayName:"PRIVATE_OTHER_TENANT",lastMessageAt:new Date()}});
       await db.whatsAppMessage.create({data:{businessId,conversationId:selected.id,providerMessageId:`visual-${crypto.randomUUID()}`,direction:"inbound",messageType:"text",status:"received",textBody:"أرغب بمتابعة الخدمة"}});
+      let tagActionRequest: { body: string; headers: Record<string,string> } | null = null;
       for(const viewport of [{name:"mobile",width:390,height:844},{name:"desktop",width:1440,height:960}])for(const theme of ["light","dark"] as const){
         const context=await authenticatedContext(browser,viewport,theme,seeded.sessionToken);
         try{
@@ -313,6 +320,24 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.getByRole("button",{name:"حفظ المتابعة",exact:true})).toBeVisible();
           await page.getByText("سجل العميل والوسوم",{exact:true}).click();
           await expect(page.getByRole("list",{name:"وسوم العميل"})).toContainText("متابعة خدمة");
+          await page.getByLabel("اسم الوسم",{exact:true}).fill("متابعة جديدة");
+          const tagRequest=page.waitForRequest(request=>request.method()==="POST"&&request.url().includes("/dashboard/whatsapp/inbox"));
+          await page.getByRole("button",{name:"إضافة الوسم",exact:true}).click();
+          const submittedTagRequest=await tagRequest;
+          const actionHeaders=submittedTagRequest.headers();
+          tagActionRequest={body:submittedTagRequest.postData()!,headers:{"content-type":actionHeaders["content-type"],...(actionHeaders["next-action"]?{"next-action":actionHeaders["next-action"]}:{}),origin:baseUrl}};
+          await expect(page.getByRole("status")).toContainText("تمت إضافة الوسم");
+          await expect(page.getByRole("list",{name:"وسوم العميل"})).toContainText("متابعة جديدة");
+          await page.getByLabel("اسم الوسم",{exact:true}).fill("متابعة جديدة");
+          await page.getByRole("button",{name:"إضافة الوسم",exact:true}).click();
+          await expect(page.getByRole("button",{name:"إزالة وسم متابعة جديدة",exact:true})).toHaveCount(1);
+          expect(await db.whatsAppContactTagMembership.count({where:{businessId,contactId:contact.id,tag:{normalizedName:"متابعة جديدة"}}})).toBe(1);
+          await page.getByRole("button",{name:"إزالة وسم متابعة جديدة",exact:true}).click();
+          await expect(page.getByRole("status")).toContainText("تمت إزالة الوسم");
+          await expect(page.getByRole("list",{name:"وسوم العميل"})).not.toContainText("متابعة جديدة");
+          expect(await db.whatsAppContactTagMembership.count({where:{businessId:outsider.id,contactId:foreignContact.id}})).toBe(1);
+          expect(await db.whatsAppConsent.count({where:{businessId,phoneE164:phone}})).toBe(0);
+          expect((await db.whatsAppContact.findUniqueOrThrow({where:{id:contact.id}})).optedOutAt?.toISOString()).toBe(optedOutAt.toISOString());
           await expect(page.getByRole("region",{name:"محادثات العميل الأخرى"}).locator(`a[href$="${related.id}"]`)).toBeVisible();
           await expect(page.getByRole("button",{name:"إرسال الرد",exact:true})).toBeVisible();
           await expect(page.locator("body")).not.toContainText(/PRIVATE_OTHER_TENANT|PRIVATE_OTHER_TAG/);
@@ -322,6 +347,14 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
             expect(lightIslands).toBe(0);
           }
           await page.screenshot({path:`${outDir}/${viewport.name}-${theme}-whatsapp-customer-context.png`,fullPage:true});
+          // A forged hidden conversation ID must not mutate another tenant.
+          const tagForm=page.getByRole("button",{name:"إضافة الوسم",exact:true}).locator("..");
+          await tagForm.locator('input[name="conversationId"]').evaluate((node,id)=>{(node as HTMLInputElement).value=id;},foreign.id);
+          await page.getByLabel("اسم الوسم",{exact:true}).fill("forged-tag");
+          await page.getByRole("button",{name:"إضافة الوسم",exact:true}).click();
+          await expect(page).toHaveURL(/tags=unavailable/);
+          expect(await db.whatsAppContactTag.count({where:{normalizedName:"forged-tag",businessId:{in:[businessId,outsider.id]}}})).toBe(0);
+          await page.goto(`${baseUrl}/dashboard/whatsapp/inbox?conversation=${selected.id}`,{waitUntil:"domcontentloaded"});
           if(viewport.name==="mobile"){
             await page.getByRole("link",{name:"العودة إلى المحادثات",exact:true}).click();
             await expect(conversation).toBeVisible();
@@ -340,6 +373,15 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         await expect(page.getByText("يحتاج التعديل إلى صلاحية إدارة صندوق المحادثات.",{exact:false})).toBeVisible();
         await expect(page.getByRole("button",{name:"حفظ المتابعة",exact:true})).toHaveCount(0);
         await expect(page.getByRole("button",{name:"إرسال الرد",exact:true})).toHaveCount(0);
+        await page.getByText("سجل العميل والوسوم",{exact:true}).click();
+        await expect(page.getByText("تعديل الوسوم يحتاج صلاحية إدارة صندوق المحادثات.",{exact:true})).toBeVisible();
+        await expect(page.getByRole("button",{name:"إضافة الوسم",exact:true})).toHaveCount(0);
+        await expect(page.getByRole("button",{name:/إزالة وسم/})).toHaveCount(0);
+        if(!tagActionRequest)throw new Error("tag action request missing");
+        const auditCount=await db.whatsAppAuditLog.count({where:{businessId,action:"inbox.tags.update"}});
+        await viewerContext.request.post(`${baseUrl}/dashboard/whatsapp/inbox?conversation=${selected.id}`,{headers:tagActionRequest.headers,data:tagActionRequest.body});
+        expect(await db.whatsAppContactTagMembership.count({where:{businessId,contactId:contact.id,tag:{normalizedName:"متابعة جديدة"}}})).toBe(0);
+        expect(await db.whatsAppAuditLog.count({where:{businessId,action:"inbox.tags.update"}})).toBe(auditCount);
       }finally{await viewerContext.close();}
     }finally{
       for(const id of [businessId,outsider.id]){
