@@ -70,7 +70,7 @@ export async function getWhatsAppInbox(input: {
     where: { businessId: input.businessId, phoneE164: selected.customerPhoneE164 },
     select: { id: true, displayName: true, createdAt: true, optedOutAt: true,
       tagMemberships: { where: { businessId: input.businessId }, take: 20, orderBy: { createdAt: "desc" },
-        select: { tag: { select: { name: true } } } },
+        select: { tag: { select: { id: true, name: true } } } },
     },
   }), database.whatsAppConversation.findMany({
     where: { ...tenantInboxWhere(input.businessId, ""), customerPhoneE164: selected.customerPhoneE164, id: { not: selected.id } },

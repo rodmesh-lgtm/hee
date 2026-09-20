@@ -10,6 +10,7 @@ import { enqueueWhatsAppReply } from "../lib/whatsapp/reply-queue";
 import { hasActiveBusinessSubscription } from "../lib/subscription-entitlement";
 import { isWhatsAppCarePriority } from "../lib/whatsapp/care-domain";
 import { updateWhatsAppConversationCare } from "../lib/whatsapp/care-management";
+import { updateWhatsAppConversationContactTag } from "../lib/whatsapp/contact-tag-management";
 const text = (data: FormData, key: string, max: number) => { const value = String(data.get(key) ?? "").trim(); return value.length > 0 && value.length <= max ? value : null; };
 export async function enqueueWhatsAppReplyAction(formData: FormData) {
   const context = await getWhatsAppWriteContext("reply"); if (!context) redirect("/dashboard/whatsapp/inbox?access=denied");
@@ -41,6 +42,26 @@ export async function updateWhatsAppConversationCareAction(formData: FormData) {
   revalidatePath("/dashboard/whatsapp/inbox");
   revalidatePath("/dashboard/whatsapp/inbox/operations");
   redirect(`/dashboard/whatsapp/inbox?conversation=${encodeURIComponent(conversationId)}&care=${outcome}`);
+}
+
+export async function updateWhatsAppConversationContactTagAction(formData: FormData) {
+  const context = await getWhatsAppWriteContext("inbox.manage");
+  if (!context) redirect("/dashboard/whatsapp/inbox?access=denied");
+  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
+  const conversationId = text(formData, "conversationId", 128);
+  const tagName = text(formData, "tagName", 80);
+  const modeValue = text(formData, "mode", 8);
+  const mode = modeValue === "add" || modeValue === "remove" ? modeValue : null;
+  if (!conversationId || !tagName || !mode) redirect("/dashboard/whatsapp/inbox?tags=invalid");
+  let outcome = mode === "add" ? "added" : "removed";
+  try {
+    await updateWhatsAppConversationContactTag({ businessId: context.businessId, actorUserId: context.userId, conversationId, mode, tagName });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    outcome = code.includes("LIMIT_REACHED") ? "limit" : "unavailable";
+  }
+  revalidatePath("/dashboard/whatsapp/inbox");
+  redirect(`/dashboard/whatsapp/inbox?conversation=${encodeURIComponent(conversationId)}&tags=${outcome}`);
 }
 
 async function purposeEntitled(businessId: string, purpose: WhatsAppConnectionPurpose) {
