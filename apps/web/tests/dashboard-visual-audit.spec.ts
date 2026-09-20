@@ -218,7 +218,7 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
     await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
     await writeFile(`${outDir}/${input.viewportName}-${input.theme}-admin-dashboard.json`,JSON.stringify({...metrics,file,url:`${baseUrl}/admin`},null,2),"utf8");
     const results:unknown[]=[{...metrics,file,url:`${baseUrl}/admin`}];
-    const commerceResponse=await page.goto(`${baseUrl}/admin/commerce`,{waitUntil:"networkidle"});
+    const commerceResponse=await page.goto(`${baseUrl}/admin/commerce`,{waitUntil:"domcontentloaded",timeout:30_000});
     expect(commerceResponse?.status()).toBe(200);
     await expect(page.getByRole("heading",{name:"صحة تكاملات المتاجر",exact:true})).toBeVisible();
     await expect(page.getByText("المزامنة متأخرة",{exact:true})).toBeVisible();

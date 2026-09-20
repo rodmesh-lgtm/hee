@@ -106,6 +106,9 @@ test.describe.serial("public transactions workflow", () => {
       const integration = await db.whatsAppCommerceIntegration.create({ data: { businessId: seeded.businessId, provider: "salla", externalStoreId: `test-${seeded.businessId}`, status: "active", connectedAt: new Date(), credentialEnvelope: { testOnly: true } } });
       expect((await post(phones[0], "10:00")).status()).toBe(403);
       await db.commerceBookingEligibility.createMany({ data: phones.map((phone, index) => ({ businessId: seeded.businessId, integrationId: integration.id, provider: "salla", externalOrderId: `paid-${index}`, phoneE164: `+966${phone.slice(1)}`, eligible: true, paymentStatus: "paid", orderStatus: "confirmed", sourceEventId: `test-${index}` })) });
+      for (const phoneE164 of ["966500000311", "\\966500000311", "+012345678", "+123"]) {
+        await expect(db.commerceBookingEligibility.create({ data: { businessId: seeded.businessId, integrationId: integration.id, provider: "salla", externalOrderId: `invalid-${phoneE164}`, phoneE164, eligible: false, sourceEventId: "invalid-phone" } })).rejects.toThrow();
+      }
       const attempts = await Promise.all(phones.map(phone => post(phone, "10:00")));
       expect(attempts.map(response => response.status()).sort()).toEqual([201, 409]);
       expect(await db.booking.count({ where: { businessId: seeded.businessId } })).toBe(1);
@@ -113,6 +116,18 @@ test.describe.serial("public transactions workflow", () => {
       expect((await post(phones[0], "12:00")).status()).toBe(403);
       expect(await db.booking.count({ where: { businessId: seeded.businessId } })).toBe(1);
     } finally { await cleanup(seeded); }
+  });
+
+  test("global opt-out database accepts E164 and rejects malformed phones", async () => {
+    const phone = "+966500000399";
+    try {
+      await db.$executeRaw`INSERT INTO "InfroReminderWhatsAppOptOut" ("phoneE164","source") VALUES (${phone}, 'admin_compliance')`;
+      for (const invalid of ["966500000399", "\\966500000399", "+012345678", "+123"]) {
+        await expect(db.$executeRaw`INSERT INTO "InfroReminderWhatsAppOptOut" ("phoneE164","source") VALUES (${invalid}, 'admin_compliance')`).rejects.toThrow();
+      }
+    } finally {
+      await db.$executeRaw`DELETE FROM "InfroReminderWhatsAppOptOut" WHERE "phoneE164" IN (${phone}, '966500000399', ${"\\966500000399"}, '+012345678', '+123')`;
+    }
   });
 
   test("creates a public booking and safely manages it from a mobile inbox", async ({ browser }) => {
