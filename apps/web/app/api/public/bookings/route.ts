@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { after, NextResponse } from "next/server";
 import { db } from "../../../lib/db";
+import { retryBookingTransaction } from "../../../lib/retry-booking-transaction";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 import { normalizePublicSlug } from "../../../lib/public-url";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
@@ -519,7 +520,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await db.$transaction(async (tx) => {
+    const result = await retryBookingTransaction(() => db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`public-booking:${business.id}:${idempotencyKey}`}))`;
       const previous = await tx.$queryRaw<Array<{ targetId: string | null }>>`
         SELECT "targetId" FROM "PublicSubmission"
@@ -762,7 +763,7 @@ export async function POST(request: Request) {
         confirmationEventId = emitted.emitted ? emitted.eventId : null;
       }
       return { id: booking.id, replayed: false, confirmationEventId };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 
     if (result.confirmationEventId) {
       after(async () => {
