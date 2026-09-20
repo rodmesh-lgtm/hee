@@ -47,9 +47,14 @@ async function cleanupWorkspace(value:Seeded){
   await db.service.deleteMany({where:{businessId:value.businessId}});
   await db.subscription.deleteMany({where:{businessId:value.businessId}});
   await db.session.deleteMany({where:{userId:value.userId}});
-  await db.business.deleteMany({where:{id:value.businessId}});
-  await db.authIdentity.deleteMany({where:{userId:value.userId}});
-  await db.user.deleteMany({where:{id:value.userId}});
+  // Audit entries are append-only. Keep their tenant and actor in this disposable
+  // test database; its container teardown removes the database as a whole.
+  const hasAudit=await db.whatsAppAuditLog.count({where:{businessId:value.businessId}})>0;
+  if(!hasAudit){
+    await db.business.deleteMany({where:{id:value.businessId}});
+    await db.authIdentity.deleteMany({where:{userId:value.userId}});
+    await db.user.deleteMany({where:{id:value.userId}});
+  }
   await db.session.deleteMany({where:{userId:value.adminUserId}});
   await db.user.deleteMany({where:{id:value.adminUserId,businesses:{none:{}}}});
 }
@@ -380,7 +385,6 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       }finally{await viewerContext.close();}
     }finally{
       for(const id of [businessId,outsider.id]){
-        await db.whatsAppAuditLog.deleteMany({where:{businessId:id,action:"inbox.tags.update"}});
         await db.whatsAppMessage.deleteMany({where:{businessId:id}});
         await db.whatsAppConversation.deleteMany({where:{businessId:id}});
         await db.whatsAppContactTagMembership.deleteMany({where:{businessId:id}});
