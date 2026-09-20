@@ -4,9 +4,10 @@ import type { PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { getInfroReminderWhatsAppPhoneNumberId } from "../reminders/platform-whatsapp";
 import { whatsAppCustomerServiceWindow } from "./inbox-domain";
+import { whatsAppCareSlaState } from "./care-domain";
 
 export const WHATSAPP_CARE_OPERATIONS_LIMIT = 100;
-export const WHATSAPP_CARE_FILTERS = ["all", "needs-reply", "open-window", "template-required"] as const;
+export const WHATSAPP_CARE_FILTERS = ["all", "needs-reply", "overdue", "unassigned", "urgent", "open-window", "template-required"] as const;
 export type WhatsAppCareFilter = (typeof WHATSAPP_CARE_FILTERS)[number];
 
 function boundedSearch(value: string | undefined) {
@@ -51,6 +52,10 @@ export async function getWhatsAppCareOperations(input: {
       lastMessageAt: true,
       lastInboundAt: true,
       lastOutboundAt: true,
+      priority: true,
+      slaDueAt: true,
+      slaRespondedAt: true,
+      assignee: { select: { id: true, name: true } },
       messages: {
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 1,
@@ -65,7 +70,8 @@ export async function getWhatsAppCareOperations(input: {
       conversation.lastInboundAt &&
       (!conversation.lastOutboundAt || conversation.lastInboundAt > conversation.lastOutboundAt),
     );
-    return { ...conversation, serviceWindow, needsReply };
+    const sla = whatsAppCareSlaState({ ...conversation, now });
+    return { ...conversation, serviceWindow, needsReply, sla };
   });
 
   const summary = {
@@ -73,10 +79,15 @@ export async function getWhatsAppCareOperations(input: {
     needsReply: items.filter((item) => item.needsReply).length,
     openWindow: items.filter((item) => item.serviceWindow.open).length,
     templateRequired: items.filter((item) => !item.serviceWindow.open).length,
+    overdue: items.filter((item) => item.sla.overdue).length,
+    unassigned: items.filter((item) => !item.assignee).length,
   };
 
   const filtered = items.filter((item) => {
     if (filter === "needs-reply") return item.needsReply;
+    if (filter === "overdue") return item.sla.overdue;
+    if (filter === "unassigned") return !item.assignee;
+    if (filter === "urgent") return item.priority === "urgent";
     if (filter === "open-window") return item.serviceWindow.open;
     if (filter === "template-required") return !item.serviceWindow.open;
     return true;

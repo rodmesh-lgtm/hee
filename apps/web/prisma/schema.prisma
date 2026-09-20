@@ -27,6 +27,7 @@ model User {
   businessMemberships BusinessMember[]
   whatsappAuditLogs WhatsAppAuditLog[]
   whatsappAutomationsCreated WhatsAppAutomation[]
+  whatsappConversationsAssigned WhatsAppConversation[] @relation("WhatsAppConversationAssignee")
   whatsappAutomationApiKeysCreated WhatsAppAutomationApiKey[]
   @@index([email])
   @@index([emailVerifiedAt])
@@ -852,15 +853,23 @@ model WhatsAppConversation {
   lastMessageAt DateTime?
   lastInboundAt DateTime?
   lastOutboundAt DateTime?
+  assignedToUserId String?
+  assignedAt DateTime?
+  priority String @default("normal")
+  slaDueAt DateTime?
+  slaRespondedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  assignee User? @relation("WhatsAppConversationAssignee", fields: [assignedToUserId], references: [id], onDelete: Restrict)
   messages WhatsAppMessage[]
   replyJobs WhatsAppReplyJob[]
   @@unique([businessId, phoneNumberId, customerPhoneE164], map: "WhatsAppConversation_tenant_phone_unique")
   @@unique([id, businessId], map: "WhatsAppConversation_id_business_unique")
   @@unique([id, businessId, phoneNumberId], map: "WhatsAppConversation_id_business_phone_unique")
   @@index([businessId, lastMessageAt], map: "WhatsAppConversation_business_last_message_idx")
+  @@index([businessId, priority, slaDueAt], map: "WhatsAppConversation_business_priority_sla_idx")
+  @@index([businessId, assignedToUserId, lastMessageAt], map: "WhatsAppConversation_business_assignee_message_idx")
 }
 
 model WhatsAppMessage {

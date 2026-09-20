@@ -7,6 +7,8 @@ const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf
 const care = source("app/lib/whatsapp/care-operations.ts");
 const page = source("app/dashboard/whatsapp/inbox/operations/page.tsx");
 const layout = source("app/dashboard/whatsapp/inbox/layout.tsx");
+const management = source("app/lib/whatsapp/care-management.ts");
+const migration = source("prisma/migrations/20260920122000_whatsapp_care_assignment_sla/migration.sql");
 
 test("customer care triage reads remain tenant scoped and bounded", () => {
   assert.match(care, /businessId: input\.businessId/);
@@ -34,9 +36,33 @@ test("service-window triage reuses the WhatsApp 24-hour domain contract", () => 
   assert.match(page, /\/dashboard\/whatsapp\/inbox\?conversation=/);
 });
 
-test("operations board does not expose message bodies or pretend unsupported support features", () => {
+test("operations board does not expose message bodies and uses real assignment and SLA fields", () => {
   assert.doesNotMatch(care, /textBody/);
   assert.doesNotMatch(page, /message\.textBody|errorMessage|errorCode/);
-  assert.match(page, /لا تدّعي وجود تعيين موظفين أو SLA أو علامات/);
+  assert.match(page, /operations\.summary\.overdue/);
+  assert.match(page, /item\.assignee\?\.name/);
   assert.match(layout, /لوحة الفرز والمتابعة/);
+});
+
+test("assignment is tenant checked in application, database trigger and audit log", () => {
+  assert.match(management, /id: input\.businessId/);
+  assert.match(management, /members: \{ some: \{ userId: input\.assignedToUserId, status: "active"/);
+  assert.match(management, /id_businessId/);
+  assert.match(management, /action: "inbox\.care\.update"/);
+  assert.match(management, /database: tx/);
+  assert.match(migration, /validate_whatsapp_conversation_assignee/);
+  assert.match(migration, /bm\."businessId" = NEW\."businessId"/);
+  assert.match(migration, /bm\."status" = 'active'/);
+  assert.match(migration, /bm\."role" IN \('admin', 'support'\)/);
+  assert.match(migration, /BusinessMember_clear_ineligible_whatsapp_assignee/);
+  assert.match(migration, /SET "assignedToUserId" = NULL, "assignedAt" = NULL/);
+});
+
+test("SLA state is persisted from inbound activity and completed by an actual reply", () => {
+  const webhook = source("app/lib/whatsapp/webhook-processor.ts");
+  const replyWorker = source("app/lib/whatsapp/reply-worker.ts");
+  assert.match(webhook, /slaDueAt: whatsAppCareSlaDueAt/);
+  assert.match(webhook, /slaRespondedAt: null/);
+  assert.match(replyWorker, /slaRespondedAt: now/);
+  assert.match(migration, /WhatsAppConversation_priority_check/);
 });
