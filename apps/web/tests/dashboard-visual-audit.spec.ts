@@ -31,7 +31,7 @@ async function seedWorkspace():Promise<Seeded>{
   const adminSessionToken=crypto.randomUUID();
   await db.session.create({data:{token:adminSessionToken,userId:admin.id,expiresAt:new Date(Date.now()+60*60*1000)}});
   const store=await db.whatsAppCommerceIntegration.create({data:{businessId:business.id,provider:"salla",externalStoreId:`visual-${suffix}`,displayName:"متجر اختبار متأخر",status:"active",connectedAt:new Date(Date.now()-86_400_000),lastWebhookAt:new Date(Date.now()-86_400_000),credentialEnvelope:{testSecret:"DO_NOT_RENDER_COMMERCE_SECRET"}}});
-  await db.whatsAppCommerceIntegration.create({data:{businessId:business.id,provider:"woocommerce",externalStoreId:`https://visual-${suffix}.example.com`,status:"active",lastErrorCode:"https://unsafe.example/token=DO_NOT_RENDER_COMMERCE_SECRET"}});
+  await db.whatsAppCommerceIntegration.create({data:{businessId:business.id,provider:"woocommerce",externalStoreId:`https://visual-${suffix}.example.com`,status:"active",connectedAt:new Date(),credentialEnvelope:{testSecret:"DO_NOT_RENDER_COMMERCE_SECRET"},lastErrorCode:"https://unsafe.example/token=DO_NOT_RENDER_COMMERCE_SECRET"}});
   await db.sallaWebhookEvent.create({data:{businessId:business.id,integrationId:store.id,eventId:`visual-${suffix}`,eventType:"order.updated",merchantId:"123",payload:{testSecret:"DO_NOT_RENDER_COMMERCE_SECRET"},status:"failed",attemptCount:3,lastErrorCode:"SALLA_ORDER_SYNC_FAILED"}});
   await db.analyticsEvent.create({data:{businessId:business.id,eventType:"commerce_periodic_sync_result",metadata:{integrationId:store.id,provider:"salla",outcome:"failed"}}});
   return{userId:user.id,businessId:business.id,sessionToken,adminUserId:admin.id,adminSessionToken};

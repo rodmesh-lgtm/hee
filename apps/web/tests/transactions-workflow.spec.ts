@@ -103,7 +103,7 @@ test.describe.serial("public transactions workflow", () => {
     try {
       await db.business.update({ where: { id: seeded.businessId }, data: { bookingSlotMinutes: 60, bookingCapacity: 1 } });
       // Isolated synchronization fixture, not a live provider or WhatsApp delivery claim.
-      const integration = await db.whatsAppCommerceIntegration.create({ data: { businessId: seeded.businessId, provider: "salla", externalStoreId: `test-${seeded.businessId}`, status: "active" } });
+      const integration = await db.whatsAppCommerceIntegration.create({ data: { businessId: seeded.businessId, provider: "salla", externalStoreId: `test-${seeded.businessId}`, status: "active", connectedAt: new Date(), credentialEnvelope: { testOnly: true } } });
       expect((await post(phones[0], "10:00")).status()).toBe(403);
       await db.commerceBookingEligibility.createMany({ data: phones.map((phone, index) => ({ businessId: seeded.businessId, integrationId: integration.id, provider: "salla", externalOrderId: `paid-${index}`, phoneE164: `+966${phone.slice(1)}`, eligible: true, paymentStatus: "paid", orderStatus: "confirmed", sourceEventId: `test-${index}` })) });
       const attempts = await Promise.all(phones.map(phone => post(phone, "10:00")));
