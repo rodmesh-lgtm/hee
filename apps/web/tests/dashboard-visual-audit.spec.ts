@@ -277,6 +277,80 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     for(const adminViewport of [{viewportName:"desktop",viewport:{width:1440,height:960}},{viewportName:"tablet",viewport:{width:768,height:1024}},{viewportName:"mobile",viewport:{width:390,height:844}}])for(const theme of ["light","dark"] as const)results.push(...await auditAdminRoute(browser,{...adminViewport,theme,token:seeded.adminSessionToken,businessId:seeded.businessId}));
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
   });
+  test("WhatsApp customer context stays tenant-scoped and mobile back restores the list",async({browser})=>{
+    test.setTimeout(180_000);
+    if(!seeded)throw new Error("visual fixture missing");
+    const businessId=seeded.businessId;
+    const plan=await db.businessPlan.upsert({where:{code:"BUSINESS"},update:{},create:{code:"BUSINESS",name:"Business",monthlyPrice:99,productLimit:10,isActive:true}});
+    const subscription=await db.subscription.create({data:{businessId,planId:plan.id,status:"active",provider:"internal",startsAt:new Date(Date.now()-60_000),endsAt:new Date(Date.now()+86_400_000),autoRenew:false}});
+    const outsider=await db.business.create({data:{ownerId:seeded.adminUserId,name:"Other tenant",businessType:"خدمات",slug:`other-inbox-${crypto.randomUUID()}`}});
+    const viewer=await db.user.create({data:{name:"Inbox viewer",email:`viewer-${crypto.randomUUID()}@hee.test`,passwordHash:"test-only",emailVerifiedAt:new Date()}});
+    const viewerToken=crypto.randomUUID();
+    await db.session.create({data:{userId:viewer.id,token:viewerToken,expiresAt:new Date(Date.now()+3_600_000)}});
+    await db.businessMember.create({data:{businessId,userId:viewer.id,role:"viewer",status:"active"}});
+    const phone="+966500000721";
+    try{
+      const contact=await db.whatsAppContact.create({data:{businessId,phoneE164:phone,displayName:"عميل مراجعة المحادثات",source:"inbound"}});
+      const tag=await db.whatsAppContactTag.create({data:{businessId,name:"متابعة خدمة",normalizedName:"متابعة خدمة"}});
+      await db.whatsAppContactTagMembership.create({data:{businessId,contactId:contact.id,tagId:tag.id}});
+      const foreignContact=await db.whatsAppContact.create({data:{businessId:outsider.id,phoneE164:phone,displayName:"PRIVATE_OTHER_TENANT",source:"inbound"}});
+      const foreignTag=await db.whatsAppContactTag.create({data:{businessId:outsider.id,name:"PRIVATE_OTHER_TAG",normalizedName:"private_other_tag"}});
+      await db.whatsAppContactTagMembership.create({data:{businessId:outsider.id,contactId:foreignContact.id,tagId:foreignTag.id}});
+      const selected=await db.whatsAppConversation.create({data:{businessId,phoneNumberId:"inbox-primary",customerPhoneE164:phone,customerDisplayName:"عميل مراجعة المحادثات",lastInboundAt:new Date(),lastMessageAt:new Date()}});
+      const related=await db.whatsAppConversation.create({data:{businessId,phoneNumberId:"inbox-secondary",customerPhoneE164:phone,lastMessageAt:new Date(Date.now()-3_600_000)}});
+      const foreign=await db.whatsAppConversation.create({data:{businessId:outsider.id,phoneNumberId:"inbox-foreign",customerPhoneE164:phone,customerDisplayName:"PRIVATE_OTHER_TENANT",lastMessageAt:new Date()}});
+      await db.whatsAppMessage.create({data:{businessId,conversationId:selected.id,providerMessageId:`visual-${crypto.randomUUID()}`,direction:"inbound",messageType:"text",status:"received",textBody:"أرغب بمتابعة الخدمة"}});
+      for(const viewport of [{name:"mobile",width:390,height:844},{name:"desktop",width:1440,height:960}])for(const theme of ["light","dark"] as const){
+        const context=await authenticatedContext(browser,viewport,theme,seeded.sessionToken);
+        try{
+          const page=await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/inbox`,{waitUntil:"domcontentloaded"});
+          const conversation=page.locator(`a[href="/dashboard/whatsapp/inbox?conversation=${selected.id}"]`);
+          await expect(conversation).toBeVisible();
+          await conversation.click();
+          await page.getByText("سجل العميل والوسوم",{exact:true}).click();
+          await expect(page.getByRole("list",{name:"وسوم العميل"})).toContainText("متابعة خدمة");
+          await expect(page.getByRole("region",{name:"محادثات العميل الأخرى"}).locator(`a[href$="${related.id}"]`)).toBeVisible();
+          await expect(page.getByRole("button",{name:"إرسال الرد",exact:true})).toBeVisible();
+          await expect(page.locator("body")).not.toContainText(/PRIVATE_OTHER_TENANT|PRIVATE_OTHER_TAG/);
+          expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
+          if(theme==="dark"){
+            const lightIslands=await page.locator("details section").evaluateAll(nodes=>nodes.filter(node=>{const rgb=getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0,3).map(Number);return rgb?.every(value=>value>220)}).length);
+            expect(lightIslands).toBe(0);
+          }
+          await page.screenshot({path:`${outDir}/${viewport.name}-${theme}-whatsapp-customer-context.png`,fullPage:true});
+          if(viewport.name==="mobile"){
+            await page.getByRole("link",{name:"العودة إلى المحادثات",exact:true}).click();
+            await expect(conversation).toBeVisible();
+            await expect(page.getByRole("button",{name:"إرسال الرد",exact:true})).toHaveCount(0);
+          }
+          await page.goto(`${baseUrl}/dashboard/whatsapp/inbox?conversation=${foreign.id}`,{waitUntil:"domcontentloaded"});
+          await expect(page.getByText("سجل العميل والوسوم",{exact:true})).toHaveCount(0);
+          await expect(page.locator("body")).not.toContainText(/PRIVATE_OTHER_TENANT|PRIVATE_OTHER_TAG/);
+        }finally{await context.close();}
+      }
+      const viewerContext=await authenticatedContext(browser,{width:390,height:844},"light",viewerToken);
+      try{
+        const page=await viewerContext.newPage();
+        await page.goto(`${baseUrl}/dashboard/whatsapp/inbox?conversation=${selected.id}`,{waitUntil:"domcontentloaded"});
+        await expect(page.getByText("صلاحيتك تتيح مشاهدة المحادثة فقط.",{exact:false})).toBeVisible();
+        await expect(page.getByRole("button",{name:"إرسال الرد",exact:true})).toHaveCount(0);
+      }finally{await viewerContext.close();}
+    }finally{
+      for(const id of [businessId,outsider.id]){
+        await db.whatsAppMessage.deleteMany({where:{businessId:id}});
+        await db.whatsAppConversation.deleteMany({where:{businessId:id}});
+        await db.whatsAppContactTagMembership.deleteMany({where:{businessId:id}});
+        await db.whatsAppContactTag.deleteMany({where:{businessId:id}});
+        await db.whatsAppContact.deleteMany({where:{businessId:id}});
+      }
+      await db.businessMember.deleteMany({where:{userId:viewer.id}});
+      await db.session.deleteMany({where:{userId:viewer.id}});
+      await db.user.delete({where:{id:viewer.id}});
+      await db.business.delete({where:{id:outsider.id}});
+      await db.subscription.delete({where:{id:subscription.id}});
+    }
+  });
   test("seven activity layouts preserve stored ordering, configurable actions and optional booking on three screen sizes",async({browser})=>{
     test.setTimeout(600_000);
     if(!seeded)throw new Error("visual fixture missing");
