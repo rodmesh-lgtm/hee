@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { mkdir, writeFile } from "node:fs/promises";
+import { getDefaultPageModules } from "../app/lib/page-modules";
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 const outDir = process.env.INFRO_VISUAL_AUDIT_DIR || "/tmp/infro-visual-audit";
@@ -14,7 +15,7 @@ async function seedWorkspace():Promise<Seeded>{
   const suffix=`${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
   const plan=await db.businessPlan.upsert({where:{code:"FREE"},update:{isActive:true},create:{code:"FREE",name:"Free",monthlyPrice:0,productLimit:3,isActive:true}});
   const user=await db.user.create({data:{name:"INFRO Visual QA",email:`infro-visual-${suffix}@hee.test`,passwordHash:"visual-only",emailVerifiedAt:new Date()}});
-  const business=await db.business.create({data:{ownerId:user.id,planId:plan.id,name:"منشأة مراجعة INFRO",slug:`infro-visual-${suffix}`,businessType:"خدمات أعمال",shortDescription:"مساحة اختبار بصرية ووظيفية قبل الإطلاق",description:"بيانات مؤقتة لمراجعة واجهة INFRO.",phone:"0555000011",whatsapp:"966555000011",city:"الرياض",district:"العليا",isPublished:false,onboardingCompleted:true}});
+  const business=await db.business.create({data:{ownerId:user.id,planId:plan.id,name:"منشأة مراجعة INFRO",slug:`visual-audit-${suffix}`,businessType:"خدمات أعمال",shortDescription:"مساحة اختبار بصرية ووظيفية قبل الإطلاق",description:"بيانات مؤقتة لمراجعة واجهة INFRO.",phone:"0555000011",whatsapp:"966555000011",city:"الرياض",district:"العليا",isPublished:false,onboardingCompleted:true}});
   await db.service.create({data:{businessId:business.id,name:"استشارة أعمال",description:"خدمة اختبار",price:250,sortOrder:0}});
   await db.branch.create({data:{businessId:business.id,name:"الفرع الرئيسي",city:"الرياض",district:"العليا",isMain:true,sortOrder:0}});
   const noteIds=[crypto.randomUUID(),crypto.randomUUID(),crypto.randomUUID()];
@@ -33,6 +34,7 @@ async function seedWorkspace():Promise<Seeded>{
 }
 
 async function cleanupWorkspace(value:Seeded){
+  await db.workingHours.deleteMany({where:{businessId:value.businessId}});
   await db.analyticsEvent.deleteMany({where:{businessId:value.businessId}});
   await db.$executeRaw(Prisma.sql`DELETE FROM "BusinessNote" WHERE "businessId"=${value.businessId}`);
   await db.branch.deleteMany({where:{businessId:value.businessId}});
@@ -250,5 +252,56 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     }
     for(const adminViewport of [{viewportName:"desktop",viewport:{width:1440,height:960}},{viewportName:"tablet",viewport:{width:768,height:1024}},{viewportName:"mobile",viewport:{width:390,height:844}}])for(const theme of ["light","dark"] as const)results.push(...await auditAdminRoute(browser,{...adminViewport,theme,token:seeded.adminSessionToken,businessId:seeded.businessId}));
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
+  });
+  test("seven activity layouts preserve stored ordering, configurable actions and optional booking on three screen sizes",async({browser})=>{
+    test.setTimeout(600_000);
+    if(!seeded)throw new Error("visual fixture missing");
+    const business=await db.business.findUniqueOrThrow({where:{id:seeded.businessId}});
+    await db.subscription.create({data:{businessId:business.id,planId:business.planId!,status:"active",provider:"internal",startsAt:new Date(Date.now()-60_000),endsAt:new Date(Date.now()+86_400_000),autoRenew:false}});
+    await db.workingHours.createMany({data:Array.from({length:7},(_,dayOfWeek)=>({businessId:business.id,dayOfWeek,opensAt:"08:00",closesAt:"23:00",isClosed:false}))});
+    await db.service.updateMany({where:{businessId:business.id},data:{sortOrder:2,bookingEnabled:true,durationMinutes:60}});
+    await db.service.create({data:{businessId:business.id,name:"الخدمة المقدمة أولاً",price:100,sortOrder:0,isActive:true,bookingEnabled:true,durationMinutes:60}});
+    const layouts=["عيادة","مطعم","متجر","مقاولات","لوجستيات","استشارات","ضيافة"];
+    for(const [index,businessType] of layouts.entries()){
+      const modules=getDefaultPageModules(businessType);
+      for(const pageModule of modules){
+        if(pageModule.id==="location")pageModule.sortOrder=0;
+        else if(pageModule.id==="services")pageModule.sortOrder=1;
+        else pageModule.sortOrder+=10;
+        if(pageModule.id==="contact")pageModule.config.bottomActions=[{id:"phone",enabled:true,sortOrder:0},{id:"whatsapp",enabled:false,sortOrder:1},{id:"share",enabled:true,sortOrder:2}];
+      }
+      await db.business.update({where:{id:business.id},data:{businessType,isPublished:true,publishedAt:new Date(),bookingAvailable:true,pageModules:JSON.parse(JSON.stringify(modules))}});
+      for(const viewport of [{width:390,height:844},{width:768,height:1024},{width:1440,height:960}]){
+        const page=await browser.newPage({viewport});
+        try{
+          const response=await page.goto(`${baseUrl}/${business.slug}`,{waitUntil:"networkidle"});
+          expect(response?.status()).toBe(200);
+          await expect(page.getByRole("heading",{level:1,name:business.name})).toBeVisible();
+          const serviceLinks=page.locator('#highlights a[href="#services"]');
+          await expect(serviceLinks).toHaveCount(2);
+          await expect(serviceLinks.first()).toContainText("الخدمة المقدمة أولاً");
+          const ribbon=page.locator('[data-public-action-ribbon]');
+          await expect(ribbon.getByRole('link',{name:'واتساب',exact:true})).toHaveCount(0);
+          await expect(ribbon.locator('a,button')).toHaveText(['اتصال','']);
+          await expect(ribbon.getByRole('button',{name:'مشاركة',exact:true})).toBeVisible();
+          const locations=await page.locator('[data-public-module="location"]').boundingBox();
+          const services=await page.locator('#highlights').boundingBox();
+          expect(locations!.y).toBeLessThan(services!.y);
+          expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
+          await page.screenshot({path:`${outDir}/activity-${index}-${viewport.width}.png`,fullPage:true});
+          await page.getByRole('button',{name:'حجز موعد',exact:true}).click();
+          const dialog=page.getByRole('dialog',{name:'حجز موعد',exact:true});
+          await expect(dialog).toBeVisible();
+          const bounds=await dialog.boundingBox();
+          expect(bounds!.width).toBeLessThanOrEqual(viewport.width);
+          await expect(dialog).not.toContainText(/المقاعد المتبقية|الحجوزات المتبقية/);
+          await page.keyboard.press('Escape');
+          await db.business.update({where:{id:business.id},data:{bookingAvailable:false}});
+          await page.reload({waitUntil:'networkidle'});
+          await expect(page.getByRole('button',{name:'حجز موعد',exact:true})).toHaveCount(0);
+          await db.business.update({where:{id:business.id},data:{bookingAvailable:true}});
+        }finally{await page.close();}
+      }
+    }
   });
 });

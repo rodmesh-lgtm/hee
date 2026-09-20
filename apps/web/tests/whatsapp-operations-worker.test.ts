@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   WHATSAPP_OPERATION_STAGES,
+  COMMERCE_OPERATION_STAGES,
   runWhatsAppOperations,
 } from "../app/lib/whatsapp/operations-worker";
 
@@ -18,6 +19,31 @@ function databaseDouble() {
     },
   };
 }
+
+test("commerce-only cycles never process outbound or marketing queues", async () => {
+  const state = databaseDouble();
+  const stages: string[] = [];
+  const result = await runWhatsAppOperations({
+    database: state.database as never,
+    env: { NODE_ENV: "production", RELEASE_SHA: "c".repeat(40), INFRO_COMMERCE_WORKER_ENABLED: "true", WHATSAPP_OUTBOUND_ENABLED: "false" },
+    runStage: async (stage) => { stages.push(stage); },
+  });
+  assert.equal(result.enabled, true);
+  assert.deepEqual(stages, COMMERCE_OPERATION_STAGES);
+  assert.ok(stages.includes("whatsapp:commerce-periodic-sync"));
+  for (const forbidden of ["whatsapp:campaigns", "whatsapp:deliveries", "whatsapp:replies", "whatsapp:automations", "whatsapp:automation-deliveries", "whatsapp:reminder-deliveries"]) {
+    assert.ok(!stages.includes(forbidden));
+  }
+  assert.match(JSON.stringify(state.writes.at(-1)), /"mode":"commerce"/);
+});
+
+test("commerce mode requires explicit enablement and exact production provenance", async () => {
+  const state = databaseDouble();
+  const disabled = await runWhatsAppOperations({ database: state.database as never, env: { NODE_ENV: "test", INFRO_COMMERCE_WORKER_ENABLED: "false" } });
+  assert.equal(disabled.enabled, false);
+  await assert.rejects(runWhatsAppOperations({ database: state.database as never, env: { NODE_ENV: "production", INFRO_COMMERCE_WORKER_ENABLED: "true" } }), /WHATSAPP_RELEASE_SHA_REQUIRED/);
+  assert.equal(state.writes.length, 0);
+});
 
 test("operations worker stays fail-closed until explicitly enabled", async () => {
   const state = databaseDouble();

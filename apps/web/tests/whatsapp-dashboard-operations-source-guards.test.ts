@@ -103,6 +103,7 @@ test("central admin gets a read-only credential-safe WhatsApp overview", () => {
   assert.match(admin, /requireAdmin\(\)/);
   assert.match(admin, /مراقبة تشغيلية آمنة/);
   assert.match(admin, /whatsAppOperationsHeartbeat/);
-  assert.match(admin, /عامل WhatsApp/);
+  assert.match(admin, /عامل التشغيل المشترك/);
+  assert.match(admin, /مزامنة المتاجر فقط/);
   assert.doesNotMatch(admin, /credentialEnvelope|accessToken|textBody|rawPayload/);
 });

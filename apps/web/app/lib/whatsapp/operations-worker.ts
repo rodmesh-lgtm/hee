@@ -23,6 +23,19 @@ export const WHATSAPP_OPERATION_STAGES = [
 type StageName = (typeof WHATSAPP_OPERATION_STAGES)[number];
 type OperationsDatabase = Pick<PrismaClient, "whatsAppOperationsHeartbeat">;
 
+// Commerce maintenance does not grant permission to process outbound queues.
+export const COMMERCE_OPERATION_STAGES: readonly StageName[] = [
+  "whatsapp:shopify-subscriptions",
+  "whatsapp:shopify-webhooks",
+  "whatsapp:salla-webhooks",
+  "whatsapp:commerce-periodic-sync",
+];
+
+function fullOperationsEnabled(env: NodeJS.ProcessEnv) {
+  return env.WHATSAPP_MARKETING_WORKER_ENABLED === "true"
+    || env.INFRO_BOOKING_WORKER_ENABLED === "true";
+}
+
 function releaseSha(env: NodeJS.ProcessEnv) {
   const value = String(env.RELEASE_SHA ?? "").trim().toLowerCase();
   if (/^[0-9a-f]{40}$/.test(value)) return value;
@@ -35,8 +48,7 @@ function stageErrorCode(stage: StageName) {
 }
 
 export function whatsappOperationsEnabled(env: NodeJS.ProcessEnv = process.env) {
-  return env.WHATSAPP_MARKETING_WORKER_ENABLED === "true"
-    || env.INFRO_BOOKING_WORKER_ENABLED === "true";
+  return fullOperationsEnabled(env) || env.INFRO_COMMERCE_WORKER_ENABLED === "true";
 }
 
 export function runNpmStage(stage: StageName, env: NodeJS.ProcessEnv = process.env) {
@@ -63,13 +75,15 @@ export async function runWhatsAppOperations(input: {
   const startedAt = now();
   const completedStages: StageName[] = [];
   const failedStages: StageName[] = [];
+  const stages = fullOperationsEnabled(env) ? WHATSAPP_OPERATION_STAGES : COMMERCE_OPERATION_STAGES;
+  const mode = fullOperationsEnabled(env) ? "full" : "commerce";
   await input.database.whatsAppOperationsHeartbeat.upsert({
     where: { id: "whatsapp-operations" },
-    create: { id: "whatsapp-operations", lastStartedAt: startedAt, releaseSha: sha },
-    update: { lastStartedAt: startedAt, releaseSha: sha, lastErrorCode: null, details: { state: "running", completedStages } },
+    create: { id: "whatsapp-operations", lastStartedAt: startedAt, releaseSha: sha, details: { state: "running", mode, completedStages } },
+    update: { lastStartedAt: startedAt, releaseSha: sha, lastErrorCode: null, details: { state: "running", mode, completedStages } },
   });
   const runStage = input.runStage ?? runNpmStage;
-  for (const stage of WHATSAPP_OPERATION_STAGES) {
+  for (const stage of stages) {
     try { await runStage(stage, env); completedStages.push(stage); } catch { failedStages.push(stage); }
   }
   if (failedStages.length > 0) {
@@ -77,14 +91,14 @@ export async function runWhatsAppOperations(input: {
     const errorCode = failedStages.length === 1 ? stageErrorCode(failedStages[0]) : "WHATSAPP_MULTIPLE_STAGES_FAILED";
     await input.database.whatsAppOperationsHeartbeat.update({
       where: { id: "whatsapp-operations" },
-      data: { lastFailedAt: failedAt, lastErrorCode: errorCode, details: { state: "failed", failedStages, completedStages } },
+      data: { lastFailedAt: failedAt, lastErrorCode: errorCode, details: { state: "failed", mode, failedStages, completedStages } },
     });
     throw new Error(errorCode);
   }
   const succeededAt = now();
   await input.database.whatsAppOperationsHeartbeat.update({
     where: { id: "whatsapp-operations" },
-    data: { lastSucceededAt: succeededAt, lastErrorCode: null, details: { state: "succeeded", completedStages } },
+    data: { lastSucceededAt: succeededAt, lastErrorCode: null, details: { state: "succeeded", mode, completedStages } },
   });
   return { enabled: true as const, completedStages, releaseSha: sha, succeededAt };
 }
