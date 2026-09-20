@@ -380,6 +380,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       }finally{await viewerContext.close();}
     }finally{
       for(const id of [businessId,outsider.id]){
+        await db.whatsAppAuditLog.deleteMany({where:{businessId:id,action:"inbox.tags.update"}});
         await db.whatsAppMessage.deleteMany({where:{businessId:id}});
         await db.whatsAppConversation.deleteMany({where:{businessId:id}});
         await db.whatsAppContactTagMembership.deleteMany({where:{businessId:id}});
