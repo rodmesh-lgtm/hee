@@ -15,7 +15,7 @@ async function seedWorkspace():Promise<Seeded>{
   const suffix=`${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
   const plan=await db.businessPlan.upsert({where:{code:"FREE"},update:{isActive:true},create:{code:"FREE",name:"Free",monthlyPrice:0,productLimit:3,isActive:true}});
   const user=await db.user.create({data:{name:"INFRO Visual QA",email:`infro-visual-${suffix}@hee.test`,passwordHash:"visual-only",emailVerifiedAt:new Date()}});
-  const business=await db.business.create({data:{ownerId:user.id,planId:plan.id,name:"منشأة مراجعة INFRO",slug:`infro-visual-${suffix}`,businessType:"خدمات أعمال",shortDescription:"مساحة اختبار بصرية ووظيفية قبل الإطلاق",description:"بيانات مؤقتة لمراجعة واجهة INFRO.",phone:"0555000011",whatsapp:"966555000011",city:"الرياض",district:"العليا",isPublished:false,onboardingCompleted:true}});
+  const business=await db.business.create({data:{ownerId:user.id,planId:plan.id,name:"منشأة مراجعة INFRO",slug:`visual-audit-${suffix}`,businessType:"خدمات أعمال",shortDescription:"مساحة اختبار بصرية ووظيفية قبل الإطلاق",description:"بيانات مؤقتة لمراجعة واجهة INFRO.",phone:"0555000011",whatsapp:"966555000011",city:"الرياض",district:"العليا",isPublished:false,onboardingCompleted:true}});
   await db.service.create({data:{businessId:business.id,name:"استشارة أعمال",description:"خدمة اختبار",price:250,sortOrder:0}});
   await db.branch.create({data:{businessId:business.id,name:"الفرع الرئيسي",city:"الرياض",district:"العليا",isMain:true,sortOrder:0}});
   const noteIds=[crypto.randomUUID(),crypto.randomUUID(),crypto.randomUUID()];
@@ -274,7 +274,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       for(const viewport of [{width:390,height:844},{width:768,height:1024},{width:1440,height:960}]){
         const page=await browser.newPage({viewport});
         try{
-          await page.goto(`${baseUrl}/${business.slug}`,{waitUntil:"networkidle"});
+          const response=await page.goto(`${baseUrl}/${business.slug}`,{waitUntil:"networkidle"});
+          expect(response?.status()).toBe(200);
           await expect(page.getByRole("heading",{level:1,name:business.name})).toBeVisible();
           const serviceLinks=page.locator('#highlights a[href="#services"]');
           await expect(serviceLinks).toHaveCount(2);
