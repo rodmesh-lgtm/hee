@@ -28,6 +28,8 @@ test("signed live webhook alone enqueues after consent and activation, with orde
   assert.match(ingress, /enqueueSallaOrderConfirmation/);
   assert.match(enqueue, /consentedAt: \{ lte: input\.receivedAt \}/);
   assert.match(enqueue, /activatedAt: \{ lte: input\.receivedAt \}/);
+  assert.match(enqueue, /whatsAppAutomation\.findFirst/);
+  assert.match(enqueue, /activatedAt: "desc"/);
   assert.match(enqueue, /if \(contact\.optedOutAt\) return/);
   assert.match(enqueue, /externalEventId: `\$\{input\.eligibilityId\}:\$\{automation\.id\}`/);
   for (const worker of [processing, delivery]) {
