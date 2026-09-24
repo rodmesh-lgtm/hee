@@ -24,16 +24,18 @@ export async function enqueueSallaOrderConfirmation(input: {
     select: { id: true, optedOutAt: true },
   });
   if (contact.optedOutAt) return;
-  const automations = await input.database.whatsAppAutomation.findMany({
+  // Only the most recently activated route can send for an order, even if an
+  // earlier route was accidentally left active on a different sender.
+  const automation = await input.database.whatsAppAutomation.findFirst({
     where: { businessId: input.businessId, triggerType: "salla_order_confirmation", status: "active", activatedAt: { lte: input.receivedAt } },
+    orderBy: [{ activatedAt: "desc" }, { id: "asc" }],
     select: { id: true },
   });
-  for (const automation of automations) {
-    await ingestWhatsAppAutomationEvent({
-      database: input.database, businessId: input.businessId, automationId: automation.id,
-      source: "salla.order-confirmation", externalEventId: `${input.eligibilityId}:${automation.id}`,
-      triggerType: "salla_order_confirmation", subjectType: "salla.order.confirmed",
-      subjectId: input.eligibilityId, contactId: contact.id, occurredAt: input.receivedAt,
-    });
-  }
+  if (!automation) return;
+  await ingestWhatsAppAutomationEvent({
+    database: input.database, businessId: input.businessId, automationId: automation.id,
+    source: "salla.order-confirmation", externalEventId: `${input.eligibilityId}:${automation.id}`,
+    triggerType: "salla_order_confirmation", subjectType: "salla.order.confirmed",
+    subjectId: input.eligibilityId, contactId: contact.id, occurredAt: input.receivedAt,
+  });
 }
