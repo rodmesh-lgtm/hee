@@ -5,6 +5,7 @@ import { db } from "../db";
 import { automationIdempotencyKey, automationMatchesEvent, automationRetryAt, normalizeAutomationTriggerType, readTemplateActionConfig } from "./automation-domain";
 import { writeWhatsAppAuditLog } from "./audit";
 import { bookingConfirmationTemplateSupportsParameters, buildBookingConfirmationTemplateParameters } from "./booking-confirmation-domain";
+import { sallaOrderTemplateParameters, sallaOrderTemplateSupported } from "./salla-order-confirmation-domain";
 
 type AutomationDb = Pick<PrismaClient, "whatsAppAutomationEvent">;
 const MAX_EVENT_ATTEMPTS = 8;
@@ -91,7 +92,7 @@ export async function processWhatsAppAutomationEvent(input: {
       if (!event.contactId) throw new Error("WHATSAPP_AUTOMATION_CONTACT_REQUIRED");
       const contact = await tx.whatsAppContact.findFirst({
         where: { id: event.contactId, businessId: event.businessId },
-        select: { id: true, phoneE164: true, optedOutAt: true },
+        select: { id: true, phoneE164: true, displayName: true, optedOutAt: true },
       });
       if (!contact) throw new Error("WHATSAPP_AUTOMATION_CONTACT_NOT_FOUND");
       const consent = await tx.whatsAppConsent.findUnique({
@@ -100,6 +101,17 @@ export async function processWhatsAppAutomationEvent(input: {
       });
       let eventSkipReason: string | null = null;
       let bookingConfirmationParameters: ReturnType<typeof buildBookingConfirmationTemplateParameters> | null = null;
+      let sallaParameters: ReturnType<typeof sallaOrderTemplateParameters> | null = null;
+      if (event.triggerType === "salla_order_confirmation") {
+        const order = event.source === "salla.order-confirmation" && event.subjectType === "salla.order.confirmed"
+          ? await tx.commerceBookingEligibility.findFirst({
+            where: { id: event.subjectId, businessId: event.businessId, provider: "salla", eligible: true,
+              phoneE164: contact.phoneE164, integration: { businessId: event.businessId, provider: "salla", status: "active" } },
+            select: { externalOrderId: true, business: { select: { name: true } } },
+          }) : null;
+        if (!order) eventSkipReason = "salla_order_no_longer_confirmed";
+        else sallaParameters = sallaOrderTemplateParameters(contact.displayName, order.business.name, order.externalOrderId);
+      }
       if (event.triggerType === "booking_confirmation") {
         const booking = event.subjectType === "booking.created" ? await tx.booking.findFirst({
           where: { id: event.subjectId, businessId: event.businessId, status: { in: ["pending", "confirmed"] } },
@@ -189,15 +201,18 @@ export async function processWhatsAppAutomationEvent(input: {
               ...(event.triggerType === "booking_confirmation" ? { bookingEnabled: true } : { marketingEnabled: true }),
             },
           },
-          select: { id: true, components: true, parameterFormat: true },
+          select: { id: true, category: true, components: true, parameterFormat: true },
         });
         if (!template) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_NOT_APPROVED");
+        if (event.triggerType === "salla_order_confirmation" && (template.category !== "utility" || !sallaOrderTemplateSupported(template.components, template.parameterFormat))) {
+          throw new Error("SALLA_ORDER_CONFIRMATION_TEMPLATE_INVALID");
+        }
         if (event.triggerType === "booking_confirmation" && !bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)) {
           throw new Error("WHATSAPP_BOOKING_CONFIRMATION_TEMPLATE_INVALID");
         }
         const templateParameters = event.triggerType === "booking_confirmation"
           ? bookingConfirmationParameters
-          : action.parameters;
+          : event.triggerType === "salla_order_confirmation" ? sallaParameters : action.parameters;
         await tx.whatsAppAutomationJob.upsert({
           where: { runId: run.id },
           create: {
