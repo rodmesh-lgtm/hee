@@ -5,6 +5,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "../whatsapp/audit";
 import { mapSallaOrderWebhook } from "./salla-domain";
+import { enqueueSallaOrderConfirmation } from "./salla-order-confirmation";
 
 const MAX_ATTEMPTS = 8;
 const LEASE_MS = 5 * 60_000;
@@ -75,11 +76,11 @@ export async function processSallaWebhookEvent(input: {
 
       const current = await tx.commerceBookingEligibility.findUnique({
         where: { integrationId_externalOrderId: { integrationId: event.integrationId, externalOrderId: mapping.order.externalOrderId } },
-        select: { providerUpdatedAt: true },
+        select: { providerUpdatedAt: true, eligible: true },
       });
       const stale = Boolean(current?.providerUpdatedAt && mapping.order.providerUpdatedAt && current.providerUpdatedAt > mapping.order.providerUpdatedAt);
       if (!stale) {
-        await tx.commerceBookingEligibility.upsert({
+        const eligibility = await tx.commerceBookingEligibility.upsert({
           where: { integrationId_externalOrderId: { integrationId: event.integrationId, externalOrderId: mapping.order.externalOrderId } },
           create: {
             businessId: event.businessId,
@@ -103,6 +104,10 @@ export async function processSallaWebhookEvent(input: {
             sourceEventId: event.eventId,
           },
         });
+        if (mapping.order.eligible && !current?.eligible) {
+          await enqueueSallaOrderConfirmation({ database: tx, businessId: event.businessId,
+            eligibilityId: eligibility.id, phoneE164: mapping.order.phoneE164, receivedAt: event.receivedAt });
+        }
       }
       await tx.sallaWebhookEvent.update({
         where: { id: event.id },

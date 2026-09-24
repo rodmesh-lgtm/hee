@@ -6,6 +6,7 @@ import { db } from "../db";
 import { writeWhatsAppAuditLog } from "./audit";
 import { buildAutomationTriggerConfig, normalizeAutomationTriggerType, readAutomationTriggerConfig, readTemplateActionConfig, templateHasVariables, WHATSAPP_CONFIGURABLE_TRIGGER_TYPES } from "./automation-domain";
 import { bookingConfirmationTemplateSupportsParameters } from "./booking-confirmation-domain";
+import { sallaOrderTemplateSupported } from "./salla-order-confirmation-domain";
 
 type AutomationOperationsDb = Pick<PrismaClient, "$transaction">;
 type AutomationOperation = "activate" | "pause" | "resume";
@@ -39,11 +40,13 @@ async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
         ...(input.triggerType === "booking_confirmation" ? { bookingEnabled: true } : { marketingEnabled: true }),
       },
     },
-    select: { id: true, connectionId: true, components: true, parameterFormat: true },
+    select: { id: true, connectionId: true, category: true, components: true, parameterFormat: true },
   });
   const runnable = template && (input.triggerType === "booking_confirmation"
     ? bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)
-    : !templateHasVariables(template.components));
+    : input.triggerType === "salla_order_confirmation"
+      ? template.category === "utility" && sallaOrderTemplateSupported(template.components, template.parameterFormat)
+      : !templateHasVariables(template.components));
   if (!template || !runnable) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_NOT_RUNNABLE");
   return template;
 }
@@ -65,7 +68,7 @@ export async function createWhatsAppAutomation(input: {
   }
   if (!/^[0-9a-f-]{36}$/i.test(input.templateId)) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_INVALID");
 
-  const effectiveCooldownMinutes = triggerType === "booking_confirmation" ? 0 : input.cooldownMinutes;
+  const effectiveCooldownMinutes = ["booking_confirmation", "salla_order_confirmation"].includes(triggerType) ? 0 : input.cooldownMinutes;
   return database.$transaction(async (tx) => {
     const template = await assertRunnableTemplate(tx, {
       businessId: input.businessId,

@@ -101,9 +101,9 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     select: {
       templateParameters: true,
       automation: { select: { status: true, triggerConfig: true } },
-      run: { select: { event: { select: { triggerType: true, subjectType: true, subjectId: true, occurredAt: true } } } },
+      run: { select: { event: { select: { source: true, triggerType: true, subjectType: true, subjectId: true, occurredAt: true } } } },
       contact: { select: { id: true, phoneE164: true, displayName: true, optedOutAt: true } },
-      template: { select: { provider: true, status: true, name: true, language: true } },
+      template: { select: { provider: true, status: true, category: true, name: true, language: true } },
       connection: { select: { provider: true, status: true, phoneNumberId: true, credentialEnvelope: true, marketingEnabled: true, bookingEnabled: true } },
     },
   });
@@ -132,6 +132,22 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   if (!connectionPurposeActive) {
     await releaseAs(database, job, "cancelled", now, "WHATSAPP_CONNECTION_PURPOSE_INACTIVE");
     return { processed: true as const, result: "cancelled" as const, jobId: job.id };
+  }
+  if (context.run.event.triggerType === "salla_order_confirmation") {
+    if (context.template.category !== "utility") {
+      await releaseAs(database, job, "cancelled", now, "SALLA_ORDER_CONFIRMATION_TEMPLATE_NOT_UTILITY");
+      return { processed: true as const, result: "cancelled" as const, jobId: job.id };
+    }
+    const order = context.run.event.source === "salla.order-confirmation" && context.run.event.subjectType === "salla.order.confirmed"
+      ? await database.commerceBookingEligibility.findFirst({
+        where: { id: context.run.event.subjectId, businessId: job.businessId, provider: "salla", eligible: true,
+          phoneE164: context.contact.phoneE164, integration: { businessId: job.businessId, provider: "salla", status: "active" } },
+        select: { id: true },
+      }) : null;
+    if (!order) {
+      await releaseAs(database, job, "cancelled", now, "SALLA_ORDER_NO_LONGER_CONFIRMED");
+      return { processed: true as const, result: "order_closed" as const, jobId: job.id };
+    }
   }
   if (context.run.event.triggerType === "appointment_reminder") {
     const booking = context.run.event.subjectType === "booking.reminder" ? await database.booking.findFirst({
