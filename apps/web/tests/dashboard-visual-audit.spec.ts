@@ -317,6 +317,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.locator("body")).not.toContainText("DO_NOT_RENDER_JOURNEY_SECRET");
           if (theme === "dark") {
             expect(await studio.evaluate(node => { const rgb = getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0, 3).map(Number); return rgb?.every(value => value > 220); })).toBe(false);
+            expect(await studio.locator("header, aside, div").evaluateAll(nodes => nodes.filter(node => { const rect = node.getBoundingClientRect(); const rgb = getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0, 3).map(Number); return rect.width >= 140 && rect.height >= 72 && rgb?.every(value => value > 220); }).length)).toBe(0);
           }
           await studio.screenshot({ path: `${outDir}/${viewport.name}-${theme}-salla-journeys.png` });
           await studio.getByRole("button", { name: "إنشاء كمسودة", exact: true }).click();
