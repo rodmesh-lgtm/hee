@@ -311,6 +311,9 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await studio.getByLabel("وقت الإرسال بعد تغيّر الحالة").selectOption("60");
           const name = `journey-${viewport.name}-${theme}-${suffix}`;
           await studio.getByLabel("اسم المسار", { exact: true }).fill(name);
+          const submitStyle = await studio.getByRole("button", { name: "إنشاء كمسودة", exact: true }).evaluate(node => ({ background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color }));
+          expect(submitStyle.background).not.toBe("rgb(255, 255, 255)");
+          expect(submitStyle.background).not.toBe(submitStyle.color);
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
           await expect(page.locator("body")).not.toContainText("DO_NOT_RENDER_JOURNEY_SECRET");
           if (theme === "dark") {

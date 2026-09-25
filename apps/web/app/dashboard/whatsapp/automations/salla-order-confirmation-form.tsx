@@ -70,5 +70,5 @@ function Readiness({ ready, label }: { ready: boolean; label: string }) {
 
 function Submit({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
-  return <button disabled={disabled || pending} className="min-h-12 w-full rounded-xl bg-[#07181b] px-5 py-3 font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:opacity-40 [[data-dashboard-theme=dark]_&]:bg-teal-400 [[data-dashboard-theme=dark]_&]:text-slate-950">{pending ? "جارٍ حفظ المسار…" : "إنشاء كمسودة"}</button>;
+  return <button disabled={disabled || pending} className="min-h-12 w-full rounded-xl bg-[#008f87] px-5 py-3 font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:opacity-40 [[data-dashboard-theme=dark]_&]:bg-teal-400 [[data-dashboard-theme=dark]_&]:text-slate-950">{pending ? "جارٍ حفظ المسار…" : "إنشاء كمسودة"}</button>;
 }
