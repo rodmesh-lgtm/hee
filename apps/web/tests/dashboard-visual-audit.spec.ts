@@ -295,8 +295,9 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     try {
       for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
         const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
+        const page = await context.newPage();
+        page.setDefaultTimeout(15_000);
         try {
-          const page = await context.newPage();
           await page.goto(`${baseUrl}/dashboard/whatsapp/automations`, { waitUntil: "domcontentloaded" });
           const studio = page.locator("#salla-journeys");
           await expect(studio).toBeVisible();
@@ -331,13 +332,17 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await studio.getByLabel("اسم المسار", { exact: true }).fill(`${name}-paid`);
           await studio.getByRole("button", { name: "إنشاء كمسودة", exact: true }).click();
           await expect.poll(() => db.whatsAppAutomation.count({ where: { businessId, name: `${name}-paid`, status: "draft", triggerType: "salla_order_confirmation" } })).toBe(1);
+        } catch (error) {
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-salla-failed.png`, fullPage: true }).catch(() => {});
+          await writeFile(`${outDir}/${viewport.name}-${theme}-salla-failed.txt`, `${page.url()}\n${await page.locator("body").innerText().catch(() => "page unavailable")}`, "utf8");
+          throw error;
         } finally { await context.close(); }
       }
     } finally {
       await db.whatsAppAutomation.deleteMany({ where: { businessId, connectionId: { in: [connection.id, second.id] } } });
-      await db.whatsAppTemplate.delete({ where: { id: template.id } });
+      await db.whatsAppTemplate.deleteMany({ where: { id: template.id } });
       await db.whatsAppConnection.deleteMany({ where: { id: { in: [connection.id, second.id] }, businessId } });
-      await db.subscription.delete({ where: { id: subscription.id } });
+      await db.subscription.deleteMany({ where: { id: subscription.id } });
     }
   });
   test("WhatsApp customer context stays tenant-scoped and mobile back restores the list",async({browser})=>{
