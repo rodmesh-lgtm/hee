@@ -290,7 +290,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const plan = await db.businessPlan.upsert({ where: { code: "BUSINESS" }, update: {}, create: { code: "BUSINESS", name: "Business", monthlyPrice: 99, productLimit: 10, isActive: true } });
     const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
     const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `visual-${suffix}`, phoneNumberId: `visual-${suffix}`, displayPhoneNumber: "+966500000101", verifiedName: "رقم مراجعة الطلبات", credentialEnvelope: { testSecret: "DO_NOT_RENDER_JOURNEY_SECRET" } } });
-    const second = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `visual-${suffix}`, phoneNumberId: `second-${suffix}`, displayPhoneNumber: "+966500000102", credentialEnvelope: { testSecret: "DO_NOT_RENDER_JOURNEY_SECRET" } } });
+    const second = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `visual-${suffix}`, phoneNumberId: `second-${suffix}`, displayPhoneNumber: "+966500000102", marketingEnabled: false, bookingEnabled: true, credentialEnvelope: { testSecret: "DO_NOT_RENDER_JOURNEY_SECRET" } } });
     const template = await db.whatsAppTemplate.create({ data: { businessId, connectionId: connection.id, providerTemplateId: `visual-${suffix}`, name: "salla_shipped_review", language: "ar", category: "utility", status: "approved", providerStatus: "APPROVED", parameterFormat: "POSITIONAL", components: [{ type: "BODY", text: "مرحبًا {{1}}، شُحن طلبك {{3}} من {{2}}." }], rawPayload: {}, lastSyncedAt: new Date() } });
     try {
       for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
@@ -302,14 +302,11 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(studio).toBeVisible();
           await expect(studio.getByRole("group", { name: "سيناريوهات طلبات سلة" }).getByRole("button")).toHaveCount(11);
           await studio.getByRole("button", { name: "تم الشحن", exact: false }).click();
+          await expect(studio.getByRole("button", { name: "إنشاء كمسودة", exact: true })).toBeDisabled();
+          await expect(studio.getByLabel("رقم الإرسال لهذا السيناريو").locator(`option[value="${second.id}"]`)).toHaveCount(0);
           await studio.getByLabel("رقم الإرسال لهذا السيناريو").selectOption(connection.id);
           await studio.getByLabel("القالب المعتمد", { exact: true }).selectOption(template.id);
           await expect(studio.locator("aside")).toContainText("شُحن طلبك 1024");
-          await studio.getByLabel("رقم الإرسال لهذا السيناريو").selectOption(second.id);
-          await expect(studio.getByLabel("القالب المعتمد", { exact: true })).toHaveValue("");
-          await expect(studio.getByRole("button", { name: "إنشاء كمسودة", exact: true })).toBeDisabled();
-          await studio.getByLabel("رقم الإرسال لهذا السيناريو").selectOption(connection.id);
-          await studio.getByLabel("القالب المعتمد", { exact: true }).selectOption(template.id);
           await studio.getByLabel("وقت الإرسال بعد تغيّر الحالة").selectOption("60");
           const name = `journey-${viewport.name}-${theme}-${suffix}`;
           await studio.getByLabel("اسم المسار", { exact: true }).fill(name);
