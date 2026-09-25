@@ -109,6 +109,8 @@ export async function createWhatsAppAutomationAction(form: FormData) {
   const context = await automationContext();
   const name = field(form, "name", 120), triggerType = field(form, "triggerType", 40), templateId = field(form, "templateId", 128);
   const orderStatus = field(form, "orderStatus", 20) ?? undefined;
+  const orderDelayRaw = String(form.get("orderDelayMinutes") ?? "").trim();
+  const orderDelayMinutes = /^\d{1,4}$/.test(orderDelayRaw) ? Number(orderDelayRaw) : undefined;
   const reminderLeadRaw = String(form.get("reminderLeadMinutes") ?? "").trim();
   const reminderLeadMinutes = /^\d{1,5}$/.test(reminderLeadRaw) ? Number(reminderLeadRaw) : undefined;
   const inactiveDaysRaw = String(form.get("inactiveDays") ?? "").trim();
@@ -120,7 +122,7 @@ export async function createWhatsAppAutomationAction(form: FormData) {
   if (!name || !triggerType || !templateId || !/^\d{1,6}$/.test(cooldownRaw)) redirect("/dashboard/whatsapp/automations?create=invalid");
   let destination: string;
   try {
-    const automation = await createWhatsAppAutomation({ businessId: context.businessId, actorUserId: context.userId, name, triggerType, templateId, cooldownMinutes: Number(cooldownRaw), orderStatus, reminderLeadMinutes, inactiveDays, apiEventName, cartDelayMinutes });
+    const automation = await createWhatsAppAutomation({ businessId: context.businessId, actorUserId: context.userId, name, triggerType, templateId, cooldownMinutes: Number(cooldownRaw), orderStatus, orderDelayMinutes, reminderLeadMinutes, inactiveDays, apiEventName, cartDelayMinutes });
     revalidatePath("/dashboard/whatsapp/automations");
     destination = `/dashboard/whatsapp/automations?create=complete&automation=${automation.id}`;
   } catch {

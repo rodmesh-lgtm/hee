@@ -282,6 +282,60 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     for(const adminViewport of [{viewportName:"desktop",viewport:{width:1440,height:960}},{viewportName:"tablet",viewport:{width:768,height:1024}},{viewportName:"mobile",viewport:{width:390,height:844}}])for(const theme of ["light","dark"] as const)results.push(...await auditAdminRoute(browser,{...adminViewport,theme,token:seeded.adminSessionToken,businessId:seeded.businessId}));
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
   });
+  test("Salla journeys preview the selected sender template and save delayed drafts on mobile and desktop", async ({ browser }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId;
+    const suffix = crypto.randomUUID();
+    const plan = await db.businessPlan.upsert({ where: { code: "BUSINESS" }, update: {}, create: { code: "BUSINESS", name: "Business", monthlyPrice: 99, productLimit: 10, isActive: true } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `visual-${suffix}`, phoneNumberId: `visual-${suffix}`, displayPhoneNumber: "+966500000101", verifiedName: "رقم مراجعة الطلبات", credentialEnvelope: { testSecret: "DO_NOT_RENDER_JOURNEY_SECRET" } } });
+    const second = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `visual-${suffix}`, phoneNumberId: `second-${suffix}`, displayPhoneNumber: "+966500000102", credentialEnvelope: { testSecret: "DO_NOT_RENDER_JOURNEY_SECRET" } } });
+    const template = await db.whatsAppTemplate.create({ data: { businessId, connectionId: connection.id, providerTemplateId: `visual-${suffix}`, name: "salla_shipped_review", language: "ar", category: "utility", status: "approved", providerStatus: "APPROVED", parameterFormat: "POSITIONAL", components: [{ type: "BODY", text: "مرحبًا {{1}}، شُحن طلبك {{3}} من {{2}}." }], rawPayload: {}, lastSyncedAt: new Date() } });
+    try {
+      for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
+        try {
+          const page = await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/automations`, { waitUntil: "domcontentloaded" });
+          const studio = page.locator("#salla-journeys");
+          await expect(studio).toBeVisible();
+          await expect(studio.getByRole("group", { name: "سيناريوهات طلبات سلة" }).getByRole("button")).toHaveCount(11);
+          await studio.getByRole("button", { name: "تم الشحن", exact: false }).click();
+          await studio.getByLabel("رقم الإرسال لهذا السيناريو").selectOption(connection.id);
+          await studio.getByLabel("القالب المعتمد", { exact: true }).selectOption(template.id);
+          await expect(studio.locator("aside")).toContainText("شُحن طلبك 1024");
+          await studio.getByLabel("رقم الإرسال لهذا السيناريو").selectOption(second.id);
+          await expect(studio.getByLabel("القالب المعتمد", { exact: true })).toHaveValue("");
+          await expect(studio.getByRole("button", { name: "إنشاء كمسودة", exact: true })).toBeDisabled();
+          await studio.getByLabel("رقم الإرسال لهذا السيناريو").selectOption(connection.id);
+          await studio.getByLabel("القالب المعتمد", { exact: true }).selectOption(template.id);
+          await studio.getByLabel("وقت الإرسال بعد تغيّر الحالة").selectOption("60");
+          const name = `journey-${viewport.name}-${theme}-${suffix}`;
+          await studio.getByLabel("اسم المسار", { exact: true }).fill(name);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+          await expect(page.locator("body")).not.toContainText("DO_NOT_RENDER_JOURNEY_SECRET");
+          if (theme === "dark") {
+            expect(await studio.evaluate(node => { const rgb = getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0, 3).map(Number); return rgb?.every(value => value > 220); })).toBe(false);
+          }
+          await studio.screenshot({ path: `${outDir}/${viewport.name}-${theme}-salla-journeys.png` });
+          await studio.getByRole("button", { name: "إنشاء كمسودة", exact: true }).click();
+          await expect(page).toHaveURL(/create=complete/);
+          const draft = await db.whatsAppAutomation.findFirstOrThrow({ where: { businessId, name } });
+          expect(draft.status).toBe("draft");
+          expect(draft.connectionId).toBe(connection.id);
+          expect(draft.triggerType).toBe("salla_order_status");
+          expect(draft.triggerConfig).toEqual({ version: 1, orderStatus: "shipped", delayMinutes: 60 });
+          expect(await db.whatsAppAutomationJob.count({ where: { businessId, automationId: draft.id } })).toBe(0);
+        } finally { await context.close(); }
+      }
+    } finally {
+      await db.whatsAppAutomation.deleteMany({ where: { businessId, connectionId: { in: [connection.id, second.id] } } });
+      await db.whatsAppTemplate.delete({ where: { id: template.id } });
+      await db.whatsAppConnection.deleteMany({ where: { id: { in: [connection.id, second.id] }, businessId } });
+      await db.subscription.delete({ where: { id: subscription.id } });
+    }
+  });
   test("WhatsApp customer context stays tenant-scoped and mobile back restores the list",async({browser})=>{
     test.setTimeout(180_000);
     if(!seeded)throw new Error("visual fixture missing");

@@ -7,6 +7,7 @@ import { writeWhatsAppAuditLog } from "./audit";
 import { buildAutomationTriggerConfig, normalizeAutomationTriggerType, readAutomationTriggerConfig, readTemplateActionConfig, templateHasVariables, WHATSAPP_CONFIGURABLE_TRIGGER_TYPES } from "./automation-domain";
 import { bookingConfirmationTemplateSupportsParameters } from "./booking-confirmation-domain";
 import { sallaOrderTemplateSupported } from "./salla-order-confirmation-domain";
+import { isSallaOrderTrigger } from "./salla-order-journey-domain";
 
 type AutomationOperationsDb = Pick<PrismaClient, "$transaction">;
 type AutomationOperation = "activate" | "pause" | "resume";
@@ -44,7 +45,7 @@ async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
   });
   const runnable = template && (input.triggerType === "booking_confirmation"
     ? bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)
-    : input.triggerType === "salla_order_confirmation"
+    : isSallaOrderTrigger(input.triggerType)
       ? template.category === "utility" && sallaOrderTemplateSupported(template.components, template.parameterFormat)
       : !templateHasVariables(template.components));
   if (!template || !runnable) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_NOT_RUNNABLE");
@@ -53,7 +54,7 @@ async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
 
 export async function createWhatsAppAutomation(input: {
   businessId: string; actorUserId: string; name: string; triggerType: string;
-  templateId: string; cooldownMinutes: number; orderStatus?: string; reminderLeadMinutes?: number; inactiveDays?: number; apiEventName?: string; cartDelayMinutes?: number; database?: AutomationOperationsDb;
+  templateId: string; cooldownMinutes: number; orderStatus?: string; orderDelayMinutes?: number; reminderLeadMinutes?: number; inactiveDays?: number; apiEventName?: string; cartDelayMinutes?: number; database?: AutomationOperationsDb;
 }) {
   const database = input.database ?? db;
   const name = input.name.trim();
@@ -62,13 +63,13 @@ export async function createWhatsAppAutomation(input: {
   if (!(WHATSAPP_CONFIGURABLE_TRIGGER_TYPES as readonly string[]).includes(triggerType)) {
     throw new Error("WHATSAPP_AUTOMATION_TRIGGER_SOURCE_UNAVAILABLE");
   }
-  const triggerConfig = buildAutomationTriggerConfig(triggerType, input.orderStatus, input.reminderLeadMinutes, input.inactiveDays, input.apiEventName, input.cartDelayMinutes);
+  const triggerConfig = buildAutomationTriggerConfig(triggerType, input.orderStatus, input.reminderLeadMinutes, input.inactiveDays, input.apiEventName, input.cartDelayMinutes, input.orderDelayMinutes);
   if (!Number.isSafeInteger(input.cooldownMinutes) || input.cooldownMinutes < 0 || input.cooldownMinutes > 525_600) {
     throw new Error("WHATSAPP_AUTOMATION_COOLDOWN_INVALID");
   }
   if (!/^[0-9a-f-]{36}$/i.test(input.templateId)) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_INVALID");
 
-  const effectiveCooldownMinutes = ["booking_confirmation", "salla_order_confirmation"].includes(triggerType) ? 0 : input.cooldownMinutes;
+  const effectiveCooldownMinutes = triggerType === "booking_confirmation" || isSallaOrderTrigger(triggerType) ? 0 : input.cooldownMinutes;
   return database.$transaction(async (tx) => {
     const template = await assertRunnableTemplate(tx, {
       businessId: input.businessId,

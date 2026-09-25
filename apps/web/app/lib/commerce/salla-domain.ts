@@ -48,17 +48,26 @@ function scalar(value: unknown) {
   return "";
 }
 
-function normalizedStatus(value: unknown): string | null {
+function normalizedStatus(value: unknown, depth = 0): string | null {
+  if (depth > 4) return null;
   const direct = scalar(value);
   if (direct) return direct.toLowerCase().replace(/[\s-]+/g, "_").slice(0, 80);
   const nested = record(value);
-  return normalizedStatus(nested?.slug ?? nested?.status ?? nested?.code ?? nested?.name) || null;
+  if (!nested) return null;
+  return normalizedStatus(nested.slug ?? nested.status ?? nested.code ?? nested.name, depth + 1);
 }
 
-function payloadDate(order: UnknownRecord) {
-  for (const value of [order.updated_at, order.date, order.created_at]) {
-    if (typeof value !== "string") continue;
-    const parsed = new Date(value);
+function payloadDate(values: unknown[]) {
+  for (const value of values) {
+    const object = record(value);
+    let text = typeof value === "string" ? value : typeof object?.date === "string" ? object.date : "";
+    if (!text) continue;
+    if (object && /^\d{4}-\d\d-\d\d[ T]\d\d:\d\d:\d\d(?:\.\d+)?$/.test(text)) {
+      const offset = object.timezone === "Asia/Riyadh" ? "+03:00" : ["UTC", "Etc/UTC"].includes(String(object.timezone)) ? "Z" : null;
+      if (!offset) continue;
+      text = text.replace(" ", "T") + offset;
+    }
+    const parsed = new Date(text);
     if (!Number.isNaN(parsed.getTime())) return parsed;
   }
   return null;
@@ -79,12 +88,14 @@ function orderPhone(order: UnknownRecord) {
     billingAddress?.mobile,
     billingAddress?.phone,
   ]) {
-    const direct = normalizeE164(candidate);
+    const text = scalar(candidate);
+    const direct = normalizeE164(text);
     if (direct) return direct;
-    if (typeof candidate === "string") {
-      const local = normalizeE164(candidate, "966");
-      if (local) return local;
-    }
+    const code = scalar(customer?.mobile_code).replace(/^\+/, "") || "966";
+    const international = text.startsWith(code) ? normalizeE164(`+${text}`) : null;
+    if (international) return international;
+    const local = normalizeE164(text, code);
+    if (local) return local;
   }
   return null;
 }
@@ -122,14 +133,18 @@ export function mapSallaOrderWebhook(payload: unknown): SallaWebhookMapping {
   const eventType = sallaEventType(payload);
   if (!eventType.startsWith("order.")) return { kind: "ignored", reason: "event_unsupported" };
   const root = record(payload);
-  const order = record(root?.data ?? root?.order);
+  const data = record(root?.data ?? root?.order);
+  // In order.status.updated, data.id identifies the status history entry.
+  // The actual order (id, status.slug and customer) is nested in data.order.
+  const order = eventType === "order.status.updated" && record(data?.order) ? record(data?.order) : data;
   if (!order) return { kind: "ignored", reason: "payload_invalid" };
   const externalOrderId = scalar(order.id ?? order.order_id ?? order.reference_id);
   if (!externalOrderId) return { kind: "ignored", reason: "order_id_missing" };
 
   const payment = record(order.payment);
   const paymentStatus = normalizedStatus(order.payment_status ?? payment?.status ?? order.payment_state);
-  const orderStatus = normalizedStatus(order.status ?? order.order_status);
+  const terminalEventStatus: Record<string, string> = { "order.cancelled": "cancelled", "order.canceled": "cancelled", "order.refunded": "refunded", "order.deleted": "deleted" };
+  const orderStatus = terminalEventStatus[eventType] ?? normalizedStatus(order.status ?? order.order_status);
   const revokedByEvent = ["order.cancelled", "order.canceled", "order.refunded", "order.deleted"].includes(eventType);
   const paid = Boolean(paymentStatus && PAID_STATUSES.has(paymentStatus));
   const confirmed = Boolean(orderStatus && CONFIRMED_ORDER_STATUSES.has(orderStatus));
@@ -143,7 +158,7 @@ export function mapSallaOrderWebhook(payload: unknown): SallaWebhookMapping {
       paymentStatus,
       orderStatus,
       eligible: paid && confirmed && !terminal && !revokedByEvent,
-      providerUpdatedAt: payloadDate(order),
+      providerUpdatedAt: payloadDate([eventType === "order.status.updated" ? data?.created_at : null, order.updated_at, root?.created_at, order.date, order.created_at]),
     },
   };
 }

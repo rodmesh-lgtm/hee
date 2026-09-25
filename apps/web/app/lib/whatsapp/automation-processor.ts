@@ -6,6 +6,7 @@ import { automationIdempotencyKey, automationMatchesEvent, automationRetryAt, no
 import { writeWhatsAppAuditLog } from "./audit";
 import { bookingConfirmationTemplateSupportsParameters, buildBookingConfirmationTemplateParameters } from "./booking-confirmation-domain";
 import { sallaOrderTemplateParameters, sallaOrderTemplateSupported } from "./salla-order-confirmation-domain";
+import { isSallaOrderTrigger, sallaStatusEventMatches } from "./salla-order-journey-domain";
 
 type AutomationDb = Pick<PrismaClient, "whatsAppAutomationEvent">;
 const MAX_EVENT_ATTEMPTS = 8;
@@ -102,6 +103,15 @@ export async function processWhatsAppAutomationEvent(input: {
       let eventSkipReason: string | null = null;
       let bookingConfirmationParameters: ReturnType<typeof buildBookingConfirmationTemplateParameters> | null = null;
       let sallaParameters: ReturnType<typeof sallaOrderTemplateParameters> | null = null;
+      if (event.triggerType === "salla_order_status") {
+        const order = event.source === "salla.order-status" ? await tx.commerceBookingEligibility.findFirst({
+          where: { id: event.subjectId, businessId: event.businessId, provider: "salla", phoneE164: contact.phoneE164,
+            integration: { businessId: event.businessId, provider: "salla", status: "active" } },
+          select: { externalOrderId: true, orderStatus: true, business: { select: { name: true } } },
+        }) : null;
+        if (!order || !sallaStatusEventMatches(event.subjectType, order.orderStatus)) eventSkipReason = "salla_order_status_changed";
+        else sallaParameters = sallaOrderTemplateParameters(contact.displayName, order.business.name, order.externalOrderId);
+      }
       if (event.triggerType === "salla_order_confirmation") {
         const order = event.source === "salla.order-confirmation" && event.subjectType === "salla.order.confirmed"
           ? await tx.commerceBookingEligibility.findFirst({
@@ -204,7 +214,7 @@ export async function processWhatsAppAutomationEvent(input: {
           select: { id: true, category: true, components: true, parameterFormat: true },
         });
         if (!template) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_NOT_APPROVED");
-        if (event.triggerType === "salla_order_confirmation" && (template.category !== "utility" || !sallaOrderTemplateSupported(template.components, template.parameterFormat))) {
+        if (isSallaOrderTrigger(event.triggerType) && (template.category !== "utility" || !sallaOrderTemplateSupported(template.components, template.parameterFormat))) {
           throw new Error("SALLA_ORDER_CONFIRMATION_TEMPLATE_INVALID");
         }
         if (event.triggerType === "booking_confirmation" && !bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)) {
@@ -212,7 +222,7 @@ export async function processWhatsAppAutomationEvent(input: {
         }
         const templateParameters = event.triggerType === "booking_confirmation"
           ? bookingConfirmationParameters
-          : event.triggerType === "salla_order_confirmation" ? sallaParameters : action.parameters;
+          : isSallaOrderTrigger(event.triggerType) ? sallaParameters : action.parameters;
         await tx.whatsAppAutomationJob.upsert({
           where: { runId: run.id },
           create: {
