@@ -5,6 +5,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "./audit";
 import { readAutomationTriggerConfig } from "./automation-domain";
+import { sallaStatusEventMatches } from "./salla-order-journey-domain";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./credential-envelope";
 import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, retryDelayMs } from "./delivery-domain";
 import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
@@ -132,6 +133,17 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   if (!connectionPurposeActive) {
     await releaseAs(database, job, "cancelled", now, "WHATSAPP_CONNECTION_PURPOSE_INACTIVE");
     return { processed: true as const, result: "cancelled" as const, jobId: job.id };
+  }
+  if (context.run.event.triggerType === "salla_order_status") {
+    const order = context.run.event.source === "salla.order-status" ? await database.commerceBookingEligibility.findFirst({
+      where: { id: context.run.event.subjectId, businessId: job.businessId, provider: "salla", phoneE164: context.contact.phoneE164,
+        integration: { businessId: job.businessId, provider: "salla", status: "active" } },
+      select: { orderStatus: true },
+    }) : null;
+    if (context.template.category !== "utility" || !order || !sallaStatusEventMatches(context.run.event.subjectType, order.orderStatus)) {
+      await releaseAs(database, job, "cancelled", now, "SALLA_ORDER_STATUS_CHANGED");
+      return { processed: true as const, result: "order_changed" as const, jobId: job.id };
+    }
   }
   if (context.run.event.triggerType === "salla_order_confirmation") {
     if (context.template.category !== "utility") {

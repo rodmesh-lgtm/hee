@@ -6,6 +6,7 @@ import { db } from "../db";
 import { writeWhatsAppAuditLog } from "../whatsapp/audit";
 import { mapSallaOrderWebhook } from "./salla-domain";
 import { enqueueSallaOrderConfirmation } from "./salla-order-confirmation";
+import { enqueueSallaOrderStatus } from "./salla-order-journeys";
 
 const MAX_ATTEMPTS = 8;
 const LEASE_MS = 5 * 60_000;
@@ -76,7 +77,7 @@ export async function processSallaWebhookEvent(input: {
 
       const current = await tx.commerceBookingEligibility.findUnique({
         where: { integrationId_externalOrderId: { integrationId: event.integrationId, externalOrderId: mapping.order.externalOrderId } },
-        select: { providerUpdatedAt: true, eligible: true },
+        select: { providerUpdatedAt: true, eligible: true, orderStatus: true },
       });
       const stale = Boolean(current?.providerUpdatedAt && mapping.order.providerUpdatedAt && current.providerUpdatedAt > mapping.order.providerUpdatedAt);
       if (!stale) {
@@ -108,6 +109,9 @@ export async function processSallaWebhookEvent(input: {
           await enqueueSallaOrderConfirmation({ database: tx, businessId: event.businessId,
             eligibilityId: eligibility.id, phoneE164: mapping.order.phoneE164, receivedAt: event.receivedAt });
         }
+        await enqueueSallaOrderStatus({ database: tx, businessId: event.businessId, eligibilityId: eligibility.id,
+          phoneE164: mapping.order.phoneE164, previousStatus: current?.orderStatus ?? null,
+          orderStatus: mapping.order.orderStatus, receivedAt: event.receivedAt });
       }
       await tx.sallaWebhookEvent.update({
         where: { id: event.id },

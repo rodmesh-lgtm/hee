@@ -1,13 +1,14 @@
 import { createHash } from "node:crypto";
+import { readSallaOrderStatusConfig, sallaOrderStatusConfig } from "./salla-order-journey-domain";
 
 export const WHATSAPP_AUTOMATION_TRIGGER_TYPES = [
   "welcome", "booking_confirmation", "appointment_reminder", "follow_up", "order_update",
-  "inactive_customer", "abandoned_cart", "api_event", "salla_order_confirmation",
+  "inactive_customer", "abandoned_cart", "api_event", "salla_order_confirmation", "salla_order_status",
 ] as const;
 
 export type WhatsAppAutomationTriggerType = typeof WHATSAPP_AUTOMATION_TRIGGER_TYPES[number];
 export const WHATSAPP_CONFIGURABLE_TRIGGER_TYPES = [
-  "welcome", "booking_confirmation", "appointment_reminder", "follow_up", "order_update", "inactive_customer", "abandoned_cart", "api_event", "salla_order_confirmation",
+  "welcome", "booking_confirmation", "appointment_reminder", "follow_up", "order_update", "inactive_customer", "abandoned_cart", "api_event", "salla_order_confirmation", "salla_order_status",
 ] as const satisfies readonly WhatsAppAutomationTriggerType[];
 
 export const WHATSAPP_ORDER_EVENT_STATUSES = ["pending", "confirmed", "processing", "completed", "cancelled"] as const;
@@ -63,8 +64,9 @@ export function normalizeAutomationApiEventName(value: string) {
   return normalized;
 }
 
-export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStatus?: string, reminderLeadMinutes?: number, inactiveDays?: number, apiEventName?: string, cartDelayMinutes?: number) {
+export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStatus?: string, reminderLeadMinutes?: number, inactiveDays?: number, apiEventName?: string, cartDelayMinutes?: number, orderDelayMinutes?: number) {
   const triggerType = normalizeAutomationTriggerType(triggerTypeValue);
+  if (triggerType === "salla_order_status") return sallaOrderStatusConfig(orderStatus, orderDelayMinutes);
   if (triggerType === "appointment_reminder") {
     if (!Number.isSafeInteger(reminderLeadMinutes) || reminderLeadMinutes! < 15 || reminderLeadMinutes! > 10_080) {
       throw new Error("WHATSAPP_AUTOMATION_REMINDER_LEAD_INVALID");
@@ -93,6 +95,7 @@ export function buildAutomationTriggerConfig(triggerTypeValue: string, orderStat
 
 export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: string) {
   const triggerType = normalizeAutomationTriggerType(triggerTypeValue);
+  if (triggerType === "salla_order_status") return readSallaOrderStatusConfig(value);
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("WHATSAPP_AUTOMATION_TRIGGER_CONFIG_INVALID");
   const record = value as Record<string, unknown>;
   const allowedKeys = triggerType === "order_update" ? ["version", "orderStatuses"]
@@ -135,6 +138,7 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
 
 export function automationMatchesEvent(input: { triggerType: string; triggerConfig: unknown; subjectType: string }) {
   const config = readAutomationTriggerConfig(input.triggerConfig, input.triggerType);
+  if (input.triggerType === "salla_order_status") return "orderStatus" in config && input.subjectType === `salla.order.status.${config.orderStatus}`;
   if (input.triggerType === "salla_order_confirmation") return input.subjectType === "salla.order.confirmed";
   if (input.triggerType === "welcome") return input.subjectType === "contact.consent_granted";
   if (input.triggerType === "booking_confirmation") return input.subjectType === "booking.created";
