@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { mapSallaOrderWebhook } from "../app/lib/commerce/salla-domain";
-import { automationMatchesEvent, buildAutomationTriggerConfig } from "../app/lib/whatsapp/automation-domain";
+import { automationMatchesEvent, buildAutomationTriggerConfig, WHATSAPP_AUTOMATION_TRIGGER_TYPES } from "../app/lib/whatsapp/automation-domain";
 import { SALLA_ORDER_SCENARIOS, SALLA_ORDER_DELAY_MINUTES, readSallaOrderStatusConfig, sallaOrderScenarioStatus, sallaStatusEventMatches } from "../app/lib/whatsapp/salla-order-journey-domain";
 
 test("each order scenario matches only its own event at every supported delay", () => {
@@ -13,6 +13,14 @@ test("each order scenario matches only its own event at every supported delay", 
       assert.equal(automationMatchesEvent({ triggerType: "salla_order_status", triggerConfig: config, subjectType: `salla.order.status.${other.status}` }), status === other.status);
     }
   }
+});
+
+test("database trigger allowlist includes every supported source without removing its constraint", () => {
+  const migration = readFileSync(new URL("../prisma/migrations/20260925050000_whatsapp_order_journey_triggers/migration.sql", import.meta.url), "utf8");
+  const allowed = [...migration.matchAll(/'([a-z_]+)'/g)].map(match => match[1]);
+  assert.deepEqual(allowed.sort(), [...WHATSAPP_AUTOMATION_TRIGGER_TYPES].sort());
+  assert.match(migration, /ADD CONSTRAINT "WhatsAppAutomation_trigger_check" CHECK/);
+  assert.match(migration, /BEGIN;[\s\S]+COMMIT;/);
 });
 
 test("invalid status, delay or injected config cannot create an order scenario", () => {

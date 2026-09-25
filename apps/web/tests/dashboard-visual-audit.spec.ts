@@ -327,6 +327,12 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           expect(draft.triggerType).toBe("salla_order_status");
           expect(draft.triggerConfig).toEqual({ version: 1, orderStatus: "shipped", delayMinutes: 60 });
           expect(await db.whatsAppAutomationJob.count({ where: { businessId, automationId: draft.id } })).toBe(0);
+          await studio.getByRole("button", { name: "طلب مدفوع ومؤكد", exact: false }).click();
+          await studio.getByLabel("رقم الإرسال لهذا السيناريو").selectOption(connection.id);
+          await studio.getByLabel("القالب المعتمد", { exact: true }).selectOption(template.id);
+          await studio.getByLabel("اسم المسار", { exact: true }).fill(`${name}-paid`);
+          await studio.getByRole("button", { name: "إنشاء كمسودة", exact: true }).click();
+          await expect.poll(() => db.whatsAppAutomation.count({ where: { businessId, name: `${name}-paid`, status: "draft", triggerType: "salla_order_confirmation" } })).toBe(1);
         } finally { await context.close(); }
       }
     } finally {

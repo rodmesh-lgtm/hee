@@ -80,6 +80,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260919221500_expand_booking_commerce_providers",
   "20260920103000_fix_e164_database_checks",
   "20260920122000_whatsapp_care_assignment_sla",
+  "20260925050000_whatsapp_order_journey_triggers",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;
