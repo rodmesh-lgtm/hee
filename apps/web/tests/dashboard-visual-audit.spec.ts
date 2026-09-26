@@ -384,6 +384,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await page.getByRole("button", { name: "التالي", exact: true }).click();
           await expect(page.getByRole("link", { name: /إضافة جمهور من Excel/ })).toBeVisible();
           await page.getByRole("button", { name: "التالي", exact: true }).click();
+          await expect(page.getByRole("heading", { name: "اختر الرسالة", exact: true })).toBeVisible();
           await page.getByLabel("قالب الرسالة", { exact: true }).selectOption(template.id);
           await expect(page.getByText("معاينة الرسالة", { exact: true })).toBeVisible();
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
@@ -398,6 +399,13 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
             await db.whatsAppCampaignRecipient.deleteMany({ where: { campaignId: created.id } });
             await db.whatsAppCampaign.delete({ where: { id: created.id } });
           }
+        } catch (error) {
+          const page = context.pages()[0];
+          if (page) {
+            await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-failed.png`, fullPage: true }).catch(() => {});
+            await writeFile(`${outDir}/${viewport.name}-${theme}-campaign-failed.txt`, `${String(error)}\n${page.url()}\n${await page.locator("body").innerText().catch(() => "page unavailable")}`, "utf8");
+          }
+          throw error;
         } finally { await context.close(); }
       }
       expect(await db.whatsAppMessage.count({ where: { businessId, direction: "outbound" } })).toBe(0);
