@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { boundedTemplateParameters, parseCampaignAudience } from "./campaign-domain";
-import { resolveCampaignComposition, type Composition } from "./campaign-composition";
+import { campaignTemplateFields, resolveCampaignComposition, type Composition } from "./campaign-composition";
 import type { CampaignSendPolicy } from "./campaign-send-policy";
 
 type CampaignDb = Pick<PrismaClient, "$transaction">;
@@ -96,6 +96,14 @@ export async function snapshotWhatsAppCampaign(input: {
     const consentedPhones = new Set(consents.map((consent) => consent.phoneE164));
     const eligible = candidates.filter((contact) => consentedPhones.has(contact.phoneE164));
     if (eligible.length === 0) throw new Error("WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS");
+
+    if (input.composition?.mediaUrl?.startsWith("https://ir.sa/api/whatsapp/campaign-media/")) {
+      const mediaId = new URL(input.composition.mediaUrl).pathname.split("/").at(-1)!;
+      const kind = campaignTemplateFields(campaign.template.components).media;
+      const mimeTypes = kind === "image" ? ["image/jpeg", "image/png"] : kind === "video" ? ["video/mp4"] : ["application/pdf"];
+      const asset = await tx.storedObject.findFirst({ where: { id: mediaId, folder: `campaign-media/${input.businessId}`, mimeType: { in: mimeTypes } }, select: { id: true } });
+      if (!asset) throw new Error("WHATSAPP_CAMPAIGN_MEDIA_INVALID");
+    }
 
     const recipientRows = eligible.map((contact) => {
       const recipientId = randomUUID();

@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useState } from "react";
 import { submitWhatsAppTemplateAction } from "../../../actions/whatsapp-template-editor";
+import { canEditSimpleTemplate } from "../../../lib/whatsapp/template-editor-domain";
 
 type Template = { id: string; name: string; language: string; category: string; components: unknown };
 const control = "mt-1 min-h-11 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900";
@@ -11,9 +12,11 @@ export function TemplateEditor({ connectionId, templates }: { connectionId: stri
   const body = parts.find((c) => c.type === "BODY")?.text ?? "";
   const footer = parts.find((c) => c.type === "FOOTER")?.text ?? "";
   const header = parts.find((c) => c.type === "HEADER")?.format ?? "NONE";
-  return <details className="rounded-2xl border border-slate-200 bg-white p-4"><summary className="cursor-pointer font-bold text-slate-900">إنشاء قالب أو تعديل قالب موجود</summary><p className="my-3 text-xs leading-6 text-slate-500">تُرسل التغييرات إلى Meta للمراجعة. تعديل قالب مستخدم قد يوقف إرسال الحملات المرتبطة به إلى حين اعتماده.</p><label className="block text-xs text-slate-600">نوع العملية<select value={selected} onChange={(e) => setSelected(e.target.value)} className={control}><option value="">إنشاء قالب جديد</option>{templates.map((t) => <option key={t.id} value={t.id}>تعديل {t.name} · {t.language}</option>)}</select></label><EditorForm key={selected} connectionId={connectionId} template={template} body={body} footer={footer} header={header}/></details>;
+  return <details className="rounded-2xl border border-slate-200 bg-white p-4"><summary className="cursor-pointer font-bold text-slate-900">إنشاء قالب أو تعديل قالب موجود</summary><p className="my-3 text-xs leading-6 text-slate-500">تُرسل التغييرات إلى Meta للمراجعة. تعديل قالب مستخدم قد يوقف إرسال الحملات المرتبطة به إلى حين اعتماده.</p><label className="block text-xs text-slate-600">نوع العملية<select value={selected} onChange={(e) => setSelected(e.target.value)} className={control}><option value="">إنشاء قالب جديد</option>{templates.filter((t) => canEditSimpleTemplate(t.components)).map((t) => <option key={t.id} value={t.id}>تعديل {t.name} · {t.language}</option>)}</select></label><EditorForm key={selected} connectionId={connectionId} template={template} body={body} footer={footer} header={header}/></details>;
 }
 function EditorForm({ connectionId, template, body, footer, header }: { connectionId: string; template?: Template; body: string; footer: string; header: string }) {
+  const parts = Array.isArray(template?.components) ? template.components : [];
+  const button = parts.find((c) => c.type === "BUTTONS")?.buttons?.[0];
   const [state, action, pending] = useActionState(submitWhatsAppTemplateAction, { message: "" });
   const [media, setMedia] = useState(["IMAGE", "VIDEO", "DOCUMENT"].includes(header) ? header : "NONE");
   return <form action={action} className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -26,7 +29,7 @@ function EditorForm({ connectionId, template, body, footer, header }: { connecti
     <label className="text-xs text-slate-600 sm:col-span-2">نص الرسالة<textarea name="body" required maxLength={1024} defaultValue={body} rows={4} placeholder="مرحبًا {{1}}، تفاصيل عرضنا…" className={control}/></label>
     <label className="text-xs text-slate-600 sm:col-span-2">أمثلة المتغيرات بالترتيب، مفصولة بعلامة |<input name="examples" maxLength={10000} placeholder="أحمد | موعد الصيانة" className={control}/></label>
     <label className="text-xs text-slate-600 sm:col-span-2">التذييل (اختياري)<input name="footer" maxLength={60} defaultValue={footer} className={control}/></label>
-    <label className="text-xs text-slate-600">عنوان زر الرابط (اختياري)<input name="buttonText" maxLength={25} className={control}/></label><label className="text-xs text-slate-600">رابط الزر HTTPS<input name="buttonUrl" type="url" maxLength={2048} dir="ltr" className={control}/></label>
+    <label className="text-xs text-slate-600">عنوان زر الرابط (اختياري)<input name="buttonText" maxLength={25} defaultValue={button?.text ?? ""} className={control}/></label><label className="text-xs text-slate-600">رابط الزر HTTPS<input name="buttonUrl" defaultValue={button?.url ?? ""} type="url" maxLength={2048} dir="ltr" className={control}/></label>
     <button disabled={pending} className="min-h-12 rounded-xl bg-[#00bfae] px-4 font-bold text-[#07181b] disabled:opacity-50">{pending ? "جارٍ تقديم الطلب…" : "إرسال إلى Meta للمراجعة"}</button><p role="status" className="text-sm leading-7 text-slate-700">{state.message}</p>
   </form>;
 }

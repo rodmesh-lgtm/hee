@@ -145,15 +145,15 @@ async function completeClaimedBatch(database: PrismaClient, claimed: ClaimedBatc
     if (!batch) throw new Error("WHATSAPP_CONTACT_IMPORT_LEASE_LOST");
     const rows = importRows(batch.rows);
     const phones = rows.map((row) => row.phoneE164);
-    const existing = await tx.whatsAppContact.findMany({ where: { businessId: claimed.businessId, phoneE164: { in: phones } }, select: { id: true, phoneE164: true, attributes: true } });
-    const existingByPhone = new Map(existing.map((contact) => [contact.phoneE164, contact]));
-    for (const row of rows) {
-      const contact = existingByPhone.get(row.phoneE164);
-      if (contact && row.attributes && Object.keys(row.attributes).length) {
-        const previous = contact.attributes && typeof contact.attributes === "object" && !Array.isArray(contact.attributes) ? contact.attributes : {};
-        await tx.whatsAppContact.updateMany({ where: { id: contact.id, businessId: claimed.businessId }, data: { attributes: { ...previous, ...row.attributes } } });
-      }
-    }
+    const existing = await tx.whatsAppContact.findMany({ where: { businessId: claimed.businessId, phoneE164: { in: phones } }, select: { phoneE164: true } });
+    const attributeRows = rows.filter((row) => row.attributes && Object.keys(row.attributes).length).map((row) => ({ phoneE164: row.phoneE164, attributes: row.attributes }));
+    if (attributeRows.length) await tx.$executeRaw(Prisma.sql`
+      UPDATE "WhatsAppContact" c SET "attributes" =
+        (CASE WHEN jsonb_typeof(c."attributes") = 'object' THEN c."attributes" ELSE '{}'::jsonb END) || imported.attributes,
+        "updatedAt" = ${now}
+      FROM jsonb_to_recordset(${JSON.stringify(attributeRows)}::jsonb) AS imported("phoneE164" text, attributes jsonb)
+      WHERE c."businessId" = ${claimed.businessId} AND c."phoneE164" = imported."phoneE164"
+    `);
     const existingPhones = new Set(existing.map((contact) => contact.phoneE164));
     const candidates = rows.filter((row) => !existingPhones.has(row.phoneE164));
     const created = await tx.whatsAppContact.createMany({

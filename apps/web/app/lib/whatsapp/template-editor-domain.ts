@@ -1,4 +1,14 @@
 import { publicMediaUrl } from "./campaign-composition";
+export function canEditSimpleTemplate(components: unknown) {
+  if (!Array.isArray(components)) return false;
+  return components.every((c) => {
+    if (!c || typeof c !== "object") return false;
+    if (c.type === "BODY" || c.type === "FOOTER") return true;
+    if (c.type === "HEADER") return ["IMAGE", "VIDEO", "DOCUMENT"].includes(c.format);
+    if (c.type === "BUTTONS") return Array.isArray(c.buttons) && c.buttons.length <= 1 && c.buttons.every((b: { type?: string; url?: string }) => b.type === "URL" && (!b.url?.includes("{{") || b.url === "https://ir.sa/api/whatsapp/campaign-link/{{1}}"));
+    return false;
+  });
+}
 export function buildTemplateSubmission(input: { name: string; language: string; category: string; body: string; footer: string; header: string; mediaHandle?: string; examples: string; buttonText: string; buttonUrl: string }) {
   if (!/^[a-z][a-z0-9_]{0,99}$/.test(input.name) || !["ar", "en", "en_US", "en_GB"].includes(input.language) || !["MARKETING", "UTILITY"].includes(input.category) || !input.body.trim() || input.body.length > 1024 || input.footer.length > 60 || !["NONE", "IMAGE", "VIDEO", "DOCUMENT"].includes(input.header)) throw new Error("TEMPLATE_INPUT_INVALID");
   const variables = [...new Set([...input.body.matchAll(/\{\{([^}]+)\}\}/g)].map((m) => m[1]))].sort((a,b) => Number(a)-Number(b));

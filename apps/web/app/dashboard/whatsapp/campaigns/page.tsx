@@ -37,7 +37,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
   const requestedStatus = String(params.status ?? "all") as CampaignStatusFilter;
   const statusFilter: CampaignStatusFilter = campaignStatusFilters.includes(requestedStatus) ? requestedStatus : "all";
 
-  const [connections, templates, segments, campaigns, eligibleAudienceRows, launchReadiness] = await Promise.all([
+  const [connections, templates, segments, campaigns, eligibleAudienceRows, launchReadiness, sampleContacts] = await Promise.all([
     db.whatsAppConnection.findMany({
       where: { businessId: context.businessId, provider: "meta", status: "connected", disabledAt: null, marketingEnabled: true },
       select: { id: true, verifiedName: true, displayPhoneNumber: true },
@@ -82,6 +82,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
         AND consent."consentedAt" <= CURRENT_TIMESTAMP
     `),
     getWhatsAppCampaignLaunchReadiness(),
+    db.whatsAppContact.findMany({ where: { businessId: context.businessId, optedOutAt: null }, select: { id: true, displayName: true, phoneE164: true, email: true, attributes: true }, orderBy: { createdAt: "desc" }, take: 10 }),
   ]);
 
   const eligibleAudience = eligibleAudienceRows[0]?.count ?? 0;
@@ -163,7 +164,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
     </section>
 
     <section className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,.85fr)]">
-      <div>{connections.length && templates.length && eligibleAudience ? <CampaignWizard connections={connections.map((item) => ({ id: item.id, label: item.verifiedName || item.displayPhoneNumber || "رقم واتساب متصل" }))} templates={wizardTemplates} segments={segments.map((segment) => ({ id: segment.id, name: segment.name, members: segment._count.memberships }))} eligibleContacts={eligibleAudience} /> : <CampaignReadiness connections={connections.length} templates={templates.length} eligibleContacts={eligibleAudience} />}</div>
+      <div>{connections.length && templates.length && eligibleAudience ? <CampaignWizard sampleContacts={sampleContacts} connections={connections.map((item) => ({ id: item.id, label: item.verifiedName || item.displayPhoneNumber || "رقم واتساب متصل" }))} templates={wizardTemplates} segments={segments.map((segment) => ({ id: segment.id, name: segment.name, members: segment._count.memberships }))} eligibleContacts={eligibleAudience} /> : <CampaignReadiness connections={connections.length} templates={templates.length} eligibleContacts={eligibleAudience} />}</div>
       <aside className="rounded-[26px] border border-[#bdebe5] bg-[#effcf9] p-5 text-xs leading-7 text-slate-700"><span className="text-[9px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">SAFE LAUNCH</span><b className="mt-2 block text-sm text-slate-900">مرحلة إرسال تجريبية آمنة</b><p className="mt-2">قبل بدء الحملة نتأكد من جاهزية خدمة الإرسال، واستمرار اتصال الرقم واعتماد القالب وصلاحية قائمة المستلمين والموافقات. وقد تترتب رسوم فعلية من Meta عند إرسال الرسائل.</p><p className="mt-2 font-bold text-slate-900">في أول تشغيل فعلي نبدأ بحد أقصى 5 مستلمين. بعد وصول تأكيد تسليم أو قراءة من Meta تصبح الحملات التالية مؤهلة للإرسال المعتاد.</p></aside>
     </section>
 

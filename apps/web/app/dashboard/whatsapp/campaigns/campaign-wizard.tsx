@@ -4,8 +4,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { Check, ChevronLeft, ChevronRight, Eye, FileText, Radio, Send, ShieldCheck, UsersRound } from "lucide-react";
 import { createWhatsAppCampaignAction } from "../../../actions/whatsapp-marketing";
-import { MessageComposer } from "./message-composer";
-import { campaignTemplateFields, type Composition } from "../../../lib/whatsapp/campaign-composition";
+import { MessageComposer, type PreviewContact } from "./message-composer";
+import { campaignTemplateFields, publicMediaUrl, type Composition } from "../../../lib/whatsapp/campaign-composition";
 
 type ConnectionOption = { id: string; label: string };
 type TemplateOption = { id: string; connectionId: string; name: string; language: string; category: string; components: unknown; header: string | null; body: string | null; footer: string | null; buttons: string[] };
@@ -14,7 +14,7 @@ const steps = ["الإعداد", "الجمهور", "الرسالة", "الأما
 const controlClass = "mt-1.5 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#00bfae] focus:ring-4 focus:ring-[#00bfae]/10";
 const buttonFocus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2";
 
-export function CampaignWizard({ connections, templates, segments, eligibleContacts }: { connections: ConnectionOption[]; templates: TemplateOption[]; segments: SegmentOption[]; eligibleContacts: number }) {
+export function CampaignWizard({ connections, templates, segments, eligibleContacts, sampleContacts = [] }: { sampleContacts?: PreviewContact[]; connections: ConnectionOption[]; templates: TemplateOption[]; segments: SegmentOption[]; eligibleContacts: number }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [connectionId, setConnectionId] = useState(connections[0]?.id ?? "");
@@ -27,11 +27,16 @@ export function CampaignWizard({ connections, templates, segments, eligibleConta
   const selectedConnection = connections.find((connection) => connection.id === connectionId);
   const selectedSegment = segments.find((segment) => segment.id === segmentId);
   const selectedTemplate = availableTemplates.find((template) => template.id === templateId);
+  const compositionSpec = campaignTemplateFields(selectedTemplate?.components);
+  const compositionReady = !compositionSpec.unsupported && (!compositionSpec.media || Boolean(publicMediaUrl(composition.mediaUrl ?? ""))) && compositionSpec.fields.every((field) => {
+    const binding = composition.bindings[field.key];
+    return binding && (!["literal", "attribute"].includes(binding.source) || Boolean(binding.value.trim()));
+  });
   const audienceCount = audienceKind === "static_segment" ? selectedSegment?.members ?? 0 : eligibleContacts;
   const stepReady = [
     name.trim().length > 0 && connectionId.length > 0,
     audienceKind === "all_contacts" ? eligibleContacts > 0 : Boolean(segmentId && selectedSegment?.members),
-    Boolean(selectedTemplate) && !campaignTemplateFields(selectedTemplate?.components).unsupported,
+    Boolean(selectedTemplate) && compositionReady,
     true,
     true,
   ][step];
@@ -69,7 +74,7 @@ export function CampaignWizard({ connections, templates, segments, eligibleConta
 
         {step === 1 ? <div className="space-y-4"><StepHeading icon={<UsersRound className="h-5 w-5" />} title="اختر الجمهور" text="تشمل قائمة المستلمين من وافق على الرسائل التسويقية ولم يلغِ اشتراكه." /><AudienceCard active={audienceKind === "all_contacts"} title="كل جهات الاتصال المؤهلة" count={eligibleContacts} text="الأرقام ذات الموافقة التسويقية الفعالة" onClick={() => setAudienceKind("all_contacts")} /><AudienceCard active={audienceKind === "static_segment"} title="شريحة محددة" count={selectedSegment?.members ?? 0} text="استهدف مجموعة ثابتة محفوظة" onClick={() => setAudienceKind("static_segment")} />{audienceKind === "static_segment" ? <label className="block text-xs font-bold text-slate-700">الشريحة<select value={segmentId} onChange={(event) => setSegmentId(event.target.value)} className={controlClass}><option value="">اختر الشريحة</option>{segments.map((segment) => <option key={segment.id} value={segment.id}>{segment.name} · {segment.members} عضو</option>)}</select></label> : null}<p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[11px] leading-6 text-emerald-800">العدد الظاهر تقديري قبل التثبيت. عند إنشاء الحملة يعيد الخادم فحص الموافقات وطلبات إلغاء الاشتراك ويعرض العدد النهائي.</p></div> : null}
 
-        {step === 2 ? <div className="space-y-4"><StepHeading icon={<FileText className="h-5 w-5" />} title="اختر الرسالة" text="تظهر فقط قوالب Meta المعتمدة والمرتبطة بالرقم الذي اخترته." /><label className="block text-xs font-bold text-slate-700">قالب الرسالة<select aria-label="قالب الرسالة" value={templateId} onChange={(event) => { setTemplateId(event.target.value); setComposition({ bindings: {} }); }} className={controlClass}><option value="">اختر القالب</option>{availableTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · {template.language} · {template.category}</option>)}</select></label>{selectedTemplate ? <><TemplatePreview template={selectedTemplate} /><MessageComposer components={selectedTemplate.components} value={composition} onChange={setComposition} /></> : <EmptyChoice text={availableTemplates.length ? "اختر قالبًا لمعاينته." : "لا توجد قوالب معتمدة لهذا الرقم. قم بالمزامنة من قسم القوالب."} />}</div> : null}
+        {step === 2 ? <div className="space-y-4"><StepHeading icon={<FileText className="h-5 w-5" />} title="اختر الرسالة" text="تظهر فقط قوالب Meta المعتمدة والمرتبطة بالرقم الذي اخترته." /><label className="block text-xs font-bold text-slate-700">قالب الرسالة<select aria-label="قالب الرسالة" value={templateId} onChange={(event) => { setTemplateId(event.target.value); setComposition({ bindings: {} }); }} className={controlClass}><option value="">اختر القالب</option>{availableTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · {template.language} · {template.category}</option>)}</select></label>{selectedTemplate ? <><TemplatePreview template={selectedTemplate} /><MessageComposer key={selectedTemplate.id} sampleContacts={sampleContacts} components={selectedTemplate.components} value={composition} onChange={setComposition} /></> : <EmptyChoice text={availableTemplates.length ? "اختر قالبًا لمعاينته." : "لا توجد قوالب معتمدة لهذا الرقم. قم بالمزامنة من قسم القوالب."} />}</div> : null}
 
         {step === 3 ? <div className="space-y-4"><StepHeading icon={<ShieldCheck className="h-5 w-5" />} title="حواجز الإطلاق" text="INFRO لا يحوّل إنشاء الحملة إلى إرسال مباشر. هذه الحواجز تبقى فعالة عند الإطلاق الفعلي." /><div className="grid gap-3 sm:grid-cols-2"><SafetyCard title="لا إرسال أثناء الإنشاء" text="هذه الخطوة تحفظ قائمة المستلمين فقط. الإطلاق أو الجدولة إجراء منفصل بعد ظهور العدد النهائي." /><SafetyCard title="تجربة محدودة لأول إرسال" text="أول إرسال فعلي للمنشأة يبدأ بحد أقصى 5 مستلمين حتى يصل تأكيد تسليم أو قراءة من Meta." /><SafetyCard title="إعادة فحص قبل الإرسال" text="الموافقة والانسحاب والاتصال والقالب وجاهزية خدمة الإرسال يعاد التحقق منها عند التنفيذ." /><SafetyCard title="رسوم Meta منفصلة" text="قد تترتب رسوم رسائل من Meta عند الإرسال الفعلي، وهي منفصلة عن اشتراك INFRO." /></div><p className="rounded-xl border border-[#bdebe5] bg-[#effcf9] p-3 text-[11px] font-bold leading-6 text-[#075f5a]">بعد إنشاء الحملة ستظهر كبطاقة تشغيلية؛ من هناك تختار بدء الإرسال أو تحديد موعد للجدولة.</p></div> : null}
 

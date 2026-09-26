@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { db } from "../lib/db";
 import { getWhatsAppWriteContext } from "../lib/whatsapp/rbac";
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "../lib/whatsapp/credential-envelope";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl } from "../lib/whatsapp/meta-config";
-import { buildTemplateSubmission } from "../lib/whatsapp/template-editor-domain";
+import { buildTemplateSubmission, canEditSimpleTemplate } from "../lib/whatsapp/template-editor-domain";
 import { syncMetaWhatsAppTemplates } from "../lib/whatsapp/template-sync";
 import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
@@ -29,8 +30,10 @@ export async function submitWhatsAppTemplateAction(_previous: { message: string 
     // Validate text before any provider mutation. The sample handle is validated below.
     buildTemplateSubmission({ ...input, mediaHandle: "validated-later" });
     const templateId = get("templateId");
-    const template = templateId ? await db.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId, provider: "meta" }, select: { providerTemplateId: true, name: true, language: true } }) : null;
+    const template = templateId ? await db.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId, provider: "meta" }, select: { providerTemplateId: true, name: true, language: true, components: true } }) : null;
     if (templateId && (!template || template.name !== input.name || template.language !== input.language)) throw new Error("TEMPLATE_INPUT_INVALID");
+    if (template && !canEditSimpleTemplate(template.components)) throw new Error("TEMPLATE_INPUT_INVALID");
+    if (template && await db.whatsAppCampaign.count({ where: { businessId: context.businessId, templateId, OR: [{ status: { in: ["snapshotting", "ready", "scheduled", "running", "paused"] } }, { status: "completed", updatedAt: { gte: new Date(Date.now() - 86400000) } }] } })) throw new Error("TEMPLATE_IN_USE");
     if (input.header !== "NONE") {
       const file = form.get("sample");
       if (!(file instanceof File) || file.size < 1 || file.size > 3 * 1024 * 1024) throw new Error("TEMPLATE_SAMPLE_REQUIRED");
@@ -56,7 +59,11 @@ export async function submitWhatsAppTemplateAction(_previous: { message: string 
       input.mediaHandle = sample.h;
     }
     const payload = buildTemplateSubmission(input);
-    if (template) await db.whatsAppTemplate.updateMany({ where: { id: templateId, businessId: context.businessId, connectionId }, data: { status: "pending", providerStatus: "EDIT_REQUESTED" } });
+    if (template) await db.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "WhatsAppTemplate" WHERE "id" = ${templateId} AND "businessId" = ${context.businessId} FOR UPDATE`);
+      if (await tx.whatsAppCampaign.count({ where: { businessId: context.businessId, templateId, OR: [{ status: { in: ["snapshotting", "ready", "scheduled", "running", "paused"] } }, { status: "completed", updatedAt: { gte: new Date(Date.now() - 86400000) } }] } })) throw new Error("TEMPLATE_IN_USE");
+      await tx.whatsAppTemplate.updateMany({ where: { id: templateId, businessId: context.businessId, connectionId }, data: { status: "pending", providerStatus: "EDIT_REQUESTED" } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     const response = await fetch(metaWhatsAppGraphUrl(config, template ? template.providerTemplateId : `${connection.wabaId}/message_templates`), { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify(template ? { components: payload.components, category: payload.category } : payload), signal: AbortSignal.timeout(20000) });
     if (!response.ok) throw new Error("META_TEMPLATE_SUBMISSION_REJECTED");
     accepted = true;
@@ -69,6 +76,7 @@ export async function submitWhatsAppTemplateAction(_previous: { message: string 
   } catch (error) {
     if (accepted) return { message: "استلمت Meta الطلب لكن لم تكتمل المزامنة. اضغط تحديث من Meta ولا تعِد إنشاء القالب." };
     const reason = error instanceof Error ? error.message : "UNKNOWN";
+    if (reason === "TEMPLATE_IN_USE") return { message: "القالب مرتبط بحملة جاهزة أو جارية أو مكتملة حديثًا. أنشئ قالبًا جديدًا لحماية الرسائل المثبتة ومحاولات التسليم." };
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "template.submit", targetType: "connection", targetId: connectionId, outcome: "failed", metadata: { reason: reason.startsWith("TEMPLATE_") || reason.startsWith("META_TEMPLATE_") ? reason : "UNKNOWN" } }).catch(() => undefined);
     return { message: reason === "TEMPLATE_SAMPLE_REQUIRED" ? "أرفق عينة مطابقة لنوع القالب لا تتجاوز 3 MB." : reason.startsWith("TEMPLATE_") ? "راجع الاسم والنص والمتغيرات وأمثلتها والرابط. يجب ترقيم المتغيرات بالتتابع من {{1}}." : "لم يتأكد قبول الطلب. حدّث القوالب من Meta أولًا للتحقق قبل إعادة المحاولة." };
   }
