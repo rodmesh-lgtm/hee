@@ -57,6 +57,7 @@ test("visitor selects a branch without seeing capacity or remaining seats", () =
 
 test("booking dialog keeps its form inside the responsive modal width", () => {
   assert.match(launcher, /overflow-x-hidden overflow-y-auto/);
-  assert.equal((launcher.match(/grid min-w-0 gap-1\.5 text-xs font-bold text-slate-600/g) ?? []).length, 2);
-  assert.equal((launcher.match(/h-11 min-w-0 w-full rounded-xl/g) ?? []).length, 2);
+  // The simplified form retains one width-bounded contact input: phone.
+  assert.equal((launcher.match(/grid min-w-0 gap-1\.5 text-xs font-bold text-slate-600/g) ?? []).length, 1);
+  assert.equal((launcher.match(/h-11 min-w-0 w-full rounded-xl/g) ?? []).length, 1);
 });

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { WeeklyBookingHoursEditor } from "../../../components/dashboard/weekly-booking-hours-editor";
 import { redirect } from "next/navigation";
 import {
   ArrowLeft,
@@ -8,13 +9,10 @@ import {
   CalendarOff,
   Building2,
   CheckCircle2,
-  Clock3,
   Inbox,
   MessageCircle,
-  MoonStar,
   Plus,
   Power,
-  SunMedium,
   Store,
   Trash2,
   UsersRound,
@@ -23,7 +21,6 @@ import { db } from "../../lib/db";
 import { getOwnedBusinessForRead } from "../../lib/ownership";
 import {
   deleteBookingAvailabilityOverrideAction,
-  updateWorkingHoursAction,
   updateBookingSlotSettingsAction,
   upsertBookingAvailabilityOverrideAction,
   configureBookingWhatsAppConfirmationAction,
@@ -142,7 +139,6 @@ export default async function DashboardWorkingHoursPage({
   if (!business) redirect("/onboarding");
 
   const byDay = new Map(business.openingHours.map((item) => [item.dayOfWeek, item]));
-  const configured = days.reduce((count, _day, index) => byDay.has(index) ? count + 1 : count, 0);
   const closedCount = days.reduce((count, _day, index) => (byDay.get(index)?.isClosed ?? (index === 4)) ? count + 1 : count, 0);
   const openCount = 7 - closedCount;
   const bookableCount = business.services.length;
@@ -348,20 +344,7 @@ export default async function DashboardWorkingHoursPage({
       </div> : <div className="border-t border-dashed border-slate-200 px-4 py-5 text-center text-[10px] font-bold text-slate-400">لا توجد تواريخ خاصة؛ سيُستخدم جدول الأسبوع تلقائيًا.</div>}
     </section>
 
-    <form action={updateWorkingHoursAction} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
-      <div className="flex flex-col gap-3 border-b border-slate-100 bg-[#fbfdfd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><Clock3 className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">WEEKLY AVAILABILITY</span><h2 className="mt-1 text-sm font-black text-slate-950">الجدول الأسبوعي المعتاد</h2></div></div><p className="max-w-md text-[9px] leading-5 text-slate-400">حدد الأيام والأوقات المتكررة. الفترة الثانية اختيارية للدوام المنقسم.</p></div>
-      <div className="divide-y divide-slate-100 bg-[#f8fbfb]/40 p-2 sm:p-3">{days.map((day, index) => {
-        const row = byDay.get(index);
-        const defaultClosed = row?.isClosed ?? (index === 4);
-        return <article key={day} className="my-2 rounded-[20px] border border-slate-200 bg-white p-3.5 shadow-[0_8px_30px_-28px_rgba(7,24,27,.55)] sm:p-4 lg:grid lg:grid-cols-[170px_1fr_1fr] lg:items-center lg:gap-4 lg:p-4">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 lg:block lg:border-b-0 lg:pb-0"><div className="flex items-center gap-3"><span className={`grid h-10 w-10 place-items-center rounded-xl ${defaultClosed ? "bg-slate-100 text-slate-400" : "bg-[#e9fbf8] text-[#008f87]"}`}><Clock3 className="h-4 w-4" /></span><div><b className="block text-sm text-slate-900">{day}</b><span className={`mt-0.5 block text-[8px] font-black tracking-[.08em] ${defaultClosed ? "text-slate-400" : "text-emerald-600"}`}>{defaultClosed ? "مغلق" : "متاح"}</span></div></div><label className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-[#f8fbfb] px-3 text-[10px] font-black text-slate-600 lg:mt-3 lg:w-fit"><input type="checkbox" name={`closed-${index}`} defaultChecked={defaultClosed} className="h-4 w-4 accent-[#00a99d]" />مغلق</label></div>
-          <div className="mt-3 rounded-2xl border border-slate-100 bg-[#fbfdfd] p-3 lg:mt-0"><div className="mb-2 flex items-center gap-2 text-[9px] font-black text-slate-500"><SunMedium className="h-3.5 w-3.5 text-[#00a99d]" />الفترة الأساسية</div><div className="grid grid-cols-2 gap-2"><TimeField label="يفتح" name={`opens-${index}`} value={row?.opensAt ?? "09:00"} /><TimeField label="يغلق" name={`closes-${index}`} value={row?.closesAt ?? "17:00"} /></div></div>
-          <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white p-3 lg:mt-0"><div className="mb-2 flex items-center gap-2 text-[9px] font-black text-slate-400"><MoonStar className="h-3.5 w-3.5" />الفترة الثانية <span className="font-medium">اختيارية</span></div><div className="grid grid-cols-2 gap-2"><TimeField label="من" name={`second-opens-${index}`} value={row?.secondOpensAt ?? ""} /><TimeField label="إلى" name={`second-closes-${index}`} value={row?.secondClosesAt ?? ""} /></div></div>
-        </article>;
-      })}</div>
-      <div className="hidden items-center justify-between gap-3 border-t border-slate-100 bg-[#fbfdfd] px-5 py-4 lg:flex"><span className="text-[10px] font-bold text-slate-400">{configured} من 7 أيام مهيأة</span><button className="h-11 rounded-xl bg-[#07181b] px-5 text-[11px] font-black text-white">حفظ الجدول الأسبوعي</button></div>
-      <div className="fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] z-[18] border-t border-slate-200 bg-white/95 px-3 py-2.5 shadow-[0_-18px_40px_-32px_rgba(7,24,27,.55)] backdrop-blur-xl lg:hidden"><div className="mx-auto flex max-w-md items-center gap-2"><Link href="/dashboard/inbox" className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-3 text-[10px] font-black text-slate-600">الحجوزات</Link><button className="h-11 flex-1 rounded-xl bg-[#07181b] px-5 text-[11px] font-black text-white">حفظ جدول الأسبوع</button></div></div>
-    </form>
+    <WeeklyBookingHoursEditor initial={business.openingHours.map(({ dayOfWeek, opensAt, closesAt, secondOpensAt, secondClosesAt, isClosed }) => ({ dayOfWeek, opensAt, closesAt, secondOpensAt, secondClosesAt, isClosed }))} slotMinutes={business.bookingSlotMinutes}/>
   </div>;
 }
 

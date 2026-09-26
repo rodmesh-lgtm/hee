@@ -6,6 +6,7 @@ import { PublicBusinessBio } from "../../components/public-business-bio";
 import { PublicBusinessAnalytics } from "../../components/public-business-analytics";
 import { PublicIdentityHighlights } from "../../components/public/public-identity-highlights";
 import { PublicTransactionLauncher } from "../../components/public/public-transaction-launcher";
+import { readPublishedBookingForm } from "../lib/booking-form-settings";
 import {
   getPublicBusinessUrlFromRequest,
   isRoutablePublicSlug,
@@ -227,6 +228,7 @@ export default async function PublicBusinessPageRoute({
   const hasWorkingHours = publicBusiness.openingHours.some(
     (item) => !item.isClosed && Boolean(item.opensAt && item.closesAt),
   );
+  const bookingForm = await readPublishedBookingForm();
 
   return (
     <>
@@ -248,6 +250,7 @@ export default async function PublicBusinessPageRoute({
         socialLinks={socialLinks.map(([label, href]) => ({ label, href }))}
       />
       <PublicTransactionLauncher
+        bookingForm={bookingForm}
         slug={publicBusiness.slug}
         businessName={publicBusiness.name}
         whatsapp={publicBusiness.whatsapp}

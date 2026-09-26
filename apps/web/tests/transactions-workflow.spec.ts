@@ -118,6 +118,36 @@ test.describe.serial("public transactions workflow", () => {
     } finally { await cleanup(seeded); }
   });
 
+  test("merchant evening hours appear automatically and phone-only booking preserves customer identity", async ({ page, request }) => {
+    const seeded = await seed();
+    try {
+      await db.business.update({ where: { id: seeded.businessId }, data: { bookingSlotMinutes: 30 } });
+      await db.customer.create({ data: { businessId: seeded.businessId, name: "عميلنا المعروف", phone: "966500000411" } });
+      await setSession(page, seeded.sessionToken);
+      await page.goto(`${baseUrl}/dashboard/working-hours`, { waitUntil: "networkidle" });
+      const tomorrow = riyadhDateKey(1);
+      const day = dayIndexForRiyadhDate(tomorrow);
+      const dayEditor = page.locator("fieldset").filter({ has: page.locator(`input[name="opens-${day}"]`) });
+      await dayEditor.getByRole("button", { name: "مسائي 17:00–22:00", exact: true }).click();
+      await expect(page.locator(`input[name="opens-${day}"]`)).toHaveValue("17:00");
+      await page.locator(`input[name="opens-${day}"]`).fill("17:10");
+      await page.locator(`input[name="closes-${day}"]`).fill("19:10");
+      await page.getByRole("button", { name: "حفظ جدول الأسبوع", exact: true }).click();
+      await page.waitForURL(/saved=1/);
+      expect((await db.workingHours.findFirst({ where: { businessId: seeded.businessId, dayOfWeek: day } }))?.opensAt).toBe("17:10");
+      const availability = await request.get(`${baseUrl}/api/public/bookings?slug=${seeded.slug}&serviceId=${seeded.serviceId}`);
+      expect(availability.status()).toBe(200);
+      const availableDay = (await availability.json()).days.find((item: { date: string }) => item.date === tomorrow);
+      expect(availableDay.slots).toEqual(["17:10", "17:40", "18:10", "18:40"]);
+      expect(JSON.stringify(availableDay)).not.toMatch(/capacity|remaining/i);
+      const send = (time: string) => request.post(`${baseUrl}/api/public/bookings`, { data: { slug: seeded.slug, phone: "0500000411", serviceId: seeded.serviceId, bookingDate: tomorrow, bookingTime: time, notes: "ملاحظة اختبار", requestId: crypto.randomUUID() } });
+      expect((await send("17:30")).status()).toBe(409);
+      expect((await send("17:10")).status()).toBe(201);
+      expect((await db.customer.findFirst({ where: { businessId: seeded.businessId, phone: "966500000411" } }))?.name).toBe("عميلنا المعروف");
+      expect((await db.booking.findFirst({ where: { businessId: seeded.businessId } }))?.notes).toBe("ملاحظة اختبار");
+    } finally { await cleanup(seeded); }
+  });
+
   test("global opt-out database accepts E164 and rejects malformed phones", async () => {
     const phone = "+966500000399";
     try {
@@ -156,7 +186,8 @@ test.describe.serial("public transactions workflow", () => {
       await bookingButton.click();
       const bookingDialog = publicPage.getByRole("dialog", { name: "حجز موعد" });
       await expect(bookingDialog).toBeVisible();
-      await expect(bookingDialog.getByLabel("الاسم")).toBeFocused();
+      await expect(bookingDialog.getByLabel("رقم الجوال")).toBeFocused();
+      await expect(bookingDialog.getByLabel("الاسم", { exact: true })).toHaveCount(0);
       expect(await publicPage.evaluate(() => document.body.style.overflow)).toBe("hidden");
       const bookingClose = bookingDialog.getByRole("button", { name: "إغلاق" });
       const bookingCloseBox = await bookingClose.boundingBox();
@@ -178,9 +209,8 @@ test.describe.serial("public transactions workflow", () => {
       await expect(bookingSubmit).toBeVisible();
 
       const tomorrow = riyadhDateKey(1);
-      await bookingDialog.getByLabel("الاسم").fill("عميل اختبار");
       await bookingDialog.getByLabel("رقم الجوال").fill("0500000011");
-      await bookingDialog.getByLabel("الخدمة").selectOption(seeded.serviceId);
+      await expect(bookingDialog.getByLabel("الخدمة", { exact: true })).toHaveCount(0);
       const tomorrowButton = bookingDialog.locator(`[data-booking-date="${tomorrow}"]`);
       await expect(tomorrowButton).toBeEnabled({ timeout: 20_000 });
       await tomorrowButton.click();
@@ -213,7 +243,7 @@ test.describe.serial("public transactions workflow", () => {
       await ownerPage.goto(`${baseUrl}/dashboard/inbox`, { waitUntil: "domcontentloaded" });
       const inboxMain = ownerPage.locator("#dashboard-main-content");
       await expect(inboxMain.getByRole("heading", { name: "الطلبات والحجوزات" })).toBeVisible();
-      await expect(ownerPage.getByText("عميل اختبار")).toBeVisible();
+      await expect(ownerPage.getByText("عميل الحجز", { exact: true })).toBeVisible();
       await expect(ownerPage.getByText("استشارة لمدة ساعة")).toBeVisible();
       await ownerPage.getByRole("button", { name: "تأكيد الحجز" }).click();
       await expect.poll(async () => (await db.booking.findFirst({ where: { businessId: seeded.businessId }, select: { status: true } }))?.status, { timeout: 20_000 }).toBe("confirmed");

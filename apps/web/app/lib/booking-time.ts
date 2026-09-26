@@ -11,6 +11,25 @@ export function bookingMinutes(time: string) {
   return hour * 60 + minute;
 }
 
+/** Anchor each window to the merchant's exact start, including overnight carry. */
+export function bookingCandidateMinutes(duration: number, current: BookingSchedule | null, previous: BookingSchedule | null) {
+  if (!Number.isInteger(duration) || duration < 15 || duration > 480) return [];
+  const candidates = new Set<number>();
+  for (const [schedule, offset] of [[current, 0], [previous, -1440]] as const) {
+    if (!schedule || schedule.isClosed) continue;
+    for (const [open, close] of [[schedule.opensAt, schedule.closesAt], [schedule.secondOpensAt, schedule.secondClosesAt]]) {
+      if (!open || !close || open === close) continue;
+      const start = bookingMinutes(open) + offset;
+      let end = bookingMinutes(close) + offset;
+      if (end < start) end += 1440;
+      for (let minute = start; minute + duration <= end; minute += duration) {
+        if (minute >= 0 && minute < 1440) candidates.add(minute);
+      }
+    }
+  }
+  return [...candidates].sort((a, b) => a - b);
+}
+
 export function normalizedBookingDuration(value: number | null) {
   if (!Number.isInteger(value) || !value || value < 5 || value > 1440) return 30;
   return value;
