@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { AlertTriangle, CheckCircle2, FileText, RefreshCw, Search, ShieldCheck, Sparkles, WandSparkles } from "lucide-react";
 import { syncWhatsAppTemplatesAction } from "../../../actions/whatsapp-marketing";
+import { TemplateEditor } from "./template-editor";
 import { db } from "../../../lib/db";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
@@ -90,6 +91,7 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
         <div className="min-w-[220px] rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><span className="block text-[9px] text-slate-400">NEXT ACTION</span><b className="mt-1 block text-sm text-white">{nextAction.title}</b><span className="mt-1 block text-[9px] leading-5 text-slate-400">{nextAction.detail}</span></div>
       </div>
     </header>
+    {connectionReady && connection ? <TemplateEditor connectionId={connection.id} templates={templates.filter((t) => t.connectionId === connection.id)}/> : null}
 
     {!connectionReady && connection ? <p role="status" className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800"><AlertTriangle className="h-4 w-4"/>رقم واتساب المرتبط غير جاهز حاليًا. أعد تفعيل الاتصال أولًا؛ القالب المعتمد وحده لا يكفي للإرسال.</p> : null}
     {params.sync ? <p aria-live="polite" className={`flex items-center gap-2 rounded-2xl border p-3 text-[10px] font-bold ${params.sync === "complete" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{params.sync === "complete" ? <CheckCircle2 className="h-4 w-4"/> : <AlertTriangle className="h-4 w-4"/>}{params.sync === "complete" ? `تم تحديث القوالب بنجاح (${params.count ?? 0}).` : "تعذر تحديث القوالب. تحقق من اتصال الرقم ثم أعد المحاولة."}</p> : null}

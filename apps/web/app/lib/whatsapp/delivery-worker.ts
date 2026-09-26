@@ -7,6 +7,7 @@ import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./cr
 import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, parseRetryAfter, retryDelayMs, WHATSAPP_DELIVERY_MAX_ATTEMPTS } from "./delivery-domain";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "./meta-config";
 import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
+import { nextCampaignWindow, parseCampaignSendPolicy } from "./campaign-send-policy";
 
 type JsonRecord = Record<string, unknown>;
 type ClaimedJob = { id: string; businessId: string; connectionId: string; campaignId: string; recipientId: string; attemptCount: number };
@@ -121,7 +122,14 @@ export async function processNextWhatsAppDelivery(input: {
     ]);
     return { processed: true as const, result: "skipped_opt_out" as const, jobId: job.id };
   }
-  if (!await acquireRateSlot(database, job, outboundRateLimit(env), now)) {
+  const sendPolicy = parseCampaignSendPolicy(record(context.campaign.templateSnapshot)?.sendPolicy);
+  const nextWindow = nextCampaignWindow(sendPolicy, now);
+  if (nextWindow > now) {
+    await releaseAs(database, job.id, "retry_scheduled", { nextAttemptAt: nextWindow, attemptCount: { decrement: 1 }, lastErrorCode: "OUTSIDE_CAMPAIGN_SEND_WINDOW" });
+    await database.whatsAppCampaignRecipient.update({ where: { id: job.recipientId }, data: { status: "queued", processingAt: null } });
+    return { processed: true as const, result: "outside_send_window" as const, jobId: job.id };
+  }
+  if (!await acquireRateSlot(database, job, Math.min(outboundRateLimit(env), sendPolicy?.perMinute ?? Infinity), now)) {
     const nextMinute = new Date((Math.floor(now.getTime() / 60_000) + 1) * 60_000);
     await releaseAs(database, job.id, "retry_scheduled", { nextAttemptAt: nextMinute, lastErrorCode: "LOCAL_RATE_LIMIT", attemptCount: { decrement: 1 } });
     return { processed: true as const, result: "rate_limited" as const, jobId: job.id };

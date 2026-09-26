@@ -4,14 +4,18 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { boundedTemplateParameters, parseCampaignAudience } from "./campaign-domain";
+import { resolveCampaignComposition, type Composition } from "./campaign-composition";
+import type { CampaignSendPolicy } from "./campaign-send-policy";
 
 type CampaignDb = Pick<PrismaClient, "$transaction">;
-type Candidate = { id: string; phoneE164: string; displayName: string | null };
+type Candidate = { id: string; phoneE164: string; displayName: string | null; email?: string | null; attributes?: unknown };
 
 export async function snapshotWhatsAppCampaign(input: {
   businessId: string;
   campaignId: string;
   parametersByContactId?: Record<string, unknown>;
+  composition?: Composition;
+  sendPolicy?: CampaignSendPolicy | null;
   database?: CampaignDb;
   now?: Date;
 }) {
@@ -61,7 +65,7 @@ export async function snapshotWhatsAppCampaign(input: {
     if (audience.kind === "contacts") {
       candidates = await tx.whatsAppContact.findMany({
         where: { businessId: input.businessId, id: { in: audience.contactIds }, optedOutAt: null },
-        select: { id: true, phoneE164: true, displayName: true },
+        select: { id: true, phoneE164: true, displayName: true, email: true, attributes: true },
       });
     } else {
       const segment = await tx.whatsAppSegment.findFirst({
@@ -71,7 +75,7 @@ export async function snapshotWhatsAppCampaign(input: {
       if (!segment) throw new Error("WHATSAPP_CAMPAIGN_STATIC_SEGMENT_NOT_FOUND");
       const memberships = await tx.whatsAppSegmentMembership.findMany({
         where: { businessId: input.businessId, segmentId: segment.id, contact: { optedOutAt: null } },
-        select: { contact: { select: { id: true, phoneE164: true, displayName: true } } },
+        select: { contact: { select: { id: true, phoneE164: true, displayName: true, email: true, attributes: true } } },
         take: 10_001,
       });
       if (memberships.length > 10_000) throw new Error("WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE");
@@ -94,11 +98,22 @@ export async function snapshotWhatsAppCampaign(input: {
     if (eligible.length === 0) throw new Error("WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS");
 
     const recipientRows = eligible.map((contact) => {
-      const rawParameters = input.parametersByContactId?.[contact.id];
+      const recipientId = randomUUID();
+      const rawParameters = input.composition ? resolveCampaignComposition(campaign.template.components, input.composition, contact).components : input.parametersByContactId?.[contact.id];
+      if (input.composition?.trackingDestination) {
+        const components = campaign.template.components;
+        const buttons = Array.isArray(components) ? components.find((c) => c && typeof c === "object" && !Array.isArray(c) && c.type === "BUTTONS") : null;
+        const buttonList = buttons && typeof buttons === "object" && !Array.isArray(buttons) && Array.isArray(buttons.buttons) ? buttons.buttons : [];
+        const index = buttonList.findIndex((b) => b && typeof b === "object" && !Array.isArray(b) && b.type === "URL" && b.url === "https://ir.sa/api/whatsapp/campaign-link/{{1}}");
+        if (index < 0 || !Array.isArray(rawParameters)) throw new Error("WHATSAPP_CAMPAIGN_TRACKING_INVALID");
+        const button = rawParameters.find((c) => c.type === "button" && c.index === String(index));
+        if (!button) throw new Error("WHATSAPP_CAMPAIGN_TRACKING_INVALID");
+        button.parameters = [{ type: "text", text: recipientId }];
+      }
       const templateParameters = boundedTemplateParameters(rawParameters);
       if (rawParameters != null && templateParameters == null) throw new Error("WHATSAPP_CAMPAIGN_TEMPLATE_PARAMETERS_INVALID");
       return {
-        id: randomUUID(), businessId: input.businessId, campaignId: campaign.id,
+        id: recipientId, businessId: input.businessId, campaignId: campaign.id,
         contactId: contact.id, phoneE164: contact.phoneE164, displayName: contact.displayName,
         templateParameters: templateParameters as Prisma.InputJsonValue | undefined,
       };
@@ -106,6 +121,9 @@ export async function snapshotWhatsAppCampaign(input: {
     await tx.whatsAppCampaignRecipient.createMany({ data: recipientRows });
 
     const templateSnapshot = {
+      sendPolicy: input.sendPolicy ?? null,
+      trackingDestination: input.composition?.trackingDestination ?? null,
+      mediaUrl: input.composition?.mediaUrl ?? null,
       id: campaign.template.id,
       providerTemplateId: campaign.template.providerTemplateId,
       name: campaign.template.name,

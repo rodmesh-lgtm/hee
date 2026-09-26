@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { after, NextResponse } from "next/server";
 import { db } from "../../../lib/db";
 import { retryBookingTransaction } from "../../../lib/retry-booking-transaction";
+import { recordCampaignBooking } from "../../../lib/whatsapp/campaign-attribution";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 import { normalizePublicSlug } from "../../../lib/public-url";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
@@ -791,6 +792,9 @@ export async function POST(request: Request) {
       return { id: booking.id, replayed: false, confirmationEventId };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 
+    if (!result.replayed) after(async () => {
+      await recordCampaignBooking({ businessId: business.id, bookingId: result.id, cookieHeader: request.headers.get("cookie") ?? "" }).catch(() => undefined);
+    });
     if (result.confirmationEventId) {
       after(async () => {
         try {

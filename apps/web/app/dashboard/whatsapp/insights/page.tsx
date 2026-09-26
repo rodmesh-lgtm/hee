@@ -16,6 +16,7 @@ import {
 import { db } from "../../../lib/db";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
+import { CampaignFunnel } from "./campaign-funnel";
 
 const allowedWindows = [7, 30, 90] as const;
 type ReportWindow = (typeof allowedWindows)[number];
@@ -159,6 +160,7 @@ export default async function WhatsAppInsightsPage({ searchParams }: { searchPar
     <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
       <article className="rounded-[26px] border border-slate-200 bg-white p-4 sm:p-5"><div className="flex items-center justify-between gap-3"><div><span className="text-[9px] font-black text-[#008f87]">CAMPAIGN PERFORMANCE</span><h2 className="mt-1 font-black text-slate-900">أفضل الحملات أداءً</h2></div><Link href="/dashboard/whatsapp/campaigns" className="text-[9px] font-black text-[#008f87]">كل الحملات</Link></div>{topCampaigns.length ? <div className="mt-4 grid gap-2">{topCampaigns.map((campaign, index) => <article key={campaign.campaignId} className="grid gap-3 rounded-[18px] border border-slate-100 bg-[#fbfdfd] p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center"><span className="grid h-8 w-8 place-items-center rounded-xl bg-[#e9fbf8] text-[10px] font-black text-[#008f87]">#{index + 1}</span><div className="min-w-0"><b className="block truncate text-xs text-slate-900">{campaign.name}</b><span className="mt-1 block text-[8px] text-slate-400">{campaign.createdAt.toLocaleDateString("ar-SA")} · {formatNumber(campaign.sent)} إرسال</span></div><div className="flex gap-3 text-[9px]"><span><b className="block text-slate-900">{formatRate(campaign.sent ? campaign.delivered / campaign.sent : 0)}</b><span className="text-slate-400">تسليم</span></span><span><b className="block text-slate-900">{formatRate(campaign.delivered ? campaign.read / campaign.delivered : 0)}</b><span className="text-slate-400">قراءة</span></span></div></article>)}</div> : <EmptyState text="لا توجد حملات مرسلة تكفي لترتيب الأداء في هذه الفترة." />}</article>
       <aside className="rounded-[24px] border border-slate-200 bg-white p-4"><span className="text-[9px] font-black text-[#008f87]">PERIOD SUMMARY</span><dl className="mt-3 grid gap-2"><SummaryCell label="الحملات المنشأة" value={formatNumber(campaigns.length)} /><SummaryCell label="فشل الإرسال" value={formatNumber(campaignTotals.failed)} /><SummaryCell label="إجمالي المحادثات" value={formatNumber(inboundMessages + outboundMessages)} /><SummaryCell label="الفترة" value={`${days} يومًا`} /></dl></aside>
+      <CampaignFunnel businessId={context.businessId} since={since}/>
     </section>
   </div>;
 }

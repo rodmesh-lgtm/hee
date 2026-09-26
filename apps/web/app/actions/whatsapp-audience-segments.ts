@@ -26,6 +26,10 @@ export async function createEligibleAudienceSegmentAction(form: FormData) {
   }
 
   const parsedName = segmentName(form);
+  const tag = normalizeContactLabel(String(form.get("tag") ?? "")) || "";
+  const engagement = String(form.get("engagement") ?? "all");
+  const paidOnly = form.get("paidOnly") === "on";
+  if (!["all", "read30", "not_read30"].includes(engagement) || tag.length > 80) redirect("/dashboard/whatsapp/contacts?segment=invalid#segments");
   if (!parsedName) redirect("/dashboard/whatsapp/contacts?segment=invalid#segments");
 
   let destination = "/dashboard/whatsapp/contacts?segment=failed#segments";
@@ -48,7 +52,7 @@ export async function createEligibleAudienceSegmentAction(form: FormData) {
           name: parsedName.name,
           normalizedName: parsedName.normalizedName,
           kind: "static",
-          definition: Prisma.DbNull,
+          definition: { tag, engagement, paidOnly },
         },
         select: { id: true },
       });
@@ -63,10 +67,25 @@ export async function createEligibleAudienceSegmentAction(form: FormData) {
         WHERE contact."businessId" = ${context.businessId}
           AND contact."optedOutAt" IS NULL
           AND consent."revokedAt" IS NULL
+          AND consent."source" <> 'booking'
           AND consent."consentedAt" <= CURRENT_TIMESTAMP
+          AND (${tag} = '' OR EXISTS (
+            SELECT 1 FROM "WhatsAppContactTagMembership" m
+            JOIN "WhatsAppContactTag" t ON t."id" = m."tagId" AND t."businessId" = m."businessId"
+            WHERE m."businessId" = contact."businessId" AND m."contactId" = contact."id" AND t."normalizedName" = ${tag}
+          ))
+          AND (${!paidOnly} OR EXISTS (
+            SELECT 1 FROM "CommerceBookingEligibility" o WHERE o."businessId" = contact."businessId" AND o."phoneE164" = contact."phoneE164" AND o."eligible" = TRUE
+          ))
+          AND (${engagement} = 'all' OR (${engagement} = 'read30') = EXISTS (
+            SELECT 1 FROM "WhatsAppCampaignRecipient" r WHERE r."businessId" = contact."businessId" AND r."contactId" = contact."id" AND r."readAt" >= CURRENT_TIMESTAMP - INTERVAL '30 days'
+          ))
+        ORDER BY contact."id"
+        LIMIT 10001
         ON CONFLICT ("contactId", "segmentId") DO NOTHING
       `);
       if (memberCount < 1) throw new Error("WHATSAPP_SEGMENT_EMPTY_AUDIENCE");
+      if (memberCount > 10000) throw new Error("WHATSAPP_SEGMENT_LIMIT_REACHED");
       return { segmentId: segment.id, memberCount };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 

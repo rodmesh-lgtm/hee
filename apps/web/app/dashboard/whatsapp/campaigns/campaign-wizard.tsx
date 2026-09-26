@@ -4,9 +4,11 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { Check, ChevronLeft, ChevronRight, Eye, FileText, Radio, Send, ShieldCheck, UsersRound } from "lucide-react";
 import { createWhatsAppCampaignAction } from "../../../actions/whatsapp-marketing";
+import { MessageComposer } from "./message-composer";
+import { campaignTemplateFields, type Composition } from "../../../lib/whatsapp/campaign-composition";
 
 type ConnectionOption = { id: string; label: string };
-type TemplateOption = { id: string; connectionId: string; name: string; language: string; category: string; header: string | null; body: string | null; footer: string | null; buttons: string[] };
+type TemplateOption = { id: string; connectionId: string; name: string; language: string; category: string; components: unknown; header: string | null; body: string | null; footer: string | null; buttons: string[] };
 type SegmentOption = { id: string; name: string; members: number };
 const steps = ["الإعداد", "الجمهور", "الرسالة", "الأمان", "المراجعة"] as const;
 const controlClass = "mt-1.5 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#00bfae] focus:ring-4 focus:ring-[#00bfae]/10";
@@ -20,6 +22,8 @@ export function CampaignWizard({ connections, templates, segments, eligibleConta
   const [segmentId, setSegmentId] = useState("");
   const availableTemplates = useMemo(() => templates.filter((template) => template.connectionId === connectionId), [connectionId, templates]);
   const [templateId, setTemplateId] = useState("");
+  const [composition, setComposition] = useState<Composition>({ bindings: {} });
+  const [sendPolicy, setSendPolicy] = useState({ perMinute: 20, startHour: 0, endHour: 0, timeZone: "Asia/Riyadh" });
   const selectedConnection = connections.find((connection) => connection.id === connectionId);
   const selectedSegment = segments.find((segment) => segment.id === segmentId);
   const selectedTemplate = availableTemplates.find((template) => template.id === templateId);
@@ -27,7 +31,7 @@ export function CampaignWizard({ connections, templates, segments, eligibleConta
   const stepReady = [
     name.trim().length > 0 && connectionId.length > 0,
     audienceKind === "all_contacts" ? eligibleContacts > 0 : Boolean(segmentId && selectedSegment?.members),
-    Boolean(selectedTemplate),
+    Boolean(selectedTemplate) && !campaignTemplateFields(selectedTemplate?.components).unsupported,
     true,
     true,
   ][step];
@@ -37,6 +41,8 @@ export function CampaignWizard({ connections, templates, segments, eligibleConta
     <input type="hidden" name="name" value={name.trim()} />
     <input type="hidden" name="connectionId" value={connectionId} />
     <input type="hidden" name="templateId" value={templateId} />
+    <input type="hidden" name="composition" value={JSON.stringify(composition)} />
+    <input type="hidden" name="sendPolicy" value={JSON.stringify(sendPolicy)} />
     <input type="hidden" name="audienceKind" value={audienceKind} />
     {audienceKind === "static_segment" ? <input type="hidden" name="segmentId" value={segmentId} /> : null}
 
@@ -56,13 +62,14 @@ export function CampaignWizard({ connections, templates, segments, eligibleConta
 
     <div className="grid min-h-[390px] lg:grid-cols-[minmax(0,1fr)_300px]">
       <div className="min-w-0 p-4 sm:p-5 lg:border-l lg:border-slate-100">
+        {step === 3 ? <fieldset className="mb-5 grid gap-3 rounded-2xl border border-slate-200 p-4 sm:grid-cols-2"><legend className="px-2 text-sm font-bold text-slate-900">وتيرة الإرسال وأوقاته</legend><label className="text-xs text-slate-600">الحد المطلوب في الدقيقة<input type="number" min={1} max={1000} value={sendPolicy.perMinute} onChange={(e) => setSendPolicy({ ...sendPolicy, perMinute: Number(e.target.value) })} className={controlClass}/></label><label className="text-xs text-slate-600">المنطقة الزمنية<select value={sendPolicy.timeZone} onChange={(e) => setSendPolicy({ ...sendPolicy, timeZone: e.target.value })} className={controlClass}><option value="Asia/Riyadh">الرياض UTC+3</option><option value="UTC">UTC</option></select></label>{(["startHour", "endHour"] as const).map((key) => <label key={key} className="text-xs text-slate-600">{key === "startHour" ? "من الساعة" : "إلى الساعة"}<select value={sendPolicy[key]} onChange={(e) => setSendPolicy({ ...sendPolicy, [key]: Number(e.target.value) })} className={controlClass}>{Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}</select></label>)}<p className="text-xs leading-6 text-slate-500 sm:col-span-2">تساوي الساعتين يعني الإرسال طوال اليوم. يُطبَّق الحد الأقل بين اختيارك وحدود تشغيل المنصة والرقم؛ هذه قيمة قصوى وليست سرعة مضمونة.</p></fieldset> : null}
         {step === 1 ? <a href="/dashboard/whatsapp/contacts" target="_blank" rel="noopener noreferrer" className={`mb-4 block rounded-xl border border-[#bdebe5] bg-[#effcf9] p-3 text-xs leading-6 text-[#075f5a] ${buttonFocus}`}>إضافة جمهور من Excel أو CSV ← حتى ١٠٬٠٠٠ صف في الملف. افتح جهات الاتصال، راجع الأخطاء والمكرر، ثم حدّث هذه الصفحة بعد اكتمال الاستيراد. يفتح في نافذة جديدة.</a> : null}
         {step === 2 ? <p className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-6 text-slate-600">راجع نص الإعلان وروابطه قبل الإطلاق. قوالب تأكيد الحجز مخصصة للخدمة؛ اختر قالبًا تسويقيًا معتمدًا للإعلانات.</p> : null}
         {step === 0 ? <div className="space-y-4"><StepHeading icon={<Send className="h-5 w-5" />} title="إعداد الحملة" text="سمِّ الحملة وحدد رقم المنشأة الرسمي الذي سيظهر للمستلمين." /><label className="block text-xs font-bold text-slate-700">اسم الحملة<input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder="مثال: عرض العملاء لشهر سبتمبر" className={controlClass} /></label><label className="block text-xs font-bold text-slate-700">رقم WhatsApp Business الرسمي<select value={connectionId} onChange={(event) => { setConnectionId(event.target.value); setTemplateId(""); }} className={controlClass}><option value="">اختر الرقم</option>{connections.map((connection) => <option key={connection.id} value={connection.id}>{connection.label}</option>)}</select></label></div> : null}
 
         {step === 1 ? <div className="space-y-4"><StepHeading icon={<UsersRound className="h-5 w-5" />} title="اختر الجمهور" text="تشمل قائمة المستلمين من وافق على الرسائل التسويقية ولم يلغِ اشتراكه." /><AudienceCard active={audienceKind === "all_contacts"} title="كل جهات الاتصال المؤهلة" count={eligibleContacts} text="الأرقام ذات الموافقة التسويقية الفعالة" onClick={() => setAudienceKind("all_contacts")} /><AudienceCard active={audienceKind === "static_segment"} title="شريحة محددة" count={selectedSegment?.members ?? 0} text="استهدف مجموعة ثابتة محفوظة" onClick={() => setAudienceKind("static_segment")} />{audienceKind === "static_segment" ? <label className="block text-xs font-bold text-slate-700">الشريحة<select value={segmentId} onChange={(event) => setSegmentId(event.target.value)} className={controlClass}><option value="">اختر الشريحة</option>{segments.map((segment) => <option key={segment.id} value={segment.id}>{segment.name} · {segment.members} عضو</option>)}</select></label> : null}<p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[11px] leading-6 text-emerald-800">العدد الظاهر تقديري قبل التثبيت. عند إنشاء الحملة يعيد الخادم فحص الموافقات وطلبات إلغاء الاشتراك ويعرض العدد النهائي.</p></div> : null}
 
-        {step === 2 ? <div className="space-y-4"><StepHeading icon={<FileText className="h-5 w-5" />} title="اختر الرسالة" text="تظهر فقط قوالب Meta المعتمدة والمرتبطة بالرقم الذي اخترته." /><label className="block text-xs font-bold text-slate-700">قالب الرسالة<select aria-label="قالب الرسالة" value={templateId} onChange={(event) => setTemplateId(event.target.value)} className={controlClass}><option value="">اختر القالب</option>{availableTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · {template.language} · {template.category}</option>)}</select></label>{selectedTemplate ? <TemplatePreview template={selectedTemplate} /> : <EmptyChoice text={availableTemplates.length ? "اختر قالبًا لمعاينته." : "لا توجد قوالب معتمدة لهذا الرقم. قم بالمزامنة من قسم القوالب."} />}</div> : null}
+        {step === 2 ? <div className="space-y-4"><StepHeading icon={<FileText className="h-5 w-5" />} title="اختر الرسالة" text="تظهر فقط قوالب Meta المعتمدة والمرتبطة بالرقم الذي اخترته." /><label className="block text-xs font-bold text-slate-700">قالب الرسالة<select aria-label="قالب الرسالة" value={templateId} onChange={(event) => { setTemplateId(event.target.value); setComposition({ bindings: {} }); }} className={controlClass}><option value="">اختر القالب</option>{availableTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · {template.language} · {template.category}</option>)}</select></label>{selectedTemplate ? <><TemplatePreview template={selectedTemplate} /><MessageComposer components={selectedTemplate.components} value={composition} onChange={setComposition} /></> : <EmptyChoice text={availableTemplates.length ? "اختر قالبًا لمعاينته." : "لا توجد قوالب معتمدة لهذا الرقم. قم بالمزامنة من قسم القوالب."} />}</div> : null}
 
         {step === 3 ? <div className="space-y-4"><StepHeading icon={<ShieldCheck className="h-5 w-5" />} title="حواجز الإطلاق" text="INFRO لا يحوّل إنشاء الحملة إلى إرسال مباشر. هذه الحواجز تبقى فعالة عند الإطلاق الفعلي." /><div className="grid gap-3 sm:grid-cols-2"><SafetyCard title="لا إرسال أثناء الإنشاء" text="هذه الخطوة تحفظ قائمة المستلمين فقط. الإطلاق أو الجدولة إجراء منفصل بعد ظهور العدد النهائي." /><SafetyCard title="تجربة محدودة لأول إرسال" text="أول إرسال فعلي للمنشأة يبدأ بحد أقصى 5 مستلمين حتى يصل تأكيد تسليم أو قراءة من Meta." /><SafetyCard title="إعادة فحص قبل الإرسال" text="الموافقة والانسحاب والاتصال والقالب وجاهزية خدمة الإرسال يعاد التحقق منها عند التنفيذ." /><SafetyCard title="رسوم Meta منفصلة" text="قد تترتب رسوم رسائل من Meta عند الإرسال الفعلي، وهي منفصلة عن اشتراك INFRO." /></div><p className="rounded-xl border border-[#bdebe5] bg-[#effcf9] p-3 text-[11px] font-bold leading-6 text-[#075f5a]">بعد إنشاء الحملة ستظهر كبطاقة تشغيلية؛ من هناك تختار بدء الإرسال أو تحديد موعد للجدولة.</p></div> : null}
 

@@ -194,6 +194,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
         const unknown = deliveryCounts.get(`${campaign.id}:delivery_unknown`) ?? 0;
         const sentProgress = campaign.totalRecipients ? sent / campaign.totalRecipients : 0;
         return <article key={campaign.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(7,24,27,.035)]">
+          <a href={`/api/dashboard/whatsapp/campaign-export?campaign=${encodeURIComponent(campaign.id)}`} className="m-3 inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-3 text-xs font-bold text-[#008f87]">تنزيل تقرير المستلمين CSV</a>
           <div className="p-4 sm:p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
@@ -259,6 +260,11 @@ function templatePreview(value: Prisma.JsonValue) {
 }
 
 function campaignErrorMessage(reason?: string) {
+  if (reason === "WHATSAPP_CAMPAIGN_VARIABLE_MISSING") return "هناك مستلم تنقصه قيمة مطلوبة. أضف قيمة بديلة للمتغير أو استكمل بيانات الجمهور ثم أعد الإنشاء.";
+  if (reason === "WHATSAPP_CAMPAIGN_MEDIA_INVALID") return "أضف رابط HTTPS مباشرًا لوسائط رأس القالب.";
+  if (reason === "WHATSAPP_CAMPAIGN_TRACKING_INVALID") return "تتبع النقرات يتطلب زر INFRO الديناميكي المخصص للتتبع ووجهة HTTPS صحيحة.";
+  if (reason === "WHATSAPP_CAMPAIGN_TEMPLATE_UNSUPPORTED") return "هذا النوع المتقدم من القوالب غير مدعوم في محرر الحملات الحالي.";
+  if (reason === "WHATSAPP_CAMPAIGN_SEND_POLICY_INVALID" || reason === "WHATSAPP_CAMPAIGN_COMPOSITION_INVALID") return "راجع إعدادات أوقات الإرسال والمتغيرات قبل إنشاء الحملة.";
   if (reason === "WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS") return "لا يوجد مستلمون مؤهلون بعد فحص الموافقات والانسحابات.";
   if (reason === "WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE") return "الجمهور أكبر من الحد الآمن للحملة الواحدة (10,000 مستلم).";
   if (reason === "WHATSAPP_CAMPAIGN_STATIC_SEGMENT_NOT_FOUND") return "الشريحة المحددة لم تعد متاحة لهذا النشاط.";
