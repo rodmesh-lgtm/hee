@@ -791,7 +791,10 @@ export async function POST(request: Request) {
       after(async () => {
         try {
           const processed = await processWhatsAppAutomationEvent({ eventId: result.confirmationEventId!, workerId: `booking-${result.id}` });
-          for (let index = 0; index < processed.jobs; index += 1) await processNextWhatsAppAutomationDelivery();
+          for (let index = 0; index < processed.jobs; index += 1) await processNextWhatsAppAutomationDelivery({
+            scope: { businessId: business.id, eventId: result.confirmationEventId! },
+            workerId: `booking-delivery-${result.id}`,
+          });
         } catch (error) {
           console.error("[public-booking] whatsapp_confirmation_deferred", error instanceof Error ? error.message : "unknown");
         }
