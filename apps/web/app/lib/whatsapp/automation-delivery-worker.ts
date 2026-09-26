@@ -7,7 +7,7 @@ import { writeWhatsAppAuditLog } from "./audit";
 import { readAutomationTriggerConfig } from "./automation-domain";
 import { sallaStatusEventMatches } from "./salla-order-journey-domain";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./credential-envelope";
-import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, retryDelayMs } from "./delivery-domain";
+import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, parseRetryAfter, retryDelayMs } from "./delivery-domain";
 import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "./meta-config";
 import { hasActiveBusinessSubscription } from "../subscription-entitlement";
@@ -26,10 +26,12 @@ function credentialEnvelope(value: Prisma.JsonValue): WhatsAppCredentialEnvelope
   return item as WhatsAppCredentialEnvelope;
 }
 
-async function claimNext(database: PrismaClient, workerId: string, now: Date) {
+type DeliveryScope = { businessId: string; eventId: string };
+
+async function claimNext(database: PrismaClient, workerId: string, now: Date, scope?: DeliveryScope) {
   return database.$transaction(async (tx) => {
     const expired = await tx.whatsAppAutomationJob.findMany({
-      where: { status: "processing", leaseExpiresAt: { lt: now } },
+      where: { status: "processing", leaseExpiresAt: { lt: now }, ...(scope ? { businessId: scope.businessId, run: { eventId: scope.eventId, businessId: scope.businessId } } : {}) },
       select: { id: true, runId: true }, take: 500,
     });
     if (expired.length > 0) {
@@ -47,6 +49,9 @@ async function claimNext(database: PrismaClient, workerId: string, now: Date) {
       FROM "WhatsAppAutomationJob"
       WHERE "status" IN ('queued','retry_scheduled')
         AND "nextAttemptAt" <= ${now} AND "leaseExpiresAt" IS NULL
+        ${scope ? Prisma.sql`AND "businessId" = ${scope.businessId}
+          AND "runId" IN (SELECT "id" FROM "WhatsAppAutomationRun"
+            WHERE "businessId" = ${scope.businessId} AND "eventId" = ${scope.eventId})` : Prisma.empty}
       ORDER BY "nextAttemptAt", "createdAt"
       FOR UPDATE SKIP LOCKED LIMIT 1
     `);
@@ -89,12 +94,13 @@ async function acquireRateSlot(database: PrismaClient, job: ClaimedJob, limit: n
 export async function processNextWhatsAppAutomationDelivery(input: {
   database?: PrismaClient; workerId?: string; now?: Date; fetcher?: typeof fetch;
   env?: NodeJS.ProcessEnv; config?: MetaWhatsAppConfig;
+  scope?: DeliveryScope;
 } = {}) {
   const database = input.database ?? db;
   const now = input.now ?? new Date();
   const env = input.env ?? process.env;
   assertOutboundEnabled(env);
-  const job = await claimNext(database, input.workerId ?? `automation-delivery-${randomUUID()}`, now);
+  const job = await claimNext(database, input.workerId ?? `automation-delivery-${randomUUID()}`, now, input.scope);
   if (!job) return { processed: false as const };
 
   const context = await database.whatsAppAutomationJob.findFirst({
@@ -270,8 +276,8 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     const providerError = record(record(payload)?.error);
     const code = safeText(providerError?.code) ?? `HTTP_${response.status}`;
     if (isRetryableMetaStatus(response.status) && job.attemptCount < MAX_ATTEMPTS) {
-      const retryAfter = Number(response.headers.get("retry-after"));
-      await releaseAs(database, job, "retry_scheduled", now, code, new Date(now.getTime() + retryDelayMs(job.attemptCount, Number.isFinite(retryAfter) ? retryAfter : null)));
+      const retryAfter = parseRetryAfter(response.headers.get("retry-after"), now);
+      await releaseAs(database, job, "retry_scheduled", now, code, new Date(now.getTime() + retryDelayMs(job.attemptCount, retryAfter)));
       return { processed: true as const, result: "retry_scheduled" as const, jobId: job.id };
     }
     await releaseAs(database, job, "failed", now, code);

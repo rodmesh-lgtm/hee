@@ -7,6 +7,7 @@ import { getInfroReminderWhatsAppConfig } from "../reminders/platform-whatsapp";
 import { whatsAppCareSlaDueAt } from "./care-domain";
 import { nextWhatsAppMessageStatus, type WhatsAppMessageStatus } from "./message-domain";
 import { parseInboundMessages, parseStatusReceipts } from "./webhook-message-parser";
+import { retryCampaignFailureReceipt } from "./campaign-receipt-retry";
 
 type Tx = Prisma.TransactionClient;
 type ClaimedEvent = {
@@ -197,9 +198,22 @@ async function processStatuses(tx: Tx, event: ClaimedEvent) {
 
     const delivery = await tx.whatsAppDeliveryJob.findFirst({
       where: { businessId: event.businessId, providerMessageId: receipt.providerMessageId },
-      select: { id: true, recipient: { select: { id: true, status: true } } },
+      select: { id: true, status: true, campaignId: true, recipient: { select: { id: true, status: true } } },
     });
     if (!delivery) continue;
+    if (delivery.status === "processing") continue;
+    if (delivery.status === "retry_scheduled" && receipt.status === "sent") continue;
+    if (delivery.status === "retry_scheduled" && ["delivered", "read"].includes(receipt.status)) {
+      const cancelledRetry = await tx.whatsAppDeliveryJob.updateMany({
+        where: { id: delivery.id, businessId: event.businessId, status: "retry_scheduled", providerMessageId: receipt.providerMessageId },
+        data: { status: "sent", lastErrorCode: null, lastErrorMessage: null },
+      });
+      if (!cancelledRetry.count) continue;
+    }
+    if (receipt.status === "failed" && await retryCampaignFailureReceipt(tx, {
+      businessId: event.businessId, jobId: delivery.id, campaignId: delivery.campaignId,
+      providerMessageId: receipt.providerMessageId, errorCode: receipt.errorCode, now: new Date(),
+    })) continue;
     const recipientNext = nextWhatsAppMessageStatus(delivery.recipient.status as WhatsAppMessageStatus, receipt.status);
     if (recipientNext !== delivery.recipient.status) {
       await tx.whatsAppCampaignRecipient.update({ where: { id: delivery.recipient.id }, data: { status: recipientNext, ...statusTimestampPatch(recipientNext, receipt.providerTimestamp) } });

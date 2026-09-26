@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { mkdir, writeFile } from "node:fs/promises";
 import { getDefaultPageModules } from "../app/lib/page-modules";
+import { retryCampaignFailureReceipt } from "../app/lib/whatsapp/campaign-receipt-retry";
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 const outDir = process.env.INFRO_VISUAL_AUDIT_DIR || "/tmp/infro-visual-audit";
@@ -347,6 +348,86 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.whatsAppTemplate.deleteMany({ where: { id: template.id } });
       await db.whatsAppConnection.deleteMany({ where: { id: { in: [connection.id, second.id] }, businessId } });
       await db.subscription.deleteMany({ where: { id: subscription.id } });
+    }
+  });
+  test("campaign retries and studio stay clear on mobile and desktop", async ({ browser }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId;
+    const suffix = crypto.randomUUID();
+    const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `campaign-${suffix}`, phoneNumberId: `campaign-${suffix}`, verifiedName: "رقم اختبار الحملة", credentialEnvelope: { testOnly: true } } });
+    const template = await db.whatsAppTemplate.create({ data: { businessId, connectionId: connection.id, providerTemplateId: `campaign-${suffix}`, name: "campaign_review", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", parameterFormat: "POSITIONAL", components: [{ type: "BODY", text: "مرحبًا، اكتشف خدماتنا واحجز موعدك." }], rawPayload: {}, lastSyncedAt: new Date() } });
+    const contact = await db.whatsAppContact.create({ data: { businessId, phoneE164: "+966500000761", source: "manual" } });
+    const bookingContact = await db.whatsAppContact.create({ data: { businessId, phoneE164: "+966500000762", source: "api" } });
+    await db.whatsAppConsent.create({ data: { businessId, phoneE164: bookingContact.phoneE164, source: "booking", evidence: "Booking confirmation only", consentedAt: new Date() } });
+    await db.whatsAppConsent.create({ data: { businessId, phoneE164: contact.phoneE164, source: "manual", evidence: "Isolated CI fixture only", consentedAt: new Date() } });
+    const campaign = await db.whatsAppCampaign.create({ data: { businessId, connectionId: connection.id, templateId: template.id, name: "حملة اختبار إعادة المحاولة", status: "completed", totalRecipients: 1, audienceDefinition: { kind: "all_contacts" }, snapshotAt: new Date(), templateSnapshot: { name: template.name, language: "ar", category: "marketing" } } });
+    const recipient = await db.whatsAppCampaignRecipient.create({ data: { businessId, campaignId: campaign.id, contactId: contact.id, phoneE164: contact.phoneE164, status: "sent" } });
+    const job = await db.whatsAppDeliveryJob.create({ data: { businessId, campaignId: campaign.id, connectionId: connection.id, recipientId: recipient.id, idempotencyKey: suffix, status: "sent", attemptCount: 1, providerMessageId: `test-${suffix}` } });
+    try {
+      const input = { businessId, campaignId: campaign.id, jobId: job.id, providerMessageId: `test-${suffix}`, errorCode: "131016", now: new Date() };
+      await Promise.all([1, 2].map(() => db.$transaction(tx => retryCampaignFailureReceipt(tx, input))));
+      const retried = await db.whatsAppDeliveryJob.findUniqueOrThrow({ where: { id: job.id } });
+      expect(retried.status).toBe("retry_scheduled");
+      expect(retried.attemptCount).toBe(1);
+      expect((await db.whatsAppCampaign.findUniqueOrThrow({ where: { id: campaign.id } })).status).toBe("running");
+      for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
+        try {
+          const page = await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns`, { waitUntil: "domcontentloaded" });
+          page.setDefaultTimeout(15_000);
+          await expect(page.getByText("بانتظار إعادة المحاولة", { exact: true })).toBeVisible();
+          await page.getByLabel("اسم الحملة", { exact: true }).fill("حملة مراجعة");
+          await page.getByRole("button", { name: "التالي", exact: true }).click();
+          await expect(page.getByRole("link", { name: /إضافة جمهور من Excel/ })).toBeVisible();
+          await page.getByRole("button", { name: "التالي", exact: true }).click();
+          await expect(page.getByRole("heading", { name: "اختر الرسالة", exact: true })).toBeVisible();
+          await page.getByLabel("قالب الرسالة", { exact: true }).selectOption(template.id);
+          await expect(page.getByText("معاينة الرسالة", { exact: true })).toBeVisible();
+          if (theme === "dark") {
+            const studio = page.getByRole("form", { name: "إنشاء حملة واتساب", exact: true });
+            expect(await studio.locator("div, article, aside").evaluateAll(nodes => nodes.filter(node => {
+              const rect = node.getBoundingClientRect();
+              const color = getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0, 3).map(Number);
+              return rect.width >= 140 && rect.height >= 50 && color?.every(value => value > 220);
+            }).length)).toBe(0);
+          }
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-studio.png`, fullPage: true });
+          if (viewport.name === "mobile" && theme === "light") {
+            await page.getByRole("button", { name: "التالي", exact: true }).click();
+            await page.getByRole("button", { name: "التالي", exact: true }).click();
+            await page.getByRole("button", { name: "إنشاء وتثبيت الجمهور", exact: true }).click();
+            await expect(page).toHaveURL(/create=complete/);
+            const created = await db.whatsAppCampaign.findFirstOrThrow({ where: { businessId, name: "حملة مراجعة" }, include: { recipients: true } });
+            expect(created.recipients.map(item => item.phoneE164)).toEqual([contact.phoneE164]);
+            await db.whatsAppCampaignRecipient.deleteMany({ where: { campaignId: created.id } });
+            await db.whatsAppCampaign.delete({ where: { id: created.id } });
+          }
+        } catch (error) {
+          const page = context.pages()[0];
+          if (page) {
+            await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-failed.png`, fullPage: true }).catch(() => {});
+            await writeFile(`${outDir}/${viewport.name}-${theme}-campaign-failed.txt`, `${String(error)}\n${page.url()}\n${await page.locator("body").innerText().catch(() => "page unavailable")}`, "utf8");
+          }
+          throw error;
+        } finally { await context.close(); }
+      }
+      expect(await db.whatsAppMessage.count({ where: { businessId, direction: "outbound" } })).toBe(0);
+    } finally {
+      await db.whatsAppDeliveryJob.deleteMany({ where: { campaignId: campaign.id } });
+      await db.whatsAppCampaignRecipient.deleteMany({ where: { campaignId: campaign.id } });
+      await db.whatsAppCampaign.delete({ where: { id: campaign.id } });
+      await db.whatsAppConsent.deleteMany({ where: { businessId, phoneE164: contact.phoneE164 } });
+      await db.whatsAppContact.delete({ where: { id: contact.id } });
+      await db.whatsAppConsent.deleteMany({ where: { businessId, phoneE164: bookingContact.phoneE164 } });
+      await db.whatsAppContact.delete({ where: { id: bookingContact.id } });
+      await db.whatsAppTemplate.delete({ where: { id: template.id } });
+      await db.whatsAppConnection.delete({ where: { id: connection.id } });
+      await db.subscription.delete({ where: { id: subscription.id } });
     }
   });
   test("WhatsApp customer context stays tenant-scoped and mobile back restores the list",async({browser})=>{

@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
+
+test("booking fast delivery targets only its durable tenant event", () => {
+  const worker = readFileSync(resolve(process.cwd(), "app/lib/whatsapp/automation-delivery-worker.ts"), "utf8");
+  const route = readFileSync(resolve(process.cwd(), "app/api/public/bookings/route.ts"), "utf8");
+  assert.match(worker, /AND "businessId" = \$\{scope.businessId\}/);
+  assert.match(worker, /AND "eventId" = \$\{scope.eventId\}/);
+  assert.match(worker, /FOR UPDATE SKIP LOCKED LIMIT 1/);
+  assert.match(route, /scope: \{ businessId: business.id, eventId: result.confirmationEventId!/);
+});
 
 const worker = readFileSync("app/lib/whatsapp/automation-delivery-worker.ts", "utf8");
 const script = readFileSync("scripts/whatsapp-automation-delivery-worker.ts", "utf8");

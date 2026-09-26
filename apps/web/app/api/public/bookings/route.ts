@@ -750,11 +750,15 @@ export async function POST(request: Request) {
       if (whatsappConfirmationConsent && whatsappPhone) {
         await tx.whatsAppContact.upsert({
           where: { businessId_phoneE164: { businessId: business.id, phoneE164: whatsappPhone } },
-          create: { businessId: business.id, phoneE164: whatsappPhone, displayName: name || customer.name, source: "booking" },
+          create: { businessId: business.id, phoneE164: whatsappPhone, displayName: name || customer.name, source: "api" },
           update: name ? { displayName: name } : {},
           select: { id: true },
         });
-        await tx.whatsAppConsent.upsert({
+        const existingMarketingConsent = await tx.whatsAppConsent.findFirst({
+          where: { businessId: business.id, phoneE164: whatsappPhone, source: { not: "booking" }, revokedAt: null, consentedAt: { lte: new Date() } },
+          select: { id: true },
+        });
+        if (!existingMarketingConsent) await tx.whatsAppConsent.upsert({
           where: { businessId_phoneE164: { businessId: business.id, phoneE164: whatsappPhone } },
           create: {
             businessId: business.id,
@@ -791,7 +795,10 @@ export async function POST(request: Request) {
       after(async () => {
         try {
           const processed = await processWhatsAppAutomationEvent({ eventId: result.confirmationEventId!, workerId: `booking-${result.id}` });
-          for (let index = 0; index < processed.jobs; index += 1) await processNextWhatsAppAutomationDelivery();
+          for (let index = 0; index < processed.jobs; index += 1) await processNextWhatsAppAutomationDelivery({
+            scope: { businessId: business.id, eventId: result.confirmationEventId! },
+            workerId: `booking-delivery-${result.id}`,
+          });
         } catch (error) {
           console.error("[public-booking] whatsapp_confirmation_deferred", error instanceof Error ? error.message : "unknown");
         }

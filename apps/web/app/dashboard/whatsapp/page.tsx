@@ -71,6 +71,7 @@ export default async function WhatsAppMarketingPage() {
       WHERE contact."businessId" = ${context.businessId}
         AND contact."optedOutAt" IS NULL
         AND consent."revokedAt" IS NULL
+        AND consent."source" <> 'booking'
         AND consent."consentedAt" <= CURRENT_TIMESTAMP
     `),
     db.whatsAppCampaignRecipient.groupBy({

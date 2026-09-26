@@ -21,8 +21,8 @@ test("campaign creation is a five-step guided review flow without automatic send
 
 test("campaign studio keeps a live summary without inventing launch state", () => {
   assert.match(wizard, /ملخص الحملة الحي/);
-  assert.match(wizard, /LIVE SUMMARY/);
-  assert.match(wizard, /SAFE DRAFT/);
+  assert.match(wizard, /ملخص مباشر/);
+  assert.match(wizard, /مسودة آمنة/);
   assert.match(wizard, /لا توجد عملية إرسال مرتبطة بزر إنشاء الحملة/);
   assert.match(wizard, /بعد إنشاء الحملة ستظهر كبطاقة تشغيلية/);
 });

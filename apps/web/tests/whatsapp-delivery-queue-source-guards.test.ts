@@ -9,6 +9,17 @@ const queue = source("app/lib/whatsapp/delivery-queue.ts");
 const worker = source("app/lib/whatsapp/delivery-worker.ts");
 const webhookProcessor = source("app/lib/whatsapp/webhook-processor.ts");
 
+test("booking-only consent cannot authorize campaign creation, snapshot, queue or delivery", () => {
+  for (const path of ["app/actions/whatsapp-marketing.ts", "app/lib/whatsapp/campaign-snapshot.ts", "app/lib/whatsapp/delivery-queue.ts", "app/lib/whatsapp/delivery-worker.ts"]) {
+    assert.match(source(path), /source: \{ not: "booking" \}/);
+  }
+  for (const path of ["app/dashboard/whatsapp/page.tsx", "app/dashboard/whatsapp/campaigns/page.tsx", "app/dashboard/whatsapp/contacts/page.tsx"]) {
+    assert.match(source(path), /consent\."source" <> 'booking'/);
+  }
+  assert.match(source("app/api/public/bookings/route.ts"), /if \(!existingMarketingConsent\) await tx.whatsAppConsent.upsert/);
+  assert.match(source("app/api/public/bookings/route.ts"), /displayName: name \|\| customer.name, source: "api"/);
+});
+
 test("delivery rows are bound to the exact tenant, campaign, connection and recipient", () => {
   assert.match(migration, /FOREIGN KEY \("campaignId", "businessId", "connectionId"\)/);
   assert.match(migration, /FOREIGN KEY \("recipientId", "businessId", "campaignId"\)/);

@@ -2,6 +2,34 @@ import { createHash } from "node:crypto";
 
 export const WHATSAPP_DELIVERY_MAX_ATTEMPTS = 6;
 
+export function shouldRetryCampaignReceipt(input: {
+  errorCode: string | null; attemptCount: number; createdAt: Date; now: Date;
+  campaignStatus: string; recipientStatus: string;
+}) {
+  // Only explicit temporary service failures, never marketing suppression,
+  // invalid recipients, template/account errors, or an uncertain network outcome.
+  return ["131000", "131016"].includes(input.errorCode ?? "")
+    && input.attemptCount < WHATSAPP_DELIVERY_MAX_ATTEMPTS
+    && input.attemptCount > 0
+    && input.now.getTime() >= input.createdAt.getTime()
+    && input.now.getTime() - input.createdAt.getTime() < 24 * 60 * 60 * 1_000
+    && ["running", "paused", "completed"].includes(input.campaignStatus)
+    && ["sent", "failed"].includes(input.recipientStatus);
+}
+
+// Missing headers must not become Number(null) === 0 and defeat backoff.
+export function parseRetryAfter(value: string | null, now: Date): number | null {
+  if (!value?.trim()) return null;
+  const text = value.trim();
+  if (/^\d+$/.test(text)) {
+    const seconds = Number(text);
+    return Number.isFinite(seconds) ? seconds : null;
+  }
+  const timestamp = Date.parse(text);
+  return Number.isFinite(timestamp) && timestamp > now.getTime()
+    ? Math.ceil((timestamp - now.getTime()) / 1_000) : null;
+}
+
 export function deliveryIdempotencyKey(businessId: string, campaignId: string, recipientId: string) {
   return createHash("sha256").update(`ir:whatsapp:${businessId}:${campaignId}:${recipientId}`).digest("hex");
 }

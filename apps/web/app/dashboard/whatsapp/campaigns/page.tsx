@@ -78,6 +78,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
       WHERE contact."businessId" = ${context.businessId}
         AND contact."optedOutAt" IS NULL
         AND consent."revokedAt" IS NULL
+        AND consent."source" <> 'booking'
         AND consent."consentedAt" <= CURRENT_TIMESTAMP
     `),
     getWhatsAppCampaignLaunchReadiness(),
@@ -98,6 +99,12 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
     })
     : [];
   const recipientCounts = new Map(recipientGroups.map((item) => [`${item.campaignId}:${item.status}`, item._count._all]));
+  const deliveryGroups = campaigns.length ? await db.whatsAppDeliveryJob.groupBy({
+    by: ["campaignId", "status"],
+    where: { businessId: context.businessId, campaignId: { in: campaigns.map((item) => item.id) } },
+    _count: { _all: true },
+  }) : [];
+  const deliveryCounts = new Map(deliveryGroups.map((item) => [`${item.campaignId}:${item.status}`, item._count._all]));
   const aggregateRecipientCounts = recipientGroups.reduce<Record<string, number>>((totals, item) => {
     totals[item.status] = (totals[item.status] ?? 0) + item._count._all;
     return totals;
@@ -134,14 +141,14 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
         </div>
         <div className={`min-w-[190px] rounded-2xl border px-4 py-3 ${launchReadiness.ready ? "border-emerald-400/20 bg-emerald-400/10" : "border-amber-300/20 bg-amber-300/10"}`}>
           <span className="block text-[9px] text-slate-400">DELIVERY READINESS</span>
-          <b className={`mt-1 block text-sm ${launchReadiness.ready ? "text-emerald-200" : "text-amber-200"}`}>{launchReadiness.ready ? "جاهز للإرسال" : "الإطلاق محمي"}</b>
+          <b className={`mt-1 block text-sm ${launchReadiness.ready ? "text-emerald-200" : "text-amber-200"}`}>{launchReadiness.ready ? "خدمة الإرسال جاهزة" : "الإطلاق محمي"}</b>
           <span className="mt-1 block text-[9px] leading-5 text-slate-400">{readinessLabel(launchReadiness)}</span>
         </div>
       </div>
     </header>
 
     <section className={`rounded-[22px] border p-4 ${launchReadiness.ready ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}`}>
-      <div className="flex items-start gap-3"><Activity className={`mt-0.5 h-5 w-5 shrink-0 ${launchReadiness.ready ? "text-emerald-600" : "text-amber-600"}`} /><div><b className="text-sm text-slate-900">{launchReadiness.ready ? "الإرسال جاهز" : "الإرسال متوقف مؤقتًا للحماية"}</b><p className="mt-1 text-xs leading-6 text-slate-600">{launchReadiness.ready ? `آخر تحقق تشغيلي ناجح: ${launchReadiness.lastSucceededAt.toLocaleString("ar-SA")}. قبل الإرسال سيعاد التحقق من الموافقة، وإلغاء الاشتراك، والاتصال، واعتماد القالب لكل مستلم.` : `${readinessLabel(launchReadiness)}. يمكنك تجهيز الحملة ومراجعتها الآن، وسيظل الإطلاق متوقفًا حتى تعود حالة التشغيل إلى الوضع السليم.`}</p></div></div>
+      <div className="flex items-start gap-3"><Activity className={`mt-0.5 h-5 w-5 shrink-0 ${launchReadiness.ready ? "text-emerald-600" : "text-amber-600"}`} /><div><b className="text-sm text-slate-900">{launchReadiness.ready ? "خدمة الإرسال تعمل" : "الإرسال متوقف مؤقتًا للحماية"}</b><p className="mt-1 text-xs leading-6 text-slate-600">{launchReadiness.ready ? `آخر تحقق تشغيلي ناجح: ${launchReadiness.lastSucceededAt.toLocaleString("ar-SA")}. قبل الإرسال سيعاد التحقق من الموافقة، وإلغاء الاشتراك، والاتصال، واعتماد القالب لكل مستلم.` : `${readinessLabel(launchReadiness)}. يمكنك تجهيز الحملة ومراجعتها الآن، وسيظل الإطلاق متوقفًا حتى تعود حالة التشغيل إلى الوضع السليم.`}</p></div></div>
     </section>
 
     {params.create || params.operation ? <p aria-live="polite" className={`rounded-2xl border p-3 text-xs font-bold ${(params.create === "complete" || operationSucceeded) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{params.create === "complete" ? "أُنشئت الحملة وثُبتت قائمة المستلمين المؤهلين. راجع العدد والبيانات قبل الإطلاق." : params.create ? campaignErrorMessage(params.reason) : operationMessage}</p> : null}
@@ -150,7 +157,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
       <Kpi icon={<Megaphone className="h-4 w-4" />} label="الحملات" value={String(campaigns.length)} helper="أحدث 100 حملة" />
       <Kpi icon={<Activity className="h-4 w-4" />} label="قيد التشغيل" value={String(activeCampaigns)} helper="مجدولة أو جارية أو متوقفة" />
       <Kpi icon={<UsersRound className="h-4 w-4" />} label="المستلمون" value={formatNumber(aggregateRecipients)} helper="داخل Snapshots الحالية" />
-      <Kpi icon={<Send className="h-4 w-4" />} label="تم الإرسال" value={formatNumber(aggregateSent)} helper="إرسال مؤكد من المنصة" />
+      <Kpi icon={<Send className="h-4 w-4" />} label="تم الإرسال" value={formatNumber(aggregateSent)} helper="قبلتها Meta؛ راقب تأكيد التسليم" />
       <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label="معدل التسليم" value={formatRate(deliveryRate)} helper={`${formatNumber(aggregateDelivered)} تم تسليمهم`} />
       <Kpi icon={<Eye className="h-4 w-4" />} label="معدل القراءة" value={formatRate(readRate)} helper={`${formatNumber(aggregateRead)} قراءة مؤكدة`} />
     </section>
@@ -183,6 +190,8 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
         const delivered = count("delivered") + count("read");
         const read = count("read");
         const failed = count("failed");
+        const retrying = deliveryCounts.get(`${campaign.id}:retry_scheduled`) ?? 0;
+        const unknown = deliveryCounts.get(`${campaign.id}:delivery_unknown`) ?? 0;
         const sentProgress = campaign.totalRecipients ? sent / campaign.totalRecipients : 0;
         return <article key={campaign.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(7,24,27,.035)]">
           <div className="p-4 sm:p-5">
@@ -207,10 +216,13 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
               <Mini label="تمت القراءة" value={read} />
               <Mini label="تعذر الإرسال" value={failed} />
               <Mini label="مستبعدون" value={count("skipped_opt_out")} />
+              <Mini label="بانتظار إعادة المحاولة" value={retrying} />
+              <Mini label="نتيجة غير مؤكدة" value={unknown} />
             </div>
+            {retrying > 0 || unknown > 0 ? <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-6 text-amber-900">{retrying > 0 ? "تُعاد المحاولات المؤقتة تلقائيًا وفق مهلة الانتظار وحدود الإرسال. " : ""}{unknown > 0 ? "بعض الطلبات انقطع اتصالها قبل تأكيد النتيجة. لا تعِد إرسال الحملة لهذه الأرقام حتى تُراجع حالتها، لتجنب التكرار." : ""}</p> : null}
           </div>
           <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:px-5">
-            <div className="flex items-center justify-between gap-3 text-[9px] text-slate-500"><span>تقدم المعالجة</span><b className="text-slate-700">{formatRate(sentProgress)}</b></div>
+            <div className="flex items-center justify-between gap-3 text-[9px] text-slate-500"><span>نسبة المستلمين الذين قُبل إرسال رسائلهم</span><b className="text-slate-700">{formatRate(sentProgress)}</b></div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-[#00bfae] transition-[width] motion-reduce:transition-none" style={{ width: `${Math.round(Math.min(1, Math.max(0, sentProgress)) * 100)}%` }} /></div>
           </div>
         </article>;
