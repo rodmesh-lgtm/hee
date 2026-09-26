@@ -14,6 +14,8 @@ type Service = {
 };
 
 type Props = {
+  serviceRequestEnabled?: boolean;
+  bookingInRibbon?: boolean;
   bookingForm?: BookingForm;
   slug: string;
   businessName: string;
@@ -72,7 +74,8 @@ function displayTime(time: string) {
   return new Intl.DateTimeFormat("ar-SA", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Riyadh" }).format(new Date(`2020-01-01T${time}:00+03:00`));
 }
 
-export function PublicTransactionLauncher({ bookingForm = DEFAULT_BOOKING_FORM, slug, businessName, whatsapp, phone, bookingAvailable, sallaBookingEligibilityRequired, whatsappBookingConfirmationAvailable, whatsappBookingSender, hasWorkingHours, services, branches }: Props) {
+export function PublicTransactionLauncher({ serviceRequestEnabled = true, bookingInRibbon = false, bookingForm = DEFAULT_BOOKING_FORM, slug, businessName, whatsapp, phone, bookingAvailable, sallaBookingEligibilityRequired, whatsappBookingConfirmationAvailable, whatsappBookingSender, hasWorkingHours, services, branches }: Props) {
+  const [ribbonTarget, setRibbonTarget] = useState<HTMLElement | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
@@ -106,7 +109,7 @@ export function PublicTransactionLauncher({ bookingForm = DEFAULT_BOOKING_FORM, 
   );
   const bookableBranches = useMemo(() => branches.filter((branch) => branch.bookingEnabled && branch.name), [branches]);
   const canBook = bookingAvailable && hasWorkingHours && bookableServices.length > 0;
-  const canRequest = Boolean(whatsapp?.trim() || phone?.trim());
+  const canRequest = serviceRequestEnabled && Boolean(whatsapp?.trim() || phone?.trim());
   const selectedDay = availabilityDays.find((day) => day.date === values.bookingDate) ?? null;
 
   const attachMount = useCallback((mount: HTMLDivElement | null) => {
@@ -116,6 +119,7 @@ export function PublicTransactionLauncher({ bookingForm = DEFAULT_BOOKING_FORM, 
     }
     document.querySelector<HTMLElement>("[data-public-transactions-slot]")?.append(mount);
     setTarget(mount);
+    setRibbonTarget(document.querySelector<HTMLElement>("[data-public-booking-ribbon-slot]"));
   }, []);
 
   const closeBooking = useCallback(() => {
@@ -288,13 +292,13 @@ export function PublicTransactionLauncher({ bookingForm = DEFAULT_BOOKING_FORM, 
   if (!canRequest && !canBook) return null;
 
   const content = <>
-    <section dir="rtl" className="relative z-20 mx-auto mt-3 w-full rounded-[22px] border border-[#cfe5e1] bg-white/95 p-3 shadow-[0_14px_36px_rgba(3,55,58,.10)] sm:w-[calc(100%-2rem)]" aria-label="إجراءات الطلب والحجز">
+    {canRequest || (canBook && !bookingInRibbon) ? <section dir="rtl" className="relative z-20 mx-auto mt-3 w-full rounded-[22px] border border-[#cfe5e1] bg-white/95 p-3 shadow-[0_14px_36px_rgba(3,55,58,.10)] sm:w-[calc(100%-2rem)]" aria-label="إجراءات الطلب والحجز">
       <div className="mb-2 flex items-center justify-between gap-3 px-1"><div><span className="text-[9px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">CONNECT WITH US</span><h2 className="mt-0.5 text-sm font-black text-[#12384a]">اختر طريقة التواصل المناسبة</h2></div><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><MessageCircle className="h-4 w-4" /></span></div>
       <div className="grid gap-2 min-[420px]:grid-cols-2">
         {canRequest ? <button onClick={() => setRequestOpen(true)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,#00b99f,#00a6bd)] px-3 text-[13px] font-black text-[#041b1d] shadow-[0_7px_18px_rgba(0,203,178,.16)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><MessageCircle className="h-4 w-4" />طلب خدمة</button> : null}
-        {canBook ? <button ref={bookingOpenerRef} onClick={openBooking} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#8dd9d3] bg-[#eefbf9] px-3 text-[13px] font-black text-[#07545d] transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><CalendarDays className="h-4 w-4 text-[#008f9f]" />حجز موعد</button> : null}
+        {canBook && !bookingInRibbon ? <button ref={bookingOpenerRef} onClick={openBooking} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#8dd9d3] bg-[#eefbf9] px-3 text-[13px] font-black text-[#07545d] transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><CalendarDays className="h-4 w-4 text-[#008f9f]" />حجز موعد</button> : null}
       </div>
-    </section>
+    </section> : null}
 
     {canRequest ? <PublicActionDialog open={requestOpen} onClose={() => setRequestOpen(false)} mode="request" businessName={businessName} whatsapp={whatsapp} phone={phone} title="طلب خدمة" description="سنسجل طلبك داخل INFRO ثم نجهز التواصل مع المنشأة." ctaLabel="تسجيل الطلب والمتابعة" /> : null}
 
@@ -361,5 +365,5 @@ export function PublicTransactionLauncher({ bookingForm = DEFAULT_BOOKING_FORM, 
     </div> : null}
   </>;
 
-  return <><div ref={attachMount} data-public-transactions-mount />{target ? createPortal(content, target) : null}</>;
+  return <><div ref={attachMount} data-public-transactions-mount />{target ? createPortal(content, target) : null}{canBook && bookingInRibbon && ribbonTarget ? createPortal(<button type="button" ref={bookingOpenerRef} onClick={openBooking} className="flex h-14 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-[15px] bg-[#07545d] px-1 text-[11px] font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"><CalendarDays aria-hidden="true" className="h-4 w-4"/><span className="whitespace-nowrap">حجز موعد</span></button>, ribbonTarget) : null}</>;
 }

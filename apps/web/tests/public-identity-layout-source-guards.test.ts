@@ -65,7 +65,8 @@ test("public identity surfaces use the INFRO palette and canonical domain", () =
 test("unfinished booking setup stays private while ready booking remains available", () => {
   const launcher = source("components/public/public-transaction-launcher.tsx");
   assert.match(launcher, /if \(!canRequest && !canBook\) return null/);
-  assert.match(launcher, /canBook \? <button ref=\{bookingOpenerRef\}/);
+  assert.match(launcher, /canBook && !bookingInRibbon \? <button ref=\{bookingOpenerRef\}/);
+  assert.match(launcher, /canBook && bookingInRibbon && ribbonTarget \? createPortal/);
   assert.doesNotMatch(launcher, /الحجز قيد الإعداد/);
   assert.doesNotMatch(launcher, /ستظهر المواعيد هنا/);
 });

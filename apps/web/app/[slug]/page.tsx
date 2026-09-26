@@ -229,6 +229,9 @@ export default async function PublicBusinessPageRoute({
     (item) => !item.isClosed && Boolean(item.opensAt && item.closesAt),
   );
   const bookingForm = await readPublishedBookingForm();
+  const transactionConfig = pageModules.find((module) => module.id === "contact")?.config;
+  const bookingInRibbon = transactionConfig?.bookingPlacement === "ribbon";
+  const bookingRibbonAvailable = bookingInRibbon && publicBusiness.bookingAvailable && bookingSubscriptionActive && hasWorkingHours && publicBusiness.services.some((service) => service.bookingEnabled && service.name);
 
   return (
     <>
@@ -242,6 +245,7 @@ export default async function PublicBusinessPageRoute({
         business={publicBusiness}
         publicUrl={publicUrl}
         pageModules={pageModules}
+        bookingRibbonAvailable={Boolean(bookingRibbonAvailable)}
       />
       </div>
       <PublicIdentityHighlights
@@ -250,6 +254,8 @@ export default async function PublicBusinessPageRoute({
         socialLinks={socialLinks.map(([label, href]) => ({ label, href }))}
       />
       <PublicTransactionLauncher
+        serviceRequestEnabled={transactionConfig?.serviceRequestEnabled !== false}
+        bookingInRibbon={bookingInRibbon}
         bookingForm={bookingForm}
         slug={publicBusiness.slug}
         businessName={publicBusiness.name}

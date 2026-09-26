@@ -504,7 +504,11 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         if(pageModule.id==="location")pageModule.sortOrder=0;
         else if(pageModule.id==="services")pageModule.sortOrder=1;
         else pageModule.sortOrder+=10;
-        if(pageModule.id==="contact")pageModule.config.bottomActions=[{id:"phone",enabled:true,sortOrder:0},{id:"whatsapp",enabled:false,sortOrder:1},{id:"share",enabled:true,sortOrder:2}];
+        if(pageModule.id==="contact"){
+          pageModule.config.bottomActions=[{id:"phone",enabled:true,sortOrder:0},{id:"whatsapp",enabled:false,sortOrder:1},{id:"share",enabled:true,sortOrder:2}];
+          pageModule.config.serviceRequestEnabled=false;
+          pageModule.config.bookingPlacement="ribbon";
+        }
       }
       await db.business.update({where:{id:business.id},data:{businessType,isPublished:true,publishedAt:new Date(),bookingAvailable:true,pageModules:JSON.parse(JSON.stringify(modules))}});
       for(const viewport of [{width:390,height:844},{width:768,height:1024},{width:1440,height:960}]){
@@ -518,7 +522,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(serviceLinks.first()).toContainText("الخدمة المقدمة أولاً");
           const ribbon=page.locator('[data-public-action-ribbon]');
           await expect(ribbon.getByRole('link',{name:'واتساب',exact:true})).toHaveCount(0);
-          await expect(ribbon.locator('a,button')).toHaveText(['اتصال','']);
+          await expect(ribbon.locator('a,button')).toHaveText(['حجز موعد','اتصال','']);
+          await expect(page.getByRole('button',{name:'طلب خدمة',exact:true})).toHaveCount(0);
           await expect(ribbon.getByRole('button',{name:'مشاركة',exact:true})).toBeVisible();
           const locations=await page.locator('[data-public-module="location"]').boundingBox();
           const services=await page.locator('#highlights').boundingBox();

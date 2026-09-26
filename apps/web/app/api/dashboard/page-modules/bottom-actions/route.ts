@@ -4,12 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "../../../../lib/db";
 import { getOwnedBusinessForApiWrite } from "../../../../lib/ownership";
-import { normalizePageModulesForPersistence, serializePageModules, type BottomActionId } from "../../../../lib/page-modules";
+import { normalizePageModulesForPersistence, serializePageModules } from "../../../../lib/page-modules";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../../lib/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../../lib/request-body";
 
 const ids = ["whatsapp", "phone", "email", "website", "share"] as const;
-const schema = z.object({ actions: z.array(z.object({ id: z.enum(ids), enabled: z.boolean(), sortOrder: z.number().int().min(0).max(9), label: z.string().max(24).optional() }).strict()).min(1).max(5) }).strict();
+const schema = z.object({ serviceRequestEnabled: z.boolean().optional(), bookingPlacement: z.enum(["panel", "ribbon"]).optional(), actions: z.array(z.object({ id: z.enum(ids), enabled: z.boolean(), sortOrder: z.number().int().min(0).max(9), label: z.string().max(24).optional() }).strict()).min(1).max(5) }).strict();
 
 export async function POST(request: Request) {
   const business = await getOwnedBusinessForApiWrite();
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       const current = await tx.business.findFirst({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, select: { id: true, slug: true, businessType: true, pageModules: true } });
       if (!current) return null;
       const modules = normalizePageModulesForPersistence(current.pageModules, current.businessType);
-      const updated = modules.map((module) => module.id === "contact" ? { ...module, config: { ...module.config, bottomActions: parsed.data.actions.map((item, index) => ({ ...item, sortOrder: index })) } } : module);
+      const updated = modules.map((module) => module.id === "contact" ? { ...module, config: { ...module.config, ...(parsed.data.serviceRequestEnabled !== undefined ? { serviceRequestEnabled: parsed.data.serviceRequestEnabled } : {}), ...(parsed.data.bookingPlacement ? { bookingPlacement: parsed.data.bookingPlacement } : {}), bottomActions: parsed.data.actions.map((item, index) => ({ ...item, sortOrder: index })) } } : module);
       await tx.business.update({ where: { id: current.id }, data: { pageModules: serializePageModules(updated) as unknown as Prisma.InputJsonValue } });
       return current.slug;
     });
