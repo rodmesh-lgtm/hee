@@ -141,14 +141,14 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
         </div>
         <div className={`min-w-[190px] rounded-2xl border px-4 py-3 ${launchReadiness.ready ? "border-emerald-400/20 bg-emerald-400/10" : "border-amber-300/20 bg-amber-300/10"}`}>
           <span className="block text-[9px] text-slate-400">DELIVERY READINESS</span>
-          <b className={`mt-1 block text-sm ${launchReadiness.ready ? "text-emerald-200" : "text-amber-200"}`}>{launchReadiness.ready ? "جاهز للإرسال" : "الإطلاق محمي"}</b>
+          <b className={`mt-1 block text-sm ${launchReadiness.ready ? "text-emerald-200" : "text-amber-200"}`}>{launchReadiness.ready ? "خدمة الإرسال جاهزة" : "الإطلاق محمي"}</b>
           <span className="mt-1 block text-[9px] leading-5 text-slate-400">{readinessLabel(launchReadiness)}</span>
         </div>
       </div>
     </header>
 
     <section className={`rounded-[22px] border p-4 ${launchReadiness.ready ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/70"}`}>
-      <div className="flex items-start gap-3"><Activity className={`mt-0.5 h-5 w-5 shrink-0 ${launchReadiness.ready ? "text-emerald-600" : "text-amber-600"}`} /><div><b className="text-sm text-slate-900">{launchReadiness.ready ? "الإرسال جاهز" : "الإرسال متوقف مؤقتًا للحماية"}</b><p className="mt-1 text-xs leading-6 text-slate-600">{launchReadiness.ready ? `آخر تحقق تشغيلي ناجح: ${launchReadiness.lastSucceededAt.toLocaleString("ar-SA")}. قبل الإرسال سيعاد التحقق من الموافقة، وإلغاء الاشتراك، والاتصال، واعتماد القالب لكل مستلم.` : `${readinessLabel(launchReadiness)}. يمكنك تجهيز الحملة ومراجعتها الآن، وسيظل الإطلاق متوقفًا حتى تعود حالة التشغيل إلى الوضع السليم.`}</p></div></div>
+      <div className="flex items-start gap-3"><Activity className={`mt-0.5 h-5 w-5 shrink-0 ${launchReadiness.ready ? "text-emerald-600" : "text-amber-600"}`} /><div><b className="text-sm text-slate-900">{launchReadiness.ready ? "خدمة الإرسال تعمل" : "الإرسال متوقف مؤقتًا للحماية"}</b><p className="mt-1 text-xs leading-6 text-slate-600">{launchReadiness.ready ? `آخر تحقق تشغيلي ناجح: ${launchReadiness.lastSucceededAt.toLocaleString("ar-SA")}. قبل الإرسال سيعاد التحقق من الموافقة، وإلغاء الاشتراك، والاتصال، واعتماد القالب لكل مستلم.` : `${readinessLabel(launchReadiness)}. يمكنك تجهيز الحملة ومراجعتها الآن، وسيظل الإطلاق متوقفًا حتى تعود حالة التشغيل إلى الوضع السليم.`}</p></div></div>
     </section>
 
     {params.create || params.operation ? <p aria-live="polite" className={`rounded-2xl border p-3 text-xs font-bold ${(params.create === "complete" || operationSucceeded) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{params.create === "complete" ? "أُنشئت الحملة وثُبتت قائمة المستلمين المؤهلين. راجع العدد والبيانات قبل الإطلاق." : params.create ? campaignErrorMessage(params.reason) : operationMessage}</p> : null}
