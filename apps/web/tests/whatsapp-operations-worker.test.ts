@@ -20,6 +20,23 @@ function databaseDouble() {
   };
 }
 
+test("booking automation gets a turn before bulk work and survives campaign failure", async () => {
+  const state = databaseDouble();
+  const visited: string[] = [];
+  await assert.rejects(runWhatsAppOperations({
+    database: state.database as never,
+    env: { NODE_ENV: "production", RELEASE_SHA: "a".repeat(40), WHATSAPP_MARKETING_WORKER_ENABLED: "true" },
+    runStage: async (stage) => {
+      visited.push(stage);
+      if (stage === "whatsapp:deliveries") throw new Error("TEST_PROVIDER_FAILURE");
+    },
+  }), /WHATSAPP_DELIVERIES_FAILED/);
+  assert.ok(visited.indexOf("whatsapp:automations") < visited.indexOf("whatsapp:automation-deliveries"));
+  for (const bulk of ["whatsapp:contact-imports", "whatsapp:commerce-periodic-sync", "whatsapp:campaigns", "whatsapp:deliveries"]) {
+    assert.ok(visited.indexOf("whatsapp:automation-deliveries") < visited.indexOf(bulk));
+  }
+});
+
 test("commerce-only cycles never process outbound or marketing queues", async () => {
   const state = databaseDouble();
   const stages: string[] = [];

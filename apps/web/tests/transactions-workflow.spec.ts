@@ -118,6 +118,24 @@ test.describe.serial("public transactions workflow", () => {
     } finally { await cleanup(seeded); }
   });
 
+  test("a burst of ten bookings cannot exceed three available places", async ({ request }) => {
+    const seeded = await seed();
+    try {
+      await db.business.update({ where: { id: seeded.businessId }, data: { bookingSlotMinutes: 60, bookingCapacity: 3 } });
+      const responses = await Promise.all(Array.from({ length: 10 }, (_, index) => {
+        const requestId = crypto.randomUUID();
+        return request.post(`${baseUrl}/api/public/bookings`, {
+          headers: { "Idempotency-Key": requestId },
+          data: { slug: seeded.slug, phone: `05000008${String(index).padStart(2, "0")}`, serviceId: seeded.serviceId, bookingDate: riyadhDateKey(2), bookingTime: "10:00", requestId },
+        });
+      }));
+      const statuses = responses.map((response) => response.status());
+      expect(statuses.filter(status => status === 201)).toHaveLength(3);
+      expect(statuses.filter(status => status === 409)).toHaveLength(7);
+      expect(await db.booking.count({ where: { businessId: seeded.businessId, status: { in: ["pending", "confirmed"] } } })).toBe(3);
+    } finally { await cleanup(seeded); }
+  });
+
   test("merchant evening hours appear automatically and phone-only booking preserves customer identity", async ({ page, request }) => {
     const seeded = await seed();
     try {

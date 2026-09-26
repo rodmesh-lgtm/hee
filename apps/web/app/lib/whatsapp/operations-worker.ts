@@ -3,8 +3,15 @@ import { spawn } from "node:child_process";
 import type { PrismaClient } from "@prisma/client";
 
 export const WHATSAPP_OPERATION_STAGES = [
-  "whatsapp:contact-imports",
   "whatsapp:webhooks",
+  // Customer confirmations get a turn before bulk import/commerce/campaign work.
+  "whatsapp:automation-schedules",
+  "whatsapp:automations",
+  "whatsapp:automation-deliveries",
+  "whatsapp:replies",
+  "whatsapp:reminder-schedules",
+  "whatsapp:reminder-deliveries",
+  "whatsapp:contact-imports",
   "whatsapp:shopify-subscriptions",
   "whatsapp:shopify-webhooks",
   "whatsapp:salla-webhooks",
@@ -12,12 +19,6 @@ export const WHATSAPP_OPERATION_STAGES = [
   "whatsapp:shopify-abandoned-carts",
   "whatsapp:campaigns",
   "whatsapp:deliveries",
-  "whatsapp:replies",
-  "whatsapp:automation-schedules",
-  "whatsapp:automations",
-  "whatsapp:automation-deliveries",
-  "whatsapp:reminder-schedules",
-  "whatsapp:reminder-deliveries",
 ] as const;
 
 type StageName = (typeof WHATSAPP_OPERATION_STAGES)[number];
