@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./credential-envelope";
-import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, retryDelayMs, WHATSAPP_DELIVERY_MAX_ATTEMPTS } from "./delivery-domain";
+import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, parseRetryAfter, retryDelayMs, WHATSAPP_DELIVERY_MAX_ATTEMPTS } from "./delivery-domain";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "./meta-config";
 import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
 
@@ -96,17 +96,17 @@ export async function processNextWhatsAppDelivery(input: {
     where: { id: job.id, businessId: job.businessId, campaignId: job.campaignId, connectionId: job.connectionId },
     select: {
       id: true,
-      campaign: { select: { status: true, templateSnapshot: true } },
+      campaign: { select: { status: true, templateSnapshot: true, template: { select: { status: true } } } },
       recipient: { select: { id: true, phoneE164: true, displayName: true, templateParameters: true, contact: { select: { optedOutAt: true } } } },
-      connection: { select: { provider: true, status: true, phoneNumberId: true, credentialEnvelope: true } },
+      connection: { select: { provider: true, status: true, disabledAt: true, marketingEnabled: true, phoneNumberId: true, credentialEnvelope: true } },
     },
   });
   if (!context) throw new Error("WHATSAPP_DELIVERY_CONTEXT_MISSING");
   if (context.campaign.status === "paused") {
-    await releaseAs(database, job.id, "retry_scheduled", { nextAttemptAt: new Date(now.getTime() + 60_000) });
+    await releaseAs(database, job.id, "retry_scheduled", { nextAttemptAt: new Date(now.getTime() + 60_000), attemptCount: { decrement: 1 } });
     return { processed: true as const, result: "paused" as const, jobId: job.id };
   }
-  if (context.campaign.status !== "running" || context.connection.status !== "connected" || context.connection.provider !== "meta") {
+  if (context.campaign.status !== "running" || context.connection.status !== "connected" || context.connection.provider !== "meta" || context.connection.disabledAt || !context.connection.marketingEnabled || context.campaign.template.status !== "approved") {
     await releaseAs(database, job.id, "cancelled", { lastErrorCode: "CAMPAIGN_OR_CONNECTION_NOT_ACTIVE" });
     await database.whatsAppCampaignRecipient.update({ where: { id: job.recipientId }, data: { status: "cancelled" } });
     return { processed: true as const, result: "cancelled" as const, jobId: job.id };
@@ -123,7 +123,7 @@ export async function processNextWhatsAppDelivery(input: {
   }
   if (!await acquireRateSlot(database, job, outboundRateLimit(env), now)) {
     const nextMinute = new Date((Math.floor(now.getTime() / 60_000) + 1) * 60_000);
-    await releaseAs(database, job.id, "retry_scheduled", { nextAttemptAt: nextMinute, lastErrorCode: "LOCAL_RATE_LIMIT" });
+    await releaseAs(database, job.id, "retry_scheduled", { nextAttemptAt: nextMinute, lastErrorCode: "LOCAL_RATE_LIMIT", attemptCount: { decrement: 1 } });
     return { processed: true as const, result: "rate_limited" as const, jobId: job.id };
   }
 
@@ -158,12 +158,12 @@ export async function processNextWhatsAppDelivery(input: {
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const error = record(record(payload)?.error);
-    const code = safeText(error?.code) ?? `HTTP_${response.status}`;
+    const code = typeof error?.code === "number" && Number.isSafeInteger(error.code) ? String(error.code) : safeText(error?.code) ?? `HTTP_${response.status}`;
     const message = safeText(error?.message) ?? "Meta rejected the request";
     const retryable = isRetryableMetaStatus(response.status) && job.attemptCount < WHATSAPP_DELIVERY_MAX_ATTEMPTS;
     if (retryable) {
-      const retryAfter = Number(response.headers.get("retry-after"));
-      await releaseAs(database, job.id, "retry_scheduled", { nextAttemptAt: new Date(now.getTime() + retryDelayMs(job.attemptCount, Number.isFinite(retryAfter) ? retryAfter : null)), lastErrorCode: code, lastErrorMessage: message });
+      const retryAfter = parseRetryAfter(response.headers.get("retry-after"), now);
+      await releaseAs(database, job.id, "retry_scheduled", { nextAttemptAt: new Date(now.getTime() + retryDelayMs(job.attemptCount, retryAfter)), lastErrorCode: code, lastErrorMessage: message });
       return { processed: true as const, result: "retry_scheduled" as const, jobId: job.id };
     }
     await database.$transaction([

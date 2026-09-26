@@ -12,6 +12,7 @@ export function nextWhatsAppMessageStatus(
   incoming: WhatsAppMessageStatus,
 ): WhatsAppMessageStatus {
   if (current === "received") return current;
+  if (incoming === "failed" && (current === "delivered" || current === "read")) return current;
   if (current === "failed") return current;
   if (incoming === "failed") return "failed";
   if (incoming === "received") return current;

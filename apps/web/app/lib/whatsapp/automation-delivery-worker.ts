@@ -7,7 +7,7 @@ import { writeWhatsAppAuditLog } from "./audit";
 import { readAutomationTriggerConfig } from "./automation-domain";
 import { sallaStatusEventMatches } from "./salla-order-journey-domain";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./credential-envelope";
-import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, retryDelayMs } from "./delivery-domain";
+import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, parseRetryAfter, retryDelayMs } from "./delivery-domain";
 import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "./meta-config";
 import { hasActiveBusinessSubscription } from "../subscription-entitlement";
@@ -270,8 +270,8 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     const providerError = record(record(payload)?.error);
     const code = safeText(providerError?.code) ?? `HTTP_${response.status}`;
     if (isRetryableMetaStatus(response.status) && job.attemptCount < MAX_ATTEMPTS) {
-      const retryAfter = Number(response.headers.get("retry-after"));
-      await releaseAs(database, job, "retry_scheduled", now, code, new Date(now.getTime() + retryDelayMs(job.attemptCount, Number.isFinite(retryAfter) ? retryAfter : null)));
+      const retryAfter = parseRetryAfter(response.headers.get("retry-after"), now);
+      await releaseAs(database, job, "retry_scheduled", now, code, new Date(now.getTime() + retryDelayMs(job.attemptCount, retryAfter)));
       return { processed: true as const, result: "retry_scheduled" as const, jobId: job.id };
     }
     await releaseAs(database, job, "failed", now, code);

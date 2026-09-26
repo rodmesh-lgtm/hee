@@ -6,6 +6,8 @@ test("delivery receipts advance monotonically despite out-of-order webhooks", ()
   assert.equal(nextWhatsAppMessageStatus("sent", "delivered"), "delivered");
   assert.equal(nextWhatsAppMessageStatus("delivered", "sent"), "delivered");
   assert.equal(nextWhatsAppMessageStatus("read", "delivered"), "read");
+  assert.equal(nextWhatsAppMessageStatus("delivered", "failed"), "delivered");
+  assert.equal(nextWhatsAppMessageStatus("read", "failed"), "read");
 });
 
 test("failure is terminal and inbound receipt is not rewritten by delivery statuses", () => {
