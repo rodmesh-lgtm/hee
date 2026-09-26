@@ -170,7 +170,11 @@ test.describe.serial("public transactions workflow", () => {
   test("service requests can be hidden and booking moved into the mobile ribbon", async ({ page }) => {
     const seeded = await seed();
     try {
-      await db.business.update({ where: { id: seeded.businessId }, data: { pageModules: [{ id: "contact", enabled: true, sortOrder: 1, config: { serviceRequestEnabled: false, bookingPlacement: "ribbon", bottomActions: [{ id: "share", enabled: false, sortOrder: 0 }] } }] } });
+      await setSession(page, seeded.sessionToken);
+      const actions = [{ id: "share", enabled: false, sortOrder: 0 }];
+      expect((await page.request.post(`${baseUrl}/api/dashboard/page-modules/bottom-actions`, { data: { actions, serviceRequestEnabled: false, bookingPlacement: "ribbon" } })).status()).toBe(200);
+      // Older clients can reorder the ribbon without erasing the new settings.
+      expect((await page.request.post(`${baseUrl}/api/dashboard/page-modules/bottom-actions`, { data: { actions } })).status()).toBe(200);
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(`${baseUrl}/${seeded.slug}`, { waitUntil: "domcontentloaded" });
       const ribbon = page.locator("[data-public-action-ribbon]");
