@@ -124,13 +124,17 @@ test.describe.serial("public transactions workflow", () => {
       await db.business.update({ where: { id: seeded.businessId }, data: { bookingSlotMinutes: 30 } });
       await db.customer.create({ data: { businessId: seeded.businessId, name: "عميلنا المعروف", phone: "966500000411" } });
       await setSession(page, seeded.sessionToken);
-      await page.goto(`${baseUrl}/dashboard/working-hours`);
+      await page.goto(`${baseUrl}/dashboard/working-hours`, { waitUntil: "networkidle" });
       const tomorrow = riyadhDateKey(1);
       const day = dayIndexForRiyadhDate(tomorrow);
+      const dayEditor = page.locator("fieldset").filter({ has: page.locator(`input[name="opens-${day}"]`) });
+      await dayEditor.getByRole("button", { name: "مسائي 17:00–22:00", exact: true }).click();
+      await expect(page.locator(`input[name="opens-${day}"]`)).toHaveValue("17:00");
       await page.locator(`input[name="opens-${day}"]`).fill("17:10");
       await page.locator(`input[name="closes-${day}"]`).fill("19:10");
       await page.getByRole("button", { name: "حفظ جدول الأسبوع", exact: true }).click();
       await page.waitForURL(/saved=1/);
+      expect((await db.workingHours.findFirst({ where: { businessId: seeded.businessId, dayOfWeek: day } }))?.opensAt).toBe("17:10");
       const availability = await request.get(`${baseUrl}/api/public/bookings?slug=${seeded.slug}&serviceId=${seeded.serviceId}`);
       expect(availability.status()).toBe(200);
       const availableDay = (await availability.json()).days.find((item: { date: string }) => item.date === tomorrow);
@@ -239,7 +243,7 @@ test.describe.serial("public transactions workflow", () => {
       await ownerPage.goto(`${baseUrl}/dashboard/inbox`, { waitUntil: "domcontentloaded" });
       const inboxMain = ownerPage.locator("#dashboard-main-content");
       await expect(inboxMain.getByRole("heading", { name: "الطلبات والحجوزات" })).toBeVisible();
-      await expect(ownerPage.getByText("عميل اختبار")).toBeVisible();
+      await expect(ownerPage.getByText("عميل الحجز", { exact: true })).toBeVisible();
       await expect(ownerPage.getByText("استشارة لمدة ساعة")).toBeVisible();
       await ownerPage.getByRole("button", { name: "تأكيد الحجز" }).click();
       await expect.poll(async () => (await db.booking.findFirst({ where: { businessId: seeded.businessId }, select: { status: true } }))?.status, { timeout: 20_000 }).toBe("confirmed");
