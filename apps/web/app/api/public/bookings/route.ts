@@ -750,7 +750,7 @@ export async function POST(request: Request) {
       if (whatsappConfirmationConsent && whatsappPhone) {
         await tx.whatsAppContact.upsert({
           where: { businessId_phoneE164: { businessId: business.id, phoneE164: whatsappPhone } },
-          create: { businessId: business.id, phoneE164: whatsappPhone, displayName: name || customer.name, source: "booking" },
+          create: { businessId: business.id, phoneE164: whatsappPhone, displayName: name || customer.name, source: "api" },
           update: name ? { displayName: name } : {},
           select: { id: true },
         });

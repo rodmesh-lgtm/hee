@@ -17,6 +17,7 @@ test("booking-only consent cannot authorize campaign creation, snapshot, queue o
     assert.match(source(path), /consent\."source" <> 'booking'/);
   }
   assert.match(source("app/api/public/bookings/route.ts"), /if \(!existingMarketingConsent\) await tx.whatsAppConsent.upsert/);
+  assert.match(source("app/api/public/bookings/route.ts"), /displayName: name \|\| customer.name, source: "api"/);
 });
 
 test("delivery rows are bound to the exact tenant, campaign, connection and recipient", () => {
