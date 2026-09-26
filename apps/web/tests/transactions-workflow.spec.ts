@@ -151,6 +151,7 @@ test.describe.serial("public transactions workflow", () => {
   test("one active appointment per tenant and phone survives concurrent different-slot requests", async ({ request }) => {
     const seeded = await seed();
     try {
+      await db.business.update({ where: { id: seeded.businessId }, data: { bookingSlotMinutes: 30 } });
       const date = riyadhDateKey(1);
       const send = (time: string, requestId = crypto.randomUUID(), phone = "0500000491") => request.post(`${baseUrl}/api/public/bookings`, { data: { slug: seeded.slug, phone, serviceId: seeded.serviceId, bookingDate: date, bookingTime: time, requestId } });
       const ids = [crypto.randomUUID(), crypto.randomUUID()];
