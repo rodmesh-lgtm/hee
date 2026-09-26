@@ -6,6 +6,7 @@ import { db } from "./db";
 import { receiptSnapshot } from "./billing-tax";
 import { encryptProviderToken, maskedLast4, type MoyasarPayment } from "./moyasar";
 import { getPlanRank, normalizePlanCode } from "./plan-entitlements";
+import { getEffectiveSubscription } from "./subscription-entitlement";
 
 export type BillingPaymentRow = {
   id: string;
@@ -92,18 +93,16 @@ export async function createBillingIntent(userId: string, businessId: string, re
     });
     if (!business) throw new Error("BUSINESS_NOT_FOUND");
 
-    const currentCode = normalizePlanCode(business.plan?.code);
-    if (getPlanRank(requestedPlan) <= getPlanRank(currentCode)) throw new Error("PLAN_NOT_AN_UPGRADE");
-
     const target = await tx.businessPlan.findUnique({ where: { code: requestedPlan } });
     if (!target?.isActive || target.monthlyPrice <= 0) throw new Error("PLAN_UNAVAILABLE");
 
     const now = new Date();
-    const currentSubscription = await tx.subscription.findFirst({
-      where: { businessId, status: "active", endsAt: { gt: now } },
-      include: { plan: true },
-      orderBy: { startsAt: "desc" },
-    });
+    const currentSubscription = await getEffectiveSubscription({ businessId, database: tx, now });
+    // A historical Business.planId must not block repurchase after expiration.
+    // Administrative grants cannot be replaced by a paid checkout.
+    if (currentSubscription?.provider === "access_code") throw new Error("ACCESS_GRANT_ACTIVE");
+    const currentCode = normalizePlanCode(currentSubscription?.plan.code);
+    if (getPlanRank(requestedPlan) <= getPlanRank(currentCode)) throw new Error("PLAN_NOT_AN_UPGRADE");
 
     const abandonedBefore = new Date(now.getTime() - ABANDONED_CHECKOUT_MS);
     await tx.$executeRaw`
@@ -274,6 +273,7 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
       FROM "Business" b
       JOIN "User" u ON u."id" = b."ownerId"
       JOIN "BusinessPlan" p ON p."id" = ${billing.planId} AND p."isActive" = true
+        AND p."code" IN ('BUSINESS','PRO')
       WHERE b."id" = ${billing.businessId}
         AND b."deletedAt" IS NULL
         AND u."deletedAt" IS NULL

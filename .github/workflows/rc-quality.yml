@@ -93,6 +93,10 @@ jobs:
         env:
           ALLOW_BILLING_INTEGRITY_AUDIT: "true"
         run: npm run billing:integrity-audit
+      - name: Verify paid activation and feature entitlement lifecycle
+        env:
+          ALLOW_PAID_ENTITLEMENT_AUDIT: "true"
+        run: node --conditions=react-server --import tsx scripts/paid-entitlement-audit.ts
       - name: Seed backup/restore audit fixture
         env:
           ALLOW_BACKUP_RESTORE_AUDIT_SEED: "true"
