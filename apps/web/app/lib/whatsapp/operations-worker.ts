@@ -5,6 +5,7 @@ import type { PrismaClient } from "@prisma/client";
 export const WHATSAPP_OPERATION_STAGES = [
   "whatsapp:webhooks",
   // Customer confirmations get a turn before bulk import/commerce/campaign work.
+  "whatsapp:automation-schedules",
   "whatsapp:automations",
   "whatsapp:automation-deliveries",
   "whatsapp:replies",
@@ -16,7 +17,6 @@ export const WHATSAPP_OPERATION_STAGES = [
   "whatsapp:salla-webhooks",
   "whatsapp:commerce-periodic-sync",
   "whatsapp:shopify-abandoned-carts",
-  "whatsapp:automation-schedules",
   "whatsapp:campaigns",
   "whatsapp:deliveries",
 ] as const;
