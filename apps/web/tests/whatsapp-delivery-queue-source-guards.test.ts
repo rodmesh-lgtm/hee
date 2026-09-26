@@ -13,7 +13,7 @@ test("booking-only consent cannot authorize campaign creation, snapshot, queue o
   for (const path of ["app/actions/whatsapp-marketing.ts", "app/lib/whatsapp/campaign-snapshot.ts", "app/lib/whatsapp/delivery-queue.ts", "app/lib/whatsapp/delivery-worker.ts"]) {
     assert.match(source(path), /source: \{ not: "booking" \}/);
   }
-  for (const path of ["app/dashboard/whatsapp/page.tsx", "app/dashboard/whatsapp/campaigns/page.tsx"]) {
+  for (const path of ["app/dashboard/whatsapp/page.tsx", "app/dashboard/whatsapp/campaigns/page.tsx", "app/dashboard/whatsapp/contacts/page.tsx"]) {
     assert.match(source(path), /consent\."source" <> 'booking'/);
   }
   assert.match(source("app/api/public/bookings/route.ts"), /if \(!existingMarketingConsent\) await tx.whatsAppConsent.upsert/);

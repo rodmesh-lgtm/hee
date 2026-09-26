@@ -39,7 +39,7 @@ export default async function WhatsAppContactsPage({ searchParams }: { searchPar
       SELECT contact."id", contact."displayName", contact."phoneE164", contact."email", contact."source", contact."optedOutAt", contact."createdAt", consent."consentedAt", consent."revokedAt",
         (contact."optedOutAt" IS NULL AND consent."revokedAt" IS NULL AND consent."consentedAt" <= CURRENT_TIMESTAMP) AS "eligible"
       FROM "WhatsAppContact" contact
-      LEFT JOIN "WhatsAppConsent" consent ON consent."businessId" = contact."businessId" AND consent."phoneE164" = contact."phoneE164"
+      LEFT JOIN "WhatsAppConsent" consent ON consent."businessId" = contact."businessId" AND consent."phoneE164" = contact."phoneE164" AND consent."source" <> 'booking'
       WHERE contact."businessId" = ${context.businessId}
       ${audiencePredicate}
       ${searchPredicate}
@@ -54,7 +54,7 @@ export default async function WhatsAppContactsPage({ searchParams }: { searchPar
         COUNT(*) FILTER (WHERE contact."optedOutAt" IS NULL AND (consent."id" IS NULL OR consent."revokedAt" IS NOT NULL OR consent."consentedAt" > CURRENT_TIMESTAMP))::int AS "noConsent",
         COUNT(*) FILTER (WHERE contact."optedOutAt" IS NOT NULL)::int AS "optedOut"
       FROM "WhatsAppContact" contact
-      LEFT JOIN "WhatsAppConsent" consent ON consent."businessId" = contact."businessId" AND consent."phoneE164" = contact."phoneE164"
+      LEFT JOIN "WhatsAppConsent" consent ON consent."businessId" = contact."businessId" AND consent."phoneE164" = contact."phoneE164" AND consent."source" <> 'booking'
       WHERE contact."businessId" = ${context.businessId}
     `),
     db.whatsAppSegment.findMany({ where: { businessId: context.businessId, kind: "static" }, orderBy: { createdAt: "desc" }, take: 8, select: { id: true, name: true, _count: { select: { memberships: true } } } }),
