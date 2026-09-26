@@ -550,8 +550,9 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         const context = await authenticatedContext(browser, viewport, viewport.width === 390 ? "dark" : "light", seeded.adminSessionToken);
         const page = await context.newPage(); page.setDefaultTimeout(15_000);
         try {
-          await page.goto(`${baseUrl}/admin/booking-forms`, { waitUntil: "networkidle" });
+          await page.goto(`${baseUrl}/admin/booking-forms`, { waitUntil: "domcontentloaded", timeout: 30_000 });
           await page.getByRole("button", { name: "إضافة نموذج", exact: true }).click();
+          await expect(page.getByLabel("عنوان النموذج", { exact: true })).toHaveValue("نموذج حجز جديد");
           await page.getByLabel("عنوان النموذج", { exact: true }).fill("موعدك المميز");
           await page.getByRole("button", { name: "إضافة حقل", exact: true }).click();
           await page.getByLabel("عنوان الحقل", { exact: true }).fill("كيف نجهز زيارتك؟");
@@ -583,6 +584,11 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await page.getByRole("button", { name: "حذف النموذج", exact: true }).click();
           await page.getByRole("button", { name: "نشر النموذج المختار", exact: true }).click();
           await expect(page.getByRole("status")).toHaveText("نُشر النموذج المحدد على صفحات الحجز");
+          await expect.poll(async () => {
+            const restored = await db.$queryRaw<Array<{ published: { activeId: string; forms: unknown[] } }>>`SELECT "published" FROM "PlatformDesignSetting" WHERE "key"=${key}`;
+            return { activeId: restored[0]?.published.activeId, count: restored[0]?.published.forms.length };
+          }).toEqual({ activeId: "default", count: 1 });
+          await expect(page.getByRole("button", { name: "نشر النموذج المختار", exact: true })).toBeEnabled();
         } finally { await context.close(); }
       }
     } finally {
