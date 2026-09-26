@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "../app/lib/db";
 import { closePrismaForWorker } from "../lib/prisma";
 import { createBillingIntent, activateVerifiedMoyasarPayment, handleRefundedMoyasarPayment } from "../app/lib/billing-ledger";
-import { getEffectiveSubscription } from "../app/lib/subscription-entitlement";
+import { getEffectiveSubscription, hasActiveBusinessSubscription } from "../app/lib/subscription-entitlement";
 import { getPlanEntitlements } from "../app/lib/plan-entitlements";
 import { hasActiveWhatsAppMarketingEntitlement } from "../app/lib/whatsapp/feature-entitlement";
 
@@ -21,6 +21,10 @@ async function main() {
   const business = await db.business.create({ data: { ownerId: owner.id, planId: free.id, name: "Payment proof", slug: `paid-proof-${suffix}`, businessType: "test" } });
   try {
     assert.equal(await getEffectiveSubscription({ businessId: business.id }), null);
+    const internal = await db.subscription.create({ data: { businessId: business.id, planId: free.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 1000), endsAt: new Date(Date.now() + 60_000), autoRenew: false } });
+    assert.equal(await hasActiveBusinessSubscription({ businessId: business.id }), true);
+    assert.equal(await getEffectiveSubscription({ businessId: business.id }), null);
+    await db.subscription.delete({ where: { id: internal.id } });
     const intent = await createBillingIntent(owner.id, business.id, "BUSINESS");
     const payment = { id: randomUUID(), status: "paid", amount: intent.payment.amount, currency: "SAR", metadata: { hee_billing_id: intent.payment.id, hee_business_id: business.id } };
     assert.equal(await activateVerifiedMoyasarPayment(intent.payment.id, { ...payment, status: "authorized" }), "mismatch");
