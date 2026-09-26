@@ -20,6 +20,7 @@ export async function hasActiveWhatsAppMarketingEntitlement(input: { businessId:
       subscriptions: {
         where: {
           status: "active",
+          startsAt: { lte: now },
           OR: [
             { provider: { not: "access_code" }, endsAt: { gt: now } },
             { provider: "access_code", autoRenew: false, endsAt: null, accessGrants: { some: { businessId: input.businessId, revokedAt: null, code: { isActive: true, revokedAt: null } } } },

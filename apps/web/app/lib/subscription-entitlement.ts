@@ -18,7 +18,8 @@ export function activeSubscriptionWhere(businessId: string, now = new Date()): P
           some: {
             businessId,
             revokedAt: null,
-            code: { isActive: true, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+            // Expiration limits redemption, not an already issued grant.
+            code: { isActive: true, revokedAt: null },
           },
         },
       },
@@ -26,11 +27,29 @@ export function activeSubscriptionWhere(businessId: string, now = new Date()): P
   };
 }
 
-export async function hasActiveBusinessSubscription(input: { businessId: string; database?: PrismaClient; now?: Date }) {
+export async function getEffectiveSubscription(input: { businessId: string; database?: PrismaClient | Prisma.TransactionClient; now?: Date; paidPlansOnly?: boolean }) {
   const database = input.database ?? db;
   const now = input.now ?? new Date();
-  return Boolean(await database.subscription.findFirst({
-    where: activeSubscriptionWhere(input.businessId, now),
-    select: { id: true },
-  }));
+  const subscriptions = await database.subscription.findMany({
+    where: {
+      ...activeSubscriptionWhere(input.businessId, now),
+      ...(input.paidPlansOnly === false ? {} : { plan: { code: { in: ["BUSINESS", "PRO"] } } }),
+    },
+    include: {
+      plan: true,
+      accessGrants: {
+        where: { businessId: input.businessId, revokedAt: null, code: { isActive: true, revokedAt: null } },
+        include: { code: true },
+      },
+    },
+    orderBy: [{ startsAt: "desc" }, { id: "desc" }],
+  });
+  return subscriptions.find((subscription) => subscription.provider !== "access_code"
+    || subscription.accessGrants.some((grant) => grant.planId === subscription.planId && grant.code.planId === subscription.planId)) ?? null;
+}
+
+export async function hasActiveBusinessSubscription(input: { businessId: string; database?: PrismaClient; now?: Date }) {
+  // Booking/transaction eligibility historically accepts a valid internal term;
+  // it must not be confused with unlocking the paid-plan feature catalog.
+  return Boolean(await getEffectiveSubscription({ ...input, paidPlansOnly: false }));
 }

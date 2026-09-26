@@ -9,8 +9,11 @@ function source(path: string) {
 
 test("premium runtime authorization fails closed when the paid subscription has expired", () => {
   const active = source("app/lib/active-business.ts");
-  assert.match(active, /status: "active"/);
-  assert.match(active, /endsAt: \{ gt: now \}/);
+  assert.match(active, /getEffectiveSubscription/);
+  const entitlement = source("app/lib/subscription-entitlement.ts");
+  assert.match(entitlement, /status: "active"/);
+  assert.match(entitlement, /endsAt: \{ gt: now \}/);
+  assert.match(entitlement, /startsAt: \{ lte: now \}/);
   assert.match(active, /FREE_PLAN_MISSING/);
   assert.match(active, /runtime authorization/);
 });

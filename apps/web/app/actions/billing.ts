@@ -49,6 +49,7 @@ export async function startPaidCheckoutAction(formData: FormData) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "UNKNOWN";
     if (message === "PLAN_NOT_AN_UPGRADE") redirect("/dashboard/branding?billing=current");
+    if (message === "ACCESS_GRANT_ACTIVE") redirect("/dashboard/billing/manage?billing=access-grant-active");
     if (message === "PLAN_UNAVAILABLE" || message === "INVALID_PAID_PLAN") redirect("/dashboard/branding?billing=invalid-plan");
     if (message === "OTHER_CHECKOUT_PENDING") redirect("/dashboard/branding?billing=pending");
     console.error("[billing] create_intent_failed", { businessId: business.id, plan, error: message });
