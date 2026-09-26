@@ -23,7 +23,7 @@ export function BookingFormsEditor({ initial }: { initial: BookingFormCatalog })
     setCatalog({ ...catalog, forms, activeId: catalog.activeId === form.id ? forms[0].id : catalog.activeId });
     setSelectedId(forms[0].id);
   }
-  return <form action={action} className="space-y-4">
+  return <form action={action} onReset={event => event.preventDefault()} className="space-y-4">
     <input type="hidden" name="catalog" value={JSON.stringify(catalog)}/>
     <fieldset disabled={pending} className="grid min-w-0 gap-5 lg:grid-cols-[1fr_320px]">
       <div className="min-w-0 space-y-4"><section className={card}><div className="flex flex-wrap gap-2">{catalog.forms.map(item => <button key={item.id} type="button" aria-pressed={form.id === item.id} onClick={() => setSelectedId(item.id)} className={`min-h-11 rounded-xl border px-3 text-sm ${form.id === item.id ? "border-teal-500 bg-teal-500/10 text-teal-600" : "border-slate-200"}`}>{item.title}</button>)}<button type="button" disabled={catalog.forms.length >= 8} onClick={addForm} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-dashed border-teal-500 px-3 text-sm text-teal-600"><Plus size={16}/>إضافة نموذج</button></div></section>

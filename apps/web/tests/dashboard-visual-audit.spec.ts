@@ -562,6 +562,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.getByRole("status")).toHaveText("حُفظت المسودة دون تغيير نموذج الزوار");
           const draftRows = await db.$queryRaw<Array<{ draft: { activeId: string }; published: { activeId: string } }>>`SELECT "draft", "published" FROM "PlatformDesignSetting" WHERE "key"=${key}`;
           expect(draftRows[0].draft.activeId).not.toBe(draftRows[0].published.activeId);
+          await expect(page.getByLabel("النموذج المختار للنشر", { exact: true })).toHaveValue(draftRows[0].draft.activeId);
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
           await page.screenshot({ path: `${outDir}/booking-forms-${viewport.width}.png`, fullPage: true });
           await page.getByRole("button", { name: "نشر النموذج المختار", exact: true }).click();
