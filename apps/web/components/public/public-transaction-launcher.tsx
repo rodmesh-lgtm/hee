@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, Check, Clock3, LoaderCircle, MessageCircle, X } from "lucide-react";
 import { PublicActionDialog } from "./public-action-dialog";
+import { DEFAULT_BOOKING_FORM, type BookingForm } from "../../app/lib/booking-form-domain";
 
 type Service = {
   id: string;
@@ -13,6 +14,7 @@ type Service = {
 };
 
 type Props = {
+  bookingForm?: BookingForm;
   slug: string;
   businessName: string;
   whatsapp: string | null;
@@ -70,7 +72,8 @@ function displayTime(time: string) {
   return new Intl.DateTimeFormat("ar-SA", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Riyadh" }).format(new Date(`2020-01-01T${time}:00+03:00`));
 }
 
-export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone, bookingAvailable, sallaBookingEligibilityRequired, whatsappBookingConfirmationAvailable, whatsappBookingSender, hasWorkingHours, services, branches }: Props) {
+export function PublicTransactionLauncher({ bookingForm = DEFAULT_BOOKING_FORM, slug, businessName, whatsapp, phone, bookingAvailable, sallaBookingEligibilityRequired, whatsappBookingConfirmationAvailable, whatsappBookingSender, hasWorkingHours, services, branches }: Props) {
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -174,7 +177,8 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     setAvailabilityDays([]);
     setAvailabilityError("");
     setDurationMinutes(null);
-    setValues((current) => ({ ...current, serviceId: "", branchId: bookableBranches.length === 1 ? bookableBranches[0].id : "", bookingDate: "", bookingTime: "", whatsappConfirmationConsent: false }));
+    setValues((current) => ({ ...current, serviceId: bookableServices.length === 1 ? bookableServices[0].id : "", branchId: bookableBranches.length === 1 ? bookableBranches[0].id : "", bookingDate: "", bookingTime: "", whatsappConfirmationConsent: false }));
+    setAnswers({});
     setBookingOpen(true);
   }
 
@@ -233,8 +237,8 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     event.preventDefault();
     if (submittingRef.current) return;
     const phoneDigits = values.phone.replace(/\D/g, "");
-    if (!values.name.trim() || phoneDigits.length < 8 || phoneDigits.length > 15 || !values.serviceId || (bookableBranches.length > 1 && !values.branchId) || !values.bookingDate || !values.bookingTime) {
-      setError("أكمل الاسم والجوال والفرع والخدمة واختر فترة متاحة.");
+    if (phoneDigits.length < 8 || phoneDigits.length > 15 || !values.serviceId || (bookableBranches.length > 1 && !values.branchId) || !values.bookingDate || !values.bookingTime) {
+      setError("أدخل رقم الجوال واختر الخدمة والفرع عند تعددهما، ثم اختر موعدًا متاحًا.");
       return;
     }
 
@@ -249,7 +253,8 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
         headers: { "Content-Type": "application/json", "Idempotency-Key": id },
         body: JSON.stringify({
           slug,
-          name: values.name.trim(),
+          formId: bookingForm.id,
+          answers,
           phone: values.phone.trim(),
           serviceId: values.serviceId,
           branchId: values.branchId || undefined,
@@ -296,24 +301,23 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
     {bookingOpen ? <div dir="rtl" className="fixed inset-0 z-[260] flex items-start justify-center overflow-y-auto bg-black/70 p-3 sm:items-center" style={{ paddingTop: "max(12px, env(safe-area-inset-top))", paddingBottom: "max(12px, env(safe-area-inset-bottom))" }} onClick={closeBooking}>
       <div ref={bookingDialogRef} role="dialog" aria-modal="true" aria-labelledby="infro-booking-title" aria-describedby="infro-booking-description" className="my-auto flex max-h-[calc(100dvh-24px)] w-full max-w-[520px] flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#dfebe8] bg-[#f7fbfa] p-4">
-          <div><span className="text-[9px] font-black tracking-[.16em] text-[#008f87]" dir="ltr">APPOINTMENTS</span><h2 id="infro-booking-title" className="mt-1 text-lg font-black text-[#102527]">حجز موعد</h2><p id="infro-booking-description" className="mt-1 text-xs text-[#667b79]">اختر الخدمة ثم أحد المواعيد المتاحة فعليًا.</p></div>
+          <div><span className="text-[9px] font-black tracking-[.16em] text-[#008f87]" dir="ltr">APPOINTMENTS</span><h2 id="infro-booking-title" className="mt-1 text-lg font-black text-[#102527]">{bookingForm.title}</h2><p id="infro-booking-description" className="mt-1 text-xs text-[#667b79]">{bookingForm.description}</p></div>
           <button onClick={closeBooking} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#d7e6e3] bg-white text-[#667b79] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d]" aria-label="إغلاق"><X className="h-4 w-4" /></button>
         </div>
         {success ? <div className="overflow-y-auto p-5"><div role="status" aria-live="polite" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-7 text-emerald-700">{success}</div><button onClick={closeBooking} className="mt-4 h-11 w-full rounded-xl bg-[#073437] text-sm font-black text-white">إغلاق</button></div> : <form onSubmit={submitBooking} className="min-h-0 space-y-4 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-600"><span>الاسم</span><input ref={firstBookingInputRef} autoComplete="name" value={values.name} onChange={(event) => setValues((current) => ({ ...current, name: event.target.value }))} className="h-11 min-w-0 w-full rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15" /></label>
-            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-600"><span>رقم الجوال</span><input dir="ltr" inputMode="tel" autoComplete="tel" value={values.phone} onChange={(event) => setValues((current) => ({ ...current, phone: event.target.value }))} className="h-11 min-w-0 w-full rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15" /></label>
+          <div className="grid gap-3">
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-600"><span>رقم الجوال</span><input ref={firstBookingInputRef} type="tel" required maxLength={20} placeholder="05xxxxxxxx" dir="ltr" inputMode="tel" autoComplete="tel" value={values.phone} onChange={(event) => setValues((current) => ({ ...current, phone: event.target.value }))} className="h-11 min-w-0 w-full rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15" /></label>
           </div>
 
-          {bookableBranches.length ? <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>الفرع</span><select aria-label="الفرع" value={values.branchId} onChange={(event) => selectBranch(event.target.value)} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15"><option value="">اختر الفرع</option>{bookableBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}{branch.city ? ` · ${branch.city}` : ""}</option>)}</select></label> : null}
+          {bookableBranches.length > 1 ? <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>الفرع</span><select aria-label="الفرع" value={values.branchId} onChange={(event) => selectBranch(event.target.value)} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15"><option value="">اختر الفرع</option>{bookableBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}{branch.city ? ` · ${branch.city}` : ""}</option>)}</select></label> : null}
 
-          <label className="grid gap-1.5 text-xs font-bold text-slate-600">
+          {bookableServices.length > 1 ? <label className="grid gap-1.5 text-xs font-bold text-slate-600">
             <span>الخدمة</span>
             <select aria-label="الخدمة" value={values.serviceId} onChange={(event) => selectService(event.target.value)} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15">
               <option value="">اختر الخدمة</option>
               {bookableServices.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
             </select>
-          </label>
+          </label> : null}
 
           {availabilityState === "loading" ? <div role="status" className="flex min-h-24 items-center justify-center gap-2 rounded-2xl border border-[#dce9e6] bg-[#f7fbfa] text-xs font-bold text-[#58726f]"><LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" />جارٍ تحميل المواعيد المتاحة</div> : null}
           {availabilityState === "error" ? <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-6 text-amber-800"><p>{availabilityError}</p><button type="button" onClick={retryAvailability} className="mt-2 min-h-10 rounded-xl border border-amber-300 bg-white px-3">إعادة المحاولة</button></div> : null}
@@ -326,7 +330,7 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
                   return <button key={day.date} type="button" data-booking-date={day.date} disabled={!day.available} aria-pressed={selected} aria-label={day.available ? `اختيار ${dayName(day.date)} ${compactDate(day.date)}` : `${dayName(day.date)} ${compactDate(day.date)} غير متاح`} onClick={() => setValues((current) => ({ ...current, bookingDate: day.date, bookingTime: "" }))} className={`min-h-[72px] min-w-[82px] snap-start rounded-2xl border px-2 py-2 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#009eac] bg-[#e8fbfb] text-[#07545d] shadow-[0_7px_18px_rgba(0,158,172,.12)]" : day.available ? "border-[#d7e6e3] bg-white text-[#244246] hover:border-[#8dd9d3]" : "border-slate-100 bg-slate-50 text-slate-300"}`}>
                     <span className="block text-[10px] font-bold">{dayName(day.date)}</span>
                     <b className="mt-1 block text-[11px]">{compactDate(day.date)}</b>
-                    <span className={`mt-1 block text-[8px] font-black ${day.available ? "text-emerald-600" : "text-slate-300"}`}>{day.available ? `${day.slots.length} فترة` : "غير متاح"}</span>
+                    <span className={`mt-1 block text-[8px] font-black ${day.available ? "text-emerald-600" : "text-slate-300"}`}>{day.available ? "متاح" : "غير متاح"}</span>
                   </button>;
                 })}
               </div>
@@ -346,7 +350,8 @@ export function PublicTransactionLauncher({ slug, businessName, whatsapp, phone,
             </fieldset> : <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-center text-xs font-bold text-slate-400">لا توجد أوقات متاحة في هذا اليوم.</p>}
           </> : null}
 
-          <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>ملاحظات <small className="font-normal text-slate-400">اختياري</small></span><textarea value={values.notes} maxLength={1000} onChange={(event) => setValues((current) => ({ ...current, notes: event.target.value }))} className="min-h-[76px] rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 py-2.5 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15" /></label>
+          {bookingForm.notesEnabled ? <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>{bookingForm.notesLabel}</span><textarea value={values.notes} maxLength={1000} onChange={(event) => setValues((current) => ({ ...current, notes: event.target.value }))} className="min-h-[76px] rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 py-2.5 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15" /></label> : null}
+          {bookingForm.fields.map(field => <label key={field.id} className="grid gap-1.5 text-xs font-bold text-slate-600"><span>{field.label}{field.required ? " *" : " (اختياري)"}</span>{field.type === "select" ? <select aria-label={field.label} required={field.required} value={answers[field.id] ?? ""} onChange={e => setAnswers(current => ({ ...current, [field.id]: e.target.value }))} className="min-h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm"><option value="">اختر</option>{field.options.map(option => <option key={option}>{option}</option>)}</select> : field.type === "textarea" ? <textarea required={field.required} maxLength={300} value={answers[field.id] ?? ""} onChange={e => setAnswers(current => ({ ...current, [field.id]: e.target.value }))} className="min-h-20 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] p-3 text-sm"/> : <input required={field.required} maxLength={300} value={answers[field.id] ?? ""} onChange={e => setAnswers(current => ({ ...current, [field.id]: e.target.value }))} className="min-h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm"/>}</label>)}
           {sallaBookingEligibilityRequired ? <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold leading-6 text-amber-900">لإتمام الحجز، استخدم رقم الجوال نفسه المسجل في طلبك المدفوع والمؤكد من متجر المنشأة.</p> : null}
           {whatsappBookingConfirmationAvailable ? <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#bdebe5] bg-[#effbf9] p-3 text-xs leading-6 text-[#315b5d]"><input type="checkbox" checked={values.whatsappConfirmationConsent} onChange={(event) => setValues((current) => ({ ...current, whatsappConfirmationConsent: event.target.checked }))} className="mt-1 h-5 w-5 shrink-0 accent-[#00a99d]"/><span><b className="block text-[#07545d]">إرسال تأكيد الموعد عبر واتساب</b>أوافق على استلام تأكيد هذا الحجز وتحديثاته من {whatsappBookingSender || businessName} على رقم الجوال الذي أدخلته.</span></label> : null}
           {error ? <p role="alert" aria-live="assertive" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">{error}</p> : null}

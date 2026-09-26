@@ -12,10 +12,15 @@ import { processNextWhatsAppAutomationDelivery } from "../../../lib/whatsapp/aut
 import { normalizeE164 } from "../../../lib/whatsapp/contact-domain";
 import { hasActiveBusinessSubscription } from "../../../lib/subscription-entitlement";
 import { commerceBookingGate } from "../../../lib/commerce/booking-eligibility";
+import { bookingCandidateMinutes } from "../../../lib/booking-time";
+import { readPublishedBookingForm } from "../../../lib/booking-form-settings";
+import { bookingFormNotes } from "../../../lib/booking-form-domain";
 
 export const maxDuration = 60;
 
 type BookingPayload = {
+  formId?: unknown;
+  answers?: unknown;
   slug?: unknown;
   name?: unknown;
   phone?: unknown;
@@ -83,16 +88,7 @@ function bookingAlignedToResolvedSchedule(
   previousDateOverride: AvailabilityOverrideState | null,
   previousWeeklySchedule: Omit<WorkingHoursState, "dayOfWeek"> | null,
 ) {
-  const minute = bookingMinutes(time);
-  const current = dateOverride ?? weeklySchedule;
-  const anchors = [current?.opensAt, current?.secondOpensAt]
-    .filter((candidate): candidate is string => Boolean(candidate))
-    .map(bookingMinutes);
-  const previous = previousDateOverride ?? previousWeeklySchedule;
-  for (const [open, close] of [[previous?.opensAt, previous?.closesAt], [previous?.secondOpensAt, previous?.secondClosesAt]]) {
-    if (open && close && bookingMinutes(close) <= bookingMinutes(open)) anchors.push(bookingMinutes(open) - 1440);
-  }
-  return anchors.some((anchor) => minute >= anchor && (minute - anchor) % slotMinutes === 0);
+  return bookingCandidateMinutes(slotMinutes, dateOverride ?? weeklySchedule, dateOverride ? null : previousDateOverride ?? previousWeeklySchedule).includes(bookingMinutes(time));
 }
 
 function text(value: unknown, max: number) {
@@ -287,7 +283,7 @@ export async function GET(request: Request) {
       const slots: string[] = [];
       const slotDetails: Array<{ start: string; end: string }> = [];
 
-      for (let minute = 0; minute < 1440; minute += 15) {
+      for (const minute of bookingCandidateMinutes(slotMinutes, dateOverride ?? schedule, dateOverride ? null : previousDateOverride ?? previousSchedule)) {
         const time = timeFromMinutes(minute);
         const start = riyadhDate(date, time);
         if (!start || start.getTime() < minimumStart) continue;
@@ -357,12 +353,13 @@ export async function POST(request: Request) {
   const branchId = text(body.branchId, 80);
   const bookingDate = validDate(body.bookingDate);
   const bookingTime = validTime(body.bookingTime);
-  const notes = text(body.notes, 1000);
+  const rawNotes = text(body.notes, 1000);
+  let notes = "";
   const idempotencyKey = requestKey(request.headers.get("idempotency-key") || body.requestId);
   const whatsappConfirmationConsent = body.whatsappConfirmationConsent === true;
   const whatsappPhone = whatsappConfirmationConsent ? bookingPhoneE164 : null;
 
-  if (!slug || !name || !phone || !bookingPhoneE164 || !serviceId || !bookingDate || !bookingTime || notes === null || !idempotencyKey || (whatsappConfirmationConsent && !whatsappPhone)) {
+  if (!slug || name === null || !phone || !bookingPhoneE164 || !serviceId || !bookingDate || !bookingTime || rawNotes === null || !idempotencyKey || (whatsappConfirmationConsent && !whatsappPhone)) {
     return NextResponse.json({ ok: false, error: "بيانات الحجز غير مكتملة" }, { status: 400 });
   }
 
@@ -398,6 +395,16 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[public-booking] idempotency_lookup_failed", error);
     return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
+  }
+
+  let form;
+  try { form = await readPublishedBookingForm(); }
+  catch { return NextResponse.json({ ok: false, error: "تعذر تحميل نموذج الحجز؛ حاول لاحقًا" }, { status: 503 }); }
+  try {
+    if (body.formId !== undefined && body.formId !== form.id) throw new Error("تغير النموذج؛ حدّث الصفحة ثم أعد المحاولة");
+    notes = bookingFormNotes(form, rawNotes, body.answers);
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "تحقق من حقول النموذج" }, { status: 400 });
   }
 
   const startsAt = riyadhDate(bookingDate, bookingTime);
@@ -697,8 +704,8 @@ export async function POST(request: Request) {
         select: { id: true, name: true },
       });
       if (!customer) {
-        customer = await tx.customer.create({ data: { businessId: business.id, name, phone }, select: { id: true, name: true } });
-      } else if (customer.name !== name) {
+        customer = await tx.customer.create({ data: { businessId: business.id, name: name || "عميل الحجز", phone }, select: { id: true, name: true } });
+      } else if (name && customer.name !== name) {
         await tx.customer.update({ where: { id: customer.id }, data: { name } });
       }
 
@@ -728,8 +735,8 @@ export async function POST(request: Request) {
       if (whatsappConfirmationConsent && whatsappPhone) {
         await tx.whatsAppContact.upsert({
           where: { businessId_phoneE164: { businessId: business.id, phoneE164: whatsappPhone } },
-          create: { businessId: business.id, phoneE164: whatsappPhone, displayName: name, source: "booking" },
-          update: { displayName: name },
+          create: { businessId: business.id, phoneE164: whatsappPhone, displayName: name || customer.name, source: "booking" },
+          update: name ? { displayName: name } : {},
           select: { id: true },
         });
         await tx.whatsAppConsent.upsert({

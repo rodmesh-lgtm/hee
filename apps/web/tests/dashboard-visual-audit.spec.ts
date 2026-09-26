@@ -56,7 +56,8 @@ async function cleanupWorkspace(value:Seeded){
     await db.user.deleteMany({where:{id:value.userId}});
   }
   await db.session.deleteMany({where:{userId:value.adminUserId}});
-  await db.user.deleteMany({where:{id:value.adminUserId,businesses:{none:{}}}});
+  const designAudits = await db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "PlatformDesignAudit" WHERE "actorUserId"=${value.adminUserId}`;
+  if (!Number(designAudits[0]?.count)) await db.user.deleteMany({where:{id:value.adminUserId,businesses:{none:{}}}});
 }
 
 async function authenticatedContext(browser:Browser,viewport:{width:number;height:number},theme:"light"|"dark",token:string):Promise<BrowserContext>{
@@ -539,4 +540,55 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       }
     }
   });
+  test("central booking forms support draft, publish, custom fields and deletion on mobile and desktop", async ({ browser }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("fixture missing");
+    const key = "infro.booking-forms.v1";
+    const existing = await db.$queryRaw<Array<{ draft: unknown; published: unknown }>>`SELECT "draft", "published" FROM "PlatformDesignSetting" WHERE "key"=${key}`;
+    try {
+      for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 960 }]) {
+        const context = await authenticatedContext(browser, viewport, viewport.width === 390 ? "dark" : "light", seeded.adminSessionToken);
+        const page = await context.newPage(); page.setDefaultTimeout(15_000);
+        try {
+          await page.goto(`${baseUrl}/admin/booking-forms`, { waitUntil: "networkidle" });
+          await page.getByRole("button", { name: "إضافة نموذج", exact: true }).click();
+          await page.getByLabel("عنوان النموذج", { exact: true }).fill("موعدك المميز");
+          await page.getByRole("button", { name: "إضافة حقل", exact: true }).click();
+          await page.getByLabel("عنوان الحقل", { exact: true }).fill("كيف نجهز زيارتك؟");
+          await page.getByLabel("إلزامي", { exact: true }).check();
+          await page.getByLabel("النموذج المختار للنشر", { exact: true }).selectOption({ label: "موعدك المميز" });
+          await page.getByRole("button", { name: "حفظ مسودة", exact: true }).click();
+          await expect(page.getByRole("status")).toHaveText("حُفظت المسودة دون تغيير نموذج الزوار");
+          const draftRows = await db.$queryRaw<Array<{ draft: { activeId: string }; published: { activeId: string } }>>`SELECT "draft", "published" FROM "PlatformDesignSetting" WHERE "key"=${key}`;
+          expect(draftRows[0].draft.activeId).not.toBe(draftRows[0].published.activeId);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+          await page.screenshot({ path: `${outDir}/booking-forms-${viewport.width}.png`, fullPage: true });
+          await page.getByRole("button", { name: "نشر النموذج المختار", exact: true }).click();
+          await expect(page.getByRole("status")).toHaveText("نُشر النموذج المحدد على صفحات الحجز");
+          const rows = await db.$queryRaw<Array<{ draft: unknown; published: unknown }>>`SELECT "draft", "published" FROM "PlatformDesignSetting" WHERE "key"=${key}`;
+          expect(rows[0].published).toEqual(rows[0].draft);
+          const business = await db.business.findUniqueOrThrow({ where: { id: seeded.businessId } });
+          const visitor = await browser.newPage({ viewport });
+          try {
+            await visitor.goto(`${baseUrl}/${business.slug}`, { waitUntil: "networkidle" });
+            await visitor.getByRole("button", { name: "حجز موعد", exact: true }).click();
+            const dialog = visitor.getByRole("dialog", { name: "موعدك المميز", exact: true });
+            await expect(dialog).toBeVisible();
+            await expect(dialog.getByLabel("كيف نجهز زيارتك؟", { exact: false })).toHaveAttribute("required", "");
+            await expect(dialog.getByLabel("الاسم", { exact: true })).toHaveCount(0);
+            await dialog.screenshot({ path: `${outDir}/booking-dialog-${viewport.width}.png` });
+          } finally { await visitor.close(); }
+          await page.getByRole("button", { name: "حذف الحقل 1", exact: true }).click();
+          await expect(page.getByText("النموذج مختصر؛ لا توجد حقول إضافية.")).toBeVisible();
+          await page.getByRole("button", { name: "حذف النموذج", exact: true }).click();
+          await page.getByRole("button", { name: "نشر النموذج المختار", exact: true }).click();
+          await expect(page.getByRole("status")).toHaveText("نُشر النموذج المحدد على صفحات الحجز");
+        } finally { await context.close(); }
+      }
+    } finally {
+      if (existing[0]) await db.$executeRaw(Prisma.sql`UPDATE "PlatformDesignSetting" SET "draft"=${JSON.stringify(existing[0].draft)}::jsonb, "published"=${JSON.stringify(existing[0].published)}::jsonb WHERE "key"=${key}`);
+      else await db.$executeRaw`DELETE FROM "PlatformDesignSetting" WHERE "key"=${key}`;
+    }
+  });
+
 });
