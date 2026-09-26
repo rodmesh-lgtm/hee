@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertCircle, Building2, CheckCircle2, Eye, MapPin, Pencil, Plus, Save, UsersRound } from "lucide-react";
 import { getCurrentUser } from "../../lib/auth";
-import { getActiveBusinessForUser } from "../../lib/active-business";
+import { getActiveBusinessWithPlanForUser } from "../../lib/active-business";
 import { db } from "../../lib/db";
 import { formatPlanLimit, getPlanEntitlements, limitReached } from "../../lib/plan-entitlements";
 import { createBranchAction, createContactPersonAction, deleteBranchAction, deleteContactPersonAction, updateBranchAction, updateContactPersonAction } from "../../actions/directory";
@@ -22,11 +22,11 @@ const save = "inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg
 export default async function DirectoryPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser(); if (!user) redirect("/login");
   const params = await searchParams; const statusKey = Array.isArray(params?.status) ? params.status[0] : params?.status; const status = statusKey ? STATUS_MESSAGES[statusKey] : null;
-  const activeBusiness = await getActiveBusinessForUser(user.id); if (!activeBusiness) redirect("/onboarding");
+  const activeBusiness = await getActiveBusinessWithPlanForUser(user.id); if (!activeBusiness) redirect("/onboarding");
   const business = await db.business.findFirst({ where: { id: activeBusiness.id, ownerId: user.id, deletedAt: null }, include: { plan: true, branches: { orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] }, contactPersons: { include: { branch: true }, orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] } } });
   if (!business) redirect("/onboarding");
-  const entitlements = getPlanEntitlements(business.plan?.code); const branchLimitReached = limitReached(business.branches.length, entitlements.branchLimit); const contactLimitReached = limitReached(business.contactPersons.length, entitlements.contactLimit);
   const visibleBranches = business.branches.filter((branch) => branch.isActive).length; const visibleContacts = business.contactPersons.filter((contact) => contact.isActive).length;
+  const entitlements = getPlanEntitlements(activeBusiness.plan?.code); const branchLimitReached = limitReached(visibleBranches, entitlements.branchLimit); const contactLimitReached = limitReached(visibleContacts, entitlements.contactLimit);
 
   return <div className="space-y-5 pb-6">
     {status ? <div className={`flex items-start gap-2 rounded-2xl border px-4 py-3 text-sm font-bold ${status.tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{status.tone === "success" ? <CheckCircle2 className="mt-0.5 h-4 w-4" /> : <AlertCircle className="mt-0.5 h-4 w-4" />}{status.text}</div> : null}

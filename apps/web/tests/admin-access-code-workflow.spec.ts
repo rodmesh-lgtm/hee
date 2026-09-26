@@ -27,9 +27,10 @@ async function seed(): Promise<Fixture> {
     update: { isActive: true },
     create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true },
   });
-  const paidPlanCode = `rc-lowercase-${suffix}`;
-  const paid = await db.businessPlan.create({
-    data: { code: paidPlanCode, name: "RC Lowercase Plan", monthlyPrice: 99, productLimit: 100, isActive: true },
+  const paidPlanCode = "BUSINESS";
+  const paid = await db.businessPlan.upsert({
+    where: { code: paidPlanCode }, update: { isActive: true },
+    create: { code: paidPlanCode, name: "Business", monthlyPrice: 199, productLimit: 10, isActive: true },
   });
 
   const admin = await db.user.create({
@@ -90,6 +91,7 @@ async function cleanup(fixture: Fixture) {
   const codeIds = codes.map((code) => code.id);
 
   await db.analyticsEvent.deleteMany({ where: { businessId: fixture.businessId } });
+  await db.branch.deleteMany({ where: { businessId: fixture.businessId } });
   if (codeIds.length) await db.subscriptionAccessGrant.deleteMany({ where: { codeId: { in: codeIds } } });
   await db.subscription.deleteMany({ where: { businessId: fixture.businessId } });
   if (codeIds.length) await db.subscriptionAccessCode.deleteMany({ where: { id: { in: codeIds } } });
@@ -97,7 +99,6 @@ async function cleanup(fixture: Fixture) {
   await db.session.deleteMany({ where: { userId: { in: [fixture.adminId, fixture.customerId] } } });
   await db.authIdentity.deleteMany({ where: { userId: { in: [fixture.adminId, fixture.customerId] } } });
   await db.user.deleteMany({ where: { id: { in: [fixture.adminId, fixture.customerId] } } });
-  await db.businessPlan.delete({ where: { id: fixture.paidPlanId } });
 }
 
 async function setSession(page: Page, token: string) {
@@ -118,7 +119,7 @@ test.describe.serial("subscription access-code lifecycle", () => {
     await pool?.end();
   });
 
-  test("admin creates a one-time secret for a lowercase persisted plan, customer activates without payment, admin revokes entitlement", async ({ page }) => {
+  test("admin creates a supported plan grant, customer activates features without payment, admin revokes entitlement", async ({ page }) => {
     test.setTimeout(120_000);
     const fixture = await seed();
 
@@ -168,6 +169,13 @@ test.describe.serial("subscription access-code lifecycle", () => {
       expect(grant?.subscription.endsAt).toBeNull();
       expect(await db.billingPayment.count({ where: { businessId: fixture.businessId } })).toBe(0);
 
+      await db.branch.create({ data: { businessId: fixture.businessId, name: "الفرع الأول", isActive: true } });
+      await page.goto(`${baseUrl}/dashboard/directory`);
+      await page.getByPlaceholder("اسم الفرع").fill("الفرع الثاني");
+      await page.getByRole("button", { name: "إضافة فرع", exact: true }).click();
+      await expect(page.getByText("تمت إضافة الفرع.", { exact: true })).toBeVisible();
+      expect(await db.branch.count({ where: { businessId: fixture.businessId } })).toBe(2);
+
       await setSession(page, fixture.adminToken);
       await page.goto(`${baseUrl}/admin/access-codes`, { waitUntil: "domcontentloaded" });
       const row = page.locator("tr", { hasText: fixture.label });
@@ -188,8 +196,63 @@ test.describe.serial("subscription access-code lifecycle", () => {
       expect(revokedSubscription?.status).toBe("canceled");
       expect(revokedSubscription?.autoRenew).toBe(false);
       expect(revertedBusiness?.planId).toBe(fixture.freePlanId);
+      await setSession(page, fixture.customerToken);
+      await page.goto(`${baseUrl}/dashboard/directory`);
+      await expect(page.getByRole("button", { name: "إضافة فرع", exact: true })).toHaveCount(0);
     } finally {
       await cleanup(fixture);
+    }
+  });
+
+  test("legacy undefined plan can be repaired atomically without billing or affecting another code", async ({ page }) => {
+    test.setTimeout(120_000);
+    const fixture = await seed();
+    const legacy = await db.businessPlan.create({ data: { code: `legacy-${fixture.businessId}`, name: "Legacy Undefined", monthlyPrice: 0, productLimit: 100 } });
+    try {
+      const code = await db.subscriptionAccessCode.create({ data: { codeHash: crypto.randomUUID(), label: fixture.label, planId: legacy.id, createdByUserId: fixture.adminId, redemptionCount: 1, whatsappMarketingEnabled: true } });
+      const subscription = await db.subscription.create({ data: { businessId: fixture.businessId, planId: legacy.id, provider: "access_code", providerReference: code.id, status: "active", endsAt: null, autoRenew: false } });
+      const grant = await db.subscriptionAccessGrant.create({ data: { codeId: code.id, businessId: fixture.businessId, planId: legacy.id, subscriptionId: subscription.id, redeemedByUserId: fixture.customerId } });
+      await db.business.update({ where: { id: fixture.businessId }, data: { planId: legacy.id } });
+      const otherCode = await db.subscriptionAccessCode.create({ data: { codeHash: crypto.randomUUID(), label: "Other untouched code", planId: legacy.id, createdByUserId: fixture.adminId } });
+      await db.branch.create({ data: { businessId: fixture.businessId, name: "الفرع الحالي", isActive: true } });
+      await setSession(page, fixture.customerToken);
+      await page.goto(`${baseUrl}/dashboard/directory`);
+      await expect(page.getByRole("button", { name: "إضافة فرع", exact: true })).toHaveCount(0);
+      await setSession(page, fixture.adminToken);
+      await page.goto(`${baseUrl}/admin/access-codes`);
+      await expect(page.locator('select[name="plan"]').first().locator(`option[value="${legacy.code}"]`)).toHaveCount(0);
+      const form = page.getByRole("form", { name: `تصحيح ${fixture.label}`, exact: true });
+      await form.getByRole("combobox", { name: "الباقة البديلة" }).selectOption("BUSINESS");
+      await form.getByRole("button", { name: "تصحيح الكود والمنح النشطة" }).click();
+      await expect(page).toHaveURL(/access=repair-saved/);
+      const [fixedCode, fixedGrant, fixedSubscription, fixedBusiness, untouched] = await Promise.all([
+        db.subscriptionAccessCode.findUniqueOrThrow({ where: { id: code.id } }),
+        db.subscriptionAccessGrant.findUniqueOrThrow({ where: { id: grant.id } }),
+        db.subscription.findUniqueOrThrow({ where: { id: subscription.id } }),
+        db.business.findUniqueOrThrow({ where: { id: fixture.businessId } }),
+        db.subscriptionAccessCode.findUniqueOrThrow({ where: { id: otherCode.id } }),
+      ]);
+      for (const record of [fixedCode, fixedGrant, fixedSubscription, fixedBusiness]) expect(record.planId).toBe(fixture.paidPlanId);
+      expect(untouched.planId).toBe(legacy.id);
+      expect(fixedSubscription.endsAt).toBeNull();
+      expect(fixedSubscription.autoRenew).toBe(false);
+      expect(fixedCode.whatsappMarketingEnabled).toBe(true);
+      expect(await db.billingPayment.count({ where: { businessId: fixture.businessId } })).toBe(0);
+      expect(await db.analyticsEvent.count({ where: { businessId: fixture.businessId, eventType: "subscription_access_plan_repaired" } })).toBe(1);
+      await setSession(page, fixture.customerToken);
+      await page.goto(`${baseUrl}/dashboard/directory`);
+      await page.getByPlaceholder("اسم الفرع").fill("الفرع بعد التصحيح");
+      await page.getByRole("button", { name: "إضافة فرع", exact: true }).click();
+      await expect(page.getByText("تمت إضافة الفرع.", { exact: true })).toBeVisible();
+      await setSession(page, fixture.adminToken);
+      await page.goto(`${baseUrl}/admin/access-codes`);
+      await page.locator("tr", { hasText: fixture.label }).getByRole("button", { name: "إلغاء الكود والمنح" }).click();
+      await expect(page).toHaveURL(/access=revoked/);
+      expect((await db.business.findUniqueOrThrow({ where: { id: fixture.businessId } })).planId).toBe(fixture.freePlanId);
+    } finally {
+      await page.goto("about:blank");
+      await cleanup(fixture);
+      await db.businessPlan.delete({ where: { id: legacy.id } });
     }
   });
 });

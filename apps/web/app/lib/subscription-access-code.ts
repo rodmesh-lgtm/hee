@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { db } from "./db";
+import { isSupportedPaidPlan } from "./plan-entitlements";
 
 export function normalizeAccessCode(raw: unknown) {
   if (typeof raw !== "string") return null;
@@ -34,8 +35,8 @@ export async function redeemSubscriptionAccessCode(userId: string, businessId: s
     if (!access || !access.isActive || (access.expiresAt && access.expiresAt <= now)) return "invalid" as const;
     if (access.maxRedemptions !== null && access.redemptionCount >= access.maxRedemptions) return "exhausted" as const;
 
-    const plan = await tx.businessPlan.findFirst({ where: { id: access.planId, isActive: true }, select: { id: true } });
-    if (!plan) return "unavailable" as const;
+    const plan = await tx.businessPlan.findFirst({ where: { id: access.planId, isActive: true }, select: { id: true, code: true } });
+    if (!plan || !isSupportedPaidPlan(plan.code)) return "unavailable" as const;
 
     const prior = await tx.subscriptionAccessGrant.findUnique({ where: { codeId_businessId: { codeId: access.id, businessId } }, select: { revokedAt: true } });
     if (prior && !prior.revokedAt) return "already-active" as const;

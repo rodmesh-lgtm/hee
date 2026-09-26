@@ -70,6 +70,12 @@ const PLAN_RANK: Record<HeePlanCode, number> = {
   PRO: 2,
 };
 
+// A persisted catalog row alone does not define feature access. Do not issue a
+// successful subscription for an unknown plan that would silently resolve to FREE.
+export function isSupportedPaidPlan(code?: string | null) {
+  return code === "BUSINESS" || code === "PRO";
+}
+
 export function normalizePlanCode(code?: string | null): HeePlanCode {
   const normalized = String(code ?? "FREE").trim().toUpperCase();
   if (normalized === "BUSINESS" || normalized === "PRO") return normalized;

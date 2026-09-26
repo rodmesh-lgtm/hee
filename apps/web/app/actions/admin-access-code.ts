@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "../lib/admin";
 import { db } from "../lib/db";
 import { accessCodeHash } from "../lib/subscription-access-code";
+import { isSupportedPaidPlan } from "../lib/plan-entitlements";
 
 export type CreateSubscriptionAccessCodeState =
   | { status: "idle" }
@@ -33,6 +34,7 @@ export async function createSubscriptionAccessCodeAdminAction(
   }
   const plan = await db.businessPlan.findFirst({ where: { code: planCode, isActive: true }, select: { id: true, code: true } });
   if (!plan || plan.code.toUpperCase() === "FREE") return { status: "error", message: "الباقة المختارة غير صالحة لهذا النوع من الأكواد." };
+  if (!isSupportedPaidPlan(plan.code)) return { status: "error", message: "هذه الباقة لا تملك تعريفًا معتمدًا للميزات. اختر Business أو Pro." };
 
   const plaintext = `INFRO-${randomBytes(12).toString("hex").toUpperCase()}`;
   await db.subscriptionAccessCode.create({
