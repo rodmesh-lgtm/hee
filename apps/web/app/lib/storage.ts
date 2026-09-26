@@ -9,7 +9,7 @@ export interface StorageAdapter {
   remove(input: { storageKey: string; folder?: string }): Promise<void>;
 }
 
-type SafeMime = "application/pdf" | "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+type SafeMime = "application/pdf" | "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "video/mp4";
 type PersistentDriver = "database" | "s3";
 
 type S3Config = {
@@ -30,6 +30,7 @@ function startsWithBytes(buffer: Buffer, bytes: number[]) {
 }
 
 function detectSafeMime(buffer: Buffer): SafeMime | null {
+  if (buffer.length >= 12 && buffer.subarray(4, 8).toString("ascii") === "ftyp") return "video/mp4";
   if (startsWithBytes(buffer, [0x25, 0x50, 0x44, 0x46, 0x2d])) return "application/pdf";
   if (startsWithBytes(buffer, [0xff, 0xd8, 0xff])) return "image/jpeg";
   if (startsWithBytes(buffer, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
@@ -42,6 +43,7 @@ function detectSafeMime(buffer: Buffer): SafeMime | null {
 }
 
 function extensionForMime(mimeType: SafeMime) {
+  if (mimeType === "video/mp4") return "mp4";
   if (mimeType === "application/pdf") return "pdf";
   if (mimeType === "image/jpeg") return "jpg";
   if (mimeType === "image/png") return "png";
@@ -50,6 +52,10 @@ function extensionForMime(mimeType: SafeMime) {
 }
 
 function validateFolderMime(folder: string, mimeType: SafeMime) {
+  if (/^campaign-media\/[a-zA-Z0-9-]+$/.test(folder)) {
+    if (!["image/jpeg", "image/png", "video/mp4", "application/pdf"].includes(mimeType)) throw new Error("وسائط الحملات تقبل JPG أو PNG أو MP4 أو PDF فقط");
+    return;
+  }
   if (folder === "company-profiles") {
     if (mimeType !== "application/pdf") throw new Error("الملف التعريفي يجب أن يكون PDF صالحاً");
     return;

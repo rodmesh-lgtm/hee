@@ -37,7 +37,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
   const requestedStatus = String(params.status ?? "all") as CampaignStatusFilter;
   const statusFilter: CampaignStatusFilter = campaignStatusFilters.includes(requestedStatus) ? requestedStatus : "all";
 
-  const [connections, templates, segments, campaigns, eligibleAudienceRows, launchReadiness] = await Promise.all([
+  const [connections, templates, segments, campaigns, eligibleAudienceRows, launchReadiness, sampleContacts] = await Promise.all([
     db.whatsAppConnection.findMany({
       where: { businessId: context.businessId, provider: "meta", status: "connected", disabledAt: null, marketingEnabled: true },
       select: { id: true, verifiedName: true, displayPhoneNumber: true },
@@ -82,6 +82,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
         AND consent."consentedAt" <= CURRENT_TIMESTAMP
     `),
     getWhatsAppCampaignLaunchReadiness(),
+    db.whatsAppContact.findMany({ where: { businessId: context.businessId, optedOutAt: null }, select: { id: true, displayName: true, phoneE164: true, email: true, attributes: true }, orderBy: { createdAt: "desc" }, take: 10 }),
   ]);
 
   const eligibleAudience = eligibleAudienceRows[0]?.count ?? 0;
@@ -163,7 +164,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
     </section>
 
     <section className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,.85fr)]">
-      <div>{connections.length && templates.length && eligibleAudience ? <CampaignWizard connections={connections.map((item) => ({ id: item.id, label: item.verifiedName || item.displayPhoneNumber || "رقم واتساب متصل" }))} templates={wizardTemplates} segments={segments.map((segment) => ({ id: segment.id, name: segment.name, members: segment._count.memberships }))} eligibleContacts={eligibleAudience} /> : <CampaignReadiness connections={connections.length} templates={templates.length} eligibleContacts={eligibleAudience} />}</div>
+      <div>{connections.length && templates.length && eligibleAudience ? <CampaignWizard sampleContacts={sampleContacts} connections={connections.map((item) => ({ id: item.id, label: item.verifiedName || item.displayPhoneNumber || "رقم واتساب متصل" }))} templates={wizardTemplates} segments={segments.map((segment) => ({ id: segment.id, name: segment.name, members: segment._count.memberships }))} eligibleContacts={eligibleAudience} /> : <CampaignReadiness connections={connections.length} templates={templates.length} eligibleContacts={eligibleAudience} />}</div>
       <aside className="rounded-[26px] border border-[#bdebe5] bg-[#effcf9] p-5 text-xs leading-7 text-slate-700"><span className="text-[9px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">SAFE LAUNCH</span><b className="mt-2 block text-sm text-slate-900">مرحلة إرسال تجريبية آمنة</b><p className="mt-2">قبل بدء الحملة نتأكد من جاهزية خدمة الإرسال، واستمرار اتصال الرقم واعتماد القالب وصلاحية قائمة المستلمين والموافقات. وقد تترتب رسوم فعلية من Meta عند إرسال الرسائل.</p><p className="mt-2 font-bold text-slate-900">في أول تشغيل فعلي نبدأ بحد أقصى 5 مستلمين. بعد وصول تأكيد تسليم أو قراءة من Meta تصبح الحملات التالية مؤهلة للإرسال المعتاد.</p></aside>
     </section>
 
@@ -194,6 +195,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
         const unknown = deliveryCounts.get(`${campaign.id}:delivery_unknown`) ?? 0;
         const sentProgress = campaign.totalRecipients ? sent / campaign.totalRecipients : 0;
         return <article key={campaign.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(7,24,27,.035)]">
+          <a href={`/api/dashboard/whatsapp/campaign-export?campaign=${encodeURIComponent(campaign.id)}`} className="m-3 inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-3 text-xs font-bold text-[#008f87]">تنزيل تقرير المستلمين CSV</a>
           <div className="p-4 sm:p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
@@ -259,6 +261,11 @@ function templatePreview(value: Prisma.JsonValue) {
 }
 
 function campaignErrorMessage(reason?: string) {
+  if (reason === "WHATSAPP_CAMPAIGN_VARIABLE_MISSING") return "هناك مستلم تنقصه قيمة مطلوبة. أضف قيمة بديلة للمتغير أو استكمل بيانات الجمهور ثم أعد الإنشاء.";
+  if (reason === "WHATSAPP_CAMPAIGN_MEDIA_INVALID") return "أضف رابط HTTPS مباشرًا لوسائط رأس القالب.";
+  if (reason === "WHATSAPP_CAMPAIGN_TRACKING_INVALID") return "تتبع النقرات يتطلب زر INFRO الديناميكي المخصص للتتبع ووجهة HTTPS صحيحة.";
+  if (reason === "WHATSAPP_CAMPAIGN_TEMPLATE_UNSUPPORTED") return "هذا النوع المتقدم من القوالب غير مدعوم في محرر الحملات الحالي.";
+  if (reason === "WHATSAPP_CAMPAIGN_SEND_POLICY_INVALID" || reason === "WHATSAPP_CAMPAIGN_COMPOSITION_INVALID") return "راجع إعدادات أوقات الإرسال والمتغيرات قبل إنشاء الحملة.";
   if (reason === "WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS") return "لا يوجد مستلمون مؤهلون بعد فحص الموافقات والانسحابات.";
   if (reason === "WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE") return "الجمهور أكبر من الحد الآمن للحملة الواحدة (10,000 مستلم).";
   if (reason === "WHATSAPP_CAMPAIGN_STATIC_SEGMENT_NOT_FOUND") return "الشريحة المحددة لم تعد متاحة لهذا النشاط.";

@@ -29,6 +29,9 @@ export function AudienceSegmentBuilder({
     {segmentNotice(result, createdCount)}
 
     <form action={createEligibleAudienceSegmentAction} className="mt-4 space-y-3">
+      <label className="block text-xs text-slate-600">الوسم (اختياري)<input name="tag" maxLength={80} placeholder="مثال: عملاء جدة" className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"/></label>
+      <label className="block text-xs text-slate-600">التفاعل<select name="engagement" className="mt-1 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"><option value="all">جميع المؤهلين</option><option value="read30">قرأ رسالة حملة خلال 30 يومًا</option><option value="not_read30">لا توجد قراءة مسجلة خلال 30 يومًا</option></select></label>
+      <label className="flex items-start gap-2 text-xs leading-6 text-slate-600"><input name="paidOnly" type="checkbox" className="mt-1"/>لديه طلب متجر مؤهل للحجز حاليًا (مدفوع ومؤكد وفق الربط)</label>
       <label className="block text-[10px] font-bold text-slate-600">اسم الشريحة
         <input name="name" required minLength={1} maxLength={80} placeholder="مثال: عملاء حملة سبتمبر" className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 text-xs outline-none transition focus:border-[#8ddfd6] focus:ring-2 focus:ring-[#00bfae]/10"/>
       </label>
