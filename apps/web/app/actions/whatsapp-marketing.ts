@@ -266,7 +266,7 @@ export async function createWhatsAppCampaignAction(form: FormData) {
       } else {
         const contacts = await tx.whatsAppContact.findMany({ where: { businessId: context.businessId, optedOutAt: null }, select: { id: true, phoneE164: true }, take: 10_001 });
         if (contacts.length > 10_000) throw new Error("WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE");
-        const consents = await tx.whatsAppConsent.findMany({ where: { businessId: context.businessId, phoneE164: { in: contacts.map((item) => item.phoneE164) }, revokedAt: null, consentedAt: { lte: now } }, select: { phoneE164: true } });
+        const consents = await tx.whatsAppConsent.findMany({ where: { businessId: context.businessId, phoneE164: { in: contacts.map((item) => item.phoneE164) }, source: { not: "booking" }, revokedAt: null, consentedAt: { lte: now } }, select: { phoneE164: true } });
         const allowed = new Set(consents.map((item) => item.phoneE164));
         const contactIds = contacts.filter((item) => allowed.has(item.phoneE164)).map((item) => item.id);
         if (!contactIds.length) throw new Error("WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS");

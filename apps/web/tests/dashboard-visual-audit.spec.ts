@@ -360,6 +360,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `campaign-${suffix}`, phoneNumberId: `campaign-${suffix}`, verifiedName: "رقم اختبار الحملة", credentialEnvelope: { testOnly: true } } });
     const template = await db.whatsAppTemplate.create({ data: { businessId, connectionId: connection.id, providerTemplateId: `campaign-${suffix}`, name: "campaign_review", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", parameterFormat: "POSITIONAL", components: [{ type: "BODY", text: "مرحبًا، اكتشف خدماتنا واحجز موعدك." }], rawPayload: {}, lastSyncedAt: new Date() } });
     const contact = await db.whatsAppContact.create({ data: { businessId, phoneE164: "+966500000761", source: "manual" } });
+    const bookingContact = await db.whatsAppContact.create({ data: { businessId, phoneE164: "+966500000762", source: "booking" } });
+    await db.whatsAppConsent.create({ data: { businessId, phoneE164: bookingContact.phoneE164, source: "booking", evidence: "Booking confirmation only", consentedAt: new Date() } });
     await db.whatsAppConsent.create({ data: { businessId, phoneE164: contact.phoneE164, source: "manual", evidence: "Isolated CI fixture only", consentedAt: new Date() } });
     const campaign = await db.whatsAppCampaign.create({ data: { businessId, connectionId: connection.id, templateId: template.id, name: "حملة اختبار إعادة المحاولة", status: "completed", totalRecipients: 1, audienceDefinition: { kind: "all_contacts" }, snapshotAt: new Date(), templateSnapshot: { name: template.name, language: "ar", category: "marketing" } } });
     const recipient = await db.whatsAppCampaignRecipient.create({ data: { businessId, campaignId: campaign.id, contactId: contact.id, phoneE164: contact.phoneE164, status: "sent" } });
@@ -376,6 +378,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         try {
           const page = await context.newPage();
           await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns`, { waitUntil: "domcontentloaded" });
+          page.setDefaultTimeout(15_000);
           await expect(page.getByText("بانتظار إعادة المحاولة", { exact: true })).toBeVisible();
           await page.getByLabel("اسم الحملة", { exact: true }).fill("حملة مراجعة");
           await page.getByRole("button", { name: "التالي", exact: true }).click();
@@ -385,6 +388,16 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.getByText("معاينة الرسالة", { exact: true })).toBeVisible();
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-studio.png`, fullPage: true });
+          if (viewport.name === "mobile" && theme === "light") {
+            await page.getByRole("button", { name: "التالي", exact: true }).click();
+            await page.getByRole("button", { name: "التالي", exact: true }).click();
+            await page.getByRole("button", { name: "إنشاء وتثبيت الجمهور", exact: true }).click();
+            await expect(page).toHaveURL(/create=complete/);
+            const created = await db.whatsAppCampaign.findFirstOrThrow({ where: { businessId, name: "حملة مراجعة" }, include: { recipients: true } });
+            expect(created.recipients.map(item => item.phoneE164)).toEqual([contact.phoneE164]);
+            await db.whatsAppCampaignRecipient.deleteMany({ where: { campaignId: created.id } });
+            await db.whatsAppCampaign.delete({ where: { id: created.id } });
+          }
         } finally { await context.close(); }
       }
       expect(await db.whatsAppMessage.count({ where: { businessId, direction: "outbound" } })).toBe(0);
@@ -394,6 +407,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.whatsAppCampaign.delete({ where: { id: campaign.id } });
       await db.whatsAppConsent.deleteMany({ where: { businessId, phoneE164: contact.phoneE164 } });
       await db.whatsAppContact.delete({ where: { id: contact.id } });
+      await db.whatsAppConsent.deleteMany({ where: { businessId, phoneE164: bookingContact.phoneE164 } });
+      await db.whatsAppContact.delete({ where: { id: bookingContact.id } });
       await db.whatsAppTemplate.delete({ where: { id: template.id } });
       await db.whatsAppConnection.delete({ where: { id: connection.id } });
       await db.subscription.delete({ where: { id: subscription.id } });

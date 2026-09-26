@@ -754,7 +754,11 @@ export async function POST(request: Request) {
           update: name ? { displayName: name } : {},
           select: { id: true },
         });
-        await tx.whatsAppConsent.upsert({
+        const existingMarketingConsent = await tx.whatsAppConsent.findFirst({
+          where: { businessId: business.id, phoneE164: whatsappPhone, source: { not: "booking" }, revokedAt: null, consentedAt: { lte: new Date() } },
+          select: { id: true },
+        });
+        if (!existingMarketingConsent) await tx.whatsAppConsent.upsert({
           where: { businessId_phoneE164: { businessId: business.id, phoneE164: whatsappPhone } },
           create: {
             businessId: business.id,

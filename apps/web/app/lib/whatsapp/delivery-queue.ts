@@ -105,7 +105,7 @@ export async function enqueueWhatsAppCampaign(input: {
       select: { id: true },
     });
     const consents = await tx.whatsAppConsent.findMany({
-      where: { businessId: input.businessId, phoneE164: { in: recipients.map((item) => item.phoneE164) }, revokedAt: null, consentedAt: { lte: now } },
+      where: { businessId: input.businessId, phoneE164: { in: recipients.map((item) => item.phoneE164) }, source: { not: "booking" }, revokedAt: null, consentedAt: { lte: now } },
       select: { phoneE164: true },
     });
     const allowedContacts = new Set(contacts.map((item) => item.id));

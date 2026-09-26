@@ -84,6 +84,7 @@ export async function snapshotWhatsAppCampaign(input: {
         businessId: input.businessId,
         phoneE164: { in: candidates.map((contact) => contact.phoneE164) },
         revokedAt: null,
+        source: { not: "booking" },
         consentedAt: { lte: now },
       },
       select: { phoneE164: true },

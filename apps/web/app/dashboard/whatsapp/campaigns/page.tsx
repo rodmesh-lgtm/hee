@@ -78,6 +78,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
       WHERE contact."businessId" = ${context.businessId}
         AND contact."optedOutAt" IS NULL
         AND consent."revokedAt" IS NULL
+        AND consent."source" <> 'booking'
         AND consent."consentedAt" <= CURRENT_TIMESTAMP
     `),
     getWhatsAppCampaignLaunchReadiness(),
