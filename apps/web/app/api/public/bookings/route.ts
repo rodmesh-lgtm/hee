@@ -698,6 +698,21 @@ export async function POST(request: Request) {
       if (occupiedSeats >= currentCapacity) throw new Error("PUBLIC_BOOKING_SLOT_FULL");
 
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`customer:${business.id}:${phone}`}))`;
+      // Tenant + canonical phone lock also serializes requests for different slots/branches.
+      // Expired appointments do not block a new booking; the duration snapshot handles overnight bookings.
+      const activeAppointments = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT b."id" FROM "Booking" b
+        JOIN "Customer" c ON c."id" = b."customerId" AND c."businessId" = b."businessId"
+        LEFT JOIN "BookingDurationSnapshot" snapshot ON snapshot."bookingId" = b."id"
+        LEFT JOIN "Service" s ON s."id" = b."serviceId"
+        WHERE b."businessId" = ${business.id}
+          AND regexp_replace(c."phone", '[^0-9]', '', 'g') IN (${phone}, ${phone.startsWith("966") ? `0${phone.slice(3)}` : phone}, ${`00${phone}`})
+          AND b."status" IN ('pending', 'confirmed')
+          AND ((b."bookingDate" || ' ' || b."bookingTime")::timestamp AT TIME ZONE 'Asia/Riyadh')
+            + make_interval(mins => COALESCE(snapshot."durationMinutes", CASE WHEN s."durationMinutes" BETWEEN 5 AND 1440 THEN s."durationMinutes" ELSE 30 END)) > CURRENT_TIMESTAMP
+        LIMIT 1
+      `;
+      if (activeAppointments.length) throw new Error("PUBLIC_BOOKING_ACTIVE_APPOINTMENT");
       let customer = await tx.customer.findFirst({
         where: { businessId: business.id, phone },
         orderBy: { createdAt: "asc" },
@@ -786,6 +801,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_SLOT_FULL") {
       return NextResponse.json({ ok: false, error: "اكتملت سعة هذه الفترة. اختر الفترة التالية المتاحة." }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PUBLIC_BOOKING_ACTIVE_APPOINTMENT") {
+      return NextResponse.json({ ok: false, code: "ACTIVE_APPOINTMENT", error: "لديك موعد نشط لدى هذه المنشأة. يمكنك الحجز مجددًا بعد انتهائه أو إلغائه بالتواصل مع المنشأة." }, { status: 409 });
     }
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_TARGET_UNAVAILABLE") {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة لم يعودا متاحين لهذا النشاط" }, { status: 409 });

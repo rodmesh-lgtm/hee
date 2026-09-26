@@ -148,6 +148,43 @@ test.describe.serial("public transactions workflow", () => {
     } finally { await cleanup(seeded); }
   });
 
+  test("one active appointment per tenant and phone survives concurrent different-slot requests", async ({ request }) => {
+    const seeded = await seed();
+    try {
+      const date = riyadhDateKey(1);
+      const send = (time: string, requestId = crypto.randomUUID(), phone = "0500000491") => request.post(`${baseUrl}/api/public/bookings`, { data: { slug: seeded.slug, phone, serviceId: seeded.serviceId, bookingDate: date, bookingTime: time, requestId } });
+      const ids = [crypto.randomUUID(), crypto.randomUUID()];
+      const responses = await Promise.all([send("10:00", ids[0]), send("11:00", ids[1], "+966500000491")]);
+      expect(responses.map(r => r.status()).sort()).toEqual([201, 409]);
+      const winner = responses.findIndex(r => r.status() === 201);
+      expect((await responses[1 - winner].json()).code).toBe("ACTIVE_APPOINTMENT");
+      expect((await send(winner === 0 ? "10:00" : "11:00", ids[winner])).status()).toBe(200);
+      expect(await db.booking.count({ where: { businessId: seeded.businessId } })).toBe(1);
+      await db.booking.updateMany({ where: { businessId: seeded.businessId }, data: { status: "cancelled" } });
+      expect((await send("12:00")).status()).toBe(201);
+      await db.booking.updateMany({ where: { businessId: seeded.businessId }, data: { bookingDate: riyadhDateKey(-2) } });
+      expect((await send("13:00")).status()).toBe(201);
+    } finally { await cleanup(seeded); }
+  });
+
+  test("service requests can be hidden and booking moved into the mobile ribbon", async ({ page }) => {
+    const seeded = await seed();
+    try {
+      await db.business.update({ where: { id: seeded.businessId }, data: { pageModules: [{ id: "contact", enabled: true, sortOrder: 1, config: { serviceRequestEnabled: false, bookingPlacement: "ribbon", bottomActions: [{ id: "share", enabled: false, sortOrder: 0 }] } }] } });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(`${baseUrl}/${seeded.slug}`, { waitUntil: "domcontentloaded" });
+      const ribbon = page.locator("[data-public-action-ribbon]");
+      await expect(ribbon.getByRole("button", { name: "حجز موعد", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "طلب خدمة", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("region", { name: "إجراءات الطلب والحجز" })).toHaveCount(0);
+      await ribbon.getByRole("button", { name: "حجز موعد", exact: true }).click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.getByRole("button", { name: "إغلاق", exact: true }).click();
+      await expect(ribbon.getByRole("button", { name: "حجز موعد", exact: true })).toBeFocused();
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+    } finally { await cleanup(seeded); }
+  });
+
   test("global opt-out database accepts E164 and rejects malformed phones", async () => {
     const phone = "+966500000399";
     try {

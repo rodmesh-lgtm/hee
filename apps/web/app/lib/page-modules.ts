@@ -77,6 +77,8 @@ export type PageModuleConfig = {
   salesTeam?: ContactTeamMember[];
   customerServiceTeam?: ContactTeamMember[];
   bottomActions?: BottomActionConfig[];
+  serviceRequestEnabled?: boolean;
+  bookingPlacement?: "panel" | "ribbon";
   portfolioItems?: PortfolioItem[];
   companyProfile?: CompanyProfileConfig;
 };
@@ -265,6 +267,8 @@ function normalizeConfig(id: PageModuleId, raw: unknown) {
   const source = raw as Partial<PageModuleConfig>;
   return {
     ...base,
+    ...(typeof source.serviceRequestEnabled === "boolean" ? { serviceRequestEnabled: source.serviceRequestEnabled } : {}),
+    ...(source.bookingPlacement === "panel" || source.bookingPlacement === "ribbon" ? { bookingPlacement: source.bookingPlacement } : {}),
     ...(typeof source.title === "string" ? { title: source.title } : {}),
     ...(typeof source.ctaLabel === "string" ? { ctaLabel: source.ctaLabel } : {}),
     ...(typeof source.sheetTitle === "string" ? { sheetTitle: source.sheetTitle } : {}),

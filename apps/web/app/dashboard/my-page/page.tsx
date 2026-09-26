@@ -65,6 +65,6 @@ export default async function DashboardMyPage() {
       </div>
     </section>
     <PageSectionOrderEditor initialOrder={moduleOrder} />
-    <BottomActionBarEditor initialActions={normalizePageModules(business.pageModules, business.businessType).find((module) => module.id === "contact")?.config.bottomActions} />
+    <BottomActionBarEditor initialServiceRequestEnabled={normalizePageModules(business.pageModules,business.businessType).find(module=>module.id==="contact")?.config.serviceRequestEnabled} initialBookingPlacement={normalizePageModules(business.pageModules,business.businessType).find(module=>module.id==="contact")?.config.bookingPlacement} initialActions={normalizePageModules(business.pageModules, business.businessType).find((module) => module.id === "contact")?.config.bottomActions} />
   </div>;
 }
