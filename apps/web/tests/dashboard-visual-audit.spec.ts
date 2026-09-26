@@ -387,6 +387,14 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.getByRole("heading", { name: "اختر الرسالة", exact: true })).toBeVisible();
           await page.getByLabel("قالب الرسالة", { exact: true }).selectOption(template.id);
           await expect(page.getByText("معاينة الرسالة", { exact: true })).toBeVisible();
+          if (theme === "dark") {
+            const studio = page.getByRole("form", { name: "إنشاء حملة واتساب", exact: true });
+            expect(await studio.locator("div, article, aside").evaluateAll(nodes => nodes.filter(node => {
+              const rect = node.getBoundingClientRect();
+              const color = getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0, 3).map(Number);
+              return rect.width >= 140 && rect.height >= 50 && color?.every(value => value > 220);
+            }).length)).toBe(0);
+          }
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-studio.png`, fullPage: true });
           if (viewport.name === "mobile" && theme === "light") {
