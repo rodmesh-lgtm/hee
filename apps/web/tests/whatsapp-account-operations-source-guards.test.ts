@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync("app/dashboard/whatsapp/setup/page.tsx", "utf8");
-const embeddedSignup = readFileSync("app/dashboard/whatsapp/setup/embedded-signup-button.tsx", "utf8");
+const embeddedSignup = readFileSync("app/dashboard/whatsapp/setup/embedded-signup-button.tsx", "utf8")
+  + readFileSync("app/lib/whatsapp/embedded-signup-client.ts", "utf8");
 
 test("account operations center stays tenant scoped and Meta-only", () => {
   assert.match(source, /businessId: context\.businessId, provider: "meta"/);

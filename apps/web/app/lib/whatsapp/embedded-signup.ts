@@ -7,7 +7,8 @@ import { decryptWhatsAppCredential, encryptWhatsAppCredential, type WhatsAppCred
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl } from "./meta-config";
 import { writeWhatsAppAuditLog } from "./audit";
 
-const SESSION_TTL_MS = 10 * 60 * 1000;
+import { EMBEDDED_SIGNUP_TTL_MS } from "./embedded-signup-client";
+const SESSION_TTL_MS = EMBEDDED_SIGNUP_TTL_MS;
 const GRAPH_TIMEOUT_MS = 12_000;
 const ASSET_ID = /^\d{1,32}$/;
 export const WHATSAPP_CONNECTION_PURPOSES = ["marketing", "booking"] as const;

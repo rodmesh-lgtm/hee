@@ -7,6 +7,7 @@ const service = read("app/lib/whatsapp/embedded-signup.ts");
 const schema = read("prisma/schema.prisma");
 const migration = read("prisma/migrations/20260828053000_whatsapp_embedded_signup/migration.sql");
 const client = read("app/dashboard/whatsapp/setup/embedded-signup-button.tsx");
+const clientProtocol = read("app/lib/whatsapp/embedded-signup-client.ts");
 const action = read("app/actions/whatsapp.ts");
 const nextConfig = read("next.config.ts");
 
@@ -42,9 +43,9 @@ test("tokens are encrypted immediately and never returned to the client", () => 
 });
 
 test("embedded signup client accepts only exact Meta origins and backend revalidates all assets", () => {
-  assert.match(client, /new Set\(\["https:\/\/www\.facebook\.com", "https:\/\/business\.facebook\.com"\]\)/);
-  assert.match(client, /item\.type !== "WA_EMBEDDED_SIGNUP"/);
-  assert.match(client, /item\.event !== "FINISH"/);
+  assert.match(clientProtocol, /new Set\(\["https:\/\/www\.facebook\.com", "https:\/\/business\.facebook\.com"\]\)/);
+  assert.match(clientProtocol, /item\.type !== "WA_EMBEDDED_SIGNUP"/);
+  assert.match(clientProtocol, /item\.event !== "FINISH"/);
   assert.match(client, /completeWhatsAppEmbeddedSignupAction/);
   assert.match(service, /ASSET_ID\.test\(input\.wabaId\)/);
   assert.match(service, /ASSET_ID\.test\(input\.phoneNumberId\)/);
@@ -52,7 +53,7 @@ test("embedded signup client accepts only exact Meta origins and backend revalid
 
 test("embedded signup opens Meta before yielding the browser click activation", () => {
   const loginStart = client.indexOf("const authorizationCodePromise = loginForCode(configId)");
-  const firstAwait = client.indexOf("await Promise.all([sessionPromise, authorizationCodePromise, assetsPromise])");
+  const firstAwait = client.indexOf("await Promise.race([");
 
   assert.ok(loginStart >= 0, "Meta login must be started from the click handler");
   assert.ok(firstAwait > loginStart, "Meta login must begin before the click handler yields");
