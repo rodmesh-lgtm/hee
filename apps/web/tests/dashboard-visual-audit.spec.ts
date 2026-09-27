@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { mkdir, writeFile } from "node:fs/promises";
+import { createHmac } from "node:crypto";
 import { getDefaultPageModules } from "../app/lib/page-modules";
 import { retryCampaignFailureReceipt } from "../app/lib/whatsapp/campaign-receipt-retry";
 
@@ -350,7 +351,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.subscription.deleteMany({ where: { id: subscription.id } });
     }
   });
-  test("campaign retries and studio stay clear on mobile and desktop", async ({ browser }) => {
+  test("campaign retries and studio stay clear on mobile and desktop", async ({ browser, request }) => {
     test.setTimeout(180_000);
     if (!seeded) throw new Error("visual fixture missing");
     const businessId = seeded.businessId;
@@ -429,7 +430,23 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         } finally { await context.close(); }
       }
       expect(await db.whatsAppMessage.count({ where: { businessId, direction: "outbound" } })).toBe(0);
+      // A signed receipt must update durable state without running the cron worker.
+      const conversation = await db.whatsAppConversation.create({ data: { businessId, phoneNumberId: connection.phoneNumberId!, customerPhoneE164: contact.phoneE164 } });
+      await db.whatsAppMessage.create({ data: { businessId, conversationId: conversation.id, provider: "meta", providerMessageId: `test-${suffix}`, direction: "outbound", messageType: "template", status: "sent", payload: {} } });
+      const payload = JSON.stringify({ object: "whatsapp_business_account", entry: [{ id: connection.wabaId, changes: [{ field: "messages", value: { metadata: { phone_number_id: connection.phoneNumberId }, statuses: [{ id: `test-${suffix}`, status: "read", timestamp: String(Math.floor(Date.now() / 1000)), recipient_id: contact.phoneE164.replace("+", "") }] } }] }] });
+      const signature = "sha256=" + createHmac("sha256", process.env.META_APP_SECRET!).update(payload).digest("hex");
+      const rejected = await request.post(`${baseUrl}/api/whatsapp/meta/webhook`, { data: payload, headers: { "content-type": "application/json", "x-hub-signature-256": "sha256=invalid" } });
+      expect(rejected.status()).toBe(401);
+      const receipt = await request.post(`${baseUrl}/api/whatsapp/meta/webhook`, { data: payload, headers: { "content-type": "application/json", "x-hub-signature-256": signature } });
+      expect(receipt.status()).toBe(202);
+      await expect.poll(async () => (await db.whatsAppCampaignRecipient.findUniqueOrThrow({ where: { id: recipient.id } })).status, { timeout: 15_000 }).toBe("read");
+      const duplicate = await request.post(`${baseUrl}/api/whatsapp/meta/webhook`, { data: payload, headers: { "content-type": "application/json", "x-hub-signature-256": signature } });
+      expect(duplicate.status()).toBe(202);
+      expect(await db.whatsAppWebhookEvent.count({ where: { businessId, phoneNumberId: connection.phoneNumberId } })).toBe(1);
     } finally {
+      await db.whatsAppWebhookEvent.deleteMany({ where: { businessId, phoneNumberId: connection.phoneNumberId } });
+      await db.whatsAppMessage.deleteMany({ where: { businessId, providerMessageId: `test-${suffix}` } });
+      await db.whatsAppConversation.deleteMany({ where: { businessId, phoneNumberId: connection.phoneNumberId! } });
       await db.whatsAppDeliveryJob.deleteMany({ where: { campaignId: campaign.id } });
       await db.whatsAppCampaignRecipient.deleteMany({ where: { campaignId: campaign.id } });
       await db.whatsAppCampaign.delete({ where: { id: campaign.id } });
