@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePlatformBrand } from "./brand/platform-brand-provider";
 import { HomePhonePreview } from "./home-phone-preview";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, BadgeCheck, BarChart3, BriefcaseBusiness, Building2, Check, CheckCircle2, Eye, Link2, Loader2, Menu, MessageCircle, Palette, PhoneCall, ShieldCheck, Sparkles, Stethoscope, Store, UtensilsCrossed, X, XCircle } from "lucide-react";
@@ -26,6 +27,7 @@ function Logo({ header = false }: { header?: boolean }) {
 }
 
 export function HomepageProfessional() {
+  const design = usePlatformBrand();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -69,8 +71,8 @@ export function HomepageProfessional() {
     : effectiveAvailability === "error" ? { text: "تعذر التحقق الآن. حاول مرة أخرى بعد قليل.", cls: "text-amber-700", icon: <XCircle className="h-4 w-4" /> }
     : null;
 
-  return <main id="home" data-infro-home dir="rtl" className="min-h-screen overflow-x-clip bg-white text-slate-950">
-    <header className="sticky top-2 z-50 mx-2 rounded-full border border-[#d9ebe8] bg-white/95 shadow-[0_10px_34px_rgba(0,95,88,.10)] backdrop-blur-xl sm:top-3 sm:mx-3 lg:mx-auto lg:max-w-[1180px]">
+  return <main style={{ background:design.backgroundColor,color:design.foregroundColor }} id="home" data-infro-home dir="rtl" className="min-h-screen overflow-x-clip bg-white text-slate-950">
+    <header style={{ background:design.headerBackground,color:design.headerForeground }} className="sticky top-2 z-50 mx-2 rounded-full border border-[#d9ebe8] bg-white/95 shadow-[0_10px_34px_rgba(0,95,88,.10)] backdrop-blur-xl sm:top-3 sm:mx-3 lg:mx-auto lg:max-w-[1180px]">
       <div dir="ltr" className="flex h-[58px] items-center justify-between gap-2 px-3 sm:h-[68px] sm:px-5">
         <Link href="/" aria-label="INFRO" className="shrink-0"><Logo header /></Link>
         <nav dir="rtl" className="hidden items-center gap-1 lg:flex" aria-label="التنقل الرئيسي">
@@ -82,7 +84,7 @@ export function HomepageProfessional() {
         </nav>
         <div dir="rtl" className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <Link href="/login" className="inline-flex h-10 items-center rounded-full px-2.5 text-[12px] font-black text-slate-700 hover:bg-[#effbf9] sm:px-4 sm:text-sm">دخول</Link>
-          <Link href="/register" className="inline-flex h-10 items-center rounded-full bg-[#008f87] px-3 text-[12px] font-black text-white shadow-sm hover:bg-[#007d75] sm:px-5 sm:text-sm">ابدأ مجانًا</Link>
+          <Link href={design.headerCtaHref ?? "/register"} className="inline-flex h-10 items-center rounded-full bg-[#008f87] px-3 text-[12px] font-black text-white shadow-sm hover:bg-[#007d75] sm:px-5 sm:text-sm">{design.headerCtaLabel ?? "ابدأ مجانًا"}</Link>
           <button className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d9ebe8] lg:hidden" type="button" onClick={() => setMenuOpen(true)} aria-expanded={menuOpen} aria-controls="home-mobile-menu" aria-label="فتح القائمة"><Menu className="h-5 w-5" /></button>
         </div>
       </div>
@@ -105,8 +107,8 @@ export function HomepageProfessional() {
 
         <div className="order-1 text-center lg:order-2 lg:text-right">
           <span className="inline-flex items-center gap-2 rounded-full bg-[#e9fbf8] px-3.5 py-2 text-[11px] font-black text-[#008f87] sm:text-xs"><Sparkles className="h-4 w-4" />مصممة للأعمال والمنشآت</span>
-          <h1 className="mx-auto mt-4 max-w-3xl text-[2.15rem] font-black leading-[1.14] tracking-tight sm:mt-5 sm:text-5xl lg:mx-0 lg:text-[4rem]">هويتك الرقمية والتسويقية.<br/><span className="text-[#008f87]">في مساحة أعمال واحدة.</span></h1>
-          <p className="mx-auto mt-4 max-w-xl text-[14px] leading-7 text-slate-600 sm:text-lg sm:leading-8 lg:mx-0">اجمع هوية منشأتك وحضورها الرقمي وتذكيرات أعمالك وتسويق واتساب في تجربة واحدة مترابطة وسهلة الإدارة.</p>
+          <h1 className="mx-auto mt-4 max-w-3xl text-[2.15rem] font-black leading-[1.14] tracking-tight sm:mt-5 sm:text-5xl lg:mx-0 lg:text-[4rem]">{design.homeHeroTitleAr ?? <>هويتك الرقمية والتسويقية.<br/><span className="text-[#008f87]">في مساحة أعمال واحدة.</span></>}</h1>
+          <p className="mx-auto mt-4 max-w-xl text-[14px] leading-7 text-slate-600 sm:text-lg sm:leading-8 lg:mx-0">{design.homeHeroSubtitleAr ?? "اجمع هوية منشأتك وحضورها الرقمي وتذكيرات أعمالك وتسويق واتساب في تجربة واحدة مترابطة وسهلة الإدارة."}</p>
 
           <div className={`mx-auto mt-6 max-w-xl rounded-[22px] border bg-white p-2 shadow-[0_18px_45px_-25px_rgba(0,143,135,.30)] transition ${effectiveAvailability === "available" ? "border-emerald-300" : effectiveAvailability === "taken" ? "border-rose-300" : "border-[#bdebe5]"} lg:mx-0`}>
             <div dir="ltr" className="flex min-w-0 items-center gap-1 rounded-2xl bg-[#f5fffd] px-3"><span className="shrink-0 text-base font-black text-[#008f87]">ir.sa/</span><input value={slug} onChange={e => { setSlug(e.target.value); setAvailability("idle"); }} dir="ltr" inputMode="url" autoComplete="off" spellCheck={false} placeholder="your-business" aria-label="تحقق من توفر اسم رابط منشأتك" className="h-14 min-w-0 flex-1 bg-transparent px-1 text-left text-base font-semibold outline-none"/></div>
@@ -157,6 +159,6 @@ export function HomepageProfessional() {
 
     <section className="px-4 pb-16 sm:px-6 sm:pb-20"><div className="mx-auto max-w-5xl rounded-[32px] border border-[#d7e9e7] bg-[linear-gradient(135deg,#f5fffd,#fff)] p-7 text-center sm:p-10"><Sparkles className="mx-auto h-8 w-8 text-[#008f87]"/><h2 className="mt-3 text-2xl font-black sm:text-3xl">اسم منشأتك يستحق رابطًا يليق بها.</h2><p className="mx-auto mt-3 max-w-xl leading-7 text-slate-600">تحقق من توفره الآن وابدأ بناء حضورك الرقمي والتسويقي على INFRO.</p><Link href="#home" className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#008f87] px-7 font-black text-white">تحقق من اسم رابطك <ArrowLeft className="h-4 w-4"/></Link></div></section>
 
-    <footer className="bg-[#061619] px-4 py-10 text-white sm:px-6"><div className="mx-auto flex max-w-6xl flex-col gap-7 md:flex-row md:items-center md:justify-between"><div><Logo/><p className="mt-3 max-w-md text-sm leading-7 text-white/60">INFRO منصة سعودية لهويتك الرقمية والتسويقية. اجمع حضور منشأتك وأدوات عملك في مساحة واحدة مترابطة.</p></div><div className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-bold text-white/70"><Link href="#about">عن INFRO</Link><Link href="/privacy">سياسة الخصوصية</Link><Link href="/terms">الشروط والأحكام</Link><Link href="/contact">تواصل معنا</Link><Link href="/login">تسجيل الدخول</Link></div></div></footer>
+    <footer style={{ background:design.footerBackground,color:design.footerForeground }} className="bg-[#061619] px-4 py-10 text-white sm:px-6"><div className="mx-auto flex max-w-6xl flex-col gap-7 md:flex-row md:items-center md:justify-between"><div><Logo/><p className="mt-3 max-w-md text-sm leading-7 text-white/60">INFRO منصة سعودية لهويتك الرقمية والتسويقية. اجمع حضور منشأتك وأدوات عملك في مساحة واحدة مترابطة.</p></div><div className="flex flex-wrap gap-x-5 gap-y-3 text-sm font-bold text-white/70"><Link href="#about">عن INFRO</Link><Link href="/privacy">سياسة الخصوصية</Link><Link href="/terms">الشروط والأحكام</Link><Link href="/contact">تواصل معنا</Link><Link href="/login">تسجيل الدخول</Link></div></div><p className="mx-auto mt-6 max-w-6xl text-xs">{design.footerCopyright}</p></footer>
   </main>;
 }

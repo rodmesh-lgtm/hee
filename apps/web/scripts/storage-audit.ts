@@ -65,7 +65,7 @@ async function main() {
   for (const row of contacts) addUrl(row.imageUrl);
 
   const now = Date.now();
-  const orphans = objects.filter((object) => !referenced.has(object.id));
+  const orphans = objects.filter((object) => !referenced.has(object.id) && object.folder !== "platform-brand");
   const eligible = orphans.filter((object) => now - object.createdAt.getTime() >= graceMs);
   const totalBytes = objects.reduce((sum, object) => sum + object.size, 0);
   const orphanBytes = orphans.reduce((sum, object) => sum + object.size, 0);

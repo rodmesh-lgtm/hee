@@ -10,7 +10,7 @@ import { PLATFORM_BRAND_SETTING_KEY } from "../../lib/platform-brand-config";
 function formConfig(form: FormData) {
   const keywords=String(form.get("seoKeywords")??"").split(",").map(v=>v.trim()).filter(Boolean);
   const raw: Record<string,unknown>={seoKeywords:keywords};
-  for (const key of ["brandNameAr","brandNameEn","logoUrl","logoDarkUrl","faviconUrl","primaryColor","secondaryColor","accentColor","backgroundColor","foregroundColor","headerBackground","headerForeground","footerBackground","footerForeground","seoTitleAr","seoTitleEn","seoDescriptionAr","seoDescriptionEn","ogImageUrl","headerCtaLabel","headerCtaHref","footerCopyright","homeHeroTitleAr","homeHeroSubtitleAr"]) raw[key]=form.get(key);
+  for (const key of ["brandNameAr","brandNameEn","symbolUrl","logoUrl","logoDarkUrl","faviconUrl","primaryColor","secondaryColor","accentColor","backgroundColor","foregroundColor","headerBackground","headerForeground","footerBackground","footerForeground","seoTitleAr","seoTitleEn","seoDescriptionAr","seoDescriptionEn","ogImageUrl","headerCtaLabel","headerCtaHref","footerCopyright","homeHeroTitleAr","homeHeroSubtitleAr"]) raw[key]=form.get(key);
   for (const key of ["robotsIndex","robotsFollow","customerPageBrandingEnabled","customerHeaderEnabled","customerFooterEnabled"]) raw[key]=form.get(key)==="on";
   return sanitizePlatformDesign(raw);
 }
@@ -25,4 +25,4 @@ async function write(actorId:string, action:string, next:unknown, publish=false)
 }
 export async function savePlatformDesignDraftAction(form:FormData){const a=await requireAdmin(); await write(a.id,"save_draft",formConfig(form));}
 export async function publishPlatformDesignAction(form:FormData){const a=await requireAdmin(); await write(a.id,"publish",formConfig(form),true);}
-export async function restorePlatformDesignAction(){const a=await requireAdmin(); await write(a.id,"restore_defaults",DEFAULT_PLATFORM_DESIGN,true);}
+export async function restorePlatformDesignAction(){const a=await requireAdmin(); await write(a.id,"restore_defaults",DEFAULT_PLATFORM_DESIGN);}

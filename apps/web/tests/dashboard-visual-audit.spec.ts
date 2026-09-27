@@ -263,6 +263,52 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
 test.describe.serial("authenticated INFRO visual audit",()=>{
   test.beforeAll(async()=>{await mkdir(outDir,{recursive:true});const connectionString=String(process.env.DATABASE_URL??"").trim();if(!connectionString)throw new Error("DATABASE_URL is required");pool=new Pool({connectionString,max:4});db=new PrismaClient({adapter:new PrismaPg(pool)});seeded=await seedWorkspace();});
   test.afterAll(async()=>{if(seeded)await cleanupWorkspace(seeded);await db?.$disconnect();await pool?.end();});
+  test("platform identity uploads stay private until publication and render on mobile and desktop", async ({browser}) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const previous = await db.$queryRaw<Array<{draft:unknown;published:unknown;publishedAt:Date|null}>>`SELECT "draft","published","publishedAt" FROM "PlatformDesignSetting" WHERE "key"='platform.brand.v1'`;
+    const admin = await authenticatedContext(browser,{width:1440,height:960},"light",seeded.adminSessionToken);
+    const anonymous = await browser.newContext();
+    let asset = "";
+    try {
+      const page = await admin.newPage();
+      await page.goto(`${baseUrl}/admin/design`);
+      await expect(page.getByRole("heading",{name:"الهوية وتصميم المنصة",exact:true})).toBeVisible();
+      const symbol = page.getByRole("group", {name:"أيقونة المنصة",exact:true});
+      await symbol.locator('input[type="file"]').setInputFiles("public/brand/infro-symbol-approved.png");
+      await expect(symbol.locator('input[name="symbolUrl"]')).toHaveValue(/\/api\/storage\//);
+      asset = await symbol.locator('input[name="symbolUrl"]').inputValue();
+      expect((await anonymous.request.get(`${baseUrl}${asset}`)).status()).toBe(404);
+      await page.locator('input[name="faviconUrl"]').fill(asset);
+      await page.getByLabel("العنوان الرئيسي",{exact:true}).fill("هوية تجريبية قابلة للتحكم");
+      await expect(page.getByRole("heading", {name:"هوية تجريبية قابلة للتحكم",exact:true})).toBeVisible();
+      await page.getByRole("button", {name:"حفظ مسودة",exact:true}).click();
+      await expect.poll(async () => (await db.$queryRaw<Array<{draft:{symbolUrl?:string}}>>`SELECT "draft" FROM "PlatformDesignSetting" WHERE "key"='platform.brand.v1'`)[0]?.draft.symbolUrl).toBe(asset);
+      expect((await anonymous.request.get(`${baseUrl}${asset}`)).status()).toBe(404);
+      await page.reload();
+      for (const width of [1440,390]) {
+        await page.setViewportSize({width,height:960});
+        await page.screenshot({path:`${outDir}/platform-design-${width}.png`,fullPage:true});
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      }
+      await page.getByRole("button", {name:"نشر التعديلات",exact:true}).click();
+      await expect.poll(async () => (await anonymous.request.get(`${baseUrl}${asset}`)).status()).toBe(200);
+      const publicPage = await anonymous.newPage();
+      await publicPage.goto(baseUrl);
+      await expect(publicPage.getByRole("heading", {level:1})).toHaveText("هوية تجريبية قابلة للتحكم");
+      await expect(publicPage.locator('link[rel="icon"]')).toHaveAttribute("href", asset);
+      await expect(publicPage.locator('header img').first()).toHaveAttribute("src", asset);
+      await page.getByRole("button", {name:"استعادة الافتراضي كمسودة",exact:true}).click();
+      await expect.poll(async () => (await db.$queryRaw<Array<{draft:{symbolUrl?:string|null}}>>`SELECT "draft" FROM "PlatformDesignSetting" WHERE "key"='platform.brand.v1'`)[0]?.draft.symbolUrl).toBe(null);
+      expect((await anonymous.request.get(`${baseUrl}${asset}`)).status()).toBe(200);
+    } finally {
+      if (previous[0]) await db.$executeRaw(Prisma.sql`UPDATE "PlatformDesignSetting" SET "draft"=${JSON.stringify(previous[0].draft)}::jsonb,"published"=${JSON.stringify(previous[0].published)}::jsonb,"publishedAt"=${previous[0].publishedAt} WHERE "key"='platform.brand.v1'`);
+      else await db.$executeRaw`DELETE FROM "PlatformDesignSetting" WHERE "key"='platform.brand.v1'`;
+      await db.$executeRaw`DELETE FROM "PlatformDesignAudit" WHERE "actorUserId"=${seeded.adminUserId}`;
+      if (asset) await db.storedObject.deleteMany({where:{id:asset.split("/").pop(),folder:"platform-brand"}});
+      await admin.close(); await anonymous.close();
+    }
+  });
   test("commerce operations deny a regular customer session",async({browser})=>{
     if(!seeded)throw new Error("visual fixture missing");
     const context=await authenticatedContext(browser,{width:390,height:844},"light",seeded.sessionToken);

@@ -1,6 +1,7 @@
 export type PlatformBrandConfig = {
   brandNameAr: string;
   brandNameEn: string;
+  symbolUrl: string | null;
   logoUrl: string | null;
   logoDarkUrl: string | null;
   faviconUrl: string | null;
@@ -27,6 +28,7 @@ export type PlatformBrandConfig = {
 export const DEFAULT_PLATFORM_BRAND: PlatformBrandConfig = {
   brandNameAr: "انفرو",
   brandNameEn: "INFRO",
+  symbolUrl: null,
   logoUrl: null,
   logoDarkUrl: null,
   faviconUrl: null,
