@@ -9,8 +9,8 @@ test("contact imports are bounded, auditable and idempotent per tenant file", ()
   const parser = source("app/lib/whatsapp/contact-import.ts");
   const schema = source("prisma/schema.prisma");
   const migration = source("prisma/migrations/20260827173000_whatsapp_contact_imports/migration.sql");
-  assert.match(parser, /MAX_CONTACT_IMPORT_BYTES = 5 \* 1024 \* 1024/);
-  assert.match(parser, /MAX_CONTACT_IMPORT_ROWS = 10_000/);
+  assert.match(parser, /MAX_CONTACT_IMPORT_BYTES = 4 \* 1024 \* 1024/);
+  assert.doesNotMatch(parser, /MAX_CONTACT_IMPORT_ROWS|matrix\.length - 1 >/);
   assert.match(schema, /model WhatsAppContactImport[\s\S]*@@unique\(\[businessId, fileSha256\]/);
   assert.match(migration, /WhatsAppContactImport_business_file_unique/);
 });

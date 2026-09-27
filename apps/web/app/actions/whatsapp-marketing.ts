@@ -183,10 +183,12 @@ export async function importWhatsAppContactsAction(form: FormData) {
   const upload = form.get("file");
   const consentConfirmed = form.get("explicitConsent") === "on";
   const evidence = field(form, "consentEvidence", 500);
-  if (!(upload instanceof File) || upload.size === 0 || upload.size > MAX_CONTACT_IMPORT_BYTES) redirect("/dashboard/whatsapp/contacts?import=invalid-file");
+  if (!(upload instanceof File) || upload.size === 0) redirect("/dashboard/whatsapp/contacts?import=empty-file");
+  if (upload.size > MAX_CONTACT_IMPORT_BYTES) redirect("/dashboard/whatsapp/contacts?import=file-too-large");
   const extension = upload.name.toLowerCase().split(".").pop();
   const format: ContactImportFormat | null = extension === "csv" ? "csv" : extension === "xlsx" ? "xlsx" : null;
-  if (!format || (consentConfirmed && !evidence)) redirect("/dashboard/whatsapp/contacts?import=invalid-input");
+  if (!format) redirect("/dashboard/whatsapp/contacts?import=unsupported-format");
+  if (consentConfirmed && !evidence) redirect("/dashboard/whatsapp/contacts?import=consent-evidence-required");
   let destination: string;
   try {
     const parsed = await parseContactImport({ data: Buffer.from(await upload.arrayBuffer()), format, defaultCountryCallingCode: "966" });
@@ -198,7 +200,13 @@ export async function importWhatsAppContactsAction(form: FormData) {
   } catch (error) {
     const code = error instanceof Error ? error.message : "UNKNOWN";
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "contacts.import", targetType: "contact_import", outcome: "failed", metadata: { reason: code } }).catch(() => undefined);
-    destination = "/dashboard/whatsapp/contacts?import=failed";
+    const safeReasons: Record<string, string> = {
+      WHATSAPP_CONTACT_IMPORT_EMPTY_FILE: "empty-file",
+      WHATSAPP_CONTACT_IMPORT_FILE_TOO_LARGE: "file-too-large",
+      WHATSAPP_CONTACT_IMPORT_TOO_MANY_COLUMNS: "too-many-columns",
+      WHATSAPP_CONTACT_IMPORT_MISSING_PHONE_HEADER: "missing-phone-header",
+    };
+    destination = `/dashboard/whatsapp/contacts?import=${safeReasons[code] ?? "failed"}`;
   }
   redirect(destination);
 }

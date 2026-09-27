@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { readSheet } from "read-excel-file/node";
 import { normalizeContactLabel, normalizeE164 } from "./contact-domain";
 
-export const MAX_CONTACT_IMPORT_BYTES = 5 * 1024 * 1024;
-export const MAX_CONTACT_IMPORT_ROWS = 10_000;
+// Keep multipart requests below the hosting transport limit; no row-count business limit.
+export const MAX_CONTACT_IMPORT_BYTES = 4 * 1024 * 1024;
 const MAX_COLUMNS = 20;
 const MAX_CELL_LENGTH = 512;
 
@@ -107,7 +107,6 @@ export async function parseContactImport(input: {
     ? parseCsv(input.data)
     : (await readSheet(input.data, 1)).map((row) => row.map(cell));
   if (matrix.length === 0) throw new Error("WHATSAPP_CONTACT_IMPORT_EMPTY_FILE");
-  if (matrix.length - 1 > MAX_CONTACT_IMPORT_ROWS) throw new Error("WHATSAPP_CONTACT_IMPORT_TOO_MANY_ROWS");
   if (matrix.some((row) => row.length > MAX_COLUMNS)) throw new Error("WHATSAPP_CONTACT_IMPORT_TOO_MANY_COLUMNS");
 
   const headers = matrix[0].map(header);
@@ -141,12 +140,12 @@ export async function parseContactImport(input: {
       continue;
     }
     seen.add(phoneE164);
-    const email = emailAt >= 0 ? source[emailAt].toLocaleLowerCase("en") : "";
+    const email = emailAt >= 0 ? (source[emailAt] ?? "").toLocaleLowerCase("en") : "";
     if (email && !validEmail(email)) {
       errors.push({ rowNumber, code: "invalid_email" });
       continue;
     }
-    const tags = tagsAt < 0 ? [] : source[tagsAt]
+    const tags = tagsAt < 0 ? [] : (source[tagsAt] ?? "")
       .split(/[,;|]/)
       .map(normalizeContactLabel)
       .filter((value): value is string => Boolean(value));
