@@ -11,6 +11,8 @@ import { createWhatsAppAutomationApiKey, revokeWhatsAppAutomationApiKey } from "
 import { disconnectWhatsAppCommerceIntegration, registerWhatsAppCommerceIntegration } from "../lib/whatsapp/commerce-integrations";
 import { cancelWhatsAppCampaign, pauseWhatsAppCampaign, resumeWhatsAppCampaign, scheduleWhatsAppCampaign } from "../lib/whatsapp/campaign-operations";
 import { snapshotWhatsAppCampaign } from "../lib/whatsapp/campaign-snapshot";
+import { parseCampaignComposition } from "../lib/whatsapp/campaign-composition";
+import { parseCampaignSendPolicy } from "../lib/whatsapp/campaign-send-policy";
 import { enqueueContactImport, retryFailedContactImport } from "../lib/whatsapp/contact-import-processor";
 import { MAX_CONTACT_IMPORT_BYTES, parseContactImport, type ContactImportFormat } from "../lib/whatsapp/contact-import";
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
@@ -246,6 +248,8 @@ export async function createWhatsAppCampaignAction(form: FormData) {
   if (audienceKind === "static_segment" && !segmentId) redirect("/dashboard/whatsapp/campaigns?create=invalid");
   let destination: string;
   try {
+    const composition = parseCampaignComposition(String(form.get("composition") || '{"bindings":{}}'));
+    const sendPolicy = parseCampaignSendPolicy(form.get("sendPolicy"));
     const now = new Date();
     const campaign = await db.$transaction(async (tx) => {
       const template = await tx.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId, provider: "meta", status: "approved" }, select: { id: true } });
@@ -278,12 +282,12 @@ export async function createWhatsAppCampaignAction(form: FormData) {
       await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "campaign.create", targetType: "campaign", targetId: created.id, outcome: "success", metadata: { audienceKind, audienceSize }, database: tx });
       return created;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    await snapshotWhatsAppCampaign({ businessId: context.businessId, campaignId: campaign.id, now });
+    await snapshotWhatsAppCampaign({ businessId: context.businessId, campaignId: campaign.id, now, composition, sendPolicy });
     revalidatePath("/dashboard/whatsapp/campaigns");
     destination = `/dashboard/whatsapp/campaigns?create=complete&campaign=${campaign.id}`;
   } catch (error) {
     const code = error instanceof Error ? error.message : "UNKNOWN";
-    const known = ["WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS", "WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE", "WHATSAPP_CAMPAIGN_STATIC_SEGMENT_NOT_FOUND", "WHATSAPP_CAMPAIGN_CONFIGURATION_INVALID"];
+    const known = ["WHATSAPP_CAMPAIGN_VARIABLE_MISSING", "WHATSAPP_CAMPAIGN_MEDIA_INVALID", "WHATSAPP_CAMPAIGN_TRACKING_INVALID", "WHATSAPP_CAMPAIGN_TEMPLATE_UNSUPPORTED", "WHATSAPP_CAMPAIGN_SEND_POLICY_INVALID", "WHATSAPP_CAMPAIGN_COMPOSITION_INVALID", "WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS", "WHATSAPP_CAMPAIGN_AUDIENCE_TOO_LARGE", "WHATSAPP_CAMPAIGN_STATIC_SEGMENT_NOT_FOUND", "WHATSAPP_CAMPAIGN_CONFIGURATION_INVALID"];
     const reason = known.includes(code) ? code : "UNKNOWN";
     destination = `/dashboard/whatsapp/campaigns?create=failed&reason=${reason}`;
   }

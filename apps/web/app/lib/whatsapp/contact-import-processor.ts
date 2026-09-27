@@ -24,6 +24,7 @@ function importRows(value: Prisma.JsonValue): ParsedContactImportRow[] {
   return value.map((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("WHATSAPP_CONTACT_IMPORT_ROW_INVALID");
     const row = item as Record<string, unknown>;
+    if (row.attributes !== undefined && (!row.attributes || typeof row.attributes !== "object" || Array.isArray(row.attributes) || Object.entries(row.attributes).length > 20 || Object.entries(row.attributes).some(([key, value]) => key.length > 80 || typeof value !== "string" || value.length > 512))) throw new Error("WHATSAPP_CONTACT_IMPORT_ROW_INVALID");
     if (!Number.isInteger(row.rowNumber) || !/^\+[1-9][0-9]{7,14}$/.test(String(row.phoneE164 ?? ""))) throw new Error("WHATSAPP_CONTACT_IMPORT_ROW_INVALID");
     if (row.displayName !== null && (typeof row.displayName !== "string" || row.displayName.length > 512)) throw new Error("WHATSAPP_CONTACT_IMPORT_ROW_INVALID");
     if (row.email !== null && (typeof row.email !== "string" || row.email.length > 254)) throw new Error("WHATSAPP_CONTACT_IMPORT_ROW_INVALID");
@@ -145,10 +146,18 @@ async function completeClaimedBatch(database: PrismaClient, claimed: ClaimedBatc
     const rows = importRows(batch.rows);
     const phones = rows.map((row) => row.phoneE164);
     const existing = await tx.whatsAppContact.findMany({ where: { businessId: claimed.businessId, phoneE164: { in: phones } }, select: { phoneE164: true } });
+    const attributeRows = rows.filter((row) => row.attributes && Object.keys(row.attributes).length).map((row) => ({ phoneE164: row.phoneE164, attributes: row.attributes }));
+    if (attributeRows.length) await tx.$executeRaw(Prisma.sql`
+      UPDATE "WhatsAppContact" c SET "attributes" =
+        (CASE WHEN jsonb_typeof(c."attributes") = 'object' THEN c."attributes" ELSE '{}'::jsonb END) || imported.attributes,
+        "updatedAt" = ${now}
+      FROM jsonb_to_recordset(${JSON.stringify(attributeRows)}::jsonb) AS imported("phoneE164" text, attributes jsonb)
+      WHERE c."businessId" = ${claimed.businessId} AND c."phoneE164" = imported."phoneE164"
+    `);
     const existingPhones = new Set(existing.map((contact) => contact.phoneE164));
     const candidates = rows.filter((row) => !existingPhones.has(row.phoneE164));
     const created = await tx.whatsAppContact.createMany({
-      data: candidates.map((row) => ({ id: randomUUID(), businessId: claimed.businessId, phoneE164: row.phoneE164, displayName: row.displayName, email: row.email, source: batch.contactImport.format === "xlsx" ? "excel" : "csv" })),
+      data: candidates.map((row) => ({ id: randomUUID(), businessId: claimed.businessId, phoneE164: row.phoneE164, displayName: row.displayName, email: row.email, attributes: row.attributes, source: batch.contactImport.format === "xlsx" ? "excel" : "csv" })),
       skipDuplicates: true,
     });
     const contacts = rows.length ? await tx.whatsAppContact.findMany({ where: { businessId: claimed.businessId, phoneE164: { in: phones } }, select: { id: true, phoneE164: true } }) : [];

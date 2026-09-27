@@ -25,6 +25,9 @@ export async function isPersistentObjectReferenced(storageKey: string) {
   const key = String(storageKey ?? "").trim();
   if (!key) return false;
   const url = `/api/storage/${key}`;
+  // Campaign assets remain valid for scheduled campaigns and immutable snapshots.
+  const campaignAsset = await db.storedObject.findFirst({ where: { id: key, folder: { startsWith: "campaign-media/" } }, select: { id: true } });
+  if (campaignAsset) return true;
 
   const directBusiness = await db.business.findFirst({
     where: {

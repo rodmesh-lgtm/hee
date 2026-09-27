@@ -33,7 +33,7 @@ test("campaign action validates tenant-bound static segments and freezes eligibl
   assert.match(actions, /audienceDefinition = \{ kind: "static_segment", segmentId: segment\.id \}/);
   assert.match(actions, /provider: "meta", status: "connected", disabledAt: null/);
   assert.match(actions, /provider: "meta", status: "approved"/);
-  assert.match(actions, /snapshotWhatsAppCampaign\(\{ businessId: context\.businessId, campaignId: campaign\.id, now \}\)/);
+  assert.match(actions, /snapshotWhatsAppCampaign\(\{ businessId: context\.businessId, campaignId: campaign\.id, now, composition, sendPolicy \}\)/);
 });
 
 test("guided builder preserves launch readiness and five-recipient canary controls", () => {

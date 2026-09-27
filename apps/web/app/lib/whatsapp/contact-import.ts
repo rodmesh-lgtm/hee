@@ -25,6 +25,7 @@ export type ParsedContactImportRow = {
   displayName: string | null;
   email: string | null;
   tags: string[];
+  attributes?: Record<string, string>;
 };
 
 export type ContactImportRowError = {
@@ -155,6 +156,7 @@ export async function parseContactImport(input: {
       displayName: nameAt < 0 ? null : source[nameAt] || null,
       email: email || null,
       tags: [...new Set(tags)].slice(0, 20),
+      attributes: Object.fromEntries(headers.flatMap((key, column) => key && key.length <= 80 && ![phoneAt, nameAt, emailAt, tagsAt].includes(column) && !["__proto__", "constructor", "prototype"].includes(key) ? [[key, source[column] || ""]] : [])),
     });
   }
 
