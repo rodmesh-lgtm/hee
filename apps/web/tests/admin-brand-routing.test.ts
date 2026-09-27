@@ -21,3 +21,11 @@ test("admin host still denies asset writes, other assets and customer surfaces",
     assert.equal(proxy(request(path)).status, 404);
   }
 });
+
+test("admin uploaded image reads reach authorization but storage writes and malformed paths do not", () => {
+  const path = "/api/storage/12345678-1234-1234-1234-123456789abc";
+  assert.equal(proxy(request(path)).headers.get("x-middleware-next"), "1");
+  for (const method of ["POST","PUT","DELETE"]) assert.equal(proxy(request(path,method)).status,404);
+  assert.equal(proxy(request(path + "/extra")).status,404);
+  assert.equal(proxy(request("/api/storage/not-a-key")).status,404);
+});

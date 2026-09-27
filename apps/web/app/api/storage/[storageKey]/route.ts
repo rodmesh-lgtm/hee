@@ -98,6 +98,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
     select: { id: true, folder: true, fileName: true, mimeType: true, size: true },
   });
   if (!metadata) return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
+  if (new URL(_request.url).hostname === "admin.ir.sa" && metadata.folder !== "platform-brand") return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
   const tenantId = tenantIdFromFolder(metadata.folder);
   if (metadata.folder === "platform-brand") {
     const { published } = await readPlatformDesign();
