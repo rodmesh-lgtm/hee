@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getCurrentAdminUser } from "../../../lib/admin";
+import { readPlatformDesign } from "../../../lib/platform-design";
 import { db } from "../../../lib/db";
 import { getCurrentUser } from "../../../lib/auth";
 import { ensurePersistentStorageReady, readPersistentObject } from "../../../lib/storage";
@@ -96,7 +98,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sto
     select: { id: true, folder: true, fileName: true, mimeType: true, size: true },
   });
   if (!metadata) return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
+  if (new URL(_request.url).hostname === "admin.ir.sa" && metadata.folder !== "platform-brand") return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
   const tenantId = tenantIdFromFolder(metadata.folder);
+  if (metadata.folder === "platform-brand") {
+    const { published } = await readPlatformDesign();
+    const url = `/api/storage/${storageKey}`;
+    const active = [published.symbolUrl, published.logoUrl, published.logoDarkUrl, published.faviconUrl, published.ogImageUrl].includes(url);
+    if (!SAFE_IMAGE_MIME.has(metadata.mimeType) || (!active && !(await getCurrentAdminUser()))) {
+      return NextResponse.json({ error: "الملف غير متاح" }, { status: 404 });
+    }
+    const stored = await loadAuthorizedBytes(storageKey);
+    if (!stored) return NextResponse.json({ error: "تعذر قراءة الملف" }, { status: 503 });
+    return new NextResponse(new Uint8Array(stored.data), { headers: {
+      "Content-Type": metadata.mimeType, "Content-Length": String(metadata.size),
+      "Cache-Control": AUTHORIZED_FILE_CACHE_CONTROL, "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox",
+    } });
+  }
+
 
   if ((metadata.folder === "company-profiles" || metadata.folder.startsWith("company-profiles/")) && metadata.mimeType === "application/pdf") {
     const publiclyAvailable = Boolean(await publicCompanyProfileBusiness(metadata.id, tenantId));

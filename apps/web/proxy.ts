@@ -28,6 +28,9 @@ export function proxy(request: NextRequest) {
   // The approved public symbol is also used by the isolated admin shell.
   // Allow only this asset's reads; all other non-admin paths remain denied.
   if (adminHost && pathname === "/brand/infro-symbol-approved.png" && (request.method === "GET" || request.method === "HEAD")) return withPrivateHeaders(NextResponse.next());
+  // Only image reads reach the storage handler; it independently checks folder,
+  // publication and the separate admin session. No uploads or customer APIs.
+  if (adminHost && /^\/api\/storage\/[0-9a-f-]{20,64}$/i.test(pathname) && (request.method === "GET" || request.method === "HEAD")) return withPrivateHeaders(NextResponse.next());
   if (adminHost) { if (pathname === "/") { const url = request.nextUrl.clone(); url.pathname = "/admin"; return withPrivateHeaders(NextResponse.rewrite(url)); } if (pathname === "/login") { const url = request.nextUrl.clone(); url.pathname = "/admin-login"; return withPrivateHeaders(NextResponse.rewrite(url)); } if (pathname === "/admin-login" || pathname === "/admin" || pathname.startsWith("/admin/")) return withPrivateHeaders(NextResponse.next()); return adminControlPlaneNotFoundResponse(); }
   if (productionMaintenanceEnabled() && !isMaintenanceControlRead(request, pathname)) return maintenanceResponse();
   const isQaPath = pathname === "/qa" || pathname.startsWith("/qa/"); if (isProduction() && isQaPath) return productionQaNotFoundResponse();

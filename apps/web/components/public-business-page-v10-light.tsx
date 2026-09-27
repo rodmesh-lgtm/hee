@@ -354,7 +354,7 @@ export function PublicBusinessPageV10Light({
         >
           <Link
             href="/"
-            aria-label="INFRO - الصفحة الرئيسية"
+            data-infro-customer-header aria-label="INFRO - الصفحة الرئيسية"
             className="pointer-events-auto absolute left-3 top-3 grid h-12 w-12 place-items-center rounded-[17px] border border-white/80 bg-white/90 shadow-[0_10px_30px_rgba(7,37,39,.13)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] motion-reduce:transition-none sm:left-5 sm:top-5"
           >
             <IrMark className="h-8" priority />
@@ -804,7 +804,7 @@ export function PublicBusinessPageV10Light({
               )}
             </AccordionRow> : null}
           </section>
-          <footer className="mt-8 border-t border-[#e3eae8] px-1 py-6">
+          <footer data-infro-customer-footer className="mt-8 border-t border-[#e3eae8] px-1 py-6">
             <Link
               href="/"
               className="flex items-center justify-between gap-4 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d]"

@@ -1,6 +1,7 @@
 export type PlatformBrandConfig = {
   brandNameAr: string;
   brandNameEn: string;
+  symbolUrl: string | null;
   logoUrl: string | null;
   logoDarkUrl: string | null;
   faviconUrl: string | null;
@@ -27,6 +28,7 @@ export type PlatformBrandConfig = {
 export const DEFAULT_PLATFORM_BRAND: PlatformBrandConfig = {
   brandNameAr: "انفرو",
   brandNameEn: "INFRO",
+  symbolUrl: null,
   logoUrl: null,
   logoDarkUrl: null,
   faviconUrl: null,
@@ -51,6 +53,13 @@ export const DEFAULT_PLATFORM_BRAND: PlatformBrandConfig = {
 };
 
 export const PLATFORM_BRAND_SETTING_KEY = "platform.brand.v1" as const;
+
+export function platformContrastColor(hex: string) {
+  const rgb = [1,3,5].map(index => parseInt(hex.slice(index,index + 2),16) / 255);
+  const linear = rgb.map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+  const luminance = .2126 * linear[0] + .7152 * linear[1] + .0722 * linear[2];
+  return luminance > .179 ? "#000000" : "#ffffff";
+}
 
 export function platformBrandCssVariables(config: PlatformBrandConfig) {
   return {
