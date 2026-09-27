@@ -30,7 +30,7 @@ test("audience search and status filtering are bounded and whitelisted", () => {
 test("workspace preserves consent evidence and import safety UX", () => {
   assert.match(page, /explicitConsent/);
   assert.match(page, /consentEvidence/);
-  assert.match(page, /10,000/);
+  assert.match(page, /دون حد عددي للجهات/);
   assert.match(page, /duplicateRows/);
   assert.match(page, /rejectedRows/);
   assert.match(page, /retryWhatsAppContactImportAction/);

@@ -22,8 +22,8 @@ test("WhatsApp Marketing is a first-class customer dashboard section", () => {
   for (const route of ["contacts", "templates", "campaigns", "automations", "inbox", "setup", "audit"]) {
     assert.ok(hub.includes(`/dashboard/whatsapp/${route}`), `${route} missing from WhatsApp hub`);
   }
-  assert.match(contacts, /accept="\.csv,\.xlsx/);
-  assert.match(contacts, /10,000/);
+  assert.match(source("app/dashboard/whatsapp/contacts/import-file-input.tsx"), /accept="\.csv,\.xlsx/);
+  assert.match(contacts, /دون حد عددي للجهات/);
   assert.match(contacts, /ImportProgressRefresh/);
   assert.match(contacts, /بانتظار المعالجة/);
   assert.match(contacts, /retryWhatsAppContactImportAction/);

@@ -351,6 +351,34 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.subscription.deleteMany({ where: { id: subscription.id } });
     }
   });
+  test("25,000 contacts queue completely without a row cap", async ({ browser }) => {
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId;
+    const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    const context = await authenticatedContext(browser, { width: 390, height: 844 }, "dark", seeded.sessionToken);
+    try {
+      const page = await context.newPage();
+      await page.goto(`${baseUrl}/dashboard/whatsapp/contacts`);
+      await expect(page.getByText(/دون حد عددي للجهات/)).toBeVisible();
+      const buffer = Buffer.from(["phone", ...Array.from({ length: 25_000 }, (_, i) => `+9665${String(i).padStart(8, "0")}`)].join("\n"));
+      await page.locator('input[name="file"]').setInputFiles({ name: "large-ci.csv", mimeType: "text/csv", buffer });
+      await page.locator('#import-contacts button[type="submit"]').click();
+      await expect(page).toHaveURL(/import=queued/, { timeout: 30_000 });
+      const imported = await db.whatsAppContactImport.findFirstOrThrow({ where: { businessId, fileName: "large-ci.csv" } });
+      expect(imported.totalRows).toBe(25_000);
+      expect(imported.consentConfirmed).toBe(false);
+      const batches = await db.whatsAppContactImportBatch.findMany({ where: { importId: imported.id, businessId } });
+      expect(batches).toHaveLength(50);
+      expect(batches.reduce((n, batch) => n + (Array.isArray(batch.rows) ? batch.rows.length : 0), 0)).toBe(25_000);
+      await page.screenshot({ path: `${outDir}/mobile-dark-large-import.png`, fullPage: true });
+    } finally {
+      await context.close();
+      await db.whatsAppContactImportBatch.deleteMany({ where: { businessId } });
+      await db.whatsAppContactImport.deleteMany({ where: { businessId } });
+      await db.subscription.deleteMany({ where: { id: subscription.id } });
+    }
+  });
   test("campaign retries and studio stay clear on mobile and desktop", async ({ browser, request }) => {
     test.setTimeout(180_000);
     if (!seeded) throw new Error("visual fixture missing");
