@@ -351,7 +351,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.subscription.deleteMany({ where: { id: subscription.id } });
     }
   });
-  test("25,000 contacts queue completely without a row cap", async ({ browser }) => {
+  test("25,000 contacts finish importing with outbound workers disabled", async ({ browser, request }) => {
+    test.setTimeout(180_000);
     if (!seeded) throw new Error("visual fixture missing");
     const businessId = seeded.businessId;
     const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
@@ -371,11 +372,25 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       const batches = await db.whatsAppContactImportBatch.findMany({ where: { importId: imported.id, businessId } });
       expect(batches).toHaveLength(50);
       expect(batches.reduce((n, batch) => n + (Array.isArray(batch.rows) ? batch.rows.length : 0), 0)).toBe(25_000);
+      expect((await request.get(`${baseUrl}/api/cron/contact-imports`)).status()).toBe(401);
+      const headers = { authorization: `Bearer ${process.env.CRON_SECRET}` };
+      const results = await Promise.all([1, 2].map(() => request.get(`${baseUrl}/api/cron/contact-imports`, { headers, timeout: 120_000 })));
+      for (const result of results) expect(result.status()).toBe(200);
+      const finished = await db.whatsAppContactImport.findUniqueOrThrow({ where: { id: imported.id } });
+      expect(finished.status).toBe("completed");
+      expect(finished.importedRows).toBe(25_000);
+      expect(await db.whatsAppContact.count({ where: { businessId } })).toBe(25_000);
+      expect(await db.whatsAppConsent.count({ where: { businessId } })).toBe(0);
+      expect(await db.whatsAppDeliveryJob.count({ where: { businessId } })).toBe(0);
+      const repeated = await request.get(`${baseUrl}/api/cron/contact-imports`, { headers });
+      expect((await repeated.json()).completedBatches).toBe(0);
+      await page.reload();
       await page.screenshot({ path: `${outDir}/mobile-dark-large-import.png`, fullPage: true });
     } finally {
       await context.close();
       await db.whatsAppContactImportBatch.deleteMany({ where: { businessId } });
       await db.whatsAppContactImport.deleteMany({ where: { businessId } });
+      await db.whatsAppContact.deleteMany({ where: { businessId } });
       await db.subscription.deleteMany({ where: { id: subscription.id } });
     }
   });

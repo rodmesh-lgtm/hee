@@ -135,7 +135,7 @@ export default async function WhatsAppMarketingPage() {
   };
 
   const cards = [
-    { href: "/dashboard/whatsapp/contacts", title: "جهات الاتصال والاستيراد", text: "استيراد CSV أو Excel حتى 10,000 صف مع توحيد الأرقام وإزالة التكرار وتوثيق الموافقة الصريحة.", icon: ContactRound, state: contacts ? "ready" : "empty", status: contacts ? `${contacts} جهة اتصال` : "ابدأ بالاستيراد" },
+    { href: "/dashboard/whatsapp/contacts", title: "جهات الاتصال والاستيراد", text: "استيراد CSV أو Excel دون حد عددي للجهات، مع توحيد الأرقام وإزالة التكرار وتوثيق الموافقة الصريحة.", icon: ContactRound, state: contacts ? "ready" : "empty", status: contacts ? `${contacts} جهة اتصال` : "ابدأ بالاستيراد" },
     { href: "/dashboard/whatsapp/templates", title: "قوالب Meta", text: "مزامنة القوالب الرسمية ومتابعة حالة الاعتماد قبل استخدامها في الإرسال.", icon: FileText, state: templates ? "ready" : connected ? "attention" : "empty", status: templates ? `${templates} قالب معتمد` : connected ? "تحتاج مزامنة" : "اربط الرقم أولًا" },
     { href: "/dashboard/whatsapp/campaigns", title: "الحملات الجماعية", text: "أنشئ حملة من جهات الاتصال المؤهلة، راجع الجمهور والقالب، ثم جدولة الإرسال أو تشغيله بأمان.", icon: Megaphone, state: connected && templates && eligibleAudience && launchReadiness.ready ? "ready" : "attention", status: connected && templates && eligibleAudience && launchReadiness.ready ? "جاهز للتجهيز" : "متطلبات ناقصة" },
     { href: "/dashboard/whatsapp/insights", title: "الأداء والتقارير", text: "اقرأ الإرسال والتسليم والقراءة وحركة المحادثات وصحة الجمهور من بيانات نشاطك الفعلية، دون نسب إيراد غير مثبتة.", icon: BarChart3, state: sentRecipients ? "ready" : "empty", status: sentRecipients ? `${formatPercent(deliveryRate)} تسليم` : "بانتظار أول إرسال" },
