@@ -23,7 +23,7 @@ export function PlatformDesignEditor({ initial, publishedAt }: { initial: Platfo
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const [uploads, setUploads] = useState(0);
-  const field = (name: keyof PlatformDesignConfig, label: string, type = "text") => <label key={name} className="grid gap-2 text-sm font-bold">{label}<input name={name} type={type} value={String(draft[name] ?? "")} onChange={e => setDraft(d => ({ ...d, [name]: e.target.value }))} className="min-w-0 w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2.5 dark:border-slate-600"/></label>;
+  const field = (name: keyof PlatformDesignConfig, label: string, type = "text") => <label key={name} className="grid gap-2 text-sm font-bold">{label}<input name={name} type={type} style={type === "color" ? {height:44,padding:4} : undefined} value={String(draft[name] ?? "")} onChange={e => setDraft(d => ({ ...d, [name]: e.target.value }))} className="min-w-0 w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2.5 dark:border-slate-600"/>{type === "color" ? <code dir="ltr" className="text-xs font-normal">{String(draft[name])}</code> : null}</label>;
   function save(form: FormData, publish: boolean) {
     if (uploads > 0) { setNotice("انتظر اكتمال رفع الصور قبل الحفظ."); return; }
     setNotice("");
