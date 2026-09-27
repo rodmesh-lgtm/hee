@@ -239,6 +239,10 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
     const commerceFile=`${input.viewportName}-${input.theme}-admin-commerce.png`;
     await page.screenshot({path:`${outDir}/${commerceFile}`,fullPage:true});
     results.push({...commerceMetrics,file:commerceFile,url:`${baseUrl}/admin/commerce`});
+    await page.goto(`${baseUrl}/admin/design`);
+    await expect(page.getByRole("heading",{name:"الهوية وتصميم المنصة",exact:true})).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+    await page.screenshot({path:`${outDir}/${input.viewportName}-${input.theme}-platform-design.png`,fullPage:true});
     const detailPath=`/admin/businesses/${input.businessId}`;
     const detailResponse=await page.goto(`${baseUrl}${detailPath}`,{waitUntil:"domcontentloaded"});
     expect(detailResponse?.status()).toBe(200);
