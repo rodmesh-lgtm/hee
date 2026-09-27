@@ -5,6 +5,6 @@ const description="INFRO منصة سعودية لهوية الأعمال الر�
 const defaultMetadata:Metadata={title:"INFRO | هويتك الرقمية والتسويقية",description,openGraph:{title:"INFRO | هويتك الرقمية والتسويقية",description,url:"/",siteName:"INFRO",locale:"ar_SA",type:"website"},alternates:{canonical:"/"}};
 export async function generateMetadata(): Promise<Metadata> {
   const { published: d } = await readPlatformDesign();
-  return { ...defaultMetadata, title:{absolute:d.seoTitleAr}, description:d.seoDescriptionAr, openGraph:{...defaultMetadata.openGraph,title:d.seoTitleAr,description:d.seoDescriptionAr,images:d.ogImageUrl?[d.ogImageUrl]:undefined} };
+  return { ...defaultMetadata, title:d.seoTitleAr, description:d.seoDescriptionAr, openGraph:{...defaultMetadata.openGraph,title:d.seoTitleAr,description:d.seoDescriptionAr,images:d.ogImageUrl?[d.ogImageUrl]:undefined} };
 }
 export default function Home(){return <HomepageProfessional/>}
