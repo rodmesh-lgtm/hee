@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { processNextWhatsAppWebhookEvent } from "../../../../lib/whatsapp/webhook-processor";
 import { db } from "../../../../lib/db";
 import { getInfroReminderWhatsAppConfig } from "../../../../lib/reminders/platform-whatsapp";
 import { getMetaWhatsAppConfig } from "../../../../lib/whatsapp/meta-config";
@@ -7,6 +8,7 @@ import { verifyMetaWebhookChallenge, verifyMetaWebhookSignature } from "../../..
 import { readBoundedText } from "../../../../lib/request-body";
 
 const MAX_WEBHOOK_BYTES = 512 * 1024;
+export const maxDuration = 60;
 
 type MetaChange = { field?: unknown; value?: unknown };
 type MetaEntry = { id?: unknown; changes?: unknown };
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
   const platform = getInfroReminderWhatsAppConfig();
   const bodyDigest = createHash("sha256").update(rawBody, "utf8").digest("hex");
   let accepted = 0;
+  const persistedIds: string[] = [];
   for (let entryIndex = 0; entryIndex < payload.entry.length; entryIndex += 1) {
     const entry = payload.entry[entryIndex] as MetaEntry;
     const wabaId = text(entry?.id, 128);
@@ -92,7 +95,7 @@ export async function POST(request: Request) {
       }
 
       const providerEventId = `${bodyDigest}:${entryIndex}:${changeIndex}`;
-      await db.whatsAppWebhookEvent.upsert({
+      const persisted = await db.whatsAppWebhookEvent.upsert({
         where: { provider_providerEventId: { provider: "meta", providerEventId } },
         create: {
           id: randomUUID(),
@@ -105,9 +108,20 @@ export async function POST(request: Request) {
           payload: change as object,
         },
         update: {},
+        select: { id: true },
       });
+      if (persistedIds.length < 20) persistedIds.push(persisted.id);
       accepted += 1;
     }
   }
+  if (persistedIds.length) after(async () => {
+    // Only this authenticated request's durable events; cron recovers failures and overflow.
+    const deadline = Date.now() + 10_000;
+    for (const id of persistedIds) {
+      if (Date.now() >= deadline) break;
+      try { await processNextWhatsAppWebhookEvent(db, id); }
+      catch { console.warn("[whatsapp-webhook] fast_path_deferred"); }
+    }
+  });
   return NextResponse.json({ ok: true, accepted }, { status: 202 });
 }
