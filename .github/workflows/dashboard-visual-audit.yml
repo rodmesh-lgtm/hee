@@ -36,6 +36,7 @@ jobs:
       APP_URL: http://localhost:3000
       API_URL: http://localhost:3000
       SESSION_SECRET: ci-visual-only-not-for-production
+      CRON_SECRET: ci-contact-import-cron-only-not-for-production
       PAYMENT_PROVIDER: mock
       STORAGE_DRIVER: database
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
