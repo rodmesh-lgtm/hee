@@ -91,6 +91,12 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
         <div className="min-w-[220px] rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><span className="block text-[9px] text-slate-400">NEXT ACTION</span><b className="mt-1 block text-sm text-white">{nextAction.title}</b><span className="mt-1 block text-[9px] leading-5 text-slate-400">{nextAction.detail}</span></div>
       </div>
     </header>
+    <section aria-label="رحلة اعتماد قالب الإعلان" className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+      <h2 className="font-black text-slate-900">إعلانك من داخل INFRO إلى مراجعة Meta</h2>
+      <p className="mt-2 leading-7">اختر نصًا أو صورة أو فيديو أو PDF، واكتب الإعلان ومتغيراته، ثم أرسله للمراجعة. بعد الاعتماد والتحديث يظهر ضمن القوالب الجاهزة في معالج الحملة مع المعاينة واختيار الجمهور والجدولة.</p>
+      <p className="mt-2 text-xs leading-6 text-slate-500">كل منشأة تستخدم حسابها ورقمها وقوالبها المعتمدة. لا يوجد قالب معتمد عام يتيح تغيير نص الإعلان بحرية؛ اعتماد التطبيق لا يغني عن اعتماد الرسالة لدى Meta.</p>
+      {!connectionReady ? <Link href="/dashboard/whatsapp/setup" className="mt-3 inline-flex min-h-11 items-center font-bold text-[#008f87]">اربط رقم منشأتك لفتح محرر القوالب</Link> : null}
+    </section>
     {connectionReady && connection ? <TemplateEditor connectionId={connection.id} templates={templates.filter((t) => t.connectionId === connection.id)}/> : null}
 
     {!connectionReady && connection ? <p role="status" className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800"><AlertTriangle className="h-4 w-4"/>رقم واتساب المرتبط غير جاهز حاليًا. أعد تفعيل الاتصال أولًا؛ القالب المعتمد وحده لا يكفي للإرسال.</p> : null}
@@ -154,7 +160,7 @@ function templatePreview(value: Prisma.JsonValue) {
 
 function templateNextAction(input: { connectionReady: boolean; templates: number; campaignReadyCount: number; pendingCount: number; rejectedCount: number; inactiveCount: number }) {
   if (!input.connectionReady) return { title: "أكمل اتصال رقم Meta", detail: "بدون اتصال نشط لا يمكن اعتبار أي قالب جاهزًا للحملة." };
-  if (input.templates === 0) return { title: "زامن قوالب Meta", detail: "أنشئ القالب في Meta ثم اجلب حالته إلى INFRO." };
+  if (input.templates === 0) return { title: "أنشئ قالبك الأول", detail: "استخدم محرر INFRO لإرساله إلى Meta أو حدّث القوالب الموجودة في حسابك." };
   if (input.campaignReadyCount === 0 && input.pendingCount > 0) return { title: "انتظر مراجعة Meta", detail: `${input.pendingCount} قالب قيد المراجعة؛ لا يمكن الإرسال به حتى الاعتماد.` };
   if (input.campaignReadyCount === 0 && input.rejectedCount + input.inactiveCount > 0) return { title: "راجع القوالب غير الجاهزة", detail: "عالج سبب الرفض أو حالة الإيقاف داخل Meta ثم أعد المزامنة." };
   if (input.campaignReadyCount > 0) return { title: "ابدأ Campaign Studio", detail: `${input.campaignReadyCount} قالب جاهز للاستخدام مع اتصال النشاط الحالي.` };

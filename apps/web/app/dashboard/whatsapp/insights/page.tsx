@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveReportRefresh } from "../live-report-refresh";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import {
@@ -134,6 +135,7 @@ export default async function WhatsAppInsightsPage({ searchParams }: { searchPar
   const maxDaily = Math.max(1, ...dailyPerformance.map((row) => row.sent));
 
   return <div className="min-w-0 space-y-5 pb-5">
+    <LiveReportRefresh observedAt={new Date().toISOString()} />
     <header className="relative overflow-hidden rounded-[30px] bg-[#061719] p-5 text-white shadow-[0_30px_80px_-50px_rgba(3,23,25,.9)] sm:p-7">
       <div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#00d8c6]/20 blur-3xl" />
       <div className="absolute -bottom-24 right-1/3 h-56 w-56 rounded-full bg-[#118cff]/10 blur-3xl" />

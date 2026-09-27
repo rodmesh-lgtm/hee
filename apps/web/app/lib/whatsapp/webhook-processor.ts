@@ -224,11 +224,12 @@ async function processStatuses(tx: Tx, event: ClaimedEvent) {
   }
 }
 
-async function claimNext(tx: Tx): Promise<ClaimedEvent | null> {
+async function claimNext(tx: Tx, eventId: string | null): Promise<ClaimedEvent | null> {
   const rows = await tx.$queryRaw<ClaimedEvent[]>`
     SELECT "id", "businessId", "provider", "phoneNumberId", "eventType", "payload"
     FROM "WhatsAppWebhookEvent"
     WHERE "processedAt" IS NULL
+      AND (${eventId}::text IS NULL OR "id" = ${eventId})
     ORDER BY "receivedAt" ASC, "id" ASC
     FOR UPDATE SKIP LOCKED
     LIMIT 1
@@ -236,11 +237,11 @@ async function claimNext(tx: Tx): Promise<ClaimedEvent | null> {
   return rows[0] ?? null;
 }
 
-export async function processNextWhatsAppWebhookEvent(database: ProcessorDb = db) {
+export async function processNextWhatsAppWebhookEvent(database: ProcessorDb = db, eventId: string | null = null) {
   let claimedId: string | null = null;
   try {
     return await database.$transaction(async (tx) => {
-      const event = await claimNext(tx);
+      const event = await claimNext(tx, eventId);
       if (!event) return { processed: false as const };
       claimedId = event.id;
 

@@ -41,6 +41,18 @@ jobs:
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       INFRO_VISUAL_AUDIT_DIR: /tmp/infro-visual-audit
       INFRO_REMINDER_WHATSAPP_ENABLED: "false"
+      # Synthetic webhook credentials for isolated CI only; never send to Meta.
+      META_APP_ID: ci-visual
+      META_APP_SECRET: ci-visual-webhook-secret-only
+      META_BUSINESS_ID: ci-visual
+      META_WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID: ci-visual
+      META_WHATSAPP_SYSTEM_USER_ID: ci-visual
+      META_WHATSAPP_SYSTEM_USER_TOKEN: ci-visual-token-never-for-production
+      META_WHATSAPP_WEBHOOK_VERIFY_TOKEN: ci-visual-verify-token-never-production
+      META_WHATSAPP_GRAPH_VERSION: v23.0
+      META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY: ci-visual-key-never-for-production-123456
+      META_WHATSAPP_CREDENTIAL_KEY_VERSION: v1
+      META_WHATSAPP_BILLING_MODE: customer_meta
       HEE_ADMIN_EMAILS: infro-visual-admin@hee.test
       GOOGLE_CLIENT_ID: infro-visual-audit.apps.googleusercontent.com
       GOOGLE_CLIENT_SECRET: ci-visual-google-secret-not-for-production
