@@ -226,7 +226,7 @@ export function PublicActionDialog({ open, onClose, mode, businessName, whatsapp
 
   const dialogContent = (
     <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/75 p-3 sm:p-6" onClick={safeClose}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} className="flex h-[min(100dvh-24px,560px)] w-full max-w-[560px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-slate-950 text-white shadow-2xl" style={{ maxHeight: "calc(100dvh - 24px)" }} onClick={(event) => event.stopPropagation()}>
+      <div ref={dialogRef} data-public-dialog role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} className="flex h-[min(100dvh-24px,560px)] w-full max-w-[560px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-slate-950 text-white shadow-2xl" style={{ maxHeight: "calc(100dvh - 24px)" }} onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 bg-slate-950 px-4 py-4 sm:px-5">
           <div>
             <h3 id={titleId} className="text-lg font-black">{title ?? (mode === "request" ? "طلب / حجز" : "استفسار")}</h3>

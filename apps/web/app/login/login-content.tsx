@@ -35,7 +35,7 @@ function LoginContent({ googleEnabled, appleEnabled }: LoginContentProps) {
   const oauthMessage = oauthError ? oauthMessages[oauthError] ?? "تعذر تسجيل الدخول الخارجي. حاول مرة أخرى." : "";
   const hasExternalProvider = googleEnabled || appleEnabled;
 
-  return <main dir="rtl" className="min-h-screen bg-[#f4f8f8] text-[#0a2426]">
+  return <main data-auth-page dir="rtl" className="min-h-screen bg-[#f4f8f8] text-[#0a2426]">
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(440px,560px)]">
       <section className="relative hidden overflow-hidden bg-[#07181b] p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14">
         <div className="absolute -right-32 -top-28 h-96 w-96 rounded-full bg-[#00e5a8]/10 blur-3xl"/><div className="absolute -bottom-40 -left-20 h-96 w-96 rounded-full bg-[#00b4d8]/10 blur-3xl"/>
