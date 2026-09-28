@@ -163,7 +163,7 @@ test.describe.serial("email ownership verification", () => {
 
       await page.goto(`${baseUrl}/dashboard/my-page`, { waitUntil: "domcontentloaded" });
       await page.getByRole("button", { name: "نشر الصفحة" }).click();
-      await expect(page.getByText("منشورة", { exact: true })).toBeVisible({ timeout: 20_000 });
+      await expect(page.locator("#dashboard-main-content").getByText("منشورة", { exact: true })).toBeVisible({ timeout: 20_000 });
       expect((await db.business.findUnique({ where: { id: business.id }, select: { isPublished: true } }))?.isPublished).toBe(true);
 
       // A consumed verification token must remain invalid independently of an authenticated verified session.
