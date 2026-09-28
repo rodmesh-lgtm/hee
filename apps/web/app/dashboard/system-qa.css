@@ -2,7 +2,7 @@
 [data-dashboard-path] #dashboard-main-content{min-width:0}
 [data-dashboard-path] #dashboard-main-content :where(section,article,div,form,fieldset){min-width:0}
 [data-dashboard-path] #dashboard-main-content :where(img,video,canvas,svg){max-width:100%}
-[data-dashboard-path] #dashboard-main-content :where(input,textarea,select,button){font:inherit}
+[data-dashboard-path] #dashboard-main-content :where(input,textarea,select,button){font-family:inherit}
 [data-dashboard-path] #dashboard-main-content :where(button,a,input,textarea,select,[tabindex]):focus-visible{outline:2px solid #12cdb8;outline-offset:2px}
 [data-dashboard-path] #dashboard-main-content :where(button,[role="button"]):disabled{cursor:not-allowed;opacity:.58}
 [data-dashboard-path] #dashboard-main-content :where([role="status"],[aria-live="polite"]){isolation:isolate}

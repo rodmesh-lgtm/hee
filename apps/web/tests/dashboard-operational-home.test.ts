@@ -29,7 +29,7 @@ test("dashboard interaction pulse includes identity engagement", () => {
 test("dashboard surfaces the nearest actionable booking", () => {
   assert.match(source, /db\.booking\.findFirst/);
   assert.match(source, /bookingDate:\{gte:today\}/);
-  assert.match(source, /NEXT APPOINTMENT/);
+  assert.match(source, /الموعد القادم/);
   assert.match(source, /href="\/dashboard\/inbox"/);
 });
 

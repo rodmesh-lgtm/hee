@@ -1,0 +1,33 @@
+/* Shared Arabic reading scale. Controls keep their own weight, not body defaults. */
+[data-dashboard-path] { font-family: var(--font-ibm-plex-sans-arabic), sans-serif; font-size: 16px; line-height: 1.75; }
+[data-dashboard-path] :where(h1,h2,h3,label,button,nav a) { letter-spacing: 0; }
+[data-dashboard-path] #dashboard-main-content :where(h2) { font-size: 1.125rem; line-height: 1.65; font-weight: 700; }
+[data-dashboard-path] #dashboard-main-content :where(.text-xs,[class~="text-[10px]"],[class~="text-[11px]"]) { font-size: .875rem !important; line-height: 1.7 !important; }
+[data-dashboard-path] #dashboard-main-content :where([class~="text-[8px]"],[class~="text-[9px]"]) { font-size: .8125rem !important; line-height: 1.65 !important; }
+[data-dashboard-path] #dashboard-main-content :where(button,input,select,textarea) { font-size: .9375rem; }
+[data-dashboard-path][data-dashboard-theme="light"] > aside nav a:not([aria-current="page"]) { color: #475569 !important; }
+[data-dashboard-path][data-dashboard-theme="light"] > aside nav a[aria-current="page"] { background: #dff5f0 !important; color: #075d58 !important; }
+[data-dashboard-path][data-dashboard-theme="dark"] > aside nav a:not([aria-current="page"]) { color: #b8cecb !important; }
+
+/* Action colors must not inherit the legacy card surface remapping. */
+[data-dashboard-path][data-dashboard-theme="light"] :is(button,a,[role="button"])[class~="bg-[#07181b]"] { background: #07181b !important; color: #fff !important; }
+[data-dashboard-path][data-dashboard-theme] #dashboard-main-content .infro-primary-action {
+  background: #08756e !important;
+  color: #fff !important;
+  border: 1px solid transparent !important;
+  min-height: 48px;
+  padding: 10px 20px;
+  font-size: 1rem !important;
+  font-weight: 700;
+  line-height: 1.5 !important;
+  box-shadow: 0 4px 12px -6px #08756e;
+}
+[data-dashboard-path][data-dashboard-theme="dark"] #dashboard-main-content .infro-primary-action { background: #35e4cb !important; color: #07181b !important; }
+[data-dashboard-path][data-dashboard-theme] #dashboard-main-content .infro-primary-action svg { color: inherit !important; }
+[data-dashboard-path][data-dashboard-theme] #dashboard-main-content .infro-primary-action:hover:not(:disabled) { background: #075d58 !important; }
+[data-dashboard-path][data-dashboard-theme="dark"] #dashboard-main-content .infro-primary-action:hover:not(:disabled) { background: #76f0df !important; }
+[data-dashboard-path][data-dashboard-theme] #dashboard-main-content .infro-primary-action:focus-visible { outline: 3px solid #008f87; outline-offset: 3px; }
+[data-dashboard-path][data-dashboard-theme="dark"] #dashboard-main-content .infro-primary-action:focus-visible { outline-color: #76f0df; }
+@media (forced-colors: active) {
+  [data-dashboard-path][data-dashboard-theme] #dashboard-main-content .infro-primary-action { border: 1px solid ButtonText !important; }
+}

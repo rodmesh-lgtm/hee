@@ -14,7 +14,7 @@ test("dashboard surfaces company profile as a first-class readiness item", () =>
   assert.match(dashboard, /الملف التعريفي PDF/);
   assert.match(dashboard, /companyProfileUrl/);
   assert.match(dashboard, /\/dashboard\/digital-identity#company-profile/);
-  assert.match(dashboard, /INFRO COMMAND SPACE/);
+  assert.match(dashboard, /مساحة أعمالك في انفرو/);
 });
 
 test("digital identity company profile has a stable direct anchor", () => {

@@ -28,5 +28,5 @@ test("command space continues to rank real tenant work rather than fabricated da
  assert.match(source,/prioritizeWork\(workCandidates,now\)\.slice\(0,3\)/);
  assert.match(source,/workBucket\(item,now\)/);
  assert.match(source,/WHERE "businessId"=\$\{business\.id\}/);
- assert.match(source,/BUSINESS EXECUTION CENTER/);
+ assert.match(source,/متابعة أعمالك/);
 });

@@ -18,6 +18,7 @@ import "./billing-product.css";
 import "./system-qa.css";
 import "./state-system.css";
 import "./dashboard-interior.css";
+import "./readability.css";
 
 export const metadata:Metadata={title:"INFRO | لوحة التحكم",robots:{index:false,follow:false,noarchive:true,nocache:true}};
 

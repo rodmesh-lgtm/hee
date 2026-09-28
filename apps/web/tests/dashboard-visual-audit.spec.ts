@@ -335,6 +335,44 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     for(const adminViewport of [{viewportName:"desktop",viewport:{width:1440,height:960}},{viewportName:"tablet",viewport:{width:768,height:1024}},{viewportName:"mobile",viewport:{width:390,height:844}}])for(const theme of ["light","dark"] as const)results.push(...await auditAdminRoute(browser,{...adminViewport,theme,token:seeded.adminSessionToken,businessId:seeded.businessId}));
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
   });
+  test("Meta connection action remains readable and prominent in both themes and viewport sizes", async ({ browser }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const plan = await db.businessPlan.upsert({ where: { code: "BUSINESS" }, update: {}, create: { code: "BUSINESS", name: "Business", monthlyPrice: 99, productLimit: 10, isActive: true } });
+    const subscription = await db.subscription.create({ data: { businessId: seeded.businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    try {
+      for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
+        try {
+          // Only the visual fixture loads a stub. Never authorize assets or send messages.
+          await context.route("https://connect.facebook.net/en_US/sdk.js", route => route.fulfill({ contentType: "application/javascript", body: "window.FB={init(){},login(){}};" }));
+          const page = await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/setup`, { waitUntil: "domcontentloaded" });
+          const action = page.getByRole("button", { name: "ربط حساب Meta", exact: true });
+          await expect(action).toBeEnabled();
+          await page.evaluate(() => document.fonts.ready);
+          const appearance = await action.evaluate(node => {
+            const css = getComputedStyle(node);
+            const luminance = (color: string) => {
+              const channels = (color.match(/\d+/g) ?? []).slice(0, 3).map(Number).map(value => { const x = value / 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4; });
+              return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+            };
+            const a = luminance(css.color), b = luminance(css.backgroundColor);
+            return { contrast: (Math.max(a,b) + .05) / (Math.min(a,b) + .05), weight: Number(css.fontWeight), size: parseFloat(css.fontSize), height: node.getBoundingClientRect().height, font: css.fontFamily };
+          });
+          expect(appearance.contrast).toBeGreaterThanOrEqual(4.5);
+          expect(appearance.weight).toBeGreaterThanOrEqual(600);
+          expect(appearance.size).toBeGreaterThanOrEqual(16);
+          expect(appearance.height).toBeGreaterThanOrEqual(48);
+          expect(appearance.font).toContain("Arabic");
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-meta-setup.png`, fullPage: true });
+          await action.focus();
+          expect(await action.evaluate(node => getComputedStyle(node).outlineStyle)).not.toBe("none");
+        } finally { await context.close(); }
+      }
+    } finally { await db.subscription.delete({ where: { id: subscription.id } }); }
+  });
   test("Salla journeys preview the selected sender template and save delayed drafts on mobile and desktop", async ({ browser }) => {
     test.setTimeout(180_000);
     if (!seeded) throw new Error("visual fixture missing");

@@ -9,7 +9,7 @@ const embeddedSignup = readFileSync("app/dashboard/whatsapp/setup/embedded-signu
 test("account operations center stays tenant scoped and Meta-only", () => {
   assert.match(source, /businessId: context\.businessId, provider: "meta"/);
   assert.match(source, /businessId: context\.businessId/g);
-  assert.match(source, /META EMBEDDED SIGNUP|WHATSAPP ACCOUNT OPERATIONS/);
+  assert.match(source, /حساب واتساب للأعمال/);
   assert.match(source, /Meta Cloud API/);
   assert.match(source, /لا QR ولا WhatsApp Web/);
   assert.doesNotMatch(source, /qrcode|whatsapp-web\.js|Baileys/i);
