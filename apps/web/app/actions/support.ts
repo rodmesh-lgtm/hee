@@ -8,6 +8,8 @@ import { getCurrentUserForWrites } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
 
+import { readSupportContext } from "../lib/support-context";
+
 const SUPPORT_EVENT = "support_requested";
 const DELETION_EVENT = "account_deletion_completed";
 const categories = new Set(["account", "billing", "technical", "privacy", "other"]);
@@ -29,6 +31,7 @@ export async function createSupportRequestAction(formData: FormData) {
   if (!business) redirect("/onboarding");
 
   const category = String(formData.get("category") ?? "other").trim().toLowerCase();
+  const context = readSupportContext(formData.get("context"));
   const subject = text(formData, "subject", 120);
   const message = text(formData, "message", 4000);
   if (!categories.has(category) || !subject || !message) redirect("/dashboard/support?error=invalid");
@@ -55,6 +58,7 @@ export async function createSupportRequestAction(formData: FormData) {
       metadata: {
         status: "open",
         category,
+        ...(context ? { context } : {}),
         subject,
         message,
         requestedByUserId: user.id,

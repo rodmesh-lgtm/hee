@@ -37,8 +37,11 @@ test.describe.serial("customer support and data rights", () => {
 
     try {
       await setSession(page, ownerToken);
-      await page.goto(`${baseUrl}/dashboard/support`, { waitUntil: "domcontentloaded" });
+      await page.goto(`${baseUrl}/dashboard/working-hours`, { waitUntil: "domcontentloaded" });
+      await page.getByRole("link", { name: "طلب مساعدة في هذه الصفحة" }).click();
+      await expect(page).toHaveURL(/\/dashboard\/support\?context=booking/);
       await expect(page.locator("#dashboard-main-content").getByRole("heading", { name: "الدعم والمساعدة" })).toBeVisible();
+      await expect(page.getByPlaceholder("صف المشكلة باختصار")).toHaveValue("مساعدة في المواعيد والحجوزات");
       await page.locator('select[name="category"]').selectOption("technical");
       await page.getByPlaceholder("صف المشكلة باختصار").fill("مشكلة اختبار الدعم");
       await page.getByPlaceholder(/اذكر التفاصيل/).fill("تفاصيل فنية لاختبار مسار دعم العميل وربط الطلب بالمنشأة الصحيحة.");
@@ -48,6 +51,7 @@ test.describe.serial("customer support and data rights", () => {
 
       const supportEvent = await db.analyticsEvent.findFirstOrThrow({ where: { businessId: business.id, eventType: "support_requested" }, orderBy: { createdAt: "desc" } });
       expect((supportEvent.metadata as { requestedByUserId?: string }).requestedByUserId).toBe(owner.id);
+      expect((supportEvent.metadata as { context?: string }).context).toBe("booking");
 
       const exportResponse = await page.request.get(`${baseUrl}/api/dashboard/export`);
       expect(exportResponse.status()).toBe(200);
@@ -64,6 +68,7 @@ test.describe.serial("customer support and data rights", () => {
       await expect(page.getByRole("heading", { name: "دعم العملاء" })).toBeVisible();
       const ticket = page.locator("article").filter({ hasText: "مشكلة اختبار الدعم" });
       await expect(ticket).toContainText("منشأة دعم الاختبار");
+      await expect(ticket).toContainText("القسم: المواعيد والحجوزات");
       const resolutionNote = "تم التحقق من طلب الاختبار ومعالجته وإبلاغ العميل بالنتيجة.";
       await ticket.getByRole("textbox", { name: "الرد النهائي للعميل" }).fill(resolutionNote);
       await ticket.getByRole("button", { name: "حفظ وإغلاق الطلب" }).click();

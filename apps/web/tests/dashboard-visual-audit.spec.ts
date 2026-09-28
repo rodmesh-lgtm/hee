@@ -330,6 +330,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     test.setTimeout(600_000);if(!seeded)throw new Error("visual fixture missing");
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/tools",name:"tools"},{path:"/dashboard/verification",name:"verification"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
     routes.push({path:"/dashboard/my-page",name:"my-page"},{path:"/dashboard/working-hours",name:"booking-schedule"},{path:"/dashboard/services",name:"services"},{path:"/dashboard/inbox",name:"inbox"},{path:"/dashboard/settings",name:"settings"});
+    routes.push({path:"/dashboard/support?context=meta",name:"contextual-support"});
     const viewports=[{name:"desktop",value:{width:1440,height:960}},{name:"mobile",value:{width:390,height:844}}] as const;
     const results:unknown[]=[];
     for(const viewport of viewports)for(const theme of ["light","dark"] as const){const context=await authenticatedContext(browser,viewport.value,theme,seeded.sessionToken);try{for(const route of routes)results.push(await auditRoute(context,{...route,theme,viewportName:viewport.name}));}finally{await context.close();}}
