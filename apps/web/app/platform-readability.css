@@ -28,6 +28,8 @@
 }
 [data-infro-home] > header a { min-height: 44px; }
 [data-infro-home] :is(h1,h2,h3) { text-wrap: balance; }
+/* Keep the published accent hue, but use a readable shade on pale sections. */
+main#home > section :is([class~="text-[#008f87]"]) { color: color-mix(in srgb, var(--brand-primary) 40%, #07181b) !important; }
 [data-public-page] nav a { min-height: 44px; }
 [data-public-page] [data-public-action-ribbon] :is(a,button) { font-size: .8125rem !important; }
 [data-public-page] [data-public-action-ribbon] a span { white-space: normal; text-align: center; line-height: 1.25; }
