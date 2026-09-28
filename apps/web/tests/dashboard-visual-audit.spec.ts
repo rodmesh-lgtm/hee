@@ -157,6 +157,14 @@ async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepag
       appleRegistration:[...document.querySelectorAll("a")].some(link=>(link.textContent??"").includes("Apple")),
       brokenImages:[...document.images].filter(image=>image.complete&&image.naturalWidth===0).map(image=>image.currentSrc||image.src),
     }));
+    const reading = await page.locator('[data-infro-home], [data-public-page], [data-auth-page]').first().evaluate(root => {
+      const style = getComputedStyle(root);
+      const fields = [...root.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]),select,textarea')].filter(node => node.getBoundingClientRect().width > 0);
+      return {font: style.fontFamily, size: parseFloat(style.fontSize), smallFields: fields.filter(node => parseFloat(getComputedStyle(node).fontSize) < 16).length};
+    });
+    expect(reading.font.toLowerCase()).toContain('ibm');
+    expect(reading.size).toBeGreaterThanOrEqual(16);
+    expect(reading.smallFields).toBe(0);
     if(input.name==="homepage"){
       await expect(page.getByRole("heading",{name:/هويتك الرقمية والتسويقية/})).toBeVisible();
       await expect(page.getByRole("link",{name:"عن INFRO"}).first()).toBeVisible();

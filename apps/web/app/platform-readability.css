@@ -1,0 +1,43 @@
+/* Explicit scopes also cover public dialogs rendered outside the profile root. */
+:is([data-infro-home], [data-public-page], [data-public-dialog], [data-auth-page], [data-admin-shell]) {
+  font-family: var(--font-ibm-plex-sans-arabic), var(--font-inter), sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+}
+:is([data-infro-home], [data-public-page], [data-public-dialog], [data-auth-page], [data-admin-shell]) :is(h1,h2,h3,label,button,nav a,b,strong) {
+  letter-spacing: 0;
+  font-weight: 700;
+}
+:is([data-infro-home], [data-public-page], [data-public-dialog], [data-auth-page], [data-admin-shell]) :is(.text-xs,[class~="text-[10px]"],[class~="text-[11px]"],[class~="text-[12px]"]) {
+  font-size: .875rem !important;
+  line-height: 1.65 !important;
+}
+:is([data-infro-home], [data-public-dialog], [data-auth-page], [data-admin-shell]) :is([class~="text-[7px]"],[class~="text-[8px]"],[class~="text-[9px]"]) {
+  font-size: .8125rem !important;
+  line-height: 1.6 !important;
+}
+:is([data-infro-home], [data-public-page], [data-public-dialog], [data-auth-page], [data-admin-shell]) :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) {
+  font-size: 1rem !important;
+  line-height: 1.5;
+  min-height: 44px;
+}
+:is([data-infro-home], [data-public-page], [data-public-dialog], [data-auth-page], [data-admin-shell]) button { min-height: 44px; }
+:is([data-public-page], [data-public-dialog], [data-auth-page]) :is(button,a):focus-visible {
+  outline: 3px solid #08756e;
+  outline-offset: 3px;
+}
+[data-infro-home] > header a { min-height: 44px; }
+[data-infro-home] :is(h1,h2,h3) { text-wrap: balance; }
+[data-public-page] nav a { min-height: 44px; }
+[data-public-page] [data-public-action-ribbon] :is(a,button) { font-size: .8125rem !important; }
+[data-public-page] [data-public-action-ribbon] a span { white-space: normal; text-align: center; line-height: 1.25; }
+[data-public-page] [data-public-action-ribbon] { gap: 4px; }
+[data-public-dialog] button { font-size: .9375rem; }
+[data-admin-shell] #admin-main-content h2 { font-size: 1.125rem; line-height: 1.65; }
+[data-admin-shell][data-dashboard-theme="light"] > aside nav a:not([aria-current="page"]) { color: #475569 !important; }
+[data-admin-shell][data-dashboard-theme="light"] > aside nav a[aria-current="page"] { background: #dff5f0 !important; color: #075d58 !important; }
+[data-admin-shell][data-dashboard-theme="dark"] > aside nav :is(a,section > div > span) { color: #b8cecb !important; }
+[data-admin-shell][data-dashboard-theme="light"] :is(button,a,[role="button"])[class~="bg-[#07181b]"] { background: #07181b !important; color: #fff !important; }
+@media (prefers-reduced-motion: reduce) {
+  [data-public-page] :is(a,button) { transition: none; }
+}
