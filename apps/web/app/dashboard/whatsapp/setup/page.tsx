@@ -91,7 +91,7 @@ export default async function WhatsAppSetupPage() {
           : { title: "الحساب جاهز للعمل", detail: "الرقم والقوالب الأساسية جاهزة؛ يمكنك الانتقال إلى الحملات أو المحادثات.", href: "/dashboard/whatsapp/campaigns", label: "فتح الحملات" };
 
   return <div className="min-w-0 space-y-5 pb-5">
-    <header className="relative overflow-hidden rounded-[30px] bg-[#061719] p-5 text-white shadow-[0_30px_80px_-50px_rgba(3,23,25,.9)] sm:p-7">
+    <header className="relative overflow-hidden rounded-[30px] bg-[#061619] p-5 text-white shadow-[0_30px_80px_-50px_rgba(3,23,25,.9)] sm:p-7">
       <div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#00d8c6]/20 blur-3xl" />
       <div className="absolute -bottom-24 right-1/3 h-52 w-52 rounded-full bg-[#118cff]/10 blur-3xl" />
       <div className="relative grid gap-6 xl:grid-cols-[1fr_360px] xl:items-start">
