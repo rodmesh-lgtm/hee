@@ -240,7 +240,9 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     }
   }
   const consent = await database.whatsAppConsent.findFirst({
-    where: { businessId: job.businessId, phoneE164: context.contact.phoneE164, revokedAt: null, consentedAt: { lte: now } }, select: { id: true },
+    where: { businessId: job.businessId, phoneE164: context.contact.phoneE164, revokedAt: null, consentedAt: { lte: now },
+      ...(context.run.event.triggerType === "abandoned_cart" ? { source: { not: "booking" } } : {}),
+    }, select: { id: true },
   });
   if (context.contact.optedOutAt || !consent) {
     await releaseAs(database, job, "cancelled", now, "OPT_OUT_OR_CONSENT_REVOKED");

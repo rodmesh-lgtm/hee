@@ -98,7 +98,7 @@ export async function processWhatsAppAutomationEvent(input: {
       if (!contact) throw new Error("WHATSAPP_AUTOMATION_CONTACT_NOT_FOUND");
       const consent = await tx.whatsAppConsent.findUnique({
         where: { businessId_phoneE164: { businessId: event.businessId, phoneE164: contact.phoneE164 } },
-        select: { revokedAt: true },
+        select: { revokedAt: true, source: true },
       });
       let eventSkipReason: string | null = null;
       let bookingConfirmationParameters: ReturnType<typeof buildBookingConfirmationTemplateParameters> | null = null;
@@ -181,7 +181,7 @@ export async function processWhatsAppAutomationEvent(input: {
         if (automation.businessId !== event.businessId) throw new Error("WHATSAPP_AUTOMATION_TENANT_MISMATCH");
         if (!automationMatchesEvent({ triggerType: automation.triggerType, triggerConfig: automation.triggerConfig, subjectType: event.subjectType })) continue;
         const key = automationIdempotencyKey({ businessId: event.businessId, automationId: automation.id, eventId: event.id, contactId: contact.id });
-        const skipReason = eventSkipReason ?? (contact.optedOutAt ? "contact_opted_out" : !consent || consent.revokedAt ? "marketing_consent_missing" : null);
+        const skipReason = eventSkipReason ?? (contact.optedOutAt ? "contact_opted_out" : !consent || consent.revokedAt || (event.triggerType === "abandoned_cart" && consent.source === "booking") ? "marketing_consent_missing" : null);
         const cooldownSince = new Date(now.getTime() - automation.cooldownMinutes * 60_000);
         const recentlyRun = automation.cooldownMinutes > 0 && await tx.whatsAppAutomationRun.findFirst({
           where: { businessId: event.businessId, automationId: automation.id, contactId: contact.id, createdAt: { gte: cooldownSince }, status: { in: ["queued", "completed"] } },
