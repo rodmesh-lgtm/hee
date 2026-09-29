@@ -8,7 +8,7 @@ test("contacts page uses customer-facing audience language and actionable empty 
   assert.match(page, /مساحة الجمهور والموافقات/);
   assert.match(page, /الموافقة ليست مجرد رقم في قاعدة البيانات/);
   assert.match(page, /يحتاج موافقة/);
-  assert.match(page, /Opt-out/);
+  assert.match(page, /منسحب من الرسائل/);
   assert.match(page, /استيراد ملف/);
   assert.match(page, /لا توجد عمليات استيراد بعد/);
   assert.match(page, /aria-live="polite"/);
