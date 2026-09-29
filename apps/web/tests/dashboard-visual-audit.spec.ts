@@ -608,7 +608,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
     const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60000), endsAt: new Date(Date.now() + 86400000), autoRenew: false } });
     const foreign = await db.business.create({ data: { ownerId: seeded.adminUserId, planId: plan.id, name: "رابط منشأة أخرى", businessType: "خدمات", slug: `foreign-link-${crypto.randomUUID()}` } });
-    const otherLink = await db.businessShortLink.create({ data: { businessId: foreign.id, code: "foreignLink01", title: "FOREIGN_LINK_DO_NOT_SHOW", destination: "https://example.com/foreign" } });
+    const otherLink = await db.businessShortLink.create({ data: { businessId: foreign.id, code: crypto.randomUUID().replaceAll("-", "").slice(0, 12), title: "FOREIGN_LINK_DO_NOT_SHOW", destination: "https://example.com/foreign" } });
     const destination = "https://example.com/products/booking?utm_source=whatsapp&utm_campaign=summer#details";
     try {
       expect((await request.get(`${baseUrl}/api/dashboard/short-links/export`)).status()).toBe(403);
