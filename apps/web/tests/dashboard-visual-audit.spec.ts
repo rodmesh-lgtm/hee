@@ -373,7 +373,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
           if (theme === "dark") expect(await page.locator("article").evaluate(node => { const rgb = getComputedStyle(node.parentElement!.parentElement!).backgroundColor.match(/\d+/g)?.slice(0,3).map(Number); return rgb?.every(value => value > 220); })).toBe(false);
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-cart-report.png`, fullPage: true });
-          await page.getByLabel("الحالة", { exact: true }).selectOption("recovered");
+          await page.locator('select[name="state"]').selectOption("recovered");
           await page.getByRole("button", { name: "بحث", exact: true }).click();
           await expect(page.locator("article")).toHaveCount(0);
           console.info("commerce audit: cart filtering verified", viewport.name, theme);
