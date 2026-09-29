@@ -7,7 +7,7 @@ test("WhatsApp dashboard reports real section readiness instead of static availa
   assert.match(page, /status:\s*connected\s*\?\s*"متصل رسميًا"\s*:\s*"يتطلب ربط Meta"/);
   assert.match(page, /"متطلبات ناقصة"/);
   assert.match(page, /"تحتاج مزامنة"/);
-  assert.match(page, /سلة وزد تبقيان مغلقتين/);
+  assert.match(page, /تكامل زد الحي يحتاج استكمال بيانات التطبيق الرسمي/);
   assert.match(page, /getWhatsAppCampaignLaunchReadiness/);
   assert.match(page, /worker_release_mismatch/);
   assert.match(page, /launchReadiness\.ready/);

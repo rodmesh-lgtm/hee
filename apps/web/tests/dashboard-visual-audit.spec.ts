@@ -344,6 +344,61 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     for(const adminViewport of [{viewportName:"desktop",viewport:{width:1440,height:960}},{viewportName:"tablet",viewport:{width:768,height:1024}},{viewportName:"mobile",viewport:{width:390,height:844}}])for(const theme of ["light","dark"] as const)results.push(...await auditAdminRoute(browser,{...adminViewport,theme,token:seeded.adminSessionToken,businessId:seeded.businessId}));
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
   });
+  test("commerce workspace isolates carts and offers compatible Arabic template drafts", async ({ browser }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId;
+    const suffix = crypto.randomUUID();
+    const plan = await db.businessPlan.upsert({ where: { code: "BUSINESS" }, update: {}, create: { code: "BUSINESS", name: "Business", monthlyPrice: 99, productLimit: 10, isActive: true } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now()-60_000), endsAt: new Date(Date.now()+86_400_000), autoRenew: false } });
+    const foreign = await db.business.create({ data: { ownerId: seeded.adminUserId, planId: plan.id, name: "FOREIGN_CART_PRIVATE", slug: `cart-foreign-${suffix}`, businessType: "test" } });
+    const contact = await db.whatsAppContact.create({ data: { businessId, phoneE164: "+966500000119", displayName: "عميل اختبار السلة", source: "test" } });
+    const otherContact = await db.whatsAppContact.create({ data: { businessId: foreign.id, phoneE164: "+966500000118", displayName: "FOREIGN_CART_PRIVATE", source: "test" } });
+    const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `cart-${suffix}`, phoneNumberId: `cart-${suffix}`, marketingEnabled: true, credentialEnvelope: { testOnly: true } } });
+    await db.whatsAppAutomationCart.createMany({ data: [
+      { businessId, contactId: contact.id, cartId: "cart-visible", state: "abandoned", sourceEventId: `own-${suffix}`, occurredAt: new Date() },
+      { businessId: foreign.id, contactId: otherContact.id, cartId: "FOREIGN_CART_PRIVATE", state: "abandoned", sourceEventId: `other-${suffix}`, occurredAt: new Date() },
+    ] });
+    try {
+      for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
+        const page = await context.newPage();
+        try {
+          await page.goto(`${baseUrl}/dashboard/whatsapp/carts`, { waitUntil: "domcontentloaded" });
+          await expect(page.getByRole("heading", { name: "السلال المتروكة والمتابعة" })).toBeVisible();
+          await expect(page.locator("article")).toHaveCount(1);
+          await expect(page.locator("article")).toContainText("cart-visible");
+          await expect(page.locator("body")).not.toContainText("FOREIGN_CART_PRIVATE");
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+          if (theme === "dark") expect(await page.locator("article").evaluate(node => { const rgb = getComputedStyle(node.parentElement!.parentElement!).backgroundColor.match(/\d+/g)?.slice(0,3).map(Number); return rgb?.every(value => value > 220); })).toBe(false);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-cart-report.png`, fullPage: true });
+          await page.getByLabel("الحالة", { exact: true }).selectOption("recovered");
+          await page.getByRole("button", { name: "بحث", exact: true }).click();
+          await expect(page.locator("article")).toHaveCount(0);
+          await page.goto(`${baseUrl}/dashboard/whatsapp/templates`, { waitUntil: "domcontentloaded" });
+          await page.getByText("إنشاء قالب أو تعديل قالب موجود", { exact: true }).click();
+          await page.getByLabel("ابدأ بنموذج عربي", { exact: false }).selectOption("booking");
+          await expect(page.locator('textarea[name="body"]')).toHaveValue(/رقم الحجز: \{\{7\}\}/);
+          await expect(page.locator('select[name="category"]')).toHaveValue("UTILITY");
+          await page.getByLabel("ابدأ بنموذج عربي", { exact: false }).selectOption("cart");
+          await expect(page.locator('select[name="category"]')).toHaveValue("MARKETING");
+          await expect(page.locator('input[name="examples"]')).toHaveValue("");
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-starters.png`, fullPage: true });
+          // No submit: this test must never contact Meta or send messages.
+        } finally { await context.close(); }
+      }
+      await db.subscription.delete({ where: { id: subscription.id } });
+      const context = await authenticatedContext(browser, { width: 390, height: 844 }, "light", seeded.sessionToken);
+      try { const page = await context.newPage(); await page.goto(`${baseUrl}/dashboard/whatsapp/carts`); await expect(page).toHaveURL(/dashboard\/billing\/manage/); } finally { await context.close(); }
+    } finally {
+      await db.whatsAppAutomationCart.deleteMany({ where: { businessId: { in: [businessId, foreign.id] } } });
+      await db.whatsAppContact.deleteMany({ where: { id: { in: [contact.id, otherContact.id] } } });
+      await db.whatsAppConnection.delete({ where: { id: connection.id } });
+      await db.subscription.deleteMany({ where: { id: subscription.id } });
+      await db.business.delete({ where: { id: foreign.id } });
+    }
+  });
   test("Meta connection action remains readable and prominent in both themes and viewport sizes", async ({ browser }) => {
     test.setTimeout(180_000);
     if (!seeded) throw new Error("visual fixture missing");
