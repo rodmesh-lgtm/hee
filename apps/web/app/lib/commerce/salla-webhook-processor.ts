@@ -7,6 +7,8 @@ import { writeWhatsAppAuditLog } from "../whatsapp/audit";
 import { mapSallaOrderWebhook } from "./salla-domain";
 import { enqueueSallaOrderConfirmation } from "./salla-order-confirmation";
 import { enqueueSallaOrderStatus } from "./salla-order-journeys";
+import { mapSallaCartWebhook, SALLA_CART_EVENTS } from "./salla-cart-domain";
+import { processSallaCartTransition } from "./salla-cart-processor";
 
 const MAX_ATTEMPTS = 8;
 const LEASE_MS = 5 * 60_000;
@@ -44,7 +46,7 @@ export async function processSallaWebhookEvent(input: {
   try {
     const event = await database.sallaWebhookEvent.findFirst({
       where: { id: input.eventId, status: "processing", leaseOwner: input.workerId },
-      include: { integration: { select: { businessId: true, provider: true, status: true } } },
+      include: { integration: { select: { businessId: true, provider: true, status: true, externalStoreId: true } } },
     });
     if (!event) throw new Error("SALLA_WEBHOOK_LEASE_LOST");
     if (event.integration.businessId !== event.businessId || event.integration.provider !== "salla" || event.integration.status !== "active") {
@@ -57,6 +59,20 @@ export async function processSallaWebhookEvent(input: {
         select: { id: true },
       });
       if (!leased) throw new Error("SALLA_WEBHOOK_LEASE_LOST");
+      if ((SALLA_CART_EVENTS as readonly string[]).includes(event.eventType)) {
+        const cart = mapSallaCartWebhook(event.payload, event.integration.externalStoreId, now);
+        const result = cart.kind === "cart"
+          ? await processSallaCartTransition(tx, { businessId: event.businessId, integrationId: event.integrationId, eventId: event.eventId, transition: cart.transition, now })
+          : { reason: cart.reason, scheduled: 0 };
+        await tx.sallaWebhookEvent.update({ where: { id: event.id }, data: {
+          status: cart.kind === "cart" ? "processed" : "ignored", processedAt: now, leaseOwner: null, leaseExpiresAt: null,
+          lastErrorCode: ["applied", "stale"].includes(result.reason) ? null : `SALLA_${result.reason.toUpperCase()}`,
+        } });
+        await writeWhatsAppAuditLog({ businessId: event.businessId, actorType: "worker", action: "commerce.salla.cart.process",
+          targetType: "salla_webhook_event", targetId: event.id, outcome: "success",
+          metadata: { reason: result.reason, scheduled: result.scheduled }, database: tx });
+        return { processed: true as const, ignored: cart.kind === "ignored", reason: result.reason };
+      }
       if (mapping.kind === "ignored") {
         await tx.sallaWebhookEvent.update({
           where: { id: event.id },

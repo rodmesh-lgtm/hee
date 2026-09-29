@@ -1291,9 +1291,24 @@ model WhatsAppCommerceIntegration {
   automationCartEvents WhatsAppAutomationCartEvent[]
   sallaWebhookEvents SallaWebhookEvent[]
   bookingEligibilities CommerceBookingEligibility[]
+  sallaCartStates SallaCartState[]
   @@unique([businessId, provider, externalStoreId], map: "WhatsAppCommerceIntegration_tenant_store_unique")
   @@unique([id, businessId], map: "WhatsAppCommerceIntegration_id_business_unique")
   @@index([businessId, provider, status], map: "WhatsAppCommerceIntegration_business_status_idx")
+}
+
+model SallaCartState {
+  id String @id @default(uuid())
+  businessId String
+  integrationId String
+  externalCartId String
+  state String
+  occurredAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  integration WhatsAppCommerceIntegration @relation(fields: [integrationId, businessId], references: [id, businessId], onDelete: Restrict)
+  @@unique([integrationId, externalCartId], map: "SallaCartState_integration_cart_unique")
+  @@index([businessId, state], map: "SallaCartState_business_state_idx")
 }
 
 model SallaWebhookEvent {

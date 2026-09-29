@@ -49,7 +49,8 @@ test("cart transitions are serialized, monotonic, idempotent and consent aware",
 
 test("abandonment is delayed while recovery and completion cancel pending work", () => {
   assert.match(lifecycle, /processAt: new Date\(input\.occurredAt\.getTime\(\) \+ delayMinutes \* 60_000\)/);
-  assert.match(lifecycle, /const source = input\.integrationId \? "shopify\.webhook" : "tenant\.api\.cart"/);
+  assert.match(lifecycle, /const provider = input\.integrationProvider \?\? "shopify"/);
+  assert.ok(lifecycle.includes('const source = input.integrationId ? `${provider}.webhook` : "tenant.api.cart"'));
   assert.match(lifecycle, /source,/);
   assert.match(lifecycle, /status: \{ in: \["pending", "retry_scheduled"\] \}/);
   assert.match(lifecycle, /status: "cancelled", lastErrorCode: "CART_NO_LONGER_ABANDONED"/);

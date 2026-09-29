@@ -120,6 +120,8 @@ jobs:
         run: npm run lint
       - name: Run unit tests
         run: npm run test:unit
+      - name: Verify Salla cart lifecycle without sending messages
+        run: node --conditions=react-server --import tsx scripts/salla-cart-lifecycle-audit.ts
       - name: Production build
         run: npm run build
       - name: Install Playwright Chromium
