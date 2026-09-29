@@ -344,6 +344,56 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     for(const adminViewport of [{viewportName:"desktop",viewport:{width:1440,height:960}},{viewportName:"tablet",viewport:{width:768,height:1024}},{viewportName:"mobile",viewport:{width:390,height:844}}])for(const theme of ["light","dark"] as const)results.push(...await auditAdminRoute(browser,{...adminViewport,theme,token:seeded.adminSessionToken,businessId:seeded.businessId}));
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
   });
+  test("account sessions are private and revocation preserves the current login", async ({ browser }) => {
+    test.setTimeout(120_000);
+    if (!seeded) throw new Error("seed missing");
+    const { userId, adminUserId, sessionToken } = seeded;
+    const otherToken = crypto.randomUUID(), foreignToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 3600_000);
+    const other = await db.session.create({ data: { userId, token: otherToken, expiresAt } });
+    const foreign = await db.session.create({ data: { userId: adminUserId, token: foreignToken, expiresAt } });
+    const current = await db.session.findUniqueOrThrow({ where: { token: sessionToken } });
+    try {
+      for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) {
+        for (const theme of ["light", "dark"] as const) {
+          const context = await authenticatedContext(browser, viewport, theme, sessionToken);
+          try {
+            const page = await context.newPage(); page.setDefaultTimeout(15_000);
+            await page.goto(`${baseUrl}/dashboard/settings/sessions`);
+            await expect(page.getByRole("heading", { name: "جلسات الدخول", exact: true })).toBeVisible();
+            await expect(page.locator('section[aria-label="قائمة جلسات الحساب"] article')).toHaveCount(2);
+            expect(await page.content()).not.toContain(otherToken);
+            expect(await page.content()).not.toContain(foreignToken);
+            expect(await page.content()).not.toContain(foreign.id);
+            expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+            await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-account-sessions.png`, fullPage: true });
+          } finally { await context.close(); }
+        }
+      }
+      const context = await authenticatedContext(browser, { width: 390, height: 844 }, "light", sessionToken);
+      try {
+        const page = await context.newPage(); page.setDefaultTimeout(15_000);
+        page.on("dialog", dialog => dialog.accept());
+        await page.goto(`${baseUrl}/dashboard/settings/sessions`);
+        await page.locator('input[name="sessionId"]').evaluate((element, value) => { (element as HTMLInputElement).value = value; }, foreign.id);
+        await page.getByRole("button", { name: "إنهاء الجلسة", exact: true }).click();
+        await expect(page).toHaveURL(/result=unchanged/);
+        expect(await db.session.findUnique({ where: { id: foreign.id } })).not.toBeNull();
+        await page.locator('input[name="sessionId"]').evaluate((element, value) => { (element as HTMLInputElement).value = value; }, current.id);
+        await page.getByRole("button", { name: "إنهاء الجلسة", exact: true }).click();
+        await expect(page).toHaveURL(/result=current/);
+        await page.getByRole("button", { name: "إنهاء جميع الجلسات الأخرى", exact: true }).click();
+        await expect(page).toHaveURL(/result=revoked/);
+        await expect(page.locator('section[aria-label="قائمة جلسات الحساب"] article')).toHaveCount(1);
+        expect(await db.session.findUnique({ where: { id: other.id } })).toBeNull();
+        expect(await db.session.findUnique({ where: { id: current.id } })).not.toBeNull();
+        expect(await db.session.findUnique({ where: { id: foreign.id } })).not.toBeNull();
+      } finally { await context.close(); }
+      const revokedContext = await authenticatedContext(browser, { width: 390, height: 844 }, "light", otherToken);
+      try { const page = await revokedContext.newPage(); await page.goto(`${baseUrl}/dashboard/settings/sessions`); await expect(page).toHaveURL(/\/login/); } finally { await revokedContext.close(); }
+    } finally { await db.session.deleteMany({ where: { id: { in: [other.id, foreign.id] } } }); }
+  });
+
   test("commerce workspace isolates carts and offers compatible Arabic template drafts", async ({ browser }) => {
     test.setTimeout(180_000);
     if (!seeded) throw new Error("visual fixture missing");

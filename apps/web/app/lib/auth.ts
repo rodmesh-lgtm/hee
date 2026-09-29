@@ -83,6 +83,17 @@ export async function getCurrentUserForApiWrite() {
   return user;
 }
 
+// Session identifiers are safe for account management; bearer tokens and their
+// stored hashes must never leave this server-side lookup.
+export async function getCurrentSessionIdForUser(userId: string) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
+  if (!token || token.startsWith(QA_TOKEN_PREFIX) || looksLikeStoredSessionToken(token)) return null;
+  const candidates = [sessionStorageToken(token), ...(allowLegacyPlaintextSessions() ? [token] : [])];
+  const session = await db.session.findFirst({ where: { userId, token: { in: candidates }, expiresAt: { gt: new Date() } }, select: { id: true } });
+  return session?.id ?? null;
+}
+
 export async function getCurrentUserForWrites() {
   const user = await getCurrentUserForApiWrite();
   if (!user) redirect("/login");
