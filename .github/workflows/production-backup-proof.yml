@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 30
     environment: production
     env:
+      PGSSLROOTCERT: system
       DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
       RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
       EXPECTED_PRODUCTION_DB_HOST: ${{ vars.PRODUCTION_DATABASE_HOST }}
@@ -35,6 +36,29 @@ jobs:
           test -n "$RESTORE_DATABASE_URL" || (echo "PRODUCTION_RESTORE_DATABASE_URL is not configured" && exit 1)
           test -n "$PRODUCTION_BACKUP_PASSPHRASE" || (echo "PRODUCTION_BACKUP_PASSPHRASE is not configured" && exit 1)
           test "${#PRODUCTION_BACKUP_PASSPHRASE}" -ge 32 || (echo "PRODUCTION_BACKUP_PASSPHRASE must be at least 32 characters" && exit 1)
+
+      - name: Install PostgreSQL 17 client tools
+        working-directory: .
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          codename="$(. /etc/os-release && printf '%s' "$VERSION_CODENAME")"
+          printf '%s\n' \
+            'Types: deb' \
+            'URIs: https://apt.postgresql.org/pub/repos/apt' \
+            "Suites: ${codename}-pgdg" \
+            'Components: main' \
+            'Signed-By: /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc' \
+            | sudo tee /etc/apt/sources.list.d/pgdg.sources >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+          echo '/usr/lib/postgresql/17/bin' >> "$GITHUB_PATH"
 
       - name: Create production backup
         run: |

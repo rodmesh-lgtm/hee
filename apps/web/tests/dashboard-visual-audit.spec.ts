@@ -40,6 +40,7 @@ async function seedWorkspace():Promise<Seeded>{
 }
 
 async function cleanupWorkspace(value:Seeded){
+  await db.businessShortLink.deleteMany({where:{businessId:value.businessId}});
   await db.sallaWebhookEvent.deleteMany({where:{businessId:value.businessId}});
   await db.whatsAppCommerceIntegration.deleteMany({where:{businessId:value.businessId}});
   await db.workingHours.deleteMany({where:{businessId:value.businessId}});
@@ -600,6 +601,71 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.subscription.deleteMany({ where: { id: subscription.id } });
     }
   });
+  test("short links isolate tenants, redirect atomically and remain usable on mobile", async ({ browser, request }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId;
+    const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60000), endsAt: new Date(Date.now() + 86400000), autoRenew: false } });
+    const foreign = await db.business.create({ data: { ownerId: seeded.adminUserId, planId: plan.id, name: "رابط منشأة أخرى", businessType: "خدمات", slug: `foreign-link-${crypto.randomUUID()}` } });
+    const otherLink = await db.businessShortLink.create({ data: { businessId: foreign.id, code: "foreignLink01", title: "FOREIGN_LINK_DO_NOT_SHOW", destination: "https://example.com/foreign" } });
+    const destination = "https://example.com/products/booking?utm_source=whatsapp&utm_campaign=summer#details";
+    try {
+      expect((await request.get(`${baseUrl}/api/dashboard/short-links/export`)).status()).toBe(403);
+      for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, theme === "light" ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, theme, seeded.sessionToken);
+        try {
+          const page = await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/links`);
+          const form = page.getByRole("form", { name: "إنشاء رابط مختصر" });
+          await form.locator('[name="title"]').fill(`رابط اختبار ${theme}`);
+          await form.locator('[name="destination"]').fill(destination);
+          await form.getByRole("button").click();
+          await expect(page).toHaveURL(/result=created/);
+          const link = await db.businessShortLink.findFirstOrThrow({ where: { businessId, title: `رابط اختبار ${theme}` } });
+          expect(await page.locator("body").innerText()).not.toContain(otherLink.title);
+          const path = `${baseUrl}/s/${link.code}`;
+          const options = { maxRedirects: 0, headers: { "user-agent": "Mozilla/5.0 Safari/537.36" } };
+          const clicks = await Promise.all(Array.from({ length: 5 }, () => request.get(path, options)));
+          for (const click of clicks) { expect(click.status()).toBe(302); expect(click.headers().location).toBe(destination); }
+          await request.head(path, options);
+          await request.get(path, { maxRedirects: 0, headers: { "user-agent": "facebookexternalhit/1.1" } });
+          expect((await db.businessShortLink.findUniqueOrThrow({ where: { id: link.id } })).clicks).toBe(5n);
+          const card = page.getByRole("article", { name: `رابط رابط اختبار ${theme}`, exact: true });
+          // Tampering with a submitted id cannot modify a different tenant.
+          const toggle = card.locator('form').filter({ has: page.getByRole("button", { name: "تعطيل", exact: true }) });
+          await toggle.locator('[name="id"]').evaluate((node, id) => { (node as HTMLInputElement).value = id; }, otherLink.id);
+          await toggle.getByRole("button").click();
+          await expect(page).toHaveURL(/result=unavailable/);
+          expect((await db.businessShortLink.findUniqueOrThrow({ where: { id: otherLink.id } })).status).toBe("active");
+          await card.getByRole("button", { name: "تعطيل", exact: true }).click();
+          await expect(page).toHaveURL(/result=updated/);
+          expect((await request.get(path, options)).status()).toBe(404);
+          await card.getByRole("button", { name: "تفعيل", exact: true }).click();
+          await expect(page).toHaveURL(/result=updated/);
+          await card.getByText("تعديل الاسم أو الوجهة", { exact: true }).click();
+          await card.locator('[name="destination"]').fill("https://example.com/new?utm_source=changed");
+          await card.getByRole("button", { name: "حفظ التعديل", exact: true }).click();
+          await expect.poll(async () => (await request.head(path, options)).headers().location).toBe("https://example.com/new?utm_source=changed");
+          const csv = await context.request.get(`${baseUrl}/api/dashboard/short-links/export`);
+          expect(csv.status()).toBe(200);
+          expect(await csv.text()).toContain(`https://ir.sa/s/${link.code}`);
+          expect(await csv.text()).not.toContain(otherLink.title);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          await page.screenshot({ path: `${outDir}/${theme}-short-links.png`, fullPage: true });
+          page.once("dialog", dialog => dialog.accept());
+          await card.getByRole("button", { name: "حذف", exact: true }).click();
+          await expect(card).toHaveCount(0);
+          expect((await request.get(path, options)).status()).toBe(404);
+          await expect(db.businessShortLink.update({ where: { id: link.id }, data: { status: "active" } })).rejects.toThrow();
+        } finally { await context.close(); }
+      }
+    } finally {
+      await db.businessShortLink.deleteMany({ where: { businessId: { in: [businessId, foreign.id] } } });
+      await db.business.delete({ where: { id: foreign.id } });
+      await db.subscription.delete({ where: { id: subscription.id } });
+    }
+  });
   test("campaign retries and studio stay clear on mobile and desktop", async ({ browser, request }) => {
     test.setTimeout(180_000);
     if (!seeded) throw new Error("visual fixture missing");
@@ -672,6 +738,9 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.getByLabel("قيمة body:1", { exact: true })).toHaveValue("115.00 SAR");
           await picker.getByRole("button", { name: "إدراج رابط المنتج", exact: true }).click();
           await expect(page.getByLabel("قيمة body:1", { exact: true })).toHaveValue("https://store.example.com/p123");
+          await expect(page.getByLabel("قيمة body:1", { exact: true })).toHaveValue(/^https:\/\/ir\.sa\/s\/[A-Za-z0-9_-]{12}$/, { timeout: 15000 });
+          const automatic = await db.businessShortLink.findFirstOrThrow({ where: { businessId, destination: "https://store.example.com/p123", status: "active" } });
+          await expect(page.getByLabel("قيمة body:1", { exact: true })).toHaveValue(`https://ir.sa/s/${automatic.code}`);
           await picker.screenshot({ path: `${outDir}/${viewport.name}-${theme}-salla-product-picker.png` });
           await page.unroute("**/api/commerce/salla/products?*");
           await page.getByLabel("قيمة body:1", { exact: true }).fill("عميلنا المميز");

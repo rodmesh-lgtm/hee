@@ -197,11 +197,27 @@ model Business {
   whatsappShopifyWebhookSyncs WhatsAppShopifyWebhookSync[]
   sallaWebhookEvents SallaWebhookEvent[]
   commerceBookingEligibilities CommerceBookingEligibility[]
+  shortLinks BusinessShortLink[]
   @@index([ownerId])
   @@index([planId])
   @@index([slug])
   @@index([isPublished])
   @@index([deletedAt])
+}
+
+model BusinessShortLink {
+  id String @id @default(uuid())
+  businessId String
+  code String @unique
+  title String
+  destination String
+  status String @default("active")
+  clicks BigInt @default(0)
+  lastClickedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  @@index([businessId, status, createdAt])
 }
 
 model Category {

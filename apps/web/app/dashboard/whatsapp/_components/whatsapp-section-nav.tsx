@@ -11,6 +11,7 @@ const items = [
   ["/dashboard/whatsapp/campaigns", "الحملات", Megaphone, false],
   ["/dashboard/whatsapp/insights", "الأداء", BarChart3, false],
   ["/dashboard/whatsapp/carts", "السلال المتروكة", ShoppingCart, false],
+  ["/dashboard/whatsapp/links", "الروابط المختصرة", Link2, false],
   ["/dashboard/whatsapp/automations", "الأتمتة", Workflow, false],
   ["/dashboard/whatsapp/integrations", "التكاملات", Plug, false],
   ["/dashboard/whatsapp/inbox", "المحادثات", Inbox, false],
