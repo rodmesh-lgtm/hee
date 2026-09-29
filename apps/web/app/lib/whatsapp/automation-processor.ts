@@ -150,11 +150,15 @@ export async function processWhatsAppAutomationEvent(input: {
         }
       }
       if (event.triggerType === "abandoned_cart") {
+        const sourceActive = event.source !== "salla.webhook" || Boolean(await tx.whatsAppAutomationCartEvent.findFirst({
+          where: { businessId: event.businessId, cartId: event.subjectId, source: "salla.webhook",
+            integration: { businessId: event.businessId, provider: "salla", status: "active" } }, select: { id: true },
+        }));
         const cart = event.subjectType === "cart.abandoned" ? await tx.whatsAppAutomationCart.findUnique({
           where: { businessId_cartId: { businessId: event.businessId, cartId: event.subjectId } },
           select: { contactId: true, state: true, occurredAt: true },
         }) : null;
-        if (!cart || cart.state !== "abandoned" || cart.contactId !== contact.id || cart.occurredAt.getTime() !== event.occurredAt.getTime()) {
+        if (!sourceActive || !cart || cart.state !== "abandoned" || cart.contactId !== contact.id || cart.occurredAt.getTime() !== event.occurredAt.getTime()) {
           eventSkipReason = "cart_no_longer_abandoned";
         }
       }

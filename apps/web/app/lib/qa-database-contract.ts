@@ -81,6 +81,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260920103000_fix_e164_database_checks",
   "20260920122000_whatsapp_care_assignment_sla",
   "20260925050000_whatsapp_order_journey_triggers",
+  "20260929073000_salla_cart_lifecycle",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

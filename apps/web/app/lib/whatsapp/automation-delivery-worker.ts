@@ -226,11 +226,15 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     }
   }
   if (context.run.event.triggerType === "abandoned_cart") {
+    const sourceActive = context.run.event.source !== "salla.webhook" || Boolean(await database.whatsAppAutomationCartEvent.findFirst({
+      where: { businessId: job.businessId, cartId: context.run.event.subjectId, source: "salla.webhook",
+        integration: { businessId: job.businessId, provider: "salla", status: "active" } }, select: { id: true },
+    }));
     const cart = context.run.event.subjectType === "cart.abandoned" ? await database.whatsAppAutomationCart.findUnique({
       where: { businessId_cartId: { businessId: job.businessId, cartId: context.run.event.subjectId } },
       select: { contactId: true, state: true, occurredAt: true },
     }) : null;
-    if (!cart || cart.state !== "abandoned" || cart.contactId !== context.contact.id || cart.occurredAt.getTime() !== context.run.event.occurredAt.getTime()) {
+    if (!sourceActive || !cart || cart.state !== "abandoned" || cart.contactId !== context.contact.id || cart.occurredAt.getTime() !== context.run.event.occurredAt.getTime()) {
       await releaseAs(database, job, "cancelled", now, "CART_NO_LONGER_ABANDONED");
       return { processed: true as const, result: "cart_closed" as const, jobId: job.id };
     }

@@ -11,6 +11,7 @@ export type WhatsAppAutomationCartState = "active" | "abandoned" | "recovered" |
 type CartDb = Pick<PrismaClient, "$transaction">;
 type CartTransitionInput = {
   businessId: string; apiKeyId?: string; integrationId?: string; externalEventId: string; cartId: string;
+  integrationProvider?: "shopify" | "salla";
   contactId?: string; phoneE164?: string; state: WhatsAppAutomationCartState;
   occurredAt: Date; now?: Date;
 };
@@ -44,7 +45,8 @@ export async function applyWhatsAppAutomationCartTransitionInTransaction(
   now = input.now ?? new Date(),
 ) {
   if (Boolean(input.apiKeyId) === Boolean(input.integrationId)) throw new Error("WHATSAPP_AUTOMATION_CART_ACTOR_INVALID");
-  const source = input.integrationId ? "shopify.webhook" : "tenant.api.cart";
+  const provider = input.integrationProvider ?? "shopify";
+  const source = input.integrationId ? `${provider}.webhook` : "tenant.api.cart";
     if (input.apiKeyId) {
       const activeKeys = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
         SELECT "id" FROM "WhatsAppAutomationApiKey"
@@ -56,7 +58,7 @@ export async function applyWhatsAppAutomationCartTransitionInTransaction(
       const integrations = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
         SELECT "id" FROM "WhatsAppCommerceIntegration"
         WHERE "id" = ${input.integrationId} AND "businessId" = ${input.businessId}
-          AND "provider" = 'shopify' AND "status" = 'active'
+          AND "provider" = ${provider} AND "status" = 'active'
         FOR SHARE
       `);
       if (!integrations[0]) throw new Error("WHATSAPP_SHOPIFY_INTEGRATION_INACTIVE");
@@ -77,11 +79,15 @@ export async function applyWhatsAppAutomationCartTransitionInTransaction(
       }
       return { replay: true as const, outcome: replay.outcome, scheduled: 0, cancelledEvents: 0, cancelledJobs: 0 };
     }
+    let maySchedule = true;
     if (input.state === "abandoned") {
       const consent = await tx.whatsAppConsent.findFirst({
         where: { businessId: input.businessId, phoneE164: contact.phoneE164, revokedAt: null, consentedAt: { lte: input.occurredAt } }, select: { id: true },
       });
-      if (contact.optedOutAt || !consent) throw new Error("WHATSAPP_AUTOMATION_CART_CONTACT_NOT_ELIGIBLE");
+      maySchedule = !(contact.optedOutAt || !consent);
+      // Observing a Salla cart is not marketing consent. Keep its state for
+      // reporting/cancellation, but never create messaging work without consent.
+      if (!maySchedule && provider !== "salla") throw new Error("WHATSAPP_AUTOMATION_CART_CONTACT_NOT_ELIGIBLE");
     }
 
     const current = await tx.whatsAppAutomationCart.findUnique({
@@ -90,7 +96,7 @@ export async function applyWhatsAppAutomationCartTransitionInTransaction(
     });
     const sameTime = Boolean(current && input.occurredAt.getTime() === current.occurredAt.getTime());
     if (input.apiKeyId && sameTime) throw new Error("WHATSAPP_AUTOMATION_CART_STATE_CONFLICT");
-    const shopifyTerminal = Boolean(input.integrationId && current && ["recovered", "completed"].includes(current.state) && input.state === "active");
+    const shopifyTerminal = Boolean(input.integrationId && current && ["recovered", "completed"].includes(current.state) && (input.state === "active" || (provider === "salla" && input.state === "abandoned")));
     const shopifySameOrLower = Boolean(input.integrationId && current && sameTime
       && ({ active: 0, abandoned: 1, recovered: 2, completed: 3 }[input.state] <= { active: 0, abandoned: 1, recovered: 2, completed: 3 }[current.state as WhatsAppAutomationCartState]));
     const stale = Boolean(current && (input.occurredAt < current.occurredAt || shopifyTerminal || shopifySameOrLower));
@@ -118,7 +124,7 @@ export async function applyWhatsAppAutomationCartTransitionInTransaction(
     }
 
     let scheduled = 0, cancelledEvents = 0, cancelledJobs = 0;
-    if (input.state === "abandoned") {
+    if (input.state === "abandoned" && maySchedule && !(provider === "salla" && current?.state === "abandoned")) {
       const automations = await tx.whatsAppAutomation.findMany({
         where: { businessId: input.businessId, status: "active", triggerType: "abandoned_cart" },
         select: { id: true, triggerType: true, triggerConfig: true },
@@ -138,7 +144,7 @@ export async function applyWhatsAppAutomationCartTransitionInTransaction(
         });
         scheduled += 1;
       }
-    } else if (input.state !== "active" || current?.occurredAt) {
+    } else if (input.state !== "abandoned" && (input.state !== "active" || current?.occurredAt)) {
       const cancelled = await cancelPendingCartWork(tx, input.businessId, input.cartId, now);
       cancelledEvents = cancelled.events; cancelledJobs = cancelled.jobs;
     }

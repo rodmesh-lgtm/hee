@@ -29,7 +29,8 @@ test("Shopify cart mapping remains tenant-bound and never creates contacts or co
   assert.match(migration, /WhatsAppAutomationCartEvent_actor_check/);
   assert.match(processor, /businessId_phoneE164/);
   assert.match(processor, /businessId_cartId/);
-  assert.match(lifecycle, /provider" = 'shopify' AND "status" = 'active'/);
+  assert.match(lifecycle, /const provider = input\.integrationProvider \?\? "shopify"/);
+  assert.ok(lifecycle.includes('"provider" = ${provider} AND "status" = \'active\''));
   assert.match(lifecycle, /shopifyTerminal/);
   assert.match(lifecycle, /shopifySameOrLower/);
   assert.doesNotMatch(processor, /whatsApp(Contact|Consent)\.create/);
