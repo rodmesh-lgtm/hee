@@ -644,6 +644,37 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await page.getByLabel("قالب الرسالة", { exact: true }).selectOption(template.id);
           await page.getByLabel("مصدر body:1", { exact: true }).selectOption("literal");
           await page.getByLabel("قيمة body:1", { exact: true }).fill("عميلنا المميز");
+          // The real API must scope its store list and reject unowned stores before decrypting credentials.
+          const storeList = await context.request.get(`${baseUrl}/api/commerce/salla/products`);
+          expect(storeList.status()).toBe(200);
+          const ownStores = (await storeList.json()).stores;
+          expect(ownStores.length).toBeGreaterThan(0);
+          expect(JSON.stringify(ownStores)).not.toContain("DO_NOT_RENDER_COMMERCE_SECRET");
+          const foreignBusiness = await db.business.create({ data: { ownerId: seeded.adminUserId, name: "Foreign catalog", slug: `foreign-catalog-${crypto.randomUUID()}`, businessType: "test" } });
+          const foreignStore = await db.whatsAppCommerceIntegration.create({ data: { businessId: foreignBusiness.id, provider: "salla", externalStoreId: crypto.randomUUID(), status: "active", connectedAt: new Date(), displayName: "PRIVATE_FOREIGN_STORE", credentialEnvelope: { testSecret: "DO_NOT_DECRYPT" } } });
+          try {
+            expect(JSON.stringify(ownStores)).not.toContain(foreignStore.id);
+            expect((await context.request.get(`${baseUrl}/api/commerce/salla/products?store=${foreignStore.id}`)).status()).toBe(404);
+          } finally {
+            await db.whatsAppCommerceIntegration.delete({ where: { id: foreignStore.id } });
+            await db.business.delete({ where: { id: foreignBusiness.id } });
+          }
+          expect((await request.get(`${baseUrl}/api/commerce/salla/products`)).status()).toBe(403);
+          // Product responses are isolated fixtures: no Salla API or WhatsApp request occurs.
+          await page.route("**/api/commerce/salla/products?*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ products: [{ id: "123", name: "رحلة بحرية خاصة", price: "115.00 SAR", url: "https://store.example.com/p123" }], page: 1, hasMore: false }) }));
+          await page.getByRole("button", { name: "استعراض منتجات سلة", exact: true }).click();
+          const picker = page.getByLabel("منتجات سلة للحملة", { exact: true });
+          await picker.getByRole("button", { name: "عرض المنتجات", exact: true }).click();
+          await picker.getByLabel("منتج سلة للحملة", { exact: true }).selectOption("123");
+          await picker.getByRole("button", { name: "إدراج اسم المنتج", exact: true }).click();
+          await expect(page.getByLabel("قيمة body:1", { exact: true })).toHaveValue("رحلة بحرية خاصة");
+          await picker.getByRole("button", { name: "إدراج السعر", exact: true }).click();
+          await expect(page.getByLabel("قيمة body:1", { exact: true })).toHaveValue("115.00 SAR");
+          await picker.getByRole("button", { name: "إدراج رابط المنتج", exact: true }).click();
+          await expect(page.getByLabel("قيمة body:1", { exact: true })).toHaveValue("https://store.example.com/p123");
+          await picker.screenshot({ path: `${outDir}/${viewport.name}-${theme}-salla-product-picker.png` });
+          await page.unroute("**/api/commerce/salla/products?*");
+          await page.getByLabel("قيمة body:1", { exact: true }).fill("عميلنا المميز");
           await expect(page.getByText("معاينة الرسالة", { exact: true })).toBeVisible();
           if (theme === "dark") {
             const studio = page.getByRole("form", { name: "إنشاء حملة واتساب", exact: true });
@@ -656,7 +687,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-studio.png`, fullPage: true });
           if (viewport.name === "mobile" && theme === "light") {
-            await page.getByRole("button", { name: "التالي", exact: true }).click();
+            await page.getByRole("form", { name: "إنشاء حملة واتساب", exact: true }).getByRole("button", { name: "التالي", exact: true }).last().click();
             await page.getByRole("button", { name: "التالي", exact: true }).click();
             await page.getByRole("button", { name: "إنشاء وتثبيت الجمهور", exact: true }).click();
             await expect(page).toHaveURL(/create=complete/);
