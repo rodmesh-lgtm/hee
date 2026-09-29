@@ -363,6 +363,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
         const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
         const page = await context.newPage();
+        page.setDefaultTimeout(15_000);
         try {
           await page.goto(`${baseUrl}/dashboard/whatsapp/carts`, { waitUntil: "domcontentloaded" });
           await expect(page.getByRole("heading", { name: "السلال المتروكة والمتابعة" })).toBeVisible();
@@ -375,8 +376,10 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await page.getByLabel("الحالة", { exact: true }).selectOption("recovered");
           await page.getByRole("button", { name: "بحث", exact: true }).click();
           await expect(page.locator("article")).toHaveCount(0);
+          console.info("commerce audit: cart filtering verified", viewport.name, theme);
           await page.goto(`${baseUrl}/dashboard/whatsapp/templates`, { waitUntil: "domcontentloaded" });
           await page.getByText("إنشاء قالب أو تعديل قالب موجود", { exact: true }).click();
+          console.info("commerce audit: template editor opened", viewport.name, theme);
           await page.getByLabel("ابدأ بنموذج عربي", { exact: false }).selectOption("booking");
           await expect(page.locator('textarea[name="body"]')).toHaveValue(/رقم الحجز: \{\{7\}\}/);
           await expect(page.locator('select[name="category"]')).toHaveValue("UTILITY");
