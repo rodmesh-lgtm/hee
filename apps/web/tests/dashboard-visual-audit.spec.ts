@@ -380,11 +380,12 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await page.goto(`${baseUrl}/dashboard/whatsapp/templates`, { waitUntil: "domcontentloaded" });
           await page.getByText("إنشاء قالب أو تعديل قالب موجود", { exact: true }).click();
           console.info("commerce audit: template editor opened", viewport.name, theme);
+          const editorForm = page.locator("form").filter({ has: page.locator('textarea[name="body"]') });
           await page.getByLabel("ابدأ بنموذج عربي", { exact: false }).selectOption("booking");
           await expect(page.locator('textarea[name="body"]')).toHaveValue(/رقم الحجز: \{\{7\}\}/);
-          await expect(page.locator('select[name="category"]')).toHaveValue("UTILITY");
+          await expect(editorForm.locator('select[name="category"]')).toHaveValue("UTILITY");
           await page.getByLabel("ابدأ بنموذج عربي", { exact: false }).selectOption("cart");
-          await expect(page.locator('select[name="category"]')).toHaveValue("MARKETING");
+          await expect(editorForm.locator('select[name="category"]')).toHaveValue("MARKETING");
           await expect(page.locator('input[name="examples"]')).toHaveValue("");
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-starters.png`, fullPage: true });
