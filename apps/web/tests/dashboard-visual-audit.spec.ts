@@ -650,7 +650,15 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           const ownStores = (await storeList.json()).stores;
           expect(ownStores.length).toBeGreaterThan(0);
           expect(JSON.stringify(ownStores)).not.toContain("DO_NOT_RENDER_COMMERCE_SECRET");
-          expect((await context.request.get(`${baseUrl}/api/commerce/salla/products?store=${crypto.randomUUID()}`)).status()).toBe(404);
+          const foreignBusiness = await db.business.create({ data: { ownerId: seeded.adminUserId, name: "Foreign catalog", slug: `foreign-catalog-${crypto.randomUUID()}`, businessType: "test" } });
+          const foreignStore = await db.whatsAppCommerceIntegration.create({ data: { businessId: foreignBusiness.id, provider: "salla", externalStoreId: crypto.randomUUID(), status: "active", displayName: "PRIVATE_FOREIGN_STORE", credentialEnvelope: { testSecret: "DO_NOT_DECRYPT" } } });
+          try {
+            expect(JSON.stringify(ownStores)).not.toContain(foreignStore.id);
+            expect((await context.request.get(`${baseUrl}/api/commerce/salla/products?store=${foreignStore.id}`)).status()).toBe(404);
+          } finally {
+            await db.whatsAppCommerceIntegration.delete({ where: { id: foreignStore.id } });
+            await db.business.delete({ where: { id: foreignBusiness.id } });
+          }
           expect((await request.get(`${baseUrl}/api/commerce/salla/products`)).status()).toBe(403);
           // Product responses are isolated fixtures: no Salla API or WhatsApp request occurs.
           await page.route("**/api/commerce/salla/products?*", route => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ products: [{ id: "123", name: "رحلة بحرية خاصة", price: "115.00 SAR", url: "https://store.example.com/p123" }], page: 1, hasMore: false }) }));
