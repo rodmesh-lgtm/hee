@@ -352,8 +352,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const plan = await db.businessPlan.upsert({ where: { code: "BUSINESS" }, update: {}, create: { code: "BUSINESS", name: "Business", monthlyPrice: 99, productLimit: 10, isActive: true } });
     const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now()-60_000), endsAt: new Date(Date.now()+86_400_000), autoRenew: false } });
     const foreign = await db.business.create({ data: { ownerId: seeded.adminUserId, planId: plan.id, name: "FOREIGN_CART_PRIVATE", slug: `cart-foreign-${suffix}`, businessType: "test" } });
-    const contact = await db.whatsAppContact.create({ data: { businessId, phoneE164: "+966500000119", displayName: "عميل اختبار السلة", source: "test" } });
-    const otherContact = await db.whatsAppContact.create({ data: { businessId: foreign.id, phoneE164: "+966500000118", displayName: "FOREIGN_CART_PRIVATE", source: "test" } });
+    const contact = await db.whatsAppContact.create({ data: { businessId, phoneE164: "+966500000119", displayName: "عميل اختبار السلة", source: "manual" } });
+    const otherContact = await db.whatsAppContact.create({ data: { businessId: foreign.id, phoneE164: "+966500000118", displayName: "FOREIGN_CART_PRIVATE", source: "manual" } });
     const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `cart-${suffix}`, phoneNumberId: `cart-${suffix}`, marketingEnabled: true, credentialEnvelope: { testOnly: true } } });
     await db.whatsAppAutomationCart.createMany({ data: [
       { businessId, contactId: contact.id, cartId: "cart-visible", state: "abandoned", sourceEventId: `own-${suffix}`, occurredAt: new Date() },
