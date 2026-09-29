@@ -46,6 +46,11 @@ async function main() {
       assert.equal(await tx.whatsAppAutomationCart.count({ where: { businessId: business.id } }), 4);
       assert.equal(await tx.whatsAppAutomationEvent.count({ where: { businessId: business.id } }), 1);
       assert.equal(await tx.whatsAppAutomationJob.count({ where: { businessId: business.id } }), 0);
+      // Booking notifications consent must never authorize abandoned-cart marketing.
+      await tx.whatsAppContact.updateMany({ where: { businessId: business.id }, data: { optedOutAt: null } });
+      await tx.whatsAppConsent.updateMany({ where: { businessId: business.id }, data: { source: "booking" } });
+      assert.equal((await processSallaCartTransition(tx, { ...input, eventId: `booking-only-${nonce}`, transition: { ...input.transition, externalCartId: "126" } })).scheduled, 0);
+      assert.equal(await tx.whatsAppAutomationEvent.count({ where: { businessId: business.id } }), 1);
       throw rollback;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30_000 });
   } catch (error) { if (error !== rollback) throw error; }

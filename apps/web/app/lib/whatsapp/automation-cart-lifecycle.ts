@@ -82,7 +82,7 @@ export async function applyWhatsAppAutomationCartTransitionInTransaction(
     let maySchedule = true;
     if (input.state === "abandoned") {
       const consent = await tx.whatsAppConsent.findFirst({
-        where: { businessId: input.businessId, phoneE164: contact.phoneE164, revokedAt: null, consentedAt: { lte: input.occurredAt } }, select: { id: true },
+        where: { businessId: input.businessId, phoneE164: contact.phoneE164, source: { not: "booking" }, revokedAt: null, consentedAt: { lte: input.occurredAt } }, select: { id: true },
       });
       maySchedule = !(contact.optedOutAt || !consent);
       // Observing a Salla cart is not marketing consent. Keep its state for
