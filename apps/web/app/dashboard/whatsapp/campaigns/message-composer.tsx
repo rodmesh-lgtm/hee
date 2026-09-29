@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { uploadCampaignMediaAction } from "../../../actions/whatsapp-campaign-media";
+import { AutoShortLinkInput } from "./auto-short-link-input";
 import { SallaProductPicker } from "./salla-product-picker";
+import { uploadCampaignMediaAction } from "../../../actions/whatsapp-campaign-media";
 
 import { campaignTemplateFields, resolveCampaignComposition, type Binding, type Composition } from "../../../lib/whatsapp/campaign-composition";
 
@@ -28,7 +29,7 @@ export function MessageComposer({ components, value, onChange, sampleContacts = 
       const b = value.bindings[field.key] ?? { source: "literal", value: "" };
       return <fieldset key={field.key} className="rounded-xl border border-slate-200 p-3"><legend className="px-2 text-xs font-bold text-slate-700">{field.component === "body" ? "نص الرسالة" : field.component === "header" ? "العنوان" : "لاحقة رابط الزر"} · {field.variable}</legend>
         <label className="block text-xs text-slate-600">مصدر القيمة<select aria-label={`مصدر ${field.key}`} value={b.source} onChange={(e) => update(field.key, { ...b, source: e.target.value as Binding["source"] })} className={control}><option value="literal">قيمة ثابتة</option><option value="displayName">اسم العميل</option><option value="phoneE164">رقم الجوال</option><option value="email">البريد الإلكتروني</option><option value="attribute">عمود إضافي من ملف الاستيراد</option></select></label>
-        {b.source === "literal" || b.source === "attribute" ? <label className="mt-3 block text-xs text-slate-600">{b.source === "literal" ? "القيمة" : "اسم العمود كما يظهر في ملف الاستيراد"}<input aria-label={`قيمة ${field.key}`} maxLength={1024} value={b.value} onChange={(e) => update(field.key, { ...b, value: e.target.value })} className={control}/></label> : null}
+        {b.source === "literal" || b.source === "attribute" ? <label className="mt-3 block text-xs text-slate-600">{b.source === "literal" ? "القيمة" : "اسم العمود كما يظهر في ملف الاستيراد"}<AutoShortLinkInput label={`قيمة ${field.key}`} value={b.value} onChange={text => update(field.key, { ...b, value: text })} enabled={b.source === "literal" && (field.component === "body" || field.component === "header")} className={control}/></label> : null}
         {b.source !== "literal" ? <label className="mt-3 block text-xs text-slate-600">قيمة بديلة عند غياب البيانات (اختيارية)<input value={b.fallback ?? ""} maxLength={1024} onChange={(e) => update(field.key, { ...b, fallback: e.target.value })} className={control}/></label> : null}
       </fieldset>;
     })}

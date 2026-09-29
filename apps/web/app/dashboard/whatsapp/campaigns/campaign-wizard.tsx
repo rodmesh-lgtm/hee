@@ -6,6 +6,7 @@ import { Check, ChevronLeft, ChevronRight, Eye, FileText, Radio, Send, ShieldChe
 import { createWhatsAppCampaignAction } from "../../../actions/whatsapp-marketing";
 import { MessageComposer, type PreviewContact } from "./message-composer";
 import { campaignTemplateFields, publicMediaUrl, type Composition } from "../../../lib/whatsapp/campaign-composition";
+import { longLinksInText } from "../../../lib/short-link-domain";
 
 type ConnectionOption = { id: string; label: string };
 type TemplateOption = { id: string; connectionId: string; name: string; language: string; category: string; components: unknown; header: string | null; body: string | null; footer: string | null; buttons: string[] };
@@ -30,7 +31,8 @@ export function CampaignWizard({ connections, templates, segments, eligibleConta
   const compositionSpec = campaignTemplateFields(selectedTemplate?.components);
   const compositionReady = !compositionSpec.unsupported && (!compositionSpec.media || Boolean(publicMediaUrl(composition.mediaUrl ?? ""))) && compositionSpec.fields.every((field) => {
     const binding = composition.bindings[field.key];
-    return binding && (!["literal", "attribute"].includes(binding.source) || Boolean(binding.value.trim()));
+    return binding && (!["literal", "attribute"].includes(binding.source) || Boolean(binding.value.trim()))
+      && !(binding.source === "literal" && field.component !== "button" && longLinksInText(binding.value).length);
   });
   const audienceCount = audienceKind === "static_segment" ? selectedSegment?.members ?? 0 : eligibleContacts;
   const stepReady = [
