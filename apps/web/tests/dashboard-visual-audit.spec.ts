@@ -651,7 +651,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           expect(ownStores.length).toBeGreaterThan(0);
           expect(JSON.stringify(ownStores)).not.toContain("DO_NOT_RENDER_COMMERCE_SECRET");
           const foreignBusiness = await db.business.create({ data: { ownerId: seeded.adminUserId, name: "Foreign catalog", slug: `foreign-catalog-${crypto.randomUUID()}`, businessType: "test" } });
-          const foreignStore = await db.whatsAppCommerceIntegration.create({ data: { businessId: foreignBusiness.id, provider: "salla", externalStoreId: crypto.randomUUID(), status: "active", displayName: "PRIVATE_FOREIGN_STORE", credentialEnvelope: { testSecret: "DO_NOT_DECRYPT" } } });
+          const foreignStore = await db.whatsAppCommerceIntegration.create({ data: { businessId: foreignBusiness.id, provider: "salla", externalStoreId: crypto.randomUUID(), status: "active", connectedAt: new Date(), displayName: "PRIVATE_FOREIGN_STORE", credentialEnvelope: { testSecret: "DO_NOT_DECRYPT" } } });
           try {
             expect(JSON.stringify(ownStores)).not.toContain(foreignStore.id);
             expect((await context.request.get(`${baseUrl}/api/commerce/salla/products?store=${foreignStore.id}`)).status()).toBe(404);
