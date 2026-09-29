@@ -11,6 +11,7 @@ test("automatic extraction handles repeated URLs and Arabic punctuation without 
   const link = "https://example.com/products/summer?utm_source=whatsapp";
   assert.deepEqual(longLinksInText(`احجز الآن: ${link}، أو (${link}). https://ir.sa/s/123456789012`), [link]);
   assert.deepEqual(longLinksInText("https://ir.sa/sada بدون روابط طويلة"), []);
+  assert.deepEqual(longLinksInText("(https://example.com/products/item(large))"), ["https://example.com/products/item(large)"]);
 });
 test("click counting excludes HEAD, previews and known bots", () => {
   assert.equal(shouldCountShortLinkClick("GET", "Mozilla/5.0 Mobile Safari/537.36"), true);

@@ -4,7 +4,13 @@ export const shortLinkUrl = (code: string) => `https://ir.sa/s/${code}`;
 // Keep surrounding Arabic/Latin punctuation outside the destination.
 export function longLinksInText(text: string) {
   return [...new Set((text.match(/https:\/\/[^\s<>"'`]+/giu) ?? [])
-    .map(value => value.replace(/[،؛.!?؟)\]}]+$/u, ""))
+    .map(value => {
+      value = value.replace(/[،؛.!?؟]+$/u, "");
+      for (const [open, close] of [["(", ")"], ["[", "]"], ["{", "}"]]) {
+        while (value.endsWith(close) && value.split(close).length > value.split(open).length) value = value.slice(0, -1);
+      }
+      return value;
+    })
     .filter(value => value.length > 28 && shortLinkDestination(value)))];
 }
 export function shortLinkDestination(value: string) {
