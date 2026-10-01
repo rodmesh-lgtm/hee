@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { AlertTriangle, CheckCircle2, FileText, RefreshCw, Search, ShieldCheck, Sparkles, WandSparkles } from "lucide-react";
 import { syncWhatsAppTemplatesAction } from "../../../actions/whatsapp-marketing";
 import { TemplateEditor } from "./template-editor";
+import { TemplateStatusRefresh } from "./template-status-refresh";
 import { db } from "../../../lib/db";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
@@ -102,6 +103,7 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
       {!connectionReady ? <Link href="/dashboard/whatsapp/setup" className="mt-3 inline-flex min-h-11 items-center font-bold text-[#008f87]">اربط رقم منشأتك لفتح محرر القوالب</Link> : null}
     </section>
     <TemplateEditor connectionId={connectionReady ? connection?.id : undefined} templates={templates.filter((t) => t.connectionId === connection?.id)}/>
+    <TemplateStatusRefresh enabled={Boolean(connectionReady && pendingCount > 0)}/>
     <section aria-label="تشغيل القوالب في الأتمتة" className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-7 text-slate-700">
       <h2 className="font-bold text-slate-900">بعد اعتماد القالب: اربطه بالمسار المناسب</h2>
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
