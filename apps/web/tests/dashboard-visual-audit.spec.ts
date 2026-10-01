@@ -441,7 +441,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-starters.png`, fullPage: true });
           await page.getByRole("button", { name: /^رمز التحقق OTP/ }).click();
-          await expect(page.locator('select[name="category"]')).toHaveValue("AUTHENTICATION");
+          await expect(page.locator('#template-studio select[name="category"]')).toHaveValue("AUTHENTICATION");
           await expect(page.getByLabel("صلاحية الرمز بالدقائق")).toHaveValue("10");
           await expect(page.locator('textarea[name="body"]')).toHaveCount(0);
           await expect(page.getByText("نسخ الرمز", { exact: true })).toBeVisible();
