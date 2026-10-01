@@ -21,6 +21,7 @@ import { detectNextAbandonedShopifyCart } from "./shopify-abandoned-cart-detecto
 import { processNextShopifyWebhookEvent } from "./shopify-webhook-processor";
 import { processNextShopifyWebhookSubscriptionSync } from "./shopify-webhook-subscriptions";
 import { processNextWhatsAppWebhookEvent } from "./webhook-processor";
+import { runPeriodicTemplateSync } from "./periodic-template-sync";
 
 type StageName = (typeof WHATSAPP_OPERATION_STAGES)[number];
 
@@ -136,6 +137,7 @@ async function runReminderDeliveries(env: NodeJS.ProcessEnv) {
 
 export async function runVercelWhatsAppStage(stage: StageName, env: NodeJS.ProcessEnv) {
   switch (stage) {
+    case "whatsapp:template-sync": await runPeriodicTemplateSync(); return;
     case "whatsapp:contact-imports": return runContactImports(env);
     case "whatsapp:webhooks": return runWebhooks(env);
     case "whatsapp:shopify-subscriptions": return runShopifySubscriptions(env);

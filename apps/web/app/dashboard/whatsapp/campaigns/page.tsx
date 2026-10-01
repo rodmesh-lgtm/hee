@@ -44,7 +44,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
       select: { id: true, verifiedName: true, displayPhoneNumber: true },
     }),
     db.whatsAppTemplate.findMany({
-      where: { businessId: context.businessId, provider: "meta", status: "approved", connection: { marketingEnabled: true } },
+      where: { businessId: context.businessId, provider: "meta", status: "approved", category: { in: ["marketing", "utility"] }, connection: { marketingEnabled: true } },
       select: { id: true, connectionId: true, name: true, language: true, category: true, components: true },
       orderBy: { name: "asc" },
     }),

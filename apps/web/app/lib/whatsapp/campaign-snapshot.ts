@@ -54,7 +54,7 @@ export async function snapshotWhatsAppCampaign(input: {
     if (campaign.template.provider !== "meta" || campaign.template.connectionId !== campaign.connectionId) {
       throw new Error("WHATSAPP_CAMPAIGN_TEMPLATE_CONNECTION_MISMATCH");
     }
-    if (campaign.template.status !== "approved" || campaign.template.category === "unknown") {
+    if (campaign.template.status !== "approved" || !["marketing", "utility"].includes(campaign.template.category)) {
       throw new Error("WHATSAPP_CAMPAIGN_TEMPLATE_NOT_APPROVED");
     }
     const audience = parseCampaignAudience(campaign.audienceDefinition);

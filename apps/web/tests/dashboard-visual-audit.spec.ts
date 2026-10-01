@@ -429,17 +429,23 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.locator("article")).toHaveCount(0);
           console.info("commerce audit: cart filtering verified", viewport.name, theme);
           await page.goto(`${baseUrl}/dashboard/whatsapp/templates`, { waitUntil: "domcontentloaded" });
-          await page.getByText("إنشاء قالب أو تعديل قالب موجود", { exact: true }).click();
+          await expect(page.getByRole("heading", { name: "إنشاء قالب أو تعديل قالب موجود", exact: true })).toBeVisible();
           console.info("commerce audit: template editor opened", viewport.name, theme);
           const editorForm = page.locator("form").filter({ has: page.locator('textarea[name="body"]') });
-          await page.getByLabel("ابدأ بنموذج عربي", { exact: false }).selectOption("booking");
+          await page.getByRole("button", { name: /^تأكيد الموعد/ }).click();
           await expect(page.locator('textarea[name="body"]')).toHaveValue(/رقم الحجز: \{\{7\}\}/);
           await expect(editorForm.locator('select[name="category"]')).toHaveValue("UTILITY");
-          await page.getByLabel("ابدأ بنموذج عربي", { exact: false }).selectOption("cart");
+          await page.getByRole("button", { name: /^تذكير بسلة متروكة/ }).click();
           await expect(editorForm.locator('select[name="category"]')).toHaveValue("MARKETING");
           await expect(page.locator('input[name="examples"]')).toHaveValue("");
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-starters.png`, fullPage: true });
+          await page.getByRole("button", { name: /^رمز التحقق OTP/ }).click();
+          await expect(page.locator('#template-studio select[name="category"]')).toHaveValue("AUTHENTICATION");
+          await expect(page.getByLabel("صلاحية الرمز بالدقائق")).toHaveValue("10");
+          await expect(page.locator('textarea[name="body"]')).toHaveCount(0);
+          await expect(page.getByText("نسخ الرمز", { exact: true })).toBeVisible();
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-otp.png`, fullPage: true });
           // No submit: this test must never contact Meta or send messages.
         } finally { await context.close(); }
       }

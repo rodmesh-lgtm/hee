@@ -26,10 +26,11 @@ export async function submitWhatsAppTemplateAction(_previous: { message: string 
     const config = getMetaWhatsAppConfig();
     const token = decryptWhatsAppCredential({ envelope: connection.credentialEnvelope as unknown as WhatsAppCredentialEnvelope, encryptionKeyBase64: config.META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY, businessId: context.businessId });
     const headers = { authorization: `Bearer ${token}` };
-    const input = { name: get("name"), language: get("language"), category: get("category"), body: get("body"), footer: get("footer"), header: get("header"), examples: get("examples"), buttonText: get("buttonText"), buttonUrl: get("buttonUrl"), mediaHandle: "" };
+    const input = { name: get("name"), language: get("language"), category: get("category"), body: get("body"), footer: get("footer"), header: get("header"), examples: get("examples"), buttonText: get("buttonText"), buttonUrl: get("buttonUrl"), mediaHandle: "", codeExpirationMinutes: Number(get("codeExpirationMinutes")) };
     // Validate text before any provider mutation. The sample handle is validated below.
     buildTemplateSubmission({ ...input, mediaHandle: "validated-later" });
     const templateId = get("templateId");
+    if (templateId && input.category === "AUTHENTICATION") throw new Error("TEMPLATE_AUTHENTICATION_CREATE_ONLY");
     const template = templateId ? await db.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId, provider: "meta" }, select: { providerTemplateId: true, name: true, language: true, components: true } }) : null;
     if (templateId && (!template || template.name !== input.name || template.language !== input.language)) throw new Error("TEMPLATE_INPUT_INVALID");
     if (template && !canEditSimpleTemplate(template.components)) throw new Error("TEMPLATE_INPUT_INVALID");
@@ -76,6 +77,7 @@ export async function submitWhatsAppTemplateAction(_previous: { message: string 
   } catch (error) {
     if (accepted) return { message: "استلمت Meta الطلب لكن لم تكتمل المزامنة. اضغط تحديث من Meta ولا تعِد إنشاء القالب." };
     const reason = error instanceof Error ? error.message : "UNKNOWN";
+    if (reason === "TEMPLATE_AUTHENTICATION_INVALID") return { message: "قالب OTP يستخدم نص Meta الثابت وزر نسخ الرمز فقط. حدد مدة صلاحية من 1 إلى 90 دقيقة دون نص تسويقي أو وسائط." };
     if (reason === "TEMPLATE_IN_USE") return { message: "القالب مرتبط بحملة جاهزة أو جارية أو مكتملة حديثًا. أنشئ قالبًا جديدًا لحماية الرسائل المثبتة ومحاولات التسليم." };
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "template.submit", targetType: "connection", targetId: connectionId, outcome: "failed", metadata: { reason: reason.startsWith("TEMPLATE_") || reason.startsWith("META_TEMPLATE_") ? reason : "UNKNOWN" } }).catch(() => undefined);
     return { message: reason === "TEMPLATE_SAMPLE_REQUIRED" ? "أرفق عينة مطابقة لنوع القالب لا تتجاوز 3 MB." : reason.startsWith("TEMPLATE_") ? "راجع الاسم والنص والمتغيرات وأمثلتها والرابط. يجب ترقيم المتغيرات بالتتابع من {{1}}." : "لم يتأكد قبول الطلب. حدّث القوالب من Meta أولًا للتحقق قبل إعادة المحاولة." };

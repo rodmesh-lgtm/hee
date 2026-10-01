@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { AlertTriangle, CheckCircle2, FileText, RefreshCw, Search, ShieldCheck, Sparkles, WandSparkles } from "lucide-react";
 import { syncWhatsAppTemplatesAction } from "../../../actions/whatsapp-marketing";
 import { TemplateEditor } from "./template-editor";
+import { TemplateStatusRefresh } from "./template-status-refresh";
 import { db } from "../../../lib/db";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
@@ -58,8 +59,12 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
   ]);
 
   const connectionReady = connection?.status === "connected" && !connection.disabledAt;
+  const syncHealth = connection ? await db.whatsAppOperationsHeartbeat.findUnique({
+    where: { id: `template-sync:${connection.id}` },
+    select: { lastStartedAt: true, lastSucceededAt: true, lastErrorCode: true },
+  }) : null;
   const isCampaignReady = (template: TemplateRow) => Boolean(
-    connectionReady && connection && template.connectionId === connection.id && template.status === "approved" && template.category !== "unknown",
+    connectionReady && connection && template.connectionId === connection.id && template.status === "approved" && template.category !== "unknown" && template.category !== "authentication",
   );
   const approvedCount = templates.filter((item) => item.status === "approved").length;
   const pendingCount = templates.filter((item) => item.status === "pending").length;
@@ -97,7 +102,17 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
       <p className="mt-2 text-xs leading-6 text-slate-500">كل منشأة تستخدم حسابها ورقمها وقوالبها المعتمدة. لا يوجد قالب معتمد عام يتيح تغيير نص الإعلان بحرية؛ اعتماد التطبيق لا يغني عن اعتماد الرسالة لدى Meta.</p>
       {!connectionReady ? <Link href="/dashboard/whatsapp/setup" className="mt-3 inline-flex min-h-11 items-center font-bold text-[#008f87]">اربط رقم منشأتك لفتح محرر القوالب</Link> : null}
     </section>
-    {connectionReady && connection ? <TemplateEditor connectionId={connection.id} templates={templates.filter((t) => t.connectionId === connection.id)}/> : null}
+    <TemplateEditor connectionId={connectionReady ? connection?.id : undefined} templates={templates.filter((t) => t.connectionId === connection?.id)}/>
+    <TemplateStatusRefresh enabled={Boolean(connectionReady && pendingCount > 0)}/>
+    <section aria-label="تشغيل القوالب في الأتمتة" className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-7 text-slate-700">
+      <h2 className="font-bold text-slate-900">بعد اعتماد القالب: اربطه بالمسار المناسب</h2>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <Link href="/dashboard/whatsapp/automations" className="rounded-xl border border-slate-200 p-3"><b className="block">الترحيب والمتابعة والسلال</b>اختر قالبًا معتمدًا بلا متغيرات في الأتمتة العامة، ثم راجع شروط التشغيل وفعّل المسار.</Link>
+        <Link href="/dashboard/working-hours" className="rounded-xl border border-slate-200 p-3"><b className="block">تأكيد الموعد</b>اختر قالب تأكيد الحجز ذي المتغيرات السبعة ورقم إشعارات الحجوزات من إعدادات المواعيد.</Link>
+        <Link href="/dashboard/whatsapp/integrations" className="rounded-xl border border-slate-200 p-3"><b className="block">تأكيد طلب سلة</b>اربط المتجر واضبط إشعار الطلب المدفوع بقالب تأكيد الطلب. اعتماد القالب وحده لا يفعّل المسار.</Link>
+      </div>
+    </section>
+    {syncHealth ? <p role="status" className="rounded-xl border border-slate-200 bg-white p-3 text-sm leading-7 text-slate-700">{syncHealth.lastErrorCode ? "لم تنجح آخر مزامنة تلقائية. استخدم تحديث من Meta وتحقق من اتصال الحساب." : syncHealth.lastSucceededAt ? `آخر مزامنة تلقائية ناجحة: ${syncHealth.lastSucceededAt.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}` : "المزامنة التلقائية قيد التنفيذ."}</p> : null}
 
     {!connectionReady && connection ? <p role="status" className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800"><AlertTriangle className="h-4 w-4"/>رقم واتساب المرتبط غير جاهز حاليًا. أعد تفعيل الاتصال أولًا؛ القالب المعتمد وحده لا يكفي للإرسال.</p> : null}
     {params.sync ? <p aria-live="polite" className={`flex items-center gap-2 rounded-2xl border p-3 text-[10px] font-bold ${params.sync === "complete" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{params.sync === "complete" ? <CheckCircle2 className="h-4 w-4"/> : <AlertTriangle className="h-4 w-4"/>}{params.sync === "complete" ? `تم تحديث القوالب بنجاح (${params.count ?? 0}).` : "تعذر تحديث القوالب. تحقق من اتصال الرقم ثم أعد المحاولة."}</p> : null}
@@ -126,8 +141,8 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
 
       <aside className="space-y-3">
         <div className="rounded-[24px] border border-slate-200 bg-white p-4"><span className="text-[9px] font-black text-[#008f87]">SYNC HEALTH</span><b className="mt-2 block text-sm text-slate-900">{latestSync ? syncAgeLabel(latestSync) : "لم تتم مزامنة قالب بعد"}</b><p className="mt-2 text-[9px] leading-5 text-slate-500">{connectionReady ? `الرقم: ${connection?.verifiedName || connection?.displayPhoneNumber || "متصل"}` : "اتصال Meta غير جاهز حاليًا."}</p></div>
-        <div className="rounded-[24px] border border-emerald-100 bg-emerald-50/60 p-4"><Sparkles className="h-4 w-4 text-emerald-700"/><b className="mt-2 block text-xs text-slate-900">متى يصبح القالب جاهزًا؟</b><p className="mt-2 text-[9px] leading-5 text-slate-600">عندما يكون القالب Approved من Meta، نوعه معروف، ويرتبط باتصال Meta النشط لنشاطك. ويعاد فحص هذه الشروط عند إنشاء وإطلاق الحملة.</p></div>
-        <div className="rounded-[24px] border border-amber-100 bg-amber-50/60 p-4"><WandSparkles className="h-4 w-4 text-amber-700"/><b className="mt-2 block text-xs text-slate-900">الإنشاء والاعتماد لدى Meta</b><p className="mt-2 text-[9px] leading-5 text-slate-600">أنشئ أو عدّل القالب في أدوات Meta الرسمية، ثم استخدم «تحديث من Meta» هنا. لا تعرض INFRO زر اعتماد وهميًا ولا تتجاوز مراجعة Meta.</p></div>
+        <div className="rounded-[24px] border border-emerald-100 bg-white p-4"><Sparkles className="h-4 w-4 text-emerald-700"/><b className="mt-2 block text-xs text-slate-900">متى يصبح القالب جاهزًا؟</b><p className="mt-2 text-[9px] leading-5 text-slate-600">عندما يكون القالب Approved من Meta، نوعه معروف، ويرتبط باتصال Meta النشط لنشاطك. ويعاد فحص هذه الشروط عند إنشاء وإطلاق الحملة.</p></div>
+        <div className="rounded-[24px] border border-amber-100 bg-white p-4"><WandSparkles className="h-4 w-4 text-amber-700"/><b className="mt-2 block text-xs text-slate-900">الإنشاء والاعتماد لدى Meta</b><p className="mt-2 text-[9px] leading-5 text-slate-600">أنشئ أو عدّل القالب في أدوات Meta الرسمية، ثم استخدم «تحديث من Meta» هنا. لا تعرض INFRO زر اعتماد وهميًا ولا تتجاوز مراجعة Meta.</p></div>
       </aside>
     </section>
   </div>;
@@ -167,7 +182,7 @@ function templateNextAction(input: { connectionReady: boolean; templates: number
   return { title: "حدّث القوالب", detail: "أعد المزامنة للحصول على أحدث حالات Meta." };
 }
 
-function Kpi({ label, value, helper, icon, good=false }: { label: string; value: number; helper: string; icon: React.ReactNode; good?: boolean }) { return <article className={`rounded-[20px] border p-4 ${good?"border-emerald-100 bg-emerald-50/50":"border-slate-200 bg-white"}`}><div className="flex items-center gap-2 text-[#008f87]">{icon}<span className="text-[9px] font-bold text-slate-400">{label}</span></div><b className="mt-2 block text-xl font-black text-slate-900">{value}</b><span className="mt-1 block text-[8px] leading-4 text-slate-400">{helper}</span></article>; }
+function Kpi({ label, value, helper, icon, good=false }: { label: string; value: number; helper: string; icon: React.ReactNode; good?: boolean }) { return <article className={`rounded-[20px] border p-4 ${good?"border-emerald-100 bg-[#effbf9]":"border-slate-200 bg-white"}`}><div className="flex items-center gap-2 text-[#008f87]">{icon}<span className="text-[9px] font-bold text-slate-400">{label}</span></div><b className="mt-2 block text-xl font-black text-slate-900">{value}</b><span className="mt-1 block text-[8px] leading-4 text-slate-400">{helper}</span></article>; }
 function MetaCell({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-slate-100 bg-white p-3"><dt className="text-[8px] font-bold text-slate-400">{label}</dt><dd className="mt-1 break-words font-bold leading-5 text-slate-700">{value}</dd></div>; }
 function TemplateStatus({ status }: { status: string }) { return <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black ${status === "approved" ? "bg-emerald-50 text-emerald-700" : status === "rejected" ? "bg-rose-50 text-rose-700" : status === "paused" || status === "disabled" ? "bg-slate-100 text-slate-600" : "bg-amber-50 text-amber-700"}`}>{templateStatusLabel(status)}</span>; }
 function templateStatusLabel(status: string) { if (status === "approved") return "معتمد"; if (status === "pending") return "قيد المراجعة"; if (status === "rejected") return "غير معتمد"; if (status === "paused") return "موقوف مؤقتًا"; if (status === "disabled") return "معطّل"; return "قيد التحديث"; }

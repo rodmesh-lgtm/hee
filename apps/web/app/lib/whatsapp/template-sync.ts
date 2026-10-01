@@ -27,12 +27,12 @@ function credentialEnvelope(value: Prisma.JsonValue): WhatsAppCredentialEnvelope
   return envelope as WhatsAppCredentialEnvelope;
 }
 
-async function fetchTemplatePage(input: { url: URL; accessToken: string; fetcher: Fetcher }) {
+async function fetchTemplatePage(input: { url: URL; accessToken: string; fetcher: Fetcher; signal: AbortSignal }) {
   const response = await input.fetcher(input.url, {
     method: "GET",
     headers: { authorization: `Bearer ${input.accessToken}`, accept: "application/json" },
     cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.any([input.signal, AbortSignal.timeout(15_000)]),
   });
   if (!response.ok) throw new Error(`META_WHATSAPP_TEMPLATE_SYNC_HTTP_${response.status}`);
   const payload: unknown = await response.json();
@@ -58,8 +58,9 @@ export async function fetchAllMetaTemplates(input: {
   url.searchParams.set("fields", "id,name,language,status,category,components,quality_score,rejected_reason,parameter_format");
   url.searchParams.set("limit", "100");
   const templates: ParsedMetaTemplate[] = [];
+  const signal = AbortSignal.timeout(25_000);
   for (let page = 0; page < 20; page += 1) {
-    const result = await fetchTemplatePage({ url, accessToken: input.accessToken, fetcher });
+    const result = await fetchTemplatePage({ url, accessToken: input.accessToken, fetcher, signal });
     templates.push(...result.templates);
     if (result.templates.length !== result.receivedCount) throw new Error("META_WHATSAPP_TEMPLATE_SYNC_ITEM_INVALID");
     if (!result.after) return templates;

@@ -18,7 +18,7 @@ test("cart filters reject inherited keys, duplicate query parameters and unbound
 
 test("starter templates produce valid submissions and match existing automation parameter contracts", () => {
   for (const starter of TEMPLATE_STARTERS) {
-    const submission = buildTemplateSubmission({ ...starter, language: "ar", footer: "", header: "NONE", buttonText: "", buttonUrl: "" });
+    const submission = buildTemplateSubmission({ ...starter, language: "ar", footer: "", header: "NONE", buttonText: "", buttonUrl: "", codeExpirationMinutes: 10 });
     if (["order_confirmation", "order_shipped"].includes(starter.key)) assert.equal(sallaOrderTemplateSupported(submission.components, "POSITIONAL"), true);
     if (starter.key === "booking") assert.equal(bookingConfirmationTemplateSupportsParameters(submission.components, "POSITIONAL"), true);
     if (starter.key === "cart") { assert.equal(starter.category, "MARKETING"); assert.equal(starter.body.includes("{{"), false); }
