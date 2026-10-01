@@ -19,6 +19,7 @@ export const WHATSAPP_OPERATION_STAGES = [
   "whatsapp:shopify-abandoned-carts",
   "whatsapp:campaigns",
   "whatsapp:deliveries",
+  "whatsapp:template-sync",
 ] as const;
 
 type StageName = (typeof WHATSAPP_OPERATION_STAGES)[number];

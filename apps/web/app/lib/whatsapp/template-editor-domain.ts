@@ -9,7 +9,18 @@ export function canEditSimpleTemplate(components: unknown) {
     return false;
   });
 }
-export function buildTemplateSubmission(input: { name: string; language: string; category: string; body: string; footer: string; header: string; mediaHandle?: string; examples: string; buttonText: string; buttonUrl: string }) {
+export function buildTemplateSubmission(input: { name: string; language: string; category: string; body: string; footer: string; header: string; mediaHandle?: string; examples: string; buttonText: string; buttonUrl: string; codeExpirationMinutes?: number }) {
+  if (input.category === "AUTHENTICATION") {
+    if (!/^[a-z][a-z0-9_]{0,99}$/.test(input.name) || !["ar", "en", "en_US", "en_GB"].includes(input.language)
+      || input.header !== "NONE" || input.body || input.footer || input.buttonUrl || input.buttonText || input.examples
+      || !Number.isInteger(input.codeExpirationMinutes) || input.codeExpirationMinutes! < 1 || input.codeExpirationMinutes! > 90) throw new Error("TEMPLATE_AUTHENTICATION_INVALID");
+    // Meta supplies the localized authentication copy. Never accept arbitrary OTP text/media.
+    return { name: input.name, language: input.language, category: input.category, components: [
+      { type: "BODY", add_security_recommendation: true },
+      { type: "FOOTER", code_expiration_minutes: input.codeExpirationMinutes },
+      { type: "BUTTONS", buttons: [{ type: "OTP", otp_type: "COPY_CODE", text: input.language === "ar" ? "نسخ الرمز" : "Copy code" }] },
+    ] as Array<Record<string, unknown>> };
+  }
   if (!/^[a-z][a-z0-9_]{0,99}$/.test(input.name) || !["ar", "en", "en_US", "en_GB"].includes(input.language) || !["MARKETING", "UTILITY"].includes(input.category) || !input.body.trim() || input.body.length > 1024 || input.footer.length > 60 || !["NONE", "IMAGE", "VIDEO", "DOCUMENT"].includes(input.header)) throw new Error("TEMPLATE_INPUT_INVALID");
   const variables = [...new Set([...input.body.matchAll(/\{\{([^}]+)\}\}/g)].map((m) => m[1]))].sort((a,b) => Number(a)-Number(b));
   if (variables.some((v, i) => v !== String(i + 1)) || variables.length > 20) throw new Error("TEMPLATE_VARIABLES_INVALID");

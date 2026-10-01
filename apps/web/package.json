@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "whatsapp:template-sync": "NODE_OPTIONS=--conditions=react-server tsx scripts/whatsapp-template-sync-worker.ts",
     "dev": "next dev",
     "build": "node scripts/sync-rc-preview-schema.mjs && node scripts/assert-rc-preview-schema-current.mjs && rm -rf .next && prisma generate && next build",
     "start": "next start",

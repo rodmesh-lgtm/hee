@@ -58,8 +58,12 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
   ]);
 
   const connectionReady = connection?.status === "connected" && !connection.disabledAt;
+  const syncHealth = connection ? await db.whatsAppOperationsHeartbeat.findUnique({
+    where: { id: `template-sync:${connection.id}` },
+    select: { lastStartedAt: true, lastSucceededAt: true, lastErrorCode: true },
+  }) : null;
   const isCampaignReady = (template: TemplateRow) => Boolean(
-    connectionReady && connection && template.connectionId === connection.id && template.status === "approved" && template.category !== "unknown",
+    connectionReady && connection && template.connectionId === connection.id && template.status === "approved" && template.category !== "unknown" && template.category !== "authentication",
   );
   const approvedCount = templates.filter((item) => item.status === "approved").length;
   const pendingCount = templates.filter((item) => item.status === "pending").length;
@@ -97,7 +101,16 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
       <p className="mt-2 text-xs leading-6 text-slate-500">كل منشأة تستخدم حسابها ورقمها وقوالبها المعتمدة. لا يوجد قالب معتمد عام يتيح تغيير نص الإعلان بحرية؛ اعتماد التطبيق لا يغني عن اعتماد الرسالة لدى Meta.</p>
       {!connectionReady ? <Link href="/dashboard/whatsapp/setup" className="mt-3 inline-flex min-h-11 items-center font-bold text-[#008f87]">اربط رقم منشأتك لفتح محرر القوالب</Link> : null}
     </section>
-    {connectionReady && connection ? <TemplateEditor connectionId={connection.id} templates={templates.filter((t) => t.connectionId === connection.id)}/> : null}
+    <TemplateEditor connectionId={connectionReady ? connection?.id : undefined} templates={templates.filter((t) => t.connectionId === connection?.id)}/>
+    <section aria-label="تشغيل القوالب في الأتمتة" className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-7 text-slate-700">
+      <h2 className="font-bold text-slate-900">بعد اعتماد القالب: اربطه بالمسار المناسب</h2>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <Link href="/dashboard/whatsapp/automations" className="rounded-xl border border-slate-200 p-3"><b className="block">الترحيب والمتابعة والسلال</b>اختر قالبًا معتمدًا بلا متغيرات في الأتمتة العامة، ثم راجع شروط التشغيل وفعّل المسار.</Link>
+        <Link href="/dashboard/working-hours" className="rounded-xl border border-slate-200 p-3"><b className="block">تأكيد الموعد</b>اختر قالب تأكيد الحجز ذي المتغيرات السبعة ورقم إشعارات الحجوزات من إعدادات المواعيد.</Link>
+        <Link href="/dashboard/whatsapp/integrations" className="rounded-xl border border-slate-200 p-3"><b className="block">تأكيد طلب سلة</b>اربط المتجر واضبط إشعار الطلب المدفوع بقالب تأكيد الطلب. اعتماد القالب وحده لا يفعّل المسار.</Link>
+      </div>
+    </section>
+    {syncHealth ? <p role="status" className="rounded-xl border border-slate-200 bg-white p-3 text-sm leading-7 text-slate-700">{syncHealth.lastErrorCode ? "لم تنجح آخر مزامنة تلقائية. استخدم تحديث من Meta وتحقق من اتصال الحساب." : syncHealth.lastSucceededAt ? `آخر مزامنة تلقائية ناجحة: ${syncHealth.lastSucceededAt.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}` : "المزامنة التلقائية قيد التنفيذ."}</p> : null}
 
     {!connectionReady && connection ? <p role="status" className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800"><AlertTriangle className="h-4 w-4"/>رقم واتساب المرتبط غير جاهز حاليًا. أعد تفعيل الاتصال أولًا؛ القالب المعتمد وحده لا يكفي للإرسال.</p> : null}
     {params.sync ? <p aria-live="polite" className={`flex items-center gap-2 rounded-2xl border p-3 text-[10px] font-bold ${params.sync === "complete" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{params.sync === "complete" ? <CheckCircle2 className="h-4 w-4"/> : <AlertTriangle className="h-4 w-4"/>}{params.sync === "complete" ? `تم تحديث القوالب بنجاح (${params.count ?? 0}).` : "تعذر تحديث القوالب. تحقق من اتصال الرقم ثم أعد المحاولة."}</p> : null}
