@@ -1021,7 +1021,10 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     if (!seeded) throw new Error("fixture missing");
     const businessId = seeded.businessId;
     const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
-    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    const previousSubscription = await db.subscription.findFirst({ where: { businessId, status: "active" } });
+    const subscription = previousSubscription
+      ? await db.subscription.update({ where: { id: previousSubscription.id }, data: { planId: plan.id } })
+      : await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
     const foreignBusiness = await db.business.create({ data: { ownerId: seeded.adminUserId, name: "Foreign removal fixture", slug: `remove-${crypto.randomUUID()}`, businessType: "test" } });
     const foreign = await db.whatsAppContact.create({ data: { businessId: foreignBusiness.id, phoneE164: "+966500000851", source: "manual" } });
     const contact = await db.whatsAppContact.create({ data: { businessId, phoneE164: foreign.phoneE164, displayName: "جهة الحذف التجريبية", source: "manual" } });
@@ -1092,7 +1095,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.whatsAppConsent.deleteMany({ where: { businessId, phoneE164: contact.phoneE164 } });
       await db.whatsAppContact.deleteMany({ where: { id: { in: [contact.id, retained.id, foreign.id] } } });
       await db.business.delete({ where: { id: foreignBusiness.id } });
-      await db.subscription.delete({ where: { id: subscription.id } });
+      if (previousSubscription) await db.subscription.update({ where: { id: subscription.id }, data: { planId: previousSubscription.planId } });
+      else await db.subscription.delete({ where: { id: subscription.id } });
     }
   });
 
