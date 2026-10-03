@@ -129,7 +129,10 @@ export async function parseContactImport(input: {
       errors.push({ rowNumber, code: "cell_too_long" });
       continue;
     }
-    const phoneE164 = normalizeE164(source[phoneAt], input.defaultCountryCallingCode);
+    const phoneInput = (source[phoneAt] ?? "").replace(/[٠-٩۰-۹]/g, digit => String(digit.charCodeAt(0) - (digit <= "٩" ? 0x660 : 0x6f0)));
+    const compactPhone = phoneInput.replace(/[\s().-]/g, "");
+    // Country-prefixed Saudi numbers must not receive a second 966 prefix.
+    const phoneE164 = normalizeE164(/^966\d+$/.test(compactPhone) ? `+${compactPhone}` : phoneInput, input.defaultCountryCallingCode);
     if (!phoneE164) {
       errors.push({ rowNumber, code: "invalid_phone" });
       continue;

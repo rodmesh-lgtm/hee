@@ -685,6 +685,26 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       expect((await repeated.json()).completedBatches).toBe(0);
       await page.reload();
       await page.screenshot({ path: `${outDir}/mobile-dark-large-import.png`, fullPage: true });
+      await page.getByRole("radio", { name: "نسخ ولصق الأرقام", exact: true }).check();
+      await page.locator('textarea[name="pastedPhones"]').fill("966599999998\n+966599999998\n966500000000\ninvalid");
+      await expect(page.locator('input[name="file"]')).toHaveCount(0);
+      await page.locator("#import-contacts").screenshot({ path: `${outDir}/mobile-dark-paste-import.png` });
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.locator("#import-contacts").screenshot({ path: `${outDir}/desktop-dark-paste-import.png` });
+      await page.locator('#import-contacts button[type="submit"]').click();
+      await expect.poll(() => db.whatsAppContactImport.count({ where: { businessId, fileName: "أرقام بالنسخ واللصق.csv" } })).toBe(1);
+      const pasted = await db.whatsAppContactImport.findFirstOrThrow({ where: { businessId, fileName: "أرقام بالنسخ واللصق.csv" } });
+      expect(pasted.totalRows).toBe(4);
+      expect(pasted.duplicateRows).toBe(1);
+      expect(pasted.rejectedRows).toBe(1);
+      expect(pasted.consentConfirmed).toBe(false);
+      expect((await request.get(`${baseUrl}/api/cron/contact-imports`, { headers })).status()).toBe(200);
+      const pastedFinished = await db.whatsAppContactImport.findUniqueOrThrow({ where: { id: pasted.id } });
+      expect(pastedFinished.importedRows).toBe(1);
+      expect(pastedFinished.duplicateRows).toBe(2);
+      expect(await db.whatsAppContact.count({ where: { businessId, phoneE164: "+966599999998" } })).toBe(1);
+      expect(await db.whatsAppConsent.count({ where: { businessId } })).toBe(0);
+      expect(await db.whatsAppDeliveryJob.count({ where: { businessId } })).toBe(0);
     } finally {
       await context.close();
       await db.whatsAppContactImportBatch.deleteMany({ where: { businessId } });
