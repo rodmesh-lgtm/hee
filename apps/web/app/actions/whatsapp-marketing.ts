@@ -15,6 +15,7 @@ import { parseCampaignComposition } from "../lib/whatsapp/campaign-composition";
 import { parseCampaignSendPolicy } from "../lib/whatsapp/campaign-send-policy";
 import { enqueueContactImport, retryFailedContactImport } from "../lib/whatsapp/contact-import-processor";
 import { MAX_CONTACT_IMPORT_BYTES, parseContactImport, type ContactImportFormat } from "../lib/whatsapp/contact-import";
+import { parsePastedContactImport } from "../lib/whatsapp/pasted-contact-import";
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
 import { getWhatsAppWriteContext } from "../lib/whatsapp/rbac";
 import { createShopifyAuthorization } from "../lib/whatsapp/shopify-commerce";
@@ -184,18 +185,21 @@ export async function revokeWhatsAppAutomationApiKeyAction(form: FormData) {
 export async function importWhatsAppContactsAction(form: FormData) {
   const context = await campaignContext();
   const upload = form.get("file");
+  const pasted = form.get("importSource") === "paste";
+  const pastedPhones = form.get("pastedPhones");
   const consentConfirmed = form.get("explicitConsent") === "on";
   const evidence = field(form, "consentEvidence", 500);
-  if (!(upload instanceof File) || upload.size === 0) redirect("/dashboard/whatsapp/contacts?import=empty-file");
-  if (upload.size > MAX_CONTACT_IMPORT_BYTES) redirect("/dashboard/whatsapp/contacts?import=file-too-large");
-  const extension = upload.name.toLowerCase().split(".").pop();
+  if (pasted ? typeof pastedPhones !== "string" || !pastedPhones.trim() : !(upload instanceof File) || upload.size === 0) redirect(`/dashboard/whatsapp/contacts?import=${pasted ? "empty-paste" : "empty-file"}`);
+  if (pasted ? Buffer.byteLength(String(pastedPhones), "utf8") > MAX_CONTACT_IMPORT_BYTES : upload instanceof File && upload.size > MAX_CONTACT_IMPORT_BYTES) redirect("/dashboard/whatsapp/contacts?import=file-too-large");
+  const fileName = pasted ? "أرقام بالنسخ واللصق.csv" : (upload as File).name;
+  const extension = fileName.toLowerCase().split(".").pop();
   const format: ContactImportFormat | null = extension === "csv" ? "csv" : extension === "xlsx" ? "xlsx" : null;
   if (!format) redirect("/dashboard/whatsapp/contacts?import=unsupported-format");
   if (consentConfirmed && !evidence) redirect("/dashboard/whatsapp/contacts?import=consent-evidence-required");
   let destination: string;
   try {
-    const parsed = await parseContactImport({ data: Buffer.from(await upload.arrayBuffer()), format, defaultCountryCallingCode: "966" });
-    const result = await enqueueContactImport({ businessId: context.businessId, fileName: upload.name, format, parsed, consentEvidence: consentConfirmed ? evidence : null });
+    const parsed = pasted ? await parsePastedContactImport(pastedPhones as string) : await parseContactImport({ data: Buffer.from(await (upload as File).arrayBuffer()), format, defaultCountryCallingCode: "966" });
+    const result = await enqueueContactImport({ businessId: context.businessId, fileName, format, parsed, consentEvidence: consentConfirmed ? evidence : null });
     const rejectedRows = Math.max(0, parsed.totalRows - parsed.rows.length - parsed.duplicateRows);
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "contacts.import.queue", targetType: "contact_import", targetId: result.importId, outcome: "success", metadata: { totalRows: parsed.totalRows, acceptedRows: parsed.rows.length, duplicateRows: parsed.duplicateRows, rejectedRows, alreadyQueued: result.alreadyQueued } });
     revalidatePath("/dashboard/whatsapp"); revalidatePath("/dashboard/whatsapp/contacts");
@@ -205,6 +209,7 @@ export async function importWhatsAppContactsAction(form: FormData) {
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "contacts.import", targetType: "contact_import", outcome: "failed", metadata: { reason: code } }).catch(() => undefined);
     const safeReasons: Record<string, string> = {
       WHATSAPP_CONTACT_IMPORT_EMPTY_FILE: "empty-file",
+      WHATSAPP_CONTACT_IMPORT_EMPTY_PASTE: "empty-paste",
       WHATSAPP_CONTACT_IMPORT_FILE_TOO_LARGE: "file-too-large",
       WHATSAPP_CONTACT_IMPORT_TOO_MANY_COLUMNS: "too-many-columns",
       WHATSAPP_CONTACT_IMPORT_MISSING_PHONE_HEADER: "missing-phone-header",
