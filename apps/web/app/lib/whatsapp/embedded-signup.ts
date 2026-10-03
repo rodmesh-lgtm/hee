@@ -129,14 +129,17 @@ export async function completeEmbeddedSignup(input: {
   if (storedEnvelope) {
     accessToken = decryptWhatsAppCredential({ envelope: storedEnvelope, encryptionKeyBase64: config.META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY, businessId: input.businessId });
   } else {
-    await db.whatsAppEmbeddedSignupSession.update({ where: { id: session.id }, data: { status: "exchanging", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, lastErrorCode: null } });
+    const exchange = await db.whatsAppEmbeddedSignupSession.updateMany({ where: { id: session.id, expiresAt: { gt: new Date() }, status: { notIn: ["connected", "cancelled", "expired"] } }, data: { status: "exchanging", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, lastErrorCode: null } });
+    if (!exchange.count) throw new Error("WHATSAPP_SIGNUP_SESSION_INVALID");
     try {
       accessToken = await exchangeAuthorizationCode(input.authorizationCode);
       storedEnvelope = encryptWhatsAppCredential({ plaintext: accessToken, encryptionKeyBase64: config.META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY, keyVersion: config.META_WHATSAPP_CREDENTIAL_KEY_VERSION, businessId: input.businessId });
-      session = await db.whatsAppEmbeddedSignupSession.update({ where: { id: session.id }, data: { status: "token_exchanged", credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue } });
+      const exchanged = await db.whatsAppEmbeddedSignupSession.updateMany({ where: { id: session.id, status: "exchanging", expiresAt: { gt: new Date() } }, data: { status: "token_exchanged", credentialEnvelope: storedEnvelope as unknown as Prisma.InputJsonValue } });
+      if (!exchanged.count) throw new Error("WHATSAPP_SIGNUP_SESSION_INVALID");
+      session = await db.whatsAppEmbeddedSignupSession.findUniqueOrThrow({ where: { id: session.id } });
     } catch (error) {
       const code = error instanceof Error && /^META_[A-Z0-9_]+$/.test(error.message) ? error.message : "META_CODE_EXCHANGE_FAILED";
-      await db.whatsAppEmbeddedSignupSession.update({ where: { id: session.id }, data: { status: "created", lastErrorCode: code } }).catch(() => undefined);
+      await db.whatsAppEmbeddedSignupSession.updateMany({ where: { id: session.id, status: "exchanging", expiresAt: { gt: new Date() } }, data: { status: "created", lastErrorCode: code } }).catch(() => undefined);
       throw new Error(code);
     }
   }
@@ -146,6 +149,9 @@ export async function completeEmbeddedSignup(input: {
     const phone = await verifiedPhoneAsset(accessToken, input.wabaId, input.phoneNumberId);
     await subscribeApp(accessToken, input.wabaId);
     await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`whatsapp-connection:${input.businessId}`}))`;
+      const currentSession = await tx.whatsAppEmbeddedSignupSession.findFirst({ where: { id: session.id, businessId: input.businessId, initiatedByUserId: input.userId, expiresAt: { gt: new Date() }, status: "token_exchanged" } });
+      if (!currentSession) throw new Error("WHATSAPP_SIGNUP_SESSION_INVALID");
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`whatsapp-waba:meta:${input.wabaId}`}))`;
       const collision = await tx.whatsAppConnection.findFirst({
         where: { provider: "meta", OR: [{ wabaId: input.wabaId }, { phoneNumberId: input.phoneNumberId }], businessId: { not: input.businessId } },
@@ -190,7 +196,7 @@ export async function completeEmbeddedSignup(input: {
     });
   } catch (error) {
     const code = error instanceof Error && /^(META_|WHATSAPP_)[A-Z0-9_]+$/.test(error.message) ? error.message : "META_ASSET_VERIFICATION_FAILED";
-    await db.whatsAppEmbeddedSignupSession.update({ where: { id: session.id }, data: { status: "token_exchanged", lastErrorCode: code } }).catch(() => undefined);
+    await db.whatsAppEmbeddedSignupSession.updateMany({ where: { id: session.id, status: "token_exchanged", expiresAt: { gt: new Date() } }, data: { lastErrorCode: code } }).catch(() => undefined);
     throw new Error(code);
   }
   return { status: "connected" as const };

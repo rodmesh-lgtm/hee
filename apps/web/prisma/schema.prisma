@@ -926,6 +926,7 @@ model WhatsAppContact {
   source String
   attributes Json?
   optedOutAt DateTime?
+  deletedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
@@ -939,6 +940,7 @@ model WhatsAppContact {
   @@unique([businessId, phoneE164], map: "WhatsAppContact_business_phone_unique")
   @@unique([id, businessId], map: "WhatsAppContact_id_business_unique")
   @@index([businessId, optedOutAt], map: "WhatsAppContact_business_optout_idx")
+  @@index([businessId, deletedAt], map: "WhatsAppContact_business_deleted_idx")
   @@index([businessId, createdAt], map: "WhatsAppContact_business_created_idx")
 }
 

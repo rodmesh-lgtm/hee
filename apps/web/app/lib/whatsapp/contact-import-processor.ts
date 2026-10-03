@@ -152,7 +152,7 @@ async function completeClaimedBatch(database: PrismaClient, claimed: ClaimedBatc
         (CASE WHEN jsonb_typeof(c."attributes") = 'object' THEN c."attributes" ELSE '{}'::jsonb END) || imported.attributes,
         "updatedAt" = ${now}
       FROM jsonb_to_recordset(${JSON.stringify(attributeRows)}::jsonb) AS imported("phoneE164" text, attributes jsonb)
-      WHERE c."businessId" = ${claimed.businessId} AND c."phoneE164" = imported."phoneE164"
+      WHERE c."businessId" = ${claimed.businessId} AND c."phoneE164" = imported."phoneE164" AND c."deletedAt" IS NULL
     `);
     const existingPhones = new Set(existing.map((contact) => contact.phoneE164));
     const candidates = rows.filter((row) => !existingPhones.has(row.phoneE164));
@@ -160,7 +160,7 @@ async function completeClaimedBatch(database: PrismaClient, claimed: ClaimedBatc
       data: candidates.map((row) => ({ id: randomUUID(), businessId: claimed.businessId, phoneE164: row.phoneE164, displayName: row.displayName, email: row.email, attributes: row.attributes, source: batch.contactImport.format === "xlsx" ? "excel" : "csv" })),
       skipDuplicates: true,
     });
-    const contacts = rows.length ? await tx.whatsAppContact.findMany({ where: { businessId: claimed.businessId, phoneE164: { in: phones } }, select: { id: true, phoneE164: true } }) : [];
+    const contacts = rows.length ? await tx.whatsAppContact.findMany({ where: { businessId: claimed.businessId, deletedAt: null, phoneE164: { in: phones } }, select: { id: true, phoneE164: true } }) : [];
     const contactByPhone = new Map(contacts.map((contact) => [contact.phoneE164, contact.id]));
     const tagNames = [...new Set(rows.flatMap((row) => row.tags))];
     if (tagNames.length) {
@@ -184,7 +184,7 @@ async function completeClaimedBatch(database: PrismaClient, claimed: ClaimedBatc
       })
       : [];
     const existingConsentPhones = new Set(existingConsents.map((consent) => consent.phoneE164));
-    const newConsentRows = rows.filter((row) => !existingConsentPhones.has(row.phoneE164));
+    const newConsentRows = rows.filter((row) => contactByPhone.has(row.phoneE164) && !existingConsentPhones.has(row.phoneE164));
     const newConsentEntries = newConsentRows.map((row) => ({
       id: randomUUID(), businessId: claimed.businessId, phoneE164: row.phoneE164,
       source: "manual_import", evidence: batch.contactImport.consentEvidence!, consentedAt: now,

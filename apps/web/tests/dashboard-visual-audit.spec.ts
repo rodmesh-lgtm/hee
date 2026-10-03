@@ -711,6 +711,12 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await page.getByLabel("اسم الحملة", { exact: true }).fill("حملة مراجعة");
           await page.getByRole("button", { name: "التالي", exact: true }).click();
           await expect(page.getByRole("link", { name: /إضافة جمهور من Excel/ })).toBeVisible();
+          await page.getByRole("button", { name: /أرقام محددة يدويًا/ }).click();
+          await page.getByLabel("أرقام المستلمين المحددين").fill(`${contact.phoneE164}\n${contact.phoneE164}\n${bookingContact.phoneE164}\ninvalid`);
+          await expect(page.getByRole("button", { name: "التالي", exact: true })).toBeDisabled();
+          await page.getByRole("button", { name: "فحص الأرقام المحددة", exact: true }).click();
+          await expect(page.getByText("ستُنشأ الحملة للمؤهلين فقط (1).", { exact: false })).toBeVisible();
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-manual-audience.png`, fullPage: true });
           await page.getByRole("button", { name: "التالي", exact: true }).click();
           await expect(page.getByRole("heading", { name: "اختر الرسالة", exact: true })).toBeVisible();
           await page.getByLabel("قالب الرسالة", { exact: true }).selectOption(template.id);
@@ -1010,6 +1016,86 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       }
     }
   });
+  test("contact removal and number disconnect preserve history and reject foreign tenant targets", async ({ browser }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("fixture missing");
+    const businessId = seeded.businessId;
+    const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    const foreignBusiness = await db.business.create({ data: { ownerId: seeded.adminUserId, name: "Foreign removal fixture", slug: `remove-${crypto.randomUUID()}`, businessType: "test" } });
+    const foreign = await db.whatsAppContact.create({ data: { businessId: foreignBusiness.id, phoneE164: "+966500000851", source: "manual" } });
+    const contact = await db.whatsAppContact.create({ data: { businessId, phoneE164: foreign.phoneE164, displayName: "جهة الحذف التجريبية", source: "manual" } });
+    const retained = await db.whatsAppContact.create({ data: { businessId, phoneE164: "+966500000852", displayName: "جهة الحذف الجماعي", source: "manual" } });
+    await db.whatsAppConsent.create({ data: { businessId, phoneE164: contact.phoneE164, source: "manual", evidence: "CI only", consentedAt: new Date() } });
+    const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", phoneNumberId: `disconnect-${crypto.randomUUID()}`, wabaId: `disconnect-${crypto.randomUUID()}`, displayPhoneNumber: "+966500000850", credentialEnvelope: { testOnly: true } } });
+    const template = await db.whatsAppTemplate.create({ data: { businessId, connectionId: connection.id, providerTemplateId: crypto.randomUUID(), name: "removal_test", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", lastSyncedAt: new Date(), components: [], rawPayload: {} } });
+    const campaign = await db.whatsAppCampaign.create({ data: { businessId, connectionId: connection.id, templateId: template.id, name: "سجل محفوظ", status: "draft", audienceDefinition: { kind: "all_contacts" } } });
+    const recipient = await db.whatsAppCampaignRecipient.create({ data: { businessId, campaignId: campaign.id, contactId: contact.id, phoneE164: contact.phoneE164, status: "queued" } });
+    const job = await db.whatsAppDeliveryJob.create({ data: { businessId, campaignId: campaign.id, connectionId: connection.id, recipientId: recipient.id, idempotencyKey: crypto.randomUUID(), status: "queued" } });
+    const signup = await db.whatsAppEmbeddedSignupSession.create({ data: { businessId, initiatedByUserId: seeded.userId, stateDigest: crypto.randomUUID(), phoneNumberId: connection.phoneNumberId, status: "token_exchanged", credentialEnvelope: { testOnly: true }, expiresAt: new Date(Date.now() + 600_000) } });
+    const context = await authenticatedContext(browser, { width: 390, height: 844 }, "dark", seeded.sessionToken);
+    try {
+      const page = await context.newPage();
+      await page.goto(`${baseUrl}/dashboard/whatsapp/contacts`);
+      await page.getByRole("button", { name: "تحديد جهات للحذف", exact: true }).click();
+      await page.getByLabel(/جهة الحذف التجريبية/).check();
+      await page.getByRole("button", { name: "حذف المحدد (1)", exact: true }).click();
+      await expect(page.getByRole("button", { name: "تأكيد حذف جهات الاتصال", exact: true })).toBeDisabled();
+      await page.getByLabel("اكتب «حذف» للتأكيد").fill("حذف");
+      await page.screenshot({ path: `${outDir}/mobile-dark-contact-removal.png`, fullPage: true });
+      // A forged hidden target must not affect another tenant, even for the same phone.
+      await page.locator('input[name="contactId"]').evaluate((element, id) => { (element as HTMLInputElement).value = id; }, foreign.id);
+      await page.getByRole("button", { name: "تأكيد حذف جهات الاتصال", exact: true }).click();
+      await expect(page).toHaveURL(/remove=CONTACT_REMOVAL_CHANGED/);
+      expect((await db.whatsAppContact.findUniqueOrThrow({ where: { id: foreign.id } })).deletedAt).toBeNull();
+      expect((await db.whatsAppContact.findUniqueOrThrow({ where: { id: contact.id } })).deletedAt).toBeNull();
+      await page.goto(`${baseUrl}/dashboard/whatsapp/contacts`);
+      await page.getByRole("button", { name: "تحديد جهات للحذف", exact: true }).click();
+      await page.getByLabel(/جهة الحذف التجريبية/).check();
+      await page.getByRole("button", { name: "حذف المحدد (1)", exact: true }).click();
+      await page.getByLabel("اكتب «حذف» للتأكيد").fill("حذف");
+      await page.getByRole("button", { name: "تأكيد حذف جهات الاتصال", exact: true }).click();
+      await expect(page).toHaveURL(/remove=complete&removed=1/);
+      const removed = await db.whatsAppContact.findUniqueOrThrow({ where: { id: contact.id } });
+      expect(removed.deletedAt).not.toBeNull(); expect(removed.optedOutAt).not.toBeNull();
+      expect((await db.whatsAppConsent.findFirstOrThrow({ where: { businessId, phoneE164: contact.phoneE164 } })).revokedAt).not.toBeNull();
+      expect((await db.whatsAppDeliveryJob.findUniqueOrThrow({ where: { id: job.id } })).status).toBe("cancelled");
+      expect(await db.whatsAppCampaignRecipient.count({ where: { id: recipient.id } })).toBe(1);
+      expect((await db.whatsAppContact.findUniqueOrThrow({ where: { id: retained.id } })).deletedAt).toBeNull();
+      await page.getByRole("button", { name: /حذف جميع جهات الاتصال/ }).click();
+      await page.getByLabel("اكتب «حذف» للتأكيد").fill("حذف");
+      await page.getByRole("button", { name: "تأكيد حذف جهات الاتصال", exact: true }).click();
+      await expect(page).toHaveURL(/remove=complete/);
+      expect(await db.whatsAppContact.count({ where: { businessId, deletedAt: null } })).toBe(0);
+      expect((await db.whatsAppContact.findUniqueOrThrow({ where: { id: foreign.id } })).deletedAt).toBeNull();
+      await page.setViewportSize({ width: 1440, height: 960 });
+      await page.goto(`${baseUrl}/dashboard/whatsapp/setup`);
+      await page.getByRole("button", { name: "إلغاء ربط الرقم", exact: true }).click();
+      await page.getByLabel("أؤكد إلغاء ربط هذا الرقم وإيقاف استخدامه في المنشأة").check();
+      await page.screenshot({ path: `${outDir}/desktop-dark-disconnect-number.png`, fullPage: true });
+      await page.getByRole("button", { name: "تأكيد إلغاء الربط", exact: true }).click();
+      await expect(page).toHaveURL(/disconnect=complete/);
+      const disconnected = await db.whatsAppConnection.findUniqueOrThrow({ where: { id: connection.id } });
+      expect(disconnected.status).toBe("disconnected"); expect(disconnected.credentialEnvelope).toBeNull();
+      expect(disconnected.marketingEnabled).toBe(false); expect(disconnected.bookingEnabled).toBe(false);
+      expect((await db.whatsAppCampaign.findUniqueOrThrow({ where: { id: campaign.id } })).status).toBe("cancelled");
+      expect((await db.whatsAppEmbeddedSignupSession.findUniqueOrThrow({ where: { id: signup.id } })).status).toBe("cancelled");
+      expect(await db.whatsAppAuditLog.count({ where: { businessId, action: "contacts.remove", outcome: "success" } })).toBeGreaterThanOrEqual(2);
+    } finally {
+      await context.close();
+      await db.whatsAppDeliveryJob.deleteMany({ where: { campaignId: campaign.id } });
+      await db.whatsAppCampaignRecipient.deleteMany({ where: { campaignId: campaign.id } });
+      await db.whatsAppCampaign.delete({ where: { id: campaign.id } });
+      await db.whatsAppTemplate.delete({ where: { id: template.id } });
+      await db.whatsAppEmbeddedSignupSession.delete({ where: { id: signup.id } });
+      await db.whatsAppConnection.delete({ where: { id: connection.id } });
+      await db.whatsAppConsent.deleteMany({ where: { businessId, phoneE164: contact.phoneE164 } });
+      await db.whatsAppContact.deleteMany({ where: { id: { in: [contact.id, retained.id, foreign.id] } } });
+      await db.business.delete({ where: { id: foreignBusiness.id } });
+      await db.subscription.delete({ where: { id: subscription.id } });
+    }
+  });
+
   test("central booking forms support draft, publish, custom fields and deletion on mobile and desktop", async ({ browser }) => {
     test.setTimeout(180_000);
     if (!seeded) throw new Error("fixture missing");

@@ -56,7 +56,7 @@ export default async function WhatsAppMarketingPage() {
       where: { businessId: context.businessId, provider: "meta", marketingEnabled: true },
       select: { status: true, disabledAt: true, displayPhoneNumber: true, verifiedName: true },
     }),
-    db.whatsAppContact.count({ where: { businessId: context.businessId } }),
+    db.whatsAppContact.count({ where: { businessId: context.businessId, deletedAt: null } }),
     db.whatsAppTemplate.count({ where: { businessId: context.businessId, provider: "meta", status: "approved", connection: { marketingEnabled: true } } }),
     db.whatsAppCampaign.count({ where: { businessId: context.businessId } }),
     db.whatsAppAutomation.count({ where: { businessId: context.businessId, triggerType: { not: "booking_confirmation" } } }),
