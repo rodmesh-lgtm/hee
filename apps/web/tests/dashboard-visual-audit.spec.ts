@@ -6,6 +6,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { createHmac } from "node:crypto";
 import { getDefaultPageModules } from "../app/lib/page-modules";
 import { retryCampaignFailureReceipt } from "../app/lib/whatsapp/campaign-receipt-retry";
+import { persistSubmittedTemplate, submitTemplateRequest, recentSubmissionWhere } from "../app/lib/whatsapp/template-submission";
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 const outDir = process.env.INFRO_VISUAL_AUDIT_DIR || "/tmp/infro-visual-audit";
@@ -536,6 +537,19 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       { businessId: foreign.id, contactId: otherContact.id, cartId: "FOREIGN_CART_PRIVATE", state: "abandoned", sourceEventId: `other-${suffix}`, occurredAt: new Date() },
     ] });
     try {
+      const providerId = `${Date.now()}123`;
+      const payload = { name: "review_receipt_test", language: "ar", category: "UTILITY", components: [{ type: "BODY", text: "تم تأكيد موعدك" }] };
+      await submitTemplateRequest({ url: "https://graph.facebook.com/v23.0/123/message_templates", token: "test-only", payload,
+        fetcher: async () => Response.json({ id: providerId, status: "PENDING", category: "UTILITY" }),
+        persist: receipt => persistSubmittedTemplate({ database: db, businessId, connectionId: connection.id, payload, receipt }),
+      });
+      const saved = await db.whatsAppTemplate.findUniqueOrThrow({ where: { provider_providerTemplateId: { provider: "meta", providerTemplateId: providerId } } });
+      expect(saved.status).toBe("pending");
+      // An empty list during eventual consistency must not hide the confirmed receipt.
+      const missing = await db.whatsAppTemplate.updateMany({ where: { businessId, connectionId: connection.id, NOT: recentSubmissionWhere(new Date()) }, data: { status: "disabled" } });
+      expect(missing.count).toBe(0);
+      await expect(persistSubmittedTemplate({ database: db, businessId: foreign.id, connectionId: connection.id, payload, receipt: { id: providerId, status: "APPROVED", category: "UTILITY" } })).rejects.toThrow("TENANT_COLLISION");
+      expect((await db.whatsAppTemplate.findUniqueOrThrow({ where: { id: saved.id } })).status).toBe("pending");
       for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
         const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
         const page = await context.newPage();
@@ -556,6 +570,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await page.goto(`${baseUrl}/dashboard/whatsapp/templates`, { waitUntil: "domcontentloaded" });
           await expect(page.getByRole("heading", { name: "إنشاء قالب أو تعديل قالب موجود", exact: true })).toBeVisible();
           console.info("commerce audit: template editor opened", viewport.name, theme);
+          await expect(page.locator('#template-library article').filter({ hasText: "review_receipt_test" })).toContainText("قيد المراجعة");
           const editorForm = page.locator("form").filter({ has: page.locator('textarea[name="body"]') });
           await page.getByRole("button", { name: /^تأكيد الموعد/ }).click();
           await expect(page.locator('textarea[name="body"]')).toHaveValue(/رقم الحجز: \{\{7\}\}/);
@@ -580,6 +595,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     } finally {
       await db.whatsAppAutomationCart.deleteMany({ where: { businessId: { in: [businessId, foreign.id] } } });
       await db.whatsAppContact.deleteMany({ where: { id: { in: [contact.id, otherContact.id] } } });
+      await db.whatsAppTemplate.deleteMany({ where: { connectionId: connection.id } });
       await db.whatsAppConnection.delete({ where: { id: connection.id } });
       await db.subscription.deleteMany({ where: { id: subscription.id } });
       await db.business.delete({ where: { id: foreign.id } });

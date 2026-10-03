@@ -8,11 +8,12 @@ import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-e
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "../lib/whatsapp/credential-envelope";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl } from "../lib/whatsapp/meta-config";
 import { buildTemplateSubmission, canEditSimpleTemplate } from "../lib/whatsapp/template-editor-domain";
-import { syncMetaWhatsAppTemplates } from "../lib/whatsapp/template-sync";
+import { persistSubmittedTemplate, submitTemplateRequest, submissionErrorMessage, TemplateSubmissionError } from "../lib/whatsapp/template-submission";
 import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
 
-export async function submitWhatsAppTemplateAction(_previous: { message: string }, form: FormData): Promise<{ message: string }> {
+type SubmissionState = { message: string; outcome?: "accepted" | "rejected" | "uncertain" | "accepted-unsaved"; reference?: string };
+export async function submitWhatsAppTemplateAction(_previous: SubmissionState, form: FormData): Promise<SubmissionState> {
   const context = await getWhatsAppWriteContext("campaign.manage");
   if (!context || !await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) return { message: "لا تملك صلاحية إدارة القوالب أو الاشتراك غير فعال." };
   const connectionId = String(form.get("connectionId") ?? "");
@@ -65,17 +66,23 @@ export async function submitWhatsAppTemplateAction(_previous: { message: string 
       if (await tx.whatsAppCampaign.count({ where: { businessId: context.businessId, templateId, OR: [{ status: { in: ["snapshotting", "ready", "scheduled", "running", "paused"] } }, { status: "completed", updatedAt: { gte: new Date(Date.now() - 86400000) } }] } })) throw new Error("TEMPLATE_IN_USE");
       await tx.whatsAppTemplate.updateMany({ where: { id: templateId, businessId: context.businessId, connectionId }, data: { status: "pending", providerStatus: "EDIT_REQUESTED" } });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    const response = await fetch(metaWhatsAppGraphUrl(config, template ? template.providerTemplateId : `${connection.wabaId}/message_templates`), { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify(template ? { components: payload.components, category: payload.category } : payload), signal: AbortSignal.timeout(20000) });
-    if (!response.ok) throw new Error("META_TEMPLATE_SUBMISSION_REJECTED");
+    const receipt = await submitTemplateRequest({
+      url: metaWhatsAppGraphUrl(config, template ? template.providerTemplateId : `${connection.wabaId}/message_templates`), token, payload,
+      existingProviderId: template?.providerTemplateId,
+      persist: receipt => persistSubmittedTemplate({ database: db, businessId: context.businessId, connectionId, payload, receipt }),
+    });
     accepted = true;
-    // Stop local launches against an edited template until Meta's new status is synced.
-    if (template) await db.whatsAppTemplate.updateMany({ where: { id: templateId, businessId: context.businessId, connectionId }, data: { status: "pending", providerStatus: "PENDING" } });
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: template ? "template.edit" : "template.create", targetType: "connection", targetId: connectionId, outcome: "success" });
-    await syncMetaWhatsAppTemplates({ businessId: context.businessId, connectionId });
     revalidatePath("/dashboard/whatsapp/templates");
-    return { message: "استلمت Meta الطلب. راقب حالة القالب بعد المزامنة؛ لا يمكن استخدامه للحملات حتى اعتماده." };
+    return { outcome: "accepted", reference: receipt.id, message: "استلمت Meta القالب وحُفظ في مكتبتك بحالته الحالية. لا يمكن استخدامه للحملات حتى اعتماده." };
   } catch (error) {
-    if (accepted) return { message: "استلمت Meta الطلب لكن لم تكتمل المزامنة. اضغط تحديث من Meta ولا تعِد إنشاء القالب." };
+    revalidatePath("/dashboard/whatsapp/templates");
+    if (accepted) return { outcome: "accepted", message: "استلمت Meta القالب وحُفظ في المكتبة. لا تعِد تقديمه؛ تابع حالته من المكتبة." };
+    if (error instanceof TemplateSubmissionError) {
+      if (get("templateId")) await db.whatsAppTemplate.updateMany({ where: { id: get("templateId"), businessId: context.businessId, connectionId, providerStatus: "EDIT_REQUESTED" }, data: { status: "unknown", providerStatus: error.outcome === "rejected" ? "EDIT_SUBMISSION_REJECTED" : "EDIT_SUBMISSION_UNCONFIRMED" } }).catch(() => undefined);
+      await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "template.submit", targetType: "connection", targetId: connectionId, outcome: "failed", metadata: { reason: error.message, reference: error.reference } }).catch(() => undefined);
+      return { outcome: error.outcome, reference: error.reference, message: submissionErrorMessage(error) };
+    }
     const reason = error instanceof Error ? error.message : "UNKNOWN";
     if (reason === "TEMPLATE_AUTHENTICATION_INVALID") return { message: "قالب OTP يستخدم نص Meta الثابت وزر نسخ الرمز فقط. حدد مدة صلاحية من 1 إلى 90 دقيقة دون نص تسويقي أو وسائط." };
     if (reason === "TEMPLATE_IN_USE") return { message: "القالب مرتبط بحملة جاهزة أو جارية أو مكتملة حديثًا. أنشئ قالبًا جديدًا لحماية الرسائل المثبتة ومحاولات التسليم." };
