@@ -45,6 +45,9 @@ function serverActionOrigins() {
 }
 
 const nextConfig: NextConfig = {
+  // Preserve the host's identifier; use the exact release for other build paths.
+  // Next.js then detects stale navigation payloads after a rolling deployment.
+  deploymentId: process.env.NEXT_DEPLOYMENT_ID || process.env.VERCEL_DEPLOYMENT_ID || process.env.RELEASE_SHA || process.env.VERCEL_GIT_COMMIT_SHA,
   allowedDevOrigins: ["localhost", "127.0.0.1", "*.app.github.dev"],
   // Do not configure a wildcard Next Image proxy. Current V10 customer media is
   // served by HEE's validated /api/storage endpoint or ordinary browser <img> tags.

@@ -274,6 +274,45 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
 }
 
 test.describe.serial("authenticated INFRO visual audit",()=>{
+  test("stale login actions recover with a GET, never replay credentials, and cannot reload in a loop", async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    let actionPosts = 0;
+    let documents = 0;
+    await page.route("**/login", async route => {
+      if (route.request().method() === "POST" && route.request().headers()["next-action"]) {
+        actionPosts++;
+        await route.fulfill({ status: 404, headers: { "x-nextjs-action-not-found": "1", "content-type": "text/plain" }, body: "Server action not found" });
+      } else {
+        if (route.request().isNavigationRequest()) documents++;
+        await route.continue();
+      }
+    });
+    try {
+      await page.goto(`${baseUrl}/login`);
+      await page.locator('input[name="email"]').fill("stale-action-test@example.com");
+      await page.locator('input[name="password"]').fill("synthetic-test-not-a-credential");
+      await page.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "تتوفر نسخة أحدث من المنصة" })).toBeVisible();
+      await expect.poll(() => documents).toBe(2);
+      await expect(page.locator('input[name="email"]')).toBeVisible();
+      expect(actionPosts).toBe(1);
+      await page.locator('input[name="email"]').fill("stale-action-test@example.com");
+      await page.locator('input[name="password"]').fill("synthetic-test-not-a-credential");
+      await page.getByRole("button", { name: "تسجيل الدخول", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "تتوفر نسخة أحدث من المنصة" })).toBeVisible();
+      await page.waitForTimeout(2200); // Prove the one-shot recovery does not loop.
+      expect(documents).toBe(2);
+      expect(actionPosts).toBe(2);
+      await expect(page.getByRole("button", { name: "إعادة المحاولة", exact: true })).toHaveCount(0);
+      await page.screenshot({ path: `${outDir}/mobile-stale-action-recovery.png`, fullPage: true });
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.screenshot({ path: `${outDir}/desktop-stale-action-recovery.png`, fullPage: true });
+      await page.getByRole("button", { name: "إعادة تحميل الصفحة", exact: true }).click();
+      await expect(page.locator('input[name="email"]')).toBeVisible();
+      expect(actionPosts).toBe(2);
+    } finally { await context.close(); }
+  });
   test.beforeAll(async()=>{await mkdir(outDir,{recursive:true});const connectionString=String(process.env.DATABASE_URL??"").trim();if(!connectionString)throw new Error("DATABASE_URL is required");pool=new Pool({connectionString,max:4});db=new PrismaClient({adapter:new PrismaPg(pool)});seeded=await seedWorkspace();});
   test.afterAll(async()=>{if(seeded)await cleanupWorkspace(seeded);await db?.$disconnect();await pool?.end();});
   test("contact removal and number disconnect preserve history and reject foreign tenant targets", async ({ browser }) => {
