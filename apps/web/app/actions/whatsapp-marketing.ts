@@ -20,6 +20,9 @@ import { getWhatsAppWriteContext } from "../lib/whatsapp/rbac";
 import { createShopifyAuthorization } from "../lib/whatsapp/shopify-commerce";
 import { retryShopifyWebhookSubscriptionSync } from "../lib/whatsapp/shopify-webhook-subscriptions";
 import { syncMetaWhatsAppTemplates } from "../lib/whatsapp/template-sync";
+import { resolveManualAudience } from "../lib/whatsapp/manual-audience-query";
+import { disconnectWhatsAppConnection } from "../lib/whatsapp/connection-disconnect";
+import { removeWhatsAppContacts } from "../lib/whatsapp/contact-removal";
 
 const field = (form: FormData, key: string, max: number) => {
   const value = String(form.get(key) ?? "").trim();
@@ -247,12 +250,55 @@ export async function syncWhatsAppTemplatesAction(form: FormData) {
   redirect(destination);
 }
 
+export async function previewManualCampaignAudienceAction(value: string) {
+  const context = await campaignContext();
+  try {
+    const result = await resolveManualAudience(db, context.businessId, value, new Date());
+    return { ok: true as const, summary: result.summary };
+  } catch {
+    return { ok: false as const, error: "تعذر فحص الأرقام. استخدم رقمًا في كل سطر وبحد 10,000 مستلم للحملة الحالية." };
+  }
+}
+
+export async function disconnectWhatsAppConnectionAction(form: FormData) {
+  const context = await getWhatsAppWriteContext("connection.manage");
+  if (!context) redirect("/dashboard/whatsapp?access=denied");
+  const connectionId = field(form, "connectionId", 128);
+  if (!connectionId || form.get("confirmDisconnect") !== "on") redirect("/dashboard/whatsapp/setup?disconnect=invalid");
+  let result = "complete";
+  try {
+    await disconnectWhatsAppConnection({ businessId: context.businessId, actorUserId: context.userId, connectionId });
+    revalidatePath("/dashboard/whatsapp", "layout");
+    revalidatePath("/dashboard/working-hours");
+  } catch {
+    result = "failed";
+    await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "connection.disconnect", targetType: "connection", targetId: connectionId, outcome: "failed", metadata: { reason: "DISCONNECT_FAILED" } }).catch(() => undefined);
+  }
+  redirect(`/dashboard/whatsapp/setup?disconnect=${result}`);
+}
+
+export async function removeWhatsAppContactsAction(form: FormData) {
+  const context = await campaignContext();
+  const scope = form.get("scope");
+  if (!["all", "selected"].includes(String(scope)) || form.get("confirmation") !== "حذف") redirect("/dashboard/whatsapp/contacts?remove=invalid");
+  let destination: string;
+  try {
+    const result = await removeWhatsAppContacts({ businessId: context.businessId, actorUserId: context.userId, scope: scope as "all" | "selected", contactIds: form.getAll("contactId").map(String), expectedCount: Number(form.get("expectedCount")) });
+    revalidatePath("/dashboard/whatsapp", "layout");
+    destination = `/dashboard/whatsapp/contacts?remove=complete&removed=${result.count}`;
+  } catch (error) {
+    const reason = error instanceof Error && ["CONTACT_REMOVAL_IMPORT_ACTIVE", "CONTACT_REMOVAL_CHANGED"].includes(error.message) ? error.message : "failed";
+    destination = `/dashboard/whatsapp/contacts?remove=${reason}`;
+  }
+  redirect(destination);
+}
+
 export async function createWhatsAppCampaignAction(form: FormData) {
   const context = await campaignContext();
   const name = field(form, "name", 120), connectionId = field(form, "connectionId", 128), templateId = field(form, "templateId", 128);
   const audienceKind = field(form, "audienceKind", 32) ?? "all_contacts";
   const segmentId = field(form, "segmentId", 128);
-  if (!name || !connectionId || !templateId || !["all_contacts", "static_segment"].includes(audienceKind)) redirect("/dashboard/whatsapp/campaigns?create=invalid");
+  if (!name || !connectionId || !templateId || !["all_contacts", "static_segment", "manual"].includes(audienceKind)) redirect("/dashboard/whatsapp/campaigns?create=invalid");
   if (audienceKind === "static_segment" && !segmentId) redirect("/dashboard/whatsapp/campaigns?create=invalid");
   let destination: string;
   try {
@@ -266,7 +312,12 @@ export async function createWhatsAppCampaignAction(form: FormData) {
 
       let audienceDefinition: Prisma.InputJsonValue;
       let audienceSize: number;
-      if (audienceKind === "static_segment") {
+      if (audienceKind === "manual") {
+        const resolved = await resolveManualAudience(tx, context.businessId, form.get("manualPhones"), now);
+        if (!resolved.contactIds.length) throw new Error("WHATSAPP_CAMPAIGN_NO_ELIGIBLE_RECIPIENTS");
+        audienceDefinition = { kind: "contacts", contactIds: resolved.contactIds };
+        audienceSize = resolved.contactIds.length;
+      } else if (audienceKind === "static_segment") {
         const segment = await tx.whatsAppSegment.findFirst({
           where: { id: segmentId!, businessId: context.businessId, kind: "static" },
           select: { id: true, _count: { select: { memberships: true } } },

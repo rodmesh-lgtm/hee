@@ -19,6 +19,7 @@ import { db } from "../../../lib/db";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
 import { getMetaEmbeddedSignupPublicConfig } from "../../../lib/whatsapp/meta-config";
+import { DisconnectConnection } from "./disconnect-connection";
 import { EmbeddedSignupButton } from "./embedded-signup-button";
 
 const connectionStatusLabel: Record<string, string> = {
@@ -28,7 +29,8 @@ const connectionStatusLabel: Record<string, string> = {
   failed: "يحتاج إعادة ربط",
 };
 
-export default async function WhatsAppSetupPage() {
+export default async function WhatsAppSetupPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const params = await searchParams;
   const context = await getWhatsAppReadContext("connection.manage");
   if (!context) redirect("/dashboard/whatsapp/inbox?access=denied");
   if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) {
@@ -37,7 +39,8 @@ export default async function WhatsAppSetupPage() {
 
   const [connection, latestSession, templateSummary, campaignCount, conversationCount] = await Promise.all([
     db.whatsAppConnection.findFirst({
-      where: { businessId: context.businessId, provider: "meta", marketingEnabled: true },
+      where: { businessId: context.businessId, provider: "meta" },
+      orderBy: [{ marketingEnabled: "desc" }, { updatedAt: "desc" }],
       select: {
         id: true,
         status: true,
@@ -91,6 +94,7 @@ export default async function WhatsAppSetupPage() {
           : { title: "الحساب جاهز للعمل", detail: "الرقم والقوالب الأساسية جاهزة؛ يمكنك الانتقال إلى الحملات أو المحادثات.", href: "/dashboard/whatsapp/campaigns", label: "فتح الحملات" };
 
   return <div className="min-w-0 space-y-5 pb-5">
+    {params.disconnect ? <p role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-900">{params.disconnect === "complete" ? "تم إلغاء ربط الرقم وإيقاف استخدامه داخل INFRO. يمكنك ربطه مجددًا بتفويض Meta جديد." : "تعذر إلغاء الربط. حدّث الصفحة وتأكد من تحديد الرقم والتأكيد ثم أعد المحاولة."}</p> : null}
     <header className="relative overflow-hidden rounded-[30px] bg-[#061619] p-5 text-white shadow-[0_30px_80px_-50px_rgba(3,23,25,.9)] sm:p-7">
       <div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#00d8c6]/20 blur-3xl" />
       <div className="absolute -bottom-24 right-1/3 h-52 w-52 rounded-full bg-[#118cff]/10 blur-3xl" />
@@ -116,6 +120,7 @@ export default async function WhatsAppSetupPage() {
       <article className="min-w-0 rounded-[26px] border border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><Link2 className="h-4 w-4" /></span><div><h2 className="font-black">هوية الرقم والاتصال</h2><p className="text-[9px] text-slate-400">بيانات رقم منشأتك</p></div></div><span className={`rounded-full px-3 py-1.5 text-[9px] font-black ${connected ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{connection ? connection.disabledAt ? "الربط متوقف" : connectionStatusLabel[connection.status] || "يحتاج مراجعة" : "لا يوجد اتصال"}</span></div>
         {connection ? <div className="mt-5 grid gap-3 sm:grid-cols-2"><InfoCell label="اسم النشاط في واتساب" value={connection.verifiedName || "لم يصل الاسم بعد"} /><InfoCell label="رقم واتساب" value={connection.displayPhoneNumber || "لم يصل الرقم بعد"} ltr /><InfoCell label="WABA ID" value={connection.wabaId} ltr technical /><InfoCell label="Phone Number ID" value={connection.phoneNumberId} ltr technical /><InfoCell label="آخر تحديث للاتصال" value={formatDate(connection.updatedAt)} /><InfoCell label="تاريخ الربط" value={connection.connectedAt ? formatDate(connection.connectedAt) : "لم يكتمل بعد"} /></div> : <div className="mt-5 rounded-[20px] border border-dashed border-slate-200 bg-slate-50/50 p-6 text-center"><ShieldCheck className="mx-auto h-6 w-6 text-slate-300" /><b className="mt-3 block text-sm">لم يتم ربط رقم بعد</b><p className="mx-auto mt-2 max-w-md text-[10px] leading-6 text-slate-500">استخدم زر «ربط حساب Meta» للبدء. ستظهر هنا بيانات رقمك وحالة اتصاله بعد إتمام الخطوات.</p></div>}
+        {connected && connection ? <DisconnectConnection connectionId={connection.id} label={connection.displayPhoneNumber || connection.verifiedName || "الرقم الحالي"}/> : null}
         {connection?.lastErrorCode ? <div role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold leading-6 text-amber-800"><AlertTriangle className="mb-1 h-4 w-4" />حالة الاتصال الحالية تحتاج مراجعة قبل الإرسال. لا نعرض تفاصيل داخلية حساسة هنا؛ استخدم إعادة الربط الرسمية.</div> : null}
       </article>
 

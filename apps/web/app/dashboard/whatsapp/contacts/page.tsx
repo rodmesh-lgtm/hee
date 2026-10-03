@@ -8,6 +8,7 @@ import { db } from "../../../lib/db";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
 import { AudienceSegmentBuilder } from "./audience-segment-builder";
+import { ContactRemovalControls } from "./contact-removal-controls";
 import { ImportProgressRefresh } from "./import-progress-refresh";
 
 const buttonFocus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2";
@@ -52,7 +53,7 @@ export default async function WhatsAppContactsPage({ searchParams }: { searchPar
         (contact."optedOutAt" IS NULL AND consent."revokedAt" IS NULL AND consent."consentedAt" <= CURRENT_TIMESTAMP) AS "eligible"
       FROM "WhatsAppContact" contact
       LEFT JOIN "WhatsAppConsent" consent ON consent."businessId" = contact."businessId" AND consent."phoneE164" = contact."phoneE164" AND consent."source" <> 'booking'
-      WHERE contact."businessId" = ${context.businessId}
+      WHERE contact."businessId" = ${context.businessId} AND contact."deletedAt" IS NULL
       ${audiencePredicate}
       ${searchPredicate}
       ORDER BY contact."createdAt" DESC
@@ -67,7 +68,7 @@ export default async function WhatsAppContactsPage({ searchParams }: { searchPar
         COUNT(*) FILTER (WHERE contact."optedOutAt" IS NOT NULL)::int AS "optedOut"
       FROM "WhatsAppContact" contact
       LEFT JOIN "WhatsAppConsent" consent ON consent."businessId" = contact."businessId" AND consent."phoneE164" = contact."phoneE164" AND consent."source" <> 'booking'
-      WHERE contact."businessId" = ${context.businessId}
+      WHERE contact."businessId" = ${context.businessId} AND contact."deletedAt" IS NULL
     `),
     db.whatsAppSegment.findMany({ where: { businessId: context.businessId, kind: "static" }, orderBy: { createdAt: "desc" }, take: 8, select: { id: true, name: true, _count: { select: { memberships: true } } } }),
   ]);
@@ -81,6 +82,7 @@ export default async function WhatsAppContactsPage({ searchParams }: { searchPar
       <div className="relative flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between"><div><span className="text-[9px] font-black tracking-[.16em] text-[#6eead8]" dir="ltr">AUDIENCE OPERATIONS</span><div className="mt-3 flex items-center gap-2"><UsersRound className="h-5 w-5 text-[#35e4cb]"/><h1 className="text-2xl font-black">مساحة الجمهور والموافقات</h1></div><p className="mt-3 max-w-3xl text-xs leading-7 text-slate-300">من ملف Excel إلى جمهور صالح للحملة: استيراد، تنظيف، موافقة، منسحب من الرسائل وشرائح في مساحة تشغيل واحدة.</p></div><Link href="/dashboard/whatsapp/campaigns" className={`inline-flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/10 px-4 text-xs font-black text-white transition hover:bg-white/15 ${buttonFocus}`}>الانتقال إلى الحملات</Link></div>
     </header>
 
+    {params.remove ? <Notice ok={params.remove === "complete"} text={params.remove === "complete" ? `تم حذف ${Number(params.removed) || 0} جهة من الجمهور مع حفظ سجل العمليات السابقة.` : params.remove === "CONTACT_REMOVAL_IMPORT_ACTIVE" ? "انتظر انتهاء استيراد جهات الاتصال ثم أعد الحذف." : "تغيرت قائمة الجهات أو لم يكتمل التأكيد؛ حدّث الصفحة وراجع اختيارك ثم أعد المحاولة."}/> : null}
     {params.import === "queued" ? <Notice ok text="تم قبول الملف وبدأت معالجته. ستظهر النتيجة تلقائيًا عند اكتمال الاستيراد." /> : params.import === "existing" ? <Notice ok text="هذا الملف مسجل مسبقًا لنشاطك؛ نعرض لك العملية الحالية بدل إنشاء نسخة مكررة." /> : params.import ? <Notice text={importErrorMessage(params.import)} /> : null}
     {params.retry === "queued" ? <Notice ok text="بدأت إعادة معالجة السجلات التي تعذر استيرادها، وستظهر النتيجة تلقائيًا." /> : params.retry ? <Notice text="تعذرت إعادة المعالجة؛ قد تكون العملية ما زالت جارية أو لم تعد قابلة للإعادة." /> : null}
 
@@ -92,6 +94,7 @@ export default async function WhatsAppContactsPage({ searchParams }: { searchPar
     </section>
 
     <section className="rounded-[26px] border border-slate-200 bg-white p-4 sm:p-5"><div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"><div><h2 className="font-black">دليل الجمهور</h2><p className="mt-1 text-[9px] text-slate-400">آخر 100 نتيجة مطابقة للبحث والتصفية</p></div><form className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto"><label className="relative min-w-0 sm:min-w-[260px]"><Search className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"/><input name="q" defaultValue={query} maxLength={80} placeholder="اسم، رقم أو بريد" className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pr-9 pl-3 text-xs outline-none focus:border-[#8ddfd6]"/></label><select name="audience" defaultValue={audienceFilter} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-[#8ddfd6]"><option value="all">كل الجهات</option><option value="eligible">مؤهل للحملة</option><option value="no-consent">يحتاج موافقة</option><option value="opted-out">منسحب من الرسائل</option></select><button className={`min-h-11 rounded-xl bg-[#07181b] px-4 text-xs font-black text-white ${buttonFocus}`}>تطبيق</button></form></div>
+      <ContactRemovalControls key={contacts.map(c => c.id).join(",") + metrics.total} contacts={contacts.map(c => ({ id: c.id, displayName: c.displayName, phoneE164: c.phoneE164 }))} total={metrics.total} importing={hasActiveImport}/>
       {contacts.length ? <><div className="mt-4 grid gap-2 md:hidden">{contacts.map((contact)=><ContactCard key={contact.id} contact={contact}/>)}</div><div className="mt-4 hidden overflow-x-auto md:block"><table className="w-full min-w-[780px] text-right text-[10px]"><thead><tr className="border-b border-slate-100 text-slate-400"><th scope="col" className="p-2">الجهة</th><th scope="col" className="p-2">رقم الجوال</th><th scope="col" className="p-2">المصدر</th><th scope="col" className="p-2">أهلية الحملة</th><th scope="col" className="p-2">أضيفت</th></tr></thead><tbody>{contacts.map((contact)=><tr key={contact.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50"><td className="p-2"><b>{contact.displayName||"—"}</b>{contact.email?<span dir="ltr" className="mt-0.5 block text-right text-[9px] text-slate-400">{contact.email}</span>:null}</td><td dir="ltr" className="p-2 text-right">{contact.phoneE164}</td><td className="p-2">{contactSourceLabel(contact.source)}</td><td className="p-2"><AudienceState contact={contact}/></td><td className="p-2 text-slate-400">{contact.createdAt.toLocaleDateString("ar-SA")}</td></tr>)}</tbody></table></div></> : <div className="p-8 text-center"><ContactRound className="mx-auto mb-3 h-6 w-6 text-slate-300"/><b className="block text-sm">لا توجد نتائج مطابقة</b><span className="mx-auto mt-2 block max-w-md text-[10px] leading-6 text-slate-500">غيّر البحث أو التصفية، أو استورد جمهورك الأول إذا لم توجد جهات اتصال بعد.</span><Link href="#import-contacts" className={`mt-4 inline-flex min-h-10 items-center rounded-xl border border-[#bdebe5] bg-[#effbf9] px-3 text-[10px] font-black text-[#008f87] ${buttonFocus}`}>استيراد ملف</Link></div>}
     </section>
 
