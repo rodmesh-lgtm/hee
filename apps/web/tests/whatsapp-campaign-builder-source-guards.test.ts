@@ -11,7 +11,7 @@ test("campaign creation is a five-step guided review flow without automatic send
   for (const label of ["الإعداد", "الجمهور", "الرسالة", "الأمان", "المراجعة", "إنشاء وتثبيت الجمهور"]) {
     assert.match(wizard, new RegExp(label));
   }
-  assert.match(wizard, /INFRO CAMPAIGN STUDIO/);
+  assert.match(wizard, /أنشئ حملتك دون تعقيد/);
   assert.match(wizard, /لن يتم الإرسال الآن/);
   assert.match(wizard, /name="audienceKind"/);
   assert.match(wizard, /name="segmentId"/);
@@ -38,7 +38,7 @@ test("campaign action validates tenant-bound static segments and freezes eligibl
 
 test("guided builder preserves launch readiness and five-recipient canary controls", () => {
   assert.match(page, /getWhatsAppCampaignLaunchReadiness/);
-  assert.match(page, /مرحلة إرسال تجريبية آمنة/);
+  assert.match(page, /أُضيفت الدفعة التجريبية إلى طابور الإرسال/);
   assert.match(page, /بحد أقصى 5 مستلمين/);
   assert.match(page, /launchWhatsAppCampaignAction/);
   assert.match(page, /disabled=\{!launchReady\}/);

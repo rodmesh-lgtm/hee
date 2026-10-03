@@ -9,7 +9,7 @@ test("campaign UI uses customer-facing Arabic instead of implementation jargon",
   for (const phrase of ["Snapshot ثابت", "Queue وWorkers", "Rate Limiting", "إنشاء وأخذ Snapshot", "اختبار الإطلاق الحقيقي", ">Sent<", ">Delivered<", ">Read<", ">Failed<", ">Opt-out<"]) {
     assert.doesNotMatch(page, new RegExp(phrase));
   }
-  assert.match(page, /مرحلة إرسال تجريبية آمنة/);
+  assert.match(page, /أُضيفت الدفعة التجريبية إلى طابور الإرسال/);
   assert.match(page, /إلغاء الاشتراك/);
   assert.match(page, /تم الإرسال/);
   assert.match(page, /تم التسليم/);
