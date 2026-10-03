@@ -7,7 +7,7 @@ export function TemplateStatusRefresh({ enabled }: { enabled: boolean }) {
   useEffect(() => {
     if (!enabled) return;
     const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
+      if (document.visibilityState === "visible" && navigator.onLine && !document.activeElement?.closest("#template-studio")) router.refresh();
     }, 60_000);
     return () => window.clearInterval(interval);
   }, [enabled, router]);

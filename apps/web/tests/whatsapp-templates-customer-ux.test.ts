@@ -13,7 +13,7 @@ test("WhatsApp templates page uses customer-facing Arabic states and actions", (
   assert.match(source, /languageLabel\(template\.language\)/);
   assert.match(source, /aria-live="polite"/);
   assert.match(source, /INFRO لا يغيّر قرار الاعتماد/);
-  assert.match(source, /أنشئ أو عدّل القالب في أدوات Meta الرسمية/);
+  assert.match(source, /أنشئ القالب من محرر INFRO وأرسله للمراجعة/);
 });
 
 test("WhatsApp templates page avoids duplicate hub navigation and raw primary status labels", () => {

@@ -37,7 +37,7 @@ test("template operations exposes safe components preview but never raw payload 
 
 test("template UX keeps Meta approval authoritative", () => {
   assert.match(page, /قرار الاعتماد/);
-  assert.match(page, /أنشئ أو عدّل القالب في أدوات Meta الرسمية/);
+  assert.match(page, /أنشئ القالب من محرر INFRO وأرسله للمراجعة/);
   assert.match(page, /syncWhatsAppTemplatesAction/);
   assert.doesNotMatch(page, /approveWhatsAppTemplateAction|اعتماد القالب الآن/);
 });

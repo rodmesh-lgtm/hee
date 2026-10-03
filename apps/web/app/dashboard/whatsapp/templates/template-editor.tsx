@@ -33,7 +33,10 @@ function EditorForm({ connectionId, template, body, footer, header, starter }: {
   const [media, setMedia] = useState(["IMAGE", "VIDEO", "DOCUMENT"].includes(header) ? header : "NONE");
   const [category, setCategory] = useState<string>(template?.category.toUpperCase() ?? starter?.category ?? "MARKETING");
   const authentication = category === "AUTHENTICATION";
-  return <form action={action} className="mt-4 grid gap-4 sm:grid-cols-2">
+  const [message, setMessage] = useState(body);
+  const [examples, setExamples] = useState<string>(starter?.examples ?? "");
+  const preview = message.replace(/\{\{(\d+)\}\}/g, (variable, index) => examples.split("|")[Number(index) - 1]?.trim() || variable);
+  return <form action={action} onReset={event => event.preventDefault()} className="mt-4 grid gap-4 sm:grid-cols-2">
     <input name="connectionId" type="hidden" value={connectionId}/><input name="templateId" type="hidden" value={template?.id ?? ""}/>
     <label className="text-xs text-slate-600">اسم القالب بالإنجليزية<input name="name" required pattern="[a-z][a-z0-9_]{0,99}" maxLength={100} defaultValue={template?.name ?? starter?.name} readOnly={Boolean(template)} placeholder="customer_offer" dir="ltr" className={control}/></label>
     <label className="text-xs text-slate-600">اللغة<select name="language" defaultValue={template?.language ?? "ar"} className={control}>{["ar", "en", "en_US", "en_GB"].filter((l) => !template || l === template.language).map((l) => <option key={l}>{l}</option>)}</select></label>
@@ -45,11 +48,13 @@ function EditorForm({ connectionId, template, body, footer, header, starter }: {
     </> : <>
     <label className="text-xs text-slate-600">رأس الرسالة<select name="header" value={media} onChange={(e) => setMedia(e.target.value)} className={control}><option value="NONE">بدون وسائط</option><option value="IMAGE">صورة</option><option value="VIDEO">فيديو</option><option value="DOCUMENT">PDF</option></select></label>
     {media !== "NONE" ? <label className="text-xs text-slate-600 sm:col-span-2">عينة للمراجعة — حتى 3 MB<input name="sample" type="file" required accept={media === "IMAGE" ? "image/jpeg,image/png" : media === "VIDEO" ? "video/mp4" : "application/pdf"} className={control}/></label> : null}
-    <label className="text-xs text-slate-600 sm:col-span-2">نص الرسالة<textarea name="body" required maxLength={1024} defaultValue={body} rows={4} placeholder="مرحبًا {{1}}، تفاصيل عرضنا…" className={control}/></label>
-    <label className="text-xs text-slate-600 sm:col-span-2">أمثلة المتغيرات بالترتيب، مفصولة بعلامة |<input name="examples" defaultValue={starter?.examples ?? ""} maxLength={10000} placeholder="أحمد | موعد الصيانة" className={control}/></label>
+    <label className="text-sm text-slate-600 sm:col-span-2">نص الرسالة<textarea name="body" required maxLength={1024} value={message} onChange={event => setMessage(event.target.value)} rows={5} placeholder="مرحبًا {{1}}، تفاصيل عرضنا…" className={control}/><span className="mt-1 block">{message.length} / 1024 حرف</span></label>
+    <label className="text-sm text-slate-600 sm:col-span-2">أمثلة المتغيرات بالترتيب، مفصولة بعلامة |<input name="examples" value={examples} onChange={event => setExamples(event.target.value)} maxLength={10000} placeholder="أحمد | موعد الصيانة" className={control}/></label>
+    <div className="rounded-2xl border border-teal-200 bg-[#effbf9] p-5 sm:col-span-2"><b className="text-sm text-slate-900">معاينة نص الرسالة</b><p dir="auto" className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-base leading-8 text-slate-900">{preview || "اكتب رسالتك لتظهر المعاينة هنا."}</p><p className="mt-2 text-sm text-slate-600">تُستخدم الأمثلة للمعاينة ومراجعة Meta؛ تُملأ المتغيرات ببيانات المستلم عند الإرسال.</p></div>
     <label className="text-xs text-slate-600 sm:col-span-2">التذييل (اختياري)<input name="footer" maxLength={60} defaultValue={footer} className={control}/></label>
     <label className="text-xs text-slate-600">عنوان زر الرابط (اختياري)<input name="buttonText" maxLength={25} defaultValue={button?.text ?? ""} className={control}/></label><label className="text-xs text-slate-600">رابط الزر HTTPS<input name="buttonUrl" defaultValue={button?.url ?? ""} type="url" maxLength={2048} dir="ltr" className={control}/></label>
     </>}
-    <button disabled={pending || !connectionId} className="min-h-12 rounded-xl bg-[#07181b] px-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{pending ? "جارٍ تقديم الطلب…" : "إرسال إلى Meta للمراجعة"}</button><p role="status" className="text-sm leading-7 text-slate-700">{state.message}</p>
+    <button disabled={pending || !connectionId || Boolean(state.outcome && state.outcome !== "rejected")} className="min-h-12 rounded-xl bg-[#07181b] px-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{pending ? "جارٍ تقديم الطلب…" : state.outcome === "accepted" ? "تم تقديم القالب" : "إرسال إلى Meta للمراجعة"}</button>
+    {state.message ? <div role="status" className={`rounded-xl border p-4 text-sm leading-7 sm:col-span-2 ${state.outcome === "accepted" ? "border-teal-300 bg-teal-50 text-teal-950" : "border-amber-300 bg-amber-50 text-amber-950"}`}><p>{state.message}</p>{state.reference ? <p>مرجع الطلب: <b dir="ltr">{state.reference}</b></p> : null}<Link href="/dashboard/whatsapp/templates#template-library" className="mt-2 inline-flex min-h-11 items-center font-bold underline">متابعة القوالب في المكتبة</Link></div> : null}
   </form>;
 }

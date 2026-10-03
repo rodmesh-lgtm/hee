@@ -6,6 +6,7 @@ import { db } from "../db";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./credential-envelope";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "./meta-config";
 import { parseMetaTemplate, type ParsedMetaTemplate } from "./template-domain";
+import { recentSubmissionWhere } from "./template-submission";
 
 type JsonRecord = Record<string, unknown>;
 type TemplateDb = Pick<PrismaClient, "$transaction" | "whatsAppConnection">;
@@ -125,7 +126,10 @@ export async function syncMetaWhatsAppTemplates(input: {
       ? { providerTemplateId: { notIn: templates.map((template) => template.providerTemplateId) } }
       : {};
     await tx.whatsAppTemplate.updateMany({
-      where: { businessId: input.businessId, connectionId: input.connectionId, provider: "meta", ...staleWhere },
+      where: { businessId: input.businessId, connectionId: input.connectionId, provider: "meta", ...staleWhere,
+        // A confirmed POST can precede visibility in Meta's list endpoint.
+        NOT: recentSubmissionWhere(syncedAt),
+      },
       data: { status: "disabled", providerStatus: "NOT_RETURNED_BY_SYNC", lastSyncedAt: syncedAt },
     });
   });
