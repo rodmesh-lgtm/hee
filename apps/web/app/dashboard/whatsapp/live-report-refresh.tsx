@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-export function LiveReportRefresh({ observedAt }: { observedAt: string }) {
+export function LiveReportRefresh({ observedAt, compact = false }: { observedAt: string; compact?: boolean }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(true);
   const [pending, startTransition] = useTransition();
@@ -22,7 +22,7 @@ export function LiveReportRefresh({ observedAt }: { observedAt: string }) {
     <div>
       <b className="block text-emerald-800">{pending ? "جارٍ تحديث البيانات…" : enabled ? "تحديث تلقائي كل 10 ثوانٍ" : "التحديث التلقائي متوقف"}</b>
       <span className="mt-1 block">آخر قراءة للبيانات: <time data-testid="report-observed-at" dateTime={observedAt}>{new Date(observedAt).toLocaleTimeString("ar-SA", { timeZone: "Asia/Riyadh", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time> · توقيت الرياض</span>
-      <p className="mt-1 text-slate-500">التسليم والقراءة بحسب إيصالات Meta المستلمة؛ تحديث الشاشة لا يسرّع الإرسال. يتوقف التحديث في الخلفية وأثناء إدخال البيانات.</p>
+      {!compact ? <p className="mt-1 text-slate-500">التسليم والقراءة بحسب إيصالات Meta المستلمة؛ تحديث الشاشة لا يسرّع الإرسال. يتوقف التحديث في الخلفية وأثناء إدخال البيانات.</p> : null}
     </div>
     <div className="flex gap-2">
       <button type="button" aria-pressed={enabled} onClick={() => setEnabled((current) => !current)} className="min-h-11 rounded-xl border border-slate-300 px-3 font-bold">{enabled ? "إيقاف التحديث التلقائي" : "تشغيل التحديث التلقائي"}</button>

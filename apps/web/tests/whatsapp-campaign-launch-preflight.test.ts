@@ -19,9 +19,9 @@ test("campaign UI treats guarded first-send states as successful operations with
   const page = readFileSync(new URL("../app/dashboard/whatsapp/campaigns/page.tsx", import.meta.url), "utf8");
   assert.match(page, /"canary-launched"/);
   assert.match(page, /"canary-awaiting"/);
-  assert.match(page, /بدأت الدفعة التجريبية الآمنة/);
+  assert.match(page, /أُضيفت الدفعة التجريبية إلى طابور الإرسال/);
   assert.match(page, /ننتظر الآن تأكيد التسليم من Meta/);
-  assert.match(page, /مرحلة إرسال تجريبية آمنة/);
+  assert.match(page, /بحد أقصى 5 مستلمين/);
   assert.doesNotMatch(page, />Canary</i);
   assert.doesNotMatch(page, /دفعة Canary/);
 });

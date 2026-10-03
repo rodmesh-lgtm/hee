@@ -80,5 +80,5 @@ export async function launchWhatsAppCampaignAction(form: FormData) {
     }).catch(() => undefined);
     destination = `/dashboard/whatsapp/campaigns?operation=${safeLaunchFailure(reason)}`;
   }
-  redirect(destination);
+  redirect(`${destination}&campaign=${encodeURIComponent(campaignId)}#campaign-${encodeURIComponent(campaignId)}`);
 }

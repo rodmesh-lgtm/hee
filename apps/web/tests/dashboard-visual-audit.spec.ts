@@ -846,13 +846,16 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           const page = await context.newPage();
           await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns`, { waitUntil: "domcontentloaded" });
           page.setDefaultTimeout(15_000);
-          await expect(page.getByText("بانتظار إعادة المحاولة", { exact: true })).toBeVisible();
+          await expect(page.getByTestId("campaign-card").first().getByRole("status")).toContainText("إعادة محاولة مجدولة");
+          await expect(page.getByRole("form", { name: "إنشاء حملة واتساب", exact: true })).not.toBeVisible();
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-overview.png`, fullPage: true });
           if (viewport.name === "mobile" && theme === "light") {
             await db.whatsAppCampaign.update({ where: { id: campaign.id }, data: { name: "حملة محدثة تلقائيًا" } });
             await expect(page.getByText("حملة محدثة تلقائيًا", { exact: true })).toBeVisible({ timeout: 25_000 });
           }
           await page.getByRole("button", { name: "إيقاف التحديث التلقائي", exact: true }).click();
           await expect(page.getByRole("button", { name: "تشغيل التحديث التلقائي", exact: true })).toHaveAttribute("aria-pressed", "false");
+          await page.locator("#new-campaign > summary").click();
           await page.getByLabel("اسم الحملة", { exact: true }).fill("حملة مراجعة");
           await page.getByRole("button", { name: "التالي", exact: true }).click();
           await expect(page.getByRole("link", { name: /إضافة جمهور من Excel/ })).toBeVisible();
