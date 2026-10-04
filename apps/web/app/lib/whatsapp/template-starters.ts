@@ -12,4 +12,22 @@ export const TEMPLATE_STARTERS = [
   { key: "cart", label: "تذكير بسلة متروكة", category: "MARKETING", name: "infro_cart_reminder", body: "مرحبًا، ما زالت مشترياتك بانتظارك في متجرنا. يسعدنا مساعدتك لإكمال طلبك. لإيقاف الرسائل أرسل إيقاف.", examples: "", hint: "نموذج بلا متغيرات متوافق مع مسار السلة الحالي، ويتطلب موافقة تسويقية." },
   { key: "review", label: "طلب تقييم الخدمة", category: "MARKETING", name: "infro_service_feedback", body: "مرحبًا {{1}}، يسعدنا معرفة رأيك في تجربتك مع {{2}}. شاركنا تقييمك لنقدم لك خدمة أفضل. لإيقاف الرسائل أرسل إيقاف.", examples: "أحمد | المنشأة التجريبية", hint: "أضف رابط التقييم في زر القالب. التصنيف النهائي تحدده Meta." },
   { key: "offer", label: "عرض لعملائك", category: "MARKETING", name: "infro_customer_offer", body: "مرحبًا {{1}}، اكتشف {{2}} لدى {{3}}. العرض متاح حتى {{4}}. لإيقاف الرسائل أرسل إيقاف.", examples: "أحمد | عرض الصيانة | المنشأة التجريبية | 15 أكتوبر", hint: "يمكن إضافة صورة أو فيديو أو PDF وعينة للمراجعة من حقول المحرر." },
+  ...[
+    ["order_delivered", "تسليم الطلب", "تم تسليم طلبك"],
+    ["order_cancelled", "إلغاء الطلب", "تم إلغاء طلبك"],
+    ["order_returned", "استرجاع الطلب", "تم تحديث حالة استرجاع طلبك"],
+    ["order_processing", "تجهيز الطلب", "بدأ تجهيز طلبك"],
+  ].map(([key, label, text]) => ({ key, label, category: "UTILITY", name: `infro_${key}`, body: `مرحبًا {{1}}، ${text} رقم {{3}} من {{2}}. تواصل معنا إذا احتجت إلى مساعدة.`, examples: "أحمد | متجر المثال | 1024", hint: "بعد الاعتماد، اختر هذا القالب للحالة المطابقة في إعدادات إشعارات طلبات سلة. لا تُفعّل الأحداث تلقائيًا بمجرد إنشاء القالب." })),
+  { key: "review_thanks", label: "شكر على التقييم", category: "MARKETING", name: "infro_review_thanks", body: "مرحبًا {{1}}، شكرًا لمشاركتنا رأيك في {{2}}. يسعدنا أن نكون جزءًا من تجربتك. لإيقاف الرسائل أرسل إيقاف.", examples: "أحمد | متجر المثال", hint: "نموذج للتخصيص والإرسال من حملة بعد الاعتماد والموافقة التسويقية؛ ليس مرتبطًا تلقائيًا بحدث تقييم." },
+  { key: "review_support", label: "متابعة ملاحظة العميل", category: "MARKETING", name: "infro_review_support", body: "مرحبًا {{1}}، يهمنا رأيك في {{2}}. يسعد فريقنا بالتواصل معك والاستماع إلى ملاحظاتك لتحسين تجربتك. لإيقاف الرسائل أرسل إيقاف.", examples: "أحمد | متجر المثال", hint: "أضف زر تواصل مناسبًا. إرسال المتابعة يخضع لاعتماد القالب وموافقة العميل؛ لا يوجد مشغّل تقييم تلقائي لهذا النموذج." },
+  { key: "new_collection", label: "إطلاق منتجات جديدة", category: "MARKETING", name: "infro_new_collection", body: "مرحبًا {{1}}، وصلت مجموعتنا الجديدة إلى {{2}}. اكتشف التفاصيل واختر ما يناسبك. لإيقاف الرسائل أرسل إيقاف.", examples: "أحمد | متجر المثال", hint: "أضف صورة أو فيديو يعرض المنتجات، وزرًا إلى صفحة المجموعة." },
+  { key: "catalog", label: "كتالوج PDF", category: "MARKETING", name: "infro_catalog_pdf", body: "مرحبًا {{1}}، يسعدنا مشاركتك دليل منتجات وخدمات {{2}}. تصفح الملف المرفق وتواصل معنا لمساعدتك. لإيقاف الرسائل أرسل إيقاف.", examples: "أحمد | متجر المثال", hint: "اختر رأس PDF وأرفق ملفًا للمراجعة. حدد ملف الإرسال الفعلي عند إعداد الحملة." },
 ] as const;
+
+export const TEMPLATE_GROUPS = [{ key: "all", label: "كل النماذج" }, { key: "operations", label: "الطلبات والمواعيد" }, { key: "marketing", label: "التسويق" }, { key: "reviews", label: "التقييم والمتابعة" }, { key: "authentication", label: "رموز التحقق" }] as const;
+export function starterGroup(key: string) {
+  if (key === "otp") return "authentication";
+  if (key.startsWith("review") || key === "follow_up") return "reviews";
+  if (key.startsWith("order_") || key === "booking") return "operations";
+  return "marketing";
+}
