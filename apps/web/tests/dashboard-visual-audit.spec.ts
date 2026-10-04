@@ -588,6 +588,27 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-otp.png`, fullPage: true });
           await page.getByRole("button", { name: "إنشاء قالب مخصص", exact: true }).click();
           await expect(page.locator('textarea[name="body"]')).toHaveValue("");
+          // Invalid forms must be stopped in the client, with the draft preserved.
+          let templateRequests = 0;
+          const countTemplatePosts = (request: import("@playwright/test").Request) => { if (request.method() === "POST") templateRequests++; };
+          page.on("request", countTemplatePosts);
+          await page.locator('input[name="name"]').fill("validation_test");
+          await page.locator('textarea[name="body"]').fill("مرحبًا {{2}}");
+          await page.getByRole("button", { name: "إرسال إلى Meta للمراجعة", exact: true }).click();
+          await expect(editorForm).toContainText("متغيرات نص الرسالة غير صحيحة");
+          await expect(page.locator('textarea[name="body"]')).toHaveValue("مرحبًا {{2}}");
+          await expect(page.locator('textarea[name="body"]')).toBeFocused();
+          await page.locator('textarea[name="body"]').fill("مرحبًا بعميلنا المميز");
+          await page.locator('input[name="buttonText"]').fill("المتجر");
+          await page.locator('input[name="buttonUrl"]').fill("http://ir.sa");
+          await page.getByRole("button", { name: "إرسال إلى Meta للمراجعة", exact: true }).click();
+          await expect(editorForm).toContainText("رابط الزر غير صالح");
+          await expect(editorForm).not.toContainText("متغيرات نص الرسالة غير صحيحة");
+          await expect(page.locator('input[name="buttonUrl"]')).toBeFocused();
+          await expect(editorForm).toContainText("لا تحتاج أمثلة إذا كانت رسالتك بدون متغيرات");
+          expect(templateRequests).toBe(0);
+          page.off("request", countTemplatePosts);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-validation.png`, fullPage: true });
           await page.getByLabel("ابحث عن نموذج جاهز").fill("تسليم الطلب");
           await expect(page.getByRole("button", { name: /^تسليم الطلب/ })).toBeVisible();
           await page.getByRole("button", { name: /^تسليم الطلب/ }).click();

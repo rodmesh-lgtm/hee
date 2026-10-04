@@ -1,7 +1,7 @@
 "use client";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { submitWhatsAppTemplateAction } from "../../../actions/whatsapp-template-editor";
-import { buildTemplateSubmission, canEditSimpleTemplate } from "../../../lib/whatsapp/template-editor-domain";
+import { buildTemplateSubmission, canEditSimpleTemplate, templateValidationError } from "../../../lib/whatsapp/template-editor-domain";
 import { TEMPLATE_GROUPS, TEMPLATE_STARTERS, starterGroup } from "../../../lib/whatsapp/template-starters";
 import { FileText, MessageCircle, Plus, Search, Sparkles, CheckCheck } from "lucide-react";
 import Link from "next/link";
@@ -39,12 +39,18 @@ function EditorForm({ connectionId, template, body, footer, header, starter }: {
   const parts = Array.isArray(template?.components) ? template.components : [];
   const button = parts.find((c) => c.type === "BUTTONS")?.buttons?.[0];
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [state, action, pending] = useActionState(async (previous: Parameters<typeof submitWhatsAppTemplateAction>[0], form: FormData) => {
+  const formRef = useRef<HTMLFormElement>(null);
+  const [state, action, pending] = useActionState(async (previous: Parameters<typeof submitWhatsAppTemplateAction>[0], form: FormData): Promise<Awaited<ReturnType<typeof submitWhatsAppTemplateAction>>> => {
     const sample = form.get("sample"); form.delete("sample");
     const get = (name: string) => String(form.get(name) ?? "").trim();
+    // Validate all templates before uploading a sample or consuming a server attempt.
+    try {
+      buildTemplateSubmission({ name: get("name"), language: get("language"), category: get("category"), body: get("body"), footer: get("footer"), header: get("header"), examples: get("examples"), buttonText: get("buttonText"), buttonUrl: get("buttonUrl"), mediaHandle: "validated-after-upload", codeExpirationMinutes: Number(get("codeExpirationMinutes")) });
+    } catch (error) {
+      return templateValidationError(error) ?? { message: "راجع إعدادات قالب OTP: مدة الصلاحية من 1 إلى 90 دقيقة، دون نص مخصص أو وسائط." };
+    }
     if (get("header") !== "NONE" && get("category") !== "AUTHENTICATION") {
       try {
-        buildTemplateSubmission({ name: get("name"), language: get("language"), category: get("category"), body: get("body"), footer: get("footer"), header: get("header"), examples: get("examples"), buttonText: get("buttonText"), buttonUrl: get("buttonUrl"), mediaHandle: "validated-after-upload" });
         if (!(sample instanceof File)) throw new Error("sample");
         validateTemplateMedia(get("header"), sample.type, sample.size);
         setUploadProgress(0);
@@ -66,6 +72,11 @@ function EditorForm({ connectionId, template, body, footer, header, starter }: {
     }
     return submitWhatsAppTemplateAction(previous, form);
   }, { message: "" });
+  useEffect(() => {
+    if (!state.field) return;
+    const field = formRef.current?.elements.namedItem(state.field);
+    if (field instanceof HTMLElement) field.focus();
+  }, [state]);
   const [media, setMedia] = useState(["IMAGE", "VIDEO", "DOCUMENT"].includes(header) ? header : "NONE");
   const [category, setCategory] = useState<string>(template?.category.toUpperCase() ?? starter?.category ?? "MARKETING");
   const authentication = category === "AUTHENTICATION";
@@ -78,7 +89,7 @@ function EditorForm({ connectionId, template, body, footer, header, starter }: {
   function updateFile(sample: File | null) { setFile(sample); setSampleUrl(sample ? URL.createObjectURL(sample) : ""); }
   useEffect(() => () => { if (sampleUrl) URL.revokeObjectURL(sampleUrl); }, [sampleUrl]);
   const preview = message.replace(/\{\{(\d+)\}\}/g, (variable, index) => examples.split("|")[Number(index) - 1]?.trim() || variable);
-  return <form action={action} onReset={event => event.preventDefault()} className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,1fr)]"><fieldset disabled={pending} className="grid min-w-0 gap-4 sm:grid-cols-2">
+  return <form ref={formRef} action={action} onReset={event => event.preventDefault()} className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,1fr)]"><fieldset disabled={pending} className="grid min-w-0 gap-4 sm:grid-cols-2">
     <input name="connectionId" type="hidden" value={connectionId}/><input name="templateId" type="hidden" value={template?.id ?? ""}/>
     <label className="text-sm text-slate-600">اسم القالب بالإنجليزية<input name="name" required pattern="[a-z][a-z0-9_]{0,99}" maxLength={100} defaultValue={template?.name ?? starter?.name} readOnly={Boolean(template)} placeholder="customer_offer" dir="ltr" className={control}/></label>
     <label className="text-sm text-slate-600">اللغة<select name="language" defaultValue={template?.language ?? "ar"} className={control}>{["ar", "en", "en_US", "en_GB"].filter((l) => !template || l === template.language).map((l) => <option key={l}>{l}</option>)}</select></label>
@@ -91,7 +102,7 @@ function EditorForm({ connectionId, template, body, footer, header, starter }: {
     <label className="text-sm text-slate-600">رأس الرسالة<select name="header" value={media} onChange={(e) => { setMedia(e.target.value); updateFile(null); }} className={control}><option value="NONE">بدون وسائط</option><option value="IMAGE">صورة</option><option value="VIDEO">فيديو</option><option value="DOCUMENT">PDF</option></select></label>
     {media !== "NONE" ? <label className="text-sm text-slate-600 sm:col-span-2">عينة للمراجعة — حتى {templateMediaLimit(media)} MB<input key={media} name="sample" type="file" required onChange={event => { const sample = event.target.files?.[0]; if (sample && sample.size > templateMediaLimit(media) * 1024 * 1024) { event.target.setCustomValidity(`الحد الأقصى لهذا النوع ${templateMediaLimit(media)} MB`); event.target.reportValidity(); updateFile(null); } else { event.target.setCustomValidity(""); updateFile(sample ?? null); } }} accept={media === "IMAGE" ? "image/jpeg,image/png" : media === "VIDEO" ? "video/mp4" : "application/pdf"} className={control}/></label> : null}
     <label className="text-sm text-slate-600 sm:col-span-2">نص الرسالة<textarea name="body" required maxLength={1024} value={message} onChange={event => setMessage(event.target.value)} rows={5} placeholder="مرحبًا {{1}}، تفاصيل عرضنا…" className={control}/><span className="mt-1 block">{message.length} / 1024 حرف</span></label>
-    <label className="text-sm text-slate-600 sm:col-span-2">أمثلة المتغيرات بالترتيب، مفصولة بعلامة |<input name="examples" value={examples} onChange={event => setExamples(event.target.value)} maxLength={10000} placeholder="أحمد | موعد الصيانة" className={control}/></label>
+    <label className="text-sm text-slate-600 sm:col-span-2">أمثلة المتغيرات بالترتيب، مفصولة بعلامة |<input name="examples" value={examples} onChange={event => setExamples(event.target.value)} maxLength={10000} placeholder="أحمد | موعد الصيانة" className={control}/><span className="mt-1 block leading-7">{new Set(message.match(/\{\{\d+\}\}/g) ?? []).size ? `عدد المتغيرات: ${new Set(message.match(/\{\{\d+\}\}/g) ?? []).size}. أدخل مثالًا لكل متغير للمراجعة.` : "لا تحتاج أمثلة إذا كانت رسالتك بدون متغيرات."}</span></label>
     <label className="text-sm text-slate-600 sm:col-span-2">التذييل (اختياري)<input name="footer" maxLength={60} value={footerText} onChange={event => setFooterText(event.target.value)} className={control}/></label>
     <label className="text-sm text-slate-600">عنوان زر الرابط (اختياري)<input name="buttonText" maxLength={25} value={buttonText} onChange={event => setButtonText(event.target.value)} className={control}/></label><label className="text-sm text-slate-600">رابط الزر HTTPS<input name="buttonUrl" defaultValue={button?.url ?? ""} type="url" maxLength={2048} dir="ltr" className={control}/></label>
     </>}
