@@ -8,19 +8,48 @@ import {
 } from "../app/lib/whatsapp/campaign-launch-readiness-domain";
 
 const releaseSha = "a".repeat(40);
+const fullWorkerDetails = { mode: "full", state: "succeeded", completedStages: ["whatsapp:campaigns", "whatsapp:deliveries"] };
 
 function readiness(input: Parameters<typeof evaluateWhatsAppCampaignLaunchReadiness>[0]) {
-  return evaluateWhatsAppCampaignLaunchReadiness(input);
+  return evaluateWhatsAppCampaignLaunchReadiness({ outboundEnabled: true, ...input });
 }
 
 test("campaign launch readiness requires a fresh successful exact-release operations heartbeat", () => {
   const currentTime = new Date("2026-08-31T10:00:00Z");
   const lastSucceededAt = new Date(currentTime.getTime() - WHATSAPP_OPERATIONS_HEARTBEAT_MAX_AGE_MS + 1_000);
-  const result = readiness({ currentTime, expectedReleaseSha: releaseSha, heartbeat: { lastSucceededAt, lastErrorCode: null, releaseSha } });
+  const result = readiness({ currentTime, expectedReleaseSha: releaseSha, heartbeat: { lastSucceededAt, lastErrorCode: null, releaseSha, details: fullWorkerDetails } });
   assert.equal(result.ready, true);
   if (result.ready) {
     assert.equal(result.lastSucceededAt.toISOString(), lastSucceededAt.toISOString());
     assert.equal(result.releaseSha, releaseSha);
+  }
+});
+
+test("commerce success and incomplete outbound evidence cannot authorize campaign launch", () => {
+  const currentTime = new Date("2026-10-04T11:00:00Z");
+  for (const details of [
+    undefined, null, [], "full",
+    { mode: "commerce", state: "succeeded", completedStages: ["whatsapp:commerce-periodic-sync"] },
+    { ...fullWorkerDetails, mode: "commerce" },
+    { ...fullWorkerDetails, state: "running" },
+    { ...fullWorkerDetails, state: "failed" },
+    { ...fullWorkerDetails, completedStages: ["whatsapp:campaigns"] },
+    { ...fullWorkerDetails, completedStages: ["whatsapp:deliveries"] },
+    { ...fullWorkerDetails, completedStages: "whatsapp:campaigns,whatsapp:deliveries" },
+  ]) {
+    assert.deepEqual(readiness({ currentTime, expectedReleaseSha: releaseSha, heartbeat: {
+      lastSucceededAt: currentTime, lastErrorCode: null, releaseSha, details,
+    } }), { ready: false, code: "worker_outbound_unverified" });
+  }
+});
+
+test("disabled or absent outbound permission blocks even a successful full worker", () => {
+  const currentTime = new Date("2026-10-04T11:00:00Z");
+  for (const outboundEnabled of [false, undefined]) {
+    assert.deepEqual(evaluateWhatsAppCampaignLaunchReadiness({
+      outboundEnabled, currentTime, expectedReleaseSha: releaseSha,
+      heartbeat: { lastSucceededAt: currentTime, lastErrorCode: null, releaseSha, details: fullWorkerDetails },
+    }), { ready: false, code: "outbound_disabled" });
   }
 });
 
