@@ -7,13 +7,13 @@ import { getWhatsAppWriteContext } from "../lib/whatsapp/rbac";
 import { hasActiveWhatsAppMarketingEntitlement } from "../lib/whatsapp/feature-entitlement";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "../lib/whatsapp/credential-envelope";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl } from "../lib/whatsapp/meta-config";
-import { buildTemplateSubmission, canEditSimpleTemplate } from "../lib/whatsapp/template-editor-domain";
+import { buildTemplateSubmission, canEditSimpleTemplate, templateValidationError } from "../lib/whatsapp/template-editor-domain";
 import { persistSubmittedTemplate, submitTemplateRequest, submissionErrorMessage, TemplateSubmissionError } from "../lib/whatsapp/template-submission";
 import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
 import { openMediaTicket } from "../lib/whatsapp/template-media-upload";
 
-type SubmissionState = { message: string; outcome?: "accepted" | "rejected" | "uncertain" | "accepted-unsaved"; reference?: string };
+type SubmissionState = { message: string; field?: string; code?: string; outcome?: "accepted" | "rejected" | "uncertain" | "accepted-unsaved"; reference?: string };
 export async function submitWhatsAppTemplateAction(_previous: SubmissionState, form: FormData): Promise<SubmissionState> {
   const context = await getWhatsAppWriteContext("campaign.manage");
   if (!context || !await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) return { message: "لا تملك صلاحية إدارة القوالب أو الاشتراك غير فعال." };
@@ -96,6 +96,6 @@ export async function submitWhatsAppTemplateAction(_previous: SubmissionState, f
     if (reason === "TEMPLATE_AUTHENTICATION_INVALID") return { message: "قالب OTP يستخدم نص Meta الثابت وزر نسخ الرمز فقط. حدد مدة صلاحية من 1 إلى 90 دقيقة دون نص تسويقي أو وسائط." };
     if (reason === "TEMPLATE_IN_USE") return { message: "القالب مرتبط بحملة جاهزة أو جارية أو مكتملة حديثًا. أنشئ قالبًا جديدًا لحماية الرسائل المثبتة ومحاولات التسليم." };
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "template.submit", targetType: "connection", targetId: connectionId, outcome: "failed", metadata: { reason: reason.startsWith("TEMPLATE_") || reason.startsWith("META_TEMPLATE_") ? reason : "UNKNOWN" } }).catch(() => undefined);
-    return { message: reason === "TEMPLATE_SAMPLE_REQUIRED" ? "أعد اختيار عينة مطابقة لنوع القالب وحد الحجم الموضح بجانب الملف، ثم انتظر اكتمال رفعها." : reason.startsWith("TEMPLATE_") ? "راجع الاسم والنص والمتغيرات وأمثلتها والرابط. يجب ترقيم المتغيرات بالتتابع من {{1}}." : "لم يتأكد قبول الطلب. حدّث القوالب من Meta أولًا للتحقق قبل إعادة المحاولة." };
+    return templateValidationError(reason) ?? { message: reason.startsWith("TEMPLATE_") ? "تعذر تعديل هذا القالب. حدّث المكتبة واختر القالب مجددًا أو أنشئ قالبًا جديدًا." : "لم يتأكد قبول الطلب. حدّث القوالب من Meta أولًا للتحقق قبل إعادة المحاولة." };
   }
 }

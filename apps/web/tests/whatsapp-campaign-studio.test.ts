@@ -49,5 +49,5 @@ test("template submissions require sequential variables and review examples", ()
   assert.throws(() => buildTemplateSubmission({ ...input, body: "{{2}}" }), /VARIABLES_INVALID/);
   assert.throws(() => buildTemplateSubmission({ ...input, examples: "" }), /EXAMPLES_REQUIRED/);
   assert.throws(() => buildTemplateSubmission({ ...input, header: "IMAGE" }), /SAMPLE_REQUIRED/);
-  assert.throws(() => buildTemplateSubmission({ ...input, buttonUrl: "http://localhost" }), /BUTTON_INVALID/);
+  assert.throws(() => buildTemplateSubmission({ ...input, buttonUrl: "http://localhost" }), /TEMPLATE_BUTTON_URL_INVALID/);
 });
