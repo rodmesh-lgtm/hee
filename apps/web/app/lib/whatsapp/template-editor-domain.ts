@@ -1,5 +1,11 @@
 import { publicMediaUrl } from "./campaign-composition";
 
+// Multipart form serialization expands LF to CRLF. Count and send the same
+// line endings as textarea.value so transport encoding cannot inflate copy.
+export function normalizeTemplateBody(value: string) {
+  return value.replace(/\r\n?/g, "\n").trim();
+}
+
 const validationErrors: Record<string, { field: string; message: string }> = {
   TEMPLATE_NAME_INVALID: { field: "name", message: "اسم القالب: استخدم حروفًا إنجليزية صغيرة وأرقامًا وشرطة سفلية فقط، وابدأ بحرف. الحد الأقصى 100 حرف." },
   TEMPLATE_LANGUAGE_INVALID: { field: "language", message: "اختر إحدى اللغات المتاحة للقالب." },
@@ -44,6 +50,7 @@ export function buildTemplateSubmission(input: { name: string; language: string;
       { type: "BUTTONS", buttons: [{ type: "OTP", otp_type: "COPY_CODE", text: input.language === "ar" ? "نسخ الرمز" : "Copy code" }] },
     ] as Array<Record<string, unknown>> };
   }
+  input = { ...input, body: normalizeTemplateBody(input.body) };
   if (!/^[a-z][a-z0-9_]{0,99}$/.test(input.name)) throw new Error("TEMPLATE_NAME_INVALID");
   if (!["ar", "en", "en_US", "en_GB"].includes(input.language)) throw new Error("TEMPLATE_LANGUAGE_INVALID");
   if (!["MARKETING", "UTILITY"].includes(input.category)) throw new Error("TEMPLATE_CATEGORY_INVALID");
