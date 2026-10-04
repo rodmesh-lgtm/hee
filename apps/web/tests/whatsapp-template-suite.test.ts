@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildTemplateSubmission, templateValidationError } from "../app/lib/whatsapp/template-editor-domain";
+import { buildTemplateSubmission, normalizeTemplateBody, templateValidationError } from "../app/lib/whatsapp/template-editor-domain";
 import { TEMPLATE_STARTERS } from "../app/lib/whatsapp/template-starters";
 
 const base = { name: "infro_verification", language: "ar", category: "AUTHENTICATION", body: "", footer: "", header: "NONE", examples: "", buttonText: "", buttonUrl: "", codeExpirationMinutes: 10 };
@@ -15,6 +15,26 @@ test("authentication uses Meta fixed copy and copy-code button without free-form
 });
 
 const marketing = { ...base, category: "MARKETING", body: "مرحبًا بك في صدى المراكب 🚗" };
+test("multipart line endings do not inflate a 1024-character Arabic template", async () => {
+  const body = "أ".repeat(1000) + "\n" + "ب".repeat(23);
+  const form = new FormData(); form.set("body", body);
+  const request = new Request("https://ir.sa", { method: "POST", body: form });
+  const received = String((await request.formData()).get("body"));
+  assert.equal(body.length, 1024);
+  assert.equal(received.length, 1025);
+  const client = buildTemplateSubmission({ ...marketing, body });
+  const server = buildTemplateSubmission({ ...marketing, body: received });
+  assert.deepEqual(server, client);
+  assert.equal(server.components[0].text, body);
+  assert.throws(() => buildTemplateSubmission({ ...marketing, body: received + "ج" }), /TEMPLATE_BODY_TOO_LONG/);
+});
+test("normalization preserves Arabic, emojis, internal spaces and multiple visible lines", () => {
+  const body = "عرض 🚗\r\n\r\nالسعر:  100 ريال\rاحجز الآن";
+  const expected = "عرض 🚗\n\nالسعر:  100 ريال\nاحجز الآن";
+  assert.equal(normalizeTemplateBody(body), expected);
+  assert.equal(normalizeTemplateBody(expected), expected);
+  assert.equal(buildTemplateSubmission({ ...marketing, body }).components[0].text, expected);
+});
 test("plain Arabic copy and encoded store link need no variable examples", () => {
   const buttonUrl = "https://marakeb.sa/ar/" + encodeURIComponent("الباقات-المتجر الالكتروني");
   const result = buildTemplateSubmission({ ...marketing, footer: "عميلنا الغالي اذا ماتحتاجها خل المجال لغيرك يشترك", buttonText: "الباقات-المتجر الالكتروني", buttonUrl });
