@@ -45,18 +45,20 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
   const categoryFilter: CategoryFilter = categoryFilters.includes(requestedCategory) ? requestedCategory : "all";
   const languageFilter: LanguageFilter = languageFilters.includes(requestedLanguage) ? requestedLanguage : "all";
 
-  const [connection, templates] = await Promise.all([
-    db.whatsAppConnection.findFirst({
-      where: { businessId: context.businessId, provider: "meta", marketingEnabled: true, status: "connected", disabledAt: null },
+  const connections = await db.whatsAppConnection.findMany({
+      where: { businessId: context.businessId, provider: "meta", marketingEnabled: true },
       orderBy: { updatedAt: "desc" },
       select: { id: true, status: true, disabledAt: true, verifiedName: true, displayPhoneNumber: true },
-    }),
+    });
+  const connection = connections.find(item => item.id === params.connectionId) ?? connections.find(item => item.status === "connected" && !item.disabledAt) ?? connections[0];
+  const [templates, automations] = await Promise.all([
     db.whatsAppTemplate.findMany({
-      where: { businessId: context.businessId, provider: "meta", connection: { marketingEnabled: true } },
+      where: { businessId: context.businessId, provider: "meta", connectionId: connection?.id ?? "unconnected", connection: { marketingEnabled: true } },
       orderBy: [{ updatedAt: "desc" }],
       take: 200,
       select: { id: true, connectionId: true, name: true, language: true, category: true, status: true, providerStatus: true, parameterFormat: true, qualityScore: true, rejectedReason: true, components: true, lastSyncedAt: true },
     }),
+    db.whatsAppAutomation.findMany({ where: { businessId: context.businessId, connectionId: connection?.id ?? "unconnected" }, select: { connectionId: true, name: true, status: true, actionConfig: true } }),
   ]);
 
   const connectionReady = connection?.status === "connected" && !connection.disabledAt;
@@ -96,8 +98,9 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
         <div><span className="text-sm font-bold text-[#6eead8]">قوالب واتساب</span><div className="mt-3 flex items-center gap-2"><FileText className="h-5 w-5 text-[#35e4cb]"/><h1 className="text-2xl font-black">مركز عمليات القوالب</h1></div><p className="mt-3 max-w-3xl text-xs leading-7 text-slate-300">راقب اعتماد Meta، جودة القالب، عقد المتغيرات وجاهزيته للحملات من شاشة واحدة. INFRO لا يغيّر قرار الاعتماد؛ بل يعكس حالة Meta ويمنع استخدام غير الجاهز.</p></div>
         <div className="min-w-[220px] rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><span className="block text-sm text-slate-300">الخطوة التالية</span><b className="mt-1 block text-sm text-white">{nextAction.title}</b><span className="mt-1 block text-sm leading-6 text-slate-300">{nextAction.detail}</span></div>
       </div>
-      <nav aria-label="التنقل بين القوالب" className="relative mt-5 flex flex-wrap gap-2"><Link href="#template-studio" className="inline-flex min-h-11 items-center rounded-xl bg-[#35e4cb] px-4 text-sm font-bold text-[#07181b]">إنشاء قالب</Link><Link href="/dashboard/whatsapp/templates?status=pending#template-library" className="inline-flex min-h-11 items-center rounded-xl border border-white/30 px-4 text-sm font-bold text-white">قيد المراجعة</Link><Link href="#template-library" className="inline-flex min-h-11 items-center rounded-xl border border-white/30 px-4 text-sm font-bold text-white">مكتبة القوالب</Link></nav>
+      <nav aria-label="التنقل بين القوالب" className="relative mt-5 flex flex-wrap gap-2"><Link href="#template-studio" className="inline-flex min-h-11 items-center rounded-xl bg-[#35e4cb] px-4 text-sm font-bold text-[#07181b]">إنشاء قالب</Link><Link href={`/dashboard/whatsapp/templates?status=pending&connectionId=${encodeURIComponent(connection?.id ?? "")}#template-library`} className="inline-flex min-h-11 items-center rounded-xl border border-white/30 px-4 text-sm font-bold text-white">قيد المراجعة</Link><Link href="#template-library" className="inline-flex min-h-11 items-center rounded-xl border border-white/30 px-4 text-sm font-bold text-white">مكتبة القوالب</Link></nav>
     </header>
+    <form className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4"><label className="min-w-0 flex-1 text-sm font-bold text-slate-700">حساب واتساب للقوالب<select name="connectionId" defaultValue={connection?.id ?? ""} className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white p-3 text-base"><option value="" disabled>لا يوجد حساب متصل</option>{connections.map(item => <option key={item.id} value={item.id}>{item.verifiedName || "حساب المنشأة"} · {item.displayPhoneNumber} · {item.status === "connected" && !item.disabledAt ? "متصل" : "غير متصل"}</option>)}</select></label><button disabled={!connections.length} className={actionClass}>عرض قوالب الحساب</button></form>
     <section aria-label="رحلة اعتماد قالب الإعلان" className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
       <h2 className="font-black text-slate-900">إعلانك من داخل INFRO إلى مراجعة Meta</h2>
       <p className="mt-2 leading-7">اختر نصًا أو صورة أو فيديو أو PDF، واكتب الإعلان ومتغيراته، ثم أرسله للمراجعة. بعد الاعتماد والتحديث يظهر ضمن القوالب الجاهزة في معالج الحملة مع المعاينة واختيار الجمهور والجدولة.</p>
@@ -118,9 +121,10 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
 
     <section id="template-library" className="scroll-mt-24 grid gap-4">
       <div className="rounded-[24px] border border-slate-200 bg-white p-4 sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h2 className="font-black text-slate-900">مكتبة القوالب</h2><p className="mt-1 text-sm text-slate-500">أحدث 200 قالب من نشاطك · اختر الحالة لعرض القوالب المطلوبة</p></div><div className="flex flex-wrap gap-2">{connectionReady ? <form action={syncWhatsAppTemplatesAction}><input type="hidden" name="connectionId" value={connection!.id}/><button type="submit" className={actionClass}><RefreshCw className="h-3.5 w-3.5"/>تحديث من Meta</button></form> : <Link href="/dashboard/whatsapp/setup" className={actionClass}>ربط رقم واتساب</Link>}<Link href="/dashboard/whatsapp/campaigns" className="inline-flex min-h-11 items-center rounded-xl border border-[#bdebe5] bg-[#effbf9] px-4 text-sm font-black text-[#008f87]">إدارة الحملات</Link></div></div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h2 className="font-black text-slate-900">مكتبة القوالب</h2><p className="mt-1 text-sm text-slate-500">أحدث 200 قالب من الحساب المختار · اختر الحالة لعرض القوالب المطلوبة</p></div><div className="flex flex-wrap gap-2">{connectionReady ? <form action={syncWhatsAppTemplatesAction}><input type="hidden" name="connectionId" value={connection!.id}/><button type="submit" className={actionClass}><RefreshCw className="h-3.5 w-3.5"/>تحديث من Meta</button></form> : <Link href="/dashboard/whatsapp/setup" className={actionClass}>ربط رقم واتساب</Link>}<Link href="/dashboard/whatsapp/campaigns" className="inline-flex min-h-11 items-center rounded-xl border border-[#bdebe5] bg-[#effbf9] px-4 text-sm font-black text-[#008f87]">إدارة الحملات</Link></div></div>
 
         <form className="mt-5 grid gap-2 md:grid-cols-[minmax(180px,1fr)_auto_auto_auto_auto]">
+          <input type="hidden" name="connectionId" value={connection?.id ?? ""}/>
           <label className="relative"><Search className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500"/><input name="q" defaultValue={query} maxLength={80} placeholder="ابحث باسم القالب أو اللغة" className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pr-9 pl-3 text-xs outline-none focus:border-[#8ddfd6]"/></label>
           <select name="status" defaultValue={statusFilter} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none focus:border-[#8ddfd6]"><option value="all">كل الحالات</option><option value="campaign-ready">جاهز للحملة</option><option value="approved">معتمد</option><option value="pending">قيد المراجعة</option><option value="rejected">مرفوض</option><option value="paused-disabled">متوقف / معطل</option></select>
           <select name="category" defaultValue={categoryFilter} className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold outline-none focus:border-[#8ddfd6]"><option value="all">كل الأنواع</option><option value="marketing">تسويقي</option><option value="utility">خدمي</option><option value="authentication">مصادقة</option></select>
@@ -128,7 +132,7 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
           <button className="min-h-11 rounded-xl bg-[#07181b] px-4 text-sm font-black text-white">تطبيق</button>
         </form>
 
-        {filteredTemplates.length ? <div className="mt-5 grid gap-3">{filteredTemplates.map((template) => <TemplateCard key={template.id} template={template} campaignReady={isCampaignReady(template)}/>)}</div> : <EmptyTemplates hasTemplates={templates.length > 0} connectionReady={connectionReady} connectionId={connection?.id}/>} 
+        {filteredTemplates.length ? <div className="mt-5 grid gap-3">{filteredTemplates.map((template) => <TemplateCard key={template.id} template={template} campaignReady={isCampaignReady(template)} bindings={automations.filter(item => item.connectionId === template.connectionId && item.actionConfig && typeof item.actionConfig === "object" && !Array.isArray(item.actionConfig) && item.actionConfig.templateId === template.id).map(item => `${item.name} · ${item.status === "active" ? "نشط" : item.status === "paused" ? "متوقف مؤقتًا" : "مسودة"}`)}/>)}</div> : <EmptyTemplates hasTemplates={templates.length > 0} connectionReady={connectionReady} connectionId={connection?.id}/>}
       </div>
 
       <aside className="grid gap-3 md:grid-cols-3">
@@ -137,7 +141,7 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
         <div className="rounded-[24px] border border-amber-100 bg-white p-4"><WandSparkles className="h-4 w-4 text-amber-700"/><b className="mt-2 block text-xs text-slate-900">الإنشاء والاعتماد لدى Meta</b><p className="mt-2 text-sm leading-5 text-slate-600">أنشئ القالب من محرر INFRO وأرسله للمراجعة. يظهر في المكتبة فور تأكيد استلامه، ثم تتحدّث حالته عند المزامنة مع Meta.</p></div>
       </aside>
     </section>
-    <TemplateEditor connectionId={connectionReady ? connection?.id : undefined} templates={templates.filter((t) => t.connectionId === connection?.id)}/>
+    <TemplateEditor key={connection?.id ?? "unconnected"} connectionId={connectionReady ? connection?.id : undefined} templates={templates}/>
     <TemplateStatusRefresh enabled={Boolean(connectionReady && pendingCount > 0)}/>
     <section aria-label="تشغيل القوالب في الأتمتة" className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-7 text-slate-700">
       <h2 className="font-bold text-slate-900">بعد اعتماد القالب: اربطه بالمسار المناسب</h2>
@@ -150,11 +154,12 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
   </div>;
 }
 
-function TemplateCard({ template, campaignReady }: { template: TemplateRow; campaignReady: boolean }) {
+function TemplateCard({ template, campaignReady, bindings }: { template: TemplateRow; campaignReady: boolean; bindings: string[] }) {
   const preview = templatePreview(template.components);
   return <article className="overflow-hidden rounded-[20px] border border-slate-200 bg-[#fbfdfd]">
     <div className="p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><b className="break-words text-sm text-slate-900">{template.name}</b>{campaignReady?<span className="rounded-full bg-emerald-100 px-2.5 py-1 text-sm font-black text-emerald-800">جاهز للحملة</span>:null}</div><span className="mt-1 block text-sm text-slate-500">{languageLabel(template.language)} · {categoryLabel(template.category)} · {template.parameterFormat || "صيغة افتراضية"}</span></div><TemplateStatus status={template.status}/></div>
       <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_220px]"><div className="rounded-[16px] border border-slate-100 bg-white p-3"><span className="text-sm font-bold text-slate-500">معاينة الرسالة</span>{preview.header?<b className="mt-2 block text-sm text-slate-700">{preview.header}</b>:null}<p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{preview.body || "لا يحتوي هذا القالب على نص BODY قابل للمعاينة."}</p>{preview.footer?<span className="mt-2 block text-sm text-slate-500">{preview.footer}</span>:null}{preview.buttons.length?<div className="mt-3 flex flex-wrap gap-1.5">{preview.buttons.map((button)=><span key={button} className="rounded-lg border border-[#bdebe5] bg-[#effbf9] px-2 py-1 text-sm font-bold text-[#008f87]">{button}</span>)}</div>:null}</div><dl className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-1"><MetaCell label="الجودة / ملاحظة Meta" value={template.rejectedReason || template.qualityScore || "لا توجد ملاحظة"}/><MetaCell label="آخر مزامنة" value={template.lastSyncedAt.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}/></dl></div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4"><p className="text-sm leading-7 text-slate-600">{bindings.length ? `مسارات الأتمتة: ${bindings.join("، ")}` : "لا يوجد مسار أتمتة مسجل لهذا القالب. راجع إعدادات الحجوزات للربط الخاص بالمواعيد."}</p><Link href="/dashboard/whatsapp/automations" className="inline-flex min-h-11 items-center rounded-xl border border-teal-300 px-4 text-sm font-bold text-teal-700">إدارة ربط الأتمتة</Link></div>
     </div>
   </article>;
 }

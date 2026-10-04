@@ -246,11 +246,11 @@ export async function syncWhatsAppTemplatesAction(form: FormData) {
     const result = await syncMetaWhatsAppTemplates({ businessId: context.businessId, connectionId });
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "templates.sync", targetType: "connection", targetId: connectionId, outcome: "success", metadata: { synced: result.synced, approved: result.approved, pending: result.pending, rejected: result.rejected } });
     revalidatePath("/dashboard/whatsapp/templates");
-    destination = `/dashboard/whatsapp/templates?sync=complete&count=${result.synced}`;
+    destination = `/dashboard/whatsapp/templates?sync=complete&count=${result.synced}&connectionId=${encodeURIComponent(connectionId)}`;
   } catch (error) {
     const code = error instanceof Error ? error.message : "UNKNOWN";
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "templates.sync", targetType: "connection", targetId: connectionId, outcome: "failed", metadata: { reason: code } }).catch(() => undefined);
-    destination = "/dashboard/whatsapp/templates?sync=failed";
+    destination = `/dashboard/whatsapp/templates?sync=failed&connectionId=${encodeURIComponent(connectionId)}`;
   }
   redirect(destination);
 }

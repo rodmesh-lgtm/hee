@@ -32,7 +32,8 @@ export async function submitWhatsAppTemplateAction(_previous: SubmissionState, f
     buildTemplateSubmission({ ...input, mediaHandle: "validated-later" });
     const templateId = get("templateId");
     if (templateId && input.category === "AUTHENTICATION") throw new Error("TEMPLATE_AUTHENTICATION_CREATE_ONLY");
-    const template = templateId ? await db.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId, provider: "meta" }, select: { providerTemplateId: true, name: true, language: true, components: true } }) : null;
+    const template = templateId ? await db.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId, provider: "meta" }, select: { providerTemplateId: true, name: true, language: true, components: true, status: true } }) : null;
+    if (template?.status === "pending") throw new Error("TEMPLATE_REVIEW_PENDING");
     if (templateId && (!template || template.name !== input.name || template.language !== input.language)) throw new Error("TEMPLATE_INPUT_INVALID");
     if (template && !canEditSimpleTemplate(template.components)) throw new Error("TEMPLATE_INPUT_INVALID");
     if (template && await db.whatsAppCampaign.count({ where: { businessId: context.businessId, templateId, OR: [{ status: { in: ["snapshotting", "ready", "scheduled", "running", "paused"] } }, { status: "completed", updatedAt: { gte: new Date(Date.now() - 86400000) } }] } })) throw new Error("TEMPLATE_IN_USE");
@@ -63,6 +64,8 @@ export async function submitWhatsAppTemplateAction(_previous: SubmissionState, f
     const payload = buildTemplateSubmission(input);
     if (template) await db.$transaction(async (tx) => {
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "WhatsAppTemplate" WHERE "id" = ${templateId} AND "businessId" = ${context.businessId} FOR UPDATE`);
+      const current = await tx.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: context.businessId, connectionId }, select: { status: true } });
+      if (!current || current.status === "pending") throw new Error("TEMPLATE_REVIEW_PENDING");
       if (await tx.whatsAppCampaign.count({ where: { businessId: context.businessId, templateId, OR: [{ status: { in: ["snapshotting", "ready", "scheduled", "running", "paused"] } }, { status: "completed", updatedAt: { gte: new Date(Date.now() - 86400000) } }] } })) throw new Error("TEMPLATE_IN_USE");
       await tx.whatsAppTemplate.updateMany({ where: { id: templateId, businessId: context.businessId, connectionId }, data: { status: "pending", providerStatus: "EDIT_REQUESTED" } });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -84,6 +87,7 @@ export async function submitWhatsAppTemplateAction(_previous: SubmissionState, f
       return { outcome: error.outcome, reference: error.reference, message: submissionErrorMessage(error) };
     }
     const reason = error instanceof Error ? error.message : "UNKNOWN";
+    if (reason === "TEMPLATE_REVIEW_PENDING") return { message: "هذا القالب قيد مراجعة Meta. انتظر نتيجة المراجعة قبل تعديله أو أنشئ قالبًا جديدًا باسم مختلف." };
     if (reason === "TEMPLATE_AUTHENTICATION_INVALID") return { message: "قالب OTP يستخدم نص Meta الثابت وزر نسخ الرمز فقط. حدد مدة صلاحية من 1 إلى 90 دقيقة دون نص تسويقي أو وسائط." };
     if (reason === "TEMPLATE_IN_USE") return { message: "القالب مرتبط بحملة جاهزة أو جارية أو مكتملة حديثًا. أنشئ قالبًا جديدًا لحماية الرسائل المثبتة ومحاولات التسليم." };
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "template.submit", targetType: "connection", targetId: connectionId, outcome: "failed", metadata: { reason: reason.startsWith("TEMPLATE_") || reason.startsWith("META_TEMPLATE_") ? reason : "UNKNOWN" } }).catch(() => undefined);

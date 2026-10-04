@@ -586,6 +586,22 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.locator('textarea[name="body"]')).toHaveCount(0);
           await expect(page.getByText("نسخ الرمز", { exact: true })).toBeVisible();
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-otp.png`, fullPage: true });
+          await page.getByRole("button", { name: "إنشاء قالب مخصص", exact: true }).click();
+          await expect(page.locator('textarea[name="body"]')).toHaveValue("");
+          await page.getByLabel("ابحث عن نموذج جاهز").fill("تسليم الطلب");
+          await expect(page.getByRole("button", { name: /^تسليم الطلب/ })).toBeVisible();
+          await page.getByRole("button", { name: /^تسليم الطلب/ }).click();
+          await expect(page.locator('textarea[name="body"]')).toHaveValue(/تم تسليم طلبك/);
+          await page.getByLabel("ابحث عن نموذج جاهز").fill("");
+          await page.locator('select[name="header"]').selectOption("IMAGE");
+          await page.locator('input[name="sample"]').setInputFiles({ name: "sample.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64") });
+          await expect(page.getByAltText("عينة صورة القالب")).toBeVisible();
+          await page.locator('input[name="footer"]').fill("فريق خدمة العملاء");
+          await page.locator('input[name="buttonText"]').fill("تفاصيل الطلب");
+          await expect(page.getByRole("complementary", { name: "معاينة رسالة واتساب" })).toContainText("فريق خدمة العملاء");
+          await expect(page.getByRole("complementary", { name: "معاينة رسالة واتساب" })).toContainText("تفاصيل الطلب");
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-media.png`, fullPage: true });
           // No submit: this test must never contact Meta or send messages.
         } finally { await context.close(); }
       }
