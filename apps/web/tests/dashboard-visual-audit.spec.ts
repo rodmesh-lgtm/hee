@@ -608,6 +608,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await page.locator('input[name="buttonText"]').fill("تفاصيل الطلب");
           await expect(page.getByRole("complementary", { name: "معاينة رسالة واتساب" })).toContainText("فريق خدمة العملاء");
           await expect(page.getByRole("complementary", { name: "معاينة رسالة واتساب" })).toContainText("تفاصيل الطلب");
+          await expect(page.locator('#template-studio form')).not.toContainText("\\n");
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-media.png`, fullPage: true });
           // No submit: this test must never contact Meta or send messages.
