@@ -11,6 +11,7 @@ import { buildTemplateSubmission, canEditSimpleTemplate } from "../lib/whatsapp/
 import { persistSubmittedTemplate, submitTemplateRequest, submissionErrorMessage, TemplateSubmissionError } from "../lib/whatsapp/template-submission";
 import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
+import { openMediaTicket } from "../lib/whatsapp/template-media-upload";
 
 type SubmissionState = { message: string; outcome?: "accepted" | "rejected" | "uncertain" | "accepted-unsaved"; reference?: string };
 export async function submitWhatsAppTemplateAction(_previous: SubmissionState, form: FormData): Promise<SubmissionState> {
@@ -37,7 +38,11 @@ export async function submitWhatsAppTemplateAction(_previous: SubmissionState, f
     if (templateId && (!template || template.name !== input.name || template.language !== input.language)) throw new Error("TEMPLATE_INPUT_INVALID");
     if (template && !canEditSimpleTemplate(template.components)) throw new Error("TEMPLATE_INPUT_INVALID");
     if (template && await db.whatsAppCampaign.count({ where: { businessId: context.businessId, templateId, OR: [{ status: { in: ["snapshotting", "ready", "scheduled", "running", "paused"] } }, { status: "completed", updatedAt: { gte: new Date(Date.now() - 86400000) } }] } })) throw new Error("TEMPLATE_IN_USE");
-    if (input.header !== "NONE") {
+    if (input.header !== "NONE" && get("mediaTicket")) {
+      const media = openMediaTicket(get("mediaTicket"), { businessId: context.businessId, userId: context.userId, connectionId }, config.META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY);
+      if (media.header !== input.header || !media.handle || media.offset !== media.size) throw new Error("TEMPLATE_SAMPLE_REQUIRED");
+      input.mediaHandle = media.handle;
+    } else if (input.header !== "NONE") {
       const file = form.get("sample");
       if (!(file instanceof File) || file.size < 1 || file.size > 3 * 1024 * 1024) throw new Error("TEMPLATE_SAMPLE_REQUIRED");
       const allowed = input.header === "IMAGE" ? ["image/jpeg", "image/png"] : input.header === "VIDEO" ? ["video/mp4"] : ["application/pdf"];
@@ -91,6 +96,6 @@ export async function submitWhatsAppTemplateAction(_previous: SubmissionState, f
     if (reason === "TEMPLATE_AUTHENTICATION_INVALID") return { message: "قالب OTP يستخدم نص Meta الثابت وزر نسخ الرمز فقط. حدد مدة صلاحية من 1 إلى 90 دقيقة دون نص تسويقي أو وسائط." };
     if (reason === "TEMPLATE_IN_USE") return { message: "القالب مرتبط بحملة جاهزة أو جارية أو مكتملة حديثًا. أنشئ قالبًا جديدًا لحماية الرسائل المثبتة ومحاولات التسليم." };
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "template.submit", targetType: "connection", targetId: connectionId, outcome: "failed", metadata: { reason: reason.startsWith("TEMPLATE_") || reason.startsWith("META_TEMPLATE_") ? reason : "UNKNOWN" } }).catch(() => undefined);
-    return { message: reason === "TEMPLATE_SAMPLE_REQUIRED" ? "أرفق عينة مطابقة لنوع القالب لا تتجاوز 3 MB." : reason.startsWith("TEMPLATE_") ? "راجع الاسم والنص والمتغيرات وأمثلتها والرابط. يجب ترقيم المتغيرات بالتتابع من {{1}}." : "لم يتأكد قبول الطلب. حدّث القوالب من Meta أولًا للتحقق قبل إعادة المحاولة." };
+    return { message: reason === "TEMPLATE_SAMPLE_REQUIRED" ? "أعد اختيار عينة مطابقة لنوع القالب وحد الحجم الموضح بجانب الملف، ثم انتظر اكتمال رفعها." : reason.startsWith("TEMPLATE_") ? "راجع الاسم والنص والمتغيرات وأمثلتها والرابط. يجب ترقيم المتغيرات بالتتابع من {{1}}." : "لم يتأكد قبول الطلب. حدّث القوالب من Meta أولًا للتحقق قبل إعادة المحاولة." };
   }
 }

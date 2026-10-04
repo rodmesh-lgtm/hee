@@ -593,6 +593,14 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await page.getByRole("button", { name: /^تسليم الطلب/ }).click();
           await expect(page.locator('textarea[name="body"]')).toHaveValue(/تم تسليم طلبك/);
           await page.getByLabel("ابحث عن نموذج جاهز").fill("");
+          await page.locator('select[name="header"]').selectOption("VIDEO");
+          const videoSample = Buffer.alloc(5 * 1024 * 1024);
+          videoSample.write("ftyp", 4);
+          await page.locator('input[name="sample"]').setInputFiles({ name: "sample-5mb.mp4", mimeType: "video/mp4", buffer: videoSample });
+          expect(await page.locator('input[name="sample"]').evaluate(node => (node as HTMLInputElement).validity.valid)).toBe(true);
+          await expect(page.locator('#template-studio video')).toBeVisible();
+          await page.locator('input[name="sample"]').setInputFiles({ name: "oversize.mp4", mimeType: "video/mp4", buffer: Buffer.alloc(17 * 1024 * 1024) });
+          expect(await page.locator('input[name="sample"]').evaluate(node => (node as HTMLInputElement).validationMessage)).toContain("16 MB");
           await page.locator('select[name="header"]').selectOption("IMAGE");
           await page.locator('input[name="sample"]').setInputFiles({ name: "sample.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64") });
           await expect(page.getByAltText("عينة صورة القالب")).toBeVisible();
