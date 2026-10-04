@@ -326,6 +326,8 @@ function campaignOperationMessage(operation: string | undefined, readiness: What
 
 function readinessLabel(readiness: WhatsAppCampaignLaunchReadiness) {
   if (readiness.ready) return "خدمة الإرسال جاهزة";
+  if (readiness.code === "outbound_disabled") return "إرسال واتساب معطل في إعدادات المنصة ويحتاج تفعيلًا من الإدارة";
+  if (readiness.code === "worker_outbound_unverified") return "لم يثبت نجاح عامل إرسال واتساب؛ نجاح مزامنة المتاجر وحده لا يكفي لإطلاق الحملة";
   if (readiness.code === "web_release_unavailable") return "تعذر التحقق من إصدار المنصة الحالي";
   if (readiness.code === "worker_release_mismatch") return "خدمة الإرسال تحتاج إلى التحديث لتطابق إصدار المنصة";
   if (readiness.code === "worker_not_started") return "خدمة الإرسال لم تسجل تشغيلًا ناجحًا بعد";

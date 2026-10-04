@@ -35,11 +35,12 @@ export async function getWhatsAppCampaignLaunchReadiness(input: {
   const [heartbeat, clockRows] = await Promise.all([
     database.whatsAppOperationsHeartbeat.findUnique({
       where: { id: "whatsapp-operations" },
-      select: { lastSucceededAt: true, lastErrorCode: true, releaseSha: true },
+      select: { lastSucceededAt: true, lastErrorCode: true, releaseSha: true, details: true },
     }),
     database.$queryRaw<Array<{ currentTime: Date }>>(Prisma.sql`SELECT CURRENT_TIMESTAMP AS "currentTime"`),
   ]);
   return evaluateWhatsAppCampaignLaunchReadiness({
+    outboundEnabled: process.env.WHATSAPP_OUTBOUND_ENABLED === "true",
     currentTime: clockRows[0]?.currentTime,
     expectedReleaseSha,
     heartbeat,
