@@ -898,7 +898,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const foreignBusiness = await db.business.create({ data: { ownerId: seeded.adminUserId, planId: plan.id, name: "حملة منشأة أخرى سرية", slug: `foreign-report-${suffix}`, businessType: "خدمات", shortDescription: "اختبار عزل", description: "اختبار عزل", phone: "0555000099", whatsapp: "966555000099", city: "الرياض", district: "العليا" } });
     const foreignConnection = await db.whatsAppConnection.create({ data: { businessId: foreignBusiness.id, status: "connected", wabaId: `foreign-${suffix}`, phoneNumberId: `foreign-${suffix}`, credentialEnvelope: { testOnly: true } } });
     const foreignTemplate = await db.whatsAppTemplate.create({ data: { businessId: foreignBusiness.id, connectionId: foreignConnection.id, providerTemplateId: `foreign-${suffix}`, name: "foreign_report", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", components: [], rawPayload: {}, lastSyncedAt: new Date() } });
-    const foreignCampaign = await db.whatsAppCampaign.create({ data: { businessId: foreignBusiness.id, connectionId: foreignConnection.id, templateId: foreignTemplate.id, name: "DO_NOT_LEAK_FOREIGN_CAMPAIGN", status: "completed", totalRecipients: 99, audienceDefinition: {} } });
+    const foreignCampaign = await db.whatsAppCampaign.create({ data: { businessId: foreignBusiness.id, connectionId: foreignConnection.id, templateId: foreignTemplate.id, name: "DO_NOT_LEAK_FOREIGN_CAMPAIGN", status: "completed", totalRecipients: 99, audienceDefinition: {}, snapshotAt: new Date(), templateSnapshot: { components: [] } } });
 
     try {
       const input = { businessId, campaignId: campaign.id, jobId: job.id, providerMessageId: `test-${suffix}`, errorCode: "131016", now: new Date() };
@@ -964,10 +964,13 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
             await expect(page.getByRole("img", { name: "توزيع الحالات؛ الأعداد مفصلة في القائمة" })).toBeVisible();
           }
           const foreignReport = await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${foreignCampaign.id}`);
-          expect(foreignReport?.status()).toBe(404);
+          expect([200, 404]).toContain(foreignReport?.status());
+          await expect(page.getByRole("heading", { name: "الصفحة غير متاحة", exact: true })).toBeVisible();
+          expect(await foreignReport!.text()).not.toContain("DO_NOT_LEAK_FOREIGN_CAMPAIGN");
           await expect(page.getByText("DO_NOT_LEAK_FOREIGN_CAMPAIGN")).not.toBeVisible();
           const missingReport = await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${crypto.randomUUID()}`);
-          expect(missingReport?.status()).toBe(404);
+          expect([200, 404]).toContain(missingReport?.status());
+          await expect(page.getByRole("heading", { name: "الصفحة غير متاحة", exact: true })).toBeVisible();
           await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { sentAt: null, deliveredAt: null, readAt: null, failedAt: null } });
           await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns`, { waitUntil: "domcontentloaded" });
 
@@ -1108,7 +1111,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `report-${suffix}`, phoneNumberId: `report-${suffix}`, verifiedName: "منشأة اختبار التحليلات", credentialEnvelope: { testOnly: true } } });
     const components = [{ type: "BODY", text: "مرحبًا بكم في INFRO. اكتشف خدماتنا واحجز موعدك." }];
     const template = await db.whatsAppTemplate.create({ data: { businessId, connectionId: connection.id, providerTemplateId: `report-${suffix}`, name: "report_test", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", components, rawPayload: {}, lastSyncedAt: new Date() } });
-    const campaign = await db.whatsAppCampaign.create({ data: { businessId, connectionId: connection.id, templateId: template.id, name: "حملة متابعة النتائج المباشرة", status: "running", totalRecipients: 30, audienceDefinition: {}, templateSnapshot: { components } } });
+    const campaign = await db.whatsAppCampaign.create({ data: { businessId, connectionId: connection.id, templateId: template.id, name: "حملة متابعة النتائج المباشرة", status: "running", totalRecipients: 30, audienceDefinition: {}, snapshotAt: new Date(), templateSnapshot: { components } } });
     const contactIds: string[] = [];
     try {
       for (let index = 0; index < 30; index++) {
