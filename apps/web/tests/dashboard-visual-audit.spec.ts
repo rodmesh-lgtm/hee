@@ -920,6 +920,22 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(failedCard.getByText("لم تصل الرسائل", { exact: true })).toBeVisible();
           await expect(failedCard.getByRole("status")).toContainText("أهلية الدفع");
           await expect(failedCard.getByRole("status")).toContainText("131042");
+          const failureContrast = await failedCard.getByRole("status").locator("p, b").evaluateAll(nodes => nodes.map(node => {
+            const canvas = document.createElement("canvas"); canvas.width = canvas.height = 1;
+            const ctx = canvas.getContext("2d")!;
+            ctx.fillStyle = "white"; ctx.fillRect(0, 0, 1, 1);
+            const ancestors: Element[] = [];
+            for (let parent: Element | null = node; parent; parent = parent.parentElement) ancestors.unshift(parent);
+            for (const parent of ancestors) { ctx.fillStyle = getComputedStyle(parent).backgroundColor; ctx.fillRect(0, 0, 1, 1); }
+            const background = Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+            ctx.fillStyle = getComputedStyle(node).color; ctx.fillRect(0, 0, 1, 1);
+            const foreground = Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+            const luminance = (rgb: number[]) => rgb.map(value => { const channel = value / 255; return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4; }).reduce((sum, channel, index) => sum + channel * [.2126, .7152, .0722][index], 0);
+            const a = luminance(background), b = luminance(foreground);
+            return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+          }));
+          expect(Math.min(...failureContrast)).toBeGreaterThanOrEqual(4.5);
+
           expect(await failedCard.locator("details").evaluate(node => (node as HTMLDetailsElement).open)).toBe(false);
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
           await failedCard.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-payment-failure.png` });

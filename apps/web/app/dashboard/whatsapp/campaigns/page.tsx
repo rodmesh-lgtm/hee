@@ -219,10 +219,10 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
               {(failures.length ? failures : [{ lastErrorCode: null, _count: { _all: failed } }]).map((failure) => {
                 const reason = campaignFailureReason(failure.lastErrorCode);
                 return <div key={failure.lastErrorCode ?? "unknown"}>
-                  <div className="flex items-start gap-2"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" /><b className="text-sm text-rose-900">{reason.title}</b></div>
-                  <p className="mt-2 text-sm leading-6 text-rose-900">{reason.detail}</p>
+                  <div className="flex items-start gap-2"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" /><b className="text-sm text-rose-800">{reason.title}</b></div>
+                  <p className="mt-2 text-sm leading-6 text-rose-800">{reason.detail}</p>
                   <p className="mt-2 text-xs text-rose-700">{formatNumber(failure._count._all)} رسالة متعثرة{failure.lastErrorCode && /^\d+$/.test(failure.lastErrorCode) ? <> · رمز Meta: <span dir="ltr">{failure.lastErrorCode}</span></> : null}</p>
-                  <p className="mt-2 text-sm font-bold text-rose-900">{reason.action}</p>
+                  <p className="mt-2 text-sm font-bold text-rose-800">{reason.action}</p>
                 </div>;
               })}
             </div> : <div className="mt-3" role="status"><b className="text-sm text-slate-900">{summary.title}</b><p className="mt-1 text-sm leading-6 text-slate-600">{summary.detail}</p></div>}
