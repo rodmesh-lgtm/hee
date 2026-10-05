@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 type ChartPoint = {
   label: string;
@@ -19,6 +19,7 @@ export function AnalyticsVisitsChart({
   points: ChartPoint[];
   color?: string;
 }) {
+  const fillId = useId();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const { coords, width, height, maxValue } = useMemo(() => {
@@ -30,7 +31,7 @@ export function AnalyticsVisitsChart({
       const y = chartHeight - (point.value / peak) * chartHeight;
       return { x, y };
     });
-    return { coords: computedCoords, width: chartWidth, height: chartHeight, maxValue: peak };
+    return { coords: computedCoords, width: chartWidth, height: chartHeight, maxValue: Math.max(...points.map(point => point.value), 0) };
   }, [points]);
 
   const path = coords.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
@@ -45,12 +46,12 @@ export function AnalyticsVisitsChart({
         <div className="pointer-events-none absolute inset-x-3 top-3/4 border-t border-dashed border-slate-200/60 sm:inset-x-4" />
         <svg viewBox={`0 0 ${width} ${height}`} className="relative h-full w-full" preserveAspectRatio="none" aria-label="رسم زيارات الصفحة">
           <defs>
-            <linearGradient id="infro-visits-fill" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={color} stopOpacity="0.28" />
               <stop offset="100%" stopColor={color} stopOpacity="0.015" />
             </linearGradient>
           </defs>
-          {areaPath ? <path d={areaPath} fill="url(#infro-visits-fill)" /> : null}
+          {areaPath ? <path d={areaPath} fill={`url(#${fillId})`} /> : null}
           {path ? <path d={path} fill="none" stroke={color} strokeWidth="1.35" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" /> : null}
           {coords.map((point, index) => {
             const active = activeIndex === index;
@@ -66,6 +67,8 @@ export function AnalyticsVisitsChart({
                   tabIndex={0}
                   role="button"
                   aria-label={`${points[index].label}: ${formatNumber(points[index].value)} زيارة`}
+                  onKeyDown={event => { if(event.key === "Enter" || event.key === " "){ event.preventDefault(); setActiveIndex(index); } }}
+                  onClick={() => setActiveIndex(index)}
                   onFocus={() => setActiveIndex(index)}
                   onBlur={() => setActiveIndex(null)}
                   onMouseEnter={() => setActiveIndex(index)}
@@ -76,7 +79,7 @@ export function AnalyticsVisitsChart({
             );
           })}
         </svg>
-        <div className="pointer-events-none absolute left-3 top-3 rounded-full border border-[#cde8e4] bg-white/90 px-2.5 py-1 text-[9px] font-black text-[#087b73] shadow-sm backdrop-blur sm:left-4 sm:top-4">PEAK · {formatNumber(maxValue)}</div>
+        <div className="pointer-events-none absolute left-3 top-3 rounded-full border border-[#cde8e4] bg-white/90 px-2.5 py-1 text-[9px] font-black text-[#087b73] shadow-sm backdrop-blur sm:left-4 sm:top-4">أعلى يوم · {formatNumber(maxValue)}</div>
         {selected ? (
           <div className="pointer-events-none absolute right-3 top-3 min-w-[112px] rounded-2xl border border-[#cde8e4] bg-[#07181b] px-3 py-2 text-white shadow-[0_12px_30px_-18px_rgba(7,24,27,.6)] sm:right-4 sm:top-4" dir="rtl">
             <p className="text-[9px] font-bold text-slate-400">{selected.label}</p>
@@ -89,6 +92,8 @@ export function AnalyticsVisitsChart({
         <span>{points[Math.floor(points.length / 2)]?.label}</span>
         <span>{points[points.length - 1]?.label}</span>
       </div>
+      {points.every(point => point.value === 0) ? <p dir="rtl" className="text-sm text-slate-500">لم تُسجل زيارات خلال هذه الفترة.</p> : null}
+      <details dir="rtl" className="text-sm text-slate-600"><summary className="cursor-pointer py-2">عرض الأرقام اليومية</summary><div className="max-h-64 overflow-y-auto"><table className="w-full text-right"><thead><tr><th scope="col">اليوم</th><th scope="col">الزيارات</th></tr></thead><tbody>{points.map(point => <tr key={point.dayKey}><th scope="row" className="py-2 font-normal">{point.label}</th><td>{formatNumber(point.value)}</td></tr>)}</tbody></table></div></details>
     </div>
   );
 }
