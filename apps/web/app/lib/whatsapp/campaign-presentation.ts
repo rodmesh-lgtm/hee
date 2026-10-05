@@ -8,7 +8,33 @@ type DeliveryState = {
   delivered: number;
   snapshot: number;
   ready: boolean;
+  failed?: number;
 };
+
+export function campaignOutcome(state: { status: string; failed: number; delivered: number; total: number }) {
+  if (state.status === "completed" && state.failed > 0) {
+    return state.failed >= state.total && state.delivered === 0
+      ? { label: "لم تصل الرسائل", tone: "failed" as const }
+      : { label: "اكتملت مع تعثر", tone: "warning" as const };
+  }
+  if (state.status === "completed" && state.total > 0 && state.delivered >= state.total) return { label: "تم التسليم", tone: "success" as const };
+  if (state.status === "completed") return { label: "انتهت المعالجة", tone: "neutral" as const };
+  return { label: null, tone: "neutral" as const };
+}
+
+// Use a reviewed explanation, never render provider error text or payloads.
+export function campaignFailureReason(code: string | null) {
+  if (code === "131042") return {
+    title: "Meta رفضت التسليم بسبب أهلية الدفع",
+    detail: "راجع الفوترة ووسيلة الدفع المرتبطة بحساب WhatsApp Business لهذا الرقم لدى Meta. اعتماد القالب وحده لا يكفي لتجاوز هذا الرفض.",
+    action: "بعد معالجة السبب، راجع المستلمين المتعثرين قبل أي محاولة جديدة.",
+  };
+  return {
+    title: "تعذر تسليم بعض الرسائل",
+    detail: "راجع حالة الرقم والقالب وتقرير المستلمين لمعرفة سبب التعثر. لا تعِد إرسال الحملة كاملة لمن وصلتهم الرسالة.",
+    action: "لا تُعد إرسال النتائج غير المؤكدة قبل مراجعتها، لتجنب التكرار.",
+  };
+}
 
 // Only describe durable state. Worker health and queued jobs are not delivery receipts.
 export function campaignDeliverySummary(state: DeliveryState) {
@@ -19,6 +45,7 @@ export function campaignDeliverySummary(state: DeliveryState) {
   if (state.status === "scheduled") return { title: "بانتظار الموعد المحدد", detail: "تبدأ المعالجة بعد الموعد، وفق جاهزية الخدمة وحدود الرقم." };
   if (state.unknown > 0) return { title: "بعض النتائج تحتاج مراجعة", detail: "لم نتلقَّ تأكيدًا نهائيًا لبعض طلبات الإرسال. لا تعِد إرسالها لتجنب التكرار؛ نزّل التقرير لمراجعتها." };
   if (state.status === "failed") return { title: "تعذر إكمال الحملة", detail: "راجع تقرير المستلمين وحالة اتصال الرقم والقالب قبل أي محاولة جديدة." };
+  if (state.status === "completed" && (state.failed ?? 0) > 0) return { title: state.sent === 0 && state.delivered === 0 ? "انتهت المعالجة دون تسليم" : "انتهت المعالجة مع رسائل متعثرة", detail: "انتهت محاولات المعالجة، لكن توجد رسائل لم تصل. راجع سبب التعثر أدناه؛ انتهاء المعالجة ليس تأكيدًا للتسليم." };
   if (state.status === "completed") return { title: "اكتملت معالجة الحملة", detail: "اكتمال المعالجة لا يعني وصول جميع الرسائل؛ أرقام التسليم والقراءة تعتمد على إيصالات Meta." };
   if (state.processing > 0) return { title: "تجري معالجة الرسائل", detail: "تتغير حالة الرسالة إلى تم الإرسال بعد قبول Meta لها، ثم إلى تم التسليم عند وصول الإيصال." };
   if (state.retrying > 0) return { title: "إعادة محاولة مجدولة", detail: "تنتظر بعض الرسائل مهلة إعادة المحاولة أو نافذة الإرسال. لا تُنشئ حملة مكررة لهذه الأرقام." };
