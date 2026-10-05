@@ -1099,6 +1099,54 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.subscription.delete({ where: { id: subscription.id } });
     }
   });
+  test("live campaign report reconciles mixed receipts and paginates recipients", async ({ browser }) => {
+    test.setTimeout(120_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId, suffix = crypto.randomUUID();
+    const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `report-${suffix}`, phoneNumberId: `report-${suffix}`, verifiedName: "منشأة اختبار التحليلات", credentialEnvelope: { testOnly: true } } });
+    const components = [{ type: "BODY", text: "مرحبًا بكم في INFRO. اكتشف خدماتنا واحجز موعدك." }];
+    const template = await db.whatsAppTemplate.create({ data: { businessId, connectionId: connection.id, providerTemplateId: `report-${suffix}`, name: "report_test", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", components, rawPayload: {}, lastSyncedAt: new Date() } });
+    const campaign = await db.whatsAppCampaign.create({ data: { businessId, connectionId: connection.id, templateId: template.id, name: "حملة متابعة النتائج المباشرة", status: "running", totalRecipients: 30, audienceDefinition: {}, templateSnapshot: { components } } });
+    const contactIds: string[] = [];
+    try {
+      for (let index = 0; index < 30; index++) {
+        const status = ["sent", "delivered", "read", "failed", "queued"][index % 5];
+        const at = new Date(Date.now() - (index % 8) * 3600000);
+        const contact = await db.whatsAppContact.create({ data: { businessId, displayName: `عميل اختبار ${index + 1}`, phoneE164: `+966500009${String(index).padStart(3, "0")}`, source: "manual" } });
+        contactIds.push(contact.id);
+        await db.whatsAppCampaignRecipient.create({ data: { businessId, campaignId: campaign.id, contactId: contact.id, phoneE164: contact.phoneE164, displayName: contact.displayName, status, sentAt: status !== "queued" ? at : null, deliveredAt: ["delivered", "read"].includes(status) ? at : null, readAt: status === "read" ? at : null, failedAt: status === "failed" ? at : null } });
+      }
+      for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
+        try {
+          const page = await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${campaign.id}`, { waitUntil: "domcontentloaded" });
+          const metrics = page.getByRole("region", { name: "نتائج التسليم الفعلية" });
+          await expect(metrics.locator("article").filter({ hasText: "قبلتها Meta" }).locator("b")).toHaveText("٢٤");
+          await expect(metrics.locator("article").filter({ hasText: "تم التسليم" }).locator("b")).toHaveText("١٢");
+          await expect(metrics.locator("article").filter({ hasText: "تمت القراءة" }).locator("b")).toHaveText("٦");
+          await expect(page.getByRole("table").last().locator("tbody tr")).toHaveCount(25);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-live-mixed.png`, fullPage: true });
+          await page.getByRole("link", { name: "التالي", exact: true }).click();
+          await expect(page.getByRole("table").last().locator("tbody tr")).toHaveCount(5);
+          await page.getByLabel("حالة المستلم", { exact: true }).selectOption("failed");
+          await page.getByRole("button", { name: "بحث", exact: true }).click();
+          await expect(page.getByRole("table").last().locator("tbody tr")).toHaveCount(6);
+          await expect(page.getByRole("link", { name: "التالي", exact: true })).not.toBeVisible();
+        } finally { await context.close(); }
+      }
+    } finally {
+      await db.whatsAppCampaignRecipient.deleteMany({ where: { businessId, campaignId: campaign.id } });
+      await db.whatsAppCampaign.delete({ where: { id: campaign.id } });
+      await db.whatsAppContact.deleteMany({ where: { businessId, id: { in: contactIds } } });
+      await db.whatsAppTemplate.delete({ where: { id: template.id } });
+      await db.whatsAppConnection.delete({ where: { id: connection.id } });
+      await db.subscription.delete({ where: { id: subscription.id } });
+    }
+  });
   test("WhatsApp customer context stays tenant-scoped and mobile back restores the list",async({browser})=>{
     test.setTimeout(180_000);
     if(!seeded)throw new Error("visual fixture missing");

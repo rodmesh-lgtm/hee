@@ -92,7 +92,7 @@ jobs:
         with:
           name: infro-live-campaign-center
           path: |
-            /tmp/infro-visual-audit/*-campaign-live-report.png
+            /tmp/infro-visual-audit/*-campaign-live*.png
             /tmp/infro-visual-audit/*-campaign-overview.png
           if-no-files-found: warn
           retention-days: 7
