@@ -45,3 +45,5 @@
   [data-dashboard-path="/dashboard"] .infro-priority-groups > section { grid-column: span var(--work-group-items); margin-block: 0; }
   [data-dashboard-path="/dashboard"] #dashboard-main-content .infro-priority-cards { grid-template-columns: repeat(var(--work-group-items),minmax(0,1fr)) !important; }
 }
+
+[data-dashboard-path="/dashboard/support"] #dashboard-main-content .infro-data-rights-action { background-color: #35e4cb !important; color: #07181b !important; }

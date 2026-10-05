@@ -509,6 +509,9 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         await expect(help).toContainText("لا توجد أدلة تطابق البحث والتصنيف.");
         await help.getByRole("button",{name:"عرض جميع الأدلة",exact:true}).click();
         await expect(help.locator("details")).toHaveCount(7);
+        const rights=page.getByRole("link",{name:"فتح دورة الحذف",exact:true});
+        expect(await rights.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe("rgb(53, 228, 203)");
+        expect(await rights.evaluate(el=>getComputedStyle(el).color)).toBe("rgb(7, 24, 27)");
         await page.evaluate(()=>window.scrollTo(0,0));
         await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-help-customer-workspace.png`,fullPage:true});
         expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
