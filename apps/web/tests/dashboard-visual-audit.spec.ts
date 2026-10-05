@@ -477,7 +477,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           }
         }
         expect(await hero.locator("h1").evaluate(el=>getComputedStyle(el).color)).toBe("rgb(255, 255, 255)");
-        await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-customer-workspace.png`,fullPage:true});
+        await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-customer-workspace.png`,fullPage:true,timeout:15_000});
         const refresh=page.getByRole("region",{name:"تحديث بيانات مساحة العمل"});
         await refresh.getByRole("button",{name:"إيقاف التحديث",exact:true}).click();
         await expect(refresh).toContainText("التحديث التلقائي متوقف");
@@ -513,7 +513,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         expect(await rights.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe("rgb(53, 228, 203)");
         expect(await rights.evaluate(el=>getComputedStyle(el).color)).toBe("rgb(7, 24, 27)");
         await page.evaluate(()=>window.scrollTo(0,0));
-        await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-help-customer-workspace.png`,fullPage:true});
+        await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-help-customer-workspace.png`,fullPage:true,timeout:15_000});
         expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
       } finally {await context.close();}
     }
