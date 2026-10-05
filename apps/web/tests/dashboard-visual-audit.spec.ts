@@ -455,13 +455,20 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
   });
   test("customer workspace search, live controls and real analytics stay usable", async ({browser}) => {
     if(!seeded)throw new Error("visual fixture missing");
-    for(const viewport of [{width:1440,height:960},{width:390,height:844}]) {
-      const context=await authenticatedContext(browser,viewport,"light",seeded.sessionToken);
+    for(const viewport of [{width:1440,height:960},{width:390,height:844}]) for(const theme of ["light","dark"] as const) {
+      const context=await authenticatedContext(browser,viewport,theme,seeded.sessionToken);
       const page=await context.newPage();
       try {
         await page.goto(`${baseUrl}/dashboard`);
         await expect(page.getByRole("heading",{name:"من الزيارة إلى التواصل"})).toBeVisible();
-        await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-light-customer-workspace.png`,fullPage:true});
+        const canvas=await page.locator("#dashboard-main-content").boundingBox();
+        const hero=page.locator(".infro-workspace-hero");
+        const heroBox=await hero.boundingBox();
+        const performanceBox=await page.locator('[aria-labelledby="workspace-performance"]').boundingBox();
+        expect(heroBox!.width).toBeGreaterThanOrEqual(canvas!.width-2);
+        expect(performanceBox!.width).toBeGreaterThanOrEqual(canvas!.width-2);
+        expect(await hero.locator("h1").evaluate(el=>getComputedStyle(el).color)).toBe("rgb(255, 255, 255)");
+        await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-customer-workspace.png`,fullPage:true});
         const refresh=page.getByRole("region",{name:"تحديث بيانات مساحة العمل"});
         await refresh.getByRole("button",{name:"إيقاف التحديث",exact:true}).click();
         await expect(refresh).toContainText("التحديث التلقائي متوقف");

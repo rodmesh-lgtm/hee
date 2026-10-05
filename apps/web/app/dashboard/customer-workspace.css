@@ -29,3 +29,13 @@
 [data-dashboard-theme="dark"] #dashboard-main-content [class*="bg-[linear-gradient(180deg,#fbfefd"] { background: #0b2529 !important; }
 @media(max-width:639px) { .infro-workspace-refresh { padding: 16px; } .infro-workspace-refresh > div:last-child { width: 100%; } .infro-workspace-refresh button { flex: 1; } }
 @media(prefers-reduced-motion:reduce) { [data-dashboard-path] :where(button,a) { scroll-behavior: auto; transition: none; } }
+
+/* Name the wide panels explicitly; inserting a new section must never change their layout. */
+[data-dashboard-path="/dashboard"] #dashboard-main-content > .infro-dashboard-home > :is(.infro-workspace-refresh,.infro-workspace-hero,[aria-labelledby="workspace-performance"],[aria-labelledby="work-center"]) { grid-column: 1 / -1 !important; grid-row: auto !important; width: 100%; min-width: 0; }
+[data-dashboard-path="/dashboard"][data-dashboard-theme] #dashboard-main-content .infro-workspace-hero { background: radial-gradient(ellipse at top right,#124448 0%,#07181b 70%) !important; color: #fff !important; }
+[data-dashboard-path="/dashboard"][data-dashboard-theme] #dashboard-main-content .infro-workspace-hero :where(h1,h2,.text-white) { color: #fff !important; }
+[data-dashboard-path="/dashboard"][data-dashboard-theme] #dashboard-main-content .infro-workspace-hero :where(.text-slate-400) { color: #b8cecb !important; }
+[data-dashboard-path="/dashboard"][data-dashboard-theme] #dashboard-main-content .infro-workspace-hero [class*="bg-white/"] { background: rgba(255,255,255,.05) !important; }
+[data-dashboard-path="/dashboard"][data-dashboard-theme] #dashboard-main-content .infro-workspace-hero a:not([class~="bg-[#35e4cb]"]) { color: #d4ebe7 !important; }
+[data-dashboard-path="/dashboard"][data-dashboard-theme] #dashboard-main-content .infro-workspace-hero .text-amber-200 { color: #fde68a !important; }
+[data-dashboard-path] > aside nav a { min-height: 44px !important; }
