@@ -1,5 +1,5 @@
 "use client";
-import { useEffect,useLayoutEffect,useState } from "react";
+import { useEffect,useLayoutEffect,useSyncExternalStore } from "react";
 import { Monitor,Moon,Sun } from "lucide-react";
 type Theme="light"|"dark"|"system";
 function workspaces(){return Array.from(document.querySelectorAll<HTMLElement>("[data-dashboard-path],[data-admin-shell]"))}
@@ -16,19 +16,23 @@ function apply(theme:Theme,persist=true){
     window.dispatchEvent(new Event("infro-theme-change"));
   }
 }
+function subscribeTheme(listener:()=>void){
+  window.addEventListener("infro-theme-change",listener);
+  window.addEventListener("storage",listener);
+  return()=>{window.removeEventListener("infro-theme-change",listener);window.removeEventListener("storage",listener)};
+}
+function serverTheme():Theme{return "system"}
 export function DashboardThemeToggle({showLabel=false}:{showLabel?:boolean}){
-  const[theme,setTheme]=useState<Theme>(savedTheme);
+  const theme=useSyncExternalStore(subscribeTheme,savedTheme,serverTheme);
   useLayoutEffect(()=>{apply(theme,false)},[theme]);
   useEffect(()=>{
-    const syncExternal=()=>{const next=savedTheme();setTheme(next);apply(next,false)};
-    window.addEventListener("infro-theme-change",syncExternal);
-    if(theme!=="system")return()=>window.removeEventListener("infro-theme-change",syncExternal);
+    if(theme!=="system")return;
     const media=window.matchMedia("(prefers-color-scheme: dark)");
     const syncSystem=()=>apply("system",false);
     media.addEventListener?.("change",syncSystem);
-    return()=>{window.removeEventListener("infro-theme-change",syncExternal);media.removeEventListener?.("change",syncSystem)};
+    return()=>media.removeEventListener?.("change",syncSystem);
   },[theme]);
-  const cycle=()=>{const next:Theme=theme==="system"?"light":theme==="light"?"dark":"system";setTheme(next);apply(next)};
+  const cycle=()=>{const next:Theme=theme==="system"?"light":theme==="light"?"dark":"system";apply(next)};
   const Icon=theme==="dark"?Moon:theme==="light"?Sun:Monitor;
   const nextLabel=theme==="system"?"الفاتح":theme==="light"?"الداكن":"التلقائي";
   const currentLabel=theme==="dark"?"داكن":theme==="light"?"فاتح":"تلقائي";

@@ -518,6 +518,11 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         await page.evaluate(()=>window.scrollTo(0,0));
         await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-help-customer-workspace.png`,fullPage:true,timeout:15_000});
         expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+        const currentThemeLabel=theme==="light"?"فاتح":"داكن";
+        const themeToggle=page.getByRole("button",{name:new RegExp(`المظهر الحالي: ${currentThemeLabel}`)}).first();
+        await themeToggle.click();
+        await expect(page.locator("[data-dashboard-path]")).toHaveAttribute("data-dashboard-theme",theme==="light"?"dark":"light");
+        expect(await page.evaluate(()=>localStorage.getItem("infro-dashboard-theme"))).toBe(theme==="light"?"dark":"system");
         expect(hydrationErrors).toEqual([]);
       } finally {await context.close();}
     }
