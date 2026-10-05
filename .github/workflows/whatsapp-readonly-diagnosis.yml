@@ -1,4 +1,4 @@
-name: WhatsApp Guarded Orphan Receipt Repair
+name: WhatsApp Post-repair Verification
 on:
   push:
     branches: [ops/whatsapp-readonly-diagnosis-20261005]
@@ -18,62 +18,29 @@ jobs:
       VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
       PGSSLROOTCERT: /etc/ssl/certs/ca-certificates.crt
       PGCONNECT_TIMEOUT: 10
-      PGOPTIONS: "-c statement_timeout=15000"
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=15000"
     steps:
       - uses: actions/checkout@v7
       - name: Verify existing isolated production database identity
         run: node .github/scripts/require-production-database-safety.mjs DATABASE_URL
-      - name: Quarantine exactly two aged unmatched receipts with audit
+      - name: Run existing authorized official worker once
+        env:
+          CRON_SECRET: ${{ secrets.PRODUCTION_CRON_SECRET }}
+        run: |
+          test "${#CRON_SECRET}" -ge 32
+          curl --silent --show-error --fail-with-body --max-time 300 \
+            -H "Authorization: Bearer ${CRON_SECRET}" https://ir.sa/api/cron/whatsapp-operations
+      - name: Verify fresh complete outbound heartbeat
         run: |
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
-          BEGIN ISOLATION LEVEL SERIALIZABLE;
-          SET LOCAL statement_timeout='15s';
-          SET LOCAL lock_timeout='5s';
-          DO $$
-          DECLARE t RECORD; n BIGINT; candidate RECORD; total INT;
-          BEGIN
-            PERFORM id FROM "WhatsAppWebhookEvent" WHERE "processedAt" IS NULL
-              AND "processingError"='WHATSAPP_STATUS_MESSAGE_NOT_FOUND' FOR UPDATE;
-            SELECT COUNT(*) INTO total FROM "WhatsAppWebhookEvent"
-              WHERE "processedAt" IS NULL AND "processingError"='WHATSAPP_STATUS_MESSAGE_NOT_FOUND';
-            IF total<>2 THEN RAISE EXCEPTION 'REPAIR_EXPECTED_TWO_EVENTS'; END IF;
-            IF EXISTS (SELECT 1 FROM "WhatsAppWebhookEvent" e
-              WHERE e."processedAt" IS NULL AND e."processingError"='WHATSAPP_STATUS_MESSAGE_NOT_FOUND'
-              AND (e."receivedAt">CURRENT_TIMESTAMP-INTERVAL '48 hours'
-                OR e."businessId" IS NULL OR e.provider<>'meta' OR e."eventType"<>'message_status'
-                OR jsonb_typeof(e.payload->'value'->'statuses') IS DISTINCT FROM 'array'
-                OR jsonb_array_length(e.payload->'value'->'statuses')=0))
-            THEN RAISE EXCEPTION 'REPAIR_EVENT_SCOPE_INVALID'; END IF;
-            IF EXISTS (SELECT 1 FROM "WhatsAppWebhookEvent" e,
-              jsonb_array_elements(e.payload->'value'->'statuses') s
-              WHERE e."processedAt" IS NULL AND e."processingError"='WHATSAPP_STATUS_MESSAGE_NOT_FOUND'
-                AND (COALESCE(s->>'id','')='' OR s->>'status' NOT IN ('sent','delivered','read','failed')))
-            THEN RAISE EXCEPTION 'REPAIR_RECEIPT_INVALID'; END IF;
-            FOR t IN SELECT table_name FROM information_schema.columns
-              WHERE table_schema='public' AND column_name='providerMessageId'
-            LOOP
-              EXECUTE format('SELECT COUNT(*) FROM %I WHERE "providerMessageId" IN (
-                SELECT s->>''id'' FROM "WhatsAppWebhookEvent" e,
-                  jsonb_array_elements(e.payload->''value''->''statuses'') s
-                WHERE e."processedAt" IS NULL AND e."processingError"=''WHATSAPP_STATUS_MESSAGE_NOT_FOUND''
-              )',t.table_name) INTO n;
-              IF n>0 THEN RAISE EXCEPTION 'REPAIR_RECEIPT_HAS_REFERENCES'; END IF;
-            END LOOP;
-            FOR candidate IN SELECT id,"businessId" FROM "WhatsAppWebhookEvent"
-              WHERE "processedAt" IS NULL AND "processingError"='WHATSAPP_STATUS_MESSAGE_NOT_FOUND'
-            LOOP
-              INSERT INTO "WhatsAppAuditLog"
-                (id,"businessId","actorType",action,"targetType","targetId",outcome,metadata,"createdAt")
-              VALUES
-                (gen_random_uuid()::text,candidate."businessId",'system','webhook.quarantine',
-                 'whatsapp_webhook_event',candidate.id,'cancelled',
-                 '{"reason":"unmatched_status_after_48h","originalError":"WHATSAPP_STATUS_MESSAGE_NOT_FOUND","reversible":true}'::jsonb,
-                 CURRENT_TIMESTAMP);
-              UPDATE "WhatsAppWebhookEvent" SET "processedAt"=CURRENT_TIMESTAMP,
-                "processingError"='QUARANTINED_UNMATCHED_STATUS_RECEIPT'
-              WHERE id=candidate.id AND "processedAt" IS NULL;
-            END LOOP;
-            RAISE NOTICE 'QUARANTINE_COMPLETE retained_payloads=2 audit_records=2';
-          END $$;
+          BEGIN READ ONLY;
+          SELECT "lastErrorCode", "details"->>'state' AS state,
+            "details"->>'mode' AS mode,
+            "lastSucceededAt">CURRENT_TIMESTAMP-INTERVAL '10 minutes' AS fresh,
+            "releaseSha"='fe9c0a8e6a21ea576dbe3d2ad7b23bf45c434e5f' AS exact_release,
+            ("details"->'completedStages') ? 'whatsapp:campaigns' AS campaigns_complete,
+            ("details"->'completedStages') ? 'whatsapp:deliveries' AS deliveries_complete
+          FROM "WhatsAppOperationsHeartbeat" WHERE id='whatsapp-operations';
+          SELECT COUNT(*) AS pending_webhooks FROM "WhatsAppWebhookEvent" WHERE "processedAt" IS NULL;
           COMMIT;
           SQL
