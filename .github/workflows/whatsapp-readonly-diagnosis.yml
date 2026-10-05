@@ -55,5 +55,25 @@ jobs:
           END AS oldest_safe_code
           FROM "WhatsAppWebhookEvent" WHERE "processedAt" IS NULL
           ORDER BY "receivedAt", id LIMIT 1;
+          SELECT COUNT(*) AS orphan_events,
+            MIN(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP-"receivedAt"))/3600)::int AS minimum_age_hours,
+            BOOL_AND("businessId" IS NOT NULL AND "eventType"='message_status' AND provider='meta') AS tenant_status_only,
+            BOOL_AND(jsonb_typeof(payload->'value'->'statuses')='array') AS valid_status_arrays
+          FROM "WhatsAppWebhookEvent" WHERE "processedAt" IS NULL
+            AND "processingError"='WHATSAPP_STATUS_MESSAGE_NOT_FOUND';
+          DO $
+          DECLARE t RECORD; n BIGINT;
+          BEGIN
+            FOR t IN SELECT table_name FROM information_schema.columns
+              WHERE table_schema='public' AND column_name='providerMessageId'
+            LOOP
+              EXECUTE format('SELECT COUNT(*) FROM %I WHERE "providerMessageId" IN (
+                SELECT s->>''id'' FROM "WhatsAppWebhookEvent" e,
+                  jsonb_array_elements(e.payload->''value''->''statuses'') s
+                WHERE e."processedAt" IS NULL AND e."processingError"=''WHATSAPP_STATUS_MESSAGE_NOT_FOUND''
+              )',t.table_name) INTO n;
+              RAISE NOTICE 'receipt_references table=% count=%',t.table_name,n;
+            END LOOP;
+          END $;
           COMMIT;
           SQL
