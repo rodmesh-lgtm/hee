@@ -1,0 +1,58 @@
+name: WhatsApp Read-only Diagnosis
+on:
+  push:
+    branches: [ops/whatsapp-readonly-diagnosis-20261005]
+    paths: [.github/workflows/whatsapp-readonly-diagnosis.yml]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      EXPECTED_PRODUCTION_DB_HOST: ${{ vars.PRODUCTION_DATABASE_HOST }}
+      VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      PGCONNECT_TIMEOUT: 10
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=15000"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify existing isolated production database identity
+        run: node .github/scripts/require-production-database-safety.mjs DATABASE_URL
+      - name: Read bounded operational codes without customer data
+        run: |
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN READ ONLY;
+          SELECT "lastErrorCode", "details"->>'state' AS state, "details"->>'mode' AS mode
+          FROM "WhatsAppOperationsHeartbeat" WHERE id='whatsapp-operations';
+          SELECT CASE
+            WHEN "processingError" IN (
+              'WHATSAPP_STATUS_MESSAGE_NOT_FOUND','WHATSAPP_STATUS_TENANT_MISMATCH',
+              'WHATSAPP_WEBHOOK_TENANT_CONTEXT_MISSING','WHATSAPP_MESSAGE_ID_TENANT_COLLISION',
+              'WHATSAPP_CONVERSATION_TENANT_MISMATCH','INFRO_REMINDER_WEBHOOK_BINDING_INVALID'
+            ) THEN "processingError"
+            WHEN "processingError" IS NULL THEN 'NOT_ATTEMPTED'
+            WHEN "processingError" LIKE '%does not exist%' THEN 'DATABASE_OBJECT_MISSING'
+            WHEN "processingError" LIKE '%timeout%' THEN 'DATABASE_TIMEOUT'
+            ELSE 'OTHER_PROCESSING_ERROR'
+          END AS safe_code, COUNT(*) AS events
+          FROM "WhatsAppWebhookEvent" WHERE "processedAt" IS NULL
+          GROUP BY 1 ORDER BY events DESC LIMIT 10;
+          SELECT CASE
+            WHEN "processingError" IN (
+              'WHATSAPP_STATUS_MESSAGE_NOT_FOUND','WHATSAPP_STATUS_TENANT_MISMATCH',
+              'WHATSAPP_WEBHOOK_TENANT_CONTEXT_MISSING','WHATSAPP_MESSAGE_ID_TENANT_COLLISION',
+              'WHATSAPP_CONVERSATION_TENANT_MISMATCH','INFRO_REMINDER_WEBHOOK_BINDING_INVALID'
+            ) THEN "processingError"
+            WHEN "processingError" IS NULL THEN 'NOT_ATTEMPTED'
+            WHEN "processingError" LIKE '%does not exist%' THEN 'DATABASE_OBJECT_MISSING'
+            WHEN "processingError" LIKE '%timeout%' THEN 'DATABASE_TIMEOUT'
+            ELSE 'OTHER_PROCESSING_ERROR'
+          END AS oldest_safe_code
+          FROM "WhatsAppWebhookEvent" WHERE "processedAt" IS NULL
+          ORDER BY "receivedAt", id LIMIT 1;
+          COMMIT;
+          SQL
