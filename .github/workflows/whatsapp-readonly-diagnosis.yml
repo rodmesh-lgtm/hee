@@ -16,6 +16,7 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
       VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
       VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      PGSSLROOTCERT: /etc/ssl/certs/ca-certificates.crt
       PGCONNECT_TIMEOUT: 10
       PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=15000"
     steps:
