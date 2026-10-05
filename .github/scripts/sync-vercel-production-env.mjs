@@ -1,3 +1,5 @@
+import { preservedOperationalFlags } from "./preserve-operational-flags.mjs";
+
 const required = (name) => {
   const value = String(process.env[name] ?? "").trim();
   if (!value) throw new Error(`${name} is required before production environment sync`);
@@ -263,8 +265,15 @@ async function recoverGoogleOAuthFromPreview() {
 
 await recoverGoogleOAuthFromPreview();
 
+// Preserve operational WhatsApp switches managed on the live project.
+// Existing false values also stay false: a UI release must never enable sending.
+const operationalWhatsAppKeys = ["WHATSAPP_OUTBOUND_ENABLED", "WHATSAPP_MARKETING_WORKER_ENABLED"];
+const currentEnvironment = await vercelJson(`https://api.vercel.com/v10/projects/${project}/env?teamId=${team}&limit=100`);
+if (!currentEnvironment.response.ok) throw new Error("Unable to verify live WhatsApp activation before production sync");
+const preservedWhatsAppKeys = preservedOperationalFlags(currentEnvironment.body?.envs ?? [], operationalWhatsAppKeys);
+
 const entries = [
-  ...plainKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "plain", target: ["production"] })),
+  ...plainKeys.filter((key) => !preservedWhatsAppKeys.has(key)).map((key) => ({ key, value: String(process.env[key] ?? ""), type: "plain", target: ["production"] })),
   ...sensitiveKeys.map((key) => ({ key, value: String(process.env[key] ?? ""), type: "sensitive", target: ["production"] })),
   ...optionalSensitiveKeys
     .filter((key) => String(process.env[key] ?? "").trim())

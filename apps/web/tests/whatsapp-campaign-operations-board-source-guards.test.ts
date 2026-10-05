@@ -21,8 +21,10 @@ test("campaign operations board exposes aggregate performance without weakening 
   assert.match(page, /businessId: context\.businessId/);
   assert.match(page, /aggregateCount\("sent"\) \+ aggregateCount\("delivered"\) \+ aggregateCount\("read"\)/);
   assert.match(page, /aggregateCount\("delivered"\) \+ aggregateCount\("read"\)/);
-  assert.match(page, /معدل التسليم/);
-  assert.match(page, /معدل القراءة/);
+  assert.match(page, /الوصول المؤكد/);
+  assert.match(page, /رسائل متعثرة/);
+  assert.match(page, /by: \["campaignId", "lastErrorCode"\]/);
+  assert.match(page, /where: \{ businessId: context\.businessId, campaignId: \{ in: campaigns\.map\(\(item\) => item\.id\) \}, status: "failed" \}/);
 });
 
 test("campaign controls support bounded search and whitelisted status filters", () => {

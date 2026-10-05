@@ -7,13 +7,12 @@ import {
   BarChart3,
   CalendarClock,
   CheckCircle2,
-  Eye,
+  CircleAlert,
   Megaphone,
   Pause,
   Play,
   Plus,
   Search,
-  Send,
   StopCircle,
   UsersRound,
 } from "lucide-react";
@@ -24,7 +23,7 @@ import { db } from "../../../lib/db";
 import { getWhatsAppCampaignLaunchReadiness, type WhatsAppCampaignLaunchReadiness } from "../../../lib/whatsapp/campaign-launch-readiness";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
-import { campaignDeliverySummary, formatCampaignTime } from "../../../lib/whatsapp/campaign-presentation";
+import { campaignDeliverySummary, campaignOutcome, campaignFailureReason, formatCampaignTime } from "../../../lib/whatsapp/campaign-presentation";
 import { CampaignWizard } from "./campaign-wizard";
 
 const campaignStatusFilters = ["all", "draft", "ready", "scheduled", "running", "paused", "completed", "failed", "cancelled"] as const;
@@ -111,6 +110,11 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
     _min: { nextAttemptAt: true },
   }) : [];
   const deliveryCounts = new Map(deliveryGroups.map((item) => [`${item.campaignId}:${item.status}`, item._count._all]));
+  const failureGroups = campaigns.length ? await db.whatsAppDeliveryJob.groupBy({
+    by: ["campaignId", "lastErrorCode"],
+    where: { businessId: context.businessId, campaignId: { in: campaigns.map((item) => item.id) }, status: "failed" },
+    _count: { _all: true },
+  }) : [];
   const aggregateRecipientCounts = recipientGroups.reduce<Record<string, number>>((totals, item) => {
     totals[item.status] = (totals[item.status] ?? 0) + item._count._all;
     return totals;
@@ -137,7 +141,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
 
   return <div className="min-w-0 space-y-5 pb-5">
     <header className="flex flex-wrap items-center justify-between gap-4">
-      <div><h1 className="flex items-center gap-3 text-2xl font-bold text-slate-950"><Megaphone className="h-6 w-6 text-[#008f87]" />حملات واتساب</h1><p className="mt-2 text-sm leading-6 text-slate-600">تابع رسائلك ونتائجها، وأنشئ حملتك بخطوات واضحة.</p></div>
+      <div><p className="mb-2 text-xs font-bold tracking-[.18em] text-[#008f87]">INFRO · CAMPAIGNS</p><h1 className="text-3xl font-black text-slate-950">حملات واتساب</h1><p className="mt-2 text-sm leading-6 text-slate-600">نتيجة الوصول أولًا. تابع كل حملة، وافهم ما يحتاج إلى إجراء.</p></div>
       <Link href="/dashboard/whatsapp/campaigns?new=1#new-campaign" className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#008f87] px-5 text-sm font-bold text-white hover:bg-[#006d67] focus-visible:ring-2 focus-visible:ring-[#008f87] focus-visible:ring-offset-2"><Plus className="h-5 w-5" />حملة جديدة</Link>
     </header>
     <LiveReportRefresh observedAt={observedAt.toISOString()} compact />
@@ -149,13 +153,11 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
     <p className="text-sm leading-6 text-slate-600">يُعاد فحص موافقة المستلم وإلغاء الاشتراك قبل كل رسالة. أول إرسال تجريبي لا يتجاوز 5 مستلمين حتى تأكيد التسليم.</p>
     {params.create || params.operation ? <p aria-live="polite" className={`rounded-2xl border p-3 text-sm font-bold ${(params.create === "complete" || operationSucceeded) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{params.create === "complete" ? "أُنشئت الحملة وثُبتت قائمة المستلمين المؤهلين. راجع العدد والبيانات قبل الإطلاق." : params.create ? campaignErrorMessage(params.reason) : operationMessage}</p> : null}
 
-    <section aria-label="مؤشرات أداء الحملات" className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-6">
-      <Kpi icon={<Megaphone className="h-4 w-4" />} label="الحملات" value={String(campaigns.length)} helper="أحدث 100 حملة" />
-      <Kpi icon={<Activity className="h-4 w-4" />} label="قيد التشغيل" value={String(activeCampaigns)} helper="مجدولة أو جارية أو متوقفة" />
+    <section aria-label="مؤشرات أداء الحملات" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <Kpi icon={<Megaphone className="h-4 w-4" />} label="الحملات" value={String(campaigns.length)} helper={`${activeCampaigns} قيد المتابعة`} />
       <Kpi icon={<UsersRound className="h-4 w-4" />} label="المستلمون" value={formatNumber(aggregateRecipients)} helper="في قوائم الحملات" />
-      <Kpi icon={<Send className="h-4 w-4" />} label="تم الإرسال" value={formatNumber(aggregateSent)} helper="قبلتها Meta؛ راقب تأكيد التسليم" />
-      <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label="معدل التسليم" value={formatRate(deliveryRate)} helper={`${formatNumber(aggregateDelivered)} تم تسليمهم`} />
-      <Kpi icon={<Eye className="h-4 w-4" />} label="معدل القراءة" value={formatRate(readRate)} helper={`${formatNumber(aggregateRead)} قراءة مؤكدة`} />
+      <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label="الوصول المؤكد" value={formatNumber(aggregateDelivered)} helper={`${formatRate(deliveryRate)} من الرسائل المقبولة`} />
+      <Kpi icon={<CircleAlert className="h-4 w-4" />} label="رسائل متعثرة" value={formatNumber(campaigns.reduce((sum, campaign) => sum + (recipientCounts.get(`${campaign.id}:failed`) ?? 0), 0))} helper={`${formatNumber(aggregateRead)} قراءة · ${formatRate(readRate)} من الوصول`} />
     </section>
 
     <section aria-labelledby="campaign-list-title" className="space-y-3">
@@ -185,14 +187,17 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
         const queued = deliveryCounts.get(`${campaign.id}:queued`) ?? 0;
         const processing = deliveryCounts.get(`${campaign.id}:processing`) ?? 0;
         const snapshot = count("snapshotted");
-        const summary = campaignDeliverySummary({ status: campaign.status, queued, processing, retrying, unknown, sent, delivered, snapshot, ready: launchReadiness.ready });
+        const summary = campaignDeliverySummary({ status: campaign.status, queued, processing, retrying, unknown, sent, delivered, failed, snapshot, ready: launchReadiness.ready });
         const nextAttempt = deliveryGroups.filter((item) => item.campaignId === campaign.id && ["queued", "retry_scheduled"].includes(item.status)).flatMap((item) => item._min.nextAttemptAt ? [item._min.nextAttemptAt] : []).sort((a, b) => a.getTime() - b.getTime())[0];
-        const sentProgress = campaign.totalRecipients ? sent / campaign.totalRecipients : 0;
-        return <article key={campaign.id} id={`campaign-${campaign.id}`} data-testid="campaign-card" className="scroll-mt-6 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(7,24,27,.035)]">
+        const deliveryProgress = campaign.totalRecipients ? delivered / campaign.totalRecipients : 0;
+        const outcome = campaignOutcome({ status: campaign.status, failed, delivered, total: campaign.totalRecipients });
+        const outcomeClasses = { failed: "bg-rose-50 text-rose-800", warning: "bg-amber-50 text-amber-800", success: "bg-emerald-50 text-emerald-800", neutral: "bg-slate-100 text-slate-700" };
+        const failures = failureGroups.filter((item) => item.campaignId === campaign.id);
+        return <article key={campaign.id} id={`campaign-${campaign.id}`} data-testid="campaign-card" className="scroll-mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="p-4 sm:p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2"><b className="break-words text-sm text-slate-900 sm:text-base">{campaign.name}</b><span className={`rounded-full px-2.5 py-1 text-sm font-black ${campaignStatusClasses(campaign.status)}`}>{campaignStatusLabel(campaign.status)}</span></div>
+                <div className="flex flex-wrap items-center gap-2"><b className="break-words text-sm text-slate-900 sm:text-base">{campaign.name}</b><span className={`rounded-full px-2.5 py-1 text-sm font-black ${outcome.label ? outcomeClasses[outcome.tone] : campaignStatusClasses(campaign.status)}`}>{outcome.label ?? campaignStatusLabel(campaign.status)}</span></div>
                 <span className="mt-1.5 block break-words text-sm text-slate-500">{campaign.template.name} · {campaign.template.language}</span>
                 <span className="mt-1 inline-flex items-center gap-1 text-sm text-slate-500"><CalendarClock className="h-3 w-3" />{campaignTimingLabel(campaign)}</span>
               </div>
@@ -204,25 +209,43 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
               </div>
             </div>
 
-            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4" role="status"><b className="block text-sm text-slate-900">{summary.title}</b><p className="mt-1 text-sm leading-7 text-slate-600">{summary.detail}</p>{nextAttempt && nextAttempt.getTime() > observedAt.getTime() ? <p className="mt-1 text-sm text-slate-600">أقرب وقت مسموح للمحاولة: {formatCampaignTime(nextAttempt)}؛ ليس موعد تسليم مضمونًا.</p> : null}</div>
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <Mini label="بانتظار الإرسال" value={queued} />
-              <Mini label="تجري معالجتها" value={processing} />
-
-              <Mini label="تم الإرسال" value={sent} />
-              <Mini label="تم التسليم" value={delivered} />
-              <Mini label="تمت القراءة" value={read} />
-              <Mini label="تعذر الإرسال" value={failed} />
-
-
+            <div className="mt-5 grid grid-cols-2 gap-3 border-y border-slate-100 py-4 sm:grid-cols-4">
+              <Result label="المستلمون" value={campaign.totalRecipients} />
+              <Result label="وصلت بالفعل" value={delivered} />
+              <Result label="تمت قراءتها" value={read} />
+              <Result label="لم تصل" value={failed} danger={failed > 0} />
             </div>
-            <details className="mt-3 text-sm text-slate-600"><summary className="cursor-pointer py-2 font-bold">تفاصيل الجمهور والمحاولات</summary><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4"><Mini label="المستلمون" value={campaign.totalRecipients} /><Mini label="لم تدخل الطابور" value={snapshot} /><Mini label="مستبعدون" value={count("skipped_opt_out")} /><Mini label="بانتظار إعادة المحاولة" value={retrying} /><Mini label="نتيجة غير مؤكدة" value={unknown} /></div></details>
+            {failed > 0 ? <div className="mt-4 space-y-3 rounded-xl border border-rose-200 bg-rose-50/70 p-4" role="status">
+              {(failures.length ? failures : [{ lastErrorCode: null, _count: { _all: failed } }]).map((failure) => {
+                const reason = campaignFailureReason(failure.lastErrorCode);
+                return <div key={failure.lastErrorCode ?? "unknown"}>
+                  <div className="flex items-start gap-2"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-700" /><b className="text-sm text-rose-900">{reason.title}</b></div>
+                  <p className="mt-2 text-sm leading-6 text-rose-900">{reason.detail}</p>
+                  <p className="mt-2 text-xs text-rose-700">{formatNumber(failure._count._all)} رسالة متعثرة{failure.lastErrorCode && /^\d+$/.test(failure.lastErrorCode) ? <> · رمز Meta: <span dir="ltr">{failure.lastErrorCode}</span></> : null}</p>
+                  <p className="mt-2 text-sm font-bold text-rose-900">{reason.action}</p>
+                </div>;
+              })}
+            </div> : <div className="mt-3" role="status"><b className="text-sm text-slate-900">{summary.title}</b><p className="mt-1 text-sm leading-6 text-slate-600">{summary.detail}</p></div>}
+            <details className="mt-3 text-sm text-slate-600">
+              <summary className="cursor-pointer py-2 font-bold">تفاصيل الإرسال والجمهور</summary>
+              <p className="mt-2 leading-6">{summary.detail}</p>
+              {nextAttempt && nextAttempt.getTime() > observedAt.getTime() ? <p className="mt-2 leading-6">أقرب وقت مسموح للمحاولة: {formatCampaignTime(nextAttempt)}؛ ليس موعد تسليم مضمونًا.</p> : null}
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Mini label="قبلتها Meta للإرسال" value={sent} />
+                <Mini label="بانتظار الإرسال" value={queued} />
+                <Mini label="تجري معالجتها" value={processing} />
+                <Mini label="لم تدخل الطابور" value={snapshot} />
+                <Mini label="مستبعدون" value={count("skipped_opt_out")} />
+                <Mini label="إعادة محاولة مجدولة" value={retrying} />
+                <Mini label="نتيجة غير مؤكدة" value={unknown} />
+              </div>
+            </details>
             {retrying > 0 || unknown > 0 ? <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">{retrying > 0 ? "تُعاد المحاولات المؤقتة تلقائيًا وفق مهلة الانتظار وحدود الإرسال. " : ""}{unknown > 0 ? "بعض الطلبات انقطع اتصالها قبل تأكيد النتيجة. لا تعِد إرسال الحملة لهذه الأرقام حتى تُراجع حالتها، لتجنب التكرار." : ""}</p> : null}
           </div>
           <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:px-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600"><span>{formatNumber(campaign.totalRecipients)} مستلم · النتائج بحسب إيصالات Meta</span><a href={`/api/dashboard/whatsapp/campaign-export?campaign=${encodeURIComponent(campaign.id)}`} className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-3 font-bold text-[#008f87]">تنزيل تقرير المستلمين CSV</a></div>
-            <div className="flex items-center justify-between gap-3 text-sm text-slate-500"><span>نسبة المستلمين الذين قُبل إرسال رسائلهم</span><b className="text-slate-700">{formatRate(sentProgress)}</b></div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-[#00bfae] transition-[width] motion-reduce:transition-none" style={{ width: `${Math.round(Math.min(1, Math.max(0, sentProgress)) * 100)}%` }} /></div>
+            <div className="flex items-center justify-between gap-3 text-sm text-slate-500"><span>نسبة الوصول المؤكد</span><b className="text-slate-700">{formatRate(deliveryProgress)}</b></div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-[#00bfae] transition-[width] motion-reduce:transition-none" style={{ width: `${Math.round(Math.min(1, Math.max(0, deliveryProgress)) * 100)}%` }} /></div>
           </div>
         </article>;
       })}
@@ -276,12 +299,12 @@ function campaignErrorMessage(reason?: string) {
 }
 
 function campaignStatusLabel(status: string) {
-  const labels: Record<string, string> = { draft: "مسودة", ready: "جاهزة", scheduled: "مجدولة", running: "قيد الإرسال", paused: "متوقفة مؤقتًا", completed: "مكتملة", cancelled: "ملغاة", failed: "تعذر إكمالها" };
+  const labels: Record<string, string> = { draft: "مسودة", ready: "جاهزة", scheduled: "مجدولة", running: "قيد الإرسال", paused: "متوقفة مؤقتًا", completed: "انتهت المعالجة", cancelled: "ملغاة", failed: "تعذر إكمالها" };
   return labels[status] ?? "قيد المعالجة";
 }
 
 function campaignStatusClasses(status: string) {
-  if (status === "completed") return "bg-emerald-50 text-emerald-700";
+  if (status === "completed") return "bg-slate-100 text-slate-700";
   if (status === "running") return "bg-sky-50 text-sky-700";
   if (status === "scheduled") return "bg-indigo-50 text-indigo-700";
   if (status === "paused") return "bg-amber-50 text-amber-700";
@@ -290,12 +313,12 @@ function campaignStatusClasses(status: string) {
 }
 
 function campaignFilterLabel(status: CampaignStatusFilter) {
-  const labels: Record<CampaignStatusFilter, string> = { all: "كل الحالات", draft: "مسودة", ready: "جاهزة", scheduled: "مجدولة", running: "قيد الإرسال", paused: "متوقفة مؤقتًا", completed: "مكتملة", failed: "متعذرة", cancelled: "ملغاة" };
+  const labels: Record<CampaignStatusFilter, string> = { all: "كل الحالات", draft: "مسودة", ready: "جاهزة", scheduled: "مجدولة", running: "قيد الإرسال", paused: "متوقفة مؤقتًا", completed: "انتهت المعالجة", failed: "متعذرة", cancelled: "ملغاة" };
   return labels[status];
 }
 
 function campaignTimingLabel(campaign: { createdAt: Date; scheduledAt: Date | null; startedAt: Date | null; completedAt: Date | null }) {
-  if (campaign.completedAt) return `اكتملت ${formatCampaignTime(campaign.completedAt)}`;
+  if (campaign.completedAt) return `انتهت المعالجة ${formatCampaignTime(campaign.completedAt)}`;
   if (campaign.startedAt) return `بدأت ${formatCampaignTime(campaign.startedAt)}`;
   if (campaign.scheduledAt) return `مجدولة ${formatCampaignTime(campaign.scheduledAt)}`;
   return `أُنشئت ${formatCampaignTime(campaign.createdAt)}`;
@@ -340,6 +363,10 @@ function CampaignButton({ id, operation, label, icon, danger = false, launchRead
   const classes = `inline-flex min-h-11 items-center gap-1 rounded-lg px-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${danger ? "bg-rose-50 text-rose-700 hover:bg-rose-100" : "bg-[#e9fbf8] text-[#008f87] hover:bg-[#d8f7f2]"}`;
   if (operation === "launch") return <form action={launchWhatsAppCampaignAction}><input type="hidden" name="campaignId" value={id} /><ConfirmSubmitButton label={label} showIcon={false} disabled={!launchReady} className={classes} confirmMessage="سيبدأ الإرسال الرسمي وقد تترتب رسوم من Meta. هل تؤكد أن جميع المستلمين وافقوا صراحة على استلام الرسائل؟" /></form>;
   return <form action={operateWhatsAppCampaignAction}><input type="hidden" name="campaignId" value={id} /><input type="hidden" name="operation" value={operation} /><button className={classes}>{icon}{label}</button></form>;
+}
+
+function Result({ label, value, danger = false }: { label: string; value: number; danger?: boolean }) {
+  return <div className="min-w-0"><span className="block text-xs font-medium text-slate-500">{label}</span><b className={`mt-1 block text-2xl font-black ${danger ? "text-rose-700" : "text-slate-900"}`}>{formatNumber(value)}</b></div>;
 }
 
 function Mini({ label, value }: { label: string; value: number }) {

@@ -11,17 +11,17 @@ test("campaign UI uses customer-facing Arabic instead of implementation jargon",
   }
   assert.match(page, /أُضيفت الدفعة التجريبية إلى طابور الإرسال/);
   assert.match(page, /إلغاء الاشتراك/);
-  assert.match(page, /تم الإرسال/);
-  assert.match(page, /تم التسليم/);
-  assert.match(page, /تمت القراءة/);
-  assert.match(page, /تعذر الإرسال/);
+  assert.match(page, /قبلتها Meta للإرسال/);
+  assert.match(page, /وصلت بالفعل/);
+  assert.match(page, /تمت قراءتها/);
+  assert.match(page, /لم تصل/);
 });
 
 test("campaign statuses are translated for customers", () => {
-  for (const label of ["مسودة", "جاهزة", "مجدولة", "قيد الإرسال", "متوقفة مؤقتًا", "مكتملة", "ملغاة", "تعذر إكمالها"]) {
+  for (const label of ["مسودة", "جاهزة", "مجدولة", "قيد الإرسال", "متوقفة مؤقتًا", "انتهت المعالجة", "ملغاة", "تعذر إكمالها"]) {
     assert.match(page, new RegExp(label));
   }
-  assert.match(page, /campaignStatusLabel\(campaign\.status\)/);
+  assert.match(page, /outcome.label \?\? campaignStatusLabel\(campaign\.status\)/);
 });
 
 test("campaign zero state explains the next steps", () => {
