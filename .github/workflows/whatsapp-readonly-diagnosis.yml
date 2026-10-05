@@ -61,7 +61,7 @@ jobs:
             BOOL_AND(jsonb_typeof(payload->'value'->'statuses')='array') AS valid_status_arrays
           FROM "WhatsAppWebhookEvent" WHERE "processedAt" IS NULL
             AND "processingError"='WHATSAPP_STATUS_MESSAGE_NOT_FOUND';
-          DO $
+          DO $$
           DECLARE t RECORD; n BIGINT;
           BEGIN
             FOR t IN SELECT table_name FROM information_schema.columns
@@ -74,6 +74,6 @@ jobs:
               )',t.table_name) INTO n;
               RAISE NOTICE 'receipt_references table=% count=%',t.table_name,n;
             END LOOP;
-          END $;
+          END $$;
           COMMIT;
           SQL
