@@ -76,6 +76,18 @@ jobs:
         run: npm run build
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+      - name: Verify live campaign reports before broader visual audit
+        run: npx playwright test tests/dashboard-visual-audit.spec.ts --grep "campaign retries|live campaign report" --retries=0
+      - name: Upload focused campaign screenshots for immediate review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infro-live-campaign-center-focused
+          path: |
+            /tmp/infro-visual-audit/*-campaign-live*.png
+            /tmp/infro-visual-audit/*-campaign-overview.png
+          if-no-files-found: warn
+          retention-days: 7
       - name: Capture authenticated product surfaces and execution flow
         run: npx playwright test tests/dashboard-visual-audit.spec.ts tests/business-memory-reminder-flow.spec.ts
       - name: Upload visual audit
@@ -84,5 +96,15 @@ jobs:
         with:
           name: infro-dashboard-visual-audit
           path: /tmp/infro-visual-audit
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload campaign center screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infro-live-campaign-center
+          path: |
+            /tmp/infro-visual-audit/*-campaign-live*.png
+            /tmp/infro-visual-audit/*-campaign-overview.png
           if-no-files-found: warn
           retention-days: 7

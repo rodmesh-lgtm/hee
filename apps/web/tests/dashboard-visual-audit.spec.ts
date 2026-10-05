@@ -895,6 +895,11 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const campaign = await db.whatsAppCampaign.create({ data: { businessId, connectionId: connection.id, templateId: template.id, name: "حملة اختبار إعادة المحاولة", status: "completed", totalRecipients: 1, audienceDefinition: { kind: "all_contacts" }, snapshotAt: new Date(), templateSnapshot: { name: template.name, language: "ar", category: "marketing" } } });
     const recipient = await db.whatsAppCampaignRecipient.create({ data: { businessId, campaignId: campaign.id, contactId: contact.id, phoneE164: contact.phoneE164, status: "sent" } });
     const job = await db.whatsAppDeliveryJob.create({ data: { businessId, campaignId: campaign.id, connectionId: connection.id, recipientId: recipient.id, idempotencyKey: suffix, status: "sent", attemptCount: 1, providerMessageId: `test-${suffix}` } });
+    const foreignBusiness = await db.business.create({ data: { ownerId: seeded.adminUserId, planId: plan.id, name: "حملة منشأة أخرى سرية", slug: `foreign-report-${suffix}`, businessType: "خدمات", shortDescription: "اختبار عزل", description: "اختبار عزل", phone: "0555000099", whatsapp: "966555000099", city: "الرياض", district: "العليا" } });
+    const foreignConnection = await db.whatsAppConnection.create({ data: { businessId: foreignBusiness.id, status: "connected", wabaId: `foreign-${suffix}`, phoneNumberId: `foreign-${suffix}`, credentialEnvelope: { testOnly: true } } });
+    const foreignTemplate = await db.whatsAppTemplate.create({ data: { businessId: foreignBusiness.id, connectionId: foreignConnection.id, providerTemplateId: `foreign-${suffix}`, name: "foreign_report", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", components: [], rawPayload: {}, lastSyncedAt: new Date() } });
+    const foreignCampaign = await db.whatsAppCampaign.create({ data: { businessId: foreignBusiness.id, connectionId: foreignConnection.id, templateId: foreignTemplate.id, name: "DO_NOT_LEAK_FOREIGN_CAMPAIGN", status: "completed", totalRecipients: 99, audienceDefinition: {}, snapshotAt: new Date(), templateSnapshot: { components: [] } } });
+
     try {
       const input = { businessId, campaignId: campaign.id, jobId: job.id, providerMessageId: `test-${suffix}`, errorCode: "131016", now: new Date() };
       await Promise.all([1, 2].map(() => db.$transaction(tx => retryCampaignFailureReceipt(tx, input))));
@@ -939,6 +944,37 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           expect(await failedCard.locator("details").evaluate(node => (node as HTMLDetailsElement).open)).toBe(false);
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
           await failedCard.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-payment-failure.png` });
+          await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${campaign.id}`, { waitUntil: "domcontentloaded" });
+          await expect(page.getByRole("heading", { name: "حالة كل مستلم" })).toBeVisible();
+          await expect(page.getByRole("heading", { name: "توزيع نتائج الحملة" })).toBeVisible();
+          await expect(page.getByRole("heading", { name: "إيقاع الحملة خلال 24 ساعة" })).toBeVisible();
+          await expect(page.getByText("رمز Meta: 131042", { exact: true })).toBeVisible();
+          await expect(page.getByText("+966500000761", { exact: true })).toBeVisible();
+          await expect(page.getByText("+966500000762", { exact: true })).not.toBeVisible();
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-live-report.png`, fullPage: true });
+          await page.getByLabel("حالة المستلم", { exact: true }).selectOption("read");
+          await page.getByRole("button", { name: "بحث", exact: true }).click();
+          await expect(page.getByText("لا يوجد مستلمون يطابقون البحث.")).toBeVisible();
+          if (viewport.name === "mobile" && theme === "light") {
+            // A real durable receipt must change the filtered report without reload.
+            const receiptAt = new Date();
+            await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { status: "read", sentAt: receiptAt, deliveredAt: receiptAt, readAt: receiptAt, failedAt: null } });
+            await expect(page.getByText("+966500000761", { exact: true })).toBeVisible({ timeout: 20_000 });
+            await expect(page.getByRole("img", { name: "توزيع الحالات؛ الأعداد مفصلة في القائمة" })).toBeVisible();
+            await expect(page.getByRole("heading", { name: "ما الذي يحتاج إلى إجراء؟", exact: true })).not.toBeVisible();
+          }
+          const foreignReport = await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${foreignCampaign.id}`);
+          expect([200, 404]).toContain(foreignReport?.status());
+          await expect(page.getByRole("heading", { name: "الصفحة غير موجودة", exact: true })).toBeVisible();
+          expect(await foreignReport!.text()).not.toContain("DO_NOT_LEAK_FOREIGN_CAMPAIGN");
+          await expect(page.getByText("DO_NOT_LEAK_FOREIGN_CAMPAIGN")).not.toBeVisible();
+          const missingReport = await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${crypto.randomUUID()}`);
+          expect([200, 404]).toContain(missingReport?.status());
+          await expect(page.getByRole("heading", { name: "الصفحة غير موجودة", exact: true })).toBeVisible();
+          await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { sentAt: null, deliveredAt: null, readAt: null, failedAt: null } });
+          await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns`, { waitUntil: "domcontentloaded" });
+
           await db.whatsAppCampaign.update({ where: { id: campaign.id }, data: { status: "running" } });
           await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { status: "queued" } });
           await db.whatsAppDeliveryJob.update({ where: { id: job.id }, data: { status: "retry_scheduled", lastErrorCode: "131016" } });
@@ -1054,10 +1090,62 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.whatsAppDeliveryJob.deleteMany({ where: { campaignId: campaign.id } });
       await db.whatsAppCampaignRecipient.deleteMany({ where: { campaignId: campaign.id } });
       await db.whatsAppCampaign.delete({ where: { id: campaign.id } });
+      await db.whatsAppCampaign.delete({ where: { id: foreignCampaign.id } });
+      await db.whatsAppTemplate.delete({ where: { id: foreignTemplate.id } });
+      await db.whatsAppConnection.delete({ where: { id: foreignConnection.id } });
+      await db.business.delete({ where: { id: foreignBusiness.id } });
       await db.whatsAppConsent.deleteMany({ where: { businessId, phoneE164: contact.phoneE164 } });
       await db.whatsAppContact.delete({ where: { id: contact.id } });
       await db.whatsAppConsent.deleteMany({ where: { businessId, phoneE164: bookingContact.phoneE164 } });
       await db.whatsAppContact.delete({ where: { id: bookingContact.id } });
+      await db.whatsAppTemplate.delete({ where: { id: template.id } });
+      await db.whatsAppConnection.delete({ where: { id: connection.id } });
+      await db.subscription.delete({ where: { id: subscription.id } });
+    }
+  });
+  test("live campaign report reconciles mixed receipts and paginates recipients", async ({ browser }) => {
+    test.setTimeout(120_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId, suffix = crypto.randomUUID();
+    const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `report-${suffix}`, phoneNumberId: `report-${suffix}`, verifiedName: "منشأة اختبار التحليلات", credentialEnvelope: { testOnly: true } } });
+    const components = [{ type: "BODY", text: "مرحبًا بكم في INFRO. اكتشف خدماتنا واحجز موعدك." }];
+    const template = await db.whatsAppTemplate.create({ data: { businessId, connectionId: connection.id, providerTemplateId: `report-${suffix}`, name: "report_test", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", components, rawPayload: {}, lastSyncedAt: new Date() } });
+    const campaign = await db.whatsAppCampaign.create({ data: { businessId, connectionId: connection.id, templateId: template.id, name: "حملة متابعة النتائج المباشرة", status: "running", totalRecipients: 30, audienceDefinition: {}, snapshotAt: new Date(), templateSnapshot: { components } } });
+    const contactIds: string[] = [];
+    try {
+      for (let index = 0; index < 30; index++) {
+        const status = ["sent", "delivered", "read", "failed", "queued"][index % 5];
+        const at = new Date(Date.now() - (index % 8) * 3600000);
+        const contact = await db.whatsAppContact.create({ data: { businessId, displayName: `عميل اختبار ${index + 1}`, phoneE164: `+966500009${String(index).padStart(3, "0")}`, source: "manual" } });
+        contactIds.push(contact.id);
+        await db.whatsAppCampaignRecipient.create({ data: { businessId, campaignId: campaign.id, contactId: contact.id, phoneE164: contact.phoneE164, displayName: contact.displayName, status, sentAt: status !== "queued" ? at : null, deliveredAt: ["delivered", "read"].includes(status) ? at : null, readAt: status === "read" ? at : null, failedAt: status === "failed" ? at : null } });
+      }
+      for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
+        try {
+          const page = await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${campaign.id}`, { waitUntil: "domcontentloaded" });
+          const metrics = page.getByRole("region", { name: "نتائج التسليم الفعلية" });
+          await expect(metrics.locator("article").filter({ hasText: "قبلتها Meta" }).locator("b")).toHaveText("٢٤");
+          await expect(metrics.locator("article").filter({ hasText: "تم التسليم" }).locator("b")).toHaveText("١٢");
+          await expect(metrics.locator("article").filter({ hasText: "تمت القراءة" }).locator("b")).toHaveText("٦");
+          await expect(page.getByRole("table").last().locator("tbody tr")).toHaveCount(25);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-live-mixed.png`, fullPage: true });
+          await page.getByRole("link", { name: "التالي", exact: true }).click();
+          await expect(page.getByRole("table").last().locator("tbody tr")).toHaveCount(5);
+          await page.getByLabel("حالة المستلم", { exact: true }).selectOption("failed");
+          await page.getByRole("button", { name: "بحث", exact: true }).click();
+          await expect(page.getByRole("table").last().locator("tbody tr")).toHaveCount(6);
+          await expect(page.getByRole("link", { name: "التالي", exact: true })).not.toBeVisible();
+        } finally { await context.close(); }
+      }
+    } finally {
+      await db.whatsAppCampaignRecipient.deleteMany({ where: { businessId, campaignId: campaign.id } });
+      await db.whatsAppCampaign.delete({ where: { id: campaign.id } });
+      await db.whatsAppContact.deleteMany({ where: { businessId, id: { in: contactIds } } });
       await db.whatsAppTemplate.delete({ where: { id: template.id } });
       await db.whatsAppConnection.delete({ where: { id: connection.id } });
       await db.subscription.delete({ where: { id: subscription.id } });

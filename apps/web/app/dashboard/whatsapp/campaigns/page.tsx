@@ -6,15 +6,12 @@ import {
   Activity,
   BarChart3,
   CalendarClock,
-  CheckCircle2,
   CircleAlert,
-  Megaphone,
   Pause,
   Play,
   Plus,
   Search,
   StopCircle,
-  UsersRound,
 } from "lucide-react";
 import { launchWhatsAppCampaignAction } from "../../../actions/whatsapp-campaign-launch";
 import { operateWhatsAppCampaignAction } from "../../../actions/whatsapp-marketing";
@@ -24,6 +21,8 @@ import { getWhatsAppCampaignLaunchReadiness, type WhatsAppCampaignLaunchReadines
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
 import { campaignDeliverySummary, campaignOutcome, campaignFailureReason, formatCampaignTime } from "../../../lib/whatsapp/campaign-presentation";
+import { campaignAnalytics } from "../../../lib/whatsapp/campaign-analytics";
+import { DeliveryDistribution, PerformanceMetrics } from "../_components/performance-visuals";
 import { CampaignWizard } from "./campaign-wizard";
 
 const campaignStatusFilters = ["all", "draft", "ready", "scheduled", "running", "paused", "completed", "failed", "cancelled"] as const;
@@ -99,7 +98,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
     ? await db.whatsAppCampaignRecipient.groupBy({
       by: ["campaignId", "status"],
       where: { businessId: context.businessId, campaignId: { in: campaigns.map((item) => item.id) } },
-      _count: { _all: true },
+      _count: { _all: true, sentAt: true },
     })
     : [];
   const recipientCounts = new Map(recipientGroups.map((item) => [`${item.campaignId}:${item.status}`, item._count._all]));
@@ -112,7 +111,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
   const deliveryCounts = new Map(deliveryGroups.map((item) => [`${item.campaignId}:${item.status}`, item._count._all]));
   const failureGroups = campaigns.length ? await db.whatsAppDeliveryJob.groupBy({
     by: ["campaignId", "lastErrorCode"],
-    where: { businessId: context.businessId, campaignId: { in: campaigns.map((item) => item.id) }, status: "failed" },
+    where: { businessId: context.businessId, campaignId: { in: campaigns.map((item) => item.id) }, status: "failed", recipient: { status: "failed" } },
     _count: { _all: true },
   }) : [];
   const aggregateRecipientCounts = recipientGroups.reduce<Record<string, number>>((totals, item) => {
@@ -120,12 +119,10 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
     return totals;
   }, {});
   const aggregateCount = (status: string) => aggregateRecipientCounts[status] ?? 0;
-  const aggregateSent = aggregateCount("sent") + aggregateCount("delivered") + aggregateCount("read");
   const aggregateDelivered = aggregateCount("delivered") + aggregateCount("read");
   const aggregateRead = aggregateCount("read");
-  const aggregateRecipients = campaigns.reduce((total, campaign) => total + campaign.totalRecipients, 0);
+  const aggregateStats = campaignAnalytics(campaigns.reduce((sum, campaign) => sum + campaign.totalRecipients, 0), aggregateRecipientCounts, recipientGroups.reduce((sum, group) => sum + group._count.sentAt, 0));
   const activeCampaigns = campaigns.filter((campaign) => ["scheduled", "running", "paused"].includes(campaign.status)).length;
-  const deliveryRate = aggregateSent ? aggregateDelivered / aggregateSent : 0;
   const readRate = aggregateDelivered ? aggregateRead / aggregateDelivered : 0;
 
   const normalizedQuery = query.toLocaleLowerCase("ar");
@@ -140,8 +137,8 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
   const operationMessage = campaignOperationMessage(params.operation, launchReadiness);
 
   return <div className="min-w-0 space-y-5 pb-5">
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <div><p className="mb-2 text-xs font-bold tracking-[.18em] text-[#008f87]">INFRO · CAMPAIGNS</p><h1 className="text-3xl font-black text-slate-950">حملات واتساب</h1><p className="mt-2 text-sm leading-6 text-slate-600">نتيجة الوصول أولًا. تابع كل حملة، وافهم ما يحتاج إلى إجراء.</p></div>
+    <header className="relative flex flex-wrap items-center justify-between gap-5 overflow-hidden rounded-3xl bg-[#071e22] p-5 sm:p-7">
+      <div><p className="mb-2 text-xs font-bold tracking-[.18em] text-[#70e8d6]">INFRO · CAMPAIGNS</p><h1 className="text-3xl font-black text-white">حملات واتساب</h1><p className="mt-2 text-sm leading-6 text-[#b8d2ce]">مساحة متابعة مباشرة: الجمهور، التسليم، القراءة، والقرارات التالية.</p></div>
       <Link href="/dashboard/whatsapp/campaigns?new=1#new-campaign" className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#008f87] px-5 text-sm font-bold text-white hover:bg-[#006d67] focus-visible:ring-2 focus-visible:ring-[#008f87] focus-visible:ring-offset-2"><Plus className="h-5 w-5" />حملة جديدة</Link>
     </header>
     <LiveReportRefresh observedAt={observedAt.toISOString()} compact />
@@ -153,11 +150,10 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
     <p className="text-sm leading-6 text-slate-600">يُعاد فحص موافقة المستلم وإلغاء الاشتراك قبل كل رسالة. أول إرسال تجريبي لا يتجاوز 5 مستلمين حتى تأكيد التسليم.</p>
     {params.create || params.operation ? <p aria-live="polite" className={`rounded-2xl border p-3 text-sm font-bold ${(params.create === "complete" || operationSucceeded) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{params.create === "complete" ? "أُنشئت الحملة وثُبتت قائمة المستلمين المؤهلين. راجع العدد والبيانات قبل الإطلاق." : params.create ? campaignErrorMessage(params.reason) : operationMessage}</p> : null}
 
-    <section aria-label="مؤشرات أداء الحملات" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-      <Kpi icon={<Megaphone className="h-4 w-4" />} label="الحملات" value={String(campaigns.length)} helper={`${activeCampaigns} قيد المتابعة`} />
-      <Kpi icon={<UsersRound className="h-4 w-4" />} label="المستلمون" value={formatNumber(aggregateRecipients)} helper="في قوائم الحملات" />
-      <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label="الوصول المؤكد" value={formatNumber(aggregateDelivered)} helper={`${formatRate(deliveryRate)} من الرسائل المقبولة`} />
-      <Kpi icon={<CircleAlert className="h-4 w-4" />} label="رسائل متعثرة" value={formatNumber(campaigns.reduce((sum, campaign) => sum + (recipientCounts.get(`${campaign.id}:failed`) ?? 0), 0))} helper={`${formatNumber(aggregateRead)} قراءة · ${formatRate(readRate)} من الوصول`} />
+    <PerformanceMetrics stats={aggregateStats} />
+    <section className="grid min-w-0 gap-4 xl:grid-cols-[1.15fr_.85fr]">
+      <DeliveryDistribution stats={aggregateStats} />
+      <article className="flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-5 sm:p-6"><div><p className="text-xs font-bold text-[#008f87]">مركز المتابعة</p><h2 className="mt-2 text-2xl font-black text-slate-900">من الرقم إلى القرار</h2><p className="mt-3 text-sm leading-8 text-slate-600">افتح التقرير المباشر لأي حملة لمتابعة المستلمين والرسم الزمني وأسباب الفشل. الأرقام تتحدث بحسب إيصالات Meta المستلمة.</p></div><div className="mt-6 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-slate-50 p-4"><b className="text-2xl font-black text-slate-900">{activeCampaigns}</b><p className="mt-1 text-xs text-slate-500">حملة قيد المتابعة</p></div><div className="rounded-2xl bg-slate-50 p-4"><b className="text-2xl font-black text-slate-900">{formatRate(readRate)}</b><p className="mt-1 text-xs text-slate-500">قراءة من التسليم</p></div></div><Link href="/dashboard/whatsapp/insights" className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#008f87] px-5 text-sm font-bold text-white"><BarChart3 className="h-4 w-4" />استكشاف التحليلات والمقارنة</Link><p className="mt-3 text-xs leading-6 text-slate-500">الملخص يشمل أحدث {campaigns.length} حملة؛ افتح التحليلات لاختيار الفترة.</p></article>
     </section>
 
     <section aria-labelledby="campaign-list-title" className="space-y-3">
@@ -202,6 +198,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
                 <span className="mt-1 inline-flex items-center gap-1 text-sm text-slate-500"><CalendarClock className="h-3 w-3" />{campaignTimingLabel(campaign)}</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <Link href={`/dashboard/whatsapp/campaigns/${campaign.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#008f87] px-4 text-sm font-bold text-white"><BarChart3 className="h-4 w-4" />التقرير المباشر</Link>
                 {campaign.status === "ready" ? <><CampaignButton id={campaign.id} operation="launch" label="بدء الإرسال" icon={<Play className="h-3.5 w-3.5" />} launchReady={launchReadiness.ready} /><form action={operateWhatsAppCampaignAction} className="flex min-w-0 flex-wrap gap-1"><input type="hidden" name="campaignId" value={campaign.id} /><input type="hidden" name="operation" value="schedule" /><input name="scheduledAt" type="datetime-local" required className="min-h-11 min-w-0 rounded-lg border border-slate-200 px-2 text-sm outline-none focus:border-[#00bfae]" /><button className="rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-600 hover:border-[#9fe8df] hover:text-[#008f87]">جدولة</button></form></> : null}
                 {campaign.status === "running" ? <CampaignButton id={campaign.id} operation="pause" label="إيقاف مؤقت" icon={<Pause className="h-3.5 w-3.5" />} launchReady={launchReadiness.ready} /> : null}
                 {campaign.status === "paused" ? <CampaignButton id={campaign.id} operation="resume" label="استئناف" icon={<Play className="h-3.5 w-3.5" />} launchReady={launchReadiness.ready} /> : null}
@@ -258,10 +255,6 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
       <div className="border-t border-slate-100 p-3 sm:p-5"><div>{connections.length && templates.length && eligibleAudience ? <CampaignWizard sampleContacts={sampleContacts} connections={connections.map((item) => ({ id: item.id, label: item.verifiedName || item.displayPhoneNumber || "رقم واتساب متصل" }))} templates={wizardTemplates} segments={segments.map((segment) => ({ id: segment.id, name: segment.name, members: segment._count.memberships }))} eligibleContacts={eligibleAudience} /> : <CampaignReadiness connections={connections.length} templates={templates.length} eligibleContacts={eligibleAudience} />}</div></div>
     </details>
   </div>;
-}
-
-function Kpi({ icon, label, value, helper }: { icon: React.ReactNode; label: string; value: string; helper: string }) {
-  return <article className="min-w-0 rounded-[20px] border border-slate-200 bg-white p-3 sm:p-4"><div className="flex items-center gap-2 text-[#008f87]">{icon}<span className="text-sm font-bold text-slate-500">{label}</span></div><b className="mt-2 block break-words text-xl font-black text-slate-900">{value}</b><span className="mt-1 block text-sm leading-4 text-slate-500">{helper}</span></article>;
 }
 
 function CampaignReadiness({ connections, templates, eligibleContacts }: { connections: number; templates: number; eligibleContacts: number }) {

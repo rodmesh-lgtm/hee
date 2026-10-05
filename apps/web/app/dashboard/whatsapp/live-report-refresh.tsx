@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-export function LiveReportRefresh({ observedAt, compact = false }: { observedAt: string; compact?: boolean }) {
+export function LiveReportRefresh({ observedAt, compact = false, intervalSeconds = 10 }: { observedAt: string; compact?: boolean; intervalSeconds?: 5 | 10 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(true);
   const [pending, startTransition] = useTransition();
@@ -14,13 +14,13 @@ export function LiveReportRefresh({ observedAt, compact = false }: { observedAt:
       // Preserve edits in the campaign wizard and report filters.
       if (document.activeElement?.matches("input, textarea, select, [contenteditable='true']")) return;
       startTransition(() => router.refresh());
-    }, 10_000);
+    }, intervalSeconds * 1000);
     return () => window.clearInterval(timer);
-  }, [enabled, pending, router]);
+  }, [enabled, pending, router, intervalSeconds]);
 
   return <section aria-label="تحديث تحليلات الحملة" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
     <div>
-      <b className="block text-emerald-800">{pending ? "جارٍ تحديث البيانات…" : enabled ? "تحديث تلقائي كل 10 ثوانٍ" : "التحديث التلقائي متوقف"}</b>
+      <b className="block text-emerald-800">{pending ? "جارٍ تحديث البيانات…" : enabled ? `تحديث تلقائي كل ${intervalSeconds} ثوانٍ` : "التحديث التلقائي متوقف"}</b>
       <span className="mt-1 block">آخر قراءة للبيانات: <time data-testid="report-observed-at" dateTime={observedAt}>{new Date(observedAt).toLocaleTimeString("ar-SA", { timeZone: "Asia/Riyadh", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time> · توقيت الرياض</span>
       {!compact ? <p className="mt-1 text-slate-500">التسليم والقراءة بحسب إيصالات Meta المستلمة؛ تحديث الشاشة لا يسرّع الإرسال. يتوقف التحديث في الخلفية وأثناء إدخال البيانات.</p> : null}
     </div>
