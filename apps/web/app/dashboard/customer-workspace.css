@@ -39,3 +39,9 @@
 [data-dashboard-path="/dashboard"][data-dashboard-theme] #dashboard-main-content .infro-workspace-hero a:not([class~="bg-[#35e4cb]"]) { color: #d4ebe7 !important; }
 [data-dashboard-path="/dashboard"][data-dashboard-theme] #dashboard-main-content .infro-workspace-hero .text-amber-200 { color: #fde68a !important; }
 [data-dashboard-path] > aside nav a { min-height: 44px !important; }
+
+@container dashboard-canvas (min-width: 900px) {
+  [data-dashboard-path="/dashboard"] #dashboard-main-content .infro-priority-groups { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)) !important; gap: 16px; align-items: start; }
+  [data-dashboard-path="/dashboard"] .infro-priority-groups > section { grid-column: span var(--work-group-items); margin-block: 0; }
+  [data-dashboard-path="/dashboard"] .infro-priority-cards { grid-template-columns: repeat(var(--work-group-items),minmax(0,1fr)); }
+}

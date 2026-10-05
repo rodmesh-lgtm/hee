@@ -487,6 +487,20 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         await expect(page).toHaveURL(/\/dashboard\/analytics/);
         await expect(page.getByRole("region",{name:"تحديث بيانات مساحة العمل"})).toBeVisible();
         expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+        await page.goto(`${baseUrl}/dashboard/support`);
+        const help=page.locator('[aria-labelledby="help-guides-title"]');
+        await help.getByLabel("البحث في أدلة المساعدة",{exact:true}).fill("مراجعة القالب");
+        await help.locator("summary").filter({hasText:"مراجعة القالب قبل الحملة"}).click();
+        await expect(help.getByRole("link",{name:"فتح القسم",exact:true})).toHaveAttribute("href","/dashboard/whatsapp/templates");
+        await help.getByRole("link",{name:"طلب مساعدة بهذا القسم",exact:true}).click();
+        await expect(page).toHaveURL(/context=templates/);
+        await expect(page.getByText("طلب مساعدة بخصوص:")).toBeVisible();
+        await help.getByLabel("البحث في أدلة المساعدة",{exact:true}).fill("لايوجددليلبهذاالاسم");
+        await expect(help).toContainText("لا توجد أدلة تطابق البحث والتصنيف.");
+        await help.getByRole("button",{name:"عرض جميع الأدلة",exact:true}).click();
+        await expect(help.locator("details")).toHaveCount(7);
+        await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-help-customer-workspace.png`,fullPage:true});
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
       } finally {await context.close();}
     }
   });
@@ -496,7 +510,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/tools",name:"tools"},{path:"/dashboard/verification",name:"verification"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
     routes.push({path:"/dashboard/my-page",name:"my-page"},{path:"/dashboard/working-hours",name:"booking-schedule"},{path:"/dashboard/services",name:"services"},{path:"/dashboard/inbox",name:"inbox"},{path:"/dashboard/settings",name:"settings"});
     routes.push({path:"/dashboard/support?context=meta",name:"contextual-support"});
-    routes.push({path:"/dashboard/analytics",name:"customer-performance"},{path:"/dashboard/notifications",name:"notifications"},{path:"/dashboard/branding",name:"branding"},{path:"/dashboard/directory",name:"directory"},{path:"/dashboard/catalog",name:"catalog"},{path:"/dashboard/products",name:"products"},{path:"/dashboard/gallery",name:"gallery"},{path:"/dashboard/offers",name:"offers"},{path:"/dashboard/contact-links",name:"contact-links"},{path:"/dashboard/share",name:"share"});
+    routes.push({path:"/dashboard/analytics",name:"customer-performance"},{path:"/dashboard/notifications",name:"notifications"},{path:"/dashboard/branding",name:"branding"},{path:"/dashboard/directory",name:"directory"},{path:"/dashboard/catalog",expectedPath:"/dashboard/my-page",name:"catalog"},{path:"/dashboard/products",expectedPath:"/dashboard/my-page",name:"products"},{path:"/dashboard/gallery",expectedPath:"/dashboard/my-page",name:"gallery"},{path:"/dashboard/offers",expectedPath:"/dashboard/my-page",name:"offers"},{path:"/dashboard/contact-links",expectedPath:"/dashboard/my-page",name:"contact-links"},{path:"/dashboard/share",expectedPath:"/dashboard/my-page",name:"share"});
     const viewports=[{name:"desktop",value:{width:1440,height:960}},{name:"mobile",value:{width:390,height:844}}] as const;
     const results:unknown[]=[];
     for(const viewport of viewports)for(const theme of ["light","dark"] as const){const context=await authenticatedContext(browser,viewport.value,theme,seeded.sessionToken);try{for(const route of routes)results.push(await auditRoute(context,{...route,theme,viewportName:viewport.name}));}finally{await context.close();}}
