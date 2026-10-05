@@ -30,7 +30,7 @@ jobs:
           SET LOCAL statement_timeout='15s';
           SET LOCAL lock_timeout='5s';
           DO $$
-          DECLARE t RECORD; n BIGINT; e RECORD; total INT;
+          DECLARE t RECORD; n BIGINT; candidate RECORD; total INT;
           BEGIN
             PERFORM id FROM "WhatsAppWebhookEvent" WHERE "processedAt" IS NULL
               AND "processingError"='WHATSAPP_STATUS_MESSAGE_NOT_FOUND' FOR UPDATE;
@@ -59,19 +59,19 @@ jobs:
               )',t.table_name) INTO n;
               IF n>0 THEN RAISE EXCEPTION 'REPAIR_RECEIPT_HAS_REFERENCES'; END IF;
             END LOOP;
-            FOR e IN SELECT id,"businessId" FROM "WhatsAppWebhookEvent"
+            FOR candidate IN SELECT id,"businessId" FROM "WhatsAppWebhookEvent"
               WHERE "processedAt" IS NULL AND "processingError"='WHATSAPP_STATUS_MESSAGE_NOT_FOUND'
             LOOP
               INSERT INTO "WhatsAppAuditLog"
                 (id,"businessId","actorType",action,"targetType","targetId",outcome,metadata,"createdAt")
               VALUES
-                (gen_random_uuid()::text,e."businessId",'system','webhook.quarantine',
-                 'whatsapp_webhook_event',e.id,'cancelled',
+                (gen_random_uuid()::text,candidate."businessId",'system','webhook.quarantine',
+                 'whatsapp_webhook_event',candidate.id,'cancelled',
                  '{"reason":"unmatched_status_after_48h","originalError":"WHATSAPP_STATUS_MESSAGE_NOT_FOUND","reversible":true}'::jsonb,
                  CURRENT_TIMESTAMP);
               UPDATE "WhatsAppWebhookEvent" SET "processedAt"=CURRENT_TIMESTAMP,
                 "processingError"='QUARANTINED_UNMATCHED_STATUS_RECEIPT'
-              WHERE id=e.id AND "processedAt" IS NULL;
+              WHERE id=candidate.id AND "processedAt" IS NULL;
             END LOOP;
             RAISE NOTICE 'QUARANTINE_COMPLETE retained_payloads=2 audit_records=2';
           END $$;
