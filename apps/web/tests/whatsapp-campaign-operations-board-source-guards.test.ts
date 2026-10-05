@@ -24,7 +24,7 @@ test("campaign operations board exposes aggregate performance without weakening 
   assert.match(page, /PerformanceMetrics stats=\{aggregateStats\}/);
   assert.match(page, /DeliveryDistribution stats=\{aggregateStats\}/);
   assert.match(page, /by: \["campaignId", "lastErrorCode"\]/);
-  assert.match(page, /where: \{ businessId: context\.businessId, campaignId: \{ in: campaigns\.map\(\(item\) => item\.id\) \}, status: "failed" \}/);
+  assert.match(page, /where: \{ businessId: context\.businessId, campaignId: \{ in: campaigns\.map\(\(item\) => item\.id\) \}, status: "failed", recipient: \{ status: "failed" \} \}/);
 });
 
 test("campaign controls support bounded search and whitelisted status filters", () => {

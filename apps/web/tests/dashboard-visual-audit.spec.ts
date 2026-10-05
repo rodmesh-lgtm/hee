@@ -962,15 +962,16 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
             await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { status: "read", sentAt: receiptAt, deliveredAt: receiptAt, readAt: receiptAt, failedAt: null } });
             await expect(page.getByText("+966500000761", { exact: true })).toBeVisible({ timeout: 20_000 });
             await expect(page.getByRole("img", { name: "توزيع الحالات؛ الأعداد مفصلة في القائمة" })).toBeVisible();
+            await expect(page.getByRole("heading", { name: "ما الذي يحتاج إلى إجراء؟", exact: true })).not.toBeVisible();
           }
           const foreignReport = await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${foreignCampaign.id}`);
           expect([200, 404]).toContain(foreignReport?.status());
-          await expect(page.getByRole("heading", { name: "الصفحة غير متاحة", exact: true })).toBeVisible();
+          await expect(page.getByRole("heading", { name: "الصفحة غير موجودة", exact: true })).toBeVisible();
           expect(await foreignReport!.text()).not.toContain("DO_NOT_LEAK_FOREIGN_CAMPAIGN");
           await expect(page.getByText("DO_NOT_LEAK_FOREIGN_CAMPAIGN")).not.toBeVisible();
           const missingReport = await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${crypto.randomUUID()}`);
           expect([200, 404]).toContain(missingReport?.status());
-          await expect(page.getByRole("heading", { name: "الصفحة غير متاحة", exact: true })).toBeVisible();
+          await expect(page.getByRole("heading", { name: "الصفحة غير موجودة", exact: true })).toBeVisible();
           await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { sentAt: null, deliveredAt: null, readAt: null, failedAt: null } });
           await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns`, { waitUntil: "domcontentloaded" });
 

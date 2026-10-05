@@ -111,7 +111,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
   const deliveryCounts = new Map(deliveryGroups.map((item) => [`${item.campaignId}:${item.status}`, item._count._all]));
   const failureGroups = campaigns.length ? await db.whatsAppDeliveryJob.groupBy({
     by: ["campaignId", "lastErrorCode"],
-    where: { businessId: context.businessId, campaignId: { in: campaigns.map((item) => item.id) }, status: "failed" },
+    where: { businessId: context.businessId, campaignId: { in: campaigns.map((item) => item.id) }, status: "failed", recipient: { status: "failed" } },
     _count: { _all: true },
   }) : [];
   const aggregateRecipientCounts = recipientGroups.reduce<Record<string, number>>((totals, item) => {
