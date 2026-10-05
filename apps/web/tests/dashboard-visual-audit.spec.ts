@@ -453,11 +453,43 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const context=await authenticatedContext(browser,{width:390,height:844},"light",seeded.sessionToken);
     try{const page=await context.newPage();await page.goto(`${baseUrl}/admin/commerce`);await expect(page).toHaveURL(/\/admin-login/);await expect(page.getByRole("heading",{name:"صحة تكاملات المتاجر",exact:true})).toHaveCount(0);}finally{await context.close();}
   });
+  test("customer workspace search, live controls and real analytics stay usable", async ({browser}) => {
+    if(!seeded)throw new Error("visual fixture missing");
+    for(const viewport of [{width:1440,height:960},{width:390,height:844}]) {
+      const context=await authenticatedContext(browser,viewport,"light",seeded.sessionToken);
+      const page=await context.newPage();
+      try {
+        await page.goto(`${baseUrl}/dashboard`);
+        await expect(page.getByRole("heading",{name:"من الزيارة إلى التواصل"})).toBeVisible();
+        await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-light-customer-workspace.png`,fullPage:true});
+        const refresh=page.getByRole("region",{name:"تحديث بيانات مساحة العمل"});
+        await refresh.getByRole("button",{name:"إيقاف التحديث",exact:true}).click();
+        await expect(refresh).toContainText("التحديث التلقائي متوقف");
+        await refresh.getByRole("button",{name:"تحديث البيانات",exact:true}).click();
+        await expect(refresh.getByRole("button",{name:"تحديث البيانات",exact:true})).toBeEnabled();
+        if(viewport.width<1024)await page.getByRole("button",{name:"فتح المزيد من الأدوات"}).click();
+        const search=page.getByLabel(viewport.width<1024?"البحث في قائمة الجوال":"البحث في أقسام اللوحة",{exact:true});
+        await search.fill("الأداء");
+        const navigation=page.getByRole("navigation",{name:viewport.width<1024?"كل أدوات لوحة العميل":"التنقل الرئيسي",exact:true});
+        await expect(navigation.getByRole("link",{name:"الأداء",exact:true})).toBeVisible();
+        await expect(navigation.getByRole("link",{name:"مذكرات الأعمال",exact:true})).toHaveCount(0);
+        await search.fill("لايوجدقسمبهذاالاسم");
+        await expect(navigation).toContainText("لا توجد أقسام بهذا الاسم.");
+        await search.fill("الأداء");
+        await navigation.getByRole("link",{name:"الأداء",exact:true}).click();
+        await expect(page).toHaveURL(/\/dashboard\/analytics/);
+        await expect(page.getByRole("region",{name:"تحديث بيانات مساحة العمل"})).toBeVisible();
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+      } finally {await context.close();}
+    }
+  });
+
   test("captures launch-critical public and authenticated surfaces without overflow, collisions, light islands or compressed grids",async({browser})=>{
     test.setTimeout(600_000);if(!seeded)throw new Error("visual fixture missing");
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/tools",name:"tools"},{path:"/dashboard/verification",name:"verification"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
     routes.push({path:"/dashboard/my-page",name:"my-page"},{path:"/dashboard/working-hours",name:"booking-schedule"},{path:"/dashboard/services",name:"services"},{path:"/dashboard/inbox",name:"inbox"},{path:"/dashboard/settings",name:"settings"});
     routes.push({path:"/dashboard/support?context=meta",name:"contextual-support"});
+    routes.push({path:"/dashboard/analytics",name:"customer-performance"},{path:"/dashboard/notifications",name:"notifications"},{path:"/dashboard/branding",name:"branding"},{path:"/dashboard/directory",name:"directory"},{path:"/dashboard/catalog",name:"catalog"},{path:"/dashboard/products",name:"products"},{path:"/dashboard/gallery",name:"gallery"},{path:"/dashboard/offers",name:"offers"},{path:"/dashboard/contact-links",name:"contact-links"},{path:"/dashboard/share",name:"share"});
     const viewports=[{name:"desktop",value:{width:1440,height:960}},{name:"mobile",value:{width:390,height:844}}] as const;
     const results:unknown[]=[];
     for(const viewport of viewports)for(const theme of ["light","dark"] as const){const context=await authenticatedContext(browser,viewport.value,theme,seeded.sessionToken);try{for(const route of routes)results.push(await auditRoute(context,{...route,theme,viewportName:viewport.name}));}finally{await context.close();}}

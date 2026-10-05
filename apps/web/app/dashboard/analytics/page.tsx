@@ -1,3 +1,4 @@
+import { WorkspaceRefresh } from "../../../components/dashboard/workspace-refresh";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -31,7 +32,9 @@ export default async function DashboardAnalyticsPage({searchParams}:{searchParam
   const requested=requestedPeriod(params.period);
   const period:Period=allowedPeriods.includes(requested)?requested:advancedAnalytics?30:7;
   const effectivelyPublished=Boolean(business.isPublished&&user.emailVerifiedAt);
-  const now=new Date(),todayKey=riyadhDateKey(now),startKey=shiftDateKey(todayKey,-(period-1)),startUtc=riyadhMidnightUtc(startKey);
+  const [clock]=await db.$queryRaw<Array<{now:Date}>>`SELECT CURRENT_TIMESTAMP AS "now"`;
+  if(!clock)throw new Error("analytics clock unavailable");
+  const now=clock.now,todayKey=riyadhDateKey(now),startKey=shiftDateKey(todayKey,-(period-1)),startUtc=riyadhMidnightUtc(startKey);
   const[rows,orderConversions,bookingConversions]=await Promise.all([
     db.$queryRaw<AggregateRow[]>`SELECT "eventType",to_char((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Riyadh')::date,'YYYY-MM-DD') AS "day",COUNT(*)::int AS "count" FROM "AnalyticsEvent" WHERE "businessId"=${business.id} AND "createdAt">=${startUtc} AND "createdAt"<${now} AND "eventType" IN ('page_view','whatsapp_click','phone_click','share_click','website_click','map_click','company_profile_click','social_click') GROUP BY "eventType",(("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Riyadh')::date ORDER BY (("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Riyadh')::date ASC`,
     db.order.count({where:{businessId:business.id,createdAt:{gte:startUtc,lt:now}}}),
@@ -54,7 +57,7 @@ export default async function DashboardAnalyticsPage({searchParams}:{searchParam
   ];
   const bestAction=[{label:"واتساب",value:whatsapp},{label:"اتصال",value:calls},{label:"مشاركة",value:shares},{label:"موقع",value:maps},{label:"ويب",value:website},{label:"ملف الشركة",value:profileOpens},{label:"حسابات رسمية",value:socialClicks}].sort((a,b)=>b.value-a.value)[0];
 
-  return <div className="space-y-4 pb-4 sm:space-y-5">
+  return <div className="space-y-4 pb-4 sm:space-y-5"><WorkspaceRefresh observedAt={now.toISOString()}/>
     <section className="relative overflow-hidden rounded-[28px] border border-[#17383b] bg-[#07181b] text-white shadow-[0_26px_72px_-44px_rgba(7,24,27,.7)]">
       <div className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-[#00d8c6]/15 blur-3xl"/>
       <div className="grid xl:grid-cols-[1fr_380px]">

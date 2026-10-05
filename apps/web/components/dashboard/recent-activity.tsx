@@ -1,4 +1,4 @@
-import { Clock3, FileText, ShoppingCart, Users2 } from "lucide-react";
+import { Clock3 } from "lucide-react";
 import { Card } from "../ui/card";
 import type { LucideIcon } from "lucide-react";
 
@@ -9,13 +9,7 @@ type ActivityItem = {
   icon: LucideIcon;
 };
 
-const defaultItems: ActivityItem[] = [
-  { title: "تم نشر النشاط", description: "تم تجهيز صفحة النشاط للعملاء.", time: "قبل دقيقتين", icon: FileText },
-  { title: "مراجعة المنتجات", description: "تم تحديث تصنيف المنتجات واعتماد التعديلات الأخيرة.", time: "قبل 18 دقيقة", icon: ShoppingCart },
-  { title: "مزامنة العملاء", description: "تم تجهيز مساحة إدارة العملاء داخل الواجهة.", time: "قبل ساعة", icon: Users2 },
-];
-
-export function RecentActivity({ items = defaultItems }: { items?: ActivityItem[] }) {
+export function RecentActivity({ items = [] }: { items?: ActivityItem[] }) {
   return (
     <Card className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -27,6 +21,7 @@ export function RecentActivity({ items = defaultItems }: { items?: ActivityItem[
       </div>
 
       <div className="space-y-3">
+        {!items.length ? <p className="text-sm text-slate-400">لا توجد أنشطة مسجلة بعد.</p> : null}
         {items.map((item) => {
           const Icon = item.icon;
 
