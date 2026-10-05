@@ -25,7 +25,7 @@ export default async function CampaignReportPage({ params, searchParams }: { par
   const recipientWhere: Prisma.WhatsAppCampaignRecipientWhereInput = { businessId: context.businessId, campaignId: campaign.id, ...(status !== "all" ? { status } : {}), ...(q ? { OR: [{ displayName: { contains: q, mode: "insensitive" } }, { phoneE164: { contains: q } }] } : {}) };
   // One repeatable snapshot keeps totals and pages consistent as receipts arrive.
   const data = await db.$transaction(async tx => {
-    const groups = await tx.whatsAppCampaignRecipient.groupBy({ by: ["status"], where: { businessId: context.businessId, campaignId: campaign.id }, _count: { _all: true } });
+    const groups = await tx.whatsAppCampaignRecipient.groupBy({ by: ["status"], where: { businessId: context.businessId, campaignId: campaign.id }, _count: { _all: true, sentAt: true } });
     const failures = await tx.whatsAppDeliveryJob.groupBy({ by: ["lastErrorCode"], where: { businessId: context.businessId, campaignId: campaign.id, status: "failed" }, _count: { _all: true } });
     const total = await tx.whatsAppCampaignRecipient.count({ where: recipientWhere });
     const page = Math.min(requestedPage, Math.max(1, Math.ceil(total / 25)));
@@ -52,7 +52,7 @@ export default async function CampaignReportPage({ params, searchParams }: { par
     const clock = await tx.$queryRaw<Array<{ now: Date }>>(Prisma.sql`SELECT CURRENT_TIMESTAMP AS now`);
     return { groups, failures, total, page, recipients, hourly, attribution: attribution[0], observedAt: clock[0].now };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 15000 });
-  const stats = campaignAnalytics(campaign.totalRecipients, Object.fromEntries(data.groups.map(group => [group.status, group._count._all])));
+  const stats = campaignAnalytics(campaign.totalRecipients, Object.fromEntries(data.groups.map(group => [group.status, group._count._all])), data.groups.reduce((sum, group) => sum + group._count.sentAt, 0));
   const outcome = campaignOutcome({ status: campaign.status, failed: stats.failed, delivered: stats.delivered, total: stats.total });
   const statusLabel = outcome.label ?? ({ running: "قيد الإرسال", ready: "جاهزة للإطلاق", paused: "متوقفة مؤقتًا", scheduled: "مجدولة", cancelled: "ملغاة", failed: "تعذر إكمالها", draft: "مسودة" } as Record<string, string>)[campaign.status] ?? "قيد المتابعة";
   const endHour = Math.floor(data.observedAt.getTime() / 3600000) * 3600000;

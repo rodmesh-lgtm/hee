@@ -60,7 +60,7 @@ export default async function WhatsAppInsightsPage({ searchParams }: { searchPar
         campaign."name",
         campaign."createdAt",
         campaign."totalRecipients"::int AS "totalRecipients",
-        COUNT(recipient."id") FILTER (WHERE recipient."status" IN ('sent','delivered','read'))::int AS "sent",
+        COUNT(recipient."id") FILTER (WHERE recipient."sentAt" IS NOT NULL OR recipient."status" IN ('sent','delivered','read'))::int AS "sent",
         COUNT(recipient."id") FILTER (WHERE recipient."status" IN ('delivered','read'))::int AS "delivered",
         COUNT(recipient."id") FILTER (WHERE recipient."status" = 'read')::int AS "read",
         COUNT(recipient."id") FILTER (WHERE recipient."status" = 'failed')::int AS "failed"

@@ -24,3 +24,10 @@ test("report pagination rejects non-finite, fractional, and negative values", ()
   assert.equal(reportPageNumber("999999999"), 10000);
   assert.equal(reportPageNumber("2"), 2);
 });
+
+test("a failed delivery receipt does not erase the earlier acceptance event", () => {
+  const stats = campaignAnalytics(1, { failed: 1 }, 1);
+  assert.equal(stats.accepted, 1);
+  assert.equal(stats.delivered, 0);
+  assert.equal(stats.distribution.reduce((sum, item) => sum + item.value, 0), 1);
+});

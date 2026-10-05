@@ -98,7 +98,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
     ? await db.whatsAppCampaignRecipient.groupBy({
       by: ["campaignId", "status"],
       where: { businessId: context.businessId, campaignId: { in: campaigns.map((item) => item.id) } },
-      _count: { _all: true },
+      _count: { _all: true, sentAt: true },
     })
     : [];
   const recipientCounts = new Map(recipientGroups.map((item) => [`${item.campaignId}:${item.status}`, item._count._all]));
@@ -121,7 +121,7 @@ export default async function WhatsAppCampaignsPage({ searchParams }: { searchPa
   const aggregateCount = (status: string) => aggregateRecipientCounts[status] ?? 0;
   const aggregateDelivered = aggregateCount("delivered") + aggregateCount("read");
   const aggregateRead = aggregateCount("read");
-  const aggregateStats = campaignAnalytics(campaigns.reduce((sum, campaign) => sum + campaign.totalRecipients, 0), aggregateRecipientCounts);
+  const aggregateStats = campaignAnalytics(campaigns.reduce((sum, campaign) => sum + campaign.totalRecipients, 0), aggregateRecipientCounts, recipientGroups.reduce((sum, group) => sum + group._count.sentAt, 0));
   const activeCampaigns = campaigns.filter((campaign) => ["scheduled", "running", "paused"].includes(campaign.status)).length;
   const readRate = aggregateDelivered ? aggregateRead / aggregateDelivered : 0;
 

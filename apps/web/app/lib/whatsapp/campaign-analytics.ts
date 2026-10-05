@@ -5,13 +5,13 @@ export const recipientStatusLabels: Record<string, string> = {
 };
 
 // Mutually exclusive recipient states, unlike cumulative delivery/reading KPIs.
-export function campaignAnalytics(total: number, counts: Record<string, number>) {
+export function campaignAnalytics(total: number, counts: Record<string, number>, acceptedHistory?: number) {
   const count = (key: string) => Math.max(0, counts[key] ?? 0);
   const recorded = Object.values(counts).reduce((sum, value) => sum + Math.max(0, value), 0);
   const other = Object.entries(counts).filter(([key]) => !["snapshotted", "queued", "processing", "sent", "delivered", "read", "failed", "skipped_opt_out"].includes(key)).reduce((sum, [, value]) => sum + Math.max(0, value), 0);
   const read = count("read"), delivered = count("delivered") + read;
   return {
-    total, recorded, read, delivered, accepted: count("sent") + delivered, failed: count("failed"),
+    total, recorded, read, delivered, accepted: Math.max(acceptedHistory ?? 0, count("sent") + delivered), failed: count("failed"),
     mismatch: recorded !== total,
     distribution: [
       { label: "تمت القراءة", value: read, color: "#0891b2" },
