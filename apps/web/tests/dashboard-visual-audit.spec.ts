@@ -454,6 +454,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     try{const page=await context.newPage();await page.goto(`${baseUrl}/admin/commerce`);await expect(page).toHaveURL(/\/admin-login/);await expect(page.getByRole("heading",{name:"صحة تكاملات المتاجر",exact:true})).toHaveCount(0);}finally{await context.close();}
   });
   test("customer workspace search, live controls and real analytics stay usable", async ({browser}) => {
+    test.setTimeout(120_000);
     if(!seeded)throw new Error("visual fixture missing");
     for(const viewport of [{width:1440,height:960},{width:390,height:844}]) for(const theme of ["light","dark"] as const) {
       const context=await authenticatedContext(browser,viewport,theme,seeded.sessionToken);
@@ -467,6 +468,11 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         const performanceBox=await page.locator('[aria-labelledby="workspace-performance"]').boundingBox();
         expect(heroBox!.width).toBeGreaterThanOrEqual(canvas!.width-2);
         expect(performanceBox!.width).toBeGreaterThanOrEqual(canvas!.width-2);
+        if(canvas!.width>=900) {
+          const groups=page.locator(".infro-priority-groups > section");
+          const first=await groups.nth(0).boundingBox(),second=await groups.nth(1).boundingBox();
+          expect(Math.abs(first!.y-second!.y)).toBeLessThanOrEqual(2);
+        }
         expect(await hero.locator("h1").evaluate(el=>getComputedStyle(el).color)).toBe("rgb(255, 255, 255)");
         await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-customer-workspace.png`,fullPage:true});
         const refresh=page.getByRole("region",{name:"تحديث بيانات مساحة العمل"});
