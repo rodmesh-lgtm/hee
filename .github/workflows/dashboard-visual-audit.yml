@@ -86,3 +86,13 @@ jobs:
           path: /tmp/infro-visual-audit
           if-no-files-found: warn
           retention-days: 7
+      - name: Upload campaign center screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infro-live-campaign-center
+          path: |
+            /tmp/infro-visual-audit/*-campaign-live-report.png
+            /tmp/infro-visual-audit/*-campaign-overview.png
+          if-no-files-found: warn
+          retention-days: 7

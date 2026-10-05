@@ -895,6 +895,11 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const campaign = await db.whatsAppCampaign.create({ data: { businessId, connectionId: connection.id, templateId: template.id, name: "حملة اختبار إعادة المحاولة", status: "completed", totalRecipients: 1, audienceDefinition: { kind: "all_contacts" }, snapshotAt: new Date(), templateSnapshot: { name: template.name, language: "ar", category: "marketing" } } });
     const recipient = await db.whatsAppCampaignRecipient.create({ data: { businessId, campaignId: campaign.id, contactId: contact.id, phoneE164: contact.phoneE164, status: "sent" } });
     const job = await db.whatsAppDeliveryJob.create({ data: { businessId, campaignId: campaign.id, connectionId: connection.id, recipientId: recipient.id, idempotencyKey: suffix, status: "sent", attemptCount: 1, providerMessageId: `test-${suffix}` } });
+    const foreignBusiness = await db.business.create({ data: { ownerId: seeded.adminUserId, planId: plan.id, name: "حملة منشأة أخرى سرية", slug: `foreign-report-${suffix}`, businessType: "خدمات", shortDescription: "اختبار عزل", description: "اختبار عزل", phone: "0555000099", whatsapp: "966555000099", city: "الرياض", district: "العليا" } });
+    const foreignConnection = await db.whatsAppConnection.create({ data: { businessId: foreignBusiness.id, status: "connected", wabaId: `foreign-${suffix}`, phoneNumberId: `foreign-${suffix}`, credentialEnvelope: { testOnly: true } } });
+    const foreignTemplate = await db.whatsAppTemplate.create({ data: { businessId: foreignBusiness.id, connectionId: foreignConnection.id, providerTemplateId: `foreign-${suffix}`, name: "foreign_report", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", components: [], rawPayload: {}, lastSyncedAt: new Date() } });
+    const foreignCampaign = await db.whatsAppCampaign.create({ data: { businessId: foreignBusiness.id, connectionId: foreignConnection.id, templateId: foreignTemplate.id, name: "DO_NOT_LEAK_FOREIGN_CAMPAIGN", status: "completed", totalRecipients: 99, audienceDefinition: {} } });
+
     try {
       const input = { businessId, campaignId: campaign.id, jobId: job.id, providerMessageId: `test-${suffix}`, errorCode: "131016", now: new Date() };
       await Promise.all([1, 2].map(() => db.$transaction(tx => retryCampaignFailureReceipt(tx, input))));
@@ -939,6 +944,33 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           expect(await failedCard.locator("details").evaluate(node => (node as HTMLDetailsElement).open)).toBe(false);
           expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
           await failedCard.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-payment-failure.png` });
+          await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${campaign.id}`, { waitUntil: "domcontentloaded" });
+          await expect(page.getByRole("heading", { name: "حالة كل مستلم" })).toBeVisible();
+          await expect(page.getByRole("heading", { name: "توزيع نتائج الحملة" })).toBeVisible();
+          await expect(page.getByRole("heading", { name: "إيقاع الحملة خلال 24 ساعة" })).toBeVisible();
+          await expect(page.getByText("رمز Meta: 131042", { exact: true })).toBeVisible();
+          await expect(page.getByText("+966500000761", { exact: true })).toBeVisible();
+          await expect(page.getByText("+966500000762", { exact: true })).not.toBeVisible();
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-live-report.png`, fullPage: true });
+          await page.getByLabel("حالة المستلم", { exact: true }).selectOption("read");
+          await page.getByRole("button", { name: "بحث", exact: true }).click();
+          await expect(page.getByText("لا يوجد مستلمون يطابقون البحث.")).toBeVisible();
+          if (viewport.name === "mobile" && theme === "light") {
+            // A real durable receipt must change the filtered report without reload.
+            const receiptAt = new Date();
+            await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { status: "read", sentAt: receiptAt, deliveredAt: receiptAt, readAt: receiptAt, failedAt: null } });
+            await expect(page.getByText("+966500000761", { exact: true })).toBeVisible({ timeout: 20_000 });
+            await expect(page.getByRole("img", { name: "توزيع الحالات؛ الأعداد مفصلة في القائمة" })).toBeVisible();
+          }
+          const foreignReport = await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${foreignCampaign.id}`);
+          expect(foreignReport?.status()).toBe(404);
+          await expect(page.getByText("DO_NOT_LEAK_FOREIGN_CAMPAIGN")).not.toBeVisible();
+          const missingReport = await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns/${crypto.randomUUID()}`);
+          expect(missingReport?.status()).toBe(404);
+          await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { sentAt: null, deliveredAt: null, readAt: null, failedAt: null } });
+          await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns`, { waitUntil: "domcontentloaded" });
+
           await db.whatsAppCampaign.update({ where: { id: campaign.id }, data: { status: "running" } });
           await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { status: "queued" } });
           await db.whatsAppDeliveryJob.update({ where: { id: job.id }, data: { status: "retry_scheduled", lastErrorCode: "131016" } });
@@ -1054,6 +1086,10 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.whatsAppDeliveryJob.deleteMany({ where: { campaignId: campaign.id } });
       await db.whatsAppCampaignRecipient.deleteMany({ where: { campaignId: campaign.id } });
       await db.whatsAppCampaign.delete({ where: { id: campaign.id } });
+      await db.whatsAppCampaign.delete({ where: { id: foreignCampaign.id } });
+      await db.whatsAppTemplate.delete({ where: { id: foreignTemplate.id } });
+      await db.whatsAppConnection.delete({ where: { id: foreignConnection.id } });
+      await db.business.delete({ where: { id: foreignBusiness.id } });
       await db.whatsAppConsent.deleteMany({ where: { businessId, phoneE164: contact.phoneE164 } });
       await db.whatsAppContact.delete({ where: { id: contact.id } });
       await db.whatsAppConsent.deleteMany({ where: { businessId, phoneE164: bookingContact.phoneE164 } });

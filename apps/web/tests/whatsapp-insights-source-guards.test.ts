@@ -10,14 +10,14 @@ test("WhatsApp insights keeps every reporting source tenant scoped", () => {
   assert.match(source, /businessId: context\.businessId/g);
   assert.match(source, /contact\."businessId" = \$\{context\.businessId\}/);
   assert.match(source, /consent\."businessId" = contact\."businessId"/);
-  assert.match(source, /recipient\."businessId" = \$\{context\.businessId\}/);
+  assert.match(source, /r\."businessId" = \$\{context\.businessId\}/);
 });
 
 test("reporting window is finite and selected from a strict allowlist", () => {
   assert.match(source, /allowedWindows = \[7, 30, 90\] as const/);
   assert.match(source, /allowedWindows\.includes\(requestedWindow as ReportWindow\)/);
   assert.match(source, /LIMIT 100/);
-  assert.match(source, /LIMIT 90/);
+  assert.match(source, /LIMIT 91/);
 });
 
 test("insights derives delivery and audience truth from stored lifecycle state", () => {
