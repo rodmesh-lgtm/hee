@@ -1,0 +1,40 @@
+name: WhatsApp Read-only Diagnosis
+on:
+  push:
+    branches: [ops/whatsapp-readonly-diagnosis-20261005]
+    paths: [.github/workflows/whatsapp-readonly-diagnosis.yml]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      EXPECTED_PRODUCTION_DB_HOST: ${{ vars.PRODUCTION_DATABASE_HOST }}
+      VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      PGSSLROOTCERT: /etc/ssl/certs/ca-certificates.crt
+      PGCONNECT_TIMEOUT: 10
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=15000"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify existing isolated production database identity
+        run: node .github/scripts/require-production-database-safety.mjs DATABASE_URL
+      - name: Read current campaign outcome without recipient data
+        run: |
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN READ ONLY;
+          SELECT status,attempts,
+            CASE WHEN "lastErrorCode" ~ '^[A-Z0-9_]{1,80}$' THEN "lastErrorCode" ELSE 'OTHER_ERROR' END AS safe_error
+          FROM "WhatsAppDeliveryJob" WHERE "campaignId"='ce7a017e-bd77-4f4d-a892-03a6e4db1000';
+          SELECT status,
+            CASE WHEN "errorCode" ~ '^[A-Z0-9_]{1,80}$' THEN "errorCode" ELSE 'OTHER_ERROR' END AS safe_error
+          FROM "WhatsAppMessage" WHERE "providerMessageId" IN
+            (SELECT "providerMessageId" FROM "WhatsAppDeliveryJob" WHERE "campaignId"='ce7a017e-bd77-4f4d-a892-03a6e4db1000');
+          SELECT "lastErrorCode","details"->>'state' AS state FROM "WhatsAppOperationsHeartbeat"
+          WHERE id='whatsapp-operations';
+          COMMIT;
+          SQL
