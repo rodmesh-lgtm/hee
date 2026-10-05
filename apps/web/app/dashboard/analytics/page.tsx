@@ -57,7 +57,7 @@ export default async function DashboardAnalyticsPage({searchParams}:{searchParam
   ];
   const bestAction=[{label:"واتساب",value:whatsapp},{label:"اتصال",value:calls},{label:"مشاركة",value:shares},{label:"موقع",value:maps},{label:"ويب",value:website},{label:"ملف الشركة",value:profileOpens},{label:"حسابات رسمية",value:socialClicks}].sort((a,b)=>b.value-a.value)[0];
 
-  return <div className="space-y-4 pb-4 sm:space-y-5"><WorkspaceRefresh observedAt={now.toISOString()}/>
+  return <div className="space-y-4 pb-4 sm:space-y-5"><WorkspaceRefresh observedAt={now.toISOString()} observedTime={now.toLocaleTimeString("ar-SA",{timeZone:"Asia/Riyadh",hour:"2-digit",minute:"2-digit",second:"2-digit"})}/>
     <section className="relative overflow-hidden rounded-[28px] border border-[#17383b] bg-[#07181b] text-white shadow-[0_26px_72px_-44px_rgba(7,24,27,.7)]">
       <div className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-[#00d8c6]/15 blur-3xl"/>
       <div className="grid xl:grid-cols-[1fr_380px]">

@@ -459,6 +459,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     for(const viewport of [{width:1440,height:960},{width:390,height:844}]) for(const theme of ["light","dark"] as const) {
       const context=await authenticatedContext(browser,viewport,theme,seeded.sessionToken);
       const page=await context.newPage();
+      const hydrationErrors:string[]=[];
+      page.on("pageerror",error=>{if(/hydration|Minified React error #418/i.test(error.message))hydrationErrors.push(error.message);});
       try {
         await page.goto(`${baseUrl}/dashboard`);
         await expect(page.getByRole("heading",{name:"من الزيارة إلى التواصل"})).toBeVisible();
@@ -470,8 +472,9 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         expect(performanceBox!.width).toBeGreaterThanOrEqual(canvas!.width-2);
         if(canvas!.width>=900) {
           const groups=page.locator(".infro-priority-groups > section");
-          const first=await groups.nth(0).boundingBox(),second=await groups.nth(1).boundingBox();
-          expect(Math.abs(first!.y-second!.y)).toBeLessThanOrEqual(2);
+          const groupBoxes=await Promise.all((await groups.all()).map(group=>group.boundingBox()));
+          expect(groupBoxes.length).toBeGreaterThan(0);
+          for(const box of groupBoxes)expect(Math.abs(box!.y-groupBoxes[0]!.y)).toBeLessThanOrEqual(2);
           for(const card of await page.locator(".infro-priority-cards > article").all()) {
             expect((await card.boundingBox())!.width).toBeGreaterThanOrEqual(220);
           }
@@ -515,6 +518,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         await page.evaluate(()=>window.scrollTo(0,0));
         await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-help-customer-workspace.png`,fullPage:true,timeout:15_000});
         expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+        expect(hydrationErrors).toEqual([]);
       } finally {await context.close();}
     }
   });
