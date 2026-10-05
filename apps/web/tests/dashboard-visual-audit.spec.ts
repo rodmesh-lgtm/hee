@@ -911,6 +911,23 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.getByTestId("campaign-card").first().getByRole("status")).toContainText("إعادة محاولة مجدولة");
           await expect(page.getByRole("form", { name: "إنشاء حملة واتساب", exact: true })).not.toBeVisible();
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-overview.png`, fullPage: true });
+          // Isolated receipt failure: processing completion must not look like delivery.
+          await db.whatsAppCampaign.update({ where: { id: campaign.id }, data: { status: "completed" } });
+          await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { status: "failed" } });
+          await db.whatsAppDeliveryJob.update({ where: { id: job.id }, data: { status: "failed", lastErrorCode: "131042" } });
+          await page.reload({ waitUntil: "domcontentloaded" });
+          const failedCard = page.locator(`#campaign-${campaign.id}`);
+          await expect(failedCard.getByText("لم تصل الرسائل", { exact: true })).toBeVisible();
+          await expect(failedCard.getByRole("status")).toContainText("أهلية الدفع");
+          await expect(failedCard.getByRole("status")).toContainText("131042");
+          expect(await failedCard.locator("details").evaluate(node => (node as HTMLDetailsElement).open)).toBe(false);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          await failedCard.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-payment-failure.png` });
+          await db.whatsAppCampaign.update({ where: { id: campaign.id }, data: { status: "running" } });
+          await db.whatsAppCampaignRecipient.update({ where: { id: recipient.id }, data: { status: "queued" } });
+          await db.whatsAppDeliveryJob.update({ where: { id: job.id }, data: { status: "retry_scheduled", lastErrorCode: "131016" } });
+          await page.reload({ waitUntil: "domcontentloaded" });
+
           if (viewport.name === "mobile" && theme === "light") {
             await db.whatsAppCampaign.update({ where: { id: campaign.id }, data: { name: "حملة محدثة تلقائيًا" } });
             await expect(page.getByText("حملة محدثة تلقائيًا", { exact: true })).toBeVisible({ timeout: 25_000 });
