@@ -87,7 +87,11 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
   const page=await context.newPage();
   await page.goto(`${baseUrl}${input.path}`,{waitUntil:"domcontentloaded"});
   expect(page.url()).not.toContain("/login");
-  await expect(page.locator("[data-dashboard-path]")).toBeVisible();
+  const expectedPath=(input.expectedPath??input.path).split("?")[0];
+  await expect(page).toHaveURL(url=>url.pathname===expectedPath);
+  await page.waitForLoadState("domcontentloaded");
+  await expect(page.locator("[data-dashboard-path]")).toHaveAttribute("data-dashboard-path",expectedPath);
+  await expect(page.locator("[data-dashboard-path]")).toHaveAttribute("data-dashboard-theme",input.theme);
   await page.waitForTimeout(350);
   await assertLanguageClearOfNavigation(page);
   const metrics=await page.evaluate(()=>{
@@ -259,6 +263,7 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
     await expect(page.getByRole("heading",{name:"استثناء رابط علامة محمية"})).toBeVisible();
     await expect(page.getByLabel("اسم الرابط المحمي")).toBeVisible();
     await expect(page.getByLabel("مرجع التفويض أو مبرر الملكية")).toBeVisible();
+    if(input.theme==="dark")await expect(page.locator(".protected-slug-control")).toHaveCSS("background-color","rgb(8, 29, 32)");
     const detailMetrics=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth-window.innerWidth,brokenImages:[...document.images].filter(image=>image.complete&&image.naturalWidth===0).map(image=>image.currentSrc||image.src),protectedSurfaceBackground:getComputedStyle(document.querySelector<HTMLElement>(".protected-slug-control")!).backgroundColor}));
     expect(detailMetrics.overflow).toBeLessThanOrEqual(2);
     expect(detailMetrics.brokenImages).toEqual([]);
