@@ -1,0 +1,18 @@
+name: Retire Superseded Campaign Probe
+on:
+  push:
+    branches: [ops/verify-campaign-release-20261005]
+permissions:
+  actions: write
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Stop only superseded read-only run
+        run: |
+          status="$(gh api /repos/rodmesh-lgtm/hee/actions/runs/37316661280 --jq .status)"
+          if test "$status" != completed; then
+            gh api --method POST /repos/rodmesh-lgtm/hee/actions/runs/37316661280/cancel
+          fi
