@@ -27,7 +27,7 @@ jobs:
         run: |
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
           BEGIN READ ONLY;
-          SELECT status,attempts,
+          SELECT status,
             CASE WHEN "lastErrorCode" ~ '^[A-Z0-9_]{1,80}$' THEN "lastErrorCode" ELSE 'OTHER_ERROR' END AS safe_error
           FROM "WhatsAppDeliveryJob" WHERE "campaignId"='ce7a017e-bd77-4f4d-a892-03a6e4db1000';
           SELECT status,
