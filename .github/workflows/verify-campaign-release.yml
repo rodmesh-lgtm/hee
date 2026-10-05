@@ -1,0 +1,73 @@
+name: Verify Campaign Release Read Only
+on:
+  push:
+    branches: [ops/verify-campaign-release-20261005]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      EXPECTED_PRODUCTION_DB_HOST: ${{ vars.PRODUCTION_DATABASE_HOST }}
+      VERCEL_TOKEN: ${{ secrets.PRODUCTION_VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_CpksedcfKT4t6GvlcqxHMRjg
+      VERCEL_PROJECT_ID: prj_LMlusvAi1f5ByOZM02xyXc1MRxph
+      TARGET_SHA: 6eb1c61ec81feec9438816af700394b64417db40
+      PGOPTIONS: -c default_transaction_read_only=on
+      PGSSLROOTCERT: /etc/ssl/certs/ca-certificates.crt
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 6eb1c61ec81feec9438816af700394b64417db40
+      - name: Verify production database transport without writes
+        run: node .github/scripts/require-production-database-safety.mjs DATABASE_URL
+      - name: Wait for exact release on both canonical domains
+        run: |
+          node --input-type=module <<'NODE'
+          import { setTimeout as delay } from 'node:timers/promises';
+          for (let attempt = 0; attempt < 120; attempt++) {
+            const results = await Promise.all(['ir.sa','admin.ir.sa'].map(async host => {
+              try {
+                const response = await fetch('https://' + host + '/api/release', { redirect:'manual', signal:AbortSignal.timeout(15000) });
+                if (!response.ok) return false;
+                const body = await response.json();
+                return body.releaseSha === process.env.TARGET_SHA && body.environment === 'production';
+              } catch { return false; }
+            }));
+            if (results.every(Boolean)) { console.log('canonical-release: PASS exact SHA on ir.sa and admin.ir.sa'); process.exit(0); }
+            await delay(10000);
+          }
+          throw new Error('Exact canonical release did not become live');
+          NODE
+      - name: Verify fresh matching full WhatsApp worker heartbeat read only
+        run: |
+          cat > /tmp/heartbeat-ready.sql <<'SQL'
+          SELECT EXISTS (
+            SELECT 1 FROM "WhatsAppOperationsHeartbeat"
+            WHERE id = 'whatsapp-operations'
+              AND "releaseSha" = '6eb1c61ec81feec9438816af700394b64417db40'
+              AND "lastErrorCode" IS NULL
+              AND "lastSucceededAt" > CURRENT_TIMESTAMP - INTERVAL '20 minutes'
+              AND "lastSucceededAt" <= CURRENT_TIMESTAMP + INTERVAL '60 seconds'
+              AND details->>'mode' = 'full'
+              AND details->>'state' = 'succeeded'
+              AND details->'completedStages' @> '["whatsapp:campaigns","whatsapp:deliveries"]'::jsonb
+          );
+          SQL
+          ready=false
+          for attempt in $(seq 1 60); do
+            result="$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atq -f /tmp/heartbeat-ready.sql)"
+            if test "$result" = t; then ready=true; break; fi
+            sleep 10
+          done
+          test "$ready" = true
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atq <<'SQL'
+          BEGIN READ ONLY;
+          SELECT json_build_object('releaseSha',"releaseSha",'lastSucceededAt',"lastSucceededAt",'lastErrorCode',"lastErrorCode",'mode',details->>'mode','state',details->>'state','completedStages',details->'completedStages') FROM "WhatsAppOperationsHeartbeat" WHERE id='whatsapp-operations';
+          SELECT json_build_object('campaignStatus',c.status,'totalRecipients',c."totalRecipients",'delivered',(SELECT count(*) FROM "WhatsAppCampaignRecipient" r WHERE r."campaignId"=c.id AND r."businessId"=c."businessId" AND r.status IN ('delivered','read')),'failed',(SELECT count(*) FROM "WhatsAppCampaignRecipient" r WHERE r."campaignId"=c.id AND r."businessId"=c."businessId" AND r.status='failed'),'failureCodes',(SELECT json_agg(DISTINCT j."lastErrorCode") FROM "WhatsAppDeliveryJob" j WHERE j."campaignId"=c.id AND j."businessId"=c."businessId" AND j.status='failed')) FROM "WhatsAppCampaign" c WHERE c.id='ce7a017e-bd77-4f4d-a892-03a6e4db1000';
+          COMMIT;
+          SQL
+          echo "whatsapp-release-readiness: PASS matching fresh full worker; no messages sent by this verification"
