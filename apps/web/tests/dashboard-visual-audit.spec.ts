@@ -472,6 +472,9 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           const groups=page.locator(".infro-priority-groups > section");
           const first=await groups.nth(0).boundingBox(),second=await groups.nth(1).boundingBox();
           expect(Math.abs(first!.y-second!.y)).toBeLessThanOrEqual(2);
+          for(const card of await page.locator(".infro-priority-cards > article").all()) {
+            expect((await card.boundingBox())!.width).toBeGreaterThanOrEqual(220);
+          }
         }
         expect(await hero.locator("h1").evaluate(el=>getComputedStyle(el).color)).toBe("rgb(255, 255, 255)");
         await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-customer-workspace.png`,fullPage:true});
@@ -501,10 +504,12 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         await help.getByRole("link",{name:"طلب مساعدة بهذا القسم",exact:true}).click();
         await expect(page).toHaveURL(/context=templates/);
         await expect(page.getByText("طلب مساعدة بخصوص:")).toBeVisible();
+        await expect(page.getByLabel("نوع الطلب",{exact:true})).toHaveValue("technical");
         await help.getByLabel("البحث في أدلة المساعدة",{exact:true}).fill("لايوجددليلبهذاالاسم");
         await expect(help).toContainText("لا توجد أدلة تطابق البحث والتصنيف.");
         await help.getByRole("button",{name:"عرض جميع الأدلة",exact:true}).click();
         await expect(help.locator("details")).toHaveCount(7);
+        await page.evaluate(()=>window.scrollTo(0,0));
         await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-help-customer-workspace.png`,fullPage:true});
         expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
       } finally {await context.close();}
