@@ -355,6 +355,7 @@ export async function POST(request: Request) {
 
   const slug = normalizePublicSlug(String(body.slug ?? ""));
   let manage: BookingAccess | null = null;
+  let managedNotes = "";
   if (body.manageAccess !== undefined) {
     try {
       const targetBusiness = await db.business.findFirst({where:{slug,deletedAt:null,isPublished:true,owner:{deletedAt:null,emailVerifiedAt:{not:null}}},select:{id:true}});
@@ -364,6 +365,7 @@ export async function POST(request: Request) {
       if(manage.status==="consumed") return NextResponse.json({ok:true,bookingId:manage.bookingId,replayed:true,rescheduled:true},{status:200});
       const booking=await db.booking.findFirst({where:{id:manage.bookingId,businessId:targetBusiness!.id,updatedAt:manage.bookingUpdatedAt,status:{in:["pending","confirmed"]}},include:{customer:true}});
       if(!booking) return NextResponse.json({ok:false,error:"تغير الموعد؛ تحقق مرة أخرى"},{status:409});
+      managedNotes = booking.notes ?? "";
       body={...body,name:booking.customer.name,phone:booking.customer.phone,serviceId:booking.serviceId,notes:booking.notes??"",whatsappConfirmationConsent:false};
     } catch { return NextResponse.json({ok:false,error:"تعذر التحقق من صلاحية التعديل"},{status:503}); }
   }
@@ -376,7 +378,7 @@ export async function POST(request: Request) {
   const branchId = text(body.branchId, 80);
   const bookingDate = validDate(body.bookingDate);
   const bookingTime = validTime(body.bookingTime);
-  const rawNotes = text(body.notes, 1000);
+  const rawNotes = manage ? managedNotes : text(body.notes, 1000);
   let notes = "";
   const idempotencyKey = requestKey(request.headers.get("idempotency-key") || body.requestId);
   const whatsappConfirmationConsent = body.whatsappConfirmationConsent === true;

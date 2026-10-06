@@ -102,7 +102,8 @@ test.describe.serial("public transactions workflow", () => {
     try {
       await db.business.update({where:{id:fixture.businessId},data:{bookingSlotMinutes:60,bookingCapacity:1}});
       const customer=await db.customer.create({data:{businessId:fixture.businessId,name:"عميل تعديل الموعد",phone:"966500009930"}});
-      const booking=await db.booking.create({data:{businessId:fixture.businessId,customerId:customer.id,serviceId:fixture.serviceId,bookingDate:riyadhDateKey(2),bookingTime:"10:00",status:"confirmed"}});
+      const storedNotes = `  إجابات نموذج الحجز: ${"تفاصيل محفوظة ".repeat(150)}  `;
+      const booking=await db.booking.create({data:{businessId:fixture.businessId,customerId:customer.id,serviceId:fixture.serviceId,bookingDate:riyadhDateKey(2),bookingTime:"10:00",status:"confirmed",notes:storedNotes}});
       await db.$executeRaw`INSERT INTO "BookingDurationSnapshot" ("bookingId","durationMinutes") VALUES (${booking.id},60)`;
       const code="012345";
       async function acceptedChallenge() {
@@ -131,7 +132,7 @@ test.describe.serial("public transactions workflow", () => {
       expect((await save("14:00",crypto.randomUUID(),outsider.slug)).status()).toBe(401);
       expect((await save("12:00")).status()).toBe(409);
       const key=crypto.randomUUID();const saved=await save("14:00",key);expect(saved.status()).toBe(200);expect(await saved.json()).toMatchObject({bookingId:booking.id,rescheduled:true});
-      const current=await db.booking.findUniqueOrThrow({where:{id:booking.id}});expect(current).toMatchObject({customerId:customer.id,bookingTime:"14:00",status:"pending",createdAt:booking.createdAt});
+      const current=await db.booking.findUniqueOrThrow({where:{id:booking.id}});expect(current).toMatchObject({customerId:customer.id,bookingTime:"14:00",status:"pending",createdAt:booking.createdAt,notes:storedNotes});
       expect(await db.booking.count({where:{businessId:fixture.businessId,customerId:customer.id}})).toBe(1);
       expect((await save("16:00",key)).status()).toBe(200);expect((await save("16:00")).status()).toBe(401);
       expect((await db.booking.findUniqueOrThrow({where:{id:booking.id}})).bookingTime).toBe("14:00");
