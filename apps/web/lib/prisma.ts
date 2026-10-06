@@ -2,9 +2,11 @@ import "server-only";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import { attachDatabasePool } from "@vercel/functions";
 import { Pool } from "pg";
 import { isProductionRuntime } from "../app/lib/runtime-environment";
 import { normalizePostgresDatabaseUrl } from "./database-url";
+import { operationalErrorCategory } from "../app/lib/operational-error";
 
 type GlobalPrisma = {
   prisma?: PrismaClient;
@@ -43,6 +45,14 @@ function getPool() {
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
     });
+    // pg removes a disconnected idle client before emitting this event. Handle it
+    // so a stale connection cannot terminate the warm isolate as an uncaught error.
+    globalForPrisma.pgPool.on("error", (error) => {
+      console.error("[database-pool] idle_connection_failed", { category: operationalErrorCategory(error) });
+    });
+    // Fluid Compute can suspend an isolate before the pg idle timer runs. Register
+    // the pool once so Vercel releases idle connections before that suspension.
+    if (process.env.VERCEL === "1") attachDatabasePool(globalForPrisma.pgPool);
   }
   return globalForPrisma.pgPool;
 }

@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 import { db } from "../../../lib/db";
+import { operationalErrorCategory } from "../../../lib/operational-error";
 import { runWhatsAppOperations, whatsappOperationsEnabled } from "../../../lib/whatsapp/operations-worker";
 import { runVercelWhatsAppStage } from "../../../lib/whatsapp/vercel-operations-runner";
 
@@ -46,14 +47,25 @@ export async function GET(request: Request) {
   if (!whatsappOperationsEnabled(process.env)) {
     return NextResponse.json({ ok: true, enabled: false });
   }
-  if (!(await acquireLease())) return NextResponse.json({ ok: true, enabled: true, busy: true });
 
   const env = {
     ...process.env,
     RELEASE_SHA: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.RELEASE_SHA,
   };
+  let phase = "lease";
   try {
-    const result = await runWhatsAppOperations({ database: db, env, runStage: runVercelWhatsAppStage });
+    if (!(await acquireLease())) return NextResponse.json({ ok: true, enabled: true, busy: true });
+    phase = "operations";
+    const result = await runWhatsAppOperations({ database: db, env, runStage: async (stage, stageEnv) => {
+      try { await runVercelWhatsAppStage(stage, stageEnv); } catch (error) {
+        console.error("[whatsapp-operations-cron] stage_failed", { stage, category: operationalErrorCategory(error) });
+        throw error;
+      }
+    } });
+    console.info("[whatsapp-operations-cron] completed", {
+      completedStages: result.completedStages.length,
+      releaseSha: "releaseSha" in result ? result.releaseSha : null,
+    });
     return NextResponse.json({
       ok: true,
       enabled: result.enabled,
@@ -64,6 +76,8 @@ export async function GET(request: Request) {
     const errorCode = error instanceof Error && /^[A-Z0-9_]{1,100}$/.test(error.message)
       ? error.message
       : "WHATSAPP_OPERATIONS_FAILED";
-    return NextResponse.json({ ok: false, error: errorCode }, { status: 500 });
+    const category = operationalErrorCategory(error);
+    console.error("[whatsapp-operations-cron] failed", { phase, errorCode, category });
+    return NextResponse.json({ ok: false, error: errorCode }, { status: category.startsWith("database_") ? 503 : 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { operationalErrorCategory } from "../../../lib/operational-error";
 import { processNextContactImportBatch } from "../../../lib/whatsapp/contact-import-processor";
 
 export const runtime = "nodejs";
@@ -28,8 +29,9 @@ export async function GET(request: Request) {
     }
     console.info("[contact-import-cron]", { completedBatches, failedBatches });
     return NextResponse.json({ ok: failedBatches === 0, completedBatches, failedBatches }, { status: failedBatches ? 503 : 200 });
-  } catch {
-    console.error("[contact-import-cron] CONTACT_IMPORT_WORKER_FAILED");
-    return NextResponse.json({ ok: false, error: "CONTACT_IMPORT_WORKER_FAILED", completedBatches }, { status: 500 });
+  } catch (error) {
+    const category = operationalErrorCategory(error);
+    console.error("[contact-import-cron] CONTACT_IMPORT_WORKER_FAILED", { category, completedBatches, failedBatches });
+    return NextResponse.json({ ok: false, error: "CONTACT_IMPORT_WORKER_FAILED", completedBatches }, { status: category.startsWith("database_") ? 503 : 500 });
   }
 }

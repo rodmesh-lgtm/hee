@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { operationalErrorCategory } from "../../../lib/operational-error";
 
 import { runSmartReminderDeliveryWorker } from "../../../lib/reminders/delivery-worker";
 import { runSmartReminderScheduler } from "../../../lib/reminders/scheduler";
@@ -22,16 +23,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  if (!(await isSmartRemindersSchemaReady())) {
-    return NextResponse.json({ ok: false, error: "SMART_REMINDER_SCHEMA_NOT_READY" }, { status: 503 });
-  }
-
+  let phase = "schema";
   try {
+    if (!(await isSmartRemindersSchemaReady())) {
+      return NextResponse.json({ ok: false, error: "SMART_REMINDER_SCHEMA_NOT_READY" }, { status: 503 });
+    }
+    phase = "operations";
     // Queue every due occurrence first, then deliver each queued channel. Both layers are
     // idempotent and use row locks/leases, so overlapping cron invocations remain safe.
     const scheduled = await runSmartReminderScheduler({ limit: 250 });
     const delivered = await runSmartReminderDeliveryWorker({ limit: 250 });
 
+    console.info("[smart-reminders-cron] completed", {
+      scheduled: scheduled.scheduled,
+      processed: delivered.processed,
+      releaseSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+    });
     return NextResponse.json({
       ok: true,
       scheduled: scheduled.scheduled,
@@ -41,7 +48,8 @@ export async function GET(request: Request) {
       releaseSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     });
   } catch (error) {
-    console.error("[smart-reminders-cron] failed", error);
-    return NextResponse.json({ ok: false, error: "SMART_REMINDER_CRON_FAILED" }, { status: 500 });
+    const category = operationalErrorCategory(error);
+    console.error("[smart-reminders-cron] failed", { phase, category });
+    return NextResponse.json({ ok: false, error: "SMART_REMINDER_CRON_FAILED" }, { status: category.startsWith("database_") ? 503 : 500 });
   }
 }
