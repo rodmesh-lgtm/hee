@@ -89,7 +89,7 @@ test.describe.serial("customer dashboard functional surface", () => {
         { path: "/dashboard", text: "منشأة تدقيق اللوحة", control: 'a[href="/dashboard/my-page"]' },
         { path: "/dashboard/my-page", text: "صفحتي", control: 'label:has-text("اسم المنشأة") input' },
         { path: "/dashboard/digital-identity", text: "الهوية الرقمية", control: 'input[name="profileFile"]' },
-        { path: "/dashboard/inbox", text: "الطلبات والحجوزات", control: 'a[href^="tel:"]', optionalControl: true },
+        { path: "/dashboard/inbox", text: "الطلبات", control: 'a[href^="tel:"]', optionalControl: true },
         { path: "/dashboard/branding", text: "المظهر", control: 'input[name="logoFile"]' },
         { path: "/dashboard/directory", text: "الفروع والفريق", control: 'button:has-text("إضافة فرع")' },
         { path: "/dashboard/analytics", text: "الأداء", control: 'a[href*="period="]' },

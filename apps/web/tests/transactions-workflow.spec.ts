@@ -92,6 +92,37 @@ test.describe.serial("public transactions workflow", () => {
     await pool?.end();
   });
 
+  test("appointment board separates elapsed pending visits and sorts received visits independently", async ({browser}) => {
+    const fixture = await seed();
+    const page = await browser.newPage({viewport:{width:390,height:844}});
+    try {
+      const branch = await db.branch.create({data:{businessId:fixture.businessId,name:"فرع المواعيد",isActive:true,bookingEnabled:true}});
+      const customer = await db.customer.create({data:{businessId:fixture.businessId,name:"عميل ترتيب المواعيد",phone:"966500009920"}});
+      const create = (bookingDate:string, bookingTime:string, createdAt:Date, branchId:string|null) => db.booking.create({data:{businessId:fixture.businessId,customerId:customer.id,serviceId:fixture.serviceId,branchId,bookingDate,bookingTime,status:"pending",createdAt}});
+      const elapsed = await create(riyadhDateKey(-3),"10:00",new Date(Date.now()-3*86400000),null);
+      const near = await create(riyadhDateKey(1),"10:00",new Date(Date.now()-60000),branch.id);
+      const newest = await create(riyadhDateKey(2),"10:00",new Date(),branch.id);
+      await setSession(page,fixture.sessionToken);
+      await page.goto(`${baseUrl}/dashboard/appointments`);
+      const rows=page.locator("[data-booking-id]");
+      await expect(rows).toHaveCount(2);
+      await expect(rows.first()).toHaveAttribute("data-booking-id",near.id);
+      await expect(page.locator(`[data-booking-id="${elapsed.id}"]`)).toHaveCount(0);
+      await page.goto(`${baseUrl}/dashboard/appointments?tab=new`);
+      await expect(rows.first()).toHaveAttribute("data-booking-id",newest.id);
+      await page.goto(`${baseUrl}/dashboard/appointments?tab=history`);
+      await expect(rows).toHaveCount(1);
+      await expect(rows.first()).toHaveAttribute("data-booking-id",elapsed.id);
+      await expect(page.getByRole("button",{name:"تأكيد الحجز",exact:true})).toHaveCount(0);
+      await page.goto(`${baseUrl}/dashboard/appointments?branch=outsider-branch`);
+      await expect(rows).toHaveCount(0);
+      await expect(page.locator(".appointment-notice")).toContainText("غير موجود");
+      await page.goto(`${baseUrl}/dashboard/appointments?tab=branches`);
+      await expect(page.getByRole("heading",{name:branch.name,exact:true})).toBeVisible();
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+    } finally { await page.close(); await cleanup(fixture); }
+  });
+
   test("commerce eligibility gates real booking requests, concurrent capacity, and refund revocation", async ({ request }) => {
     const seeded = await seed();
     const date = riyadhDateKey(2);
@@ -300,32 +331,33 @@ test.describe.serial("public transactions workflow", () => {
       expect(tomorrowAvailability?.slotDetails.find((slot) => slot.start === "10:00")).not.toHaveProperty("capacity");
 
       await setSession(ownerPage, seeded.sessionToken);
-      await ownerPage.goto(`${baseUrl}/dashboard/inbox`, { waitUntil: "domcontentloaded" });
+      await ownerPage.goto(`${baseUrl}/dashboard/appointments`, { waitUntil: "domcontentloaded" });
       const inboxMain = ownerPage.locator("#dashboard-main-content");
-      await expect(inboxMain.getByRole("heading", { name: "الطلبات والحجوزات" })).toBeVisible();
+      await expect(inboxMain.getByRole("heading", { name: "المواعيد والحجوزات" })).toBeVisible();
       await expect(ownerPage.getByText("عميل الحجز", { exact: true })).toBeVisible();
       await expect(ownerPage.getByText("استشارة لمدة ساعة")).toBeVisible();
       await ownerPage.getByRole("button", { name: "تأكيد الحجز" }).click();
       await expect.poll(async () => (await db.booking.findFirst({ where: { businessId: seeded.businessId }, select: { status: true } }))?.status, { timeout: 20_000 }).toBe("confirmed");
       await expect(ownerPage.getByText("مؤكد", { exact: true })).toBeVisible();
 
-      const cancelButton = ownerPage.getByRole("button", { name: "إلغاء", exact: true });
+      const cancelButton = ownerPage.getByRole("button", { name: "إلغاء الحجز", exact: true });
       const cancelBox = await cancelButton.boundingBox();
       expect(cancelBox?.height ?? 0).toBeGreaterThanOrEqual(44);
 
       ownerPage.once("dialog", async (dialog) => {
-        expect(dialog.message()).toContain("إلغاء هذا الحجز");
+        expect(dialog.message()).toContain("إلغاء هذا الموعد");
         await dialog.dismiss();
       });
       await cancelButton.click();
       await expect.poll(async () => (await db.booking.findFirst({ where: { businessId: seeded.businessId }, select: { status: true } }))?.status).toBe("confirmed");
 
       ownerPage.once("dialog", async (dialog) => {
-        expect(dialog.message()).toContain("إلغاء هذا الحجز");
+        expect(dialog.message()).toContain("إلغاء هذا الموعد");
         await dialog.accept();
       });
       await cancelButton.click();
       await expect.poll(async () => (await db.booking.findFirst({ where: { businessId: seeded.businessId }, select: { status: true } }))?.status, { timeout: 20_000 }).toBe("cancelled");
+      await ownerPage.goto(`${baseUrl}/dashboard/appointments?tab=history`);
       await expect(ownerPage.getByText("ملغي", { exact: true })).toBeVisible();
     } finally {
       await publicPage.close();

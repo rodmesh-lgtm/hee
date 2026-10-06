@@ -21,6 +21,11 @@ async function seedWorkspace():Promise<Seeded>{
   const business=await db.business.create({data:{ownerId:user.id,planId:plan.id,name:"منشأة مراجعة INFRO",slug:`visual-audit-${suffix}`,businessType:"خدمات أعمال",shortDescription:"مساحة اختبار بصرية ووظيفية قبل الإطلاق",description:"بيانات مؤقتة لمراجعة واجهة INFRO.",phone:"0555000011",whatsapp:"966555000011",city:"الرياض",district:"العليا",isPublished:false,onboardingCompleted:true}});
   await db.service.create({data:{businessId:business.id,name:"استشارة أعمال",description:"خدمة اختبار",price:250,sortOrder:0}});
   await db.branch.create({data:{businessId:business.id,name:"الفرع الرئيسي",city:"الرياض",district:"العليا",isMain:true,sortOrder:0}});
+  const appointmentCustomer = await db.customer.create({data:{businessId:business.id,name:"عميل مراجعة المواعيد",phone:"966500009910"}});
+  const appointmentBranch = await db.branch.findFirstOrThrow({where:{businessId:business.id}});
+  const appointmentService = await db.service.findFirstOrThrow({where:{businessId:business.id}});
+  const futureDate = new Date(Date.now()+2*86_400_000).toISOString().slice(0,10);
+  await db.booking.createMany({data:[{businessId:business.id,customerId:appointmentCustomer.id,serviceId:appointmentService.id,branchId:appointmentBranch.id,bookingDate:futureDate,bookingTime:"10:00",slotEndTime:"12:00",status:"pending",notes:"زيارة اختبار بصرية؛ بيانات مؤقتة في قاعدة الاختبار."},{businessId:business.id,customerId:appointmentCustomer.id,serviceId:appointmentService.id,branchId:appointmentBranch.id,bookingDate:futureDate,bookingTime:"14:00",slotEndTime:"16:00",status:"confirmed"}]});
   const noteIds=[crypto.randomUUID(),crypto.randomUUID(),crypto.randomUUID()];
   const dueSoon=new Date(Date.now()+2*60*60*1000);
   await db.$executeRaw(Prisma.sql`INSERT INTO "BusinessNote"
@@ -47,6 +52,8 @@ async function cleanupWorkspace(value:Seeded){
   await db.workingHours.deleteMany({where:{businessId:value.businessId}});
   await db.analyticsEvent.deleteMany({where:{businessId:value.businessId}});
   await db.$executeRaw(Prisma.sql`DELETE FROM "BusinessNote" WHERE "businessId"=${value.businessId}`);
+  await db.booking.deleteMany({where:{businessId:value.businessId}});
+  await db.customer.deleteMany({where:{businessId:value.businessId}});
   await db.branch.deleteMany({where:{businessId:value.businessId}});
   await db.service.deleteMany({where:{businessId:value.businessId}});
   await db.subscription.deleteMany({where:{businessId:value.businessId}});
@@ -536,7 +543,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
   test("captures launch-critical public and authenticated surfaces without overflow, collisions, light islands or compressed grids",async({browser})=>{
     test.setTimeout(600_000);if(!seeded)throw new Error("visual fixture missing");
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/tools",name:"tools"},{path:"/dashboard/verification",name:"verification"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
-    routes.push({path:"/dashboard/my-page",name:"my-page"},{path:"/dashboard/working-hours",name:"booking-schedule"},{path:"/dashboard/services",name:"services"},{path:"/dashboard/inbox",name:"inbox"},{path:"/dashboard/settings",name:"settings"});
+    routes.push({path:"/dashboard/my-page",name:"my-page"},{path:"/dashboard/working-hours",name:"booking-schedule"},{path:"/dashboard/services",name:"services"},{path:"/dashboard/inbox",name:"inbox"},{path:"/dashboard/appointments",name:"appointments"},{path:"/dashboard/appointments?tab=branches",name:"appointment-branches"},{path:"/dashboard/settings",name:"settings"});
     routes.push({path:"/dashboard/support?context=meta",name:"contextual-support"});
     routes.push({path:"/dashboard/analytics",name:"customer-performance"},{path:"/dashboard/notifications",name:"notifications"},{path:"/dashboard/branding",name:"branding"},{path:"/dashboard/directory",name:"directory"},{path:"/dashboard/catalog",expectedPath:"/dashboard/my-page",name:"catalog"},{path:"/dashboard/products",expectedPath:"/dashboard/my-page",name:"products"},{path:"/dashboard/gallery",expectedPath:"/dashboard/my-page",name:"gallery"},{path:"/dashboard/offers",expectedPath:"/dashboard/my-page",name:"offers"},{path:"/dashboard/contact-links",expectedPath:"/dashboard/my-page",name:"contact-links"},{path:"/dashboard/share",expectedPath:"/dashboard/my-page",name:"share"});
     const viewports=[{name:"desktop",value:{width:1440,height:960}},{name:"mobile",value:{width:390,height:844}}] as const;

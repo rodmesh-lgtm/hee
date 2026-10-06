@@ -300,7 +300,7 @@ export default async function DashboardWorkingHoursPage({
       </div>
     </section>
 
-    <form action={updateBookingSlotSettingsAction} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
+    <form id="booking-branch-settings" action={updateBookingSlotSettingsAction} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
       <div className="flex flex-col gap-3 border-b border-slate-100 bg-[#fbfdfd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><UsersRound className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">SMART CAPACITY</span><h2 className="mt-1 text-sm font-black text-slate-950">الفترات الذكية وسعة الفروع</h2></div></div>
         <p className="max-w-lg text-[9px] leading-5 text-slate-400">يُقسّم وقت العمل إلى فترات متتابعة. مثال: 8:00–10:00 ثم 10:00–12:00، وتغلق الفترة تلقائيًا عند اكتمال سعتها.</p>

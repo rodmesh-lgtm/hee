@@ -29,6 +29,7 @@ function text(formData: FormData, key: string) {
 function refresh() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/inbox");
+  revalidatePath("/dashboard/appointments");
   revalidatePath("/dashboard/analytics");
 }
 
