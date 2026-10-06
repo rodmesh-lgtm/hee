@@ -32,7 +32,7 @@ export default async function DashboardHomePage(){
   if(!business)return <section className="mx-auto max-w-2xl rounded-[30px] border border-slate-200 bg-white p-8"><Rocket className="h-6 w-6 text-[#008f87]"/><p className="mt-5 text-[9px] font-black text-[#008f87]">INFRO WORKSPACE</p><h1 className="mt-2 text-2xl font-black">ابدأ هويتك الرقمية</h1><p className="mt-2 text-sm leading-7 text-slate-500">أنشئ الأساس مرة واحدة، ثم اجعل INFRO مساحة تشغيل حضورك الرقمي والتسويقي.</p><Link href="/onboarding" className="mt-6 inline-flex h-11 items-center rounded-xl bg-[#07181b] px-5 text-sm font-black text-white">إنشاء الصفحة</Link></section>;
 
   const[clock]=await db.$queryRaw<DashboardClock[]>`SELECT CURRENT_TIMESTAMP - INTERVAL '7 days' AS "since7d",to_char((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Riyadh')::date,'YYYY-MM-DD') AS "today",CURRENT_TIMESTAMP AS "now"`;if(!clock)throw new Error("dashboard clock unavailable");
-  const{since7d,now}=clock;
+  const{since7d,today,now}=clock;
   const [bookingPulse] = await db.$queryRaw<Array<{actionable:number;pending:number;nextId:string|null}>>`WITH upcoming AS (
     SELECT b."id",b."status",b."bookingDate",b."bookingTime" FROM "Booking" b
     LEFT JOIN "Service" s ON s."id"=b."serviceId" AND s."businessId"=b."businessId"
