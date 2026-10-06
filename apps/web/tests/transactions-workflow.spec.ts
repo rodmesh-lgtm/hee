@@ -176,6 +176,10 @@ test.describe.serial("public transactions workflow", () => {
       const near = await create(riyadhDateKey(1),"10:00",new Date(Date.now()-60000),branch.id);
       const newest = await create(riyadhDateKey(2),"10:00",new Date(),branch.id);
       await setSession(page,fixture.sessionToken);
+      await page.goto(`${baseUrl}/dashboard`);
+      const nextVisit = page.getByRole("link").filter({hasText:"الموعد القادم"});
+      await expect(nextVisit).toContainText(near.bookingDate);
+      await expect(nextVisit).not.toContainText(elapsed.bookingDate);
       await page.goto(`${baseUrl}/dashboard/appointments`);
       const rows=page.locator("[data-booking-id]");
       await expect(rows).toHaveCount(2);
