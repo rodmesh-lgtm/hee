@@ -480,3 +480,32 @@ export async function updateWorkingHoursAction(formData: FormData) {
   revalidatePath(`/${business.slug}`);
   redirect("/dashboard/working-hours?saved=1");
 }
+
+export async function submitBookingVerificationTemplateAction() {
+  const business=await getOwnedBusinessForWrite();
+  if(!business) redirect("/login");
+  if(!await hasActiveBusinessSubscription({businessId:business.id})) redirect("/dashboard/working-hours?whatsapp=subscription-required");
+  const {BOOKING_VERIFICATION_TEMPLATE}=await import("../lib/booking-verification-domain");
+  const connection=await db.whatsAppConnection.findFirst({where:{businessId:business.id,provider:"meta",status:"connected",disabledAt:null,bookingEnabled:true}});
+  if(!connection) redirect("/dashboard/working-hours?whatsapp=verification-unavailable");
+  const existing=await db.whatsAppTemplate.findUnique({where:{businessId_name_language:{businessId:business.id,name:BOOKING_VERIFICATION_TEMPLATE,language:"ar"}},select:{id:true}});
+  if(existing) redirect("/dashboard/working-hours?whatsapp=verification-sync-required");
+  let outcome="verification-submitted";
+  try {
+    const {consumePublicWriteLimit}=await import("../lib/rate-limit");
+    const rate=await consumePublicWriteLimit({businessId:business.id,scope:"booking-auth-template-submission",identity:connection.id,limit:1,windowSeconds:86400});
+    if(!rate.allowed) throw new Error("SYNC_BEFORE_RETRY");
+    const {getMetaWhatsAppConfig,metaWhatsAppGraphUrl}=await import("../lib/whatsapp/meta-config");
+    const {decryptWhatsAppCredential}=await import("../lib/whatsapp/credential-envelope");
+    const {buildTemplateSubmission}=await import("../lib/whatsapp/template-editor-domain");
+    const {submitTemplateRequest,persistSubmittedTemplate}=await import("../lib/whatsapp/template-submission");
+    const config=getMetaWhatsAppConfig();
+    const token=decryptWhatsAppCredential({envelope:connection.credentialEnvelope as unknown as import("../lib/whatsapp/credential-envelope").WhatsAppCredentialEnvelope,encryptionKeyBase64:config.META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY,businessId:business.id});
+    const payload=buildTemplateSubmission({name:BOOKING_VERIFICATION_TEMPLATE,language:"ar",category:"AUTHENTICATION",body:"",footer:"",header:"NONE",examples:"",buttonText:"",buttonUrl:"",codeExpirationMinutes:5});
+    await submitTemplateRequest({url:metaWhatsAppGraphUrl(config,`${connection.wabaId}/message_templates`),token,payload,persist:async receipt=>{await persistSubmittedTemplate({database:db,businessId:business.id,connectionId:connection.id,payload,receipt});}});
+  } catch { outcome="verification-sync-required"; }
+  const {writeWhatsAppAuditLog}=await import("../lib/whatsapp/audit");
+  await writeWhatsAppAuditLog({businessId:business.id,actorType:"user",actorUserId:business.ownerId,action:"booking.verification.template.submitted",targetType:"connection",targetId:connection.id,outcome:outcome==="verification-submitted"?"success":"failed"});
+  refreshAppointmentPaths(business.slug);
+  redirect(`/dashboard/working-hours?whatsapp=${outcome}`);
+}
