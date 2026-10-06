@@ -15,13 +15,15 @@ const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 async function counts() {
   const now = new Date();
-  const [sessions, oauthStates, rateLimits, submissions] = await Promise.all([
+  const [sessions, oauthStates, rateLimits, submissions, verification] = await Promise.all([
     db.session.count({ where: { expiresAt: { lt: now } } }),
     db.oAuthState.count({ where: { expiresAt: { lt: now } } }),
     db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "RequestRateLimit" WHERE "updatedAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`,
     db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "PublicSubmission" WHERE "createdAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`,
+    db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "BookingVisitorVerification" WHERE GREATEST("expiresAt",COALESCE("accessExpiresAt","expiresAt")) < CURRENT_TIMESTAMP - INTERVAL '1 day'`,
   ]);
   return {
+    expiredBookingVerifications: Number(verification[0]?.count ?? 0n),
     expiredSessions: sessions,
     expiredOAuthStates: oauthStates,
     staleRateLimits: Number(rateLimits[0]?.count ?? BigInt(0)),
@@ -38,14 +40,16 @@ async function main() {
   }
 
   const now = new Date();
-  const [sessionDelete, oauthDelete, rateLimitDelete, submissionDelete] = await db.$transaction([
+  const [sessionDelete, oauthDelete, rateLimitDelete, submissionDelete, verificationDelete] = await db.$transaction([
     db.session.deleteMany({ where: { expiresAt: { lt: now } } }),
     db.oAuthState.deleteMany({ where: { expiresAt: { lt: now } } }),
     db.$executeRaw`DELETE FROM "RequestRateLimit" WHERE "updatedAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`,
     db.$executeRaw`DELETE FROM "PublicSubmission" WHERE "createdAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`,
+    db.$executeRaw`DELETE FROM "BookingVisitorVerification" WHERE GREATEST("expiresAt",COALESCE("accessExpiresAt","expiresAt")) < CURRENT_TIMESTAMP - INTERVAL '1 day'`,
   ]);
 
   console.log("retention-prune deleted", {
+    bookingVerifications: verificationDelete,
     sessions: sessionDelete.count,
     oauthStates: oauthDelete.count,
     rateLimits: rateLimitDelete,

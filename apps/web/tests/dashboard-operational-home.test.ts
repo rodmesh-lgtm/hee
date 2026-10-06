@@ -28,12 +28,14 @@ test("dashboard interaction pulse includes identity engagement", () => {
 
 test("dashboard surfaces the nearest actionable booking", () => {
   assert.match(source, /db\.booking\.findFirst/);
-  assert.match(source, /bookingDate:\{gte:today\}/);
+  assert.match(source, /BookingDurationSnapshot/);
+  assert.match(source, /AS "nextId"/);
+  assert.match(source, /bookingPulse\.actionable/);
   assert.match(source, /الموعد القادم/);
   assert.match(source, /href="\/dashboard\/appointments"/);
 });
 
 test("dashboard pulse remains tenant scoped", () => {
-  const businessScoped = source.match(/businessId:business\.id/g) ?? [];
+  const businessScoped = source.match(/businessId:business\.id|"businessId"=\$\{business\.id\}/g) ?? [];
   assert.ok(businessScoped.length >= 10, `expected tenant scoping on dashboard queries, got ${businessScoped.length}`);
 });

@@ -29,3 +29,25 @@ test("booking retry preserves capacity and eligibility rejection without retryin
     assert.equal(attempts, 1);
   }
 });
+
+// Raw SQL row locks report SQLSTATE through P2010 instead of P2034.
+// Both states below guarantee PostgreSQL rolled back the transaction.
+test("booking retry recognizes raw SQL serialization and deadlock rollbacks", async () => {
+  for (const code of ["40001", "40P01"]) {
+    let attempts = 0;
+    const result = await retryBookingTransaction(async () => {
+      if (++attempts === 1) throw new Prisma.PrismaClientKnownRequestError("rolled back", {code:"P2010",clientVersion:"test",meta:{code}});
+      return "committed once";
+    });
+    assert.equal(result,"committed once");
+    assert.equal(attempts,2);
+  }
+});
+test("booking retry never replays other raw SQL failures or uncertain connectivity", async () => {
+  for (const code of ["23505", "08006", "57014", undefined]) {
+    let attempts = 0;
+    const error = new Prisma.PrismaClientKnownRequestError("do not retry", {code:"P2010",clientVersion:"test",meta:{code}});
+    await assert.rejects(retryBookingTransaction(async () => { attempts++; throw error; }),value=>value===error);
+    assert.equal(attempts,1);
+  }
+});

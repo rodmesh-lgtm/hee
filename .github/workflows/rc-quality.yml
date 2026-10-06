@@ -139,6 +139,14 @@ jobs:
         run: npm run test:directory
       - name: Run public transactions workflow
         run: npm run test:transactions
+      - name: Upload visitor booking review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visitor-booking-review
+          path: apps/web/test-results/**/visitor-booking-*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Run email ownership verification workflow
         run: npm run test:email-verification
 

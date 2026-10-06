@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { bookingCredentialDigest } from "../app/lib/booking-verification-domain";
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 let pool: Pool;
@@ -64,6 +65,7 @@ async function cleanup(seed: Seeded) {
   await db.whatsAppCommerceIntegration.deleteMany({ where: { businessId: seed.businessId } });
   await db.analyticsEvent.deleteMany({ where: { businessId: seed.businessId } });
   await db.$executeRaw`DELETE FROM "PublicSubmission" WHERE "businessId" = ${seed.businessId}`;
+  await db.$executeRaw`DELETE FROM "BookingVisitorVerification" WHERE "businessId"=${seed.businessId}`;
   await db.booking.deleteMany({ where: { businessId: seed.businessId } });
   await db.bookingAvailabilityOverride.deleteMany({ where: { businessId: seed.businessId } });
   await db.orderItem.deleteMany({ where: { order: { businessId: seed.businessId } } });
@@ -74,6 +76,8 @@ async function cleanup(seed: Seeded) {
   await db.service.deleteMany({ where: { businessId: seed.businessId } });
   await db.branch.deleteMany({ where: { businessId: seed.businessId } });
   await db.subscription.deleteMany({ where: { businessId: seed.businessId } });
+  const audit=await db.whatsAppAuditLog.count({where:{businessId:seed.businessId}});
+  if(audit) { await db.business.update({where:{id:seed.businessId},data:{isPublished:false,deletedAt:new Date()}}); await db.session.deleteMany({where:{userId:seed.userId}}); return; }
   await db.business.delete({ where: { id: seed.businessId } });
   await db.session.deleteMany({ where: { userId: seed.userId } });
   await db.user.delete({ where: { id: seed.userId } });
@@ -92,6 +96,75 @@ test.describe.serial("public transactions workflow", () => {
     await pool?.end();
   });
 
+  test("visitor proof is tenant-bound, expires, limits guesses and reschedules one existing booking atomically", async ({request,browser},testInfo)=>{
+    test.setTimeout(120000);
+    const fixture=await seed();const outsider=await seed();
+    try {
+      await db.business.update({where:{id:fixture.businessId},data:{bookingSlotMinutes:60,bookingCapacity:1}});
+      const customer=await db.customer.create({data:{businessId:fixture.businessId,name:"عميل تعديل الموعد",phone:"966500009930"}});
+      const storedNotes = `  إجابات نموذج الحجز: ${"تفاصيل محفوظة ".repeat(150)}  `;
+      const booking=await db.booking.create({data:{businessId:fixture.businessId,customerId:customer.id,serviceId:fixture.serviceId,bookingDate:riyadhDateKey(2),bookingTime:"10:00",status:"confirmed",notes:storedNotes}});
+      await db.$executeRaw`INSERT INTO "BookingDurationSnapshot" ("bookingId","durationMinutes") VALUES (${booking.id},60)`;
+      const code="012345";
+      async function acceptedChallenge() {
+        const id=crypto.randomUUID();const current=await db.booking.findUniqueOrThrow({where:{id:booking.id}});
+        const digest=bookingCredentialDigest("code",id,code,String(process.env.SESSION_SECRET));
+        // Synthetic accepted provider receipt in disposable CI, never a live Meta delivery claim.
+        await db.$executeRaw`INSERT INTO "BookingVisitorVerification" ("id","businessId","bookingId","bookingUpdatedAt","codeDigest","status","expiresAt","consentedAt","providerMessageId") VALUES (${id},${fixture.businessId},${booking.id},${current.updatedAt},${digest},'accepted',CURRENT_TIMESTAMP+INTERVAL '5 minutes',CURRENT_TIMESTAMP,'ci-only-provider-receipt')`;
+        return id;
+      }
+      const verify=(id:string,value:string,slug=fixture.slug)=>request.post(`${baseUrl}/api/public/bookings/verification`,{data:{slug,operation:"verify",challengeId:id,code:value}});
+      const exhausted=await acceptedChallenge();
+      for(let n=0;n<5;n++)expect((await verify(exhausted,"999999")).status()).toBe(400);
+      expect((await verify(exhausted,code)).status()).toBe(400);
+      const expiredChallenge=await acceptedChallenge();
+      await db.$executeRaw`UPDATE "BookingVisitorVerification" SET "createdAt"=CURRENT_TIMESTAMP-INTERVAL '10 minutes',"expiresAt"=CURRENT_TIMESTAMP-INTERVAL '5 minutes' WHERE "id"=${expiredChallenge}`;
+      expect((await verify(expiredChallenge,code)).status()).toBe(400);
+      const challenge=await acceptedChallenge();
+      expect((await verify(challenge,code,outsider.slug)).status()).toBe(400);
+      const proof=await verify(challenge,"٠١٢٣٤٥");expect(proof.status()).toBe(200);const access=(await proof.json()).access;
+      expect((await verify(challenge,code)).status()).toBe(400);
+      const availability=await request.get(`${baseUrl}/api/public/bookings?slug=${fixture.slug}&serviceId=${fixture.serviceId}`,{headers:{"x-booking-access":access}});
+      expect((await availability.json()).days.find((day:{date:string})=>day.date===booking.bookingDate).slots).toContain("10:00");
+      const other=await db.customer.create({data:{businessId:fixture.businessId,name:"عميل الفترة الممتلئة",phone:"966500009931"}});
+      await db.booking.create({data:{businessId:fixture.businessId,customerId:other.id,serviceId:fixture.serviceId,bookingDate:booking.bookingDate,bookingTime:"12:00",status:"pending"}});
+      const save=(time:string,key=crypto.randomUUID(),slug=fixture.slug)=>request.post(`${baseUrl}/api/public/bookings`,{headers:{"Idempotency-Key":key},data:{slug,manageAccess:access,bookingDate:booking.bookingDate,bookingTime:time,requestId:key,name:"tampered",phone:"0500000000"}});
+      expect((await save("14:00",crypto.randomUUID(),outsider.slug)).status()).toBe(401);
+      expect((await save("12:00")).status()).toBe(409);
+      const key=crypto.randomUUID();const saved=await save("14:00",key);expect(saved.status()).toBe(200);expect(await saved.json()).toMatchObject({bookingId:booking.id,rescheduled:true});
+      const current=await db.booking.findUniqueOrThrow({where:{id:booking.id}});expect(current).toMatchObject({customerId:customer.id,bookingTime:"14:00",status:"pending",createdAt:booking.createdAt,notes:storedNotes});
+      expect(await db.booking.count({where:{businessId:fixture.businessId,customerId:customer.id}})).toBe(1);
+      expect((await save("16:00",key)).status()).toBe(200);expect((await save("16:00")).status()).toBe(401);
+      expect((await db.booking.findUniqueOrThrow({where:{id:booking.id}})).bookingTime).toBe("14:00");
+      // Full visitor UI uses real verify/availability/save endpoints. Only initial send is a synthetic CI fixture.
+      const uiChallenge=await acceptedChallenge();const page=await browser.newPage({viewport:{width:390,height:844}});
+      try {
+        await page.route("**/api/public/bookings/verification",async route=>{const data=route.request().postDataJSON();if(data.operation==="verify")await route.continue();else await route.fulfill({status:202,contentType:"application/json",body:JSON.stringify({ok:true,challengeId:uiChallenge,expiresInSeconds:300})});});
+        await page.goto(`${baseUrl}/${fixture.slug}/booking`);
+        await page.screenshot({path:testInfo.outputPath("visitor-booking-mobile-verification.png"),fullPage:true});
+        await page.getByLabel("رقم واتساب",{exact:true}).fill("0500009930");
+        await page.getByRole("checkbox").check();await page.getByRole("button",{name:"طلب رمز التحقق",exact:true}).click();
+        await page.getByLabel("رمز التحقق",{exact:true}).fill(code);await page.getByRole("button",{name:"تحقق من الرمز",exact:true}).click();
+        await expect(page.getByText(customer.name,{exact:true})).toBeVisible();
+        await page.screenshot({path:testInfo.outputPath("visitor-booking-mobile-edit.png"),fullPage:true});
+        await page.setViewportSize({width:1440,height:960});
+        await page.screenshot({path:testInfo.outputPath("visitor-booking-desktop-edit.png"),fullPage:true});
+        await page.setViewportSize({width:390,height:844});
+        await page.getByLabel("تاريخ الزيارة",{exact:true}).selectOption(booking.bookingDate);await page.getByLabel("فترة الزيارة",{exact:true}).selectOption("16:00");
+        await page.getByRole("button",{name:"حفظ الموعد الجديد",exact:true}).click();await expect(page.getByRole("heading",{name:"تم تعديل موعدك",exact:true})).toBeVisible();
+        expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);expect(await db.booking.count({where:{businessId:fixture.businessId,customerId:customer.id}})).toBe(1);
+      }finally{await page.close();}
+      const racing=await acceptedChallenge();const racingProof=await verify(racing,code);const racingAccess=(await racingProof.json()).access;
+      const concurrent=await Promise.all(["18:00","20:00"].map(bookingTime=>request.post(`${baseUrl}/api/public/bookings`,{headers:{"Idempotency-Key":crypto.randomUUID()},data:{slug:fixture.slug,manageAccess:racingAccess,bookingDate:booking.bookingDate,bookingTime}})));
+      expect(concurrent.map(response=>response.status()).sort()).toEqual([200,401]);
+      expect(await db.booking.count({where:{businessId:fixture.businessId,customerId:customer.id}})).toBe(1);
+      const changed=await acceptedChallenge();const changedProof=await verify(changed,code);const changedAccess=(await changedProof.json()).access;
+      await db.booking.update({where:{id:booking.id},data:{status:"cancelled"}});
+      const stale=await request.post(`${baseUrl}/api/public/bookings`,{headers:{"Idempotency-Key":crypto.randomUUID()},data:{slug:fixture.slug,manageAccess:changedAccess,bookingDate:booking.bookingDate,bookingTime:"22:00"}});
+      expect(stale.status()).toBe(401);
+    }finally{await cleanup(fixture);await cleanup(outsider);}
+  });
+
   test("appointment board separates elapsed pending visits and sorts received visits independently", async ({browser}) => {
     const fixture = await seed();
     const page = await browser.newPage({viewport:{width:390,height:844}});
@@ -103,6 +176,10 @@ test.describe.serial("public transactions workflow", () => {
       const near = await create(riyadhDateKey(1),"10:00",new Date(Date.now()-60000),branch.id);
       const newest = await create(riyadhDateKey(2),"10:00",new Date(),branch.id);
       await setSession(page,fixture.sessionToken);
+      await page.goto(`${baseUrl}/dashboard`);
+      const nextVisit = page.getByRole("link").filter({hasText:"الموعد القادم"});
+      await expect(nextVisit).toContainText(near.bookingDate);
+      await expect(nextVisit).not.toContainText(elapsed.bookingDate);
       await page.goto(`${baseUrl}/dashboard/appointments`);
       const rows=page.locator("[data-booking-id]");
       await expect(rows).toHaveCount(2);

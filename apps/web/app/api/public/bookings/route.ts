@@ -7,7 +7,9 @@ import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate
 import { normalizePublicSlug } from "../../../lib/public-url";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
 import { bookingIntervalsOverlap, bookingMinutes, bookingWithinPreviousOvernightWorkingHours, bookingWithinWorkingHours, normalizedBookingDuration } from "../../../lib/booking-time";
-import { emitInternalWhatsAppAutomationEvent } from "../../../lib/whatsapp/automation-event-producer";
+import { readBookingAccess, type BookingAccess } from "../../../lib/booking-verification";
+import { writeWhatsAppAuditLog } from "../../../lib/whatsapp/audit";
+import { emitInternalWhatsAppAutomationEvent, cancelWhatsAppAppointmentReminders } from "../../../lib/whatsapp/automation-event-producer";
 import { processWhatsAppAutomationEvent } from "../../../lib/whatsapp/automation-processor";
 import { processNextWhatsAppAutomationDelivery } from "../../../lib/whatsapp/automation-delivery-worker";
 import { normalizeE164 } from "../../../lib/whatsapp/contact-domain";
@@ -20,6 +22,7 @@ import { bookingFormNotes } from "../../../lib/booking-form-domain";
 export const maxDuration = 60;
 
 type BookingPayload = {
+  manageAccess?: unknown;
   formId?: unknown;
   answers?: unknown;
   slug?: unknown;
@@ -227,6 +230,9 @@ export async function GET(request: Request) {
     if (!business || !service || !await hasActiveBusinessSubscription({ businessId: business.id })) {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة غير متاحين" }, { status: 409, headers: availabilityResponseHeaders });
     }
+    const availabilityAccess=request.headers.get("x-booking-access");
+    const ownGrant=availabilityAccess?await readBookingAccess(db,business.id,availabilityAccess):null;
+    if(availabilityAccess && !ownGrant) return NextResponse.json({ok:false,error:"انتهت صلاحية التحقق"},{status:401,headers:availabilityResponseHeaders});
     const publicBranches: PublicBookingBranch[] = business.branches;
     const publicBranchSummaries = publicBranches.map((branch) => ({
       id: branch.id,
@@ -263,6 +269,7 @@ export async function GET(request: Request) {
       WHERE b."businessId" = ${business.id}
         AND (${selectedBranch?.id ?? null}::text IS NULL AND b."branchId" IS NULL OR b."branchId" = ${selectedBranch?.id ?? null})
         AND b."status" IN ('pending', 'confirmed')
+        AND (${ownGrant?.bookingId ?? null}::text IS NULL OR b."id"<>${ownGrant?.bookingId ?? null})
         AND b."bookingDate" >= ${queryStart}
         AND b."bookingDate" <= ${queryEnd}
     `;
@@ -347,6 +354,23 @@ export async function POST(request: Request) {
   }
 
   const slug = normalizePublicSlug(String(body.slug ?? ""));
+  let manage: BookingAccess | null = null;
+  let managedNotes = "";
+  if (body.manageAccess !== undefined) {
+    try {
+      const targetBusiness = await db.business.findFirst({where:{slug,deletedAt:null,isPublished:true,owner:{deletedAt:null,emailVerifiedAt:{not:null}}},select:{id:true}});
+      const replayKey=requestKey(request.headers.get("idempotency-key")||body.requestId);
+      manage=targetBusiness?await readBookingAccess(db,targetBusiness.id,body.manageAccess,false,replayKey):null;
+      if(!manage) return NextResponse.json({ok:false,error:"انتهت صلاحية التحقق؛ اطلب رمزًا جديدًا"},{status:401});
+      if(manage.status==="consumed") return NextResponse.json({ok:true,bookingId:manage.bookingId,replayed:true,rescheduled:true},{status:200});
+      const booking=await db.booking.findFirst({where:{id:manage.bookingId,businessId:targetBusiness!.id,updatedAt:manage.bookingUpdatedAt,status:{in:["pending","confirmed"]}},include:{customer:true}});
+      if(!booking) return NextResponse.json({ok:false,error:"تغير الموعد؛ تحقق مرة أخرى"},{status:409});
+      managedNotes = booking.notes ?? "";
+      body={...body,name:booking.customer.name,phone:booking.customer.phone,serviceId:booking.serviceId,notes:booking.notes??"",whatsappConfirmationConsent:false};
+    } catch { return NextResponse.json({ok:false,error:"تعذر التحقق من صلاحية التعديل"},{status:503}); }
+  }
+  const submissionScope=manage?"booking-reschedule":"booking";
+
   const name = text(body.name, 120);
   const bookingPhoneE164 = bookingWhatsAppPhone(body.phone);
   const phone = bookingPhoneE164 ? bookingPhoneE164.slice(1) : normalizedPhone(body.phone);
@@ -354,7 +378,7 @@ export async function POST(request: Request) {
   const branchId = text(body.branchId, 80);
   const bookingDate = validDate(body.bookingDate);
   const bookingTime = validTime(body.bookingTime);
-  const rawNotes = text(body.notes, 1000);
+  const rawNotes = manage ? managedNotes : text(body.notes, 1000);
   let notes = "";
   const idempotencyKey = requestKey(request.headers.get("idempotency-key") || body.requestId);
   const whatsappConfirmationConsent = body.whatsappConfirmationConsent === true;
@@ -385,7 +409,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const replayTargetId = await existingSubmission(business.id, idempotencyKey);
+    const replayTargetId = manage ? null : await existingSubmission(business.id, idempotencyKey);
     if (replayTargetId) {
       const confirmationEvent = await db.whatsAppAutomationEvent.findUnique({
         where: { businessId_source_externalEventId: { businessId: business.id, source: "ir.booking.confirmation", externalEventId: replayTargetId } },
@@ -398,6 +422,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
   }
 
+  if (manage) notes = rawNotes;
+  else {
   let form;
   try { form = await readPublishedBookingForm(); }
   catch { return NextResponse.json({ ok: false, error: "تعذر تحميل نموذج الحجز؛ حاول لاحقًا" }, { status: 503 }); }
@@ -406,6 +432,8 @@ export async function POST(request: Request) {
     notes = bookingFormNotes(form, rawNotes, body.answers);
   } catch (error) {
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "تحقق من حقول النموذج" }, { status: 400 });
+  }
+
   }
 
   const startsAt = riyadhDate(bookingDate, bookingTime);
@@ -532,11 +560,15 @@ export async function POST(request: Request) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`public-booking:${business.id}:${idempotencyKey}`}))`;
       const previous = await tx.$queryRaw<Array<{ targetId: string | null }>>`
         SELECT "targetId" FROM "PublicSubmission"
-        WHERE "businessId" = ${business.id} AND "scope" = 'booking' AND "idempotencyKey" = ${idempotencyKey}
+        WHERE "businessId" = ${business.id} AND "scope" = ${submissionScope} AND "idempotencyKey" = ${idempotencyKey}
         LIMIT 1
       `;
-      if (previous[0]?.targetId) return { id: previous[0].targetId, replayed: true, confirmationEventId: null };
+      if (previous[0]?.targetId && !manage) return { id: previous[0].targetId, replayed: true, confirmationEventId: null };
 
+      if(manage) {
+        const grant=await readBookingAccess(tx,business.id,body.manageAccess,true,idempotencyKey);
+        if(!grant || grant.bookingId!==manage.bookingId || grant.status!=="verified") throw new Error("PUBLIC_BOOKING_VERIFICATION_EXPIRED");
+      }
       // Serialize the exact branch/date/slot capacity check so simultaneous visitors
       // cannot exceed the configured seat count.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-slot:${business.id}:${selectedBranch?.id ?? "business"}:${bookingDate}:${bookingTime}`}))`;
@@ -684,6 +716,7 @@ export async function POST(request: Request) {
         WHERE b."businessId" = ${business.id}
           AND (${currentBranch?.id ?? null}::text IS NULL AND b."branchId" IS NULL OR b."branchId" = ${currentBranch?.id ?? null})
           AND b."status" IN ('pending', 'confirmed')
+          AND (${manage?.bookingId ?? null}::text IS NULL OR b."id" <> ${manage?.bookingId ?? null})
           AND (
             b."bookingDate" = ${previousBookingDate}
             OR b."bookingDate" = ${bookingDate}
@@ -709,12 +742,15 @@ export async function POST(request: Request) {
         WHERE b."businessId" = ${business.id}
           AND regexp_replace(c."phone", '[^0-9]', '', 'g') IN (${phone}, ${phone.startsWith("966") ? `0${phone.slice(3)}` : phone}, ${`00${phone}`})
           AND b."status" IN ('pending', 'confirmed')
+          AND (${manage?.bookingId ?? null}::text IS NULL OR b."id" <> ${manage?.bookingId ?? null})
           AND ((b."bookingDate" || ' ' || b."bookingTime")::timestamp AT TIME ZONE 'Asia/Riyadh')
             + make_interval(mins => COALESCE(snapshot."durationMinutes", CASE WHEN s."durationMinutes" BETWEEN 5 AND 1440 THEN s."durationMinutes" ELSE 30 END)) > CURRENT_TIMESTAMP
         LIMIT 1
       `;
       if (activeAppointments.length) throw new Error("PUBLIC_BOOKING_ACTIVE_APPOINTMENT");
-      let customer = await tx.customer.findFirst({
+      const managedBooking = manage ? await tx.booking.findFirst({where:{id:manage.bookingId,businessId:business.id,updatedAt:manage.bookingUpdatedAt,status:{in:["pending","confirmed"]}},select:{id:true,customerId:true}}) : null;
+      if(manage && !managedBooking) throw new Error("PUBLIC_BOOKING_VERIFICATION_EXPIRED");
+      let customer = managedBooking ? await tx.customer.findFirst({where:{id:managedBooking.customerId,businessId:business.id},select:{id:true,name:true}}) : await tx.customer.findFirst({
         where: { businessId: business.id, phone },
         orderBy: { createdAt: "asc" },
         select: { id: true, name: true },
@@ -725,8 +761,7 @@ export async function POST(request: Request) {
         await tx.customer.update({ where: { id: customer.id }, data: { name } });
       }
 
-      const booking = await tx.booking.create({
-        data: {
+      const bookingData = {
           businessId: business.id,
           customerId: customer.id,
           serviceId: currentService.serviceId,
@@ -736,16 +771,28 @@ export async function POST(request: Request) {
           slotEndTime: timeFromMinutes((bookingMinutes(bookingTime) + currentDurationMinutes) % 1440),
           notes: notes || null,
           status: "pending",
-        },
-        select: { id: true },
-      });
+      };
+      const booking = managedBooking ? await tx.booking.update({where:{id:managedBooking.id},data:bookingData,select:{id:true}}) : await tx.booking.create({data:bookingData,select:{id:true}});
+      if(manage) {
+        await cancelWhatsAppAppointmentReminders({database:tx,businessId:business.id,bookingId:booking.id});
+        const staleEvents=await tx.whatsAppAutomationEvent.findMany({where:{businessId:business.id,subjectId:booking.id,source:"ir.booking.confirmation"},select:{id:true}});
+        const eventIds=staleEvents.map(event=>event.id);
+        if(eventIds.length) {
+          await tx.whatsAppAutomationEvent.updateMany({where:{businessId:business.id,id:{in:eventIds},status:{in:["pending","retry_scheduled"]}},data:{status:"failed",processingErrorCode:"BOOKING_RESCHEDULED",processedAt:new Date(),leaseOwner:null,leaseExpiresAt:null}});
+          await tx.whatsAppAutomationJob.updateMany({where:{businessId:business.id,run:{eventId:{in:eventIds}},status:{in:["queued","retry_scheduled"]}},data:{status:"cancelled",lastErrorCode:"BOOKING_RESCHEDULED",leaseOwner:null,leaseExpiresAt:null}});
+        }
+        await tx.$executeRaw`UPDATE "BookingVisitorVerification" SET "status"='consumed',"consumedAt"=CURRENT_TIMESTAMP,"consumedRequestId"=${idempotencyKey} WHERE "id"=${manage.challengeId} AND "businessId"=${business.id}`;
+        await tx.$executeRaw`UPDATE "BookingVisitorVerification" SET "status"='invalidated' WHERE "bookingId"=${booking.id} AND "businessId"=${business.id} AND "id"<>${manage.challengeId} AND "status" IN ('pending','accepted','verified')`;
+        await writeWhatsAppAuditLog({database:tx,businessId:business.id,actorType:"system",action:"booking.visitor.rescheduled",targetType:"booking",targetId:booking.id,outcome:"success"});
+      }
       await tx.$executeRaw`
         INSERT INTO "BookingDurationSnapshot" ("bookingId", "durationMinutes")
         VALUES (${booking.id}, ${currentDurationMinutes})
+        ON CONFLICT ("bookingId") DO UPDATE SET "durationMinutes"=EXCLUDED."durationMinutes"
       `;
       await tx.$executeRaw`
         INSERT INTO "PublicSubmission" ("businessId", "scope", "idempotencyKey", "targetId")
-        VALUES (${business.id}, 'booking', ${idempotencyKey}, ${booking.id})
+        VALUES (${business.id}, ${submissionScope}, ${idempotencyKey}, ${booking.id})
       `;
       let confirmationEventId: string | null = null;
       if (whatsappConfirmationConsent && whatsappPhone) {
@@ -792,7 +839,7 @@ export async function POST(request: Request) {
       return { id: booking.id, replayed: false, confirmationEventId };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 
-    if (!result.replayed) after(async () => {
+    if (!result.replayed && !manage) after(async () => {
       await recordCampaignBooking({ businessId: business.id, bookingId: result.id, cookieHeader: request.headers.get("cookie") ?? "" }).catch(() => undefined);
     });
     if (result.confirmationEventId) {
@@ -808,13 +855,14 @@ export async function POST(request: Request) {
         }
       });
     }
-    return NextResponse.json({ ok: true, bookingId: result.id, replayed: result.replayed, whatsappConfirmationQueued: Boolean(result.confirmationEventId) }, { status: result.replayed ? 200 : 201 });
+    return NextResponse.json({ ok: true, bookingId: result.id, replayed: result.replayed, rescheduled: Boolean(manage), whatsappConfirmationQueued: Boolean(result.confirmationEventId) }, { status: result.replayed || manage ? 200 : 201 });
   } catch (error) {
+    if(error instanceof Error && error.message === "PUBLIC_BOOKING_VERIFICATION_EXPIRED") return NextResponse.json({ok:false,error:"تغير الموعد أو انتهى التحقق؛ اطلب رمزًا جديدًا"},{status:401});
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_SLOT_FULL") {
       return NextResponse.json({ ok: false, error: "اكتملت سعة هذه الفترة. اختر الفترة التالية المتاحة." }, { status: 409 });
     }
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_ACTIVE_APPOINTMENT") {
-      return NextResponse.json({ ok: false, code: "ACTIVE_APPOINTMENT", error: "لديك موعد نشط لدى هذه المنشأة. يمكنك الحجز مجددًا بعد انتهائه أو إلغائه بالتواصل مع المنشأة." }, { status: 409 });
+      return NextResponse.json({ ok: false, code: "ACTIVE_APPOINTMENT", error: "لديك موعد نشط لدى هذه المنشأة. يمكنك تعديله عبر خيار تعديل موعدي ورمز تحقق واتساب." }, { status: 409 });
     }
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_TARGET_UNAVAILABLE") {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة لم يعودا متاحين لهذا النشاط" }, { status: 409 });
