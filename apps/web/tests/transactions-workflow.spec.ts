@@ -96,7 +96,7 @@ test.describe.serial("public transactions workflow", () => {
     await pool?.end();
   });
 
-  test("visitor proof is tenant-bound, expires, limits guesses and reschedules one existing booking atomically", async ({request,browser})=>{
+  test("visitor proof is tenant-bound, expires, limits guesses and reschedules one existing booking atomically", async ({request,browser},testInfo)=>{
     test.setTimeout(120000);
     const fixture=await seed();const outsider=await seed();
     try {
@@ -140,10 +140,15 @@ test.describe.serial("public transactions workflow", () => {
       try {
         await page.route("**/api/public/bookings/verification",async route=>{const data=route.request().postDataJSON();if(data.operation==="verify")await route.continue();else await route.fulfill({status:202,contentType:"application/json",body:JSON.stringify({ok:true,challengeId:uiChallenge,expiresInSeconds:300})});});
         await page.goto(`${baseUrl}/${fixture.slug}/booking`);
+        await page.screenshot({path:testInfo.outputPath("visitor-booking-mobile-verification.png"),fullPage:true});
         await page.getByLabel("رقم واتساب",{exact:true}).fill("0500009930");
         await page.getByRole("checkbox").check();await page.getByRole("button",{name:"طلب رمز التحقق",exact:true}).click();
         await page.getByLabel("رمز التحقق",{exact:true}).fill(code);await page.getByRole("button",{name:"تحقق من الرمز",exact:true}).click();
         await expect(page.getByText(customer.name,{exact:true})).toBeVisible();
+        await page.screenshot({path:testInfo.outputPath("visitor-booking-mobile-edit.png"),fullPage:true});
+        await page.setViewportSize({width:1440,height:960});
+        await page.screenshot({path:testInfo.outputPath("visitor-booking-desktop-edit.png"),fullPage:true});
+        await page.setViewportSize({width:390,height:844});
         await page.getByLabel("تاريخ الزيارة",{exact:true}).selectOption(booking.bookingDate);await page.getByLabel("فترة الزيارة",{exact:true}).selectOption("16:00");
         await page.getByRole("button",{name:"حفظ الموعد الجديد",exact:true}).click();await expect(page.getByRole("heading",{name:"تم تعديل موعدك",exact:true})).toBeVisible();
         expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);expect(await db.booking.count({where:{businessId:fixture.businessId,customerId:customer.id}})).toBe(1);

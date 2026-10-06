@@ -2,6 +2,7 @@ import "server-only";
 import { requireApprovedBookingAuthentication, sendBookingAuthentication, BookingProviderError } from "./booking-verification-provider";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
+import { canBusinessUsePublicSlug } from "./protected-public-slug";
 import { db } from "./db";
 import { normalizeE164 } from "./whatsapp/contact-domain";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl } from "./whatsapp/meta-config";
@@ -19,7 +20,7 @@ function secret() { const value=process.env.SESSION_SECRET??""; if(value.length<
 export function verificationPhone(value: unknown) { return typeof value === "string" ? normalizeE164(asciiDigits(value), "966") : null; }
 export async function verificationBusiness(slug: string) {
   const business = await db.business.findFirst({where:{slug,deletedAt:null,isPublished:true,bookingAvailable:true,owner:{deletedAt:null,emailVerifiedAt:{not:null}}},select:{id:true}});
-  if(!business || !await hasActiveBusinessSubscription({businessId:business.id})) throw new BookingVerificationError(409,"تعديل الموعد غير متاح حاليًا لدى المنشأة");
+  if(!business || !await canBusinessUsePublicSlug(business.id,slug) || !await hasActiveBusinessSubscription({businessId:business.id})) throw new BookingVerificationError(409,"تعديل الموعد غير متاح حاليًا لدى المنشأة");
   return business;
 }
 async function limited(businessId:string, request:Request, identity:string, scope:string, limit:number) {
