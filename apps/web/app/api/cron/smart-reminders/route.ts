@@ -34,6 +34,11 @@ export async function GET(request: Request) {
     const scheduled = await runSmartReminderScheduler({ limit: 250 });
     const delivered = await runSmartReminderDeliveryWorker({ limit: 250 });
 
+    console.info("[smart-reminders-cron] completed", {
+      scheduled: scheduled.scheduled,
+      processed: delivered.processed,
+      releaseSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+    });
     return NextResponse.json({
       ok: true,
       scheduled: scheduled.scheduled,

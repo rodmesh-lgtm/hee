@@ -62,6 +62,10 @@ export async function GET(request: Request) {
         throw error;
       }
     } });
+    console.info("[whatsapp-operations-cron] completed", {
+      completedStages: result.completedStages.length,
+      releaseSha: "releaseSha" in result ? result.releaseSha : null,
+    });
     return NextResponse.json({
       ok: true,
       enabled: result.enabled,
