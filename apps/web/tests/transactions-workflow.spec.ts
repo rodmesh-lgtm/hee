@@ -116,7 +116,7 @@ test.describe.serial("public transactions workflow", () => {
       await expect(page.getByRole("button",{name:"تأكيد الحجز",exact:true})).toHaveCount(0);
       await page.goto(`${baseUrl}/dashboard/appointments?branch=outsider-branch`);
       await expect(rows).toHaveCount(0);
-      await expect(page.getByRole("alert")).toContainText("غير موجود");
+      await expect(page.locator(".appointment-notice")).toContainText("غير موجود");
       await page.goto(`${baseUrl}/dashboard/appointments?tab=branches`);
       await expect(page.getByRole("heading",{name:branch.name,exact:true})).toBeVisible();
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
