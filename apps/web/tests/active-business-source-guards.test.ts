@@ -9,6 +9,7 @@ const criticalDashboardFiles = [
   "app/dashboard/branding/page.tsx",
   "app/dashboard/directory/page.tsx",
   "app/dashboard/inbox/page.tsx",
+  "app/dashboard/appointments/page.tsx",
   "app/dashboard/my-page/page.tsx",
   "app/dashboard/services/page.tsx",
   "app/dashboard/settings/page.tsx",

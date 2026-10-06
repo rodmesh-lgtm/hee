@@ -30,7 +30,7 @@ test("dashboard surfaces the nearest actionable booking", () => {
   assert.match(source, /db\.booking\.findFirst/);
   assert.match(source, /bookingDate:\{gte:today\}/);
   assert.match(source, /الموعد القادم/);
-  assert.match(source, /href="\/dashboard\/inbox"/);
+  assert.match(source, /href="\/dashboard\/appointments"/);
 });
 
 test("dashboard pulse remains tenant scoped", () => {

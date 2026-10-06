@@ -56,6 +56,7 @@ function refreshAppointmentPaths(slug: string) {
   revalidatePath("/dashboard/working-hours");
   revalidatePath("/dashboard/services");
   revalidatePath("/dashboard/inbox");
+  revalidatePath("/dashboard/appointments");
   revalidatePath("/preview");
   revalidatePath(`/${slug}`);
 }

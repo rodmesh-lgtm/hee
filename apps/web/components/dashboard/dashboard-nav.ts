@@ -31,7 +31,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound, activePrefixes: ["/dashboard/services", "/dashboard/products", "/dashboard/catalog", "/dashboard/gallery", "/dashboard/offers", "/dashboard/contact-links", "/dashboard/page-builder", "/dashboard/page-customization", "/dashboard/preview", "/dashboard/share", "/dashboard/branding", "/dashboard/directory", "/dashboard/tools"] },
   { label: "الهوية الرقمية", href: "/dashboard/digital-identity", icon: BadgeCheck, activePrefixes: ["/dashboard/verification"] },
   { label: "الطلبات", href: "/dashboard/inbox", icon: Inbox },
-  { label: "المواعيد والحجوزات", href: "/dashboard/working-hours", icon: CalendarDays },
+  { label: "المواعيد والحجوزات", href: "/dashboard/appointments", icon: CalendarDays, activePrefixes: ["/dashboard/working-hours"] },
   { label: "تسويق واتساب", href: "/dashboard/whatsapp", icon: WhatsAppIcon, activePrefixes: ["/dashboard/whatsapp"] },
   { label: "التذكيرات الذكية", href: "/dashboard/reminders", icon: BellRing },
   { label: "الإشعارات", href: "/dashboard/notifications", icon: Bell },
