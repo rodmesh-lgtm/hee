@@ -25,6 +25,7 @@ Reference formats: Meta product-card carousel documentation (`https://developers
 ## Release checks
 
 - Additive migration `20261007130000_whatsapp_service_bot` introduces three tables; it changes no customer rows. Apply through the existing exact-SHA maintenance/backup/migration workflow, never from request handlers.
+- The pre-migration check accepts only a clean, checksum-matched prefix of the release migrations. This replaces the pre-apply `prisma migrate status` command, which exits 1 for legitimate pending migrations in Prisma 5.22. Failed, modified, unknown and out-of-order histories still stop the release; the post-apply status and backup/data proofs remain unchanged.
 - `node --import tsx --test tests/whatsapp-bot-carousel.test.ts` validates FAQ normalization, handoff/output bounds and native product payloads.
 - RC Quality runs `node --conditions=react-server --import tsx scripts/whatsapp-bot-carousel-audit.ts` against its isolated PostgreSQL database: real SQL with rollback, mocked external calls, tenant isolation, duplicate suppression, daily cap, pause, employee assignment, handoff, opt-out and catalog ownership.
 - Visual audit exercises saving a paused bot, local FAQ preview, and Arabic mobile/desktop/light/dark bot/carousel pages. It never submits a Meta template or enables a bot.
