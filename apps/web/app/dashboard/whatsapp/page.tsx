@@ -141,10 +141,12 @@ export default async function WhatsAppMarketingPage() {
     { href: "/dashboard/whatsapp/insights", title: "الأداء والتقارير", text: "اقرأ الإرسال والتسليم والقراءة وحركة المحادثات وصحة الجمهور من بيانات نشاطك الفعلية، دون نسب إيراد غير مثبتة.", icon: BarChart3, state: sentRecipients ? "ready" : "empty", status: sentRecipients ? `${formatPercent(deliveryRate)} تسليم` : "بانتظار أول إرسال" },
     { href: "/dashboard/whatsapp/automations", title: "الأتمتة الذكية", text: "شغّل رسائل قالبية من أحداث موثوقة مع إعادة فحص الموافقة والانسحاب والاتصال قبل كل إرسال.", icon: Workflow, state: connected && templates ? "ready" : "attention", status: automations ? `${automations} أتمتة` : connected && templates ? "متاح للإنشاء" : "يتطلب ربطًا وقالبًا" },
     { href: "/dashboard/whatsapp/carts", title: "السلال المتروكة", text: "حالات السلال المستلمة من سلة وShopify وواجهة الأحداث، والبحث بالعميل ومتابعة الاستعادة.", icon: ShoppingBag, state: "ready", status: "عرض السجل" },
-    { href: "/dashboard/whatsapp/contacts?audience=opted-out", title: "قائمة منع الإرسال", text: "راجع العملاء المنسحبين من الرسائل؛ يستبعدهم النظام من الإرسال تلقائيًا.", icon: ShieldCheck, state: "ready", status: "مراجعة الاستبعاد" },
+    { href: "/dashboard/whatsapp/blacklist", title: "قائمة منع الإرسال", text: "راجع المنسحبين، وأضف الأرقام الممنوعة من رسائل المنشأة.", icon: ShieldCheck, state: "ready", status: "مراجعة الاستبعاد" },
     { href: "/dashboard/whatsapp/integrations", title: "تكاملات المتاجر", text: "اربط سلة وShopify وWooCommerce من مساراتها الرسمية، وتابع المزامنة وأهلية الحجز. تكامل زد الحي يحتاج استكمال بيانات التطبيق الرسمي.", icon: ShoppingBag, state: integrations ? "ready" : "empty", status: integrations ? `${integrations} تكامل` : "لا توجد تكاملات" },
     { href: "/dashboard/whatsapp/inbox", title: "خدمة العملاء", text: "إدارة المحادثات والرد على العملاء ضمن نافذة الخدمة الرسمية من رقم منشأتك.", icon: MessageCircle, state: connected ? "ready" : "attention", status: connected ? `${conversations} محادثة` : "اربط الرقم أولًا" },
     { href: "/dashboard/whatsapp/setup", title: "ربط الرقم الرسمي", text: "اربط WABA ورقم WhatsApp Business الخاصين بالمنشأة عبر Embedded Signup الرسمي من Meta.", icon: Link2, state: connected ? "ready" : "attention", status: connected ? "متصل رسميًا" : "يتطلب ربط Meta" },
+    { href: "/dashboard/whatsapp/messages", title: "سجل الرسائل", text: "ابحث في الوارد والصادر وصفِّ حالات التسليم والقراءة وصدّر النتائج.", icon: MessageCircle, state: "ready", status: "تتبع الرسائل" },
+    { href: "/dashboard/whatsapp/tools", title: "مركز الأدوات", text: "الوصول إلى المنتجات والجلسات والفوترة والشروحات من مكان واحد.", icon: Gauge, state: "ready", status: "أدوات منشأتك" },
     { href: "/dashboard/whatsapp/audit", title: "الأمان والتدقيق", text: "راجع العمليات الحساسة لهذا النشاط دون عرض الرموز السرية أو محتوى الرسائل.", icon: ShieldCheck, state: "ready", status: "فعال" },
   ] as const;
 
@@ -200,6 +202,8 @@ export default async function WhatsAppMarketingPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <QuickLink href="/dashboard/whatsapp/tools" label="جميع الأدوات" icon={<Gauge className="h-4 w-4" />} />
+              <QuickLink href="/dashboard/whatsapp/guides" label="الشروحات" icon={<FileText className="h-4 w-4" />} />
               <QuickLink href="/dashboard/whatsapp/campaigns" label="حملة جديدة" icon={<Rocket className="h-4 w-4" />} />
               <QuickLink href="/dashboard/whatsapp/contacts" label="استيراد جمهور" icon={<ContactRound className="h-4 w-4" />} />
               <QuickLink href="/dashboard/whatsapp/insights" label="الأداء" icon={<BarChart3 className="h-4 w-4" />} />

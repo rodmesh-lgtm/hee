@@ -78,7 +78,7 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Verify live campaign reports before broader visual audit
-        run: npx playwright test tests/dashboard-visual-audit.spec.ts --grep "campaign retries|live campaign report|customer workspace search" --retries=0
+        run: npx playwright test tests/dashboard-visual-audit.spec.ts --grep "campaign retries|live campaign report|customer workspace search|whatsapp workspace tools" --retries=0
       - name: Upload focused campaign screenshots for immediate review
         if: always()
         uses: actions/upload-artifact@v4
