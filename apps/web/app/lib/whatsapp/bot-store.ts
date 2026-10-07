@@ -26,7 +26,7 @@ export async function botReplyAllowed(database: PrismaClient, jobId: string, bus
   if (!await botSchemaReady(database)) return true;
   const turns = await database.$queryRaw<Array<{ allowed: boolean }>>(Prisma.sql`
     SELECT (b.enabled AND b.revision=t.revision AND c."assignedToUserId" IS NULL
-      AND (t.status='handoff' OR h."conversationId" IS NULL OR NOT h.active)
+      AND (CASE WHEN t.status='handoff' THEN h.active AND h."createdAt"<=t."completedAt" ELSE h."conversationId" IS NULL OR NOT h.active END)
       AND NOT EXISTS (SELECT 1 FROM "WhatsAppContact" p WHERE p."businessId"=t."businessId" AND p."phoneE164"=c."customerPhoneE164" AND (p."optedOutAt" IS NOT NULL OR p."deletedAt" IS NOT NULL))
       AND NOT EXISTS (SELECT 1 FROM "WhatsAppMessage" n WHERE n."businessId"=t."businessId" AND n."conversationId"=t."conversationId" AND (n."createdAt",n.id)>(m."createdAt",m.id))
       AND NOT EXISTS (SELECT 1 FROM "WhatsAppReplyJob" j WHERE j."businessId"=t."businessId" AND j."conversationId"=t."conversationId" AND j.id<>${jobId} AND j.status IN ('queued','processing','retry_scheduled'))

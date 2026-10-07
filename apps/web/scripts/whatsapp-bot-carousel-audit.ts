@@ -73,6 +73,9 @@ async function main() {
       assert.equal((await processNextServiceBotTurn(input)).result, "handoff");
       const handoffJob = await tx.whatsAppReplyJob.findFirstOrThrow({ where: { businessId: business.id, status: "queued" } });
       assert.equal(await botReplyAllowed(database, handoffJob.id, business.id), true);
+      await tx.$executeRaw(Prisma.sql`UPDATE "WhatsAppBotHandoff" SET active=false WHERE "conversationId"=${conversation.id}`);
+      assert.equal(await botReplyAllowed(database, handoffJob.id, business.id), false);
+      await tx.$executeRaw(Prisma.sql`UPDATE "WhatsAppBotHandoff" SET active=true WHERE "conversationId"=${conversation.id}`);
       await incoming("ساعات العمل");
       assert.equal((await processNextServiceBotTurn(input)).result, "skipped");
       const second = await tx.whatsAppConversation.create({ data: { businessId: business.id, phoneNumberId: nonce, customerPhoneE164: "+966500000002", lastInboundAt: now, lastMessageAt: now } });
