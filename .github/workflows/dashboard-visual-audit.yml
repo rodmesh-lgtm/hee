@@ -94,7 +94,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: infro-customer-workspace-focused
-          path: /tmp/infro-visual-audit/*-customer-workspace.png
+          path: |
+            /tmp/infro-visual-audit/*-customer-workspace.png
+            /tmp/infro-visual-audit/*-workspace-*.png
           if-no-files-found: warn
           retention-days: 7
       - name: Capture authenticated product surfaces and execution flow
