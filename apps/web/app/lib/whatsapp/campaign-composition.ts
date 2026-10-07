@@ -1,6 +1,7 @@
 /** Shared by the editor and the immutable recipient snapshot. No credentials or I/O. */
+import { isProductCarouselComponent, parseProductCarousel, productCarouselParameters, type ProductCarousel } from "./product-carousel";
 export type Binding = { source: "literal" | "displayName" | "phoneE164" | "email" | "attribute"; value: string; fallback?: string };
-export type Composition = { bindings: Record<string, Binding>; mediaUrl?: string; trackingDestination?: string };
+export type Composition = { bindings: Record<string, Binding>; mediaUrl?: string; trackingDestination?: string; productCarousel?: ProductCarousel };
 export type TemplateField = { key: string; component: "header" | "body" | "button"; variable: string; index?: number };
 const object = (v: unknown): Record<string, unknown> => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
 
@@ -8,6 +9,7 @@ export function campaignTemplateFields(components: unknown) {
   const fields: TemplateField[] = [];
   let media: string | null = null;
   let unsupported = false;
+  let productCarousel = false;
   for (const raw of Array.isArray(components) ? components : []) {
     const c = object(raw), type = String(c.type).toUpperCase();
     if (type === "HEADER" && ["IMAGE", "VIDEO", "DOCUMENT"].includes(String(c.format).toUpperCase())) media = String(c.format).toLowerCase();
@@ -22,9 +24,10 @@ export function campaignTemplateFields(components: unknown) {
         if (button.type === "URL" && String(button.url).includes("{{")) fields.push({ key: `button:${index}`, component: "button", variable: "1", index });
         else if (!["URL", "PHONE_NUMBER", "QUICK_REPLY"].includes(String(button.type))) unsupported = true;
       }
-    } else if (!["HEADER", "BODY", "FOOTER"].includes(type)) unsupported = true;
+    } else if (type === "CAROUSEL") { if (productCarousel || !isProductCarouselComponent(c)) unsupported = true; else productCarousel = true; }
+    else if (!["HEADER", "BODY", "FOOTER"].includes(type)) unsupported = true;
   }
-  return { fields, media, unsupported };
+  return { fields, media, unsupported, productCarousel };
 }
 
 export function publicMediaUrl(value: string) {
@@ -53,12 +56,14 @@ export function parseCampaignComposition(raw: unknown): Composition {
   const trackingDestination = root.trackingDestination ? publicMediaUrl(String(root.trackingDestination)) : undefined;
   if (root.trackingDestination && !trackingDestination) throw new Error("WHATSAPP_CAMPAIGN_TRACKING_INVALID");
   if (root.mediaUrl && !mediaUrl) throw new Error("WHATSAPP_CAMPAIGN_MEDIA_INVALID");
-  return { bindings, ...(mediaUrl ? { mediaUrl } : {}), ...(trackingDestination ? { trackingDestination } : {}) };
+  const productCarousel = root.productCarousel === undefined ? undefined : parseProductCarousel(root.productCarousel);
+  return { bindings, ...(mediaUrl ? { mediaUrl } : {}), ...(trackingDestination ? { trackingDestination } : {}), ...(productCarousel ? { productCarousel } : {}) };
 }
 
 export function resolveCampaignComposition(components: unknown, composition: Composition, contact: { displayName?: string | null; phoneE164?: string; email?: string | null; attributes?: unknown }) {
   const spec = campaignTemplateFields(components);
   if (spec.unsupported) throw new Error("WHATSAPP_CAMPAIGN_TEMPLATE_UNSUPPORTED");
+  if (Boolean(composition.productCarousel) !== spec.productCarousel) throw new Error("WHATSAPP_PRODUCT_CAROUSEL_INVALID");
   if (spec.media && !publicMediaUrl(composition.mediaUrl ?? "")) throw new Error("WHATSAPP_CAMPAIGN_MEDIA_INVALID");
   const result: Array<Record<string, unknown>> = [];
   const values: Record<string, string> = {};
@@ -79,5 +84,6 @@ export function resolveCampaignComposition(components: unknown, composition: Com
       (component.parameters as unknown[]).push(parameter);
     }
   }
+  if (spec.productCarousel) result.push(productCarouselParameters(composition.productCarousel));
   return { components: result, values };
 }

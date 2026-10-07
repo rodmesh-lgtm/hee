@@ -172,8 +172,10 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Show migration status before deploy
-        run: npx prisma migrate status
+      - name: Verify clean checksum-matched release prefix before backup and migration
+        # Prisma status exits 1 even for a healthy pending tail. Validate that tail
+        # explicitly while rejecting failures, checksum changes and divergence.
+        run: node --import tsx scripts/production-migration-precheck.ts
 
       - name: Re-prove maintenance immediately before taking production backup
         working-directory: .

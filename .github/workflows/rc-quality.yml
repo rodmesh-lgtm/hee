@@ -79,6 +79,8 @@ jobs:
         run: npx prisma generate
       - name: Verify migrations on clean PostgreSQL
         run: npx prisma migrate deploy
+      - name: Verify migration checksum and release-prefix precheck
+        run: node --import tsx scripts/production-migration-precheck.ts
       - name: Verify customer data retention guards
         env:
           ALLOW_DATA_RETENTION_AUDIT: "true"
@@ -125,6 +127,8 @@ jobs:
         run: node --test ../../.github/scripts/preserve-operational-flags.test.mjs
       - name: Verify Salla cart lifecycle without sending messages
         run: node --conditions=react-server --import tsx scripts/salla-cart-lifecycle-audit.ts
+      - name: Verify bot lifecycle and product carousel isolation without external requests
+        run: node --conditions=react-server --import tsx scripts/whatsapp-bot-carousel-audit.ts
       - name: Production build
         run: npm run build
       - name: Install Playwright Chromium

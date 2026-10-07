@@ -1493,6 +1493,46 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     }
   });
 
+  test("service bot and carousel editors save isolated settings and render on mobile and desktop", async ({ browser }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("fixture missing");
+    const businessId = seeded.businessId;
+    const plan = await db.businessPlan.upsert({ where: { code: "BUSINESS" }, update: {}, create: { code: "BUSINESS", name: "Business", monthlyPrice: 99, productLimit: 10 } });
+    const previous = await db.subscription.findFirst({ where: { businessId, status: "active" } });
+    const subscription = previous ? await db.subscription.update({ where: { id: previous.id }, data: { planId: plan.id } }) : await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now()-60000), endsAt: new Date(Date.now()+86400000) } });
+    const connection = await db.whatsAppConnection.create({ data: { businessId, provider: "meta", status: "connected", wabaId: crypto.randomUUID(), phoneNumberId: crypto.randomUUID(), displayPhoneNumber: "+966500000555", marketingEnabled: true, credentialEnvelope: { testOnly: true } } });
+    try {
+      for (const viewport of [{name:"mobile",value:{width:390,height:844}},{name:"desktop",value:{width:1440,height:960}}]) for (const theme of ["light","dark"] as const) {
+        const context = await authenticatedContext(browser, viewport.value, theme, seeded.sessionToken);
+        try {
+          const page = await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/bots`);
+          await page.getByLabel("رقم واتساب", { exact: true }).selectOption(connection.id);
+          if (viewport.name === "mobile" && theme === "light") {
+            await page.getByRole("button", { name: "إضافة سؤال", exact: true }).click();
+            await page.getByLabel("السؤال", { exact: true }).fill("ساعات العمل");
+            await page.getByLabel("الإجابة", { exact: true }).fill("من التاسعة إلى الخامسة");
+            await page.getByLabel("سؤال التجربة", { exact: true }).fill("ساعات العمل");
+            await page.getByRole("button", { name: "اختبار الرد", exact: true }).click();
+            await expect(page.locator('.wa-bot-answer')).toHaveText("من التاسعة إلى الخامسة");
+            await page.getByRole("button", { name: "حفظ الإعدادات", exact: true }).click();
+            await expect(page.getByText("حُفظ البوت وهو متوقف.", { exact: true })).toBeVisible();
+            const rows = await db.$queryRaw<Array<{ enabled: boolean; businessId: string }>>(Prisma.sql`SELECT enabled,"businessId" FROM "WhatsAppServiceBot" WHERE "connectionId"=${connection.id}`);
+            expect(rows).toEqual([{ enabled: false, businessId }]);
+            expect(await db.whatsAppReplyJob.count({ where: { connectionId: connection.id } })).toBe(0);
+          }
+          await page.close();
+          await auditRoute(context, { path: "/dashboard/whatsapp/bots", name: "workspace-bots", theme, viewportName: viewport.name });
+          await auditRoute(context, { path: "/dashboard/whatsapp/carousel", name: "workspace-carousel", theme, viewportName: viewport.name });
+        } finally { await context.close(); }
+      }
+    } finally {
+      await db.$executeRaw(Prisma.sql`DELETE FROM "WhatsAppServiceBot" WHERE "connectionId"=${connection.id} AND "businessId"=${businessId}`);
+      await db.whatsAppConnection.delete({ where: { id: connection.id } });
+      if (previous) await db.subscription.update({ where: { id: subscription.id }, data: { planId: previous.planId } });
+      else await db.subscription.delete({ where: { id: subscription.id } });
+    }
+  });
   test("whatsapp workspace tools isolate message exports and contact blocking across tenants", async ({ browser, request }) => {
     test.setTimeout(180_000);
     if (!seeded) throw new Error("fixture missing");

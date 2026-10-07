@@ -6,14 +6,14 @@ import { BarChart3, ContactRound, FileText, Inbox, LayoutDashboard, Link2, Megap
 const groups = [
   { label: "الجمهور والحملات", items: [
     ["/dashboard/whatsapp", "نظرة عامة", LayoutDashboard], ["/dashboard/whatsapp/contacts", "جهات الاتصال", ContactRound],
-    ["/dashboard/whatsapp/templates", "القوالب", FileText], ["/dashboard/whatsapp/campaigns", "الحملات", Megaphone], ["/dashboard/whatsapp/insights", "الأداء", BarChart3],
+    ["/dashboard/whatsapp/templates", "القوالب", FileText], ["/dashboard/whatsapp/carousel", "كاروسيل المنتجات", ShoppingCart], ["/dashboard/whatsapp/campaigns", "الحملات", Megaphone], ["/dashboard/whatsapp/insights", "الأداء", BarChart3],
   ] },
   { label: "الرسائل وخدمة العملاء", items: [
     ["/dashboard/whatsapp/messages", "سجل الرسائل", ListFilter], ["/dashboard/whatsapp/inbox", "المحادثات", Inbox],
     ["/dashboard/whatsapp/inbox/operations", "الفرز والمتابعة", Headphones], ["/dashboard/whatsapp/blacklist", "منع الإرسال", ShieldBan],
   ] },
   { label: "الأتمتة والمتاجر", items: [
-    ["/dashboard/whatsapp/automations", "الأتمتة", Workflow], ["/dashboard/whatsapp/carts", "السلال المتروكة", ShoppingCart],
+    ["/dashboard/whatsapp/automations", "الأتمتة", Workflow], ["/dashboard/whatsapp/bots", "بوت المحادثات", Headphones], ["/dashboard/whatsapp/carts", "السلال المتروكة", ShoppingCart],
     ["/dashboard/whatsapp/integrations", "التكاملات", Plug], ["/dashboard/whatsapp/links", "الروابط المختصرة", Link2], ["/dashboard/reminders", "التذكيرات", Clock3],
   ] },
   { label: "التشغيل والمساعدة", items: [

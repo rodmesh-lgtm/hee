@@ -2,13 +2,14 @@
 import { useState } from "react";
 import { AutoShortLinkInput } from "./auto-short-link-input";
 import { SallaProductPicker } from "./salla-product-picker";
+import { ProductCarouselPicker } from "./product-carousel-picker";
 import { uploadCampaignMediaAction } from "../../../actions/whatsapp-campaign-media";
 
 import { campaignTemplateFields, resolveCampaignComposition, type Binding, type Composition } from "../../../lib/whatsapp/campaign-composition";
 
 const control = "mt-1 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900";
 export type PreviewContact = { id: string; displayName: string | null; phoneE164: string; email: string | null; attributes: unknown };
-export function MessageComposer({ components, value, onChange, sampleContacts = [] }: { components: unknown; value: Composition; onChange: (value: Composition) => void; sampleContacts?: PreviewContact[] }) {
+export function MessageComposer({ components, value, onChange, sampleContacts = [], connectionId = "" }: { components: unknown; value: Composition; onChange: (value: Composition) => void; sampleContacts?: PreviewContact[]; connectionId?: string }) {
   const spec = campaignTemplateFields(components);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -19,6 +20,7 @@ export function MessageComposer({ components, value, onChange, sampleContacts = 
   try { preview = resolveCampaignComposition(components, value, sample ?? { displayName: "عميل تجريبي", phoneE164: "+966500000000", email: "example@example.com" }).values; } catch { /* Required fields remain visible below. */ }
   const body = (Array.isArray(components) ? components : []).find((c) => c?.type === "BODY")?.text ?? "";
   return <section className="space-y-4" aria-label="تخصيص رسالة الحملة">
+    {spec.productCarousel ? <ProductCarouselPicker key={connectionId} connectionId={connectionId} value={value.productCarousel} onChange={productCarousel => onChange({ ...value, productCarousel })}/> : null}
     <SallaProductPicker key={JSON.stringify(components)} fields={spec.fields.filter(field => field.component !== "button").map(field => ({ key: field.key, label: `${field.component === "body" ? "نص الرسالة" : "العنوان"} · ${field.variable}` }))} onUse={(key, text) => update(key, { source: "literal", value: text })}/>
     {sampleContacts.length ? <label className="block text-xs font-bold text-slate-700">بيانات المعاينة<select value={sampleId} onChange={(e) => setSampleId(e.target.value)} className={control}><option value="">بيانات تجريبية</option>{sampleContacts.map((c) => <option key={c.id} value={c.id}>{c.displayName || c.phoneE164}</option>)}</select><span className="mt-1 block text-xs font-normal text-slate-500">المعاينة لا ترسل رسالة ولا تضيف العميل إلى الجمهور المختار.</span></label> : null}
     <label className="block text-xs font-bold text-slate-700">وجهة رابط تتبع الحملة (اختياري)<input type="url" value={value.trackingDestination ?? ""} onChange={(e) => onChange({ ...value, trackingDestination: e.target.value })} placeholder="https://ir.sa/your-page" dir="ltr" className={control}/><span className="mt-1 block text-xs font-normal leading-6 text-slate-500">يتطلب زرًا ديناميكيًا في القالب بعنوان https://ir.sa/api/whatsapp/campaign-link/&#123;&#123;1&#125;&#125;. ضع أي قيمة تجريبية لمتغير الزر؛ ينشئ الخادم رابطًا فريدًا لكل مستلم. يقيس النقرات والحجوزات من نفس المتصفح خلال 7 أيام.</span></label>

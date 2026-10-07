@@ -7,6 +7,7 @@ import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, retryD
 import { whatsAppCustomerServiceWindow } from "./inbox-domain";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "./meta-config";
 import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
+import { botReplyAllowed } from "./bot-store";
 
 type Job = { id: string; businessId: string; connectionId: string; conversationId: string; attemptCount: number };
 const record = (value: unknown) => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -40,6 +41,7 @@ export async function processNextWhatsAppReply(input: { database?: PrismaClient;
   const slot = await database.$queryRaw<Array<{ sentCount: number }>>(Prisma.sql`INSERT INTO "WhatsAppSendRateBucket" ("connectionId","businessId","windowStart","sentCount","updatedAt") VALUES (${job.connectionId},${job.businessId},${windowStart},1,${now}) ON CONFLICT ("connectionId","windowStart") DO UPDATE SET "sentCount"="WhatsAppSendRateBucket"."sentCount"+1,"updatedAt"=${now} WHERE "WhatsAppSendRateBucket"."businessId"=${job.businessId} AND "WhatsAppSendRateBucket"."sentCount" < ${outboundRateLimit(env)} RETURNING "sentCount"`);
   if (!slot.length) { await release(database, job.id, "retry_scheduled", { nextAttemptAt: new Date((Math.floor(now.getTime() / 60_000) + 1) * 60_000), lastErrorCode: "LOCAL_RATE_LIMIT" }); return { processed: true as const, result: "rate_limited" as const }; }
   let response: Response;
+  if (!await botReplyAllowed(database, job.id, job.businessId)) { await release(database, job.id, "cancelled", { lastErrorCode: "BOT_REPLY_NO_LONGER_ELIGIBLE" }); return { processed: true as const, result: "cancelled" as const }; }
   try { response = await (input.fetcher ?? fetch)(metaWhatsAppGraphUrl(config, `${context.connection.phoneNumberId}/messages`), { method: "POST", cache: "no-store", signal: AbortSignal.timeout(15_000), headers: { authorization: `Bearer ${token}`, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: context.conversation.customerPhoneE164, type: "text", text: { preview_url: false, body: context.textBody } }) }); }
   catch { await release(database, job.id, "delivery_unknown", { lastErrorCode: "META_NETWORK_OUTCOME_UNKNOWN" }); return { processed: true as const, result: "delivery_unknown" as const }; }
   const payload: unknown = await response.json().catch(() => null);

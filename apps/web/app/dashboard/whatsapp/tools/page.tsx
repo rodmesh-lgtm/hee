@@ -5,6 +5,7 @@ import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
 import { WorkspaceHeading } from "../_components/workspace-ui";
 const groups = [
   { title: "الجمهور والرسائل", description: "جهّز قائمة العملاء والرسالة، ثم تابع التسليم.", items: [
+    { title: "كاروسيل منتجات واتساب", text: "إنشاء قالب بطاقات منتجات Meta واختيار منتجات الكتالوج داخل الحملات.", href: "/dashboard/whatsapp/carousel", icon: ShoppingCart },
     { title: "قائمة العملاء والشرائح", text: "استيراد الجمهور، توثيق الموافقة، اختيار مجموعات العملاء وحذف الجهات المحددة.", href: "/dashboard/whatsapp/contacts", icon: ContactRound },
     { title: "القوالب ومراجعة Meta", text: "قوالب مخصصة ونماذج عربية، مع متابعة اعتماد الرسائل ووسائطها.", href: "/dashboard/whatsapp/templates", icon: FileText },
     { title: "الحملات الترويجية", text: "اختيار الرقم والجمهور والقالب، معاينة الرسالة، ثم الجدولة والتقرير المباشر.", href: "/dashboard/whatsapp/campaigns", icon: Megaphone },
@@ -13,6 +14,7 @@ const groups = [
     { title: "قائمة منع الإرسال", text: "مراجعة الأرقام المنسحبة وإضافة رقم إلى المنع داخل منشأتك.", href: "/dashboard/whatsapp/blacklist", icon: ShieldBan },
   ] },
   { title: "المتاجر وخدمة العملاء", description: "اربط الأحداث، نظّم المتابعة، وسهّل الزيارة.", items: [
+    { title: "بوت المحادثات", text: "أسئلة معتمدة أو معرفة منشأتك مع تجربة الردود والتحويل لفريق خدمة العملاء.", href: "/dashboard/whatsapp/bots", icon: Headphones },
     { title: "السلال المتروكة", text: "حالات السلال والعملاء الذين يحتاجون متابعة حسب بيانات المتجر.", href: "/dashboard/whatsapp/carts", icon: ShoppingCart },
     { title: "الأتمتة", text: "رسائل الترحيب والمتابعة والسلال من أحداث موثوقة وقوالب معتمدة.", href: "/dashboard/whatsapp/automations", icon: Workflow },
     { title: "صندوق المحادثات", text: "ردود الموظفين، سياق العميل وإدارة نافذة الخدمة.", href: "/dashboard/whatsapp/inbox", icon: MessageCircle },
