@@ -1498,7 +1498,10 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     if (!seeded) throw new Error("fixture missing");
     const businessId=seeded.businessId;
     const plan=await db.businessPlan.findUniqueOrThrow({where:{code:"BUSINESS"}});
-    const subscription=await db.subscription.create({data:{businessId,planId:plan.id,status:"active",provider:"internal",startsAt:new Date(Date.now()-60000),endsAt:new Date(Date.now()+86400000),autoRenew:false}});
+    const previousSubscription=await db.subscription.findFirst({where:{businessId,status:"active"}});
+    const subscription=previousSubscription
+      ? await db.subscription.update({where:{id:previousSubscription.id},data:{planId:plan.id}})
+      : await db.subscription.create({data:{businessId,planId:plan.id,status:"active",provider:"internal",startsAt:new Date(Date.now()-60000),endsAt:new Date(Date.now()+86400000),autoRenew:false}});
     const foreign=await db.business.create({data:{ownerId:seeded.adminUserId,planId:plan.id,name:"منشأة منع أخرى",businessType:"خدمات",slug:`foreign-workspace-${crypto.randomUUID()}`}});
     const phone="+966599998871", ownText="WORKSPACE_OWN_MESSAGE", foreignText="WORKSPACE_FOREIGN_MESSAGE";
     const conversationIds:string[]=[];
@@ -1543,7 +1546,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.whatsAppConsent.deleteMany({where:{businessId:{in:[businessId,foreign.id]},phoneE164:phone}});
       await db.whatsAppContact.deleteMany({where:{businessId:{in:[businessId,foreign.id]},phoneE164:phone}});
       await db.business.delete({where:{id:foreign.id}});
-      await db.subscription.delete({where:{id:subscription.id}});
+      if(previousSubscription) await db.subscription.update({where:{id:subscription.id},data:{planId:previousSubscription.planId}});
+      else await db.subscription.delete({where:{id:subscription.id}});
     }
   });
 
