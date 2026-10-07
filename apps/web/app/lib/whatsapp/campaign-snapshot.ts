@@ -6,6 +6,7 @@ import { db } from "../db";
 import { boundedTemplateParameters, parseCampaignAudience } from "./campaign-domain";
 import { campaignTemplateFields, resolveCampaignComposition, type Composition } from "./campaign-composition";
 import type { CampaignSendPolicy } from "./campaign-send-policy";
+import { validateMetaCarousel } from "./meta-catalog";
 
 type CampaignDb = Pick<PrismaClient, "$transaction">;
 type Candidate = { id: string; phoneE164: string; displayName: string | null; email?: string | null; attributes?: unknown };
@@ -21,6 +22,11 @@ export async function snapshotWhatsAppCampaign(input: {
 }) {
   const database = input.database ?? db;
   const now = input.now ?? new Date();
+  const carouselConnection = input.composition?.productCarousel ? await database.$transaction(tx => tx.whatsAppCampaign.findFirst({ where: { id: input.campaignId, businessId: input.businessId }, select: { connectionId: true } })) : null;
+  if (input.composition?.productCarousel) {
+    if (!carouselConnection) throw new Error("WHATSAPP_CAMPAIGN_NOT_FOUND");
+    await validateMetaCarousel({ businessId: input.businessId, connectionId: carouselConnection.connectionId, database, selection: input.composition.productCarousel });
+  }
 
   return database.$transaction(async (tx) => {
     const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
@@ -44,6 +50,7 @@ export async function snapshotWhatsAppCampaign(input: {
       },
     });
     if (!campaign) throw new Error("WHATSAPP_CAMPAIGN_NOT_FOUND");
+    if (carouselConnection && carouselConnection.connectionId !== campaign.connectionId) throw new Error("WHATSAPP_CAMPAIGN_TEMPLATE_CONNECTION_MISMATCH");
     if (campaign.status === "ready" && campaign.snapshotAt) {
       return { campaignId: campaign.id, totalRecipients: campaign.totalRecipients, alreadySnapshotted: true as const };
     }
@@ -132,6 +139,7 @@ export async function snapshotWhatsAppCampaign(input: {
       sendPolicy: input.sendPolicy ?? null,
       trackingDestination: input.composition?.trackingDestination ?? null,
       mediaUrl: input.composition?.mediaUrl ?? null,
+      productCarousel: input.composition?.productCarousel ?? null,
       id: campaign.template.id,
       providerTemplateId: campaign.template.providerTemplateId,
       name: campaign.template.name,

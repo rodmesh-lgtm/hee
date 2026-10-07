@@ -17,6 +17,7 @@ import { processNextWhatsAppDelivery } from "./delivery-worker";
 import { enqueueWhatsAppCampaign } from "./delivery-queue";
 import type { WHATSAPP_OPERATION_STAGES } from "./operations-worker";
 import { processNextWhatsAppReply } from "./reply-worker";
+import { processNextServiceBotTurn } from "./bot-worker";
 import { detectNextAbandonedShopifyCart } from "./shopify-abandoned-cart-detector";
 import { processNextShopifyWebhookEvent } from "./shopify-webhook-processor";
 import { processNextShopifyWebhookSubscriptionSync } from "./shopify-webhook-subscriptions";
@@ -107,6 +108,7 @@ async function runDeliveries(env: NodeJS.ProcessEnv) {
 }
 
 async function runReplies(env: NodeJS.ProcessEnv) {
+  await processNextServiceBotTurn({ env });
   const batchSize = boundedBatch(env, "WHATSAPP_REPLY_BATCH_SIZE", 100, 500);
   for (let index = 0; index < batchSize; index += 1) { const result = await processNextWhatsAppReply(); if (!result.processed) break; }
 }

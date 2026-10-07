@@ -125,6 +125,8 @@ jobs:
         run: node --test ../../.github/scripts/preserve-operational-flags.test.mjs
       - name: Verify Salla cart lifecycle without sending messages
         run: node --conditions=react-server --import tsx scripts/salla-cart-lifecycle-audit.ts
+      - name: Verify bot lifecycle and product carousel isolation without external requests
+        run: node --conditions=react-server --import tsx scripts/whatsapp-bot-carousel-audit.ts
       - name: Production build
         run: npm run build
       - name: Install Playwright Chromium
