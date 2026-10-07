@@ -645,15 +645,15 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         try {
           await page.goto(`${baseUrl}/dashboard/whatsapp/carts`, { waitUntil: "domcontentloaded" });
           await expect(page.getByRole("heading", { name: "السلال المتروكة والمتابعة" })).toBeVisible();
-          await expect(page.locator("article")).toHaveCount(1);
-          await expect(page.locator("article")).toContainText("cart-visible");
+          await expect(page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article")).toHaveCount(1);
+          await expect(page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article")).toContainText("cart-visible");
           await expect(page.locator("body")).not.toContainText("FOREIGN_CART_PRIVATE");
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
-          if (theme === "dark") expect(await page.locator("article").evaluate(node => { const rgb = getComputedStyle(node.parentElement!.parentElement!).backgroundColor.match(/\d+/g)?.slice(0,3).map(Number); return rgb?.every(value => value > 220); })).toBe(false);
+          if (theme === "dark") expect(await page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article").evaluate(node => { const rgb = getComputedStyle(node.parentElement!.parentElement!).backgroundColor.match(/\d+/g)?.slice(0,3).map(Number); return rgb?.every(value => value > 220); })).toBe(false);
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-cart-report.png`, fullPage: true });
           await page.locator('select[name="state"]').selectOption("recovered");
           await page.getByRole("button", { name: "بحث", exact: true }).click();
-          await expect(page.locator("article")).toHaveCount(0);
+          await expect(page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article")).toHaveCount(0);
           console.info("commerce audit: cart filtering verified", viewport.name, theme);
           await page.goto(`${baseUrl}/dashboard/whatsapp/templates`, { waitUntil: "domcontentloaded" });
           await expect(page.getByRole("heading", { name: "إنشاء قالب أو تعديل قالب موجود", exact: true })).toBeVisible();
@@ -1490,6 +1490,64 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     } finally {
       if (existing[0]) await db.$executeRaw(Prisma.sql`UPDATE "PlatformDesignSetting" SET "draft"=${JSON.stringify(existing[0].draft)}::jsonb, "published"=${JSON.stringify(existing[0].published)}::jsonb WHERE "key"=${key}`);
       else await db.$executeRaw`DELETE FROM "PlatformDesignSetting" WHERE "key"=${key}`;
+    }
+  });
+
+  test("whatsapp workspace tools isolate message exports and contact blocking across tenants", async ({ browser, request }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("fixture missing");
+    const businessId=seeded.businessId;
+    const plan=await db.businessPlan.findUniqueOrThrow({where:{code:"BUSINESS"}});
+    const previousSubscription=await db.subscription.findFirst({where:{businessId,status:"active"}});
+    const subscription=previousSubscription
+      ? await db.subscription.update({where:{id:previousSubscription.id},data:{planId:plan.id}})
+      : await db.subscription.create({data:{businessId,planId:plan.id,status:"active",provider:"internal",startsAt:new Date(Date.now()-60000),endsAt:new Date(Date.now()+86400000),autoRenew:false}});
+    const foreign=await db.business.create({data:{ownerId:seeded.adminUserId,planId:plan.id,name:"منشأة منع أخرى",businessType:"خدمات",slug:`foreign-workspace-${crypto.randomUUID()}`}});
+    const phone="+966599998871", ownText="WORKSPACE_OWN_MESSAGE", foreignText="WORKSPACE_FOREIGN_MESSAGE";
+    const conversationIds:string[]=[];
+    for(const tenant of [businessId,foreign.id]) {
+      const conversation=await db.whatsAppConversation.create({data:{businessId:tenant,phoneNumberId:crypto.randomUUID(),customerPhoneE164:phone,customerDisplayName:tenant===businessId?"عميل سجل الرسائل":"عميل منشأة أخرى"}});
+      conversationIds.push(conversation.id);
+      await db.whatsAppMessage.create({data:{businessId:tenant,conversationId:conversation.id,providerMessageId:crypto.randomUUID(),direction:"outbound",messageType:"text",status:"read",textBody:tenant===businessId?ownText:foreignText,readAt:new Date()}});
+      await db.whatsAppContact.create({data:{businessId:tenant,phoneE164:phone,source:"manual",displayName:"عميل فحص المنع"}});
+      await db.whatsAppConsent.create({data:{businessId:tenant,phoneE164:phone,source:"manual",evidence:"isolated visual fixture",consentedAt:new Date()}});
+    }
+    try {
+      expect((await request.get(`${baseUrl}/api/dashboard/whatsapp/message-export`)).status()).toBe(403);
+      for(const viewport of [{name:"mobile",value:{width:390,height:844}},{name:"desktop",value:{width:1440,height:960}}]) for(const theme of ["light","dark"] as const) {
+        const context=await authenticatedContext(browser,viewport.value,theme,seeded.sessionToken);
+        try {
+          for(const path of ["messages","blacklist","guides","tools","carts"]) await auditRoute(context,{path:`/dashboard/whatsapp/${path}`,name:`workspace-${path}`,theme,viewportName:viewport.name});
+          const page=await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/messages?q=${ownText}&status=read`);
+          await expect(page.getByText(ownText,{exact:true})).toBeVisible();
+          await expect(page.getByText(foreignText,{exact:true})).toHaveCount(0);
+          if(viewport.name==="mobile"&&theme==="light") {
+            const exported=await context.request.get(`${baseUrl}/api/dashboard/whatsapp/message-export?q=${ownText}&status=read`);
+            expect(exported.status()).toBe(200);
+            const csv=await exported.text();expect(csv).toContain(ownText);expect(csv).not.toContain(foreignText);
+            await page.goto(`${baseUrl}/dashboard/whatsapp/blacklist`);
+            await page.locator('input[name="phone"]').fill(phone);
+            await page.locator('input[name="confirm"]').check();
+            await page.getByRole("button",{name:"إضافة إلى قائمة المنع",exact:true}).click();
+            await expect(page).toHaveURL(/result=blocked/);
+            const own=await db.whatsAppContact.findUniqueOrThrow({where:{businessId_phoneE164:{businessId,phoneE164:phone}}});
+            expect(own.optedOutAt).not.toBeNull();
+            expect((await db.whatsAppConsent.findUniqueOrThrow({where:{businessId_phoneE164:{businessId,phoneE164:phone}}})).revokedAt).not.toBeNull();
+            expect((await db.whatsAppContact.findUniqueOrThrow({where:{businessId_phoneE164:{businessId:foreign.id,phoneE164:phone}}})).optedOutAt).toBeNull();
+            expect((await db.whatsAppConsent.findUniqueOrThrow({where:{businessId_phoneE164:{businessId:foreign.id,phoneE164:phone}}})).revokedAt).toBeNull();
+          }
+          await page.close();
+        } finally {await context.close();}
+      }
+    } finally {
+      await db.whatsAppMessage.deleteMany({where:{conversationId:{in:conversationIds}}});
+      await db.whatsAppConversation.deleteMany({where:{id:{in:conversationIds}}});
+      await db.whatsAppConsent.deleteMany({where:{businessId:{in:[businessId,foreign.id]},phoneE164:phone}});
+      await db.whatsAppContact.deleteMany({where:{businessId:{in:[businessId,foreign.id]},phoneE164:phone}});
+      await db.business.delete({where:{id:foreign.id}});
+      if(previousSubscription) await db.subscription.update({where:{id:subscription.id},data:{planId:previousSubscription.planId}});
+      else await db.subscription.delete({where:{id:subscription.id}});
     }
   });
 
