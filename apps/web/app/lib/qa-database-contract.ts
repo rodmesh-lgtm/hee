@@ -85,6 +85,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20260929194000_business_short_links",
   "20261003130000_whatsapp_contact_soft_delete",
   "20261006083000_booking_visitor_verification",
+  "20261007130000_whatsapp_service_bot",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;
