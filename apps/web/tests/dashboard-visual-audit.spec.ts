@@ -645,8 +645,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         try {
           await page.goto(`${baseUrl}/dashboard/whatsapp/carts`, { waitUntil: "domcontentloaded" });
           await expect(page.getByRole("heading", { name: "السلال المتروكة والمتابعة" })).toBeVisible();
-          await expect(page.locator("article")).toHaveCount(1);
-          await expect(page.locator("article")).toContainText("cart-visible");
+          await expect(page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article")).toHaveCount(1);
+          await expect(page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article")).toContainText("cart-visible");
           await expect(page.locator("body")).not.toContainText("FOREIGN_CART_PRIVATE");
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
           if (theme === "dark") expect(await page.locator("article").evaluate(node => { const rgb = getComputedStyle(node.parentElement!.parentElement!).backgroundColor.match(/\d+/g)?.slice(0,3).map(Number); return rgb?.every(value => value > 220); })).toBe(false);
