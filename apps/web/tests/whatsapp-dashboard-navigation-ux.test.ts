@@ -16,11 +16,13 @@ test("WhatsApp dashboard gives every nested page persistent parent navigation", 
 });
 
 test("WhatsApp dashboard exposes all operational sections in persistent local navigation", () => {
-  for (const route of ["contacts", "templates", "campaigns", "automations", "integrations", "inbox", "setup", "audit"]) {
+  for (const route of ["contacts", "templates", "campaigns", "automations", "integrations", "inbox", "setup", "audit", "messages", "blacklist", "guides", "tools", "carts"]) {
     assert.match(sectionNav, new RegExp(`/dashboard/whatsapp/${route}`));
   }
   assert.match(sectionNav, /aria-label="أقسام تسويق واتساب"/);
-  assert.match(sectionNav, /aria-current=\{active \? "page"/);
-  assert.match(sectionNav, /overflow-x-auto/);
-  assert.match(sectionNav, /min-h-11/);
+  assert.match(sectionNav, /aria-current=\{active\(href\) \? "page"/);
+  assert.match(sectionNav, /aria-pressed=/);
+  const css=fs.readFileSync(path.join(root,"app/dashboard/whatsapp/workspace.css"),"utf8");
+  assert.match(css, /flex-wrap:wrap/);
+  assert.match(css, /min-height:46px/);
 });
