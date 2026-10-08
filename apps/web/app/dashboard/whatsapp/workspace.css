@@ -20,3 +20,7 @@
 .wa-page textarea { width: 100%; min-width: 0; resize: vertical; background: var(--wa-soft); border: 1px solid var(--wa-border); border-radius: 12px; padding: 12px; color: var(--wa-text); font-size: 16px; line-height: 1.8; }
 .wa-button:disabled { opacity: .55; cursor: not-allowed; }
 .wa-guide-steps { list-style: decimal; padding-inline-start: 1.5rem; line-height: 2; color: var(--wa-muted); font-size: 14px; }
+
+.wa-ai-bot{min-width:0}.wa-ai-bot .wa-block-row{border-bottom-left-radius:0;border-bottom-right-radius:0}.wa-ai-usage{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:14px 18px 8px;font-size:13px;color:var(--wa-muted);border-inline:1px solid var(--wa-border)}.wa-ai-bot meter{display:block;box-sizing:border-box;width:100%;height:24px;padding:0 18px 10px;border:1px solid var(--wa-border);border-top:0;border-radius:0 0 16px 16px;background:var(--wa-surface);accent-color:var(--wa-accent)}.wa-ai-bot meter::-webkit-meter-bar{background:var(--wa-soft);border:0;border-radius:10px}.wa-ai-bot meter::-webkit-meter-optimum-value{background:var(--wa-accent);border-radius:10px}
+
+.wa-ai-filter{display:grid;gap:8px;flex:1 1 180px;min-width:0}.wa-filters .wa-ai-filter label{display:block}
