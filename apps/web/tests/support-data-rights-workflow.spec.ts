@@ -42,7 +42,7 @@ test.describe.serial("customer support and data rights", () => {
       await expect(page).toHaveURL(/\/dashboard\/support\?context=booking/);
       await expect(page.locator("#dashboard-main-content").getByRole("heading", { name: "الدعم والمساعدة" })).toBeVisible();
       await expect(page.getByPlaceholder("صف المشكلة باختصار")).toHaveValue("مساعدة في المواعيد والحجوزات");
-      await page.locator('select[name="category"]').selectOption("technical");
+      await page.getByLabel("نوع الطلب", { exact: true }).selectOption("technical");
       await page.getByPlaceholder("صف المشكلة باختصار").fill("مشكلة اختبار الدعم");
       await page.getByPlaceholder(/اذكر التفاصيل/).fill("تفاصيل فنية لاختبار مسار دعم العميل وربط الطلب بالمنشأة الصحيحة.");
       await page.getByRole("button", { name: "إرسال الطلب" }).click();
