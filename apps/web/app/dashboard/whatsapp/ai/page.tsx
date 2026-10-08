@@ -42,7 +42,7 @@ export default async function AiPage({ searchParams }: { searchParams: Promise<R
       {!ready ? <p className="wa-notice">مركز المتابعة ينتظر اكتمال إعداد تخزين البوت.</p> : null}
     </section>
     <section className="wa-panel">
-      <form className="wa-filters"><label htmlFor="ai-report-days">فترة التقرير<select id="ai-report-days" name="days" defaultValue={days}><option value={1}>آخر 24 ساعة</option><option value={7}>آخر 7 أيام</option><option value={30}>آخر 30 يومًا</option></select></label><button className="wa-button wa-secondary">عرض التقرير</button></form>
+      <form className="wa-filters"><div className="wa-ai-filter"><label htmlFor="ai-report-days">فترة التقرير</label><select id="ai-report-days" name="days" defaultValue={days}><option value={1}>آخر 24 ساعة</option><option value={7}>آخر 7 أيام</option><option value={30}>آخر 30 يومًا</option></select></div><button className="wa-button wa-secondary">عرض التقرير</button></form>
       <div className="wa-metrics"><WorkspaceMetric label="محاولات المعالجة" value={report.summary.total} hint="تشمل المعالجة والتجاوز والتحويل"/><WorkspaceMetric label="ردود قبلتها Meta" value={report.summary.sent} hint="لا يعني قبول الرسالة وصولها أو قراءتها"/><WorkspaceMetric label="تحويل إلى الفريق" value={report.summary.handoff} hint="ضمن الفترة المحددة"/><WorkspaceMetric label="تعذر التجهيز أو الإرسال" value={report.summary.failed} hint="راجع سجل النشاط للمتابعة"/></div>
       <p className="wa-note mt-4">الأرقام تشمل الأسئلة المعتمدة والردود الذكية؛ لا تمثل عدد رموز الذكاء الاصطناعي أو فاتورة استخدامه.</p>
     </section>
