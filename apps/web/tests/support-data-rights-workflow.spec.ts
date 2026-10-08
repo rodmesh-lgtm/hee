@@ -42,7 +42,7 @@ test.describe.serial("customer support and data rights", () => {
       await expect(page).toHaveURL(/\/dashboard\/support\?context=booking/);
       await expect(page.locator("#dashboard-main-content").getByRole("heading", { name: "الدعم والمساعدة" })).toBeVisible();
       await expect(page.getByPlaceholder("صف المشكلة باختصار")).toHaveValue("مساعدة في المواعيد والحجوزات");
-      await page.locator('select[name="category"]').selectOption("technical");
+      await page.getByLabel("نوع الطلب", { exact: true }).selectOption("technical");
       await page.getByPlaceholder("صف المشكلة باختصار").fill("مشكلة اختبار الدعم");
       await page.getByPlaceholder(/اذكر التفاصيل/).fill("تفاصيل فنية لاختبار مسار دعم العميل وربط الطلب بالمنشأة الصحيحة.");
       await page.getByRole("button", { name: "إرسال الطلب" }).click();
@@ -90,4 +90,79 @@ test.describe.serial("customer support and data rights", () => {
       if (adminBusinesses === 0) await db.user.delete({ where: { id: admin.id } }).catch(() => undefined);
     }
   });
+  test("support history searches older tickets, paginates and isolates customer-visible data", async ({ page }) => {
+    test.setTimeout(90_000);
+    const suffix = crypto.randomUUID();
+    const owner = await db.user.create({ data: { name: "History Owner", email: `history-${suffix}@hee.test`, passwordHash: "rc-only", emailVerifiedAt: new Date() } });
+    const otherOwner = await db.user.create({ data: { name: "Other History Owner", email: `other-history-${suffix}@hee.test`, passwordHash: "rc-only", emailVerifiedAt: new Date() } });
+    const business = await db.business.create({ data: { ownerId: owner.id, name: "سجل الدعم التجريبي", slug: `history-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
+    const other = await db.business.create({ data: { ownerId: otherOwner.id, name: "منشأة أخرى", slug: `history-other-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
+    const token = crypto.randomUUID();
+    await db.session.create({ data: { token, userId: owner.id, expiresAt: new Date(Date.now() + 3_600_000) } });
+    try {
+      const now = Date.now();
+      await db.analyticsEvent.createMany({ data: Array.from({ length: 24 }, (_, index) => ({
+        businessId: business.id, eventType: "support_requested", createdAt: new Date(now-index*1000),
+        metadata: { subject: `طلب متكرر ${index}`, message: "معلومات الطلب", category: "account", status: "open", requestedByEmail: "PRIVATE_INTERNAL_MARKER" },
+      })) });
+      const old = await db.analyticsEvent.create({ data: { businessId: business.id, eventType: "support_requested", createdAt: new Date(now-60_000), metadata: {
+        subject: "طلب قديم بنسبة 100%_", message: "تفاصيل فريدة تظهر عند فتح الطلب", category: "technical", status: "resolved", resolutionNote: "تم إصلاح تعارض الموعد", requestedByEmail: "PRIVATE_INTERNAL_MARKER",
+      } } });
+      await db.analyticsEvent.create({ data: { businessId: business.id, eventType: "support_requested", createdAt: new Date(now-61_000), metadata: { subject: "طلب قديم بلا حالة", message: "legacy ticket" } } });
+      await db.analyticsEvent.createMany({ data: [
+        { businessId: other.id, eventType: "support_requested", metadata: { subject: "OTHER_TENANT_MARKER", message: "طلب قديم بنسبة 100%_", status: "resolved", category: "technical" } },
+        { businessId: business.id, eventType: "page_view", metadata: { subject: "WRONG_EVENT_MARKER", message: "طلب قديم بنسبة 100%_" } },
+      ] });
+      await setSession(page, token);
+      await page.goto(`${baseUrl}/dashboard/support?context=booking`);
+      const history = page.getByRole("region", { name: "سجل طلبات الدعم", exact: true });
+      const summary = page.getByRole("region", { name: "ملخص طلبات الدعم", exact: true });
+      await expect(history.getByRole("status")).toHaveText("٢٦ طلب مطابق");
+      await expect(history.locator("article")).toHaveCount(20);
+      await expect(summary.locator("article").filter({ hasText: "طلبات مفتوحة" })).toContainText("٢٥");
+      await expect(summary.locator("article").filter({ hasText: "طلبات تمت معالجتها" })).toContainText("١");
+      await history.getByRole("link", { name: "التالي", exact: true }).click();
+      await expect(page).toHaveURL(/context=booking.*page=2/);
+      await expect(history.locator("article")).toHaveCount(6);
+      const oldTicket = history.locator("article").filter({ hasText: "طلب قديم بنسبة" });
+      await oldTicket.locator("summary").click();
+      await expect(oldTicket.getByText("تفاصيل فريدة تظهر عند فتح الطلب", { exact: true })).toBeVisible();
+      await expect(oldTicket.getByText(old.id, { exact: true })).toBeVisible();
+      await expect(oldTicket.getByText("تم إصلاح تعارض الموعد", { exact: true })).toBeVisible();
+      await history.getByRole("searchbox", { name: "البحث في طلبات الدعم" }).fill("100%_");
+      await history.getByLabel("حالة الطلب", { exact: true }).selectOption("resolved");
+      await history.getByLabel("تصنيف الطلب", { exact: true }).selectOption("technical");
+      await history.getByRole("button", { name: "بحث في السجل", exact: true }).click();
+      await expect(history.getByRole("status")).toHaveText("١ طلب مطابق");
+      await expect(history.locator("article")).toHaveCount(1);
+      await expect(history).toContainText("طلب قديم بنسبة 100%_");
+      await expect(page).toHaveURL(/context=booking/);
+      await expect(page.getByLabel("العنوان", { exact: true })).toHaveValue("مساعدة في المواعيد والحجوزات");
+      await history.getByRole("searchbox", { name: "البحث في طلبات الدعم" }).fill("إصلاح تعارض");
+      await history.getByRole("button", { name: "بحث في السجل", exact: true }).click();
+      await expect(history.getByRole("status")).toHaveText("١ طلب مطابق");
+      for (const query of ["PRIVATE_INTERNAL_MARKER", "OTHER_TENANT_MARKER", "' OR 1=1 --"]) {
+        await history.getByRole("searchbox", { name: "البحث في طلبات الدعم" }).fill(query);
+        await history.getByRole("button", { name: "بحث في السجل", exact: true }).click();
+        await expect(history.getByRole("status")).toHaveText("٠ طلب مطابق");
+        await expect(history).toContainText("لا توجد طلبات تطابق البحث والتصفية.");
+      }
+      await history.getByRole("link", { name: "مسح تصفية الطلبات", exact: true }).click();
+      await expect(history.getByRole("status")).toHaveText("٢٦ طلب مطابق");
+      await expect(history.getByRole("searchbox")).toHaveValue("");
+      await expect(history.getByLabel("حالة الطلب", { exact: true })).toHaveValue("all");
+      await page.goto(`${baseUrl}/dashboard/support?page=999999&status=open`);
+      await expect(history.getByRole("status")).toHaveText("٢٥ طلب مطابق");
+      await expect(history.locator("article")).toHaveCount(5);
+      await expect(history).toContainText("طلب قديم بلا حالة");
+      await expect(history).not.toContainText("OTHER_TENANT_MARKER");
+      await expect(history).not.toContainText("WRONG_EVENT_MARKER");
+    } finally {
+      await db.analyticsEvent.deleteMany({ where: { businessId: { in: [business.id, other.id] } } });
+      await db.business.deleteMany({ where: { id: { in: [business.id, other.id] } } });
+      await db.session.deleteMany({ where: { userId: owner.id } });
+      await db.user.deleteMany({ where: { id: { in: [owner.id, otherOwner.id] } } });
+    }
+  });
+
 });

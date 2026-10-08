@@ -20,6 +20,10 @@ async function seedWorkspace():Promise<Seeded>{
   const user=await db.user.create({data:{name:"INFRO Visual QA",email:`infro-visual-${suffix}@hee.test`,passwordHash:"visual-only",emailVerifiedAt:new Date()}});
   const business=await db.business.create({data:{ownerId:user.id,planId:plan.id,name:"منشأة مراجعة INFRO",slug:`visual-audit-${suffix}`,businessType:"خدمات أعمال",shortDescription:"مساحة اختبار بصرية ووظيفية قبل الإطلاق",description:"بيانات مؤقتة لمراجعة واجهة INFRO.",phone:"0555000011",whatsapp:"966555000011",city:"الرياض",district:"العليا",isPublished:false,onboardingCompleted:true}});
   await db.service.create({data:{businessId:business.id,name:"استشارة أعمال",description:"خدمة اختبار",price:250,sortOrder:0}});
+  await db.analyticsEvent.createMany({data:[
+    {businessId:business.id,eventType:"support_requested",metadata:{subject:"متابعة ربط رقم واتساب",message:"طلب تجريبي لمراجعة خطوات الربط وظهور الرقم في لوحة المنشأة.",category:"technical",status:"open",context:"meta"}},
+    {businessId:business.id,eventType:"support_requested",metadata:{subject:"مراجعة فترة الاشتراك",message:"التحقق من تاريخ بداية الاشتراك ونهايته.",category:"billing",status:"resolved",resolutionNote:"تم توضيح فترة الاشتراك وتحديث بيانات العرض.",context:"billing"}},
+  ]});
   await db.branch.create({data:{businessId:business.id,name:"الفرع الرئيسي",city:"الرياض",district:"العليا",isMain:true,sortOrder:0}});
   const appointmentCustomer = await db.customer.create({data:{businessId:business.id,name:"عميل مراجعة المواعيد",phone:"966500009910"}});
   const appointmentBranch = await db.branch.findFirstOrThrow({where:{businessId:business.id}});
@@ -524,6 +528,17 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         await expect(help).toContainText("لا توجد أدلة تطابق البحث والتصنيف.");
         await help.getByRole("button",{name:"عرض جميع الأدلة",exact:true}).click();
         await expect(help.locator("details")).toHaveCount(7);
+        const supportHistory=page.getByRole("region",{name:"سجل طلبات الدعم",exact:true});
+        await expect(supportHistory.getByRole("status")).toHaveText("٢ طلب مطابق");
+        await supportHistory.getByRole("searchbox",{name:"البحث في طلبات الدعم"}).fill("ربط رقم");
+        await supportHistory.getByRole("button",{name:"بحث في السجل",exact:true}).click();
+        await expect(supportHistory.getByRole("status")).toHaveText("١ طلب مطابق");
+        await expect(page).toHaveURL(/context=templates/);
+        await supportHistory.locator("summary").click();
+        await expect(supportHistory.getByText("طلب تجريبي لمراجعة خطوات الربط وظهور الرقم في لوحة المنشأة.",{exact:true})).toBeVisible();
+        await supportHistory.getByRole("link",{name:"مسح تصفية الطلبات",exact:true}).click();
+        await expect(supportHistory.getByRole("status")).toHaveText("٢ طلب مطابق");
+        await supportHistory.locator("article").filter({hasText:"متابعة ربط رقم واتساب"}).locator("summary").click();
         const rights=page.getByRole("link",{name:"فتح دورة الحذف",exact:true});
         expect(await rights.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe("rgb(53, 228, 203)");
         expect(await rights.evaluate(el=>getComputedStyle(el).color)).toBe("rgb(7, 24, 27)");
