@@ -80,8 +80,8 @@ test.describe.serial("Business Memory → Smart Reminder execution chain",()=>{
     await pool.query(`INSERT INTO "BusinessNote" ("id","businessId","title","body","priority","noteType","tags","updatedAt") VALUES
       ($1,$2,'مراجعة عقد قديم %_','تفاصيل قديمة قابلة للبحث','urgent','decision',ARRAY['مرجع-قديم'],'2024-01-01'),
       ($3,$4,'بيانات منشأة أخرى %_','تفاصيل خاصة','urgent','decision',ARRAY['مرجع-قديم'],'2024-01-01')`,[`${prefix}-old-note`,own.businessId,`${prefix}-foreign-note`,foreign.businessId]);
-    await pool.query(`INSERT INTO "SmartReminder" ("id","businessId","createdByUserId","title","body","timezone","scheduledAt","status","progressPercent","deliveryChannels","updatedAt")
-      SELECT $1||'-completed-'||i,$2,$3,'تذكير مكتمل '||i,'عمل مكتمل','Asia/Riyadh','2024-01-01','completed',100,ARRAY['in_app'],NOW() FROM generate_series(1,201) i`,[prefix,own.businessId,own.userId]);
+    await pool.query(`INSERT INTO "SmartReminder" ("id","businessId","createdByUserId","title","body","timezone","scheduledAt","status","progressPercent","workCompletedAt","completedAt","deliveryChannels","updatedAt")
+      SELECT $1||'-completed-'||i,$2,$3,'تذكير مكتمل '||i,'عمل مكتمل','Asia/Riyadh','2024-01-01','completed',100,'2024-01-01','2024-01-01',ARRAY['in_app'],NOW() FROM generate_series(1,201) i`,[prefix,own.businessId,own.userId]);
     await pool.query(`INSERT INTO "SmartReminder" ("id","businessId","createdByUserId","title","body","timezone","scheduledAt","nextOccurrenceAt","status","deliveryChannels","updatedAt")
       SELECT $1||'-future-'||i,$2,$3,'متابعة قادمة '||i,CASE WHEN i=22 THEN 'مرجع نادر %_' ELSE 'تفاصيل العمل' END,'Asia/Riyadh','2050-01-01','2050-01-01','scheduled',ARRAY['in_app'],NOW() FROM generate_series(1,22) i`,[prefix,own.businessId,own.userId]);
     for(const [id,workspace,title] of [[reminderId,own,"متابعة تحتاج انتباه"],[`${prefix}-foreign-reminder`,foreign,"بيانات منشأة أخرى %_"]] as const){
@@ -159,6 +159,7 @@ test.describe.serial("Business Memory → Smart Reminder execution chain",()=>{
         for(const route of ["notes?q=%25_","reminders?tab=attention","notifications?tab=read&q=%25_","billing/manage?kind=renewal"]){
           await page.goto(`${baseUrl}/dashboard/${route}#history`);
           await expect(page.locator("#history")).toBeVisible();
+          await expect(page.locator("[data-dashboard-path]")).toHaveAttribute("data-dashboard-theme",theme);
           await expect(pager).toContainText("1–1 من 1 نتيجة");
           expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
           await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-${route.split("?")[0].replace("/","-")}-platform-workspace.png`});

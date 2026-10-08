@@ -78,7 +78,9 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Verify live campaign reports before broader visual audit
-        run: npx playwright test tests/dashboard-visual-audit.spec.ts --grep "campaign retries|live campaign report|customer workspace search|whatsapp workspace tools|commerce workspace isolates|service bot and carousel" --retries=0
+        run: |
+          npx playwright test tests/business-memory-reminder-flow.spec.ts --grep "complete platform histories" --retries=0
+          npx playwright test tests/dashboard-visual-audit.spec.ts --grep "campaign retries|live campaign report|customer workspace search|whatsapp workspace tools|commerce workspace isolates|service bot and carousel" --retries=0
       - name: Upload focused campaign screenshots for immediate review
         if: always()
         uses: actions/upload-artifact@v4
@@ -96,6 +98,7 @@ jobs:
           name: infro-customer-workspace-focused
           path: |
             /tmp/infro-visual-audit/*-customer-workspace.png
+            /tmp/infro-visual-audit/*-platform-workspace.png
             /tmp/infro-visual-audit/*-workspace-*.png
           if-no-files-found: warn
           retention-days: 7
