@@ -21,7 +21,7 @@ const groups = [
     { title: "صندوق المحادثات", text: "ردود الموظفين، سياق العميل وإدارة نافذة الخدمة.", href: "/dashboard/whatsapp/inbox", icon: MessageCircle },
     { title: "الفرز والمتابعة", text: "المسؤول والأولوية والمهل لمحادثات خدمة العملاء.", href: "/dashboard/whatsapp/inbox/operations", icon: Headphones },
     { title: "التذكيرات", text: "جدولة تذكيرات العمل ومتابعة القنوات وحالة التنفيذ.", href: "/dashboard/reminders", icon: Clock3 },
-    { title: "المواعيد والفروع", text: "ترتيب الحجوزات القادمة والجديدة وإعداد الفترات وسعة الفروع.", href: "/dashboard/appointments", icon: CalendarDays, BarChart3 },
+    { title: "المواعيد والفروع", text: "ترتيب الحجوزات القادمة والجديدة وإعداد الفترات وسعة الفروع.", href: "/dashboard/appointments", icon: CalendarDays },
     { title: "تكاملات المتاجر", text: "الربط الرسمي ومتابعة أحداث المتاجر ومزامنة بياناتها.", href: "/dashboard/whatsapp/integrations", icon: Plug },
   ] },
   { title: "التشغيل والمساعدة", description: "إدارة الحساب والاشتراك والوصول إلى الشروحات.", items: [
