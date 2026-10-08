@@ -106,9 +106,15 @@ test.describe.serial("Business Memory → Smart Reminder execution chain",()=>{
       await expect(page.getByText("تعذر تنفيذ العملية. لم نغيّر أي مذكرة غير مؤكدة.")).toHaveCount(0);
       await page.getByLabel("البحث في المذكرات",{exact:true}).fill("%_");
       await page.getByLabel("تصفية أولوية المذكرة").selectOption("urgent");
+      await page.getByLabel("تصفية حالة المذكرة").selectOption("all");
       await page.locator("#history").getByRole("button",{name:"تطبيق",exact:true}).click();
       await expect(pager).toContainText("1–1 من 1 نتيجة");
       await expect(page.getByRole("heading",{name:"مراجعة عقد قديم %_",exact:true})).toBeVisible();
+      await page.getByRole("link",{name:"مسح البحث والتصفية",exact:true}).click();
+      await expect(pager).toContainText("1–20 من 252 نتيجة");
+      await expect(page.getByLabel("البحث في المذكرات",{exact:true})).toHaveValue("");
+      await expect(page.getByLabel("تصفية أولوية المذكرة")).toHaveValue("all");
+      await expect(page.getByLabel("تصفية حالة المذكرة")).toHaveValue("active");
       await page.goto(`${baseUrl}/dashboard/notes?q=${encodeURIComponent("' OR 1=1 --")}`);
       await expect(pager).toContainText("لا توجد نتائج مطابقة");
       await page.goto(`${baseUrl}/dashboard/reminders?tab=upcoming`);
@@ -151,9 +157,15 @@ test.describe.serial("Business Memory → Smart Reminder execution chain",()=>{
       await expect(pager).toContainText("21–26 من 26 نتيجة");
       await page.getByLabel("البحث في المدفوعات",{exact:true}).fill("%_");
       await page.getByLabel("تصفية نوع العملية").selectOption("renewal");
+      await page.getByLabel("تصفية حالة الدفع").selectOption("paid");
       await page.locator("#history").getByRole("button",{name:"تطبيق",exact:true}).click();
       await expect(pager).toContainText("1–1 من 1 نتيجة");
       await expect(page.locator("#history").getByRole("link",{name:"عرض الإيصال"})).toHaveAttribute("href",`/dashboard/billing/receipt/${prefix}-payment-old-%_`);
+      await page.locator("#history").getByRole("link",{name:"مسح البحث والتصفية",exact:true}).click();
+      await expect(pager).toContainText("1–20 من 26 نتيجة");
+      await expect(page.getByLabel("البحث في المدفوعات",{exact:true})).toHaveValue("");
+      await expect(page.getByLabel("تصفية نوع العملية")).toHaveValue("all");
+      await expect(page.getByLabel("تصفية حالة الدفع")).toHaveValue("all");
       const {mkdir}=await import("node:fs/promises");
       const outDir=process.env.INFRO_VISUAL_AUDIT_DIR||"/tmp/infro-visual-audit";await mkdir(outDir,{recursive:true});
       for(const viewport of [{width:1440,height:960},{width:390,height:844}])for(const theme of ["light","dark"]){
@@ -165,6 +177,7 @@ test.describe.serial("Business Memory → Smart Reminder execution chain",()=>{
           await expect(page.locator("[data-dashboard-path]")).toHaveAttribute("data-dashboard-theme",theme);
           await expect(pager).toContainText("1–1 من 1 نتيجة");
           expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+          await page.locator("#history").scrollIntoViewIfNeeded();
           await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-${route.split("?")[0].replace("/","-")}-platform-workspace.png`});
         }
       }
