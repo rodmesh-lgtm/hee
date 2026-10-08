@@ -1,5 +1,6 @@
 "use server";
 
+import { historyHref, historyQuery } from "../lib/history-navigation";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -11,6 +12,15 @@ import { isSmartRemindersSchemaReady } from "../lib/reminders/schema-readiness";
 function value(form: FormData, key: string, max = 128) {
   const raw = String(form.get(key) ?? "").trim();
   return raw && raw.length <= max ? raw : null;
+}
+
+function historyReturn(form: FormData, result: "read" | "readAll") {
+  const q=historyQuery({q:String(form.get("historyQuery")??"")});
+  const rawTab=String(form.get("historyTab")??"");
+  const tab=["read","unread"].includes(rawTab)?rawTab:"all";
+  const rawPage=Number(form.get("historyPage"));
+  const page=Number.isSafeInteger(rawPage)&&rawPage>0?rawPage:1;
+  return historyHref("/dashboard/notifications",{q,tab,[result]:"success"},page);
 }
 
 async function notificationContext() {
@@ -32,10 +42,10 @@ export async function markReminderNotificationReadAction(form: FormData) {
   `);
   if (changed !== 1) redirect("/dashboard/notifications?read=missing");
   revalidatePath("/dashboard/notifications");
-  redirect("/dashboard/notifications?read=success");
+  redirect(historyReturn(form,"read"));
 }
 
-export async function markAllReminderNotificationsReadAction() {
+export async function markAllReminderNotificationsReadAction(form: FormData) {
   const context = await notificationContext();
   await db.$executeRaw(Prisma.sql`
     UPDATE "SmartReminderNotification"
@@ -43,5 +53,5 @@ export async function markAllReminderNotificationsReadAction() {
     WHERE "businessId" = ${context.businessId} AND "userId" = ${context.userId} AND "readAt" IS NULL
   `);
   revalidatePath("/dashboard/notifications");
-  redirect("/dashboard/notifications?readAll=success");
+  redirect(historyReturn(form,"readAll"));
 }
