@@ -18,7 +18,7 @@ export function LiveReportRefresh({ observedAt, compact = false, intervalSeconds
     return () => window.clearInterval(timer);
   }, [enabled, pending, router, intervalSeconds]);
 
-  return <section aria-label="تحديث تحليلات الحملة" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
+  return <section aria-label="تحديث بيانات التقرير" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700">
     <div>
       <b className="block text-emerald-800">{pending ? "جارٍ تحديث البيانات…" : enabled ? `تحديث تلقائي كل ${intervalSeconds} ثوانٍ` : "التحديث التلقائي متوقف"}</b>
       <span className="mt-1 block">آخر قراءة للبيانات: <time data-testid="report-observed-at" dateTime={observedAt}>{new Date(observedAt).toLocaleTimeString("ar-SA", { timeZone: "Asia/Riyadh", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time> · توقيت الرياض</span>
