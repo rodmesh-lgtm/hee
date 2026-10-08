@@ -609,7 +609,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     } finally { await db.session.deleteMany({ where: { id: { in: [other.id, foreign.id] } } }); }
   });
 
-  test("commerce workspace isolates carts and offers compatible Arabic template drafts", async ({ browser }) => {
+  test("commerce workspace isolates carts and offers compatible Arabic template drafts", async ({ browser, request }) => {
     test.setTimeout(180_000);
     if (!seeded) throw new Error("visual fixture missing");
     const businessId = seeded.businessId;
@@ -622,9 +622,11 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `cart-${suffix}`, phoneNumberId: `cart-${suffix}`, marketingEnabled: true, credentialEnvelope: { testOnly: true } } });
     await db.whatsAppAutomationCart.createMany({ data: [
       { businessId, contactId: contact.id, cartId: "cart-visible", state: "abandoned", sourceEventId: `own-${suffix}`, occurredAt: new Date() },
+      { businessId, contactId: contact.id, cartId: "CART_OUTSIDE_PERIOD", state: "abandoned", sourceEventId: `old-${suffix}`, occurredAt: new Date(Date.now() - 100 * 86_400_000) },
       { businessId: foreign.id, contactId: otherContact.id, cartId: "FOREIGN_CART_PRIVATE", state: "abandoned", sourceEventId: `other-${suffix}`, occurredAt: new Date() },
     ] });
     try {
+      expect((await request.get(`${baseUrl}/api/dashboard/whatsapp/cart-export`)).status()).toBe(403);
       const providerId = `${Date.now()}123`;
       const payload = { name: "review_receipt_test", language: "ar", category: "UTILITY", components: [{ type: "BODY", text: "تم تأكيد موعدك" }] };
       await submitTemplateRequest({ url: "https://graph.facebook.com/v23.0/123/message_templates", token: "test-only", payload,
@@ -650,6 +652,27 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.locator("body")).not.toContainText("FOREIGN_CART_PRIVATE");
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
           if (theme === "dark") expect(await page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article").evaluate(node => { const rgb = getComputedStyle(node.parentElement!.parentElement!).backgroundColor.match(/\d+/g)?.slice(0,3).map(Number); return rgb?.every(value => value > 220); })).toBe(false);
+          await expect(page.getByRole("link", { name: "تصدير النتائج CSV", exact: true })).toHaveAttribute("href", /cart-export\?days=30&state=all&q=/);
+          await page.getByRole("button", { name: "إيقاف التحديث التلقائي", exact: true }).click();
+          if (viewport.name === "mobile" && theme === "light") {
+            const exported = await context.request.get(`${baseUrl}/api/dashboard/whatsapp/cart-export?days=7&state=abandoned&page=2`);
+            expect(exported.status()).toBe(200);
+            expect(exported.headers()["cache-control"]).toBe("private, no-store");
+            expect(exported.headers()["content-disposition"]).toContain("infro-carts.csv");
+            const csv = await exported.text();
+            expect(csv).toContain("cart-visible");
+            expect(csv).toContain("متروكة");
+            expect(csv).not.toContain("FOREIGN_CART_PRIVATE");
+            expect(csv).not.toContain("CART_OUTSIDE_PERIOD");
+            expect(csv.split("\r\n")).toHaveLength(2);
+            const searched = await context.request.get(`${baseUrl}/api/dashboard/whatsapp/cart-export?q=missing-cart`);
+            expect(searched.status()).toBe(200);
+            expect((await searched.text()).split("\r\n")).toHaveLength(1);
+            const recovered = await context.request.get(`${baseUrl}/api/dashboard/whatsapp/cart-export?state=recovered`);
+            expect(recovered.status()).toBe(200);
+            expect((await recovered.text()).split("\r\n")).toHaveLength(1);
+            expect(await db.whatsAppAuditLog.count({ where: { businessId, action: "carts.export", outcome: "success" } })).toBeGreaterThan(0);
+          }
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-cart-report.png`, fullPage: true });
           await page.locator('select[name="state"]').selectOption("recovered");
           await page.getByRole("button", { name: "بحث", exact: true }).click();
