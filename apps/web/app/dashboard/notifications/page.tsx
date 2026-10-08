@@ -1,3 +1,4 @@
+import { HistoryResetLink } from "../../../components/dashboard/history-reset-link";
 import { HistoryPagination } from "../../../components/dashboard/history-pagination";
 import { HISTORY_PAGE_SIZE, historyPage, historyQuery, historyHref } from "../../lib/history-navigation";
 import { Bell, BellRing, CheckCheck, Clock3, Inbox } from "lucide-react";
@@ -54,7 +55,7 @@ export default async function ReminderNotificationsPage({ searchParams }: { sear
       <h2 className="font-black text-slate-900">سجل الإشعارات</h2>
       <form method="get" action="/dashboard/notifications#history" className="flex flex-col gap-2 sm:flex-row">
         <input type="hidden" name="tab" value={tab}/><input type="search" name="q" aria-label="البحث في الإشعارات" placeholder="ابحث في عنوان الإشعار أو تفاصيله" maxLength={120} defaultValue={q} className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm"/>
-        <button className="min-h-11 rounded-xl bg-[#07181b] px-5 text-xs font-black text-white">بحث</button><Link href="/dashboard/notifications#history" className="inline-flex min-h-11 items-center justify-center px-3 text-xs font-bold text-[#008f87]">مسح البحث والتصفية</Link>
+        <button className="min-h-11 rounded-xl bg-[#07181b] px-5 text-xs font-black text-white">بحث</button><HistoryResetLink href="/dashboard/notifications#history" className="inline-flex min-h-11 items-center justify-center px-3 text-xs font-bold text-[#008f87]"/>
       </form>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><nav className="grid grid-cols-3 gap-2" aria-label="تصفية الإشعارات">{[["all","الكل"],["unread","غير المقروءة"],["read","المقروءة"]].map(([key,label])=><Link key={key} href={historyHref("/dashboard/notifications",{q,tab:key})} aria-current={tab===key?"page":undefined} className={`rounded-xl px-3 py-3 text-center text-xs font-black ${tab===key?"bg-[#07181b] text-white":"text-slate-500 hover:bg-slate-50"}`}>{label}</Link>)}</nav>{unreadCount>0?<form action={markAllReminderNotificationsReadAction}><input type="hidden" name="historyQuery" value={q}/><input type="hidden" name="historyTab" value={tab}/><input type="hidden" name="historyPage" value={page}/><button className="min-h-11 w-full rounded-xl border border-slate-200 px-4 text-xs font-black text-[#008f87]">تحديد الكل كمقروء</button></form>:null}</div>
     </section>
