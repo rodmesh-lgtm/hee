@@ -37,10 +37,9 @@ test("business execution center exposes real execution context independently fro
 });
 
 test("business attention is calculated from stored work state rather than fake dashboard numbers",()=>{
-  assert.match(page,/executionStats=\{blocked:reminders\.filter/);
-  assert.match(page,/r\.workHealth===\"blocked\"/);
-  assert.match(page,/r\.workHealth===\"at_risk\"/);
-  assert.match(page,/reminders\.filter\(businessDueOverdue\)/);
-  assert.match(page,/reminders\.filter\(deliveryNeedsAttention\)/);
+  assert.match(page,/COUNT\(\*\) FILTER \(WHERE work AND "workHealth"='blocked'\)/);
+  assert.match(page,/COUNT\(\*\) FILTER \(WHERE work AND "workHealth"='at_risk'\)/);
+  assert.match(page,/COUNT\(\*\) FILTER \(WHERE "dueOverdue"\)/);
+  assert.match(page,/COUNT\(\*\) FILTER \(WHERE "deliveryAttention"\)/);
   assert.doesNotMatch(page,/const executionStats=\{blocked:\d/);
 });

@@ -118,6 +118,7 @@ jobs:
           name: infro-customer-surface-review
           path: |
             /tmp/infro-visual-audit/*-customer-performance.png
+            /tmp/infro-visual-audit/*-platform-workspace.png
             /tmp/infro-visual-audit/*-inbox.png
             /tmp/infro-visual-audit/*-contextual-support.png
             /tmp/infro-visual-audit/*-my-page.png

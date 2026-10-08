@@ -12,7 +12,7 @@ test("notification center always scopes reads to both active business and curren
   assert.match(page, /getActiveBusinessForUser\(user\.id\)/);
   assert.match(page, /"businessId"\s*=\s*\$\{business\.id\}/);
   assert.match(page, /"userId"\s*=\s*\$\{user\.id\}/);
-  assert.match(page, /LIMIT 100/);
+  assert.match(page, /LIMIT \$\{HISTORY_PAGE_SIZE\} OFFSET/);
 });
 
 test("notification read mutations cannot cross tenant or user boundaries", () => {
