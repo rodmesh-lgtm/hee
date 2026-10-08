@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Download, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { db } from "../../../lib/db";
 import { getWhatsAppReadContext, roleCan } from "../../../lib/whatsapp/rbac";
 import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
 import { messageLogFilters, MESSAGE_LOG_STATES } from "../../../lib/whatsapp/message-log-domain";
 import { messageLogSelect, messageLogWhere } from "../../../lib/whatsapp/message-log";
 import { WorkspaceHeading, WorkspaceMetric, WorkspaceEmpty } from "../_components/workspace-ui";
+import { CsvExportLink } from "../_components/csv-export-link";
 import { LiveReportRefresh } from "../live-report-refresh";
 const messageTypes: Record<string,string> = { text: "نص", template: "قالب", image: "صورة", video: "فيديو", audio: "صوت", document: "مستند", sticker: "ملصق", location: "موقع", interactive: "رسالة تفاعلية", contacts: "جهة اتصال" };
 const date = (value: Date) => new Intl.DateTimeFormat("ar-SA", { timeZone: "Asia/Riyadh", dateStyle: "short", timeStyle: "short" }).format(value);
@@ -25,7 +26,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   const query = new URLSearchParams({ status: filters.status, direction: filters.direction, days: String(filters.days), q: filters.query });
   const pageHref = (page: number) => `/dashboard/whatsapp/messages?${query}&page=${page}`;
   return <div className="wa-page" dir="rtl">
-    <WorkspaceHeading eyebrow="تتبّع الرسائل" title="سجل الرسائل" description="الوارد والصادر من أرقام منشأتك، مع آخر حالة تسليم موثّقة وإمكانية فتح المحادثة." action={roleCan(context.role, "campaign.manage") ? <a className="wa-button" href={`/api/dashboard/whatsapp/message-export?${query}`}><Download size={17}/>تصدير النتائج CSV</a> : undefined}/>
+    <WorkspaceHeading eyebrow="تتبّع الرسائل" title="سجل الرسائل" description="الوارد والصادر من أرقام منشأتك، مع آخر حالة تسليم موثّقة وإمكانية فتح المحادثة." action={roleCan(context.role, "campaign.manage") ? <CsvExportLink key={query.toString()} href={`/api/dashboard/whatsapp/message-export?${query}`} filename="infro-messages.csv" className="wa-button"/> : undefined}/>
     <LiveReportRefresh observedAt={new Date().toISOString()} compact/>
     <section className="wa-metrics" aria-label="ملخص نتائج الرسائل"><WorkspaceMetric label="النتائج المطابقة" value={total}/><WorkspaceMetric label="تم التسليم" value={count("delivered", "read")} hint="تشمل الرسائل المقروءة"/><WorkspaceMetric label="تمت القراءة" value={count("read")}/><WorkspaceMetric label="تعذر التسليم" value={count("failed")}/></section>
     <section className="wa-panel"><div className="wa-section-title"><h2>أرشيف الرسائل</h2><span>آخر {filters.days} يومًا · حسب البحث والتصفية</span></div>
