@@ -13,7 +13,7 @@ const groups = [
     ["/dashboard/whatsapp/inbox/operations", "الفرز والمتابعة", Headphones], ["/dashboard/whatsapp/blacklist", "منع الإرسال", ShieldBan],
   ] },
   { label: "الأتمتة والمتاجر", items: [
-    ["/dashboard/whatsapp/automations", "الأتمتة", Workflow], ["/dashboard/whatsapp/bots", "بوت المحادثات", Headphones], ["/dashboard/whatsapp/carts", "السلال المتروكة", ShoppingCart],
+    ["/dashboard/whatsapp/automations", "الأتمتة", Workflow], ["/dashboard/whatsapp/bots", "بوت المحادثات", Headphones], ["/dashboard/whatsapp/ai", "مركز الذكاء الاصطناعي", BarChart3], ["/dashboard/whatsapp/carts", "السلال المتروكة", ShoppingCart],
     ["/dashboard/whatsapp/integrations", "التكاملات", Plug], ["/dashboard/whatsapp/links", "الروابط المختصرة", Link2], ["/dashboard/reminders", "التذكيرات", Clock3],
   ] },
   { label: "التشغيل والمساعدة", items: [

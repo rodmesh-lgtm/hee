@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ContactRound, Megaphone, PackageSearch, ShoppingCart, Workflow, MessageCircle, ShieldBan, ListFilter, Clock3, Monitor, BookOpen, Plug, Headphones, CreditCard, FileText, CalendarDays } from "lucide-react";
+import { ContactRound, Megaphone, PackageSearch, ShoppingCart, Workflow, MessageCircle, ShieldBan, ListFilter, Clock3, Monitor, BookOpen, Plug, Headphones, CreditCard, FileText, CalendarDays, BarChart3 } from "lucide-react";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
 import { WorkspaceHeading } from "../_components/workspace-ui";
 const groups = [
@@ -14,13 +14,14 @@ const groups = [
     { title: "قائمة منع الإرسال", text: "مراجعة الأرقام المنسحبة وإضافة رقم إلى المنع داخل منشأتك.", href: "/dashboard/whatsapp/blacklist", icon: ShieldBan },
   ] },
   { title: "المتاجر وخدمة العملاء", description: "اربط الأحداث، نظّم المتابعة، وسهّل الزيارة.", items: [
+    { title: "مركز الذكاء الاصطناعي", text: "جاهزية المساعد، استخدام البوت اليومي وسجل الردود والتحويل لفريقك.", href: "/dashboard/whatsapp/ai", icon: BarChart3 },
     { title: "بوت المحادثات", text: "أسئلة معتمدة أو معرفة منشأتك مع تجربة الردود والتحويل لفريق خدمة العملاء.", href: "/dashboard/whatsapp/bots", icon: Headphones },
     { title: "السلال المتروكة", text: "حالات السلال والعملاء الذين يحتاجون متابعة حسب بيانات المتجر.", href: "/dashboard/whatsapp/carts", icon: ShoppingCart },
     { title: "الأتمتة", text: "رسائل الترحيب والمتابعة والسلال من أحداث موثوقة وقوالب معتمدة.", href: "/dashboard/whatsapp/automations", icon: Workflow },
     { title: "صندوق المحادثات", text: "ردود الموظفين، سياق العميل وإدارة نافذة الخدمة.", href: "/dashboard/whatsapp/inbox", icon: MessageCircle },
     { title: "الفرز والمتابعة", text: "المسؤول والأولوية والمهل لمحادثات خدمة العملاء.", href: "/dashboard/whatsapp/inbox/operations", icon: Headphones },
     { title: "التذكيرات", text: "جدولة تذكيرات العمل ومتابعة القنوات وحالة التنفيذ.", href: "/dashboard/reminders", icon: Clock3 },
-    { title: "المواعيد والفروع", text: "ترتيب الحجوزات القادمة والجديدة وإعداد الفترات وسعة الفروع.", href: "/dashboard/appointments", icon: CalendarDays },
+    { title: "المواعيد والفروع", text: "ترتيب الحجوزات القادمة والجديدة وإعداد الفترات وسعة الفروع.", href: "/dashboard/appointments", icon: CalendarDays, BarChart3 },
     { title: "تكاملات المتاجر", text: "الربط الرسمي ومتابعة أحداث المتاجر ومزامنة بياناتها.", href: "/dashboard/whatsapp/integrations", icon: Plug },
   ] },
   { title: "التشغيل والمساعدة", description: "إدارة الحساب والاشتراك والوصول إلى الشروحات.", items: [

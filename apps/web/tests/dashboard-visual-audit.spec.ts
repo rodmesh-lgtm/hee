@@ -1501,7 +1501,22 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     const previous = await db.subscription.findFirst({ where: { businessId, status: "active" } });
     const subscription = previous ? await db.subscription.update({ where: { id: previous.id }, data: { planId: plan.id } }) : await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now()-60000), endsAt: new Date(Date.now()+86400000) } });
     const connection = await db.whatsAppConnection.create({ data: { businessId, provider: "meta", status: "connected", wabaId: crypto.randomUUID(), phoneNumberId: crypto.randomUUID(), displayPhoneNumber: "+966500000555", marketingEnabled: true, credentialEnvelope: { testOnly: true } } });
+    const foreign = await db.business.create({ data: { ownerId: seeded.adminUserId, planId: plan.id, name: "منشأة اختبار عزل البوت", businessType: "خدمات", slug: `bot-report-${crypto.randomUUID()}` } });
+    const foreignConnection = await db.whatsAppConnection.create({ data: { businessId: foreign.id, provider: "meta", status: "connected", wabaId: crypto.randomUUID(), phoneNumberId: crypto.randomUUID(), displayPhoneNumber: "+966500000999", credentialEnvelope: { testOnly: true } } });
+    const fixtures: string[] = [];
+    async function seedReportRows(targetBusiness: string, targetConnection: typeof connection, name: string) {
+      const config = { name, mode: "rules", rules: [{ question: "ساعات العمل", answer: "التاسعة" }], knowledge: "", handoffText: "سيتابع الفريق", dailyLimit: 50 };
+      await db.$executeRaw(Prisma.sql`INSERT INTO "WhatsAppServiceBot" ("connectionId","businessId",config,"updatedByUserId") VALUES (${targetConnection.id},${targetBusiness},${JSON.stringify(config)}::jsonb,${seeded!.userId}) ON CONFLICT ("connectionId") DO NOTHING`);
+      const conversation = await db.whatsAppConversation.create({ data: { businessId: targetBusiness, phoneNumberId: targetConnection.phoneNumberId!, customerPhoneE164: "+966500000111" } });
+      fixtures.push(conversation.id);
+      for (const [status, jobStatus, ageDays] of [["queued","sent",0],["handoff","queued",0],["failed",null,0],["skipped",null,8]] as const) {
+        const message = await db.whatsAppMessage.create({ data: { businessId: targetBusiness, conversationId: conversation.id, providerMessageId: crypto.randomUUID(), direction: "inbound", messageType: "text", status: "received", textBody: "PRIVATE_BOT_QUESTION_NEVER_IN_REPORT" } });
+        const job = jobStatus ? await db.whatsAppReplyJob.create({ data: { businessId: targetBusiness, connectionId: targetConnection.id, conversationId: conversation.id, phoneNumberId: targetConnection.phoneNumberId!, idempotencyKey: crypto.randomUUID(), textBody: "جواب اختباري", status: jobStatus } }) : null;
+        await db.$executeRaw(Prisma.sql`INSERT INTO "WhatsAppBotTurn" ("messageId","businessId","connectionId","conversationId",revision,status,"replyJobId",reason,"createdAt") VALUES (${message.id},${targetBusiness},${targetConnection.id},${conversation.id},1,${status},${job?.id ?? null},${status === "failed" ? "ANSWER_UNAVAILABLE" : null},CURRENT_TIMESTAMP-(${ageDays} * interval '1 day'))`);
+      }
+    }
     try {
+      await seedReportRows(foreign.id, foreignConnection, "FOREIGN_BOT_MUST_NOT_APPEAR");
       for (const viewport of [{name:"mobile",value:{width:390,height:844}},{name:"desktop",value:{width:1440,height:960}}]) for (const theme of ["light","dark"] as const) {
         const context = await authenticatedContext(browser, viewport.value, theme, seeded.sessionToken);
         try {
@@ -1520,13 +1535,34 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
             const rows = await db.$queryRaw<Array<{ enabled: boolean; businessId: string }>>(Prisma.sql`SELECT enabled,"businessId" FROM "WhatsAppServiceBot" WHERE "connectionId"=${connection.id}`);
             expect(rows).toEqual([{ enabled: false, businessId }]);
             expect(await db.whatsAppReplyJob.count({ where: { connectionId: connection.id } })).toBe(0);
+            await seedReportRows(businessId, connection, "مساعد اختبار الأداء");
           }
+          await page.goto(`${baseUrl}/dashboard/whatsapp/ai`);
+          await expect(page.getByRole("heading", { name: "مركز الذكاء الاصطناعي", exact: true })).toBeVisible();
+          await expect(page.getByText("FOREIGN_BOT_MUST_NOT_APPEAR")).toHaveCount(0);
+          await expect(page.getByText("PRIVATE_BOT_QUESTION_NEVER_IN_REPORT")).toHaveCount(0);
+          await expect(page.locator(".wa-metric").filter({ hasText: "محاولات المعالجة" }).locator("strong")).toHaveText((3).toLocaleString("ar-SA"));
+          await expect(page.locator(".wa-metric").filter({ hasText: "ردود قبلتها Meta" }).locator("strong")).toHaveText((1).toLocaleString("ar-SA"));
+          await expect(page.locator(".wa-metric").filter({ hasText: "تحويل إلى الفريق" }).locator("strong")).toHaveText((1).toLocaleString("ar-SA"));
+          await page.getByLabel("فترة التقرير", { exact: true }).selectOption("30");
+          await page.getByRole("button", { name: "عرض التقرير", exact: true }).click();
+          await expect(page.locator(".wa-metric").filter({ hasText: "محاولات المعالجة" }).locator("strong")).toHaveText((4).toLocaleString("ar-SA"));
           await page.close();
+          await auditRoute(context, { path: "/dashboard/whatsapp/ai", name: "workspace-ai", theme, viewportName: viewport.name });
           await auditRoute(context, { path: "/dashboard/whatsapp/bots", name: "workspace-bots", theme, viewportName: viewport.name });
           await auditRoute(context, { path: "/dashboard/whatsapp/carousel", name: "workspace-carousel", theme, viewportName: viewport.name });
         } finally { await context.close(); }
       }
     } finally {
+      for (const conversationId of fixtures) {
+        await db.$executeRaw(Prisma.sql`DELETE FROM "WhatsAppBotTurn" WHERE "conversationId"=${conversationId}`);
+        await db.whatsAppReplyJob.deleteMany({ where: { conversationId } });
+        await db.whatsAppMessage.deleteMany({ where: { conversationId } });
+        await db.whatsAppConversation.delete({ where: { id: conversationId } });
+      }
+      await db.$executeRaw(Prisma.sql`DELETE FROM "WhatsAppServiceBot" WHERE "connectionId"=${foreignConnection.id} AND "businessId"=${foreign.id}`);
+      await db.whatsAppConnection.delete({ where: { id: foreignConnection.id } });
+      await db.business.delete({ where: { id: foreign.id } });
       await db.$executeRaw(Prisma.sql`DELETE FROM "WhatsAppServiceBot" WHERE "connectionId"=${connection.id} AND "businessId"=${businessId}`);
       await db.whatsAppConnection.delete({ where: { id: connection.id } });
       if (previous) await db.subscription.update({ where: { id: subscription.id }, data: { planId: previous.planId } });
