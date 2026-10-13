@@ -85,13 +85,13 @@ test.describe.serial("unverified email correction", () => {
       await expect(page.getByText(wrongEmail)).toBeVisible();
       await expect(page.getByText("تعديل البريد قبل التأكيد")).toBeVisible();
 
-      await page.locator('input[name="email"]').fill(occupiedEmail);
+      await page.getByLabel("البريد الإلكتروني الصحيح", { exact: true }).fill(occupiedEmail);
       await page.getByRole("button", { name: "تحديث البريد" }).click();
       await expect(page.getByRole("alert").filter({ hasText: "تعذر استخدام هذا البريد" })).toBeVisible({ timeout: 20_000 });
       expect((await db.user.findUnique({ where: { id: user.id }, select: { email: true } }))?.email).toBe(wrongEmail);
       expect(await db.oAuthState.count({ where: { state: { in: [staleHash, staleResetHash] } } })).toBe(2);
 
-      await page.locator('input[name="email"]').fill(correctedEmail);
+      await page.getByLabel("البريد الإلكتروني الصحيح", { exact: true }).fill(correctedEmail);
       await page.getByRole("button", { name: "تحديث البريد" }).click();
       await expect(page.getByRole("status").filter({ hasText: "تم تحديث البريد" })).toBeVisible({ timeout: 20_000 });
 
