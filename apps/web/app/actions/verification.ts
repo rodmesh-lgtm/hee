@@ -20,7 +20,7 @@ async function hasPendingVerificationForBusiness(businessId: string) {
 }
 
 export async function requestVerificationAction() {
-  const business = await getOwnedBusinessWithPlanForWrite();
+  const business = await getOwnedBusinessWithPlanForWrite("identity");
   if (!business) redirect("/login");
   if (business.isVerified) redirect("/dashboard/verification?verification=verified");
 
@@ -51,7 +51,7 @@ export async function requestVerificationAction() {
 }
 
 export async function hasPendingVerificationRequest() {
-  const business = await getOwnedBusinessForRead();
+  const business = await getOwnedBusinessForRead("identity");
   if (!business) return false;
   return hasPendingVerificationForBusiness(business.id);
 }

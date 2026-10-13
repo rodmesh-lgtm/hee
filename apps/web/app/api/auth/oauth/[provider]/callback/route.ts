@@ -1,3 +1,4 @@
+import { pendingStaffInvitePath } from "../../../../../lib/staff-invitations";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { timingSafeEqual } from "node:crypto";
@@ -88,8 +89,8 @@ async function complete(request: Request, provider: OAuthProvider, input: { stat
 
     await clearQaAuditSession();
     await createSession(user.id);
-    const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, select: { onboardingCompleted: true, onboardingStep: true, isPublished: true } });
-    return NextResponse.redirect(new URL(postAuthRedirectPath(business, "/dashboard"), safeAppOrigin(request)));
+    const business = await db.business.findFirst({ where: { deletedAt: null, OR: [{ ownerId: user.id }, { members: { some: { userId: user.id, status: "active" } } }] }, select: { onboardingCompleted: true, onboardingStep: true, isPublished: true } });
+    return NextResponse.redirect(new URL((await pendingStaffInvitePath()) ?? postAuthRedirectPath(business, "/dashboard"), safeAppOrigin(request)));
   } catch (error) {
     console.error("[oauth-callback] authentication_failed", { provider, error: error instanceof Error ? error.message : "unknown" });
     return errorRedirect(request, "authentication-failed", registration);

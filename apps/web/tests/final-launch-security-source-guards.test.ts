@@ -65,14 +65,14 @@ test("first real WhatsApp campaign canary remains capped at five until verified 
   assert.match(s,/state: "awaiting_delivery", queueLimit: 0/);
 });
 
-test("digital identity writes prove active owner and business before mutation",async()=>{
+test("digital identity writes prove section access and business before mutation",async()=>{
   const profile=normalize(await readFile(identity,"utf8"));
   const digitalPresence=normalize(await readFile(presence,"utf8"));
   for(const s of [profile,digitalPresence]){
     assert.match(s,/getCurrentUserForWrites\(\)/);
-    assert.match(s,/getActiveBusinessForUser\(user\.id\)/);
-    assert.match(s,/where: \{ id: business\.id, ownerId: user\.id, deletedAt: null \}/);
-    assert.match(s,/updateMany\(\{ where: \{ id: business\.id, ownerId: user\.id, deletedAt: null \}/);
+    assert.match(s,/getActiveBusinessForUser\(user\.id, "identity"\)/);
+    assert.match(s,/where: \{ id: business\.id, deletedAt: null \}/);
+    assert.match(s,/updateMany\(\{ where: \{ id: business\.id, deletedAt: null \}/);
   }
   assert.match(profile,/company-profile:\$\{business\.id\}/);
   assert.match(profile,/uploaded\.mimeType !== "application\/pdf"/);

@@ -8,7 +8,7 @@ import { getPlanEntitlements } from "../../lib/plan-entitlements";
 export default async function DashboardToolsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const business = await getActiveBusinessWithPlanForUser(user.id);
+  const business = await getActiveBusinessWithPlanForUser(user.id, "page");
   const entitlements = getPlanEntitlements(business?.plan?.code);
   const designerAvailable = Boolean(business && entitlements.offerDesigner);
 

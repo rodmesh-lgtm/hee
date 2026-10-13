@@ -9,7 +9,7 @@ import { readBoundedJson, RequestBodyTooLargeError } from "../../../../lib/reque
 const schema=z.object({orderedIds:z.array(z.string().min(1).max(128)).min(1).max(100)}).strict();
 
 export async function POST(request:Request){
-  const business=await getOwnedBusinessForApiWrite();
+  const business=await getOwnedBusinessForApiWrite("page");
   if(!business)return NextResponse.json({error:"يرجى تسجيل الدخول وإنشاء النشاط أولاً"},{status:401});
   try{
     const identity=requestClientAddress(request)||business.ownerId;

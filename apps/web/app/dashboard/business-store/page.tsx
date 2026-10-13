@@ -10,7 +10,7 @@ import { listBusinessStoreCatalogItems } from "../../lib/business-store-catalog"
 export default async function BusinessStorePage(){
   const user=await getCurrentUser();
   if(!user)redirect("/login");
-  const business=await getActiveBusinessForUser(user.id);
+  const business=await getActiveBusinessForUser(user.id, "store");
   if(!business)redirect("/onboarding");
   const catalog=await listBusinessStoreCatalogItems();
   const publicUrl=`https://ir.sa/${business.slug}`;

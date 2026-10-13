@@ -37,7 +37,7 @@ test("digital presence writes serialize with autosave and preserve published con
   assert.match(action, /pg_advisory_xact_lock/);
   assert.match(action, /current\.isPublished/);
   assert.match(action, /contact-required/);
-  assert.match(action, /ownerId: user\.id/);
+  assert.match(action, /getActiveBusinessForUser\(user\.id, "identity"\)/);
   assert.match(action, /deletedAt: null/);
 });
 

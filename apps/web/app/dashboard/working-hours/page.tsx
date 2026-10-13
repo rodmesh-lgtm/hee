@@ -1,3 +1,4 @@
+import { getCurrentUser } from "../../lib/auth";
 import Link from "next/link";
 import { WeeklyBookingHoursEditor } from "../../../components/dashboard/weekly-booking-hours-editor";
 import { redirect } from "next/navigation";
@@ -91,9 +92,10 @@ export default async function DashboardWorkingHoursPage({
   const sallaResult = Array.isArray(params.salla) ? params.salla[0] : params.salla;
   const wooCommerceResult = Array.isArray(params.woocommerce) ? params.woocommerce[0] : params.woocommerce;
   const shopifyResult = Array.isArray(params.shopify) ? params.shopify[0] : params.shopify;
-  const activeBusiness = await getOwnedBusinessForRead();
+  const activeBusiness = await getOwnedBusinessForRead("appointments");
   if (!activeBusiness) redirect("/onboarding");
 
+  const isOwner = activeBusiness.ownerId === (await getCurrentUser())?.id;
   const today = riyadhDateKey();
   const business = await db.business.findFirst({
     where: { id: activeBusiness.id, ownerId: activeBusiness.ownerId, deletedAt: null },
@@ -185,11 +187,13 @@ export default async function DashboardWorkingHoursPage({
               : null;
 
   return <div className="space-y-4 pb-24 lg:pb-4">
+    {isOwner ? <>
     <section id="visitor-booking-verification" className="rounded-[24px] border border-slate-200 bg-white p-4 sm:p-5">
       <h2 className="text-lg font-black">تعديل الزائر لموعده</h2><p className="mt-2 text-sm leading-7 text-slate-600">يتحقق الزائر برمز واتساب ثم يعدّل تاريخ زيارته وفترتها وفرعها على الحجز نفسه. الرمز صالح لخمس دقائق؛ ولا يُرسل قبل اعتماد قالب التحقق لدى Meta.</p>
       <p className="mt-3 text-sm font-bold">{verificationTemplate ? `حالة قالب التحقق: ${{approved:"معتمد",pending:"بانتظار Meta",rejected:"مرفوض",paused:"متوقف",disabled:"معطل",unknown:"تحتاج تحديثًا"}[verificationTemplate.status]??"تحتاج تحديثًا"}` : "قالب التحقق لم يُجهز بعد"}</p>
       <div className="mt-4 flex flex-wrap gap-3">{bookingConnection && subscriptionActive ? <>{!verificationTemplate ? <form action={submitBookingVerificationTemplateAction}><button className="min-h-11 rounded-xl bg-[#07181b] px-4 text-sm font-bold text-white">تقديم قالب التحقق إلى Meta</button></form> : null}<form action={syncBookingWhatsAppTemplatesAction}><input type="hidden" name="connectionId" value={bookingConnection.id}/><button className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold">تحديث حالة القوالب</button></form></> : <p className="text-sm text-amber-800">اربط رقم الحجوزات وفعّل اشتراك المنشأة لتجهيز التحقق.</p>}<Link href={`/${business.slug}/booking`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-4 text-sm font-bold">فتح صفحة تعديل الموعد</Link></div>
     </section>
+    </> : null}
 
     <section className="overflow-hidden rounded-[28px] border border-[#153438] bg-[#07181b] text-white shadow-[0_22px_70px_-46px_rgba(7,24,27,.78)]">
       <div className="grid lg:grid-cols-[1fr_340px]">
@@ -233,12 +237,13 @@ export default async function DashboardWorkingHoursPage({
         <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><Inbox className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">APPOINTMENT FLOW</span><h2 className="mt-1 text-base font-black text-slate-950">جهّز رحلة الحجز</h2><p className="mt-2 text-[10px] leading-5 text-slate-500">اختر الخدمات التي تستقبل مواعيد ومدتها، ثم تابع الطلبات المؤكدة والجديدة من صندوق واحد.</p></div></div>
         <div className="mt-5 grid grid-cols-2 gap-2">
           <Link href="/dashboard/services" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#bdebe5] bg-[#effbf9] px-3 text-[10px] font-black text-[#08756e]">إعداد الخدمات <ArrowLeft className="h-3.5 w-3.5" /></Link>
-          <Link href="/dashboard/inbox" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-[10px] font-black text-slate-600">عرض الحجوزات <ArrowLeft className="h-3.5 w-3.5" /></Link>
+          <Link href="/dashboard/appointments" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-[10px] font-black text-slate-600">عرض الحجوزات <ArrowLeft className="h-3.5 w-3.5" /></Link>
         </div>
         {!bookableCount ? <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] font-bold leading-5 text-amber-800">لا توجد خدمة مفعّلة للحجز. فعّل «قابلة للحجز» من إعدادات الخدمات.</p> : null}
       </article>
     </section>
 
+    {isOwner ? <>
     <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
       <div className="border-b border-slate-100 bg-[#fbfdfd] p-4 sm:p-5"><div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><MessageCircle className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">BOOKING WHATSAPP</span><h2 className="mt-1 text-base font-black text-slate-950">رقم واتساب مستقل لتأكيد المواعيد</h2><p className="mt-2 max-w-3xl text-[10px] leading-6 text-slate-500">عيّن رقمًا للحجوزات فقط، أو استخدم رقم التسويق نفسه. رسائل الحملات لا تنتقل تلقائيًا إلى رقم الحجوزات، وكل تأكيد يستخدم قالبًا خدميًا معتمدًا من Meta.</p></div></div></div>
       {whatsappResult ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["enabled","paused","number-linked","templates-synced"].includes(whatsappResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{whatsappResult === "verification-submitted" ? "تم تقديم قالب التحقق إلى Meta. الإرسال ينتظر اعتماده؛ حدّث القوالب لمعرفة حالته." : whatsappResult === "verification-sync-required" ? "حدّث القوالب من Meta أولًا؛ قد يكون طلب القالب قد وصل، فلا تعِد تقديمه الآن." : whatsappResult === "enabled" ? "تم تفعيل إرسال تأكيدات الحجز عبر واتساب." : whatsappResult === "paused" ? "تم إيقاف تأكيدات واتساب مؤقتًا." : whatsappResult === "number-linked" ? "تم تعيين رقم التسويق نفسه لخدمة الحجوزات." : whatsappResult === "templates-synced" ? "تم تحديث قوالب رقم الحجوزات من Meta." : whatsappResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لاستخدام الحجز وتأكيداته." : "لم تكتمل العملية. راجع اتصال الرقم والقالب المعتمد ثم حاول مجددًا."}</p> : null}
@@ -308,6 +313,8 @@ export default async function DashboardWorkingHoursPage({
         </article>
       </div>
     </section>
+
+    </> : <p className="rounded-xl border bg-white p-4 text-sm">إدارة ربط واتساب والمتاجر متاحة لمالك المنشأة.</p>}
 
     <form id="booking-branch-settings" action={updateBookingSlotSettingsAction} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
       <div className="flex flex-col gap-3 border-b border-slate-100 bg-[#fbfdfd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">

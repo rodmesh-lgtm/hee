@@ -15,7 +15,7 @@ export async function publishBusinessAction(previous: PublicationActionState, fo
   void previous;
   void formData;
 
-  const business = await getOwnedBusinessForWrite();
+  const business = await getOwnedBusinessForWrite("page");
   if (!business) return { error: "لا يوجد نشاط جاهز للنشر" };
   if (!business.name?.trim() || business.name.trim().length < 2) return { error: "اسم النشاط مطلوب قبل النشر" };
 
@@ -57,7 +57,7 @@ export async function publishBusinessAction(previous: PublicationActionState, fo
 }
 
 export async function unpublishBusinessAction() {
-  const business = await getOwnedBusinessForWrite();
+  const business = await getOwnedBusinessForWrite("page");
   if (!business) redirect("/onboarding");
   const updated = await db.business.updateMany({ where: { id: business.id, ownerId: business.ownerId, deletedAt: null }, data: { isPublished: false } });
   if (updated.count !== 1) redirect("/onboarding");

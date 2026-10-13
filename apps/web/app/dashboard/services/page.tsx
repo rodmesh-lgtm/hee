@@ -11,7 +11,7 @@ const fieldClass="h-11 min-w-0 rounded-xl border border-slate-200 bg-[#f8fbfb] p
 const smallField="h-11 min-w-0 rounded-xl border border-slate-200 bg-[#f8fbfb] px-3 text-sm text-slate-800 outline-none transition focus:border-[#00a99d] focus:bg-white focus:ring-4 focus:ring-[#35e4cb]/10";
 
 export default async function DashboardServicesPage(){
-  const activeBusiness=await getOwnedBusinessForRead();if(!activeBusiness)redirect("/onboarding");
+  const activeBusiness=await getOwnedBusinessForRead("page");if(!activeBusiness)redirect("/onboarding");
   const business=await db.business.findFirst({where:{id:activeBusiness.id,ownerId:activeBusiness.ownerId,deletedAt:null},include:{services:{where:{deletedAt:null},orderBy:[{sortOrder:"asc"},{createdAt:"asc"}]}}});if(!business)redirect("/onboarding");
   const bookableCount=business.services.filter(service=>service.bookingEnabled).length;
   return <div className="space-y-4 pb-4">

@@ -16,7 +16,7 @@ const schema = z.object({
 }).strict();
 
 export async function POST(request: Request) {
-  const business = await getOwnedBusinessForApiWrite();
+  const business = await getOwnedBusinessForApiWrite("page");
   if (!business) return NextResponse.json({ error: "يرجى تسجيل الدخول وإنشاء النشاط أولاً" }, { status: 401 });
 
   try {

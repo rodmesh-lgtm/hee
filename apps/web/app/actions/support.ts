@@ -27,7 +27,7 @@ function text(formData: FormData, name: string, max: number) {
 export async function createSupportRequestAction(formData: FormData) {
   const user = await getCurrentUserForWrites();
   if (!user) redirect("/login");
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "support");
   if (!business) redirect("/onboarding");
 
   const category = String(formData.get("category") ?? "other").trim().toLowerCase();

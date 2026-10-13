@@ -28,7 +28,7 @@ function finish(slug: string, status: string) { refresh(slug); redirect(`/dashbo
 function fail(status: string): never { redirect(`/dashboard/directory?status=${encodeURIComponent(status)}`); }
 
 async function ownedBusinessAndPlan() {
-  const business = await getOwnedBusinessWithPlanForWrite();
+  const business = await getOwnedBusinessWithPlanForWrite("page");
   if (!business) fail("error-business");
   return { business, entitlements: getPlanEntitlements(business.plan?.code) };
 }

@@ -792,6 +792,7 @@ model WhatsAppEmbeddedSignupSession {
 }
 
 model BusinessMember {
+  permissions Json?
   id String @id @default(uuid())
   businessId String
   userId String

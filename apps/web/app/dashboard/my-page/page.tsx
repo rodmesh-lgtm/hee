@@ -18,7 +18,7 @@ export default async function DashboardMyPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const activeBusiness = await getOwnedBusinessForRead();
+  const activeBusiness = await getOwnedBusinessForRead("page");
   if (!activeBusiness) redirect("/onboarding");
 
   const business = await db.business.findFirst({

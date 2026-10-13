@@ -12,7 +12,7 @@ import { applyActivityPagePreset, serializePageModules } from "../../../../lib/p
 const schema = z.object({ fields: z.object({ name: z.string().trim().min(2).max(120).optional(), businessType: z.string().trim().min(1).max(120).optional(), shortDescription: z.string().trim().max(160).optional(), description: z.string().trim().max(4000).optional(), whatsapp: z.string().trim().max(40).optional(), phone: z.string().trim().max(40).optional(), city: z.string().trim().max(80).optional(), district: z.string().trim().max(80).optional(), googleMapsLink: z.string().trim().max(500).optional() }).strict() }).strict();
 
 export async function POST(request: Request) {
-  const business = await getOwnedBusinessForApiWrite();
+  const business = await getOwnedBusinessForApiWrite("page");
   if (!business) return NextResponse.json({ error: "يرجى تسجيل الدخول وإنشاء النشاط أولاً" }, { status: 401 });
 
   // Autosave can fire repeatedly while typing. Keep normal editing fluid while bounding

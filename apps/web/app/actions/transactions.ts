@@ -34,7 +34,7 @@ function refresh() {
 }
 
 export async function updateOrderStatusAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite();
+  const business = await getOwnedBusinessForWrite("orders");
   if (!business) return;
 
   const id = text(formData, "id");
@@ -83,7 +83,7 @@ export async function updateOrderStatusAction(formData: FormData) {
 }
 
 export async function updateBookingStatusAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite();
+  const business = await getOwnedBusinessForWrite("appointments");
   if (!business) return;
 
   const id = text(formData, "id");

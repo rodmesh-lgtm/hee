@@ -25,7 +25,7 @@ function historyReturn(form: FormData, result: "read" | "readAll") {
 
 async function notificationContext() {
   const user = await getCurrentUserForWrites();
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "notifications");
   if (!business) redirect("/dashboard?business=required");
   if (!await isSmartRemindersSchemaReady()) redirect("/dashboard/notifications?schema=pending");
   return { userId: user.id, businessId: business.id };

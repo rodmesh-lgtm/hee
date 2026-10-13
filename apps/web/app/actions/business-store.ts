@@ -42,7 +42,7 @@ export async function createBusinessStoreDraftAction(input: {
   customization?: unknown;
 }): Promise<BusinessStoreDraftResult> {
   const user = await getCurrentUserForWrites();
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "store");
   if (!business) return { ok: false, code: "BUSINESS_NOT_FOUND" };
 
   const idempotencyKey = normalizeIdempotencyKey(input?.idempotencyKey);
@@ -55,7 +55,7 @@ export async function createBusinessStoreDraftAction(input: {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`business-store-draft:${business.id}:${idempotencyKey}`}))`;
 
     const owned = await tx.business.findFirst({
-      where: { id: business.id, ownerId: user.id, deletedAt: null },
+      where: { id: business.id, deletedAt: null },
       select: {
         id: true,
         name: true,
@@ -113,7 +113,7 @@ export async function setBusinessStoreDraftItemAction(input: {
   customization?: unknown;
 }): Promise<BusinessStoreDraftItemResult> {
   const user = await getCurrentUserForWrites();
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "store");
   if (!business) return { ok: false, code: "BUSINESS_NOT_FOUND" };
 
   // The browser supplies only the SKU/quantity. Product existence, active state,
@@ -135,7 +135,7 @@ export async function setBusinessStoreDraftItemAction(input: {
       where: {
         id: input.orderId,
         businessId: business.id,
-        business: { ownerId: user.id, deletedAt: null },
+        business: { deletedAt: null },
       },
       select: { id: true, status: true },
     });

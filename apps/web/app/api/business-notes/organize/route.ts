@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   const user = await getCurrentUserForApiWrite();
   if (!user) return json({ ok: false, code: "unauthorized" }, 401);
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "notes");
   if (!business) return json({ ok: false, code: "business_required" }, 403);
 
   try {

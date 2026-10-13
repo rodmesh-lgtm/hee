@@ -9,7 +9,7 @@ const canaryPath=new URL("../app/lib/whatsapp/campaign-canary-domain.ts",import.
 
 test("business memory writes remain scoped to the active business and linked reminders block hard delete",async()=>{
   const s=await readFile(notesPath,"utf8");
-  assert.match(s,/getActiveBusinessForUser\(user\.id\)/);
+  assert.match(s,/getActiveBusinessForUser\(user\.id, "notes"\)/);
   assert.match(s,/WHERE "id"=\$\{noteId\} AND "businessId"=\$\{businessId\}/);
   assert.match(s,/FROM "SmartReminder" WHERE "businessId"=\$\{businessId\} AND "businessNoteId"=\$\{noteId\}/);
   assert.match(s,/Prisma\.TransactionIsolationLevel\.Serializable/);
@@ -17,7 +17,7 @@ test("business memory writes remain scoped to the active business and linked rem
 
 test("smart reminder mutations keep tenant context, consent gating and tenant-scoped snooze lookup",async()=>{
   const s=await readFile(remindersPath,"utf8");
-  assert.match(s,/getActiveBusinessForUser\(user\.id\)/);
+  assert.match(s,/getActiveBusinessForUser\(user\.id, "reminders"\)/);
   assert.match(s,/wantsWhatsApp && !recipientConsentAccepted/);
   assert.match(s,/businessId:context\.businessId/);
   assert.match(s,/WHERE "id"=\$\{reminderId\} AND "businessId"=\$\{context\.businessId\}/);

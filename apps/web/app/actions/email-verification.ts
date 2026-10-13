@@ -1,5 +1,7 @@
 "use server";
 
+import { pendingStaffInvitePath } from "../lib/staff-invitations";
+
 import { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -157,5 +159,6 @@ export async function verifyEmailAction(formData: FormData) {
   // directly into the central console; ordinary accounts keep the existing settings flow.
   const verifiedSessionUser = await getCurrentUser();
   if (verifiedSessionUser?.emailVerifiedAt && isAdminEmail(verifiedSessionUser.email)) redirect("/admin");
-  redirect("/dashboard/settings?email=verified");
+  const invitationPath = await pendingStaffInvitePath();
+  redirect(invitationPath ?? "/dashboard/settings?email=verified");
 }

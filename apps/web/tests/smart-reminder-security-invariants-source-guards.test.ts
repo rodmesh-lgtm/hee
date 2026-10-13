@@ -8,7 +8,7 @@ const operationsFile=new URL("../app/lib/reminders/operations.ts",import.meta.ur
 test("smart reminder writes derive the tenant from authenticated active business context",async()=>{
   const s=await readFile(actionsFile,"utf8");
   assert.ok(s.includes("getCurrentUserForWrites()"));
-  assert.ok(s.includes("getActiveBusinessForUser(user.id)"));
+  assert.ok(s.includes('getActiveBusinessForUser(user.id, "reminders")'));
   assert.ok(s.includes("businessId:business.id"));
   for(const operation of ["updateSmartReminderContent","updateReminderExecutionContext","updateReminderWorkProgress","rescheduleSmartReminder","pauseSmartReminder","resumeSmartReminder","cancelSmartReminder","completeSmartReminder"]){
     assert.ok(s.includes(`${operation}({businessId:context.businessId`),operation);

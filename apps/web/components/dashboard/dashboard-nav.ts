@@ -10,6 +10,7 @@ import {
   LifeBuoy,
   NotebookPen,
   Settings2,
+  UsersRound,
   ShoppingBag,
   UserRound,
 } from "lucide-react";
@@ -39,5 +40,6 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "متجر الأعمال", href: "/dashboard/business-store", icon: ShoppingBag },
   { label: "الأداء", href: "/dashboard/analytics", icon: BarChart3 },
   { label: "الدعم والمساعدة", href: "/dashboard/support", icon: LifeBuoy },
+  { label: "الموظفون والصلاحيات", href: "/dashboard/staff", icon: UsersRound },
   { label: "الحساب والباقات", href: "/dashboard/settings", icon: Settings2, activePrefixes: ["/dashboard/billing", "/dashboard/account-deletion"] },
 ];

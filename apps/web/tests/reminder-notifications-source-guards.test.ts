@@ -9,7 +9,7 @@ const shell = readFileSync("components/dashboard/dashboard-shell.tsx", "utf8");
 
 test("notification center always scopes reads to both active business and current user", () => {
   assert.match(page, /getCurrentUser\(\)/);
-  assert.match(page, /getActiveBusinessForUser\(user\.id\)/);
+  assert.match(page, /getActiveBusinessForUser\(user\.id, "notifications"\)/);
   assert.match(page, /"businessId"\s*=\s*\$\{business\.id\}/);
   assert.match(page, /"userId"\s*=\s*\$\{user\.id\}/);
   assert.match(page, /LIMIT \$\{HISTORY_PAGE_SIZE\} OFFSET/);
@@ -17,7 +17,7 @@ test("notification center always scopes reads to both active business and curren
 
 test("notification read mutations cannot cross tenant or user boundaries", () => {
   assert.match(actions, /getCurrentUserForWrites\(\)/);
-  assert.match(actions, /getActiveBusinessForUser\(user\.id\)/);
+  assert.match(actions, /getActiveBusinessForUser\(user\.id, "notifications"\)/);
   assert.match(actions, /"id"\s*=\s*\$\{notificationId\}[\s\S]*"businessId"\s*=\s*\$\{context\.businessId\}[\s\S]*"userId"\s*=\s*\$\{context\.userId\}/);
   assert.match(actions, /"businessId"\s*=\s*\$\{context\.businessId\}[\s\S]*"userId"\s*=\s*\$\{context\.userId\}[\s\S]*"readAt" IS NULL/);
 });
