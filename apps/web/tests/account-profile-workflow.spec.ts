@@ -32,6 +32,7 @@ test("account edits persist and email changes require both fresh mailbox proofs"
     await page.getByLabel("رمز البريد الحالي", { exact: true }).fill(current);
     await page.getByLabel("رمز البريد الجديد", { exact: true }).fill(next);
     await page.getByRole("button", { name: "تأكيد تغيير البريد", exact: true }).click();
+    await expect(page.getByRole("button", { name: "تأكيد تغيير البريد", exact: true })).toBeEnabled();
   }
   try {
     await context.addCookies([{ name: "hee_session", value: token, url: baseUrl }]);
