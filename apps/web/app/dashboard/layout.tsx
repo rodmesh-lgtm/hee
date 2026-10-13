@@ -1,5 +1,4 @@
-import { headers } from "next/headers";
-import { staffCanOpenPath, staffSections } from "../lib/staff-permissions";
+import { staffSections } from "../lib/staff-permissions";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
@@ -31,13 +30,12 @@ export default async function DashboardLayout({children}:{children:ReactNode}){
   const[qaAuditUser,business,businesses]=await Promise.all([getQaAuditSessionUser(),getDashboardBusinessForUser(user.id),getDashboardBusinessSummaries(user.id)]);
   const isStaff = Boolean(business && business.ownerId !== user.id);
   const permissions = isStaff ? (business!.members[0]?.permissions ?? ["whatsapp"]) : undefined;
-  const allowed = !isStaff || staffCanOpenPath((await headers()).get("x-infro-pathname") ?? "", permissions);
   const hasWhatsAppMarketing=business?await hasActiveWhatsAppMarketingEntitlement({businessId:business.id}):false;
   const effectivelyPublished=Boolean(business?.isPublished&&user.emailVerifiedAt);
   return <>
     <a href="#dashboard-main-content" className="fixed right-4 top-3 z-[100] -translate-y-24 rounded-xl bg-[#07181b] px-4 py-2 text-sm font-black text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2">الانتقال إلى المحتوى الرئيسي</a>
     <DashboardShell staffPermissions={isStaff ? staffSections(permissions) : undefined} businessId={business?.id??null} businessName={business?.name??"نشاط جديد"} businessSlug={business?.slug??null} isPublished={effectivelyPublished} businesses={businesses.map(({id,name,slug})=>({id,name,slug}))} showQaBadge={Boolean(qaAuditUser)} showAdminLink={!qaAuditUser&&Boolean(user.emailVerifiedAt)&&isAdminEmail(user.email)} hasWhatsAppMarketing={hasWhatsAppMarketing}>
-      <div id="dashboard-main-content" tabIndex={-1} className="outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-4">{allowed ? children : <section className="rounded-2xl border bg-white p-6"><h1 className="text-xl font-black">هذا القسم غير متاح لحسابك</h1><p className="mt-3">تواصل مع مالك المنشأة لتعديل صلاحياتك.</p></section>}</div>
+      <div id="dashboard-main-content" tabIndex={-1} className="outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-4">{children}</div>
     </DashboardShell>
   </>;
 }

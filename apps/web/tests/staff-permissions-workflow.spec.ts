@@ -49,6 +49,8 @@ test("owner invites a verified employee and section permissions are enforced on 
     expect((await db.business.findUniqueOrThrow({ where: { id: business.id } })).name).toBe(business.name);
     await memberPage.goto(`${baseUrl}/dashboard/staff`);
     await expect(memberPage.getByRole("button", { name: "إضافة موظف وإرسال الدعوة" })).toHaveCount(0);
+    await memberPage.getByRole("link", { name: "مركز العمل", exact: true }).first().click();
+    await expect(memberPage.getByRole("heading", { name: "مساحة الموظف", exact: true })).toBeVisible();
     await memberPage.goto(`${baseUrl}/dashboard/inbox`);
     await expect(memberPage.getByRole("heading", { name: "الطلبات", exact: true })).toHaveCount(0);
     await memberPage.goto(invitePath);
