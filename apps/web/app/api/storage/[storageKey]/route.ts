@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentAdminUser } from "../../../lib/admin";
 import { readPlatformDesign } from "../../../lib/platform-design";
 import { db } from "../../../lib/db";
+import { getActiveBusinessForUser } from "../../../lib/active-business";
 import { getCurrentUser } from "../../../lib/auth";
 import { ensurePersistentStorageReady, readPersistentObject } from "../../../lib/storage";
 
@@ -52,11 +53,12 @@ async function publicCompanyProfileBusiness(storageKey: string, tenantId: string
 async function ownerCanReadObject(storageKey: string, tenantId: string | null, kind: "image" | "company-profile") {
   const user = await getCurrentUser();
   if (!user) return false;
+  const permitted = await getActiveBusinessForUser(user.id, kind === "image" ? "page" : "identity");
   const url = `/api/storage/${storageKey}`;
 
   const business = await db.business.findFirst({
     where: {
-      ownerId: user.id,
+      AND: [{ OR: [{ ownerId: user.id }, ...(permitted ? [{ id: permitted.id }] : [])] }],
       deletedAt: null,
       ...(tenantId ? { id: tenantId } : {}),
       ...(kind === "company-profile"

@@ -18,11 +18,11 @@ export const metadata: Metadata = {
 export default async function OwnerPreviewPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const activeBusiness = await getActiveBusinessForUser(user.id);
+  const activeBusiness = await getActiveBusinessForUser(user.id, "page");
   if (!activeBusiness) redirect("/onboarding");
 
   const business = await db.business.findFirst({
-    where: { id: activeBusiness.id, ownerId: user.id, deletedAt: null },
+    where: { id: activeBusiness.id, ownerId: activeBusiness.ownerId, deletedAt: null },
     include: {
       products: { include: { category: true } }, offers: true, services: true, openingHours: true,
       galleryItems: true, socialLinks: true, branches: true,
