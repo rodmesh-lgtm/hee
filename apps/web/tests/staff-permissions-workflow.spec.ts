@@ -34,7 +34,7 @@ test("owner invites a verified employee and section permissions are enforced on 
     const invite = new URL(await link.inputValue());
     const invitePath = `${baseUrl}${invite.pathname}${invite.search}`;
     await strangerPage.goto(invitePath);
-    await expect(strangerPage.getByRole("alert")).toContainText("لا يطابق البريد المدعو");
+    await expect(strangerPage.getByRole("alert").filter({ hasText: "لا يطابق البريد المدعو" })).toContainText("لا يطابق البريد المدعو");
     expect(await db.businessMember.count({ where: { businessId: business.id } })).toBe(0);
     await memberPage.goto(invitePath);
     await memberPage.getByRole("button", { name: "قبول الدعوة والدخول لمساحة العمل" }).click();
@@ -42,7 +42,7 @@ test("owner invites a verified employee and section permissions are enforced on 
     const member = await db.businessMember.findUniqueOrThrow({ where: { businessId_userId: { businessId: business.id, userId: employee.id } } });
     expect(member.permissions).toEqual(["appointments"]);
     await memberPage.goto(`${baseUrl}/dashboard/appointments`);
-    await expect(memberPage.getByRole("heading", { name: "المواعيد والحجوزات", exact: true })).toBeVisible();
+    await expect(memberPage.locator("#dashboard-main-content").getByRole("heading", { name: "المواعيد والحجوزات", exact: true })).toBeVisible();
     // Direct API calls must reject a member without page permission.
     const denied = await contexts[1].request.post(`${baseUrl}/api/dashboard/business/autosave`, { headers: { Origin: baseUrl }, data: { fields: { name: "غير مسموح" } } });
     expect([401, 403]).toContain(denied.status());
@@ -64,7 +64,7 @@ test("owner invites a verified employee and section permissions are enforced on 
     await ownerPage.reload();
     const updated = ownerPage.locator("details").filter({ hasText: employee.email });
     await updated.locator("summary").click();
-    await updated.getByLabel("حالة وصول الموظف", { exact: true }).selectOption("suspended");
+    await updated.getByRole("combobox", { name: "حالة وصول الموظف", exact: true }).selectOption("suspended");
     await updated.getByRole("button", { name: "حفظ صلاحيات الموظف" }).click();
     await expect.poll(async () => (await db.businessMember.findUniqueOrThrow({ where: { id: member.id } })).status).toBe("suspended");
     const suspended = await contexts[1].request.post(`${baseUrl}/api/dashboard/business/autosave`, { headers: { Origin: baseUrl }, data: { fields: { name: "موقوف" } } });
