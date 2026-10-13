@@ -12,7 +12,7 @@ function dueAt(form:FormData){const raw=String(form.get("businessDueAt")??"").tr
 
 export async function updateReminderExecutionContextAction(form:FormData){
   const user=await getCurrentUserForWrites();
-  const business=await getActiveBusinessForUser(user.id);
+  const business=await getActiveBusinessForUser(user.id, "reminders");
   if(!business)redirect("/dashboard?business=required");
   if(!await isSmartRemindersSchemaReady())redirect("/dashboard/reminders?schema=pending");
   const reminderId=bounded(form,"reminderId",128);

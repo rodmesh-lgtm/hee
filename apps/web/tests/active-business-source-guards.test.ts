@@ -36,7 +36,7 @@ test("tenant-private dashboard reads cannot fall back to owner-only findFirst se
 test("dashboard tools resolve plan entitlements from the active business", () => {
   const tools = source("app/dashboard/tools/page.tsx");
   assert.match(tools, /getActiveBusinessWithPlanForUser/);
-  assert.match(tools, /getActiveBusinessWithPlanForUser\(user\.id\)/);
+  assert.match(tools, /getActiveBusinessWithPlanForUser\(user\.id, "page"\)/);
   assert.doesNotMatch(tools, /db\.business\.findFirst/);
   assert.match(tools, /getPlanEntitlements\(business\?\.plan\?\.code\)/);
 });
@@ -74,7 +74,7 @@ test("active business cookie is never trusted without an owner-bound database lo
   assert.match(activeBusiness, /id:\s*requestedId,\s*ownerId:\s*userId,\s*deletedAt:\s*null/);
 
   const switchAction = source("app/actions/active-business.ts");
-  assert.match(switchAction, /id:\s*businessId,\s*ownerId:\s*user\.id,\s*deletedAt:\s*null/);
+  assert.match(switchAction, /id: businessId, deletedAt: null, OR: \[\{ ownerId: user\.id \}, \{ members: \{ some: \{ userId: user\.id, status: "active" \}/);
   assert.match(switchAction, /httpOnly:\s*true/);
   assert.match(switchAction, /sameSite:\s*"lax"/);
 });

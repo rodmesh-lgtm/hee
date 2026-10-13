@@ -10,7 +10,7 @@ function source(path: string) {
 test("customer support writes are authenticated, tenant-bound and throttled", () => {
   const support = source("app/actions/support.ts");
   assert.match(support, /getCurrentUserForWrites\(\)/);
-  assert.match(support, /getActiveBusinessForUser\(user\.id\)/);
+  assert.match(support, /getActiveBusinessForUser\(user\.id, "support"\)/);
   assert.match(support, /businessId:\s*business\.id/);
   assert.match(support, /scope:\s*"customer-support"/);
   assert.match(support, /limit:\s*8/);

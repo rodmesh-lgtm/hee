@@ -22,7 +22,8 @@ test("business store item price comes only from the active central server catalo
 
 test("draft item mutation is tenant-owned and draft-only at commit time", () => {
   assert.match(actionSource, /businessId: business\.id/);
-  assert.match(actionSource, /business: \{ ownerId: user\.id, deletedAt: null \}/);
+  assert.match(actionSource, /getActiveBusinessForUser\(user\.id, "store"\)/);
+  assert.match(actionSource, /business: \{ deletedAt: null \}/);
   assert.match(actionSource, /if \(order\.status !== "draft"\)/);
   assert.match(actionSource, /ORDER_NOT_DRAFT/);
 });

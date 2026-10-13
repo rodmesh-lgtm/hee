@@ -9,7 +9,7 @@ function source(path: string) {
 
 test("paid offer designer resolves the dashboard active business and its entitlements", () => {
   const page = source("app/dashboard/tools/offers/page.tsx");
-  assert.match(page, /getActiveBusinessWithPlanForUser\(user\.id\)/);
+  assert.match(page, /getActiveBusinessWithPlanForUser\(user\.id, "page"\)/);
   assert.doesNotMatch(page, /db\.business\.findFirst/);
   assert.match(page, /getPlanEntitlements\(business\.plan\?\.code\)/);
 });

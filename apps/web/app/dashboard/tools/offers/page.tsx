@@ -14,7 +14,7 @@ export default async function DashboardOffersDesignerPage() {
   // Paid tools must resolve the same active business as the rest of the dashboard.
   // Selecting the first business owned by the user can show the wrong tenant's branding
   // or entitlement when one account manages more than one business.
-  const business = await getActiveBusinessWithPlanForUser(user.id);
+  const business = await getActiveBusinessWithPlanForUser(user.id, "page");
 
   if (!business) {
     return (

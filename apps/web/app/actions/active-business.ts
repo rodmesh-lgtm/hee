@@ -20,7 +20,7 @@ export async function switchActiveBusinessAction(formData: FormData) {
   if (!businessId) redirect("/dashboard");
 
   const owned = await db.business.findFirst({
-    where: { id: businessId, ownerId: user.id, deletedAt: null },
+    where: { id: businessId, deletedAt: null, OR: [{ ownerId: user.id }, { members: { some: { userId: user.id, status: "active" } } }] },
     select: { id: true },
   });
   if (!owned) redirect("/dashboard?business=invalid");

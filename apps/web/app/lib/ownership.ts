@@ -1,35 +1,36 @@
 import "server-only";
 
+import type { StaffSection } from "./staff-permissions";
 import { db } from "./db";
 import { getCurrentUser, getCurrentUserForApiWrite, getCurrentUserForWrites } from "./auth";
 import { getActiveBusinessForUser, getActiveBusinessWithPlanForUser } from "./active-business";
 
-export async function getOwnedBusinessForRead() {
+export async function getOwnedBusinessForRead(section?: StaffSection) {
   const user = await getCurrentUser();
   if (!user) return null;
-  return getActiveBusinessForUser(user.id);
+  return getActiveBusinessForUser(user.id, section);
 }
 
-export async function getOwnedBusinessWithPlanForRead() {
+export async function getOwnedBusinessWithPlanForRead(section?: StaffSection) {
   const user = await getCurrentUser();
   if (!user) return null;
-  return getActiveBusinessWithPlanForUser(user.id);
+  return getActiveBusinessWithPlanForUser(user.id, section);
 }
 
-export async function getOwnedBusinessForApiWrite() {
+export async function getOwnedBusinessForApiWrite(section?: StaffSection) {
   const user = await getCurrentUserForApiWrite();
   if (!user) return null;
-  return getActiveBusinessForUser(user.id);
+  return getActiveBusinessForUser(user.id, section);
 }
 
-export async function getOwnedBusinessForWrite() {
+export async function getOwnedBusinessForWrite(section?: StaffSection) {
   const user = await getCurrentUserForWrites();
-  return getActiveBusinessForUser(user.id);
+  return getActiveBusinessForUser(user.id, section);
 }
 
-export async function getOwnedBusinessWithPlanForWrite() {
+export async function getOwnedBusinessWithPlanForWrite(section?: StaffSection) {
   const user = await getCurrentUserForWrites();
-  return getActiveBusinessWithPlanForUser(user.id);
+  return getActiveBusinessWithPlanForUser(user.id, section);
 }
 
 export async function ownsBusinessRecord(

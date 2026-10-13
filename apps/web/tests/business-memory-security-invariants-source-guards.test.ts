@@ -7,7 +7,7 @@ const actionsFile=new URL("../app/actions/business-notes.ts",import.meta.url);
 test("Business Memory derives every write tenant from the authenticated active business",async()=>{
   const s=await readFile(actionsFile,"utf8");
   assert.ok(s.includes("getCurrentUser()"));
-  assert.ok(s.includes("getActiveBusinessForUser(user.id)"));
+  assert.ok(s.includes('getActiveBusinessForUser(user.id, "notes")'));
   assert.ok(s.includes("businessId:business.id"));
   assert.ok(!s.includes('form.get("businessId")'));
 });

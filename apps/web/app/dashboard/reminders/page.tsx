@@ -60,7 +60,7 @@ function SchemaPending(){return <div dir="rtl" className="space-y-6 pb-10" data-
 
 export default async function SmartRemindersPage({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){
   const user=await getCurrentUser();if(!user)redirect("/login");
-  const business=await getActiveBusinessForUser(user.id);if(!business)redirect("/dashboard?business=required");
+  const business=await getActiveBusinessForUser(user.id, "reminders");if(!business)redirect("/dashboard?business=required");
   const params=await searchParams;if(!await isSmartRemindersSchemaReady())return <SchemaPending/>;
   const whatsAppAvailable=infroReminderWhatsAppReady()&&Boolean(business.whatsapp||business.phone),now=new Date();
   const q=historyQuery(params);

@@ -68,7 +68,7 @@ function boundedInteger(raw: string, minimum: number, maximum: number) {
 }
 
 export async function updateBookingSlotSettingsAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite();
+  const business = await getOwnedBusinessForWrite("appointments");
   if (!business) redirect("/login");
 
   const defaultDuration = boundedInteger(value(formData, "defaultSlotMinutes"), 15, 480);
@@ -365,7 +365,7 @@ export async function syncShopifyBookingOrdersAction(formData: FormData) {
 }
 
 export async function upsertBookingAvailabilityOverrideAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite();
+  const business = await getOwnedBusinessForWrite("appointments");
   if (!business) redirect("/login");
 
   const date = value(formData, "date");
@@ -418,7 +418,7 @@ export async function upsertBookingAvailabilityOverrideAction(formData: FormData
 }
 
 export async function deleteBookingAvailabilityOverrideAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite();
+  const business = await getOwnedBusinessForWrite("appointments");
   if (!business) redirect("/login");
   const id = value(formData, "id");
   if (id) {
@@ -429,7 +429,7 @@ export async function deleteBookingAvailabilityOverrideAction(formData: FormData
 }
 
 export async function updateWorkingHoursAction(formData: FormData) {
-  const business = await getOwnedBusinessForWrite();
+  const business = await getOwnedBusinessForWrite("appointments");
   if (!business) redirect("/login");
 
   const rows = Array.from({ length: 7 }, (_, dayOfWeek) => {

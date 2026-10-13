@@ -21,7 +21,7 @@ function BookingAction({ id, status, label, danger = false, confirm }: { id: str
 }
 
 export default async function AppointmentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const business = await getOwnedBusinessForRead();
+  const business = await getOwnedBusinessForRead("appointments");
   if (!business) redirect("/onboarding");
   const params = await searchParams;
   const tab = appointmentTab(param(params.tab));

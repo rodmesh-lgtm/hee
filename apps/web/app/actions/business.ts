@@ -51,7 +51,7 @@ export async function updateBusinessBrandingImagesAction(_prevState: ActionState
   const user = await getCurrentUserForWrites();
   if (!user) return { error: "وضع المعاينة QA للقراءة فقط" };
 
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "page");
   if (!business) return { error: "لا يوجد نشاط مرتبط بهذا الحساب" };
 
   try {
@@ -81,12 +81,12 @@ export async function updateBusinessBrandingImagesAction(_prevState: ActionState
     const result = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`branding-images:${business.id}`}))`;
       const current = await tx.business.findFirst({
-        where: { id: business.id, ownerId: user.id, deletedAt: null },
+        where: { id: business.id, deletedAt: null },
         select: { logoUrl: true, coverUrl: true },
       });
       if (!current) return null;
       const updated = await tx.business.updateMany({
-        where: { id: business.id, ownerId: user.id, deletedAt: null },
+        where: { id: business.id, deletedAt: null },
         data: nextData,
       });
       if (updated.count !== 1) return null;

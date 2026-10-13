@@ -22,8 +22,8 @@ const save = "inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg
 export default async function DirectoryPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser(); if (!user) redirect("/login");
   const params = await searchParams; const statusKey = Array.isArray(params?.status) ? params.status[0] : params?.status; const status = statusKey ? STATUS_MESSAGES[statusKey] : null;
-  const activeBusiness = await getActiveBusinessWithPlanForUser(user.id); if (!activeBusiness) redirect("/onboarding");
-  const business = await db.business.findFirst({ where: { id: activeBusiness.id, ownerId: user.id, deletedAt: null }, include: { plan: true, branches: { orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] }, contactPersons: { include: { branch: true }, orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] } } });
+  const activeBusiness = await getActiveBusinessWithPlanForUser(user.id, "page"); if (!activeBusiness) redirect("/onboarding");
+  const business = await db.business.findFirst({ where: { id: activeBusiness.id, deletedAt: null }, include: { plan: true, branches: { orderBy: [{ isMain: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] }, contactPersons: { include: { branch: true }, orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] } } });
   if (!business) redirect("/onboarding");
   const visibleBranches = business.branches.filter((branch) => branch.isActive).length; const visibleContacts = business.contactPersons.filter((contact) => contact.isActive).length;
   const entitlements = getPlanEntitlements(activeBusiness.plan?.code); const branchLimitReached = limitReached(visibleBranches, entitlements.branchLimit); const contactLimitReached = limitReached(visibleContacts, entitlements.contactLimit);

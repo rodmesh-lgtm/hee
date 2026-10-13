@@ -15,7 +15,7 @@ function cleanTitle(value: FormDataEntryValue | null) { return String(value ?? "
 export async function updateCompanyProfileAction(formData: FormData) {
   const user = await getCurrentUserForWrites();
   if (!user) redirect("/dashboard/digital-identity?profile=readonly");
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "identity");
   if (!business) redirect("/onboarding");
   let rateAllowed = false;
   try {
@@ -35,9 +35,9 @@ export async function updateCompanyProfileAction(formData: FormData) {
     const title = cleanTitle(formData.get("profileTitle"));
     const result = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`company-profile:${business.id}`}))`;
-      const current = await tx.business.findFirst({ where: { id: business.id, ownerId: user.id, deletedAt: null }, select: { companyProfileUrl: true } });
+      const current = await tx.business.findFirst({ where: { id: business.id, deletedAt: null }, select: { companyProfileUrl: true } });
       if (!current) return { found: false as const, previous: null };
-      const updated = await tx.business.updateMany({ where: { id: business.id, ownerId: user.id, deletedAt: null }, data: { companyProfileUrl: uploaded!.url, companyProfileTitle: title } });
+      const updated = await tx.business.updateMany({ where: { id: business.id, deletedAt: null }, data: { companyProfileUrl: uploaded!.url, companyProfileTitle: title } });
       return { found: updated.count === 1, previous: current.companyProfileUrl };
     });
     if (!result.found) {
@@ -58,13 +58,13 @@ export async function updateCompanyProfileAction(formData: FormData) {
 export async function removeCompanyProfileAction() {
   const user = await getCurrentUserForWrites();
   if (!user) redirect("/dashboard/digital-identity?profile=readonly");
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "identity");
   if (!business) redirect("/onboarding");
   const result = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`company-profile:${business.id}`}))`;
-    const current = await tx.business.findFirst({ where: { id: business.id, ownerId: user.id, deletedAt: null }, select: { companyProfileUrl: true } });
+    const current = await tx.business.findFirst({ where: { id: business.id, deletedAt: null }, select: { companyProfileUrl: true } });
     if (!current) return { found: false as const, previous: null };
-    const updated = await tx.business.updateMany({ where: { id: business.id, ownerId: user.id, deletedAt: null }, data: { companyProfileUrl: null, companyProfileTitle: null } });
+    const updated = await tx.business.updateMany({ where: { id: business.id, deletedAt: null }, data: { companyProfileUrl: null, companyProfileTitle: null } });
     return { found: updated.count === 1, previous: current.companyProfileUrl };
   });
   if (!result.found) redirect("/dashboard/digital-identity?profile=error");

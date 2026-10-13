@@ -7,7 +7,7 @@ import { hasPendingVerificationRequest, requestVerificationAction } from "../../
 export default async function VerificationPage({ searchParams }: { searchParams?: Promise<{ verification?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const business = await getActiveBusinessWithPlanForUser(user.id);
+  const business = await getActiveBusinessWithPlanForUser(user.id, "identity");
   if (!business) redirect("/onboarding");
   const params = await searchParams;
   const pending = !business.isVerified && await hasPendingVerificationRequest();

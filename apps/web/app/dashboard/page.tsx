@@ -1,3 +1,5 @@
+import { getDashboardBusinessForUser } from "../lib/active-business";
+import { STAFF_SECTIONS, memberCanAccess } from "../lib/staff-permissions";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { WorkspaceRefresh } from "../../components/dashboard/workspace-refresh";
@@ -28,6 +30,8 @@ const bucketMeta:Record<WorkBucket,{label:string;description:string}>={today:{la
 
 export default async function DashboardHomePage(){
   const user=await getCurrentUser();if(!user)redirect("/login");
+  const staffBusiness = await getDashboardBusinessForUser(user.id);
+  if (staffBusiness && staffBusiness.ownerId !== user.id) return <section className="space-y-5"><h1 className="text-2xl font-black">مساحة الموظف</h1><p>مرحبًا {user.name}، هذه الأقسام المتاحة لك في {staffBusiness.name}.</p><div className="grid gap-3 sm:grid-cols-2">{Object.entries(STAFF_SECTIONS).filter(([key]) => memberCanAccess(staffBusiness.members[0]?.permissions, key as keyof typeof STAFF_SECTIONS)).map(([key, section]) => <Link key={key} href={section.href} className="rounded-2xl border border-slate-200 bg-white p-5 font-bold text-teal-800">{section.label}</Link>)}</div><Link href="/dashboard/settings" className="inline-block underline">بيانات حسابي</Link></section>;
   const business=await getActiveBusinessWithPlanForUser(user.id);
   if(!business)return <section className="mx-auto max-w-2xl rounded-[30px] border border-slate-200 bg-white p-8"><Rocket className="h-6 w-6 text-[#008f87]"/><p className="mt-5 text-[9px] font-black text-[#008f87]">INFRO WORKSPACE</p><h1 className="mt-2 text-2xl font-black">ابدأ هويتك الرقمية</h1><p className="mt-2 text-sm leading-7 text-slate-500">أنشئ الأساس مرة واحدة، ثم اجعل INFRO مساحة تشغيل حضورك الرقمي والتسويقي.</p><Link href="/onboarding" className="mt-6 inline-flex h-11 items-center rounded-xl bg-[#07181b] px-5 text-sm font-black text-white">إنشاء الصفحة</Link></section>;
 

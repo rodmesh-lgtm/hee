@@ -6,7 +6,7 @@ import { db } from "../lib/db";
 import { getOwnedBusinessWithPlanForWrite } from "../lib/ownership";
 import { getPlanEntitlements, limitReached } from "../lib/plan-entitlements";
 
-async function ownedBusiness() { return getOwnedBusinessWithPlanForWrite(); }
+async function ownedBusiness() { return getOwnedBusinessWithPlanForWrite("page"); }
 function text(formData: FormData, key: string) { return String(formData.get(key) ?? "").trim(); }
 function validName(value: string) { return value.length >= 2 && value.length <= 120; }
 function validDescription(value: string) { return value.length <= 1000; }
@@ -62,7 +62,7 @@ export async function updateSimpleServiceAction(formData: FormData) {
 }
 
 export async function updateBookingAvailabilityAction(formData: FormData) {
-  const business = await ownedBusiness(); if (!business) return;
+  const business = await getOwnedBusinessWithPlanForWrite("appointments"); if (!business) return;
   const enabled = formData.get("bookingAvailable") === "on";
   await db.$transaction(async (tx) => {
     await lockServiceScope(tx, business.id);

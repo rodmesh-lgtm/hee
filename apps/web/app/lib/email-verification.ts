@@ -29,7 +29,7 @@ function trustedVerificationOrigin(candidate: string, allowedSuffixes: string[])
   return null;
 }
 
-function verificationOrigin() {
+export function verificationOrigin() {
   const vercelEnv = String(process.env.VERCEL_ENV ?? "").toLowerCase();
   if (vercelEnv === "production" || (!vercelEnv && process.env.NODE_ENV === "production")) return "https://ir.sa";
 

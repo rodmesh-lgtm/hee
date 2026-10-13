@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { db } from "./db";
 import { getEffectiveSubscription } from "./subscription-entitlement";
+import { memberCanAccess, type StaffSection } from "./staff-permissions";
 
 export const ACTIVE_BUSINESS_COOKIE = "hee_active_business";
 
@@ -12,7 +13,11 @@ async function requestedBusinessId() {
   return value || null;
 }
 
-export async function getActiveBusinessForUser(userId: string) {
+export async function getActiveBusinessForUser(userId: string, section?: StaffSection) {
+  if (section) {
+    const business = await getDashboardBusinessForUser(userId);
+    return business && (business.ownerId === userId || memberCanAccess(business.members[0]?.permissions, section)) ? business : null;
+  }
   const requestedId = await requestedBusinessId();
   if (requestedId) {
     const requested = await db.business.findFirst({
@@ -40,7 +45,12 @@ async function withEffectivePlan<T extends { id: string; plan: { id: string; cod
   return { ...business, plan: freePlan };
 }
 
-export async function getActiveBusinessWithPlanForUser(userId: string) {
+export async function getActiveBusinessWithPlanForUser(userId: string, section?: StaffSection) {
+  if (section) {
+    const allowed = await getActiveBusinessForUser(userId, section);
+    if (!allowed) return null;
+    return withEffectivePlan(await db.business.findUnique({ where: { id: allowed.id }, include: { plan: true } }));
+  }
   const requestedId = await requestedBusinessId();
   if (requestedId) {
     const requested = await db.business.findFirst({
@@ -64,4 +74,21 @@ export async function getOwnedBusinessSummaries(userId: string) {
     select: { id: true, name: true, slug: true, isPublished: true, createdAt: true },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
+}
+
+/** Navigation context only. Mutations and section reads must check an explicit section. */
+export async function getDashboardBusinessForUser(userId: string) {
+  const requestedId = await requestedBusinessId();
+  const include = { members: { where: { userId, status: "active" }, select: { id: true, role: true, permissions: true }, take: 1 } } as const;
+  const access = { OR: [{ ownerId: userId }, { members: { some: { userId, status: "active" } } }] };
+  if (requestedId) {
+    const selected = await db.business.findFirst({ where: { id: requestedId, deletedAt: null, ...access }, include });
+    if (selected) return selected;
+  }
+  const owned = await db.business.findFirst({ where: { ownerId: userId, deletedAt: null }, include, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+  return owned ?? db.business.findFirst({ where: { deletedAt: null, members: { some: { userId, status: "active" } } }, include, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+}
+
+export async function getDashboardBusinessSummaries(userId: string) {
+  return db.business.findMany({ where: { deletedAt: null, OR: [{ ownerId: userId }, { members: { some: { userId, status: "active" } } }] }, select: { id: true, name: true, slug: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
 }

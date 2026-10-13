@@ -62,7 +62,7 @@ function invalidSchemaStatus(error: z.ZodError) {
 
 export async function updateDigitalPresenceAction(formData: FormData) {
   const user = await getCurrentUserForWrites();
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "identity");
   if (!business) redirect("/onboarding");
 
   let rateAllowed = false;
@@ -97,14 +97,14 @@ export async function updateDigitalPresenceAction(formData: FormData) {
     const result = await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`business-autosave:${business.id}`}))`;
       const current = await tx.business.findFirst({
-        where: { id: business.id, ownerId: user.id, deletedAt: null },
+        where: { id: business.id, deletedAt: null },
         select: { isPublished: true, phone: true, whatsapp: true },
       });
       if (!current) return "missing" as const;
       const nextEmail = parsed.data.email || null;
       if (current.isPublished && !Boolean(current.phone?.trim() || current.whatsapp?.trim() || nextEmail || website)) return "contact-required" as const;
       const updated = await tx.business.updateMany({
-        where: { id: business.id, ownerId: user.id, deletedAt: null },
+        where: { id: business.id, deletedAt: null },
         data: {
           nameEn: parsed.data.nameEn || null,
           email: nextEmail,

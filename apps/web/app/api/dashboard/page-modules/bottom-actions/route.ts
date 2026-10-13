@@ -12,7 +12,7 @@ const ids = ["whatsapp", "phone", "email", "website", "share"] as const;
 const schema = z.object({ serviceRequestEnabled: z.boolean().optional(), bookingPlacement: z.enum(["panel", "ribbon"]).optional(), actions: z.array(z.object({ id: z.enum(ids), enabled: z.boolean(), sortOrder: z.number().int().min(0).max(9), label: z.string().max(24).optional() }).strict()).min(1).max(5) }).strict();
 
 export async function POST(request: Request) {
-  const business = await getOwnedBusinessForApiWrite();
+  const business = await getOwnedBusinessForApiWrite("page");
   if (!business) return NextResponse.json({ error: "يرجى تسجيل الدخول وإنشاء النشاط أولاً" }, { status: 401 });
   try {
     const identity = requestClientAddress(request) || business.ownerId;

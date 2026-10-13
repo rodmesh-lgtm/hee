@@ -10,7 +10,7 @@ function safeSlug(value: string) { return value.replace(/[^a-z0-9-]/gi, "-").rep
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "identity");
   if (!business) return NextResponse.json({ error: "لا توجد منشأة نشطة" }, { status: 404 });
   const address = [business.address, business.district, business.city, business.country || "SA"].map(escapeVCard);
   const lines = [

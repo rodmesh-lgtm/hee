@@ -24,7 +24,7 @@ function SchemaPending() {
 export default async function ReminderNotificationsPage({ searchParams }: { searchParams: Promise<Record<string,string|undefined>> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const business = await getActiveBusinessForUser(user.id);
+  const business = await getActiveBusinessForUser(user.id, "notifications");
   if (!business) redirect("/dashboard?business=required");
   if (!await isSmartRemindersSchemaReady()) return <SchemaPending />;
   const params = await searchParams;

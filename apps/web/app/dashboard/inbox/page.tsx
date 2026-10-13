@@ -13,7 +13,7 @@ function statusClass(status: string) { return status === "completed" ? "bg-emera
 function ActionButton({id,status,label,action,tone="primary",confirmMessage}:{id:string;status:string;label:string;action:(formData:FormData)=>Promise<void>;tone?:"primary"|"danger"|"neutral";confirmMessage?:string}){const cls=tone==="danger"?"border-rose-200 bg-rose-50 text-rose-700":tone==="neutral"?"border-slate-200 bg-white text-slate-600":"border-[#bdebe5] bg-[#effbf9] text-[#008f87]",className=`min-h-10 rounded-xl border px-3 text-[10px] font-black transition hover:-translate-y-px`;return <form action={action}><input type="hidden" name="id" value={id}/><input type="hidden" name="status" value={status}/>{confirmMessage?<ConfirmSubmitButton label={label} confirmMessage={confirmMessage} showIcon={false} className={`${className} ${cls}`}/>:<button className={`${className} ${cls}`}>{label}</button>}</form>}
 
 export default async function DashboardInboxPage() {
-  const business = await getOwnedBusinessForRead();
+  const business = await getOwnedBusinessForRead("orders");
   if (!business) redirect("/onboarding");
   const include = { customer: { select: { name: true, phone: true } }, items: { select: { name: true, quantity: true, total: true } } } as const;
   const [activeOrders, history] = await Promise.all([

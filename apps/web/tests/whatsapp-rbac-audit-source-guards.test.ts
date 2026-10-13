@@ -22,8 +22,10 @@ test("business membership is tenant unique with database role and status constra
 
 test("RBAC derives business scope from authenticated owner or active membership", () => {
   assert.match(rbac, /getCurrentUserForWrites/);
-  assert.match(rbac, /ownerId: userId/);
-  assert.match(rbac, /members: \{ some: \{ userId, status: "active" \}/);
+  assert.match(rbac, /getDashboardBusinessForUser\(userId\)/);
+  assert.match(rbac, /memberCanAccess\(business.members\[0\]\?\.permissions, "whatsapp"\)/);
+  assert.match(read("app/lib/active-business.ts"), /ownerId: userId/);
+  assert.match(read("app/lib/active-business.ts"), /members: \{ some: \{ userId, status: "active" \}/);
   assert.match(rbac, /roleCan\(role, permission\)/);
   assert.doesNotMatch(rbac, /businessId:\s*requested\s*\}\)/);
 });

@@ -1,5 +1,7 @@
 "use server";
 
+import { pendingStaffInvitePath } from "../lib/staff-invitations";
+
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { headers } from "next/headers";
@@ -98,6 +100,8 @@ export async function registerAction(_prevState: ActionState, formData: FormData
   // send never rolls back the already-created account: onboarding exposes the recovery
   // state and the settings page retains the rate-limited resend action.
   const verification = await issueEmailVerification(user.id, parsed.data.email);
+  const invitationPath = await pendingStaffInvitePath();
+  if (invitationPath) redirect(invitationPath);
   if (verification === "sent") redirect("/onboarding?email=verification-sent");
   if (verification === "send-failed") redirect("/onboarding?email=verification-send-failed");
   if (verification === "not-configured") redirect("/onboarding?email=verification-unavailable");
@@ -129,8 +133,9 @@ export async function loginAction(_prevState: ActionState, formData: FormData): 
 
   await clearQaAuditSession();
   await createSession(user.id);
-  const business = await db.business.findFirst({ where: { ownerId: user.id, deletedAt: null }, select: { id: true } });
-  redirect(business ? "/dashboard" : "/onboarding");
+  const business = await db.business.findFirst({ where: { deletedAt: null, OR: [{ ownerId: user.id }, { members: { some: { userId: user.id, status: "active" } } }] }, select: { id: true } });
+  const invitationPath = await pendingStaffInvitePath();
+  redirect(invitationPath ?? (business ? "/dashboard" : "/onboarding"));
 }
 
 export async function logoutAction() {

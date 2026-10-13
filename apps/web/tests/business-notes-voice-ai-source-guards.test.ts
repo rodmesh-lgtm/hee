@@ -23,7 +23,7 @@ test("business voice AI remains server-only and accepts INFRO or standard OpenAI
 
 test("voice transcription stays authenticated tenant-scoped rate-limited and bounded", () => {
   assert.match(route, /getCurrentUserForApiWrite/);
-  assert.match(route, /getActiveBusinessForUser\(user\.id\)/);
+  assert.match(route, /getActiveBusinessForUser\(user\.id, "notes"\)/);
   assert.match(route, /scope: "business-note-voice-transcription"/);
   assert.match(route, /businessId: business\.id/);
   assert.match(route, /limit: 12/);
@@ -66,7 +66,7 @@ test("INFRO AI organizes memo as reviewable structured suggestions without auto 
   assert.match(organizer, /Never invent names, decisions, deadlines, responsibilities/);
   assert.match(organizer, /reminderSuggested/);
   assert.match(organizerRoute, /getCurrentUserForApiWrite/);
-  assert.match(organizerRoute, /getActiveBusinessForUser\(user\.id\)/);
+  assert.match(organizerRoute, /getActiveBusinessForUser\(user\.id, "notes"\)/);
   assert.match(organizerRoute, /scope: "business-note-ai-organize"/);
   assert.match(organizerRoute, /businessId: business\.id/);
   assert.match(organizerRoute, /Cache-Control": "no-store"/);

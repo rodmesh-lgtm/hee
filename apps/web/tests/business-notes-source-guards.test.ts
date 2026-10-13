@@ -16,7 +16,7 @@ const readiness = source("app/lib/business-notes/schema-readiness.ts");
 const nav = source("components/dashboard/dashboard-nav.ts");
 
 test("business notes mutations are tenant scoped input bounded and audited transactionally", () => {
-  assert.match(actions, /getActiveBusinessForUser\(user\.id\)/);
+  assert.match(actions, /getActiveBusinessForUser\(user\.id, "notes"\)/);
   assert.match(actions, /"businessId"=\$\{businessId\}/);
   assert.match(actions, /text\(form,\s*"title",\s*160\)/);
   assert.match(actions, /text\(form,\s*"body",\s*8000\)/);

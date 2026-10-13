@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 function isSensitivePrivatePath(pathname: string) {
-  return pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password" || pathname === "/verify-email" || pathname === "/onboarding" || pathname === "/preview";
+  return pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password" || pathname === "/verify-email" || pathname === "/join-team" || pathname === "/onboarding" || pathname === "/preview";
 }
 function isProduction() { const appEnv = String(process.env.APP_ENV ?? "").trim().toLowerCase(); const vercelEnv = String(process.env.VERCEL_ENV ?? "").trim().toLowerCase(); return appEnv === "production" || vercelEnv === "production"; }
 function productionMaintenanceEnabled() { return isProduction() && String(process.env.PRODUCTION_MAINTENANCE_MODE ?? "").trim().toLowerCase() === "true"; }
@@ -36,6 +36,6 @@ export function proxy(request: NextRequest) {
   const isQaPath = pathname === "/qa" || pathname.startsWith("/qa/"); if (isProduction() && isQaPath) return productionQaNotFoundResponse();
   if (productionMainHost && (pathname === "/admin-login" || pathname === "/admin" || pathname.startsWith("/admin/"))) { const targetPath = pathname === "/admin-login" ? "/login" : pathname === "/admin" ? "/" : pathname; return NextResponse.redirect(new URL(targetPath, configuredOrigin("admin"))); }
   const isPreview = process.env.VERCEL_ENV?.toLowerCase() === "preview"; const hasQaAuditSession = Boolean(request.cookies.get("hee_qa_audit")?.value); const sensitivePrivatePath = isSensitivePrivatePath(pathname); const shouldMarkNoindex = isQaPath || sensitivePrivatePath || (isPreview && hasQaAuditSession && pathname.startsWith("/dashboard"));
-  const response = NextResponse.next(); if (shouldMarkNoindex) response.headers.set("X-Robots-Tag", "noindex, nofollow"); if (isQaPath || sensitivePrivatePath) { response.headers.set("Cache-Control", "private, no-store, max-age=0"); response.headers.set("Pragma", "no-cache"); response.headers.set("Expires", "0"); response.headers.set("Referrer-Policy", "no-referrer"); } return response;
+  const requestHeaders = new Headers(request.headers); requestHeaders.set("x-infro-pathname", pathname); const response = NextResponse.next({ request: { headers: requestHeaders } }); if (shouldMarkNoindex) response.headers.set("X-Robots-Tag", "noindex, nofollow"); if (isQaPath || sensitivePrivatePath) { response.headers.set("Cache-Control", "private, no-store, max-age=0"); response.headers.set("Pragma", "no-cache"); response.headers.set("Expires", "0"); response.headers.set("Referrer-Policy", "no-referrer"); } return response;
 }
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

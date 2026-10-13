@@ -24,7 +24,7 @@ export default async function DashboardAnalyticsPage({searchParams}:{searchParam
   const user=await getCurrentUser();
   if(!user)redirect("/login");
   const params=searchParams?await searchParams:{};
-  const business=await getActiveBusinessWithPlanForUser(user.id);
+  const business=await getActiveBusinessWithPlanForUser(user.id, "analytics");
   if(!business)redirect("/onboarding");
   const entitlements=getPlanEntitlements(business.plan?.code);
   const advancedAnalytics=entitlements.analytics==="advanced";
