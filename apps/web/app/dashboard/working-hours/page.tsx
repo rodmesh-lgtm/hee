@@ -43,6 +43,7 @@ import {
 import { updateBookingAvailabilityAction } from "../../actions/services";
 import { getMetaEmbeddedSignupPublicConfig } from "../../lib/whatsapp/meta-config";
 import { bookingConfirmationTemplateSupportsParameters, BOOKING_CONFIRMATION_TEMPLATE_EXAMPLE } from "../../lib/whatsapp/booking-confirmation-domain";
+import { bookingVerificationFailure } from "../../lib/booking-verification-diagnostics";
 import { EmbeddedSignupButton } from "../whatsapp/setup/embedded-signup-button";
 import { hasActiveBusinessSubscription } from "../../lib/subscription-entitlement";
 import { sallaConfigured } from "../../lib/commerce/salla-config";
@@ -142,6 +143,12 @@ export default async function DashboardWorkingHoursPage({
   });
   if (!business) redirect("/onboarding");
 
+  const verificationFailures = isOwner ? await db.whatsAppAuditLog.findMany({
+    where: { businessId: business.id, action: "booking.visitor.verification.send", outcome: "failed", createdAt: { gte: new Date(Date.now() - 7 * 86400000) } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 3,
+    select: { id: true, createdAt: true, metadata: true },
+  }) : [];
+
   const byDay = new Map(business.openingHours.map((item) => [item.dayOfWeek, item]));
   const closedCount = days.reduce((count, _day, index) => (byDay.get(index)?.isClosed ?? (index === 4)) ? count + 1 : count, 0);
   const openCount = 7 - closedCount;
@@ -191,6 +198,7 @@ export default async function DashboardWorkingHoursPage({
     <section id="visitor-booking-verification" className="rounded-[24px] border border-slate-200 bg-white p-4 sm:p-5">
       <h2 className="text-lg font-black">تعديل الزائر لموعده</h2><p className="mt-2 text-sm leading-7 text-slate-600">يتحقق الزائر برمز واتساب ثم يعدّل تاريخ زيارته وفترتها وفرعها على الحجز نفسه. الرمز صالح لخمس دقائق؛ ولا يُرسل قبل اعتماد قالب التحقق لدى Meta.</p>
       <p className="mt-3 text-sm font-bold">{verificationTemplate ? `حالة قالب التحقق: ${{approved:"معتمد",pending:"بانتظار Meta",rejected:"مرفوض",paused:"متوقف",disabled:"معطل",unknown:"تحتاج تحديثًا"}[verificationTemplate.status]??"تحتاج تحديثًا"}` : "قالب التحقق لم يُجهز بعد"}</p>
+      {verificationFailures.length ? <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><h3 className="font-bold">آخر محاولات إرسال الرمز المتعثرة</h3><p className="mt-1 text-xs">اعتماد القالب لا يعني نجاح الإرسال. تظهر هنا آخر ثلاث محاولات متعثرة خلال أسبوع.</p><ul className="mt-2 space-y-2">{verificationFailures.map(failure => <li key={failure.id}><time className="block text-xs" dateTime={failure.createdAt.toISOString()}>{failure.createdAt.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}</time><p>{bookingVerificationFailure(failure.metadata)}</p></li>)}</ul></div> : null}
       <div className="mt-4 flex flex-wrap gap-3">{bookingConnection && subscriptionActive ? <>{!verificationTemplate ? <form action={submitBookingVerificationTemplateAction}><button className="min-h-11 rounded-xl bg-[#07181b] px-4 text-sm font-bold text-white">تقديم قالب التحقق إلى Meta</button></form> : null}<form action={syncBookingWhatsAppTemplatesAction}><input type="hidden" name="connectionId" value={bookingConnection.id}/><button className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold">تحديث حالة القوالب</button></form></> : <p className="text-sm text-amber-800">اربط رقم الحجوزات وفعّل اشتراك المنشأة لتجهيز التحقق.</p>}<Link href={`/${business.slug}/booking`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-4 text-sm font-bold">فتح صفحة تعديل الموعد</Link></div>
     </section>
     </> : null}
