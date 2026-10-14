@@ -153,7 +153,9 @@
 }
 .page [data-public-transactions-slot] section { width:100%; margin:0; border:0; padding:0; border-radius:0; background:transparent; box-shadow:none; }
 .page [data-public-transactions-slot] section > div:first-child { display:none; }
-.page [data-public-transactions-slot] button { background:#204f43; color:#fff; border:1px solid #204f43; box-shadow:none; min-height:48px; }
-.page [data-public-transactions-slot] button svg { color:inherit; }
+.page [data-public-transactions-slot] section button { background:#204f43; color:#fff; border:1px solid #204f43; box-shadow:none; min-height:48px; }
+.page [data-public-transactions-slot] section button svg { color:inherit; }
 .page [data-public-booking-ribbon-slot] button { background:#204f43; color:#fff; border-color:#204f43; box-shadow:none; }
 .page [data-public-booking-ribbon-slot] button svg { color:inherit; }
+
+.serviceGrid > :only-child, .branchGrid > :only-child { grid-column:1 / -1; }
