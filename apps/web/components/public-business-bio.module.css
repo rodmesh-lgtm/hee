@@ -169,3 +169,5 @@
 .page [data-public-profile-slot] a > span:first-child { color:var(--on-primary); }
 .page [data-public-identity-highlights] a:hover { background:var(--soft); border-color:var(--accent); }
 .page [data-public-profile-slot] a:hover { background:var(--soft); }
+/* Booking forms keep their own light canvas even when the identity is dark. */
+.page [data-public-dialog] { color:#102527; font-family:var(--identity-font); }
