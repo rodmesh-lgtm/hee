@@ -4,7 +4,7 @@ import { getCurrentUser } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
 import { db } from "../lib/db";
 import { PublicBusinessBio } from "../../components/public-business-bio";
-import { PublicIdentityExtras } from "../../components/public/public-identity-extras";
+import { PublicIdentityHighlights } from "../../components/public/public-identity-highlights";
 import { getPublicBusinessUrlFromRequest } from "../lib/public-url";
 import { sanitizePublicBusiness } from "../lib/public-business-sanitize";
 import { normalizePageModules } from "../lib/page-modules";
@@ -36,14 +36,15 @@ export default async function OwnerPreviewPage() {
   const pageModules = normalizePageModules(business.pageModules, business.businessType);
   return <>
     <PublicBusinessBio business={publicBusiness} publicUrl={publicUrl} pageModules={pageModules} />
-    <PublicIdentityExtras
+    <PublicIdentityHighlights
       companyProfileUrl={business.companyProfileUrl}
       companyProfileTitle={business.companyProfileTitle}
-      instagramUrl={business.instagramUrl}
-      xUrl={business.xUrl}
-      tiktokUrl={business.tiktokUrl}
-      snapchatUrl={business.snapchatUrl}
-      facebookUrl={business.facebookUrl}
+      socialLinks={[
+        ["Instagram", business.instagramUrl], ["X", business.xUrl], ["TikTok", business.tiktokUrl], ["Snapchat", business.snapchatUrl], ["Facebook", business.facebookUrl],
+      ].flatMap(([label, value]) => {
+        if (!value) return [];
+        try { const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`); return /^https?:$/.test(url.protocol) ? [{label: label!, href: url.toString()}] : []; } catch { return []; }
+      })}
     />
   </>;
 }

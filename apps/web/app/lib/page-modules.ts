@@ -1,3 +1,4 @@
+import { normalizeIdentityAppearance, type IdentityAppearance } from "./public-identity-appearance";
 import { resolveActivityId, type ActivityId } from "./activity-engine";
 
 export type PageModuleId =
@@ -54,6 +55,7 @@ export type BottomActionId = "whatsapp" | "phone" | "email" | "website" | "share
 export type BottomActionConfig = { id: BottomActionId; enabled: boolean; sortOrder: number; label?: string };
 
 export type PageModuleConfig = {
+  appearance?: IdentityAppearance;
   title?: string;
   ctaLabel?: string;
   sheetTitle?: string;
@@ -267,6 +269,7 @@ function normalizeConfig(id: PageModuleId, raw: unknown) {
   const source = raw as Partial<PageModuleConfig>;
   return {
     ...base,
+    ...(id === "contact" && source.appearance ? { appearance: normalizeIdentityAppearance(source.appearance) } : {}),
     ...(typeof source.serviceRequestEnabled === "boolean" ? { serviceRequestEnabled: source.serviceRequestEnabled } : {}),
     ...(source.bookingPlacement === "panel" || source.bookingPlacement === "ribbon" ? { bookingPlacement: source.bookingPlacement } : {}),
     ...(typeof source.title === "string" ? { title: source.title } : {}),

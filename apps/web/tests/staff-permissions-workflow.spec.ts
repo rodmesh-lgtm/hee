@@ -52,6 +52,8 @@ test("owner invites a verified employee and section permissions are enforced on 
     expect(registrationNoOrigin.status()).toBe(403);
     await memberPage.goto(`${baseUrl}/dashboard/appointments`);
     await expect(memberPage.locator("#dashboard-main-content").getByRole("heading", { name: "المواعيد والحجوزات", exact: true })).toBeVisible();
+    const appearanceDenied = await contexts[1].request.post(`${baseUrl}/api/dashboard/page-appearance`, { headers: { Origin: baseUrl }, data: { businessId: business.id, appearance: { primary: "#243b64", accent: "#b6a175", background: "#f7f9fc", font: "cairo" } } });
+    expect([401, 403]).toContain(appearanceDenied.status());
     // Direct API calls must reject a member without page permission.
     const denied = await contexts[1].request.post(`${baseUrl}/api/dashboard/business/autosave`, { headers: { Origin: baseUrl }, data: { fields: { name: "غير مسموح" } } });
     expect([401, 403]).toContain(denied.status());
