@@ -90,8 +90,8 @@ export default async function WhatsAppSetupPage({ searchParams }: { searchParams
       : !identityReady
         ? { title: "تحديث بيانات الرقم", detail: "الاتصال موجود لكن الاسم أو الرقم لم يصلا بعد من Meta. أعد تفويض الربط بأمان.", href: "#meta-connect", label: "إكمال الخطوة" }
         : approvedTemplates === 0
-          ? { title: "تجهيز قالب للحملة", detail: "الرقم جاهز. الخطوة التالية هي مزامنة قالب معتمد من Meta.", href: "/dashboard/whatsapp/templates", label: "إكمال الخطوة" }
-          : { title: "الحساب جاهز للعمل", detail: "الرقم والقوالب الأساسية جاهزة؛ يمكنك الانتقال إلى الحملات أو المحادثات.", href: "/dashboard/whatsapp/campaigns", label: "فتح الحملات" };
+          ? { title: "تجهيز قالب للحملة", detail: "الرقم مرتبط. الخطوة التالية هي مزامنة قالب معتمد من Meta؛ الربط وحده لا يؤكد جاهزية الإرسال.", href: "/dashboard/whatsapp/templates", label: "إكمال الخطوة" }
+          : { title: "الربط والقوالب مكتملة", detail: "اعتماد القالب لا يؤكد تسجيل الرقم للإرسال. افحص حالة رقم الحجوزات وأكمل تسجيله عند الحاجة.", href: "/dashboard/working-hours", label: "فحص رقم الحجوزات" };
 
   return <div className="min-w-0 space-y-5 pb-5">
     {params.disconnect ? <p role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-900">{params.disconnect === "complete" ? "تم إلغاء ربط الرقم وإيقاف استخدامه داخل INFRO. يمكنك ربطه مجددًا بتفويض Meta جديد." : "تعذر إلغاء الربط. حدّث الصفحة وتأكد من تحديد الرقم والتأكيد ثم أعد المحاولة."}</p> : null}
