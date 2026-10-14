@@ -26,7 +26,7 @@ async function seedBusiness():Promise<Seeded>{
 }
 async function setSessionCookie(page:Page,token:string){await page.context().addCookies([{name:"hee_session",value:token,url:baseUrl}]);}
 async function waitForBusiness(fields:{id:string;name?:string;isPublished?:boolean}){await expect.poll(async()=>{const business=await db.business.findUnique({where:{id:fields.id},select:{name:true,isPublished:true}});if(!business)return"missing";if(fields.name&&business.name!==fields.name)return`name:${business.name}`;if(typeof fields.isPublished==="boolean"&&business.isPublished!==fields.isPublished)return`published:${business.isPublished}`;return"ok";},{timeout:20_000}).toBe("ok");}
-async function assertResponsive(browser:Browser,seeded:Seeded){for(const viewport of[{width:390,height:844},{width:1280,height:900}]){const page=await browser.newPage({viewport});await page.goto(`${baseUrl}/${seeded.slug}`,{waitUntil:"domcontentloaded"});await expect(page.getByRole("heading",{name:"منشأة HEE المحدثة"})).toBeVisible();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);expect(overflow).toBeLessThanOrEqual(2);await page.close();}}
+async function assertResponsive(browser:Browser,seeded:Seeded){for(const viewport of[{width:390,height:844},{width:1280,height:900}]){const page=await browser.newPage({viewport});await page.goto(`${baseUrl}/${seeded.slug}`,{waitUntil:"domcontentloaded"});await expect(page.getByRole("heading",{name:"منشأة HEE المحدثة"})).toBeVisible();const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);expect(overflow).toBeLessThanOrEqual(2);await expect(page.locator("header").getByText("خدمات أعمال",{exact:true})).toHaveCount(0);await page.evaluate(()=>window.scrollTo(0,600));await expect.poll(async()=>{const box=await page.locator("[data-infro-customer-header]").boundingBox();return box?.y??-1;}).toBeGreaterThanOrEqual(0);const mark=await page.locator("[data-infro-customer-header]").boundingBox();expect(mark!.y).toBeLessThan(80);await page.close();}}
 async function cleanup(seeded:Seeded){const business=await db.business.findUnique({where:{id:seeded.businessId},select:{logoUrl:true,coverUrl:true}});const storageIds=[business?.logoUrl,business?.coverUrl].map(value=>String(value??"").split("/api/storage/")[1]||"").filter(Boolean);await db.analyticsEvent.deleteMany({where:{businessId:seeded.businessId}});await db.contactPerson.deleteMany({where:{businessId:seeded.businessId}});await db.department.deleteMany({where:{businessId:seeded.businessId}});await db.branch.deleteMany({where:{businessId:seeded.businessId}});await db.socialLink.deleteMany({where:{businessId:seeded.businessId}});await db.workingHours.deleteMany({where:{businessId:seeded.businessId}});await db.galleryItem.deleteMany({where:{businessId:seeded.businessId}});await db.offer.deleteMany({where:{businessId:seeded.businessId}});await db.booking.deleteMany({where:{businessId:seeded.businessId}});await db.orderItem.deleteMany({where:{order:{businessId:seeded.businessId}}});await db.order.deleteMany({where:{businessId:seeded.businessId}});await db.customer.deleteMany({where:{businessId:seeded.businessId}});await db.product.deleteMany({where:{businessId:seeded.businessId}});await db.category.deleteMany({where:{businessId:seeded.businessId}});await db.service.deleteMany({where:{businessId:seeded.businessId}});await db.subscription.deleteMany({where:{businessId:seeded.businessId}});await db.business.delete({where:{id:seeded.businessId}});if(storageIds.length)await db.storedObject.deleteMany({where:{id:{in:storageIds}}});await db.session.deleteMany({where:{userId:seeded.userId}});await db.authIdentity.deleteMany({where:{userId:seeded.userId}});await db.user.delete({where:{id:seeded.userId}});}
 
 test.describe.serial("RC owner workflow",()=>{
@@ -107,5 +107,19 @@ test.describe.serial("RC owner workflow",()=>{
       await collapse.click();
       await expect(page.locator(selector)).toHaveCount(6);
     }
+  });
+  test("homepage answers launch questions and mobile navigation reaches the FAQ",async({page})=>{
+    await page.setViewportSize({width:390,height:844});
+    await page.goto(baseUrl,{waitUntil:'networkidle'});
+    await page.getByRole('button',{name:'فتح القائمة',exact:true}).click();
+    const menu=page.getByRole('dialog',{name:'قائمة التنقل'});
+    await menu.getByRole('link',{name:'الأسئلة الشائعة',exact:true}).click();
+    await expect(menu).not.toBeVisible();
+    await expect(page).toHaveURL(/#faq$/);
+    await expect(page.getByRole('heading',{name:'إجابات واضحة لخطوتك الأولى'})).toBeInViewport();
+    await page.getByText('هل أستطيع تغيير ألوان الصفحة والخط؟',{exact:true}).click();
+    await expect(page.locator('#faq')).toContainText('ثلاثة خطوط عربية');
+    await expect(page.locator('#faq details[open]')).toContainText('يمكنك اختيار مجموعة ألوان');
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth)).toBeLessThanOrEqual(2);
   });
 });

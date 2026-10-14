@@ -49,14 +49,14 @@ export function PublicBusinessBio({business,publicUrl,pageModules=[],bookingRibb
  async function share(){if(navigator.share){try{await navigator.share({title:business.name,url:publicUrl});return}catch{}}try{await navigator.clipboard.writeText(publicUrl);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{}}
  return <main data-public-page dir="rtl" className={`${styles.page} ${identityFontVariables}`} style={identityAppearanceStyle(contactConfig?.appearance)}>
   <div className={styles.shell}>
+   <div className={styles.brandDock}><Link href="/" data-infro-customer-header aria-label="INFRO" className={styles.brand}><IrMark className="h-9" priority/></Link></div>
    <div className={styles.topbar}>
     <button type="button" onClick={()=>void share()} aria-label="مشاركة الصفحة" className={styles.share}><Share2 aria-hidden="true" size={18}/></button>
     <span className={styles.eyebrow}>هوية أعمال رقمية</span>
-    <Link href="/" data-infro-customer-header aria-label="INFRO" className={styles.brand}><IrMark className="h-9" priority/></Link>
+    <span className={styles.brandPlaceholder} aria-hidden="true"/>
    </div>
    <header className={styles.hero}>
     <div className={styles.logo}><span>{logo?<img src={logo} alt={`شعار ${business.name}`}/>:<Building2 size={40}/>}</span>{business.isVerified?<BadgeCheck aria-label="منشأة موثقة" className={styles.verified}/>:null}</div>
-    <p className={styles.category}>{clean(business.businessCategory)||clean(business.businessType)||"منشأة أعمال"}</p>
     <h1>{business.name}</h1>
     {summary?<p className={styles.summary}>{summary}</p>:null}
     <span className={styles.heroRule} aria-hidden="true"/>
