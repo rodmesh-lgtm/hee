@@ -42,6 +42,18 @@ test.describe.serial("RC owner workflow",()=>{
       await page.goto(`${baseUrl}/dashboard/branding`,{waitUntil:"domcontentloaded"});await expect(page.getByRole("heading",{name:"المظهر والهوية",exact:true})).toBeVisible();await page.locator('input[name="logoFile"]').setInputFiles({name:"rc-logo.png",mimeType:"image/png",buffer:png1x1});await page.locator('input[name="coverFile"]').setInputFiles({name:"rc-cover.png",mimeType:"image/png",buffer:png1x1});await page.getByRole("button",{name:"حفظ الصور"}).click();await expect(page.getByText("تم تحديث صور الهوية.")).toBeVisible({timeout:20_000});await expect.poll(async()=>{const row=await db.business.findUnique({where:{id:seeded.businessId},select:{logoUrl:true,coverUrl:true}});return Boolean(row?.logoUrl?.startsWith("/api/storage/")&&row.coverUrl?.startsWith("/api/storage/"));},{timeout:20_000}).toBe(true);
       await page.goto(`${baseUrl}/dashboard/branding`,{waitUntil:"networkidle"});
       const modulesBefore=JSON.stringify((await db.business.findUniqueOrThrow({where:{id:seeded.businessId}})).pageModules);
+      const themePreview=page.locator('[data-identity-theme-preview]');
+      await expect(themePreview.getByRole('img',{name:'شعار منشأة HEE المحدثة في المعاينة'})).toBeVisible();
+      await expect(themePreview).toContainText('تم تحديث هذه البيانات عبر المحرر الحالي');
+      await page.getByRole('button',{name:'معاينة ضيقة',exact:true}).click();
+      await expect(themePreview).toHaveAttribute('data-preview-size','mobile');
+      await expect(themePreview).toHaveCSS('max-width','320px');
+      await page.getByRole('button',{name:'معاينة واسعة',exact:true}).click();
+      await expect(themePreview).toHaveAttribute('data-preview-size','wide');
+      await page.getByRole('button',{name:'عنابي',exact:true}).click();
+      await page.getByRole('button',{name:'إلغاء التغييرات',exact:true}).click();
+      await expect(page.getByLabel('اللون الرئيسي والأزرار',{exact:true})).toHaveValue('#204f43');
+      await expect(page.getByRole('button',{name:'حفظ مظهر الصفحة',exact:true})).toBeDisabled();
       await page.getByRole("button",{name:"كحلي",exact:true}).click();
       await page.getByLabel("خط الصفحة",{exact:true}).selectOption("cairo");
       await page.getByRole("button",{name:"حفظ مظهر الصفحة",exact:true}).click();
@@ -76,5 +88,24 @@ test.describe.serial("RC owner workflow",()=>{
       await expect(page.locator("[data-public-page]")).toHaveCSS("--primary","#204f43");
       await page.goto(`${baseUrl}/dashboard/my-page`,{waitUntil:"domcontentloaded"});page.once("dialog",async dialog=>{expect(dialog.type()).toBe("confirm");expect(dialog.message()).toContain("إلغاء نشر الصفحة");await dialog.accept();});await page.getByRole("button",{name:"إلغاء النشر"}).click();await waitForBusiness({id:seeded.businessId,isPublished:false});const retained=await db.business.findUnique({where:{id:seeded.businessId},include:{services:true,branches:true,contactPersons:true}});expect(retained?.name).toBe("منشأة HEE المحدثة");expect(retained?.services).toHaveLength(2);expect(retained?.branches).toHaveLength(1);expect(retained?.contactPersons).toHaveLength(1);expect(retained?.logoUrl).toMatch(/^\/api\/storage\//);expect(retained?.coverUrl).toMatch(/^\/api\/storage\//);
     }finally{await page.close();}
+  });
+  test("public identity expands every published service, branch and gallery item",async({page})=>{
+    const seeded=await seedBusiness();seededForCleanup=seeded;
+    await db.service.createMany({data:Array.from({length:5},(_,index)=>({businessId:seeded.businessId,name:`خدمة إضافية ${index+1}`,price:100,sortOrder:index+2}))});
+    await db.branch.createMany({data:Array.from({length:6},(_,index)=>({businessId:seeded.businessId,name:`فرع إضافي ${index+1}`,city:'الرياض',sortOrder:index+1}))});
+    await db.galleryItem.createMany({data:Array.from({length:7},(_,index)=>({businessId:seeded.businessId,imageUrl:'/favicon.ico',caption:`عمل تجريبي ${index+1}`,sortOrder:index}))});
+    await db.business.update({where:{id:seeded.businessId},data:{isPublished:true}});
+    await page.goto(`${baseUrl}/${seeded.slug}`,{waitUntil:'networkidle'});
+    for(const [label,selector] of [['الخدمات','#services > article'],['الفروع','#branch-list > a'],['الأعمال','#gallery-list > a']] as const){
+      await expect(page.locator(selector)).toHaveCount(6);
+      const expand=page.getByRole('button',{name:`عرض كل ${label} (٧)`,exact:true});
+      await expect(expand).toHaveAttribute('aria-expanded','false');
+      await expand.click();
+      await expect(page.locator(selector)).toHaveCount(7);
+      const collapse=page.getByRole('button',{name:`عرض أقل من ${label}`,exact:true});
+      await expect(collapse).toHaveAttribute('aria-expanded','true');
+      await collapse.click();
+      await expect(page.locator(selector)).toHaveCount(6);
+    }
   });
 });

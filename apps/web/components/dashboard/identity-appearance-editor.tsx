@@ -1,17 +1,18 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Palette, RotateCcw, Check, ArrowUpLeft, Building2 } from "lucide-react";
+import { Palette, RotateCcw, Check, ArrowUpLeft, Building2, Smartphone, Monitor, Undo2 } from "lucide-react";
 import { IrMark } from "../brand/ir-logo";
 import { identityFontVariables } from "../public-identity-fonts";
 import { DEFAULT_IDENTITY_APPEARANCE, IDENTITY_PALETTES, identityAppearanceStyle, normalizeIdentityAppearance, validIdentityColor, type IdentityAppearance } from "../../app/lib/public-identity-appearance";
 
-export function IdentityAppearanceEditor({ businessId, businessName, initialAppearance }: { businessId: string; businessName: string; initialAppearance: IdentityAppearance }) {
+export function IdentityAppearanceEditor({ businessId, businessName, logoUrl, description, category, initialAppearance }: { businessId: string; businessName: string; logoUrl?: string | null; description?: string | null; category?: string | null; initialAppearance: IdentityAppearance }) {
   const [value, setValue] = useState(initialAppearance);
   const [saved, setSaved] = useState(initialAppearance);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [previewSize, setPreviewSize] = useState<"mobile" | "wide">("wide");
   const valid = [value.primary, value.accent, value.background].every(validIdentityColor);
   const dirty = JSON.stringify(value) !== JSON.stringify(saved);
   function change(next: IdentityAppearance) { setValue(next); setMessage(""); setError(""); }
@@ -38,17 +39,17 @@ export function IdentityAppearanceEditor({ businessId, businessName, initialAppe
           {!valid ? <p role="alert" className="text-xs text-red-700">اكتب اللون بالصيغة #123ABC أو استخدم منتقي الألوان.</p> : null}
           <label className="grid gap-2 text-xs font-bold text-slate-600"><span>خط الصفحة</span><select aria-label="خط الصفحة" value={value.font} onChange={event => change({ ...value, font: event.target.value as IdentityAppearance["font"] })} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"><option value="infro">خط انفرو الافتراضي · IBM Plex Arabic</option><option value="cairo">القاهرة · Cairo</option><option value="tajawal">تجوال · Tajawal</option></select></label>
           <p className="text-xs leading-6 text-slate-500">يتكيّف لون النص تلقائيًا لسهولة القراءة. تظهر التغييرات للزوار بعد الحفظ.</p>
-          <div className="flex flex-wrap gap-2"><button type="submit" disabled={!dirty || !valid} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#073d38] px-5 text-xs font-bold text-white disabled:opacity-50"><Check size={16}/>{busy ? "جارٍ الحفظ…" : "حفظ مظهر الصفحة"}</button><button type="button" onClick={() => change({ ...DEFAULT_IDENTITY_APPEARANCE })} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-bold"><RotateCcw size={15}/>استعادة مظهر انفرو</button></div>
+          <div className="flex flex-wrap gap-2"><button type="submit" disabled={!dirty || !valid} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#073d38] px-5 text-xs font-bold text-white disabled:opacity-50"><Check size={16}/>{busy ? "جارٍ الحفظ…" : "حفظ مظهر الصفحة"}</button><button type="button" onClick={() => change({ ...DEFAULT_IDENTITY_APPEARANCE })} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-bold"><RotateCcw size={15}/>استعادة مظهر انفرو</button>{dirty ? <button type="button" onClick={() => change({ ...saved })} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-xs font-bold text-slate-600"><Undo2 size={15}/>إلغاء التغييرات</button> : null}</div>
         </fieldset>
         {message ? <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-800">{message}</p> : null}
         {error ? <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-xs font-bold text-red-800">{error}</p> : null}
       </form>
-      <div><p className="mb-3 text-xs font-bold text-slate-500">معاينة الألوان والخط {dirty ? "· تغييرات غير محفوظة" : "· المظهر المحفوظ"}</p><div data-identity-theme-preview className={`${identityFontVariables} overflow-hidden rounded-3xl border p-6 text-center`} style={{ ...identityAppearanceStyle(value), background: "var(--paper)", color: "var(--ink)", borderColor: "var(--line)", fontFamily: "var(--identity-font)" }}>
+      <div className="min-w-0 lg:sticky lg:top-24"><div className="mb-3 flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-bold text-slate-500">معاينة الألوان والخط {dirty ? "· تغييرات غير محفوظة" : "· المظهر المحفوظ"}</p><div role="group" aria-label="حجم معاينة الهوية" className="inline-flex rounded-xl border border-slate-200 p-1">{([{id:"mobile",label:"معاينة ضيقة",icon:Smartphone},{id:"wide",label:"معاينة واسعة",icon:Monitor}] as const).map(({id,label,icon:Icon})=><button key={id} type="button" aria-label={label} aria-pressed={previewSize===id} onClick={()=>setPreviewSize(id)} className="grid h-10 w-11 place-items-center rounded-lg text-slate-500 aria-pressed:bg-[#e9fbf8] aria-pressed:text-[#08756e]"><Icon size={18}/></button>)}</div></div><div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/60 p-2 sm:p-3"><div data-identity-theme-preview data-preview-size={previewSize} className={`${identityFontVariables} mx-auto w-full overflow-hidden rounded-3xl border p-6 text-center`} style={{ ...identityAppearanceStyle(value), maxWidth: previewSize === "mobile" ? 320 : "100%", background: "var(--paper)", color: "var(--ink)", borderColor: "var(--line)", fontFamily: "var(--identity-font)" }}>
         <div className="flex justify-end"><span className="grid h-10 w-10 place-items-center rounded-xl" style={{ background: "#ffffff" }}><IrMark className="h-7"/></span></div>
-        <span className="mx-auto mt-2 grid h-16 w-16 place-items-center rounded-2xl border" style={{ background: "var(--card)", borderColor: "var(--line)" }}><Building2 size={28}/></span><h3 className="mt-5 break-words text-2xl font-bold">{businessName}</h3><p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>هويتك الرقمية والتسويقية</p><span className="mx-auto my-5 block h-0.5 w-10" style={{ background: "var(--accent)" }}/>
+        <span className="mx-auto mt-2 grid h-20 w-20 place-items-center overflow-hidden rounded-2xl border p-2" style={{ background: "var(--card)", borderColor: "var(--line)" }}>{logoUrl ? <img src={logoUrl} alt={`شعار ${businessName} في المعاينة`} className="h-full w-full object-contain"/> : <Building2 size={28}/>}</span>{category ? <p className="mt-4 text-xs" style={{color:"var(--muted)"}}>{category}</p> : null}<h3 className="mt-3 break-words text-2xl font-bold">{businessName}</h3><p className="mt-2 whitespace-pre-line break-words text-sm leading-7" style={{ color: "var(--muted)" }}>{description || "هويتك الرقمية والتسويقية"}</p><span className="mx-auto my-5 block h-0.5 w-10" style={{ background: "var(--accent)" }}/>
         <div className="rounded-2xl border p-4 text-start" style={{ borderColor: "var(--line)", background: "var(--card)" }}><b className="text-sm">خدماتنا</b><p className="mt-2 text-xs leading-6" style={{ color: "var(--muted)" }}>عرّف عملاءك بنشاطك وخدماتك، وتواصل معهم من صفحة واحدة.</p></div><span className="mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-bold" style={{ background: "var(--primary)", color: "var(--on-primary)" }}>تواصل معنا<ArrowUpLeft size={16}/></span>
         <span className="mt-6 inline-block rounded-lg px-3 py-1 text-xs font-bold" style={{ background: "#ffffff", color: "#173c36", fontFamily: "var(--font-inter),sans-serif" }}>INFRO · ir.sa</span>
-      </div><a href="/preview" target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-[#08756e]">معاينة الصفحة كاملة بعد الحفظ<ArrowUpLeft size={15}/></a></div>
+      </div></div><p className="mt-3 text-xs leading-6 text-slate-500">معاينة توضيحية للألوان والخط؛ بقية أقسام الصفحة تظهر في المعاينة الكاملة.</p><a href="/preview" target="_blank" rel="noreferrer" className="mt-1 inline-flex min-h-11 items-center gap-2 text-xs font-bold text-[#08756e]">معاينة الصفحة كاملة بعد الحفظ<ArrowUpLeft size={15}/></a></div>
     </div>
   </section>;
 }
