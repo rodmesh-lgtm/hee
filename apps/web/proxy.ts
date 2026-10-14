@@ -34,8 +34,27 @@ export function proxy(request: NextRequest) {
   if (adminHost) { if (pathname === "/") { const url = request.nextUrl.clone(); url.pathname = "/admin"; return withPrivateHeaders(NextResponse.rewrite(url)); } if (pathname === "/login") { const url = request.nextUrl.clone(); url.pathname = "/admin-login"; return withPrivateHeaders(NextResponse.rewrite(url)); } if (pathname === "/admin-login" || pathname === "/admin" || pathname.startsWith("/admin/")) return withPrivateHeaders(NextResponse.next()); return adminControlPlaneNotFoundResponse(); }
   if (productionMaintenanceEnabled() && !isMaintenanceControlRead(request, pathname)) return maintenanceResponse();
   const isQaPath = pathname === "/qa" || pathname.startsWith("/qa/"); if (isProduction() && isQaPath) return productionQaNotFoundResponse();
+  const hubHost = host === "hub.ir.sa";
+  const readRequest = request.method === "GET" || request.method === "HEAD";
+  if (productionMainHost && readRequest && (pathname === "/dashboard" || pathname.startsWith("/dashboard/"))) {
+    const target = request.cookies.has("__Host-infro_hub_return")
+      ? new URL("/api/auth/hub/authorize", "https://ir.sa")
+      : new URL(`${pathname === "/dashboard" ? "/" : pathname}${request.nextUrl.search}`, "https://hub.ir.sa");
+    return withPrivateHeaders(NextResponse.redirect(target));
+  }
+  if (hubHost && readRequest && (pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password" || pathname === "/verify-email" || pathname.startsWith("/api/auth/oauth/"))) {
+    const target = pathname === "/login" ? new URL("/api/auth/hub/start", "https://hub.ir.sa") : new URL(`${pathname}${request.nextUrl.search}`, "https://ir.sa");
+    return withPrivateHeaders(NextResponse.redirect(target));
+  }
+  if (hubHost && (pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/admin-login")) return adminControlPlaneNotFoundResponse();
+  if (hubHost && pathname === "/dashboard" && readRequest) return withPrivateHeaders(NextResponse.redirect(new URL(`/${request.nextUrl.search}`, "https://hub.ir.sa")));
+  if (hubHost && pathname === "/") {
+    const url = request.nextUrl.clone(); url.pathname = "/dashboard";
+    const requestHeaders = new Headers(request.headers); requestHeaders.set("x-infro-pathname", "/dashboard");
+    return withPrivateHeaders(NextResponse.rewrite(url, { request: { headers: requestHeaders } }));
+  }
   if (productionMainHost && (pathname === "/admin-login" || pathname === "/admin" || pathname.startsWith("/admin/"))) { const targetPath = pathname === "/admin-login" ? "/login" : pathname === "/admin" ? "/" : pathname; return NextResponse.redirect(new URL(targetPath, configuredOrigin("admin"))); }
-  const isPreview = process.env.VERCEL_ENV?.toLowerCase() === "preview"; const hasQaAuditSession = Boolean(request.cookies.get("hee_qa_audit")?.value); const sensitivePrivatePath = isSensitivePrivatePath(pathname); const shouldMarkNoindex = isQaPath || sensitivePrivatePath || (isPreview && hasQaAuditSession && pathname.startsWith("/dashboard"));
-  const requestHeaders = new Headers(request.headers); requestHeaders.set("x-infro-pathname", pathname); const response = NextResponse.next({ request: { headers: requestHeaders } }); if (shouldMarkNoindex) response.headers.set("X-Robots-Tag", "noindex, nofollow"); if (isQaPath || sensitivePrivatePath) { response.headers.set("Cache-Control", "private, no-store, max-age=0"); response.headers.set("Pragma", "no-cache"); response.headers.set("Expires", "0"); response.headers.set("Referrer-Policy", "no-referrer"); } return response;
+  const isPreview = process.env.VERCEL_ENV?.toLowerCase() === "preview"; const hasQaAuditSession = Boolean(request.cookies.get("hee_qa_audit")?.value); const sensitivePrivatePath = isSensitivePrivatePath(pathname); const shouldMarkNoindex = hubHost || isQaPath || sensitivePrivatePath || (isPreview && hasQaAuditSession && pathname.startsWith("/dashboard"));
+  const requestHeaders = new Headers(request.headers); requestHeaders.set("x-infro-pathname", pathname); const response = NextResponse.next({ request: { headers: requestHeaders } }); if (shouldMarkNoindex) response.headers.set("X-Robots-Tag", "noindex, nofollow"); if (hubHost || isQaPath || sensitivePrivatePath) { response.headers.set("Cache-Control", "private, no-store, max-age=0"); response.headers.set("Pragma", "no-cache"); response.headers.set("Expires", "0"); response.headers.set("Referrer-Policy", "no-referrer"); } return response;
 }
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

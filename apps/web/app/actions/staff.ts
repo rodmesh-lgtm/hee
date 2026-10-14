@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUserForWrites } from "../lib/auth";
-import { getActiveBusinessForUser, ACTIVE_BUSINESS_COOKIE } from "../lib/active-business";
+import { getActiveBusinessForUser, ACTIVE_BUSINESS_COOKIE, syncWorkspaceBusinessPreference } from "../lib/active-business";
 import { db } from "../lib/db";
 import { consumePublicWriteLimit } from "../lib/rate-limit";
 import { staffSections } from "../lib/staff-permissions";
@@ -110,6 +110,7 @@ export async function acceptStaffInvitationAction(form: FormData) {
   const jar = await cookies();
   jar.delete(STAFF_INVITE_COOKIE);
   jar.set(ACTIVE_BUSINESS_COOKIE, invitation.business.id, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" && !isExplicitTestRuntime(), path: "/", maxAge: 365 * 86400 });
+  await syncWorkspaceBusinessPreference(invitation.business.id);
   revalidatePath("/dashboard", "layout");
   redirect("/dashboard");
 }

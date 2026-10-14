@@ -1,5 +1,6 @@
 import { staffSections } from "../lib/staff-permissions";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { getCurrentUser } from "../lib/auth";
@@ -26,7 +27,12 @@ export const metadata:Metadata={title:"INFRO | لوحة التحكم",robots:{in
 
 export default async function DashboardLayout({children}:{children:ReactNode}){
   const user=await getCurrentUser();
-  if(!user)redirect("/login");
+  if(!user){
+    const requestHeaders = await headers();
+    const host = requestHeaders.get("host")?.split(":")[0];
+    if(host === "hub.ir.sa") redirect(`/api/auth/hub/start?next=${encodeURIComponent(requestHeaders.get("x-infro-pathname") ?? "/")}`);
+    redirect("/login");
+  }
   const[qaAuditUser,business,businesses]=await Promise.all([getQaAuditSessionUser(),getDashboardBusinessForUser(user.id),getDashboardBusinessSummaries(user.id)]);
   const isStaff = Boolean(business && business.ownerId !== user.id);
   const permissions = isStaff ? (business!.members[0]?.permissions ?? ["whatsapp"]) : undefined;
