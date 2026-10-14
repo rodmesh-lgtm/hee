@@ -42,7 +42,6 @@ const demoBusiness: DemoBusiness = {
   galleryItems: [
     { id: "g1", imageUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80" },
     { id: "g2", imageUrl: "https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=900&q=80" },
-    { id: "g3", imageUrl: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5e?auto=format&fit=crop&w=900&q=80" },
   ],
   branches: [
     { id: "b1", name: "الفرع الرئيسي", city: "الرياض", district: "العليا", address: "طريق الملك فهد", googleMapsLink: "https://maps.google.com/?q=Riyadh", isActive: true },
