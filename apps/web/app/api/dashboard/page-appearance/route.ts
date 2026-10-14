@@ -12,7 +12,9 @@ import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-
 const color = z.string().regex(/^#[0-9a-f]{6}$/i);
 const schema = z.object({ businessId: z.string().min(1).max(100), appearance: z.object({ primary: color, accent: color, background: color, font: z.enum(IDENTITY_FONTS) }).strict() }).strict();
 export async function POST(request: Request) {
-  if (request.headers.get("origin") !== new URL(request.url).origin) return NextResponse.json({ error: "مصدر الطلب غير مسموح" }, { status: 403 });
+  // Match the browser host; Next.js can normalize the internal request hostname.
+  const requestOrigin = `${new URL(request.url).protocol}//${request.headers.get("host")}`;
+  if (request.headers.get("origin") !== requestOrigin || request.headers.get("sec-fetch-site") === "cross-site") return NextResponse.json({ error: "مصدر الطلب غير مسموح" }, { status: 403 });
   const business = await getOwnedBusinessForApiWrite("page");
   if (!business) return NextResponse.json({ error: "لا تملك صلاحية تعديل مظهر الصفحة" }, { status: 403 });
   let body: unknown;
