@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { inspectRegistration, registerPhone, PhoneRegistrationError } from "../app/lib/whatsapp/phone-registration-provider";
+import { inspectRegistration, registerPhone, PhoneRegistrationError, registrationFailureReason } from "../app/lib/whatsapp/phone-registration-provider";
 const input = { version: "v23.0", token: "private-token", wabaId: "123", phoneNumberId: "456", pin: "012345" };
 const pending = { id: "456", status: "PENDING", code_verification_status: "VERIFIED", platform_type: "CLOUD_API", is_on_biz_app: false };
+test("registration error classification never exposes raw Meta messages or PINs", () => {
+  assert.equal(registrationFailureReason({ code: 100, message: "Invalid parameter", error_data: { details: "Invalid account linking. private-token 012345" } }), "account_linking_pending");
+  assert.equal(registrationFailureReason({ code: 100, message: "Missing permission private-token" }), "registration_permission_missing");
+  assert.equal(registrationFailureReason({ code: 100, message: "private-token 012345" }), "meta_100");
+  assert.equal(registrationFailureReason({ code: "private-token", message: "012345" }), "registration_failed");
+});
 function provider(phone = pending, send = () => Response.json({ success: true })) {
   let posts = 0;
   return { get posts() { return posts; }, fetcher: async (address: unknown, init?: RequestInit) => {

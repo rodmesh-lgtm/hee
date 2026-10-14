@@ -82,6 +82,24 @@ test("owner invites a verified employee and section permissions are enforced on 
     const suspended = await contexts[1].request.post(`${baseUrl}/api/dashboard/business/autosave`, { headers: { Origin: baseUrl }, data: { fields: { name: "موقوف" } } });
     expect([401, 403]).toContain(suspended.status());
     expect((await db.business.findUniqueOrThrow({ where: { id: business.id } })).name).toBe("تعديل الموظف المسموح");
+    await db.subscription.create({ data: { businessId: business.id, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86400_000), autoRenew: false } });
+    const connection = await db.whatsAppConnection.create({ data: { businessId: business.id, wabaId: randomUUID(), phoneNumberId: randomUUID(), credentialEnvelope: {}, status: "connected", bookingEnabled: true, displayPhoneNumber: "TEST ONLY" } });
+    const templateData = { businessId: business.id, connectionId: connection.id, language: "ar", category: "utility", status: "approved", providerStatus: "APPROVED", parameterFormat: "POSITIONAL", components: [{ type: "BODY", text: "{{1}} {{2}} {{3}} {{4}} {{5}} {{6}} {{7}}" }], rawPayload: {}, lastSyncedAt: new Date() };
+    const firstTemplate = await db.whatsAppTemplate.create({ data: { ...templateData, name: "booking_first", providerTemplateId: randomUUID() } });
+    const secondTemplate = await db.whatsAppTemplate.create({ data: { ...templateData, name: "booking_second", providerTemplateId: randomUUID() } });
+    await db.whatsAppTemplate.create({ data: { ...templateData, name: "booking_unapproved", status: "pending", providerStatus: "PENDING", providerTemplateId: randomUUID() } });
+    const automation = await db.whatsAppAutomation.create({ data: { businessId: business.id, connectionId: connection.id, name: "Booking fixture", triggerType: "booking_confirmation", triggerConfig: {}, actionConfig: { templateId: firstTemplate.id }, status: "paused", createdByUserId: owner.id } });
+    await ownerPage.goto(`${baseUrl}/dashboard/working-hours`);
+    const picker = ownerPage.getByRole("combobox", { name: "قالب تأكيد الموعد المعتمد", exact: true });
+    await expect(picker).toHaveValue(firstTemplate.id);
+    await expect(picker.locator("option")).toHaveCount(3);
+    await picker.selectOption(secondTemplate.id);
+    await ownerPage.getByRole("button", { name: "حفظ قالب تأكيد الحجز", exact: true }).click();
+    await expect(ownerPage).toHaveURL(/whatsapp=template-updated/);
+    const savedAutomation = await db.whatsAppAutomation.findUniqueOrThrow({ where: { id: automation.id } });
+    expect(savedAutomation.actionConfig).toEqual({ templateId: secondTemplate.id });
+    expect(savedAutomation.status).toBe("paused");
+    expect(await db.whatsAppAutomationJob.count({ where: { businessId: business.id } })).toBe(0);
   } finally {
     await Promise.all(contexts.map(c => c.close()));
     await db.oAuthState.deleteMany({ where: { nonce: business.id, provider: "business-staff-invite" } });

@@ -2,6 +2,18 @@ export class PhoneRegistrationError extends Error {
   constructor(public readonly reason: string) { super("WHATSAPP_PHONE_REGISTRATION_FAILED"); }
 }
 type Input = { version: string; token: string; wabaId: string; phoneNumberId: string; fetcher?: typeof fetch };
+export function registrationFailureReason(value: unknown) {
+  if (!value || typeof value !== "object") return "registration_failed";
+  const error = value as Record<string, unknown>;
+  // Classify known provider wording, but never return or persist its raw text.
+  const details = error.error_data && typeof error.error_data === "object" ? (error.error_data as Record<string, unknown>).details : "";
+  const text = [error.message, details].filter(item => typeof item === "string").join(" ").toLowerCase();
+  if (error.code === 100 && text.includes("invalid account linking")) return "account_linking_pending";
+  if (error.code === 100 && /missing permission|permissions error/.test(text)) return "registration_permission_missing";
+  if (error.code === 100 && /display name/.test(text) && /pending|approv/.test(text)) return "display_name_pending";
+  if (error.code === 100 && text.includes("parameter pin is required")) return "registration_pin_required";
+  return Number.isSafeInteger(error.code) ? `meta_${error.code}` : "registration_failed";
+}
 function url(input: Input, path: string) {
   if (!/^v\d+\.\d+$/.test(input.version) || !/^\d{1,32}$/.test(input.wabaId) || !/^\d{1,32}$/.test(input.phoneNumberId)) throw new PhoneRegistrationError("invalid_asset");
   return `https://graph.facebook.com/${input.version}/${path}`;
@@ -32,7 +44,7 @@ export async function registerPhone(input: Input & { pin: string }) {
     response = await (input.fetcher ?? fetch)(url(input, `${input.phoneNumberId}/register`), { method: "POST", headers: { authorization: `Bearer ${input.token}`, "content-type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", pin: input.pin }), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000) });
   } catch { throw new PhoneRegistrationError("registration_uncertain"); }
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new PhoneRegistrationError(Number.isSafeInteger(data?.error?.code) ? `meta_${data.error.code}` : "registration_failed");
+  if (!response.ok) throw new PhoneRegistrationError(registrationFailureReason(data?.error));
   if (data?.success !== true) throw new PhoneRegistrationError("registration_uncertain");
   // This acknowledges registration, not message delivery. Never retry POST.
   return "registered" as const;

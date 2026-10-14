@@ -280,7 +280,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const providerError = record(record(payload)?.error);
-    const code = safeText(providerError?.code) ?? `HTTP_${response.status}`;
+    const code = Number.isSafeInteger(providerError?.code) ? String(providerError!.code) : `HTTP_${response.status}`;
     if (isRetryableMetaStatus(response.status) && job.attemptCount < MAX_ATTEMPTS) {
       const retryAfter = parseRetryAfter(response.headers.get("retry-after"), now);
       await releaseAs(database, job, "retry_scheduled", now, code, new Date(now.getTime() + retryDelayMs(job.attemptCount, retryAfter)));
