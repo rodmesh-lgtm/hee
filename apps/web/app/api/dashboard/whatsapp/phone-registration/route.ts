@@ -12,7 +12,10 @@ const reply = (data: object, status = 200) => NextResponse.json(data, { status, 
 export async function POST(request: Request) {
   try {
     // Browser-only mutation: reject absent/cross-origin requests before reading credentials.
-    if (request.headers.get("origin") !== new URL(request.url).origin || request.headers.get("sec-fetch-site") === "cross-site") return reply({ ok: false, error: "يجب تنفيذ الطلب من لوحة التحكم نفسها." }, 403);
+    // Next.js may normalize the internal URL host (e.g. 127.0.0.1 to localhost).
+    // Match the browser's immutable Host header, not that internal hostname.
+    const requestOrigin = `${new URL(request.url).protocol}//${request.headers.get("host")}`;
+    if (request.headers.get("origin") !== requestOrigin || request.headers.get("sec-fetch-site") === "cross-site") return reply({ ok: false, error: "يجب تنفيذ الطلب من لوحة التحكم نفسها." }, 403);
     if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json") return reply({ ok: false, error: "طلب غير صالح." }, 415);
     const business = await getOwnedBusinessForApiWrite(); // No section argument: owner only, never delegated staff.
     if (!business) return reply({ ok: false, error: "هذه الخطوة متاحة لمالك المنشأة فقط." }, 403);

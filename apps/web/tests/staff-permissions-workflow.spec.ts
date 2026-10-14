@@ -45,7 +45,7 @@ test("owner invites a verified employee and section permissions are enforced on 
     const registrationDenied = await contexts[1].request.post(`${baseUrl}/api/dashboard/whatsapp/phone-registration`, { headers: { Origin: baseUrl }, data: { operation: "check", connectionId: randomUUID() } });
     expect([401, 403]).toContain(registrationDenied.status());
     const registrationWrongTenant = await contexts[0].request.post(`${baseUrl}/api/dashboard/whatsapp/phone-registration`, { headers: { Origin: baseUrl }, data: { operation: "check", connectionId: randomUUID() } });
-    expect(registrationWrongTenant.status()).toBe(409);
+    expect(registrationWrongTenant.status(), await registrationWrongTenant.text()).toBe(409);
     const registrationCrossOrigin = await contexts[0].request.post(`${baseUrl}/api/dashboard/whatsapp/phone-registration`, { headers: { Origin: "https://untrusted.example" }, data: { operation: "register", connectionId: randomUUID() } });
     expect(registrationCrossOrigin.status()).toBe(403);
     const registrationNoOrigin = await contexts[0].request.post(`${baseUrl}/api/dashboard/whatsapp/phone-registration`, { data: { operation: "check", connectionId: randomUUID() } });
