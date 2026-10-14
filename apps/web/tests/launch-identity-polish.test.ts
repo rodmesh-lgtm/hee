@@ -20,5 +20,5 @@ test('homepage explains fixed identity, staff permissions and WhatsApp prerequis
   assert.match(home,/إكمال تسجيل الرقم لدى Meta/);
   assert.match(home,/لا يتم تفعيل اشتراك مدفوع بمجرد التسجيل/);
   assert.doesNotMatch(home,/الأكثر اختيارًا/);
-  assert.match(source('app/dashboard/page.tsx'),/Shortcut href="\/dashboard\/branding"/);
+  assert.match(source('app/dashboard/page.tsx'),/href:"\/dashboard\/branding"/);
 });

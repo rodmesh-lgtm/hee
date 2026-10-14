@@ -47,3 +47,36 @@
 }
 
 [data-dashboard-path="/dashboard/support"] #dashboard-main-content .infro-data-rights-action { background-color: #35e4cb !important; color: #07181b !important; }
+
+/* Group destinations by the customer's task. */
+[data-dashboard-path] > aside nav .infro-nav-group { margin-block: 18px 6px; }
+[data-dashboard-path] > aside nav .infro-nav-group-label { margin: 0 12px 6px; font-size: 11px; line-height: 1.8; font-weight: 700; color: #8bb5af; }
+[data-dashboard-path][data-dashboard-theme="light"] > aside nav .infro-nav-group-label { color: #52736f; }
+[data-dashboard-path] > aside nav .infro-nav-group a { margin-top: 2px; }
+[data-dashboard-path] > aside nav .infro-nav-group a::before { content: none; }
+[data-dashboard-path] > aside nav .infro-nav-group a[aria-current="page"] { box-shadow: inset -3px 0 #00bfae; }
+[data-dashboard-path] .infro-daily-overview { padding: 22px; border: 1px solid #dce7e6; border-radius: 20px; background: #fff; }
+[data-dashboard-path="/dashboard"] #dashboard-main-content > .infro-dashboard-home > .infro-daily-overview { grid-column: 1 / -1 !important; }
+.infro-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.infro-section-heading p { color: #087f77; font-size: 12px; }
+.infro-section-heading h2 { color: #172c2e; font-size: 20px; font-weight: 800; margin-top: 4px; }
+.infro-section-heading > span { color: #637674; font-size: 12px; }
+.infro-daily-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.infro-daily-card { display: grid; grid-template-columns: 1fr auto; align-content: start; gap: 10px; min-width: 0; padding: 20px; background: #f7faf9; border: 1px solid #dce7e6; border-radius: 16px; color: #183c39; }
+.infro-daily-card > svg { grid-column: 2; grid-row: 1; width: 20px; height: 20px; color: #07877e; }
+.infro-daily-card > span { grid-column: 1; grid-row: 1; font-size: 14px; font-weight: 600; }
+.infro-daily-card > strong { grid-column: 1/-1; font-size: 32px; line-height: 1.4; font-weight: 800; }
+.infro-daily-card > strong.infro-next-booking-name { font-size: 18px; min-height: 45px; overflow-wrap: anywhere; }
+.infro-daily-card > small { grid-column: 1/-1; color: #526963; font-size: 12px; line-height: 1.9; }
+.infro-daily-card > b { grid-column: 1/-1; display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 14px; border-top: 1px solid #dce7e6; font-size: 12px; color: #087f77; }
+.infro-daily-card > b svg { width: 16px; height: 16px; }
+.infro-daily-card:hover { border-color: #76b8ae; background: #eef8f5; }
+[data-dashboard-theme="dark"] .infro-daily-overview { background: #0b2529; border-color: #25474a; }
+[data-dashboard-theme="dark"] .infro-section-heading h2 { color: #effaf8; }
+[data-dashboard-theme="dark"] .infro-section-heading p,[data-dashboard-theme="dark"] .infro-daily-card > b { color: #76f0df; }
+[data-dashboard-theme="dark"] .infro-section-heading > span,[data-dashboard-theme="dark"] .infro-daily-card > small { color: #b8cecb; }
+[data-dashboard-theme="dark"] .infro-daily-card { background: #102e31; border-color: #31575b; color: #effaf8; }
+[data-dashboard-theme="dark"] .infro-daily-card > b { border-color: #31575b; }
+[data-dashboard-theme="dark"] .infro-daily-card:hover { background: #153b3e; border-color: #76b8ae; }
+@media(max-width:767px) { .infro-daily-grid { grid-template-columns: 1fr 1fr; gap: 12px; } .infro-next-booking { grid-column: 1/-1; } [data-dashboard-path] .infro-daily-overview { padding: 16px; } .infro-daily-card { padding: 14px; } }
+@media(max-width:380px) { .infro-daily-grid { grid-template-columns: 1fr; } }
