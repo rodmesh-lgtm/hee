@@ -40,12 +40,40 @@ test.describe.serial("RC owner workflow",()=>{
       await page.getByLabel("اسم المنشأة").fill("منشأة HEE المحدثة");await page.getByLabel("الوصف المختصر").fill("تم تحديث هذه البيانات عبر المحرر الحالي وحفظها تلقائيًا");await page.getByLabel("الحي").fill("الملقا");await waitForBusiness({id:seeded.businessId,name:"منشأة HEE المحدثة"});await expect(page.getByText("محفوظ تلقائيًا",{exact:true})).toBeVisible({timeout:20_000});
       const persisted=await db.business.findUnique({where:{id:seeded.businessId},select:{shortDescription:true,district:true}});expect(persisted?.shortDescription).toContain("المحرر الحالي");expect(persisted?.district).toBe("الملقا");
       await page.goto(`${baseUrl}/dashboard/branding`,{waitUntil:"domcontentloaded"});await expect(page.getByRole("heading",{name:"المظهر والهوية",exact:true})).toBeVisible();await page.locator('input[name="logoFile"]').setInputFiles({name:"rc-logo.png",mimeType:"image/png",buffer:png1x1});await page.locator('input[name="coverFile"]').setInputFiles({name:"rc-cover.png",mimeType:"image/png",buffer:png1x1});await page.getByRole("button",{name:"حفظ الصور"}).click();await expect(page.getByText("تم تحديث صور الهوية.")).toBeVisible({timeout:20_000});await expect.poll(async()=>{const row=await db.business.findUnique({where:{id:seeded.businessId},select:{logoUrl:true,coverUrl:true}});return Boolean(row?.logoUrl?.startsWith("/api/storage/")&&row.coverUrl?.startsWith("/api/storage/"));},{timeout:20_000}).toBe(true);
+      await page.goto(`${baseUrl}/dashboard/branding`,{waitUntil:"networkidle"});
+      const modulesBefore=JSON.stringify((await db.business.findUniqueOrThrow({where:{id:seeded.businessId}})).pageModules);
+      await page.getByRole("button",{name:"كحلي",exact:true}).click();
+      await page.getByLabel("خط الصفحة",{exact:true}).selectOption("cairo");
+      await page.getByRole("button",{name:"حفظ مظهر الصفحة",exact:true}).click();
+      await expect(page.getByRole("status")).toContainText("تم حفظ مظهر الصفحة");
+      await page.reload({waitUntil:"networkidle"});
+      await expect(page.getByLabel("اللون الرئيسي والأزرار",{exact:true})).toHaveValue("#243b64");
+      await expect(page.getByLabel("خط الصفحة",{exact:true})).toHaveValue("cairo");
+      const stored=await db.business.findUniqueOrThrow({where:{id:seeded.businessId}});
+      const savedModules=stored.pageModules as Array<{id:string;config:{appearance?:{primary:string;font:string}}}>;
+      expect(savedModules.find(module=>module.id==="contact")?.config.appearance).toMatchObject({primary:"#243b64",font:"cairo"});
+      if(modulesBefore!=="null") expect(savedModules.map(module=>({...module,config:{...module.config,appearance:undefined}}))).toEqual(JSON.parse(modulesBefore));
+      const invalidTheme=await page.request.post(`${baseUrl}/api/dashboard/page-appearance`,{headers:{Origin:baseUrl},data:{businessId:seeded.businessId,appearance:{primary:"url(https://invalid.test)",accent:"#ffffff",background:"#ffffff",font:"cairo"}}});
+      expect(invalidTheme.status()).toBe(400);
+      const crossTenant=await page.request.post(`${baseUrl}/api/dashboard/page-appearance`,{headers:{Origin:baseUrl},data:{businessId:"another-business",appearance:{primary:"#243b64",accent:"#b6a175",background:"#f7f9fc",font:"cairo"}}});
+      expect(crossTenant.status()).toBe(409);
+      const foreignOrigin=await page.request.post(`${baseUrl}/api/dashboard/page-appearance`,{headers:{Origin:"https://untrusted.example"},data:{businessId:seeded.businessId,appearance:{primary:"#243b64",accent:"#b6a175",background:"#f7f9fc",font:"cairo"}}});
+      expect(foreignOrigin.status()).toBe(403);
       await page.goto(`${baseUrl}/dashboard/my-page`,{waitUntil:"domcontentloaded"});await Promise.all([page.waitForEvent("framenavigated",frame=>frame===page.mainFrame()&&frame.url().includes("/dashboard/my-page")),page.getByRole("button",{name:"نشر الصفحة"}).click()]);await waitForBusiness({id:seeded.businessId,isPublished:true});await expect(page.locator("#dashboard-main-content").getByText("منشورة",{exact:true})).toBeVisible({timeout:20_000});
       // Publishing is a server action followed by a router refresh. Wait for that refresh to settle
       // before leaving the editor so it cannot race the explicit public-page navigation below.
       await page.waitForLoadState("networkidle");
       await page.goto(`${baseUrl}/${seeded.slug}`,{waitUntil:"domcontentloaded"});await expect(page.getByRole("heading",{name:"منشأة HEE المحدثة"})).toBeVisible();await expect(page.locator('section[aria-labelledby="intent-title"]')).toBeVisible();await expect(page.getByRole("heading",{name:"أبرز ما نقدمه"})).toBeVisible();await expect(page.getByText("استشارة أعمال",{exact:true})).toBeVisible();await expect(page.getByText("تطوير الهوية",{exact:true})).toBeVisible();await expect(page.getByRole("heading",{name:"فروعنا"})).toBeVisible();
+      await expect(page.locator("[data-public-page]")).toHaveCSS("--primary","#243b64");
+      await expect(page.locator("[data-public-page]")).toHaveCSS("font-family",/cairo/i);
+      await expect(page.locator("[data-infro-customer-header]")).toBeVisible();
       await assertResponsive(browser,seeded);
+      await page.goto(`${baseUrl}/dashboard/branding`,{waitUntil:"networkidle"});
+      await page.getByRole("button",{name:"استعادة مظهر انفرو",exact:true}).click();
+      await page.getByRole("button",{name:"حفظ مظهر الصفحة",exact:true}).click();
+      await expect(page.getByRole("status")).toContainText("تم حفظ مظهر الصفحة");
+      await page.goto(`${baseUrl}/${seeded.slug}`,{waitUntil:"networkidle"});
+      await expect(page.locator("[data-public-page]")).toHaveCSS("--primary","#204f43");
       await page.goto(`${baseUrl}/dashboard/my-page`,{waitUntil:"domcontentloaded"});page.once("dialog",async dialog=>{expect(dialog.type()).toBe("confirm");expect(dialog.message()).toContain("إلغاء نشر الصفحة");await dialog.accept();});await page.getByRole("button",{name:"إلغاء النشر"}).click();await waitForBusiness({id:seeded.businessId,isPublished:false});const retained=await db.business.findUnique({where:{id:seeded.businessId},include:{services:true,branches:true,contactPersons:true}});expect(retained?.name).toBe("منشأة HEE المحدثة");expect(retained?.services).toHaveLength(2);expect(retained?.branches).toHaveLength(1);expect(retained?.contactPersons).toHaveLength(1);expect(retained?.logoUrl).toMatch(/^\/api\/storage\//);expect(retained?.coverUrl).toMatch(/^\/api\/storage\//);
     }finally{await page.close();}
   });

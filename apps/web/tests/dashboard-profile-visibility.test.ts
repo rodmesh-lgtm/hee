@@ -23,7 +23,7 @@ test("digital identity company profile has a stable direct anchor", () => {
 });
 
 test("owner preview renders company profile and digital identity extras", () => {
-  assert.match(preview, /PublicIdentityExtras/);
+  assert.match(preview, /PublicIdentityHighlights/);
   assert.match(preview, /companyProfileUrl=\{business\.companyProfileUrl\}/);
   assert.match(extras, /id="company-profile-section"/);
   assert.match(extras, /عرض الملف/);

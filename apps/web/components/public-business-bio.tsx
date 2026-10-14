@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BadgeCheck, BriefcaseBusiness, Building2, Clock3, FileText, Globe2, Mail, MapPin, MessageCircle, Phone, Share2, ShoppingBag, ArrowUpLeft, UsersRound } from "lucide-react";
 import { IrMark } from "./brand/ir-logo";
+import { identityAppearanceStyle } from "../app/lib/public-identity-appearance";
+import { identityFontVariables } from "./public-identity-fonts";
 import styles from "./public-business-bio.module.css";
 import type { PageModuleState } from "../app/lib/page-modules";
 
@@ -44,7 +46,7 @@ export function PublicBusinessBio({business,publicUrl,pageModules=[],bookingRibb
  if(communicationCount)trustFacts.push({label:`${communicationCount} ${communicationCount===1?"قناة تواصل":"قنوات تواصل"}`,icon:Phone});
  if(trustFacts.length<3&&services.length)trustFacts.push({label:`${services.length} ${services.length===1?"خدمة":"خدمات"}`,icon:BriefcaseBusiness});
  async function share(){if(navigator.share){try{await navigator.share({title:business.name,url:publicUrl});return}catch{}}try{await navigator.clipboard.writeText(publicUrl);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{}}
- return <main data-public-page dir="rtl" className={styles.page}>
+ return <main data-public-page dir="rtl" className={`${styles.page} ${identityFontVariables}`} style={identityAppearanceStyle(contactConfig?.appearance)}>
   <div className={styles.shell}>
    <div className={styles.topbar}>
     <button type="button" onClick={()=>void share()} aria-label="مشاركة الصفحة" className={styles.share}><Share2 aria-hidden="true" size={18}/></button>
