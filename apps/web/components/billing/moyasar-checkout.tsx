@@ -102,16 +102,16 @@ export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId
   }
 
   if (!accepted) {
-    return <div className="rounded-2xl border border-[#ddd8f4] bg-[#faf9ff] p-4 text-sm leading-7 text-slate-700">
-      <b className="block text-[#252a4a]">قبل فتح نموذج الدفع</b>
+    return <div className="rounded-2xl border border-[#cdded7] bg-[#f5f9f6] p-4 text-sm leading-7 text-slate-700">
+      <b className="block text-[#173b32]">قبل فتح نموذج الدفع</b>
       <ul className="mt-2 list-disc space-y-1 pr-5 text-xs leading-6 text-slate-600">
         <li>أنت تراجع اشتراكًا مدفوعًا قد يتجدد شهريًا عند حفظ وسيلة دفع صالحة.</li>
         <li>يمكن إيقاف التجديد من إدارة الاشتراك، وتبقى الفترة المدفوعة فعالة حتى نهايتها.</li>
         <li>الإلغاء لا يعني استردادًا تلقائيًا؛ تطبق حقوق الاسترداد النظامية والشروط السارية عند الشراء.</li>
       </ul>
-      <p className="mt-3 text-xs leading-6 text-slate-500">بالمتابعة أنت تقر بمراجعة <Link href="/terms" className="font-black text-[#5d49cc] underline underline-offset-4">الشروط والأحكام</Link> و<Link href="/privacy" className="font-black text-[#5d49cc] underline underline-offset-4">سياسة الخصوصية</Link>.</p>
+      <p className="mt-3 text-xs leading-6 text-slate-500">بالمتابعة أنت تقر بمراجعة <Link href="/terms" className="font-black text-[#08766d] underline underline-offset-4">الشروط والأحكام</Link> و<Link href="/privacy" className="font-black text-[#08766d] underline underline-offset-4">سياسة الخصوصية</Link>.</p>
       {acceptanceError ? <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800">تعذر تثبيت موافقتك أو انتهت صلاحية عملية الدفع. لم يتم فتح نموذج البطاقة ولم يتم خصم أي مبلغ.</p> : null}
-      <button type="button" disabled={accepting} onClick={acceptPurchaseDisclosure} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#5b3fd6] px-5 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-60">{accepting ? "جاري تثبيت الموافقة…" : "أوافق وأتابع للدفع الآمن"}</button>
+      <button type="button" disabled={accepting} onClick={acceptPurchaseDisclosure} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[#126d63] px-5 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-60">{accepting ? "جاري تثبيت الموافقة…" : "أوافق وأتابع للدفع الآمن"}</button>
     </div>;
   }
 
@@ -120,7 +120,7 @@ export function MoyasarCheckout({ amount, publishableKey, callbackUrl, billingId
     <Script
       src={MOYASAR_JS}
       strategy="afterInteractive"
-      onLoad={() => setScriptReady(true)}
+      onReady={() => setScriptReady(true)}
       onError={() => setLoadFailed(true)}
     />
     {loadFailed ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800">تعذر تحميل نموذج الدفع الآمن. لم يتم خصم أي مبلغ. حاول مرة أخرى بعد قليل.</div> : null}
