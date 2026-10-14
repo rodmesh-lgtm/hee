@@ -30,6 +30,14 @@ test("hub root rewrites dashboard and keeps public origin root unchanged", () =>
   assert.match(response.headers.get("x-robots-tag") ?? "", /noindex/);
   assert.equal(proxy(request("/", "ir.sa")).headers.get("x-middleware-rewrite"), null);
 });
+test("hub login return context preserves query parameters and overwrites supplied headers", () => {
+  const response = proxy(new NextRequest("https://hub.ir.sa/dashboard/working-hours?salla=connected", {
+    headers: { host: "hub.ir.sa", "x-infro-return-path": "https://evil.test/" },
+  }));
+  assert.equal(response.headers.get("x-middleware-request-x-infro-return-path"), "/dashboard/working-hours?salla=connected");
+  const root = proxy(request("/?business=switched", "hub.ir.sa"));
+  assert.equal(root.headers.get("x-middleware-request-x-infro-return-path"), "/?business=switched");
+});
 test("old dashboard reads move to hub while mutation bodies are never redirected", () => {
   assert.equal(proxy(request("/dashboard", "ir.sa")).headers.get("location"), "https://hub.ir.sa/");
   assert.equal(proxy(request("/dashboard/working-hours?salla=connected", "ir.sa")).headers.get("location"), "https://hub.ir.sa/dashboard/working-hours?salla=connected");

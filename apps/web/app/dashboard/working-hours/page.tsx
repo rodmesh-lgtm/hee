@@ -1,3 +1,4 @@
+import { getPublicBusinessUrlFromRequest } from "../../lib/public-url";
 import { getCurrentUser } from "../../lib/auth";
 import Link from "next/link";
 import { WeeklyBookingHoursEditor } from "../../../components/dashboard/weekly-booking-hours-editor";
@@ -144,6 +145,7 @@ export default async function DashboardWorkingHoursPage({
     },
   });
   if (!business) redirect("/onboarding");
+  const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
 
   const verificationFailures = isOwner ? await db.whatsAppAuditLog.findMany({
     where: { businessId: business.id, action: "booking.visitor.verification.send", outcome: "failed", createdAt: { gte: new Date(new Date(`${today}T00:00:00+03:00`).getTime() - 7 * 86400000) } },
@@ -205,7 +207,7 @@ export default async function DashboardWorkingHoursPage({
       <p className="mt-3 text-sm font-bold">{verificationTemplate ? `حالة قالب التحقق: ${{approved:"معتمد",pending:"بانتظار Meta",rejected:"مرفوض",paused:"متوقف",disabled:"معطل",unknown:"تحتاج تحديثًا"}[verificationTemplate.status]??"تحتاج تحديثًا"}` : "قالب التحقق لم يُجهز بعد"}</p>
       {bookingConnection ? <WhatsAppPhoneRegistration connectionId={bookingConnection.id} phone={bookingConnection.displayPhoneNumber ?? "رقم الحجوزات المرتبط"}/> : null}
       {verificationFailures.length ? <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><h3 className="font-bold">آخر محاولات إرسال الرمز المتعثرة</h3><p className="mt-1 text-xs">اعتماد القالب لا يعني نجاح الإرسال. تظهر هنا آخر ثلاث محاولات متعثرة خلال أسبوع.</p><ul className="mt-2 space-y-2">{verificationFailures.map(failure => <li key={failure.id}><time className="block text-xs" dateTime={failure.createdAt.toISOString()}>{failure.createdAt.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}</time><p>{bookingVerificationFailure(failure.metadata)}</p></li>)}</ul></div> : null}
-      <div className="mt-4 flex flex-wrap gap-3">{bookingConnection && subscriptionActive ? <>{!verificationTemplate ? <form action={submitBookingVerificationTemplateAction}><button className="min-h-11 rounded-xl bg-[#07181b] px-4 text-sm font-bold text-white">تقديم قالب التحقق إلى Meta</button></form> : null}<form action={syncBookingWhatsAppTemplatesAction}><input type="hidden" name="connectionId" value={bookingConnection.id}/><button className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold">تحديث حالة القوالب</button></form></> : <p className="text-sm text-amber-800">اربط رقم الحجوزات وفعّل اشتراك المنشأة لتجهيز التحقق.</p>}<Link href={`/${business.slug}/booking`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-4 text-sm font-bold">فتح صفحة تعديل الموعد</Link></div>
+      <div className="mt-4 flex flex-wrap gap-3">{bookingConnection && subscriptionActive ? <>{!verificationTemplate ? <form action={submitBookingVerificationTemplateAction}><button className="min-h-11 rounded-xl bg-[#07181b] px-4 text-sm font-bold text-white">تقديم قالب التحقق إلى Meta</button></form> : null}<form action={syncBookingWhatsAppTemplatesAction}><input type="hidden" name="connectionId" value={bookingConnection.id}/><button className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold">تحديث حالة القوالب</button></form></> : <p className="text-sm text-amber-800">اربط رقم الحجوزات وفعّل اشتراك المنشأة لتجهيز التحقق.</p>}<Link href={`${publicUrl}/booking`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 px-4 text-sm font-bold">فتح صفحة تعديل الموعد</Link></div>
     </section>
     </> : null}
 
