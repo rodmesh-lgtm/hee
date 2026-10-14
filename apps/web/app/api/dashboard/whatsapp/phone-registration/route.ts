@@ -37,7 +37,8 @@ export async function POST(request: Request) {
       return reply({ ok: true, state });
     } catch (error) {
       const reason = error instanceof PhoneRegistrationError ? error.reason : "read_failed";
-      if (body.operation === "register") await writeWhatsAppAuditLog({ businessId: business.id, actorUserId: business.ownerId, action: "connection.phone.register", targetType: "connection", targetId: connection.id, outcome: "failed", metadata: { reason } });
+      const diagnostic = error instanceof PhoneRegistrationError ? error.diagnostic : {};
+      if (body.operation === "register") await writeWhatsAppAuditLog({ businessId: business.id, actorUserId: business.ownerId, action: "connection.phone.register", targetType: "connection", targetId: connection.id, outcome: "failed", metadata: { reason, ...diagnostic } });
       const errors: Record<string, string> = {
         account_linking_pending: "رفضت Meta تسجيل الرقم بسبب ربط الحساب أو مراجعته (100). راجع حالة حساب واتساب لدى Meta قبل تكرار التسجيل.",
         registration_permission_missing: "رفضت Meta التسجيل بسبب نقص صلاحية التفويض (100). حدّث الربط الرسمي بحساب يملك صلاحية إدارة هذا الرقم.",
@@ -48,7 +49,9 @@ export async function POST(request: Request) {
         asset_mismatch: "لم تؤكد Meta أن الرقم يتبع حساب واتساب المرتبط. حدّث الربط الرسمي.",
         registration_uncertain: "لم يتأكد رد التسجيل. اضغط «فحص حالة الرقم» قبل أي محاولة جديدة.",
       };
-      return reply({ ok: false, error: errors[reason] ?? (/^meta_\d{1,10}$/.test(reason) ? `تعذرت العملية لدى Meta. رمز الخطأ: ${reason.slice(5)}. لم نعد المحاولة تلقائيًا.` : "تعذر التحقق من تسجيل الرقم الآن. حاول لاحقًا.") }, 409);
+      const message = errors[reason] ?? (/^meta_\d{1,10}$/.test(reason) ? `تعذرت العملية لدى Meta. رمز الخطأ: ${reason.slice(5)}. لم نعد المحاولة تلقائيًا.` : "تعذر التحقق من تسجيل الرقم الآن. حاول لاحقًا.");
+      const reference = [diagnostic.subcode !== undefined ? `الرمز الفرعي: ${diagnostic.subcode}` : "", diagnostic.traceId ? `مرجع طلب Meta: ${diagnostic.traceId}` : ""].filter(Boolean).join(" · ");
+      return reply({ ok: false, error: reference ? `${message} ${reference}` : message }, 409);
     }
   } catch { return reply({ ok: false, error: "تعذر إكمال العملية الآن." }, 503); }
 }
