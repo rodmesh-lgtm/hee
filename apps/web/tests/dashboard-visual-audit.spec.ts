@@ -1469,9 +1469,9 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           const response=await page.goto(`${baseUrl}/${business.slug}`,{waitUntil:"networkidle"});
           expect(response?.status()).toBe(200);
           await expect(page.getByRole("heading",{level:1,name:business.name})).toBeVisible();
-          const serviceLinks=page.locator('#highlights a[href="#services"]');
-          await expect(serviceLinks).toHaveCount(2);
-          await expect(serviceLinks.first()).toContainText("الخدمة المقدمة أولاً");
+          const serviceCards=page.locator("#services article");
+          await expect(serviceCards).toHaveCount(Math.min(6,await db.service.count({where:{businessId:business.id,isActive:true}})));
+          await expect(serviceCards.first()).toContainText("الخدمة المقدمة أولاً");
           const ribbon=page.locator('[data-public-action-ribbon]');
           await expect(ribbon.getByRole('link',{name:'واتساب',exact:true})).toHaveCount(0);
           await expect(ribbon.locator('a,button')).toHaveText(['حجز موعد','اتصال','']);
