@@ -24,22 +24,40 @@ function WhatsAppIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export type DashboardNavItem = { label: string; href: string; icon: NavIcon; exact?: boolean; activePrefixes?: string[] };
+export type DashboardNavGroup = "daily" | "presence" | "growth" | "account";
+export const dashboardNavGroups: { id: DashboardNavGroup; label: string }[] = [
+  { id: "daily", label: "أعمالك اليومية" },
+  { id: "presence", label: "صفحتك وهويتك" },
+  { id: "growth", label: "التسويق والنمو" },
+  { id: "account", label: "إدارة الحساب" },
+];
+
+export type DashboardNavItem = { group: DashboardNavGroup; keywords: string; label: string; href: string; icon: NavIcon; exact?: boolean; activePrefixes?: string[] };
 
 /** Customer navigation stays intentionally compact. Advanced editing surfaces remain reachable from their parent studios instead of competing for attention in the rail. */
 export const dashboardNavItems: DashboardNavItem[] = [
-  { label: "مركز العمل", href: "/dashboard", icon: Home, exact: true },
-  { label: "صفحتي", href: "/dashboard/my-page", icon: UserRound, activePrefixes: ["/dashboard/services", "/dashboard/products", "/dashboard/catalog", "/dashboard/gallery", "/dashboard/offers", "/dashboard/contact-links", "/dashboard/page-builder", "/dashboard/page-customization", "/dashboard/preview", "/dashboard/share", "/dashboard/branding", "/dashboard/directory", "/dashboard/tools"] },
-  { label: "الهوية الرقمية", href: "/dashboard/digital-identity", icon: BadgeCheck, activePrefixes: ["/dashboard/verification"] },
-  { label: "الطلبات", href: "/dashboard/inbox", icon: Inbox },
-  { label: "المواعيد والحجوزات", href: "/dashboard/appointments", icon: CalendarDays, activePrefixes: ["/dashboard/working-hours"] },
-  { label: "تسويق واتساب", href: "/dashboard/whatsapp", icon: WhatsAppIcon, activePrefixes: ["/dashboard/whatsapp"] },
-  { label: "التذكيرات الذكية", href: "/dashboard/reminders", icon: BellRing },
-  { label: "الإشعارات", href: "/dashboard/notifications", icon: Bell },
-  { label: "مذكرات الأعمال", href: "/dashboard/notes", icon: NotebookPen },
-  { label: "متجر الأعمال", href: "/dashboard/business-store", icon: ShoppingBag },
-  { label: "الأداء", href: "/dashboard/analytics", icon: BarChart3 },
-  { label: "الدعم والمساعدة", href: "/dashboard/support", icon: LifeBuoy },
-  { label: "الموظفون والصلاحيات", href: "/dashboard/staff", icon: UsersRound },
-  { label: "الحساب والباقات", href: "/dashboard/settings", icon: Settings2, activePrefixes: ["/dashboard/billing", "/dashboard/account-deletion"] },
+  { group: "daily", keywords: "الرئيسية ملخص متابعة", label: "مركز العمل", href: "/dashboard", icon: Home, exact: true },
+  { group: "presence", keywords: "تعديل تصميم شعار خدمات منتجات فروع فريق ساعات معرض روابط", label: "صفحتي", href: "/dashboard/my-page", icon: UserRound, activePrefixes: ["/dashboard/services", "/dashboard/products", "/dashboard/catalog", "/dashboard/gallery", "/dashboard/offers", "/dashboard/contact-links", "/dashboard/page-builder", "/dashboard/page-customization", "/dashboard/preview", "/dashboard/share", "/dashboard/branding", "/dashboard/directory", "/dashboard/tools"] },
+  { group: "presence", keywords: "توثيق ملف تعريفي PDF سيو SEO", label: "الهوية الرقمية", href: "/dashboard/digital-identity", icon: BadgeCheck, activePrefixes: ["/dashboard/verification"] },
+  { group: "daily", keywords: "عملاء طلب خدمة وارد", label: "الطلبات", href: "/dashboard/inbox", icon: Inbox },
+  { group: "daily", keywords: "حجز ساعات العمل جدول مواعيد إعدادات رمز تحقق OTP", label: "المواعيد والحجوزات", href: "/dashboard/appointments", icon: CalendarDays, activePrefixes: ["/dashboard/working-hours"] },
+  { group: "growth", keywords: "حملات قوالب جهات اتصال رسائل WhatsApp ميتا ربط", label: "تسويق واتساب", href: "/dashboard/whatsapp", icon: WhatsAppIcon, activePrefixes: ["/dashboard/whatsapp"] },
+  { group: "daily", keywords: "تذكير مهام مواعيد تنبيه", label: "التذكيرات الذكية", href: "/dashboard/reminders", icon: BellRing },
+  { group: "daily", keywords: "تنبيهات أخبار", label: "الإشعارات", href: "/dashboard/notifications", icon: Bell },
+  { group: "daily", keywords: "ملاحظات مذكرة مهام", label: "مذكرات الأعمال", href: "/dashboard/notes", icon: NotebookPen },
+  { group: "growth", keywords: "شراء خدمات متجر", label: "متجر الأعمال", href: "/dashboard/business-store", icon: ShoppingBag },
+  { group: "growth", keywords: "إحصائيات تقارير تحليلات زيارات", label: "الأداء", href: "/dashboard/analytics", icon: BarChart3 },
+  { group: "account", keywords: "تواصل دعم مساعدة مشكلة", label: "الدعم والمساعدة", href: "/dashboard/support", icon: LifeBuoy },
+  { group: "account", keywords: "فريق مستخدمين موظف صلاحية", label: "الموظفون والصلاحيات", href: "/dashboard/staff", icon: UsersRound },
+  { group: "account", keywords: "إعدادات بريد ايميل جوال اسم اشتراك فاتورة دفع", label: "الحساب والباقات", href: "/dashboard/settings", icon: Settings2, activePrefixes: ["/dashboard/billing", "/dashboard/account-deletion"] },
 ];
+
+function normalizeNavSearch(value: string) {
+  return value.normalize("NFKC").replace(/[\u064B-\u065F\u0670\u0640]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").toLocaleLowerCase("ar");
+}
+
+export function matchesDashboardNav(item: DashboardNavItem, query: string) {
+  const terms = normalizeNavSearch(query).trim().split(/\s+/).filter(Boolean);
+  const words = normalizeNavSearch(`${item.label} ${item.keywords}`).split(/\s+/).map(word => word.replace(/^ال/, ""));
+  return terms.every(term => words.some(word => word.startsWith(term.replace(/^ال/, "")))) ;
+}

@@ -51,3 +51,13 @@ test("visible dashboard links are internal paths rather than placeholder actions
   assert.doesNotMatch(nav, /href:\s*["']#["']/);
   assert.doesNotMatch(nav, /href:\s*["']javascript:/i);
 });
+
+// Search must work with natural Arabic input and hidden sections must not leak as matches.
+test("dashboard search handles Arabic variants, aliases and multiple words", async () => {
+  const { dashboardNavItems, matchesDashboardNav } = await import("../components/dashboard/dashboard-nav");
+  const find = (query: string) => dashboardNavItems.filter(item => matchesDashboardNav(item, query)).map(item => item.href);
+  assert.ok(find("إِعْدَادَات حجز").includes("/dashboard/appointments"));
+  assert.deepEqual(find("شعار"), ["/dashboard/my-page"]);
+  assert.deepEqual(find("OTP"), ["/dashboard/appointments"]);
+  assert.deepEqual(find("قسم غير موجود"), []);
+});
