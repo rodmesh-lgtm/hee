@@ -44,7 +44,7 @@ async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
     select: { id: true, connectionId: true, category: true, components: true, parameterFormat: true },
   });
   const runnable = template && (input.triggerType === "booking_confirmation"
-    ? bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)
+    ? template.category === "utility" && bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)
     : isSallaOrderTrigger(input.triggerType)
       ? template.category === "utility" && sallaOrderTemplateSupported(template.components, template.parameterFormat)
       : !templateHasVariables(template.components));

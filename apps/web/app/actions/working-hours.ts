@@ -14,6 +14,8 @@ import { createSallaAuthorization, prepareSallaIntegration } from "../lib/commer
 import { syncSallaBookingOrders } from "../lib/commerce/salla-order-sync";
 import { connectWooCommerceBookingStore, syncWooCommerceBookingOrders } from "../lib/commerce/woocommerce-commerce";
 import { syncShopifyBookingOrders } from "../lib/commerce/shopify-order-sync";
+import { bookingConfirmationTemplateSupportsParameters } from "../lib/whatsapp/booking-confirmation-domain";
+import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -115,6 +117,23 @@ export async function configureBookingWhatsAppConfirmationAction(formData: FormD
   if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?whatsapp=subscription-required");
   const templateId = value(formData, "templateId");
   if (!/^[0-9a-f-]{36}$/i.test(templateId)) redirect("/dashboard/working-hours?whatsapp=invalid-template");
+
+  const automationId = value(formData, "automationId");
+  if (automationId) {
+    try {
+      await db.$transaction(async (tx) => {
+        const automation = await tx.whatsAppAutomation.findFirst({ where: { id: automationId, businessId: business.id, triggerType: "booking_confirmation", status: { in: ["active", "paused"] } } });
+        if (!automation) throw new Error("BOOKING_AUTOMATION_NOT_FOUND");
+        const template = await tx.whatsAppTemplate.findFirst({ where: { id: templateId, businessId: business.id, connectionId: automation.connectionId, provider: "meta", category: "utility", status: "approved", connection: { businessId: business.id, bookingEnabled: true, status: "connected", disabledAt: null } } });
+        if (!template || !bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)) throw new Error("BOOKING_TEMPLATE_NOT_COMPATIBLE");
+        const updated = await tx.whatsAppAutomation.updateMany({ where: { id: automation.id, businessId: business.id, updatedAt: automation.updatedAt }, data: { actionConfig: { templateId: template.id } } });
+        if (updated.count !== 1) throw new Error("BOOKING_AUTOMATION_CHANGED");
+        await writeWhatsAppAuditLog({ database: tx, businessId: business.id, actorUserId: business.ownerId, action: "automation.booking.template.update", targetType: "automation", targetId: automation.id, outcome: "success", metadata: { templateId: template.id } });
+      });
+    } catch { redirect("/dashboard/working-hours?whatsapp=failed"); }
+    refreshAppointmentPaths(business.slug);
+    redirect("/dashboard/working-hours?whatsapp=template-updated");
+  }
 
   let previousAutomationId: string | null = null;
   try {

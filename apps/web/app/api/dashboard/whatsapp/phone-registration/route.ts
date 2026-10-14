@@ -39,6 +39,10 @@ export async function POST(request: Request) {
       const reason = error instanceof PhoneRegistrationError ? error.reason : "read_failed";
       if (body.operation === "register") await writeWhatsAppAuditLog({ businessId: business.id, actorUserId: business.ownerId, action: "connection.phone.register", targetType: "connection", targetId: connection.id, outcome: "failed", metadata: { reason } });
       const errors: Record<string, string> = {
+        account_linking_pending: "رفضت Meta تسجيل الرقم بسبب ربط الحساب أو مراجعته (100). راجع حالة حساب واتساب لدى Meta قبل تكرار التسجيل.",
+        registration_permission_missing: "رفضت Meta التسجيل بسبب نقص صلاحية التفويض (100). حدّث الربط الرسمي بحساب يملك صلاحية إدارة هذا الرقم.",
+        display_name_pending: "أفادت Meta بأن اسم العرض يحتاج إكمال الاعتماد قبل التسجيل (100).",
+        registration_pin_required: "أفادت Meta بأن PIN مطلوب في طلب التسجيل (100). لم نعد المحاولة تلقائيًا؛ يلزم مراجعة طلب التسجيل.",
         phone_not_verified: "أكمل إثبات ملكية رقم الهاتف داخل ربط Meta أولًا، ثم تحقق من الحالة هنا.",
         requires_meta_onboarding: "يحتاج هذا الرقم إلى إكمال خطوات Meta الرسمية. لم نغيّر تسجيله أو نفصله عن تطبيق واتساب.",
         asset_mismatch: "لم تؤكد Meta أن الرقم يتبع حساب واتساب المرتبط. حدّث الربط الرسمي.",
