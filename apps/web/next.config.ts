@@ -38,7 +38,7 @@ const defaultPermissionsPolicy = "camera=(), microphone=(), geolocation=(), paym
 const businessNotesPermissionsPolicy = "camera=(), microphone=(self), geolocation=(), payment=()";
 
 function serverActionOrigins() {
-  const origins = ["ir.sa", "www.ir.sa"];
+  const origins = ["ir.sa", "www.ir.sa", "hub.ir.sa"];
   if (process.env.VERCEL_ENV === "preview") origins.push("*.vercel.app");
   if (process.env.NODE_ENV !== "production") origins.push("localhost:3000", "127.0.0.1:3000", "*.app.github.dev");
   return origins;

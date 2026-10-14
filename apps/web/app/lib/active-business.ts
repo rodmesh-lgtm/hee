@@ -1,15 +1,27 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { db } from "./db";
 import { getEffectiveSubscription } from "./subscription-entitlement";
 import { memberCanAccess, type StaffSection } from "./staff-permissions";
 
 export const ACTIVE_BUSINESS_COOKIE = "hee_active_business";
+const WORKSPACE_BUSINESS_COOKIE = "infro_workspace_business";
+
+// A navigation preference, never an authorization credential. Every read below
+// independently verifies ownership/membership. Share it so canonical integration
+// callbacks resolve the same selected business as the customer hub.
+export async function syncWorkspaceBusinessPreference(businessId?: string) {
+  const host = (await headers()).get("host")?.split(":")[0];
+  if (host !== "ir.sa" && host !== "www.ir.sa" && host !== "hub.ir.sa") return;
+  const jar = await cookies();
+  const value = businessId ?? jar.get(WORKSPACE_BUSINESS_COOKIE)?.value ?? jar.get(ACTIVE_BUSINESS_COOKIE)?.value;
+  if (value) jar.set(WORKSPACE_BUSINESS_COOKIE, value, { domain: "ir.sa", path: "/", secure: true, httpOnly: true, sameSite: "lax", maxAge: 365 * 86400 });
+}
 
 async function requestedBusinessId() {
   const jar = await cookies();
-  const value = jar.get(ACTIVE_BUSINESS_COOKIE)?.value?.trim();
+  const value = (jar.get(WORKSPACE_BUSINESS_COOKIE)?.value ?? jar.get(ACTIVE_BUSINESS_COOKIE)?.value)?.trim();
   return value || null;
 }
 

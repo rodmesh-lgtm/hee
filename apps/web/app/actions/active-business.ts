@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUserForWrites } from "../lib/auth";
-import { ACTIVE_BUSINESS_COOKIE } from "../lib/active-business";
+import { ACTIVE_BUSINESS_COOKIE, syncWorkspaceBusinessPreference } from "../lib/active-business";
 import { db } from "../lib/db";
 import { isExplicitTestRuntime } from "../lib/runtime-environment";
 
@@ -34,6 +34,7 @@ export async function switchActiveBusinessAction(formData: FormData) {
     maxAge: 60 * 60 * 24 * 365,
   });
 
+  await syncWorkspaceBusinessPreference(owned.id);
   revalidatePath("/dashboard", "layout");
   revalidatePath("/preview");
   redirect("/dashboard?business=switched");
