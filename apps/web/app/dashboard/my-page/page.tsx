@@ -9,6 +9,7 @@ import { SimpleBusinessEditor } from "../../../components/dashboard/simple-busin
 import { PageSectionOrderEditor } from "../../../components/dashboard/page-section-order-editor";
 import { BottomActionBarEditor } from "../../../components/dashboard/bottom-action-bar-editor";
 import { updateBookingAvailabilityAction } from "../../actions/services";
+import { getPublicBusinessUrlFromRequest } from "../../lib/public-url";
 
 const managedIds = new Set<PageModuleId>(["request", "services", "portfolio", "location", "contactTeam", "hours", "contact", "about"]);
 
@@ -32,6 +33,7 @@ export default async function DashboardMyPage() {
   });
 
   if (!business) redirect("/onboarding");
+  const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
   const effectivelyPublished = Boolean(business.isPublished && user.emailVerifiedAt);
   const moduleOrder = normalizePageModules(business.pageModules, business.businessType)
     .filter((module): module is typeof module & { id: ManagedId } => managedIds.has(module.id))
@@ -41,7 +43,7 @@ export default async function DashboardMyPage() {
   const bookingReady = business.bookingAvailable && bookableServices > 0 && openDays > 0;
 
   return <div className="space-y-5">
-    <SimpleBusinessEditor business={{
+    <SimpleBusinessEditor publicUrl={publicUrl} business={{
       name: business.name,
       businessType: business.businessType,
       shortDescription: business.shortDescription ?? "",

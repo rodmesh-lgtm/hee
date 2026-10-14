@@ -43,6 +43,7 @@ type BusinessEditorData = {
 };
 type Props = {
   business: BusinessEditorData;
+  publicUrl: string;
   serviceCount: number;
   branchCount: number;
   contactCount: number;
@@ -61,6 +62,7 @@ function countLabel(n: number, singular: string, dual: string, plural: string) {
 }
 export function SimpleBusinessEditor({
   business,
+  publicUrl,
   serviceCount,
   branchCount,
   contactCount,
@@ -184,7 +186,6 @@ export function SimpleBusinessEditor({
       void flushSave(latestFields.current, revision.current);
   };
   async function sharePublishedPage() {
-    const publicUrl = `${window.location.origin}/${business.slug}`;
     setShareStatus("idle");
     if (navigator.share) {
       try {
@@ -441,7 +442,7 @@ export function SimpleBusinessEditor({
               ) : (
                 <>
                   <a
-                    href={`/${business.slug}`}
+                    href={publicUrl}
                     target="_blank"
                     className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#07181b] px-4 text-xs font-black text-white"
                   >
