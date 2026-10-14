@@ -144,7 +144,7 @@ export default async function DashboardWorkingHoursPage({
   if (!business) redirect("/onboarding");
 
   const verificationFailures = isOwner ? await db.whatsAppAuditLog.findMany({
-    where: { businessId: business.id, action: "booking.visitor.verification.send", outcome: "failed", createdAt: { gte: new Date(Date.now() - 7 * 86400000) } },
+    where: { businessId: business.id, action: "booking.visitor.verification.send", outcome: "failed", createdAt: { gte: new Date(new Date(`${today}T00:00:00+03:00`).getTime() - 7 * 86400000) } },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 3,
     select: { id: true, createdAt: true, metadata: true },
   }) : [];
