@@ -41,6 +41,15 @@ test("owner invites a verified employee and section permissions are enforced on 
     await expect(memberPage).toHaveURL(/\/dashboard$/);
     const member = await db.businessMember.findUniqueOrThrow({ where: { businessId_userId: { businessId: business.id, userId: employee.id } } });
     expect(member.permissions).toEqual(["appointments"]);
+    // Appointment access must not grant control of the owner's WhatsApp registration/PIN.
+    const registrationDenied = await contexts[1].request.post(`${baseUrl}/api/dashboard/whatsapp/phone-registration`, { headers: { Origin: baseUrl }, data: { operation: "check", connectionId: randomUUID() } });
+    expect([401, 403]).toContain(registrationDenied.status());
+    const registrationWrongTenant = await contexts[0].request.post(`${baseUrl}/api/dashboard/whatsapp/phone-registration`, { headers: { Origin: baseUrl }, data: { operation: "check", connectionId: randomUUID() } });
+    expect(registrationWrongTenant.status()).toBe(409);
+    const registrationCrossOrigin = await contexts[0].request.post(`${baseUrl}/api/dashboard/whatsapp/phone-registration`, { headers: { Origin: "https://untrusted.example" }, data: { operation: "register", connectionId: randomUUID() } });
+    expect(registrationCrossOrigin.status()).toBe(403);
+    const registrationNoOrigin = await contexts[0].request.post(`${baseUrl}/api/dashboard/whatsapp/phone-registration`, { data: { operation: "check", connectionId: randomUUID() } });
+    expect(registrationNoOrigin.status()).toBe(403);
     await memberPage.goto(`${baseUrl}/dashboard/appointments`);
     await expect(memberPage.locator("#dashboard-main-content").getByRole("heading", { name: "المواعيد والحجوزات", exact: true })).toBeVisible();
     // Direct API calls must reject a member without page permission.

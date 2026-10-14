@@ -1,6 +1,7 @@
 /** Owner-facing diagnostics never include provider bodies, phone numbers or OTPs. */
 export function bookingVerificationFailure(metadata: unknown) {
   const reason = metadata && typeof metadata === "object" && "reason" in metadata ? metadata.reason : null;
+  if (reason === "meta_133010") return "رفضت Meta الإرسال لأن رقم واتساب غير مسجّل للإرسال عبر Cloud API (133010). افحص حالة الرقم وأكمل تسجيله من القسم أعلاه.";
   if (typeof reason === "string" && /^meta_\d{1,10}$/.test(reason)) {
     return `رفضت Meta إرسال رمز التحقق. رمز الخطأ: ${reason.slice(5)}. راجع حالة رقم واتساب وحساب الأعمال لدى Meta.`;
   }
