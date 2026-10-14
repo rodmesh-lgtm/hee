@@ -104,6 +104,9 @@
 .ribbon > .primaryAction { background:var(--primary); color:var(--on-primary); }
 .ribbon > button { display:grid; place-items:center; width:44px; height:54px; flex-shrink:0; border-radius:15px; background:var(--soft); color:var(--muted); }
 .ribbonHidden { transform:translateY(calc(100% + 1rem)); opacity:0; pointer-events:none; }
+.ribbon:focus-within { transform:none; opacity:1; pointer-events:auto; }
+.expandList { display:flex; align-items:center; justify-content:center; gap:10px; min-height:46px; margin:18px auto 0; padding:10px 22px; border:1px solid var(--line); border-radius:99px; background:var(--soft); color:var(--ink); font-size:13px; font-weight:650; }
+.expandList:hover { background:var(--card); }
 .toast { position:fixed; bottom:100px; left:50%; transform:translateX(-50%); z-index:50; background:var(--primary); color:var(--on-primary); padding:12px 24px; border-radius:99px; font-size:13px; box-shadow:0 8px 30px #173c3630; }
 @media (max-width:767px) {
  .page { padding:0; background:var(--paper); }
