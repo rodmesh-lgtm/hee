@@ -2,9 +2,28 @@
 .ld-order-filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}.ld-order-filters a{border:1px solid var(--ld-line);border-radius:10px;background:#fff;padding:12px 16px;font-size:12px;text-decoration:none;min-height:44px}.ld-order-filters a[aria-current=page]{background:var(--ld-green);color:#fff;border-color:var(--ld-green)}.ld-order-filters a:focus-visible{outline:3px solid #739b91;outline-offset:3px}.ld-order-filters p{flex-basis:100%;font-size:12px;color:var(--ld-muted);line-height:1.8;margin:4px 0}
 .ld-catalog-setup{margin-bottom:20px}.ld-catalog-setup details{border:1px solid var(--ld-line);border-radius:12px;margin:10px 0;overflow:hidden}.ld-catalog-setup summary{padding:16px;cursor:pointer;font-weight:700;font-size:14px;background:#f5f8f3}.ld-catalog-setup summary span{float:left;font-weight:400;font-size:12px;color:var(--ld-muted)}.ld-catalog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:12px;padding:16px}.ld-catalog-grid label{margin:0}.ld-catalog-setup>form>button{margin-top:12px}.ld-brand small{letter-spacing:0}
 .ld-dialog{border:1px solid var(--ld-line);max-height:calc(100dvh - 40px);overflow:auto;margin:auto}.ld-dialog::backdrop{background:#153c35aa}
-@media print{.laundry .ld-receipt.thermal{width:64mm}}
-@media print{.ld-dialog{max-height:none;overflow:visible;margin:0;position:static;border:0}}
 @media(max-width:1200px){.ld-shell{grid-template-columns:190px minmax(0,1fr)}.ld-main{padding:24px 18px}.ld-pos{grid-template-columns:minmax(0,1fr) 320px}.ld-heading{align-items:flex-start}.ld-chip{display:none}.ld-stats{gap:9px}.ld-stats article{padding:14px}.ld-stats strong{font-size:22px}}
 @media(max-width:960px){.ld-shell{display:block}.ld-sidebar{padding:12px 16px;border:0;display:flex;gap:7px;overflow:auto}.ld-sidebar>button{width:auto;flex-shrink:0;padding:11px}.ld-sidebar .ld-eyebrow,.ld-side-note{display:none}.ld-pos{grid-template-columns:minmax(0,1fr) 320px}.ld-top{padding:0 20px;height:72px}.ld-brand{font-size:19px}.ld-business{font-size:13px}}
 @media(max-width:700px){.ld-top{padding:0 14px}.ld-back{display:none}.ld-business{max-width:150px;overflow-wrap:anywhere}.ld-main{padding:20px 12px}.ld-heading h1{font-size:23px}.ld-heading p:not(.ld-eyebrow){line-height:1.8}.ld-stats{grid-template-columns:1fr 1fr}.ld-stats strong{font-size:24px}.ld-pos{grid-template-columns:1fr}.ld-panel{padding:16px}.ld-services{grid-template-columns:repeat(2,minmax(0,1fr))}.ld-finance{grid-template-columns:1fr}.ld-table-wrap table{min-width:640px}.ld-dialog{padding:15px}.ld-receipt{padding:20px 0}.ld-receipt td,.ld-receipt th{padding:9px 4px;font-size:11px}.ld-dialog-tools{gap:8px}.ld-service-row{gap:8px}}
-@media print{body *{visibility:hidden}.ld-receipt,.ld-receipt *{visibility:visible}.ld-overlay{position:absolute;inset:0;background:white;padding:0;display:block;overflow:visible}.ld-dialog{width:100%;max-width:none;padding:0;border:0;box-shadow:none}.ld-dialog-tools,.ld-shell,.ld-top{display:none!important}.ld-receipt{position:absolute;top:0;right:0;width:100%;padding:10mm;color:#000}.ld-receipt.thermal{width:76mm;padding:3mm;font-size:11px}.ld-receipt table{width:100%;font-size:11px}.ld-receipt tr{break-inside:avoid}.ld-receipt th,.ld-receipt td{padding:8px 3px}.ld-receipt.thermal h2{font-size:18px}.ld-receipt.thermal p{font-size:10px}.ld-receipt.thermal .ld-total strong{font-size:17px}@page{margin:8mm}}
+.ld-print-help{font-size:12px;line-height:1.8;color:var(--ld-muted);margin:14px 0}.ld-receipt.thermal{width:72mm;max-width:100%;margin-inline:auto;padding:3mm;overflow-wrap:anywhere}.ld-receipt.thermal table{table-layout:fixed}.ld-receipt.thermal th:first-child{width:43%}.ld-receipt.thermal th,.ld-receipt.thermal td{padding:8px 3px;font-size:10px}.ld-receipt.thermal h2{font-size:18px}.ld-receipt.thermal p{font-size:11px}.ld-receipt.thermal .ld-total strong{font-size:17px}
+@page laundry-a4{size:A4;margin:12mm}
+/* Roll length is provided by the selected 80 mm printer driver. */
+@page laundry-thermal{size:auto;margin:3mm}
+@media print{
+ body:has(.ld-dialog[open]) *{visibility:hidden}
+ body:has(.ld-dialog[open]) .ld-receipt,body:has(.ld-dialog[open]) .ld-receipt *{visibility:visible}
+ body:has(.ld-dialog[open] .ld-receipt.a4){page:laundry-a4}
+ body:has(.ld-dialog[open] .ld-receipt.thermal){page:laundry-thermal}
+ .laundry:has(.ld-dialog[open]){min-height:0;background:#fff}
+ .ld-overlay:has(.ld-dialog[open]){position:static;inset:auto;background:#fff;padding:0;display:block;overflow:visible}
+ .ld-dialog[open]{position:static;inset:auto;display:block;width:100%;max-width:none;height:auto;max-height:none;overflow:visible;margin:0;padding:0;border:0;box-shadow:none}
+ .ld-dialog[open]::backdrop{display:none}
+ .ld-dialog-tools,.ld-print-help,.laundry:has(.ld-dialog[open]) .ld-shell,.laundry:has(.ld-dialog[open]) .ld-top{display:none!important}
+ .ld-receipt{position:static;width:100%;padding:0;color:#000;overflow-wrap:anywhere}
+ .ld-receipt.thermal{width:72mm;max-width:100%;padding:0;margin:0}
+ .ld-receipt table{width:100%;font-size:11px}
+ .ld-receipt thead{display:table-header-group}
+ .ld-receipt tr,.ld-receipt .ld-total{break-inside:avoid}
+ .ld-receipt th,.ld-receipt td{padding:8px 3px}
+ .ld-receipt p,.ld-receipt h2,.ld-receipt h3{color:#000}
+}

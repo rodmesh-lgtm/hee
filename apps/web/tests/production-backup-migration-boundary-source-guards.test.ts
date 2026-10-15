@@ -110,7 +110,13 @@ test("scheduled production backups are encrypted, retained, clean-schema restore
   assert.ok(workflow.indexOf("require-production-database-safety.mjs") < workflow.indexOf("pg_dump"));
   assert.match(workflow, /pg_dump/);
   assert.match(workflow, /openssl enc -aes-256-cbc -pbkdf2/);
-  assert.match(workflow, /DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public/);
+  assert.match(workflow, /SELECT nspname\s+FROM pg_namespace/);
+  assert.match(workflow, /nspname NOT LIKE 'pg_%'/);
+  assert.match(workflow, /nspname NOT LIKE 'neon%'/);
+  assert.match(workflow, /DROP SCHEMA IF EXISTS %I CASCADE/);
+  assert.match(workflow, /CREATE SCHEMA public/);
+  assert.match(workflow, /--use-list=\/tmp\/hee-production-restore-filtered.list/);
+  assert.match(workflow, /Filtered restore list still contains prisma_postgres extension metadata/);
   assert.match(workflow, /pg_restore --exit-on-error --dbname="\$RESTORE_DATABASE_URL" --no-owner --no-privileges/);
   assert.match(workflow, /npm run backup:production-proof/);
   assert.match(workflow, /retention-days: 14/);

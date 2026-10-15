@@ -46,7 +46,8 @@ test("scheduled backup requires verify-full before pg_dump and restore mutation"
   const workflow = source("../../.github/workflows/production-backup-proof.yml");
   assert.match(workflow, /DATABASE_URL RESTORE_DATABASE_URL/);
   assertGuardPrecedes(workflow, 'pg_dump "$DATABASE_URL"');
-  assertGuardPrecedes(workflow, 'DROP SCHEMA IF EXISTS public CASCADE');
+  assertGuardPrecedes(workflow, 'psql "$RESTORE_DATABASE_URL"');
+  assertGuardPrecedes(workflow, 'DROP SCHEMA IF EXISTS %I CASCADE');
 });
 
 test("production migrations require verify-full before Prisma, backup and restore tooling", () => {

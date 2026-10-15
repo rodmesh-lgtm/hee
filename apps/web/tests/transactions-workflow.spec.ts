@@ -129,13 +129,24 @@ test.describe.serial("public transactions workflow", () => {
       await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toHaveCount(1);
       await page.getByRole("link",{name:"جميع الطلبات",exact:true}).click();
       await page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true}).click();
-      await expect(page.getByRole("heading",{name:"فاتورة خدمات / إيصال استلام",exact:true})).toBeVisible();
+      await expect(page.getByRole("heading",{name:"فاتورة غير ضريبية / إيصال استلام",exact:true})).toBeVisible();
       await page.getByLabel("دفعة إضافية",{exact:true}).fill("5.25");await page.getByRole("button",{name:"تسجيل الدفعة",exact:true}).click();
       await expect(page.getByLabel("دفعة إضافية",{exact:true})).toHaveCount(0);
       for(const status of ["قيد المعالجة","جاهز للاستلام","تم التسليم"]){await page.getByRole("button",{name:`المرحلة التالية: ${status}`,exact:true}).click();await expect(page.getByRole("button",{name:`المرحلة التالية: ${status}`,exact:true})).toHaveCount(0);}
       await page.setViewportSize({width:390,height:844});await page.screenshot({path:testInfo.outputPath("laundry-invoice-mobile.png"),fullPage:true});
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
-      await page.emulateMedia({media:"print"});await expect(page.locator(".ld-dialog-tools").first()).toBeHidden();await page.emulateMedia({media:"screen"});
+      await page.getByLabel("مقاس الطباعة",{exact:true}).selectOption("thermal");
+      await expect(page.locator(".ld-receipt")).toContainText("لا تُحتسب ضريبة على هذه الفاتورة");
+      await page.emulateMedia({media:"print"});
+      await expect(page.locator(".ld-dialog-tools").first()).toBeHidden();
+      await expect(page.locator(".ld-print-help")).toBeHidden();
+      expect(await page.locator(".ld-receipt").evaluate(el=>el.scrollWidth-el.clientWidth)).toBeLessThanOrEqual(1);
+      expect(await page.locator(".ld-receipt").evaluate(el=>el.getBoundingClientRect().width)).toBeCloseTo(72*96/25.4,0);
+      await page.emulateMedia({media:"screen"});
+      await page.getByLabel("مقاس الطباعة",{exact:true}).selectOption("a4");
+      await page.emulateMedia({media:"print"});
+      expect(await page.evaluate(()=>getComputedStyle(document.body).page)).toBe("laundry-a4");
+      await page.emulateMedia({media:"screen"});
       await setSession(page,outsider.sessionToken);await replay();
       const foreign=await db.$queryRaw<Array<{count:number}>>`SELECT COUNT(*)::int AS count FROM "LaundryTicket" WHERE "businessId"=${outsider.businessId}`;expect(foreign[0].count).toBe(0);
     }finally{
