@@ -75,11 +75,43 @@ jobs:
 
       - name: Reset isolated restore schema
         run: |
-          psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
+          psql "$RESTORE_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $do$
+          DECLARE schema_name text;
+          BEGIN
+            FOR schema_name IN
+              SELECT nspname
+              FROM pg_namespace
+              WHERE nspname <> 'information_schema'
+                AND nspname <> 'extensions'
+                AND nspname NOT LIKE 'pg_%'
+                AND nspname NOT LIKE 'neon%'
+            LOOP
+              EXECUTE format('DROP SCHEMA IF EXISTS %I CASCADE', schema_name);
+            END LOOP;
+          END
+          $do$;
+          CREATE SCHEMA public;
+          SQL
 
       - name: Restore production backup into clean isolated database
         run: |
-          pg_restore --exit-on-error --dbname="$RESTORE_DATABASE_URL" --no-owner --no-privileges /tmp/hee-production.dump
+          set -euo pipefail
+          pg_restore --list /tmp/hee-production.dump > /tmp/hee-production-restore.list
+          # prisma_postgres is a provider-managed extension on the source and is
+          # intentionally unavailable on the isolated restore database. It does
+          # not contain application tables or customer data.
+          awk '!($0 ~ /prisma_postgres/ && $0 ~ /(EXTENSION|COMMENT)/)' \
+            /tmp/hee-production-restore.list > /tmp/hee-production-restore-filtered.list
+          test -s /tmp/hee-production-restore-filtered.list
+          if grep -E 'prisma_postgres.*(EXTENSION|COMMENT)|(EXTENSION|COMMENT).*prisma_postgres' \
+            /tmp/hee-production-restore-filtered.list; then
+            echo "Filtered restore list still contains prisma_postgres extension metadata" >&2
+            exit 1
+          fi
+          pg_restore --exit-on-error --dbname="$RESTORE_DATABASE_URL" --no-owner --no-privileges \
+            --use-list=/tmp/hee-production-restore-filtered.list \
+            /tmp/hee-production.dump
 
       - name: Prove restored schema and critical data signatures
         working-directory: apps/web
@@ -97,4 +129,4 @@ jobs:
 
       - name: Remove local backup copies
         if: always()
-        run: rm -f /tmp/hee-production.dump /tmp/hee-production-${GITHUB_RUN_ID}.dump.enc
+        run: rm -f /tmp/hee-production.dump /tmp/hee-production-${GITHUB_RUN_ID}.dump.enc /tmp/hee-production-restore.list /tmp/hee-production-restore-filtered.list
