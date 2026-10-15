@@ -1660,7 +1660,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       for(const viewport of [{name:"mobile",value:{width:390,height:844}},{name:"desktop",value:{width:1440,height:960}}]) for(const theme of ["light","dark"] as const) {
         const context=await authenticatedContext(browser,viewport.value,theme,seeded.sessionToken);
         try {
-          for(const path of ["messages","blacklist","guides","tools","carts"]) await auditRoute(context,{path:`/dashboard/whatsapp/${path}`,name:`workspace-${path}`,theme,viewportName:viewport.name});
+          for(const path of ["contacts","messages","blacklist","guides","tools","carts"]) await auditRoute(context,{path:`/dashboard/whatsapp/${path}`,name:`workspace-${path}`,theme,viewportName:viewport.name});
           const page=await context.newPage();
         await page.goto(`${baseUrl}/dashboard/whatsapp`);
         const waGroups=page.locator(".wa-nav-groups");
