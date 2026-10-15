@@ -1,4 +1,8 @@
 /* Final customer workspace layer: readable type, consistent controls and genuine states. */
+.infro-history-pagination :is(.infro-history-page,.infro-history-step) { display:inline-flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; padding:8px; border:1px solid var(--infro-table-line); border-radius:12px; color:var(--infro-table-ink); text-decoration:none; }
+.infro-history-pagination a:hover { background:var(--infro-table-hover); }
+.infro-history-pagination [aria-current="page"] { background:#087f71!important; border-color:#087f71!important; color:#fff!important; }
+.infro-history-pagination [aria-disabled="true"] { opacity:.45; }
 [data-dashboard-path="/dashboard/whatsapp/contacts"][data-dashboard-theme="dark"] #dashboard-main-content [class~="bg-emerald-50/50"] { background:#103b32!important; border-color:#326757!important; }
 [data-dashboard-path="/dashboard/whatsapp/contacts"][data-dashboard-theme="dark"] #dashboard-main-content [class~="bg-emerald-50/50"] span { color:#c3e6d8!important; }
 [data-dashboard-path="/dashboard/whatsapp/contacts"][data-dashboard-theme="dark"] #dashboard-main-content [class~="bg-rose-50/70"] { background:#321f2a!important; border-color:#6e4253!important; color:#ffc6d5!important; }
