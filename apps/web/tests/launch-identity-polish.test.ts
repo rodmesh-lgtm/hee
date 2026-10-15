@@ -2,6 +2,16 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
 const source=(path:string)=>readFileSync(path,'utf8');
+test('public branches use compact accessible rows without clipping addresses',()=>{
+  const component=source('components/public-business-bio.tsx');
+  const css=source('components/public-business-bio.module.css');
+  assert.match(component,/styles\.branchDetails/);
+  assert.match(component,/styles\.branchDirection/);
+  assert.match(component,/الاتجاهات على الخريطة/);
+  assert.match(css,/\.branch \{ display:grid; grid-template-columns:38px minmax\(0,1fr\) 32px/);
+  assert.match(css,/\.branch p \{[^}]*overflow-wrap:anywhere/);
+  assert.doesNotMatch(css,/\.branch(?:Details| p| h3)? \{[^}]*(?:line-clamp|max-height|overflow:hidden)/);
+});
 test('customer hero and appearance preview omit the internal business category',()=>{
   assert.doesNotMatch(source('components/public-business-bio.tsx'),/styles\.category|clean\(business\.businessCategory\)/);
   assert.doesNotMatch(source('components/dashboard/identity-appearance-editor.tsx'),/\{category\}/);
