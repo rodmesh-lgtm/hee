@@ -795,6 +795,27 @@ export async function POST(request: Request) {
         VALUES (${business.id}, ${submissionScope}, ${idempotencyKey}, ${booking.id})
       `;
       let confirmationEventId: string | null = null;
+      // The original booking opt-in covers appointment updates. Reuse it without
+      // renewing or restoring revoked consent; OTP consent is deliberately separate.
+      if (manage && bookingPhoneE164) {
+        const updateConsent = await tx.whatsAppConsent.findFirst({
+          where: { businessId: business.id, phoneE164: bookingPhoneE164, revokedAt: null, consentedAt: { lte: new Date() } },
+          select: { id: true },
+        });
+        if (updateConsent) {
+          const emitted = await emitInternalWhatsAppAutomationEvent({
+            database: tx,
+            businessId: business.id,
+            source: "ir.booking.confirmation",
+            externalEventId: `${booking.id}:rescheduled:${manage.challengeId}`,
+            triggerType: "booking_confirmation",
+            subjectType: "booking.rescheduled",
+            subjectId: booking.id,
+            customerPhone: bookingPhoneE164,
+          });
+          confirmationEventId = emitted.emitted ? emitted.eventId : null;
+        }
+      }
       if (whatsappConfirmationConsent && whatsappPhone) {
         await tx.whatsAppContact.upsert({
           where: { businessId_phoneE164: { businessId: business.id, phoneE164: whatsappPhone } },

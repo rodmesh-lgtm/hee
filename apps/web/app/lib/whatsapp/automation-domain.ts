@@ -141,7 +141,7 @@ export function automationMatchesEvent(input: { triggerType: string; triggerConf
   if (input.triggerType === "salla_order_status") return "orderStatus" in config && input.subjectType === `salla.order.status.${config.orderStatus}`;
   if (input.triggerType === "salla_order_confirmation") return input.subjectType === "salla.order.confirmed";
   if (input.triggerType === "welcome") return input.subjectType === "contact.consent_granted";
-  if (input.triggerType === "booking_confirmation") return input.subjectType === "booking.created";
+  if (input.triggerType === "booking_confirmation") return input.subjectType === "booking.created" || input.subjectType === "booking.rescheduled";
   if (input.triggerType === "appointment_reminder") return input.subjectType === "booking.reminder";
   if (input.triggerType === "follow_up") return input.subjectType === "order.completed" || input.subjectType === "booking.completed";
   if (input.triggerType === "inactive_customer") return input.subjectType === "customer.inactive";

@@ -102,6 +102,11 @@ test.describe.serial("public transactions workflow", () => {
     try {
       await db.business.update({where:{id:fixture.businessId},data:{bookingSlotMinutes:60,bookingCapacity:1}});
       const customer=await db.customer.create({data:{businessId:fixture.businessId,name:"عميل تعديل الموعد",phone:"966500009930"}});
+      // Disposable fixtures only: no credentials and no real provider sends.
+      const connection = await db.whatsAppConnection.create({ data: { businessId: fixture.businessId, provider: "meta", status: "disconnected", wabaId: crypto.randomUUID(), phoneNumberId: crypto.randomUUID(), credentialEnvelope: {} } });
+      await db.whatsAppAutomation.create({ data: { businessId: fixture.businessId, connectionId: connection.id, name: "Reschedule confirmation fixture", status: "active", triggerType: "booking_confirmation", triggerConfig: { version: 1 }, actionConfig: {}, createdByUserId: fixture.userId } });
+      const contact = await db.whatsAppContact.create({ data: { businessId: fixture.businessId, phoneE164: "+966500009930", source: "api" } });
+      const consent = await db.whatsAppConsent.create({ data: { businessId: fixture.businessId, customerId: customer.id, phoneE164: contact.phoneE164, source: "booking", evidence: "ci-booking-updates-opt-in", consentedAt: new Date() } });
       const storedNotes = `  إجابات نموذج الحجز: ${"تفاصيل محفوظة ".repeat(150)}  `;
       const booking=await db.booking.create({data:{businessId:fixture.businessId,customerId:customer.id,serviceId:fixture.serviceId,bookingDate:riyadhDateKey(2),bookingTime:"10:00",status:"confirmed",notes:storedNotes}});
       await db.$executeRaw`INSERT INTO "BookingDurationSnapshot" ("bookingId","durationMinutes") VALUES (${booking.id},60)`;
@@ -136,6 +141,12 @@ test.describe.serial("public transactions workflow", () => {
       expect(await db.booking.count({where:{businessId:fixture.businessId,customerId:customer.id}})).toBe(1);
       expect((await save("16:00",key)).status()).toBe(200);expect((await save("16:00")).status()).toBe(401);
       expect((await db.booking.findUniqueOrThrow({where:{id:booking.id}})).bookingTime).toBe("14:00");
+      const notifications = await db.whatsAppAutomationEvent.findMany({ where: { businessId: fixture.businessId, subjectId: booking.id, subjectType: "booking.rescheduled" } });
+      expect(notifications).toHaveLength(1);
+      expect(notifications[0]).toMatchObject({ contactId: contact.id, externalEventId: `${booking.id}:rescheduled:${challenge}`, source: "ir.booking.confirmation" });
+      expect((await db.whatsAppConsent.findUniqueOrThrow({ where: { id: consent.id } })).consentedAt).toEqual(consent.consentedAt);
+      // OTP verification must never revive a revoked booking-update consent.
+      await db.whatsAppConsent.update({ where: { id: consent.id }, data: { revokedAt: new Date() } });
       // Full visitor UI uses real verify/availability/save endpoints. Only initial send is a synthetic CI fixture.
       const uiChallenge=await acceptedChallenge();const page=await browser.newPage({viewport:{width:390,height:844}});
       try {
@@ -157,6 +168,8 @@ test.describe.serial("public transactions workflow", () => {
       const racing=await acceptedChallenge();const racingProof=await verify(racing,code);const racingAccess=(await racingProof.json()).access;
       const concurrent=await Promise.all(["18:00","20:00"].map(bookingTime=>request.post(`${baseUrl}/api/public/bookings`,{headers:{"Idempotency-Key":crypto.randomUUID()},data:{slug:fixture.slug,manageAccess:racingAccess,bookingDate:booking.bookingDate,bookingTime}})));
       expect(concurrent.map(response=>response.status()).sort()).toEqual([200,401]);
+      expect(await db.whatsAppAutomationEvent.count({ where: { businessId: fixture.businessId, subjectId: booking.id, subjectType: "booking.rescheduled" } })).toBe(1);
+      expect((await db.whatsAppConsent.findUniqueOrThrow({ where: { id: consent.id } })).revokedAt).not.toBeNull();
       expect(await db.booking.count({where:{businessId:fixture.businessId,customerId:customer.id}})).toBe(1);
       const changed=await acceptedChallenge();const changedProof=await verify(changed,code);const changedAccess=(await changedProof.json()).access;
       await db.booking.update({where:{id:booking.id},data:{status:"cancelled"}});
