@@ -1,10 +1,12 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "./audit";
 import { readAutomationTriggerConfig } from "./automation-domain";
+import { buildBookingConfirmationTemplateParameters } from "./booking-confirmation-domain";
 import { sallaStatusEventMatches } from "./salla-order-journey-domain";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./credential-envelope";
 import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, parseRetryAfter, retryDelayMs } from "./delivery-domain";
@@ -177,12 +179,23 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     }
   }
   if (context.run.event.triggerType === "booking_confirmation") {
-    const booking = context.run.event.subjectType === "booking.created" ? await database.booking.findFirst({
+    const booking = (context.run.event.subjectType === "booking.created" || context.run.event.subjectType === "booking.rescheduled") ? await database.booking.findFirst({
       where: { id: context.run.event.subjectId, businessId: job.businessId, status: { in: ["pending", "confirmed"] } },
-      select: { id: true },
+      select: { id: true, bookingDate: true, bookingTime: true, slotEndTime: true,
+        business: { select: { name: true } }, service: { select: { name: true } }, branch: { select: { name: true } } },
     }) : null;
-    if (!booking) {
+    if (!booking || !booking.service) {
       await releaseAs(database, job, "cancelled", now, "BOOKING_NO_LONGER_AVAILABLE");
+      return { processed: true as const, result: "booking_closed" as const, jobId: job.id };
+    }
+    const currentParameters = buildBookingConfirmationTemplateParameters({
+      bookingId: booking.id, businessName: booking.business.name, serviceName: booking.service.name,
+      branchName: booking.branch?.name ?? null, bookingDate: booking.bookingDate,
+      bookingTime: booking.bookingTime, slotEndTime: booking.slotEndTime,
+    });
+    // A previously claimed job can outlive rescheduling. Never send its old slot.
+    if (!isDeepStrictEqual(currentParameters, context.templateParameters)) {
+      await releaseAs(database, job, "cancelled", now, "BOOKING_RESCHEDULED");
       return { processed: true as const, result: "booking_closed" as const, jobId: job.id };
     }
   }

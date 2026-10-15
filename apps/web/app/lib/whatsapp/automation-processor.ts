@@ -123,7 +123,7 @@ export async function processWhatsAppAutomationEvent(input: {
         else sallaParameters = sallaOrderTemplateParameters(contact.displayName, order.business.name, order.externalOrderId);
       }
       if (event.triggerType === "booking_confirmation") {
-        const booking = event.subjectType === "booking.created" ? await tx.booking.findFirst({
+        const booking = (event.subjectType === "booking.created" || event.subjectType === "booking.rescheduled") ? await tx.booking.findFirst({
           where: { id: event.subjectId, businessId: event.businessId, status: { in: ["pending", "confirmed"] } },
           select: {
             id: true,

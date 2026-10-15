@@ -11,6 +11,15 @@ import {
   templateHasVariables,
 } from "../app/lib/whatsapp/automation-domain";
 
+test("booking confirmation handles creation and rescheduling, not cancellation or OTP", () => {
+  for (const subjectType of ["booking.created", "booking.rescheduled"]) {
+    assert.equal(automationMatchesEvent({ triggerType: "booking_confirmation", triggerConfig: { version: 1 }, subjectType }), true);
+  }
+  for (const subjectType of ["booking.cancelled", "booking.reminder", "booking.verification"]) {
+    assert.equal(automationMatchesEvent({ triggerType: "booking_confirmation", triggerConfig: { version: 1 }, subjectType }), false);
+  }
+});
+
 test("automation trigger validation is fail-closed", () => {
   assert.equal(normalizeAutomationTriggerType("welcome"), "welcome");
   assert.throws(() => normalizeAutomationTriggerType("arbitrary"), /TRIGGER_UNSUPPORTED/);
