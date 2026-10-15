@@ -5,6 +5,58 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 
+test("booking sender selection distinguishes identical phone labels and rejects another business connection", async ({ browser }) => {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
+  const db = new PrismaClient({ adapter: new PrismaPg(pool) });
+  const suffix = randomUUID();
+  const owner = await db.user.create({ data: { name: "Booking owner", email: `booking-owner-${suffix}@example.invalid`, emailVerifiedAt: new Date() } });
+  const plan = await db.businessPlan.upsert({ where: { code: "FREE" }, update: {}, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3 } });
+  const business = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "Booking sender test", slug: `booking-sender-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
+  const foreign = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "Other business", slug: `other-sender-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
+  await db.subscription.create({ data: { businessId: business.id, planId: plan.id, provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86400_000) } });
+  const createConnection = (businessId: string, bookingEnabled: boolean) => db.whatsAppConnection.create({ data: { businessId, provider: "meta", status: "connected", wabaId: randomUUID(), phoneNumberId: randomUUID(), displayPhoneNumber: "+966500000001", bookingEnabled, marketingEnabled: bookingEnabled, credentialEnvelope: {} } });
+  const old = await createConnection(business.id, true);
+  const fresh = await createConnection(business.id, false);
+  const other = await createConnection(foreign.id, false);
+  const automation = await db.whatsAppAutomation.create({ data: { businessId: business.id, connectionId: old.id, name: "Old confirmation", status: "active", triggerType: "booking_confirmation", triggerConfig: {}, actionConfig: {}, createdByUserId: owner.id } });
+  const token = randomUUID();
+  await db.session.create({ data: { token, userId: owner.id, expiresAt: new Date(Date.now() + 3600_000) } });
+  const context = await browser.newContext();
+  await context.addCookies([{ name: "hee_session", value: token, url: baseUrl }]);
+  const page = await context.newPage();
+  try {
+    await page.goto(`${baseUrl}/dashboard/working-hours`);
+    const selector = page.getByLabel("حساب واتساب المستخدم للحجوزات", { exact: true });
+    await expect(selector).toHaveValue(old.id);
+    await expect(selector.locator("option").filter({ hasText: fresh.wabaId })).toHaveCount(1);
+    await selector.selectOption(fresh.id);
+    await page.getByRole("button", { name: "حفظ حساب واتساب للحجوزات", exact: true }).click();
+    await expect(page).toHaveURL(/whatsapp=connection-selected/);
+    await expect.poll(async () => (await db.whatsAppConnection.findUniqueOrThrow({ where: { id: fresh.id } })).bookingEnabled).toBe(true);
+    expect((await db.whatsAppConnection.findUniqueOrThrow({ where: { id: old.id } })).bookingEnabled).toBe(false);
+    expect((await db.whatsAppConnection.findUniqueOrThrow({ where: { id: old.id } })).marketingEnabled).toBe(true);
+    expect((await db.whatsAppAutomation.findUniqueOrThrow({ where: { id: automation.id } })).status).toBe("paused");
+    await page.reload();
+    await expect(selector).toHaveValue(fresh.id);
+    // Tamper with the submitted option to prove server-side tenant ownership.
+    await selector.evaluate((element, id) => { const select = element as HTMLSelectElement; select.add(new Option("foreign", id)); select.value = id; }, other.id);
+    await page.getByRole("button", { name: "حفظ حساب واتساب للحجوزات", exact: true }).click();
+    await expect(page).toHaveURL(/whatsapp=number-unavailable/);
+    expect((await db.whatsAppConnection.findUniqueOrThrow({ where: { id: fresh.id } })).bookingEnabled).toBe(true);
+    expect((await db.whatsAppConnection.findUniqueOrThrow({ where: { id: other.id } })).bookingEnabled).toBe(false);
+  } finally {
+    await context.close();
+    await db.whatsAppAuditLog.deleteMany({ where: { businessId: { in: [business.id, foreign.id] } } });
+    await db.whatsAppAutomation.deleteMany({ where: { businessId: business.id } });
+    await db.whatsAppConnection.deleteMany({ where: { businessId: { in: [business.id, foreign.id] } } });
+    await db.subscription.deleteMany({ where: { businessId: business.id } });
+    await db.session.deleteMany({ where: { userId: owner.id } });
+    await db.business.deleteMany({ where: { id: { in: [business.id, foreign.id] } } });
+    await db.user.delete({ where: { id: owner.id } });
+    await db.$disconnect(); await pool.end();
+  }
+});
+
 test("owner invites a verified employee and section permissions are enforced on reads and writes", async ({ browser }) => {
   test.setTimeout(150_000);
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
