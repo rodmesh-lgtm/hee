@@ -1,4 +1,18 @@
 /* Final customer workspace layer: readable type, consistent controls and genuine states. */
+[data-dashboard-path] { --infro-table-head:#edf5f2; --infro-table-row:#f7faf9; --infro-table-hover:#e8f5ef; --infro-table-line:#d0dfd9; --infro-table-ink:#24483f; }
+[data-dashboard-theme="dark"] { --infro-table-head:#173a3b; --infro-table-row:#102b2e; --infro-table-hover:#1a4140; --infro-table-line:#36595a; --infro-table-ink:#d9eee7; }
+[data-dashboard-path] #dashboard-main-content table { border-collapse:separate; border-spacing:0; font-size:13px; }
+[data-dashboard-path] #dashboard-main-content table th { background:var(--infro-table-head); color:var(--infro-table-ink); border-block:1px solid var(--infro-table-line); text-align:start; white-space:nowrap; }
+[data-dashboard-path] #dashboard-main-content table :is(th,td) { padding:14px 16px; vertical-align:middle; }
+[data-dashboard-path] #dashboard-main-content table td { border-bottom:1px solid var(--infro-table-line); }
+[data-dashboard-path] #dashboard-main-content table tbody tr:nth-child(even) { background:var(--infro-table-row); }
+[data-dashboard-path] #dashboard-main-content table tbody tr:hover { background:var(--infro-table-hover); }
+[data-dashboard-path] #dashboard-main-content table tbody tr:focus-within { outline:2px solid #087f71; outline-offset:-2px; }
+[data-dashboard-path] .infro-table-scroll { border:1px solid var(--infro-table-line); border-radius:16px; max-height:36rem; overscroll-behavior:contain; scrollbar-gutter:stable; }
+[data-dashboard-path] .infro-table-scroll thead th { position:sticky; top:0; z-index:1; }
+[data-dashboard-theme="light"] .infro-nav-search input::placeholder { color:#526b66; opacity:1; }
+[data-dashboard-path] #dashboard-main-content :is(input,select,textarea)[aria-invalid="true"] { border-color:#b83d51!important; outline-color:#b83d51; }
+[data-dashboard-path] #dashboard-main-content :is(input,select,textarea):disabled { cursor:not-allowed; opacity:.6; }
 [data-dashboard-path] { --infro-control-radius: 12px; }
 [data-dashboard-path] :where(button,a,input,select,textarea):focus-visible { outline: 3px solid #008f87; outline-offset: 3px; }
 [data-dashboard-path] :where(button,a) { -webkit-tap-highlight-color: transparent; }
