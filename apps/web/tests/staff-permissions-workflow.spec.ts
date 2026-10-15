@@ -44,10 +44,20 @@ test("booking sender selection distinguishes identical phone labels and rejects 
     await expect(selector).toHaveValue(fresh.id);
     expect((await db.whatsAppTemplate.findUniqueOrThrow({ where: { id: oldTemplate.id } })).status).toBe("approved");
     expect((await db.whatsAppTemplate.findUniqueOrThrow({ where: { id: freshTemplate.id } })).status).toBe("pending");
-    // Tamper with the submitted option to prove server-side tenant ownership.
-    await selector.evaluate((element, id) => { const select = element as HTMLSelectElement; select.add(new Option("foreign", id)); select.value = id; }, other.id);
+    // Tamper with the actual request: hydration can replace a DOM-injected option
+    // before submission, accidentally testing the legitimate connection again.
+    let tamperedRequest = false;
+    await page.route("**/dashboard/working-hours*", async route => {
+      const request = route.request();
+      if (request.method() !== "POST") return route.continue();
+      const body = request.postData();
+      if (!body?.includes(fresh.id)) throw new Error("Expected selected booking connection in submitted request");
+      tamperedRequest = true;
+      await route.continue({ postData: body.replaceAll(fresh.id, other.id) });
+    });
     await page.getByRole("button", { name: "حفظ حساب واتساب للحجوزات", exact: true }).click();
     await expect(page).toHaveURL(/whatsapp=number-unavailable/);
+    expect(tamperedRequest).toBe(true);
     expect((await db.whatsAppConnection.findUniqueOrThrow({ where: { id: fresh.id } })).bookingEnabled).toBe(true);
     expect((await db.whatsAppConnection.findUniqueOrThrow({ where: { id: other.id } })).bookingEnabled).toBe(false);
   } finally {
