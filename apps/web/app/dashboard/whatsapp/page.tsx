@@ -152,7 +152,7 @@ export default async function WhatsAppMarketingPage() {
 
   return (
     <div className="min-w-0 space-y-5 pb-5">
-      <header className="relative min-w-0 overflow-hidden rounded-[28px] bg-[#061719] p-4 text-white shadow-[0_28px_80px_-48px_rgba(3,23,25,.85)] sm:p-7">
+      <header className="infro-wa-command-header relative min-w-0 overflow-hidden rounded-[28px] bg-[#061719] p-4 text-white shadow-[0_28px_80px_-48px_rgba(3,23,25,.85)] sm:p-7">
         <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#00d8c6]/20 blur-3xl" />
         <div className="absolute -bottom-24 right-1/3 h-56 w-56 rounded-full bg-[#118cff]/10 blur-3xl" />
         <div className="relative space-y-6">
@@ -226,7 +226,7 @@ export default async function WhatsAppMarketingPage() {
         </div>
         <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
           {launchSteps.map((step, index) => (
-            <Link key={step.title} href={step.href} className={`group rounded-[20px] border p-4 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2 motion-reduce:transition-none ${step.ready ? "border-emerald-100 bg-emerald-50/45 hover:border-emerald-200" : "border-amber-100 bg-amber-50/55 hover:border-amber-200"}`}>
+            <Link key={step.title} href={step.href} className={`infro-wa-readiness-card group rounded-[20px] border p-4 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2 motion-reduce:transition-none ${step.ready ? "border-emerald-100 bg-emerald-50/45 hover:border-emerald-200" : "border-amber-100 bg-amber-50/55 hover:border-amber-200"}`}>
               <div className="flex items-start justify-between gap-3">
                 <span className={`grid h-9 w-9 place-items-center rounded-xl ${step.ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                   {step.ready ? <CheckCircle2 className="h-4 w-4" /> : <CircleAlert className="h-4 w-4" />}

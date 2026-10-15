@@ -504,6 +504,11 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         await expect(refresh.getByRole("button",{name:"تحديث البيانات",exact:true})).toBeEnabled();
         if(viewport.width<1024)await page.getByRole("button",{name:"فتح المزيد من الأدوات"}).click();
         const search=page.getByLabel(viewport.width<1024?"البحث في قائمة الجوال":"البحث في أقسام اللوحة",{exact:true});
+        const reorderNav=page.getByRole("navigation",{name:viewport.width<1024?"كل أدوات لوحة العميل":"التنقل الرئيسي",exact:true});
+        await reorderNav.getByRole("button",{name:"ترتيب القائمة",exact:true}).click();
+        await expect(reorderNav.getByRole("button",{name:"رفع تسويق واتساب",exact:true})).toBeVisible();
+        await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-ordering-customer-workspace.png`,fullPage:false,timeout:15_000});
+        await reorderNav.getByRole("button",{name:"إغلاق الترتيب",exact:true}).click();
         await search.fill("الأداء");
         const navigation=page.getByRole("navigation",{name:viewport.width<1024?"كل أدوات لوحة العميل":"التنقل الرئيسي",exact:true});
         await expect(navigation.getByRole("link",{name:"الأداء",exact:true})).toBeVisible();
@@ -1657,6 +1662,13 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         try {
           for(const path of ["messages","blacklist","guides","tools","carts"]) await auditRoute(context,{path:`/dashboard/whatsapp/${path}`,name:`workspace-${path}`,theme,viewportName:viewport.name});
           const page=await context.newPage();
+        await page.goto(`${baseUrl}/dashboard/whatsapp`);
+        const waGroups=page.locator(".wa-nav-groups");
+        await waGroups.getByRole("button",{name:"الأتمتة والمتاجر"}).click();
+        await expect(page.locator(".wa-nav-links").getByRole("link",{name:"الأتمتة",exact:true})).toBeVisible();
+        for(const group of await waGroups.getByRole("button").all()) expect(await group.evaluate(el=>parseFloat(getComputedStyle(el).borderTopWidth))).toBeGreaterThanOrEqual(1);
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+        await page.screenshot({path:`${outDir}/${viewport.name}-${theme}-whatsapp-customer-workspace.png`,fullPage:false,timeout:15_000});
           await page.goto(`${baseUrl}/dashboard/whatsapp/messages?q=${ownText}&status=read`);
           await expect(page.getByText(ownText,{exact:true})).toBeVisible();
           await expect(page.getByText(foreignText,{exact:true})).toHaveCount(0);

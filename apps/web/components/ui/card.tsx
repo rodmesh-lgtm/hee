@@ -9,13 +9,13 @@ type CardProps = HTMLMotionProps<"article"> & {
   hoverLift?: boolean;
 };
 
-export function Card({ className, children, hoverLift = true, ...props }: CardProps) {
+export function Card({ className, children, hoverLift = false, ...props }: CardProps) {
   return (
     <motion.article
       whileHover={hoverLift ? { y: -4 } : undefined}
       transition={{ duration: 0.18, ease: "easeOut" }}
       className={cn(
-        "rounded-[28px] border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_40px_-32px_rgba(15,23,42,0.7)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/80",
+        "rounded-[28px] border border-slate-300/80 bg-white p-6 shadow-[0_2px_4px_rgba(15,23,42,0.04),0_12px_32px_-24px_rgba(15,23,42,0.28)] dark:border-slate-700 dark:bg-slate-900",
         className,
       )}
       {...props}
