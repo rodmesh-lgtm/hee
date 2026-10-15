@@ -74,9 +74,10 @@ export function PublicBusinessBio({business,publicUrl,pageModules=[],bookingRibb
     </section>
     {branches.length?<section data-public-module="location" id="branches" className={styles.section} style={{order:sectionOrder("location")}}>
      <SectionHeading eyebrow="نسعد بزيارتك" title="فروعنا" count={branches.length}/>
-     <div id="branch-list" className={styles.branchGrid}>{branches.slice(0,allBranches?undefined:6).map((branch,index)=><a key={String(branch.id)} href={external(branch.googleMapsLink)||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([branch.name,branch.city,branch.address].filter(Boolean).join(" "))}`} target="_blank" rel="noreferrer" className={styles.branch}>
-      <div className={styles.cardTop}><span className={styles.iconTile}><MapPin size={22} aria-hidden="true"/></span><span className={styles.index} aria-hidden="true">{String(index+1).padStart(2,"0")}</span></div>
-      <h3>{clean(branch.name)}</h3><p>{[branch.city,branch.district].filter(Boolean).join("، ")}</p>{clean(branch.address)?<p>{clean(branch.address)}</p>:null}<span className={styles.cardLink}>الاتجاهات على الخريطة<ArrowUpLeft size={17} aria-hidden="true"/></span>
+     <div id="branch-list" className={styles.branchGrid}>{branches.slice(0,allBranches?undefined:6).map(branch=><a key={String(branch.id)} href={external(branch.googleMapsLink)||`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([branch.name,branch.city,branch.address].filter(Boolean).join(" "))}`} target="_blank" rel="noreferrer" className={styles.branch}>
+      <span className={styles.branchIcon}><MapPin size={19} aria-hidden="true"/></span>
+      <div className={styles.branchDetails}><h3>{clean(branch.name)}</h3>{[branch.city,branch.district,branch.address].some(value=>clean(value))?<p>{[branch.city,branch.district,branch.address].map(value=>clean(value)).filter(Boolean).join("، ")}</p>:null}</div>
+      <span className={styles.branchDirection}><ArrowUpLeft size={18} aria-hidden="true"/><span>الاتجاهات على الخريطة</span></span>
      </a>)}</div>{branches.length>6?<ExpandList expanded={allBranches} onToggle={()=>setAllBranches(value=>!value)} count={branches.length} label="الفروع" controls="branch-list"/>:null}
     </section>:null}
     {groups.length?<section data-public-module="contactTeam" id="contact" className={styles.section} style={{order:sectionOrder("contactTeam")}}>
