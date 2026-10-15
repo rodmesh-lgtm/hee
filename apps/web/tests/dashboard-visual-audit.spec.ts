@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 41430)
-Total output lines: 1734
-
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -685,7 +682,404 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           await expect(page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article")).toContainText("cart-visible");
           await expect(page.locator("body")).not.toContainText("FOREIGN_CART_PRIVATE");
           expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
-          if (theme === "dark") expect(await page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article").evaluate(node => { const rgb = getComputedStyle(node.parentElement!.parentElement!).backgroundColor.match(/\d+/g)?.slice(0,3).map(Number); retu…9430 tokens truncated…(page.getByTestId("campaign-card").first().getByRole("status")).toContainText("إعادة محاولة مجدولة");
+          if (theme === "dark") expect(await page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article").evaluate(node => { const rgb = getComputedStyle(node.parentElement!.parentElement!).backgroundColor.match(/\d+/g)?.slice(0,3).map(Number); return rgb?.every(value => value > 220); })).toBe(false);
+          await expect(page.getByRole("link", { name: "تصدير النتائج CSV", exact: true })).toHaveAttribute("href", /cart-export\?days=30&state=all&q=/);
+          await page.getByRole("button", { name: "إيقاف التحديث التلقائي", exact: true }).click();
+          if (viewport.name === "mobile" && theme === "light") {
+            const exported = await context.request.get(`${baseUrl}/api/dashboard/whatsapp/cart-export?days=7&state=abandoned&page=2`);
+            expect(exported.status()).toBe(200);
+            expect(exported.headers()["cache-control"]).toBe("private, no-store");
+            expect(exported.headers()["content-disposition"]).toContain("infro-carts.csv");
+            const csv = await exported.text();
+            expect(csv).toContain("cart-visible");
+            expect(csv).toContain("متروكة");
+            expect(csv).not.toContain("FOREIGN_CART_PRIVATE");
+            expect(csv).not.toContain("CART_OUTSIDE_PERIOD");
+            expect(csv.split("\r\n")).toHaveLength(2);
+            const searched = await context.request.get(`${baseUrl}/api/dashboard/whatsapp/cart-export?q=missing-cart`);
+            expect(searched.status()).toBe(200);
+            expect((await searched.text()).split("\r\n")).toHaveLength(1);
+            const recovered = await context.request.get(`${baseUrl}/api/dashboard/whatsapp/cart-export?state=recovered`);
+            expect(recovered.status()).toBe(200);
+            expect((await recovered.text()).split("\r\n")).toHaveLength(1);
+            expect(await db.whatsAppAuditLog.count({ where: { businessId, action: "carts.export", outcome: "success" } })).toBeGreaterThan(0);
+            const exportLink = page.getByRole("link", { name: "تصدير النتائج CSV", exact: true });
+            const originalUrl = page.url();
+            await page.route("**/api/dashboard/whatsapp/cart-export?*", route => route.fulfill({ status: 413, contentType: "application/json", body: JSON.stringify({ error: "INTERNAL_DETAIL_MUST_NOT_RENDER" }) }));
+            await exportLink.click();
+            await expect(page.getByRole("status").filter({ hasText: "النتائج كبيرة" })).toBeVisible();
+            await expect(page).toHaveURL(originalUrl);
+            await expect(page.locator("body")).not.toContainText("INTERNAL_DETAIL_MUST_NOT_RENDER");
+            await page.screenshot({ path: `${outDir}/mobile-light-cart-export-error.png`, fullPage: true });
+            await page.unroute("**/api/dashboard/whatsapp/cart-export?*");
+            await page.route("**/api/dashboard/whatsapp/cart-export?*", route => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Login</h1>" }));
+            await exportLink.click();
+            await expect(page.getByRole("status").filter({ hasText: "لم يُرجع الخادم ملف التقرير" })).toBeVisible();
+            await page.unroute("**/api/dashboard/whatsapp/cart-export?*");
+            const downloadPromise = page.waitForEvent("download");
+            await exportLink.click();
+            const download = await downloadPromise;
+            expect(download.suggestedFilename()).toBe("infro-carts.csv");
+            const downloadPath = await download.path();
+            expect(downloadPath).not.toBeNull();
+            const downloadedCsv = await readFile(downloadPath!, "utf8");
+            expect(downloadedCsv).toContain("cart-visible");
+            expect(downloadedCsv).not.toContain("FOREIGN_CART_PRIVATE");
+            await expect(page.getByRole("status").filter({ hasText: "تم تجهيز الملف وبدء تنزيله" })).toBeVisible();
+            await expect(page).toHaveURL(originalUrl);
+          }
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-cart-report.png`, fullPage: true });
+          await page.locator('select[name="state"]').selectOption("recovered");
+          await page.getByRole("button", { name: "بحث", exact: true }).click();
+          await expect(page.getByRole("region", { name: "سجل السلال", exact: true }).locator("article")).toHaveCount(0);
+          console.info("commerce audit: cart filtering verified", viewport.name, theme);
+          await page.goto(`${baseUrl}/dashboard/whatsapp/templates`, { waitUntil: "domcontentloaded" });
+          await expect(page.getByRole("heading", { name: "إنشاء قالب أو تعديل قالب موجود", exact: true })).toBeVisible();
+          console.info("commerce audit: template editor opened", viewport.name, theme);
+          await expect(page.locator('#template-library article').filter({ hasText: "review_receipt_test" })).toContainText("قيد المراجعة");
+          const editorForm = page.locator("form").filter({ has: page.locator('textarea[name="body"]') });
+          await page.getByRole("button", { name: /^تأكيد الموعد/ }).click();
+          await expect(page.locator('textarea[name="body"]')).toHaveValue(/رقم الحجز: \{\{7\}\}/);
+          await expect(editorForm.locator('select[name="category"]')).toHaveValue("UTILITY");
+          await page.getByRole("button", { name: /^تذكير بسلة متروكة/ }).click();
+          await expect(editorForm.locator('select[name="category"]')).toHaveValue("MARKETING");
+          await expect(page.locator('input[name="examples"]')).toHaveValue("");
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-starters.png`, fullPage: true });
+          await page.getByRole("button", { name: /^رمز التحقق OTP/ }).click();
+          await expect(page.locator('#template-studio select[name="category"]')).toHaveValue("AUTHENTICATION");
+          await expect(page.getByLabel("صلاحية الرمز بالدقائق")).toHaveValue("10");
+          await expect(page.locator('textarea[name="body"]')).toHaveCount(0);
+          await expect(page.getByText("نسخ الرمز", { exact: true })).toBeVisible();
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-otp.png`, fullPage: true });
+          await page.getByRole("button", { name: "إنشاء قالب مخصص", exact: true }).click();
+          await expect(page.locator('textarea[name="body"]')).toHaveValue("");
+          // Invalid forms must be stopped in the client, with the draft preserved.
+          let templateRequests = 0;
+          const countTemplatePosts = (request: import("@playwright/test").Request) => { if (request.method() === "POST") templateRequests++; };
+          page.on("request", countTemplatePosts);
+          await page.locator('input[name="name"]').fill("validation_test");
+          await page.locator('textarea[name="body"]').fill("مرحبًا {{2}}");
+          await page.getByRole("button", { name: "إرسال إلى Meta للمراجعة", exact: true }).click();
+          await expect(editorForm).toContainText("متغيرات نص الرسالة غير صحيحة");
+          await expect(page.locator('textarea[name="body"]')).toHaveValue("مرحبًا {{2}}");
+          await expect(page.locator('textarea[name="body"]')).toBeFocused();
+          await page.locator('textarea[name="body"]').fill("مرحبًا بعميلنا المميز");
+          await page.locator('input[name="buttonText"]').fill("المتجر");
+          await page.locator('input[name="buttonUrl"]').fill("http://ir.sa");
+          await page.getByRole("button", { name: "إرسال إلى Meta للمراجعة", exact: true }).click();
+          await expect(editorForm).toContainText("رابط الزر غير صالح");
+          await expect(editorForm).not.toContainText("متغيرات نص الرسالة غير صحيحة");
+          await expect(page.locator('input[name="buttonUrl"]')).toBeFocused();
+          await expect(editorForm).toContainText("لا تحتاج أمثلة إذا كانت رسالتك بدون متغيرات");
+          expect(templateRequests).toBe(0);
+          page.off("request", countTemplatePosts);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-validation.png`, fullPage: true });
+          await page.getByLabel("ابحث عن نموذج جاهز").fill("تسليم الطلب");
+          await expect(page.getByRole("button", { name: /^تسليم الطلب/ })).toBeVisible();
+          await page.getByRole("button", { name: /^تسليم الطلب/ }).click();
+          await expect(page.locator('textarea[name="body"]')).toHaveValue(/تم تسليم طلبك/);
+          await page.getByLabel("ابحث عن نموذج جاهز").fill("");
+          await page.locator('select[name="header"]').selectOption("VIDEO");
+          const videoSample = Buffer.alloc(5 * 1024 * 1024);
+          videoSample.write("ftyp", 4);
+          await page.locator('input[name="sample"]').setInputFiles({ name: "sample-5mb.mp4", mimeType: "video/mp4", buffer: videoSample });
+          expect(await page.locator('input[name="sample"]').evaluate(node => (node as HTMLInputElement).validity.valid)).toBe(true);
+          await expect(page.locator('#template-studio video')).toBeVisible();
+          await page.locator('input[name="sample"]').setInputFiles({ name: "oversize.mp4", mimeType: "video/mp4", buffer: Buffer.alloc(17 * 1024 * 1024) });
+          expect(await page.locator('input[name="sample"]').evaluate(node => (node as HTMLInputElement).validationMessage)).toContain("16 MB");
+          await page.locator('select[name="header"]').selectOption("IMAGE");
+          await page.locator('input[name="sample"]').setInputFiles({ name: "sample.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64") });
+          await expect(page.getByAltText("عينة صورة القالب")).toBeVisible();
+          await page.locator('input[name="footer"]').fill("فريق خدمة العملاء");
+          await page.locator('input[name="buttonText"]').fill("تفاصيل الطلب");
+          await expect(page.getByRole("complementary", { name: "معاينة رسالة واتساب" })).toContainText("فريق خدمة العملاء");
+          await expect(page.getByRole("complementary", { name: "معاينة رسالة واتساب" })).toContainText("تفاصيل الطلب");
+          await expect(page.locator('#template-studio form')).not.toContainText("\\n");
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-template-media.png`, fullPage: true });
+          // No submit: this test must never contact Meta or send messages.
+        } finally { await context.close(); }
+      }
+      await db.subscription.delete({ where: { id: subscription.id } });
+      const context = await authenticatedContext(browser, { width: 390, height: 844 }, "light", seeded.sessionToken);
+      try { const page = await context.newPage(); await page.goto(`${baseUrl}/dashboard/whatsapp/carts`); await expect(page).toHaveURL(/dashboard\/billing\/manage/); } finally { await context.close(); }
+    } finally {
+      await db.whatsAppAutomationCart.deleteMany({ where: { businessId: { in: [businessId, foreign.id] } } });
+      await db.whatsAppContact.deleteMany({ where: { id: { in: [contact.id, otherContact.id] } } });
+      await db.whatsAppTemplate.deleteMany({ where: { connectionId: connection.id } });
+      await db.whatsAppConnection.delete({ where: { id: connection.id } });
+      await db.subscription.deleteMany({ where: { id: subscription.id } });
+      await db.business.delete({ where: { id: foreign.id } });
+    }
+  });
+  test("Meta connection action remains readable and prominent in both themes and viewport sizes", async ({ browser }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const plan = await db.businessPlan.upsert({ where: { code: "BUSINESS" }, update: {}, create: { code: "BUSINESS", name: "Business", monthlyPrice: 99, productLimit: 10, isActive: true } });
+    const subscription = await db.subscription.create({ data: { businessId: seeded.businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    try {
+      for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
+        try {
+          // Only the visual fixture loads a stub. Never authorize assets or send messages.
+          await context.route("https://connect.facebook.net/en_US/sdk.js", route => route.fulfill({ contentType: "application/javascript", body: "window.FB={init(){},login(){}};" }));
+          const page = await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/setup`, { waitUntil: "domcontentloaded" });
+          const action = page.getByRole("button", { name: "ربط حساب Meta", exact: true });
+          await expect(action).toBeEnabled();
+          await page.evaluate(() => document.fonts.ready);
+          const appearance = await action.evaluate(node => {
+            const css = getComputedStyle(node);
+            const luminance = (color: string) => {
+              const channels = (color.match(/\d+/g) ?? []).slice(0, 3).map(Number).map(value => { const x = value / 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4; });
+              return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+            };
+            const a = luminance(css.color), b = luminance(css.backgroundColor);
+            return { contrast: (Math.max(a,b) + .05) / (Math.min(a,b) + .05), weight: Number(css.fontWeight), size: parseFloat(css.fontSize), height: node.getBoundingClientRect().height, font: css.fontFamily };
+          });
+          expect(appearance.contrast).toBeGreaterThanOrEqual(4.5);
+          expect(appearance.weight).toBeGreaterThanOrEqual(600);
+          expect(appearance.size).toBeGreaterThanOrEqual(16);
+          expect(appearance.height).toBeGreaterThanOrEqual(48);
+          expect(appearance.font).toContain("Arabic");
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-meta-setup.png`, fullPage: true });
+          await action.focus();
+          expect(await action.evaluate(node => getComputedStyle(node).outlineStyle)).not.toBe("none");
+        } finally { await context.close(); }
+      }
+    } finally { await db.subscription.delete({ where: { id: subscription.id } }); }
+  });
+  test("Salla journeys preview the selected sender template and save delayed drafts on mobile and desktop", async ({ browser }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId;
+    const suffix = crypto.randomUUID();
+    const plan = await db.businessPlan.upsert({ where: { code: "BUSINESS" }, update: {}, create: { code: "BUSINESS", name: "Business", monthlyPrice: 99, productLimit: 10, isActive: true } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `visual-${suffix}`, phoneNumberId: `visual-${suffix}`, displayPhoneNumber: "+966500000101", verifiedName: "رقم مراجعة الطلبات", credentialEnvelope: { testSecret: "DO_NOT_RENDER_JOURNEY_SECRET" } } });
+    const second = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `visual-${suffix}`, phoneNumberId: `second-${suffix}`, displayPhoneNumber: "+966500000102", marketingEnabled: false, bookingEnabled: true, credentialEnvelope: { testSecret: "DO_NOT_RENDER_JOURNEY_SECRET" } } });
+    const template = await db.whatsAppTemplate.create({ data: { businessId, connectionId: connection.id, providerTemplateId: `visual-${suffix}`, name: "salla_shipped_review", language: "ar", category: "utility", status: "approved", providerStatus: "APPROVED", parameterFormat: "POSITIONAL", components: [{ type: "BODY", text: "مرحبًا {{1}}، شُحن طلبك {{3}} من {{2}}." }], rawPayload: {}, lastSyncedAt: new Date() } });
+    try {
+      for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
+        const page = await context.newPage();
+        page.setDefaultTimeout(15_000);
+        try {
+          await page.goto(`${baseUrl}/dashboard/whatsapp/automations`, { waitUntil: "domcontentloaded" });
+          const studio = page.locator("#salla-journeys");
+          await expect(studio).toBeVisible();
+          await expect(studio.getByRole("group", { name: "سيناريوهات طلبات سلة" }).getByRole("button")).toHaveCount(11);
+          await studio.getByRole("button", { name: "تم الشحن", exact: false }).click();
+          await expect(studio.getByRole("button", { name: "إنشاء كمسودة", exact: true })).toBeDisabled();
+          await expect(studio.getByLabel("رقم الإرسال لهذا السيناريو").locator(`option[value="${second.id}"]`)).toHaveCount(0);
+          await studio.getByLabel("رقم الإرسال لهذا السيناريو").selectOption(connection.id);
+          await studio.getByLabel("القالب المعتمد", { exact: true }).selectOption(template.id);
+          await expect(studio.locator("aside")).toContainText("شُحن طلبك 1024");
+          await studio.getByLabel("وقت الإرسال بعد تغيّر الحالة").selectOption("60");
+          const name = `journey-${viewport.name}-${theme}-${suffix}`;
+          await studio.getByLabel("اسم المسار", { exact: true }).fill(name);
+          const submitStyle = await studio.getByRole("button", { name: "إنشاء كمسودة", exact: true }).evaluate(node => ({ background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color }));
+          expect(submitStyle.background).not.toBe("rgb(255, 255, 255)");
+          expect(submitStyle.background).not.toBe(submitStyle.color);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+          await expect(page.locator("body")).not.toContainText("DO_NOT_RENDER_JOURNEY_SECRET");
+          if (theme === "dark") {
+            expect(await studio.evaluate(node => { const rgb = getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0, 3).map(Number); return rgb?.every(value => value > 220); })).toBe(false);
+            expect(await studio.locator("header, aside, div").evaluateAll(nodes => nodes.filter(node => { const rect = node.getBoundingClientRect(); const rgb = getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0, 3).map(Number); return rect.width >= 140 && rect.height >= 72 && rgb?.every(value => value > 220); }).length)).toBe(0);
+          }
+          await studio.screenshot({ path: `${outDir}/${viewport.name}-${theme}-salla-journeys.png` });
+          await studio.getByRole("button", { name: "إنشاء كمسودة", exact: true }).click();
+          await expect(page).toHaveURL(/create=complete/);
+          const draft = await db.whatsAppAutomation.findFirstOrThrow({ where: { businessId, name } });
+          expect(draft.status).toBe("draft");
+          expect(draft.connectionId).toBe(connection.id);
+          expect(draft.triggerType).toBe("salla_order_status");
+          expect(draft.triggerConfig).toEqual({ version: 1, orderStatus: "shipped", delayMinutes: 60 });
+          expect(await db.whatsAppAutomationJob.count({ where: { businessId, automationId: draft.id } })).toBe(0);
+          await studio.getByRole("button", { name: "طلب مدفوع ومؤكد", exact: false }).click();
+          await studio.getByLabel("رقم الإرسال لهذا السيناريو").selectOption(connection.id);
+          await studio.getByLabel("القالب المعتمد", { exact: true }).selectOption(template.id);
+          await studio.getByLabel("اسم المسار", { exact: true }).fill(`${name}-paid`);
+          await studio.getByRole("button", { name: "إنشاء كمسودة", exact: true }).click();
+          await expect.poll(() => db.whatsAppAutomation.count({ where: { businessId, name: `${name}-paid`, status: "draft", triggerType: "salla_order_confirmation" } })).toBe(1);
+        } catch (error) {
+          await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-salla-failed.png`, fullPage: true }).catch(() => {});
+          await writeFile(`${outDir}/${viewport.name}-${theme}-salla-failed.txt`, `${page.url()}\n${await page.locator("body").innerText().catch(() => "page unavailable")}`, "utf8");
+          throw error;
+        } finally { await context.close(); }
+      }
+    } finally {
+      await db.whatsAppAutomation.deleteMany({ where: { businessId, connectionId: { in: [connection.id, second.id] } } });
+      await db.whatsAppTemplate.deleteMany({ where: { id: template.id } });
+      await db.whatsAppConnection.deleteMany({ where: { id: { in: [connection.id, second.id] }, businessId } });
+      await db.subscription.deleteMany({ where: { id: subscription.id } });
+    }
+  });
+  test("25,000 contacts finish importing with outbound workers disabled", async ({ browser, request }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId;
+    const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    const context = await authenticatedContext(browser, { width: 390, height: 844 }, "dark", seeded.sessionToken);
+    try {
+      const page = await context.newPage();
+      await page.goto(`${baseUrl}/dashboard/whatsapp/contacts`);
+      await expect(page.getByText(/دون حد عددي للجهات/)).toBeVisible();
+      const buffer = Buffer.from(["phone", ...Array.from({ length: 25_000 }, (_, i) => `+9665${String(i).padStart(8, "0")}`)].join("\n"));
+      await page.locator('input[name="file"]').setInputFiles({ name: "large-ci.csv", mimeType: "text/csv", buffer });
+      await page.locator('#import-contacts button[type="submit"]').click();
+      await expect(page).toHaveURL(/import=queued/, { timeout: 30_000 });
+      const imported = await db.whatsAppContactImport.findFirstOrThrow({ where: { businessId, fileName: "large-ci.csv" } });
+      expect(imported.totalRows).toBe(25_000);
+      expect(imported.consentConfirmed).toBe(false);
+      const batches = await db.whatsAppContactImportBatch.findMany({ where: { importId: imported.id, businessId } });
+      expect(batches).toHaveLength(50);
+      expect(batches.reduce((n, batch) => n + (Array.isArray(batch.rows) ? batch.rows.length : 0), 0)).toBe(25_000);
+      expect((await request.get(`${baseUrl}/api/cron/contact-imports`)).status()).toBe(401);
+      const headers = { authorization: `Bearer ${process.env.CRON_SECRET}` };
+      const results = await Promise.all([1, 2].map(() => request.get(`${baseUrl}/api/cron/contact-imports`, { headers, timeout: 120_000 })));
+      for (const result of results) expect(result.status()).toBe(200);
+      const finished = await db.whatsAppContactImport.findUniqueOrThrow({ where: { id: imported.id } });
+      expect(finished.status).toBe("completed");
+      expect(finished.importedRows).toBe(25_000);
+      expect(await db.whatsAppContact.count({ where: { businessId } })).toBe(25_000);
+      expect(await db.whatsAppConsent.count({ where: { businessId } })).toBe(0);
+      expect(await db.whatsAppDeliveryJob.count({ where: { businessId } })).toBe(0);
+      const repeated = await request.get(`${baseUrl}/api/cron/contact-imports`, { headers });
+      expect((await repeated.json()).completedBatches).toBe(0);
+      await page.reload();
+      await page.screenshot({ path: `${outDir}/mobile-dark-large-import.png`, fullPage: true });
+      await page.getByRole("radio", { name: "نسخ ولصق الأرقام", exact: true }).check();
+      await page.locator('textarea[name="pastedPhones"]').fill("966599999998\n+966599999998\n966500000000\ninvalid");
+      await expect(page.locator('input[name="file"]')).toHaveCount(0);
+      await page.locator("#import-contacts").screenshot({ path: `${outDir}/mobile-dark-paste-import.png` });
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.locator("#import-contacts").screenshot({ path: `${outDir}/desktop-dark-paste-import.png` });
+      await page.locator('#import-contacts button[type="submit"]').click();
+      await expect.poll(() => db.whatsAppContactImport.count({ where: { businessId, fileName: "أرقام بالنسخ واللصق.csv" } })).toBe(1);
+      const pasted = await db.whatsAppContactImport.findFirstOrThrow({ where: { businessId, fileName: "أرقام بالنسخ واللصق.csv" } });
+      expect(pasted.totalRows).toBe(4);
+      expect(pasted.duplicateRows).toBe(1);
+      expect(pasted.rejectedRows).toBe(1);
+      expect(pasted.consentConfirmed).toBe(false);
+      expect((await request.get(`${baseUrl}/api/cron/contact-imports`, { headers })).status()).toBe(200);
+      const pastedFinished = await db.whatsAppContactImport.findUniqueOrThrow({ where: { id: pasted.id } });
+      expect(pastedFinished.importedRows).toBe(1);
+      expect(pastedFinished.duplicateRows).toBe(2);
+      expect(await db.whatsAppContact.count({ where: { businessId, phoneE164: "+966599999998" } })).toBe(1);
+      expect(await db.whatsAppConsent.count({ where: { businessId } })).toBe(0);
+      expect(await db.whatsAppDeliveryJob.count({ where: { businessId } })).toBe(0);
+    } finally {
+      await context.close();
+      await db.whatsAppContactImportBatch.deleteMany({ where: { businessId } });
+      await db.whatsAppContactImport.deleteMany({ where: { businessId } });
+      await db.whatsAppContact.deleteMany({ where: { businessId } });
+      await db.subscription.deleteMany({ where: { id: subscription.id } });
+    }
+  });
+  test("short links isolate tenants, redirect atomically and remain usable on mobile", async ({ browser, request }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId;
+    const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60000), endsAt: new Date(Date.now() + 86400000), autoRenew: false } });
+    const foreign = await db.business.create({ data: { ownerId: seeded.adminUserId, planId: plan.id, name: "رابط منشأة أخرى", businessType: "خدمات", slug: `foreign-link-${crypto.randomUUID()}` } });
+    const otherLink = await db.businessShortLink.create({ data: { businessId: foreign.id, code: crypto.randomUUID().replaceAll("-", "").slice(0, 12), title: "FOREIGN_LINK_DO_NOT_SHOW", destination: "https://example.com/foreign" } });
+    const destination = "https://example.com/products/booking?utm_source=whatsapp&utm_campaign=summer#details";
+    try {
+      expect((await request.get(`${baseUrl}/api/dashboard/short-links/export`)).status()).toBe(403);
+      for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, theme === "light" ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, theme, seeded.sessionToken);
+        try {
+          const page = await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/links`);
+          const form = page.getByRole("form", { name: "إنشاء رابط مختصر" });
+          await form.locator('[name="title"]').fill(`رابط اختبار ${theme}`);
+          await form.locator('[name="destination"]').fill(destination);
+          await form.getByRole("button").click();
+          await expect(page).toHaveURL(/result=created/);
+          const link = await db.businessShortLink.findFirstOrThrow({ where: { businessId, title: `رابط اختبار ${theme}` } });
+          expect(await page.locator("body").innerText()).not.toContain(otherLink.title);
+          const path = `${baseUrl}/s/${link.code}`;
+          const options = { maxRedirects: 0, headers: { "user-agent": "Mozilla/5.0 Safari/537.36" } };
+          const clicks = await Promise.all(Array.from({ length: 5 }, () => request.get(path, options)));
+          for (const click of clicks) { expect(click.status()).toBe(302); expect(click.headers().location).toBe(destination); }
+          await request.head(path, options);
+          await request.get(path, { maxRedirects: 0, headers: { "user-agent": "facebookexternalhit/1.1" } });
+          expect((await db.businessShortLink.findUniqueOrThrow({ where: { id: link.id } })).clicks).toBe(5n);
+          const card = page.getByRole("article", { name: `رابط رابط اختبار ${theme}`, exact: true });
+          // Tampering with a submitted id cannot modify a different tenant.
+          const toggle = card.locator('form').filter({ has: page.getByRole("button", { name: "تعطيل", exact: true }) });
+          await toggle.locator('[name="id"]').evaluate((node, id) => { (node as HTMLInputElement).value = id; }, otherLink.id);
+          await toggle.getByRole("button").click();
+          await expect(page).toHaveURL(/result=unavailable/);
+          expect((await db.businessShortLink.findUniqueOrThrow({ where: { id: otherLink.id } })).status).toBe("active");
+          await card.getByRole("button", { name: "تعطيل", exact: true }).click();
+          await expect(page).toHaveURL(/result=updated/);
+          expect((await request.get(path, options)).status()).toBe(404);
+          await card.getByRole("button", { name: "تفعيل", exact: true }).click();
+          await expect(page).toHaveURL(/result=updated/);
+          await card.getByText("تعديل الاسم أو الوجهة", { exact: true }).click();
+          await card.locator('[name="destination"]').fill("https://example.com/new?utm_source=changed");
+          await card.getByRole("button", { name: "حفظ التعديل", exact: true }).click();
+          await expect.poll(async () => (await request.head(path, options)).headers().location).toBe("https://example.com/new?utm_source=changed");
+          const csv = await context.request.get(`${baseUrl}/api/dashboard/short-links/export`);
+          expect(csv.status()).toBe(200);
+          expect(await csv.text()).toContain(`https://ir.sa/s/${link.code}`);
+          expect(await csv.text()).not.toContain(otherLink.title);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+          await page.screenshot({ path: `${outDir}/${theme}-short-links.png`, fullPage: true });
+          page.once("dialog", dialog => dialog.accept());
+          await card.getByRole("button", { name: "حذف", exact: true }).click();
+          await expect(card).toHaveCount(0);
+          expect((await request.get(path, options)).status()).toBe(404);
+          await expect(db.businessShortLink.update({ where: { id: link.id }, data: { status: "active" } })).rejects.toThrow();
+        } finally { await context.close(); }
+      }
+    } finally {
+      await db.businessShortLink.deleteMany({ where: { businessId: { in: [businessId, foreign.id] } } });
+      await db.business.delete({ where: { id: foreign.id } });
+      await db.subscription.delete({ where: { id: subscription.id } });
+    }
+  });
+  test("campaign retries and studio stay clear on mobile and desktop", async ({ browser, request }) => {
+    test.setTimeout(180_000);
+    if (!seeded) throw new Error("visual fixture missing");
+    const businessId = seeded.businessId;
+    const suffix = crypto.randomUUID();
+    const plan = await db.businessPlan.findUniqueOrThrow({ where: { code: "BUSINESS" } });
+    const subscription = await db.subscription.create({ data: { businessId, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86_400_000), autoRenew: false } });
+    const connection = await db.whatsAppConnection.create({ data: { businessId, status: "connected", wabaId: `campaign-${suffix}`, phoneNumberId: `campaign-${suffix}`, verifiedName: "رقم اختبار الحملة", credentialEnvelope: { testOnly: true } } });
+    const template = await db.whatsAppTemplate.create({ data: { businessId, connectionId: connection.id, providerTemplateId: `campaign-${suffix}`, name: "campaign_review", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", parameterFormat: "POSITIONAL", components: [{ type: "BODY", text: "مرحبًا {{1}}، اكتشف خدماتنا واحجز موعدك." }], rawPayload: {}, lastSyncedAt: new Date() } });
+    const contact = await db.whatsAppContact.create({ data: { businessId, phoneE164: "+966500000761", source: "manual" } });
+    const bookingContact = await db.whatsAppContact.create({ data: { businessId, phoneE164: "+966500000762", source: "api" } });
+    await db.whatsAppConsent.create({ data: { businessId, phoneE164: bookingContact.phoneE164, source: "booking", evidence: "Booking confirmation only", consentedAt: new Date() } });
+    await db.whatsAppConsent.create({ data: { businessId, phoneE164: contact.phoneE164, source: "manual", evidence: "Isolated CI fixture only", consentedAt: new Date() } });
+    const campaign = await db.whatsAppCampaign.create({ data: { businessId, connectionId: connection.id, templateId: template.id, name: "حملة اختبار إعادة المحاولة", status: "completed", totalRecipients: 1, audienceDefinition: { kind: "all_contacts" }, snapshotAt: new Date(), templateSnapshot: { name: template.name, language: "ar", category: "marketing" } } });
+    const recipient = await db.whatsAppCampaignRecipient.create({ data: { businessId, campaignId: campaign.id, contactId: contact.id, phoneE164: contact.phoneE164, status: "sent" } });
+    const job = await db.whatsAppDeliveryJob.create({ data: { businessId, campaignId: campaign.id, connectionId: connection.id, recipientId: recipient.id, idempotencyKey: suffix, status: "sent", attemptCount: 1, providerMessageId: `test-${suffix}` } });
+    const foreignBusiness = await db.business.create({ data: { ownerId: seeded.adminUserId, planId: plan.id, name: "حملة منشأة أخرى سرية", slug: `foreign-report-${suffix}`, businessType: "خدمات", shortDescription: "اختبار عزل", description: "اختبار عزل", phone: "0555000099", whatsapp: "966555000099", city: "الرياض", district: "العليا" } });
+    const foreignConnection = await db.whatsAppConnection.create({ data: { businessId: foreignBusiness.id, status: "connected", wabaId: `foreign-${suffix}`, phoneNumberId: `foreign-${suffix}`, credentialEnvelope: { testOnly: true } } });
+    const foreignTemplate = await db.whatsAppTemplate.create({ data: { businessId: foreignBusiness.id, connectionId: foreignConnection.id, providerTemplateId: `foreign-${suffix}`, name: "foreign_report", language: "ar", category: "marketing", status: "approved", providerStatus: "APPROVED", components: [], rawPayload: {}, lastSyncedAt: new Date() } });
+    const foreignCampaign = await db.whatsAppCampaign.create({ data: { businessId: foreignBusiness.id, connectionId: foreignConnection.id, templateId: foreignTemplate.id, name: "DO_NOT_LEAK_FOREIGN_CAMPAIGN", status: "completed", totalRecipients: 99, audienceDefinition: {}, snapshotAt: new Date(), templateSnapshot: { components: [] } } });
+
+    try {
+      const input = { businessId, campaignId: campaign.id, jobId: job.id, providerMessageId: `test-${suffix}`, errorCode: "131016", now: new Date() };
+      await Promise.all([1, 2].map(() => db.$transaction(tx => retryCampaignFailureReceipt(tx, input))));
+      const retried = await db.whatsAppDeliveryJob.findUniqueOrThrow({ where: { id: job.id } });
+      expect(retried.status).toBe("retry_scheduled");
+      expect(retried.attemptCount).toBe(1);
+      expect((await db.whatsAppCampaign.findUniqueOrThrow({ where: { id: campaign.id } })).status).toBe("running");
+      for (const viewport of [{ name: "mobile", width: 390, height: 844 }, { name: "desktop", width: 1440, height: 960 }]) for (const theme of ["light", "dark"] as const) {
+        const context = await authenticatedContext(browser, viewport, theme, seeded.sessionToken);
+        try {
+          const page = await context.newPage();
+          await page.goto(`${baseUrl}/dashboard/whatsapp/campaigns`, { waitUntil: "domcontentloaded" });
+          page.setDefaultTimeout(15_000);
+          await expect(page.getByTestId("campaign-card").first().getByRole("status")).toContainText("إعادة محاولة مجدولة");
           await expect(page.getByRole("form", { name: "إنشاء حملة واتساب", exact: true })).not.toBeVisible();
           await page.screenshot({ path: `${outDir}/${viewport.name}-${theme}-campaign-overview.png`, fullPage: true });
           // Isolated receipt failure: processing completion must not look like delivery.
