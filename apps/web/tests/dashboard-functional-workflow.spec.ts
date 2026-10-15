@@ -88,6 +88,10 @@ test.describe.serial("customer dashboard functional surface", () => {
       await page.goto(`${baseUrl}/dashboard`);
       const nav = page.getByRole("navigation", { name: "التنقل الرئيسي", exact: true });
       await nav.getByRole("button", { name: "ترتيب القائمة", exact: true }).click();
+      const rows=nav.locator(".infro-nav-editor li");
+      await rows.filter({hasText:"تسويق واتساب"}).dragTo(rows.filter({hasText:"مركز العمل"}));
+      await expect(rows.first()).toContainText("تسويق واتساب");
+      await nav.getByRole("button", { name: "خفض تسويق واتساب", exact: true }).click();
       await nav.getByRole("button", { name: "رفع تسويق واتساب", exact: true }).click();
       await nav.getByRole("button", { name: "حفظ الترتيب", exact: true }).click();
       await expect(nav.getByRole("status")).toHaveText("تم حفظ ترتيبك في حسابك.");

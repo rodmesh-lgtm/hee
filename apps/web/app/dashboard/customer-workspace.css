@@ -109,3 +109,5 @@
 [data-dashboard-path] #dashboard-main-content .infro-wa-command-header{border:1px solid #315856}
 [data-dashboard-path] #dashboard-main-content .infro-wa-command-header :is(p,small,[class*="text-slate-400"],[class*="text-slate-300"]){color:#c4d9d5!important}
 [data-dashboard-path] #dashboard-main-content .infro-wa-command-header :is([class*="text-emerald-200"],[class*="text-[#6eead8]"]){color:#8ef1d2!important}
+
+[data-dashboard-path] .infro-nav-editor ol{max-height:42vh;overflow-y:auto;overscroll-behavior:contain;padding:2px}

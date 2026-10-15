@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, GripVertical, ListOrdered } from "lucide-react";
 import { saveDashboardNavigation } from "../../app/actions/dashboard-navigation";
 import { moveDashboardItem, orderDashboardItems } from "../../lib/dashboard-navigation-order";
-import type { DashboardNavItem } from "./dashboard-nav";
+import { dashboardNavGroups, type DashboardNavItem } from "./dashboard-nav";
 
 export function DashboardNavOrderEditor({ items, order, onSaved }: { items: DashboardNavItem[]; order: string[]; onSaved: (order: string[]) => void }) {
   const [editing, setEditing] = useState(false);
@@ -28,7 +28,7 @@ export function DashboardNavOrderEditor({ items, order, onSaved }: { items: Dash
     });
   }
   return <div className="infro-nav-customizer">
-    <button ref={opener} type="button" aria-expanded={editing} onClick={() => { setDraft(orderDashboardItems(items, order).map(item => item.href)); setMessage(""); setEditing(value => !value); }} disabled={pending}><ListOrdered size={16}/>{editing ? "إغلاق الترتيب" : "ترتيب القائمة"}</button>
+    <button ref={opener} type="button" aria-expanded={editing} onClick={() => { setDraft(orderDashboardItems(order.length ? items : dashboardNavGroups.flatMap(group => items.filter(item => item.group === group.id)), order).map(item => item.href)); setMessage(""); setEditing(value => !value); }} disabled={pending}><ListOrdered size={16}/>{editing ? "إغلاق الترتيب" : "ترتيب القائمة"}</button>
     {editing ? <div className="infro-nav-editor">
       <p>اسحب الأقسام أو استخدم الأسهم. يُحفظ ترتيبك في حسابك على جميع أجهزتك.</p>
       <ol>{orderDashboardItems(items, draft).map((item, index, all) => <li key={item.href} draggable={!pending} onDragStart={event => { dragged.current=item.href; event.dataTransfer.effectAllowed="move"; event.dataTransfer.setData("text/plain",item.href); }} onDragEnd={() => { dragged.current=null; }} onDragOver={event => { if (!pending && dragged.current) { event.preventDefault(); event.dataTransfer.dropEffect="move"; } }} onDrop={event => { event.preventDefault(); if (!pending && dragged.current) move(dragged.current,item.href); dragged.current=null; }}>
