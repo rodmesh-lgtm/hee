@@ -132,7 +132,7 @@
  .verified { width:26px; height:26px; bottom:-3px; right:-4px; }
  .hero h1 { margin-top:12px; font-size:26px; }
  .summary { margin-top:6px; font-size:14px; line-height:1.7; }
- .heroRule { margin-top:10px; }
+ .heroRule { display:none; }
  .nav { gap:7px; padding-top:12px; }
  .nav a { padding:8px 13px; font-size:12px; }
  .sections { gap:22px; margin-top:22px; }
@@ -165,7 +165,7 @@
 }
 @media (max-width:359px) {
  .shell { padding-inline:14px; }
- .hero h1 { font-size:27px; }
+ .hero h1 { font-size:25px; }
  .requestHeading { flex-wrap:wrap; }
  .page [data-public-identity-highlights] > div > div { gap:6px; }
  .ribbon { gap:4px; padding:5px; }
