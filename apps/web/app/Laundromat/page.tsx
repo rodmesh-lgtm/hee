@@ -8,7 +8,7 @@ import { laundryFilter } from "../lib/laundry-domain";
 import { LaundryWorkspace } from "./workspace";
 import "./laundry.css";
 export const dynamic="force-dynamic";
-export const metadata:Metadata={title:"INFRO · كاشير المغسلة",robots:{index:false,follow:false,noarchive:true}};
+export const metadata:Metadata={title:"INFRO انفرو · إدارة المغاسل والكاشير",robots:{index:false,follow:false,noarchive:true}};
 export default async function LaundryPage({searchParams}:{searchParams:Promise<{q?:string;filter?:string}>}) {
   const user=await getCurrentUser();
   if(!user)return <main className="laundry-gate" dir="rtl"><p>INFRO / LAUNDRY</p><h1>مساحة عمل مغسلتك</h1><p>الطلبات والفواتير وبيانات العملاء محمية بحساب المنشأة.</p><Link href="/login">تسجيل الدخول</Link><p>بعد الدخول افتح <Link href="/Laundromat">كاشير المغسلة</Link>.</p></main>;

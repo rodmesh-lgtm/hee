@@ -90,6 +90,14 @@ test.describe.serial("public transactions workflow", () => {
     try{
       await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/Laundromat`);
       await page.getByRole("button",{name:"الخدمات والأسعار",exact:true}).click();
+      await page.getByLabel("سعر فنيلة داخلية",{exact:true}).fill("2.50");
+      const catalogSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+      await page.getByRole("button",{name:"إضافة الأصناف المسعّرة إلى الكاشير",exact:true}).click();
+      const catalogRequest=await catalogSent;
+      await expect(page.locator(".ld-service-row").filter({hasText:"فنيلة داخلية — غسيل وكوي"})).toHaveCount(1);
+      await page.request.post(catalogRequest.url(),{headers:{"next-action":catalogRequest.headers()["next-action"],"content-type":catalogRequest.headers()["content-type"],origin:new URL(baseUrl).origin},data:catalogRequest.postData()??""});
+      const presetRows=await db.$queryRaw<Array<{price:number}>>`SELECT "price" FROM "LaundryService" WHERE "businessId"=${fixture.businessId} AND "name"='فنيلة داخلية — غسيل وكوي'`;
+      expect(presetRows).toEqual([{price:250}]);
       await page.getByLabel("اسم القطعة والخدمة",{exact:true}).fill("ثوب — غسيل وكوي");
       await page.getByLabel("التصنيف",{exact:true}).fill("غسيل وكوي");
       await page.getByLabel("السعر بالريال",{exact:true}).fill("5.25");
