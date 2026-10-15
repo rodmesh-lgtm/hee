@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, GripVertical, ListOrdered } from "lucide-react";
 import { saveDashboardNavigation } from "../../app/actions/dashboard-navigation";
 import { moveDashboardItem, orderDashboardItems } from "../../lib/dashboard-navigation-order";
@@ -8,6 +8,7 @@ import { dashboardNavGroups, type DashboardNavItem } from "./dashboard-nav";
 
 export function DashboardNavOrderEditor({ items, order, onSaved }: { items: DashboardNavItem[]; order: string[]; onSaved: (order: string[]) => void }) {
   const [editing, setEditing] = useState(false);
+  const dragHelpId = useId();
   const [draft, setDraft] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
@@ -35,7 +36,7 @@ export function DashboardNavOrderEditor({ items, order, onSaved }: { items: Dash
     {editing ? <div className="infro-nav-editor">
       <p>اسحب الأقسام من المقبض أو استخدم الأسهم، ثم اضغط حفظ. يُحفظ ترتيبك في حسابك على جميع أجهزتك.</p>
       <ol>{orderDashboardItems(items, draft).map((item, index, all) => <li key={item.href} draggable={!pending} onDragStart={event => { dragged.current=item.href; event.dataTransfer.effectAllowed="move"; event.dataTransfer.setData("text/plain",item.href); }} onDragEnd={() => { dragged.current=null; }} onDragOver={event => { if (!pending && dragged.current) { event.preventDefault(); event.dataTransfer.dropEffect="move"; } }} onDrop={event => { event.preventDefault(); if (!pending && dragged.current) move(dragged.current,item.href); dragged.current=null; }}>
-        <button type="button" className="infro-nav-drag-handle" disabled={pending} aria-label={`سحب ${item.label}`} aria-describedby="nav-drag-help"
+        <button type="button" className="infro-nav-drag-handle" disabled={pending} aria-label={`سحب ${item.label}`} aria-describedby={dragHelpId}
           ref={element => { const row = element?.closest("li"); if (row) rows.current.set(item.href, row); else rows.current.delete(item.href); }}
           onPointerDown={event => { if (event.pointerType === "mouse" || pending) return; event.preventDefault(); touchDrag.current = { source: item.href, target: item.href }; setDropTarget(item.href); event.currentTarget.setPointerCapture(event.pointerId); }}
           onPointerMove={event => {
@@ -58,7 +59,7 @@ export function DashboardNavOrderEditor({ items, order, onSaved }: { items: Dash
         <button type="button" disabled={pending || index===0} aria-label={`رفع ${item.label}`} onClick={() => move(item.href,all[index-1].href)}><ArrowUp size={14}/></button>
         <button type="button" disabled={pending || index===all.length-1} aria-label={`خفض ${item.label}`} onClick={() => move(item.href,all[index+1].href)}><ArrowDown size={14}/></button>
       </li>)}</ol>
-      <span id="nav-drag-help" className="sr-only">على الجوال اسحب المقبض إلى القسم المطلوب. بلوحة المفاتيح استخدم زري الرفع والخفض.</span>
+      <span id={dragHelpId} className="sr-only">على الجوال اسحب المقبض إلى القسم المطلوب. بلوحة المفاتيح استخدم زري الرفع والخفض.</span>
       <div className="infro-nav-editor-actions"><button type="button" disabled={pending} onClick={() => save(draft)}>{pending ? "جارٍ الحفظ…" : "حفظ الترتيب"}</button><button type="button" disabled={pending} onClick={() => save([])}>الافتراضي</button></div>
     </div> : null}
     {message ? <p role="status">{message}</p> : null}
