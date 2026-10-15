@@ -528,7 +528,7 @@ export async function submitBookingVerificationTemplateAction() {
   const {BOOKING_VERIFICATION_TEMPLATE}=await import("../lib/booking-verification-domain");
   const connection=await db.whatsAppConnection.findFirst({where:{businessId:business.id,provider:"meta",status:"connected",disabledAt:null,bookingEnabled:true}});
   if(!connection) redirect("/dashboard/working-hours?whatsapp=verification-unavailable");
-  const existing=await db.whatsAppTemplate.findUnique({where:{businessId_name_language:{businessId:business.id,name:BOOKING_VERIFICATION_TEMPLATE,language:"ar"}},select:{id:true}});
+  const existing=await db.whatsAppTemplate.findFirst({where:{businessId:business.id,connectionId:connection.id,name:BOOKING_VERIFICATION_TEMPLATE,language:"ar"},select:{id:true}});
   if(existing) redirect("/dashboard/working-hours?whatsapp=verification-sync-required");
   let outcome="verification-submitted";
   try {

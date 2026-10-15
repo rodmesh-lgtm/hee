@@ -18,6 +18,10 @@ test("booking sender selection distinguishes identical phone labels and rejects 
   const old = await createConnection(business.id, true);
   const fresh = await createConnection(business.id, false);
   const other = await createConnection(foreign.id, false);
+  const createTemplate = (connectionId: string, status: string) => db.whatsAppTemplate.create({ data: { businessId: business.id, connectionId, providerTemplateId: randomUUID(), name: "infro_booking_verification", language: "ar", category: "authentication", status, providerStatus: status.toUpperCase(), components: [], rawPayload: {}, lastSyncedAt: new Date() } });
+  const oldTemplate = await createTemplate(old.id, "approved");
+  const freshTemplate = await createTemplate(fresh.id, "pending");
+  await expect(createTemplate(fresh.id, "approved")).rejects.toMatchObject({ code: "P2002" });
   const automation = await db.whatsAppAutomation.create({ data: { businessId: business.id, connectionId: old.id, name: "Old confirmation", status: "active", triggerType: "booking_confirmation", triggerConfig: {}, actionConfig: {}, createdByUserId: owner.id } });
   const token = randomUUID();
   await db.session.create({ data: { token, userId: owner.id, expiresAt: new Date(Date.now() + 3600_000) } });
@@ -38,6 +42,8 @@ test("booking sender selection distinguishes identical phone labels and rejects 
     expect((await db.whatsAppAutomation.findUniqueOrThrow({ where: { id: automation.id } })).status).toBe("paused");
     await page.reload();
     await expect(selector).toHaveValue(fresh.id);
+    expect((await db.whatsAppTemplate.findUniqueOrThrow({ where: { id: oldTemplate.id } })).status).toBe("approved");
+    expect((await db.whatsAppTemplate.findUniqueOrThrow({ where: { id: freshTemplate.id } })).status).toBe("pending");
     // Tamper with the submitted option to prove server-side tenant ownership.
     await selector.evaluate((element, id) => { const select = element as HTMLSelectElement; select.add(new Option("foreign", id)); select.value = id; }, other.id);
     await page.getByRole("button", { name: "حفظ حساب واتساب للحجوزات", exact: true }).click();
@@ -48,6 +54,7 @@ test("booking sender selection distinguishes identical phone labels and rejects 
     await context.close();
     await db.whatsAppAuditLog.deleteMany({ where: { businessId: { in: [business.id, foreign.id] } } });
     await db.whatsAppAutomation.deleteMany({ where: { businessId: business.id } });
+    await db.whatsAppTemplate.deleteMany({ where: { businessId: business.id } });
     await db.whatsAppConnection.deleteMany({ where: { businessId: { in: [business.id, foreign.id] } } });
     await db.subscription.deleteMany({ where: { businessId: business.id } });
     await db.session.deleteMany({ where: { userId: owner.id } });

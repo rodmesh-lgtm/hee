@@ -1070,7 +1070,7 @@ model WhatsAppTemplate {
   campaigns WhatsAppCampaign[]
   automationJobs WhatsAppAutomationJob[]
   @@unique([provider, providerTemplateId], map: "WhatsAppTemplate_provider_id_unique")
-  @@unique([businessId, name, language], map: "WhatsAppTemplate_business_name_language_unique")
+  @@unique([businessId, connectionId, name, language], map: "WhatsAppTemplate_business_connection_name_language_unique")
   @@unique([id, businessId], map: "WhatsAppTemplate_id_business_unique")
   @@unique([id, businessId, connectionId], map: "WhatsAppTemplate_id_business_connection_unique")
   @@index([businessId, status], map: "WhatsAppTemplate_business_status_idx")
