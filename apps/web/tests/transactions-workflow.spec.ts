@@ -109,6 +109,14 @@ test.describe.serial("public transactions workflow", () => {
       await replay();
       const rows=await db.$queryRaw<Array<{id:string;total:number;paid:number;status:string}>>`SELECT "id","total","paid","status" FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
       expect(rows).toHaveLength(1);expect(rows[0]).toMatchObject({total:1050,paid:525,status:"received"});
+      await db.$executeRaw`UPDATE "LaundryTicket" SET "dueAt"=now()-interval '1 hour' WHERE "businessId"=${fixture.businessId} AND "id"=${rows[0].id}`;
+      await page.goto(`${baseUrl}/Laundromat?filter=overdue`);
+      await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toHaveCount(1);
+      await page.getByRole("link",{name:"جاهزة للاستلام",exact:true}).click();
+      await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toHaveCount(0);
+      await page.getByRole("link",{name:"غير مسددة",exact:true}).click();
+      await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toHaveCount(1);
+      await page.getByRole("link",{name:"جميع الطلبات",exact:true}).click();
       await page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true}).click();
       await expect(page.getByRole("heading",{name:"فاتورة خدمات / إيصال استلام",exact:true})).toBeVisible();
       await page.getByLabel("دفعة إضافية",{exact:true}).fill("5.25");await page.getByRole("button",{name:"تسجيل الدفعة",exact:true}).click();
