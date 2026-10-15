@@ -52,14 +52,10 @@ test("booking sender selection distinguishes identical phone labels and rejects 
     expect((await db.whatsAppConnection.findUniqueOrThrow({ where: { id: other.id } })).bookingEnabled).toBe(false);
   } finally {
     await context.close();
-    await db.whatsAppAuditLog.deleteMany({ where: { businessId: { in: [business.id, foreign.id] } } });
-    await db.whatsAppAutomation.deleteMany({ where: { businessId: business.id } });
-    await db.whatsAppTemplate.deleteMany({ where: { businessId: business.id } });
-    await db.whatsAppConnection.deleteMany({ where: { businessId: { in: [business.id, foreign.id] } } });
-    await db.subscription.deleteMany({ where: { businessId: business.id } });
     await db.session.deleteMany({ where: { userId: owner.id } });
-    await db.business.deleteMany({ where: { id: { in: [business.id, foreign.id] } } });
-    await db.user.delete({ where: { id: owner.id } });
+    // Retire isolated fixtures without deleting append-only security audit history.
+    await db.business.updateMany({ where: { id: { in: [business.id, foreign.id] } }, data: { deletedAt: new Date() } });
+    await db.user.update({ where: { id: owner.id }, data: { deletedAt: new Date() } });
     await db.$disconnect(); await pool.end();
   }
 });
