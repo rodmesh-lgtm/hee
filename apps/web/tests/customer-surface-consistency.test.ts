@@ -30,4 +30,6 @@ test("light navigation search has its own readable placeholder and dark table to
   assert.match(css, /light.*infro-nav-search input::placeholder.*#526b66/);
   assert.match(css, /dark.*--infro-table-head:#173a3b/);
   assert.match(css, /infro-table-scroll thead th.*position:sticky/);
+  assert.match(css, /dark.*bg-emerald-50\/50.*background:#103b32!important/);
+  assert.match(css, /dark.*bg-rose-50\/70.*color:#ffc6d5!important/);
 });
