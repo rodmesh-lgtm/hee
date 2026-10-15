@@ -205,6 +205,27 @@ export async function useMarketingNumberForBookingsAction() {
   redirect("/dashboard/working-hours?whatsapp=number-linked");
 }
 
+export async function selectBookingWhatsAppConnectionAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business) redirect("/login");
+  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?whatsapp=subscription-required");
+  const connectionId = value(formData, "connectionId");
+  if (!/^[0-9a-f-]{36}$/i.test(connectionId)) redirect("/dashboard/working-hours?whatsapp=number-unavailable");
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`whatsapp-connection:${business.id}`}))`;
+      const connection = await tx.whatsAppConnection.findFirst({ where: { id: connectionId, businessId: business.id, provider: "meta", status: "connected", disabledAt: null }, select: { id: true } });
+      if (!connection) throw new Error("BOOKING_CONNECTION_UNAVAILABLE");
+      await tx.whatsAppConnection.updateMany({ where: { businessId: business.id, provider: "meta", bookingEnabled: true, id: { not: connection.id } }, data: { bookingEnabled: false } });
+      await tx.whatsAppConnection.update({ where: { id: connection.id }, data: { bookingEnabled: true } });
+      await tx.whatsAppAutomation.updateMany({ where: { businessId: business.id, triggerType: "booking_confirmation", status: "active", connectionId: { not: connection.id } }, data: { status: "paused" } });
+      await writeWhatsAppAuditLog({ database: tx, businessId: business.id, actorUserId: business.ownerId, action: "connection.booking.select", targetType: "connection", targetId: connection.id, outcome: "success" });
+    });
+  } catch { redirect("/dashboard/working-hours?whatsapp=number-unavailable"); }
+  refreshAppointmentPaths(business.slug);
+  redirect("/dashboard/working-hours?whatsapp=connection-selected");
+}
+
 export async function syncBookingWhatsAppTemplatesAction(formData: FormData) {
   const business = await getOwnedBusinessForWrite();
   if (!business) redirect("/login");
@@ -507,7 +528,7 @@ export async function submitBookingVerificationTemplateAction() {
   const {BOOKING_VERIFICATION_TEMPLATE}=await import("../lib/booking-verification-domain");
   const connection=await db.whatsAppConnection.findFirst({where:{businessId:business.id,provider:"meta",status:"connected",disabledAt:null,bookingEnabled:true}});
   if(!connection) redirect("/dashboard/working-hours?whatsapp=verification-unavailable");
-  const existing=await db.whatsAppTemplate.findUnique({where:{businessId_name_language:{businessId:business.id,name:BOOKING_VERIFICATION_TEMPLATE,language:"ar"}},select:{id:true}});
+  const existing=await db.whatsAppTemplate.findFirst({where:{businessId:business.id,connectionId:connection.id,name:BOOKING_VERIFICATION_TEMPLATE,language:"ar"},select:{id:true}});
   if(existing) redirect("/dashboard/working-hours?whatsapp=verification-sync-required");
   let outcome="verification-submitted";
   try {

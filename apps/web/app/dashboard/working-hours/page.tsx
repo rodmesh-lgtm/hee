@@ -30,6 +30,7 @@ import {
   submitBookingVerificationTemplateAction,
   toggleBookingWhatsAppConfirmationAction,
   useMarketingNumberForBookingsAction,
+  selectBookingWhatsAppConnectionAction,
   connectSallaBookingStoreAction,
   reconnectSallaBookingStoreAction,
   disconnectSallaBookingStoreAction,
@@ -126,14 +127,14 @@ export default async function DashboardWorkingHoursPage({
       },
       whatsappConnections: {
         where: { provider: "meta", status: "connected", disabledAt: null },
-        select: { id: true, displayPhoneNumber: true, verifiedName: true, marketingEnabled: true, bookingEnabled: true },
+        select: { id: true, wabaId: true, phoneNumberId: true, displayPhoneNumber: true, verifiedName: true, marketingEnabled: true, bookingEnabled: true },
       },
       whatsappTemplates: {
         where: { provider: "meta" },
         select: { id: true, connectionId: true, name: true, language: true, category: true, status: true, components: true, parameterFormat: true },
       },
       whatsappAutomations: {
-        where: { triggerType: "booking_confirmation", status: { in: ["active", "paused"] } },
+        where: { triggerType: "booking_confirmation", status: { in: ["active", "paused"] }, connection: { bookingEnabled: true, status: "connected", disabledAt: null } },
         orderBy: { updatedAt: "desc" },
         take: 1,
         select: { id: true, status: true, connectionId: true, actionConfig: true },
@@ -264,12 +265,18 @@ export default async function DashboardWorkingHoursPage({
     {isOwner ? <>
     <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
       <div className="border-b border-slate-100 bg-[#fbfdfd] p-4 sm:p-5"><div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><MessageCircle className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">BOOKING WHATSAPP</span><h2 className="mt-1 text-base font-black text-slate-950">رقم واتساب مستقل لتأكيد المواعيد</h2><p className="mt-2 max-w-3xl text-[10px] leading-6 text-slate-500">عيّن رقمًا للحجوزات فقط، أو استخدم رقم التسويق نفسه. رسائل الحملات لا تنتقل تلقائيًا إلى رقم الحجوزات، وكل تأكيد يستخدم قالبًا خدميًا معتمدًا من Meta.</p></div></div></div>
-      {whatsappResult ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["enabled","paused","number-linked","templates-synced","template-updated"].includes(whatsappResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{whatsappResult === "template-updated" ? "تم حفظ قالب تأكيد الحجز." : whatsappResult === "verification-submitted" ? "تم تقديم قالب التحقق إلى Meta. الإرسال ينتظر اعتماده؛ حدّث القوالب لمعرفة حالته." : whatsappResult === "verification-sync-required" ? "حدّث القوالب من Meta أولًا؛ قد يكون طلب القالب قد وصل، فلا تعِد تقديمه الآن." : whatsappResult === "enabled" ? "تم تفعيل إرسال تأكيدات الحجز عبر واتساب." : whatsappResult === "paused" ? "تم إيقاف تأكيدات واتساب مؤقتًا." : whatsappResult === "number-linked" ? "تم تعيين رقم التسويق نفسه لخدمة الحجوزات." : whatsappResult === "templates-synced" ? "تم تحديث قوالب رقم الحجوزات من Meta." : whatsappResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لاستخدام الحجز وتأكيداته." : "لم تكتمل العملية. راجع اتصال الرقم والقالب المعتمد ثم حاول مجددًا."}</p> : null}
+      {whatsappResult && whatsappResult !== "connection-selected" ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["enabled","paused","number-linked","templates-synced","template-updated"].includes(whatsappResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{whatsappResult === "template-updated" ? "تم حفظ قالب تأكيد الحجز." : whatsappResult === "verification-submitted" ? "تم تقديم قالب التحقق إلى Meta. الإرسال ينتظر اعتماده؛ حدّث القوالب لمعرفة حالته." : whatsappResult === "verification-sync-required" ? "حدّث القوالب من Meta أولًا؛ قد يكون طلب القالب قد وصل، فلا تعِد تقديمه الآن." : whatsappResult === "enabled" ? "تم تفعيل إرسال تأكيدات الحجز عبر واتساب." : whatsappResult === "paused" ? "تم إيقاف تأكيدات واتساب مؤقتًا." : whatsappResult === "number-linked" ? "تم تعيين رقم التسويق نفسه لخدمة الحجوزات." : whatsappResult === "templates-synced" ? "تم تحديث قوالب رقم الحجوزات من Meta." : whatsappResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لاستخدام الحجز وتأكيداته." : "لم تكتمل العملية. راجع اتصال الرقم والقالب المعتمد ثم حاول مجددًا."}</p> : null}
+      {whatsappResult === "connection-selected" ? <p role="status" className="m-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">تم تعيين حساب واتساب المحدد للحجوزات. حدّث قوالبه ثم اختر قالب التأكيد؛ أُوقفت التأكيدات المرتبطة بأي حساب سابق.</p> : null}
       <div className="grid gap-4 p-4 sm:p-5 xl:grid-cols-[.9fr_1.1fr]">
         <article className="rounded-2xl border border-slate-200 bg-[#f8fbfb] p-4">
           <div className="flex items-center justify-between gap-3"><div><b className="text-sm text-slate-900">رقم الإرسال</b><span className="mt-1 block text-[9px] text-slate-400">يمكن أن يكون مستقلًا أو مشتركًا مع التسويق</span></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-black ${bookingConnection ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{bookingConnection ? "متصل" : "غير معين"}</span></div>
           {bookingConnection ? <div className="mt-4 rounded-xl border border-emerald-100 bg-white p-3"><b className="block text-xs text-slate-800">{bookingConnection.verifiedName || "رقم واتساب الحجوزات"}</b><span dir="ltr" className="mt-1 block text-right text-[10px] font-bold text-[#008f87]">{bookingConnection.displayPhoneNumber || "رقم متصل عبر Meta"}</span><span className="mt-2 block text-[8px] text-slate-400">{bookingConnection.marketingEnabled ? "يُستخدم للحجوزات والتسويق" : "مخصص للحجوزات"}</span></div> : null}
           <div className="mt-4 grid gap-2">
+            {business.whatsappConnections.length > 1 ? <form action={selectBookingWhatsAppConnectionAction} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3">
+              <label htmlFor="booking-whatsapp-connection" className="text-sm font-bold">حساب واتساب المستخدم للحجوزات</label><select id="booking-whatsapp-connection" name="connectionId" required defaultValue={bookingConnection?.id ?? ""} className={fieldClass}><option value="" disabled>اختر الحساب المرتبط</option>{business.whatsappConnections.map(connection => <option key={connection.id} value={connection.id}>{connection.displayPhoneNumber || connection.verifiedName || "واتساب"} · حساب Meta {connection.wabaId}</option>)}</select>
+              <p className="text-xs leading-6 text-slate-600">إذا ظهر الرقم نفسه أكثر من مرة، طابق معرّف حساب Meta مع الربط الذي أكملته. القوالب المعتمدة تخص حسابها ولا تنتقل تلقائيًا إلى حساب آخر.</p>
+              <button disabled={!subscriptionActive} className="min-h-11 rounded-xl bg-[#075c54] px-4 text-sm font-bold text-white disabled:opacity-50">حفظ حساب واتساب للحجوزات</button>
+            </form> : null}
             {marketingConnection && marketingConnection.id !== bookingConnection?.id ? <form action={useMarketingNumberForBookingsAction}><button disabled={!subscriptionActive} className="min-h-11 w-full rounded-xl border border-[#9fddd6] bg-white px-3 text-[10px] font-black text-[#08756e] disabled:opacity-50">استخدام رقم التسويق نفسه</button></form> : null}
             {publicMetaConfig && subscriptionActive ? <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="mb-3 text-[9px] leading-5 text-slate-500">{bookingConnection ? "لربط رقم آخر بدل الرقم الحالي، افتح ربط Meta واختر الرقم المطلوب للحجوزات." : "اربط رقم WhatsApp Business الذي سيُرسل تفاصيل المواعيد."}</p><EmbeddedSignupButton {...publicMetaConfig} purpose="booking" /></div> : !subscriptionActive ? <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800">ربط رقم الحجوزات متاح بعد تفعيل اشتراك المنشأة.</p> : <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800">إعداد Embedded Signup غير متاح في هذه البيئة حاليًا.</p>}
           </div>
