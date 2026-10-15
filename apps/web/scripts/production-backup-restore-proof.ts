@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import { Client } from "pg";
 import { assertCleanPrismaMigrationHistory } from "./clean-prisma-migration-history";
+import { connectProofDatabase } from "./production-proof-connection";
 
 const sourceUrl = String(process.env.SOURCE_DATABASE_URL ?? "").trim();
 const restoreUrl = String(process.env.RESTORE_DATABASE_URL ?? "").trim();
@@ -21,8 +22,8 @@ if (!separatelyHosted && !distinctPrismaDirectCredential && !namedRestoreDatabas
   throw new Error("Restore proof requires a separate host, distinct Prisma direct credential, or isolated hee_restore* database");
 }
 
-const source = new Client({ connectionString: sourceUrl });
-const restore = new Client({ connectionString: restoreUrl });
+const source = new Client({ connectionString: sourceUrl, connectionTimeoutMillis: 15_000 });
+const restore = new Client({ connectionString: restoreUrl, connectionTimeoutMillis: 15_000 });
 
 const tables = [
   "User",
@@ -97,8 +98,8 @@ async function migrationSignature(client: Client): Promise<MigrationSignature[]>
 }
 
 async function main() {
-  await source.connect();
-  await restore.connect();
+  await connectProofDatabase(source, "source");
+  await connectProofDatabase(restore, "restore");
 
   for (const table of tables) {
     const [a, b] = await Promise.all([signature(source, table), signature(restore, table)]);

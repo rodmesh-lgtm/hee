@@ -83,12 +83,9 @@ jobs:
 
       - name: Prove restored schema and critical data signatures
         working-directory: apps/web
-        env:
-          SOURCE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-          RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
         run: |
           npm ci
-          npm run backup:production-proof
+          SOURCE_DATABASE_URL="$DATABASE_URL" npm run backup:production-proof
 
       - name: Preserve encrypted backup
         uses: actions/upload-artifact@v4
