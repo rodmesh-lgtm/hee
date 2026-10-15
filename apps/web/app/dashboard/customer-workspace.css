@@ -111,3 +111,9 @@
 [data-dashboard-path] #dashboard-main-content .infro-wa-command-header :is([class*="text-emerald-200"],[class*="text-[#6eead8]"]){color:#8ef1d2!important}
 
 [data-dashboard-path] .infro-nav-editor ol{max-height:42vh;overflow-y:auto;overscroll-behavior:contain;padding:2px}
+[data-dashboard-path] #dashboard-main-content .infro-wa-command-header [class*="text-amber-200"]{color:#ffe09b!important}
+[data-dashboard-theme="dark"] #dashboard-main-content .infro-wa-readiness-card{background:#16342f!important;border-color:#526a4d!important;box-shadow:0 2px 5px #0002}
+[data-dashboard-theme="dark"] #dashboard-main-content .infro-wa-readiness-card :is(b,p,[class*="text-slate-"]){color:#deeee7!important}
+[data-dashboard-theme="dark"] #dashboard-main-content .infro-wa-readiness-card [class*="text-amber-"]{color:#ffe09b!important;background-color:#493e21!important}
+[data-dashboard-theme="dark"] #dashboard-main-content .infro-wa-readiness-card [class*="text-emerald-"]{color:#98f4cc!important;background-color:#174c3b!important}
+@media(max-width:1023px){[data-dashboard-path] .infro-nav-editor ol{max-height:24dvh}[data-dashboard-path] .infro-nav-editor li button{min-height:40px;min-width:32px}}
