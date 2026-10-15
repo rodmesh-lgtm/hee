@@ -38,13 +38,18 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         const replay=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "LaundryAudit" WHERE "businessId"=${business.id} AND "id"=${id} AND "action"='catalog'`;
         if(replay.length)return {id};
         if(new Set(data.items.map(x=>x.presetId)).size!==data.items.length)throw new LaundryInputError("توجد أصناف مكررة");
-        for(const item of data.items){
+        const presets=data.items.map(item=>{
           const preset=resolveLaundryPreset(item.presetId,data.operation);
           if(!preset)throw new LaundryInputError("الصنف غير موجود في الدليل");
           const price=moneyToHalalas(item.price);
           if(price<=0)throw new LaundryInputError("حدد سعرًا أكبر من صفر لكل صنف ترغب بتفعيله");
-          await tx.$executeRaw`INSERT INTO "LaundryService" ("id","businessId","name","category","price") SELECT ${randomUUID()},${business.id},${preset.name},${preset.category},${price} WHERE NOT EXISTS (SELECT 1 FROM "LaundryService" WHERE "businessId"=${business.id} AND "name"=${preset.name} AND "active"=TRUE)`;
-        }
+          return {id:randomUUID(),name:preset.name,category:preset.category,price};
+        });
+        // One database round trip keeps full-catalog setup within the transaction deadline.
+        await tx.$executeRaw`INSERT INTO "LaundryService" ("id","businessId","name","category","price")
+          SELECT p.id,${business.id},p.name,p.category,p.price
+          FROM jsonb_to_recordset(${JSON.stringify(presets)}::jsonb) AS p(id text,name text,category text,price int)
+          WHERE NOT EXISTS (SELECT 1 FROM "LaundryService" s WHERE s."businessId"=${business.id} AND s."name"=p.name AND s."active"=TRUE)`;
       } else if (data.type === "service") {
         id=data.requestId; const price=moneyToHalalas(data.price);
         await tx.$executeRaw`INSERT INTO "LaundryService" ("id","businessId","name","category","price") VALUES (${id},${business.id},${data.name},${data.category},${price}) ON CONFLICT ("id") DO NOTHING`;
