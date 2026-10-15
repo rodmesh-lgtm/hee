@@ -86,3 +86,26 @@
 [data-dashboard-path="/dashboard"] #dashboard-main-content .infro-home-setup { grid-template-columns: minmax(0,1fr); }
 [data-dashboard-path="/dashboard"] #dashboard-main-content .infro-home-setup > section:last-child { display: block; }
 @container dashboard-canvas (min-width: 1000px) { [data-dashboard-path="/dashboard"] #dashboard-main-content .infro-home-setup { grid-template-columns: minmax(0,1fr) 220px; } }
+
+/* Saved account navigation: keyboard and touch alternatives to dragging. */
+[data-dashboard-path] .infro-nav-customizer{margin:10px 0 14px;color:#24443f;font-size:12px}
+[data-dashboard-path] .infro-nav-customizer button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:36px;border:1px solid #b9d1cb;border-radius:9px;background:#fff;color:#24443f;padding:6px 9px;font-weight:700}
+[data-dashboard-path] .infro-nav-customizer>button{width:100%}
+[data-dashboard-path] .infro-nav-customizer button:focus-visible{outline:3px solid #089889;outline-offset:2px}
+[data-dashboard-path] .infro-nav-customizer button:disabled{opacity:.4;cursor:not-allowed}
+[data-dashboard-path] .infro-nav-customizer p{font-size:11px;line-height:1.8;margin:10px 0}
+[data-dashboard-path] .infro-nav-editor{padding:8px;margin-top:8px;border:1px solid #b9d1cb;background:#f1f7f5;border-radius:12px}
+[data-dashboard-path] .infro-nav-editor ol{display:grid;gap:6px;list-style:none;padding:0}
+[data-dashboard-path] .infro-nav-editor li{display:flex;align-items:center;gap:3px;padding:5px;border:1px solid #d0dfdb;border-radius:9px;background:#fff;cursor:grab}
+[data-dashboard-path] .infro-nav-editor li>span{flex:1;min-width:0;font-size:11px;font-weight:700}
+[data-dashboard-path] .infro-nav-editor li>svg{flex-shrink:0}
+[data-dashboard-path] .infro-nav-editor li button{padding:4px;min-width:28px;min-height:36px}
+[data-dashboard-path] .infro-nav-editor-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+[data-dashboard-path] .infro-nav-editor-actions button:first-child{background:#087f71;border-color:#087f71;color:white;flex:1}
+[data-dashboard-theme="dark"] .infro-nav-customizer{color:#d5e8e3}
+[data-dashboard-theme="dark"] .infro-nav-customizer button,[data-dashboard-theme="dark"] .infro-nav-editor li{background:#173b3b;border-color:#416761;color:#e7f7f1}
+[data-dashboard-theme="dark"] .infro-nav-editor{background:#102b2d;border-color:#416761}
+[data-dashboard-path] #dashboard-main-content :is(.wa-panel,.wa-tool-card,.wa-guide,.wa-metric){border:1px solid var(--wa-border,#cbdcd7);box-shadow:0 2px 3px #123c3610,0 10px 26px -20px #123c3650}
+[data-dashboard-path] #dashboard-main-content .infro-wa-command-header{border:1px solid #315856}
+[data-dashboard-path] #dashboard-main-content .infro-wa-command-header :is(p,small,[class*="text-slate-400"],[class*="text-slate-300"]){color:#c4d9d5!important}
+[data-dashboard-path] #dashboard-main-content .infro-wa-command-header :is([class*="text-emerald-200"],[class*="text-[#6eead8]"]){color:#8ef1d2!important}

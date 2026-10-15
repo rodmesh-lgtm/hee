@@ -37,11 +37,11 @@ export type DashboardNavItem = { group: DashboardNavGroup; keywords: string; lab
 /** Customer navigation stays intentionally compact. Advanced editing surfaces remain reachable from their parent studios instead of competing for attention in the rail. */
 export const dashboardNavItems: DashboardNavItem[] = [
   { group: "daily", keywords: "الرئيسية ملخص متابعة", label: "مركز العمل", href: "/dashboard", icon: Home, exact: true },
+  { group: "daily", keywords: "حملات قوالب جهات اتصال رسائل WhatsApp ميتا ربط", label: "تسويق واتساب", href: "/dashboard/whatsapp", icon: WhatsAppIcon, activePrefixes: ["/dashboard/whatsapp"] },
   { group: "presence", keywords: "تعديل تصميم شعار خدمات منتجات فروع فريق ساعات معرض روابط", label: "صفحتي", href: "/dashboard/my-page", icon: UserRound, activePrefixes: ["/dashboard/services", "/dashboard/products", "/dashboard/catalog", "/dashboard/gallery", "/dashboard/offers", "/dashboard/contact-links", "/dashboard/page-builder", "/dashboard/page-customization", "/dashboard/preview", "/dashboard/share", "/dashboard/branding", "/dashboard/directory", "/dashboard/tools"] },
   { group: "presence", keywords: "توثيق ملف تعريفي PDF سيو SEO", label: "الهوية الرقمية", href: "/dashboard/digital-identity", icon: BadgeCheck, activePrefixes: ["/dashboard/verification"] },
   { group: "daily", keywords: "عملاء طلب خدمة وارد", label: "الطلبات", href: "/dashboard/inbox", icon: Inbox },
   { group: "daily", keywords: "حجز ساعات العمل جدول مواعيد إعدادات رمز تحقق OTP", label: "المواعيد والحجوزات", href: "/dashboard/appointments", icon: CalendarDays, activePrefixes: ["/dashboard/working-hours"] },
-  { group: "growth", keywords: "حملات قوالب جهات اتصال رسائل WhatsApp ميتا ربط", label: "تسويق واتساب", href: "/dashboard/whatsapp", icon: WhatsAppIcon, activePrefixes: ["/dashboard/whatsapp"] },
   { group: "daily", keywords: "تذكير مهام مواعيد تنبيه", label: "التذكيرات الذكية", href: "/dashboard/reminders", icon: BellRing },
   { group: "daily", keywords: "تنبيهات أخبار", label: "الإشعارات", href: "/dashboard/notifications", icon: Bell },
   { group: "daily", keywords: "ملاحظات مذكرة مهام", label: "مذكرات الأعمال", href: "/dashboard/notes", icon: NotebookPen },

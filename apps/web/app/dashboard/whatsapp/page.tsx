@@ -152,7 +152,7 @@ export default async function WhatsAppMarketingPage() {
 
   return (
     <div className="min-w-0 space-y-5 pb-5">
-      <header className="relative min-w-0 overflow-hidden rounded-[28px] bg-[#061719] p-4 text-white shadow-[0_28px_80px_-48px_rgba(3,23,25,.85)] sm:p-7">
+      <header className="infro-wa-command-header relative min-w-0 overflow-hidden rounded-[28px] bg-[#061719] p-4 text-white shadow-[0_28px_80px_-48px_rgba(3,23,25,.85)] sm:p-7">
         <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#00d8c6]/20 blur-3xl" />
         <div className="absolute -bottom-24 right-1/3 h-56 w-56 rounded-full bg-[#118cff]/10 blur-3xl" />
         <div className="relative space-y-6">

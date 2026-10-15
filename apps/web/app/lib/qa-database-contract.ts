@@ -88,6 +88,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20261007130000_whatsapp_service_bot",
   "20261013193000_account_phone",
   "20261013210000_staff_section_permissions",
+  "20261015070000_dashboard_navigation_order",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

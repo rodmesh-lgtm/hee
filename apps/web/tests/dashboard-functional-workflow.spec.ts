@@ -79,6 +79,30 @@ test.describe.serial("customer dashboard functional surface", () => {
     await pool?.end();
   });
 
+  test("customer navigation order persists and resets without affecting another account", async ({ page }) => {
+    const fixture = await seed();
+    const other = await seed();
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.context().addCookies([{ name: "hee_session", value: fixture.token, url: baseUrl }]);
+    try {
+      await page.goto(`${baseUrl}/dashboard`);
+      const nav = page.getByRole("navigation", { name: "التنقل الرئيسي", exact: true });
+      await nav.getByRole("button", { name: "ترتيب القائمة", exact: true }).click();
+      await nav.getByRole("button", { name: "رفع تسويق واتساب", exact: true }).click();
+      await nav.getByRole("button", { name: "حفظ الترتيب", exact: true }).click();
+      await expect(nav.getByRole("status")).toHaveText("تم حفظ ترتيبك في حسابك.");
+      expect((await db.user.findUniqueOrThrow({ where: { id: fixture.userId } })).dashboardNavOrder[0]).toBe("/dashboard/whatsapp");
+      expect((await db.user.findUniqueOrThrow({ where: { id: other.userId } })).dashboardNavOrder).toEqual([]);
+      await page.reload();
+      await expect(nav.locator(".infro-nav-group a").first()).toContainText("تسويق واتساب");
+      await nav.getByRole("button", { name: "ترتيب القائمة", exact: true }).click();
+      await nav.getByRole("button", { name: "الافتراضي", exact: true }).click();
+      await expect(nav.getByRole("status")).toHaveText("تمت استعادة الترتيب الافتراضي.");
+      await page.reload();
+      await expect(nav.locator(".infro-nav-group a").first()).toContainText("مركز العمل");
+    } finally { await cleanup(fixture); await cleanup(other); }
+  });
+
   test("every primary customer dashboard destination renders its real controls", async ({ page }) => {
     test.setTimeout(120_000);
     const fixture = await seed();
