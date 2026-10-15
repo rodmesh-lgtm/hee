@@ -92,7 +92,16 @@ test.describe.serial("customer dashboard functional surface", () => {
       await rows.filter({hasText:"تسويق واتساب"}).dragTo(rows.filter({hasText:"مركز العمل"}));
       await expect(rows.first()).toContainText("تسويق واتساب");
       await nav.getByRole("button", { name: "خفض تسويق واتساب", exact: true }).click();
-      await nav.getByRole("button", { name: "رفع تسويق واتساب", exact: true }).click();
+      // Real touch input exercises pointer capture and the mobile drag handle.
+      const handle = await nav.getByRole("button", { name: "سحب تسويق واتساب", exact: true }).boundingBox();
+      const target = await rows.filter({ hasText: "مركز العمل" }).boundingBox();
+      if (!handle || !target) throw new Error("Navigation drag targets are missing");
+      const touch = await page.context().newCDPSession(page);
+      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: handle.x + handle.width / 2, y: handle.y + handle.height / 2 }] });
+      await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: handle.x + handle.width / 2, y: target.y + target.height / 2 }] });
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await touch.detach();
+      await expect(rows.first()).toContainText("تسويق واتساب");
       await nav.getByRole("button", { name: "حفظ الترتيب", exact: true }).click();
       await expect(nav.getByRole("status")).toHaveText("تم حفظ ترتيبك في حسابك.");
       expect((await db.user.findUniqueOrThrow({ where: { id: fixture.userId } })).dashboardNavOrder[0]).toBe("/dashboard/whatsapp");

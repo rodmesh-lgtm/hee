@@ -9,6 +9,8 @@ import type { WhatsAppConnectionPurpose } from "../lib/whatsapp/embedded-signup"
 import { enqueueWhatsAppReply } from "../lib/whatsapp/reply-queue";
 import { hasActiveBusinessSubscription } from "../lib/subscription-entitlement";
 import { isWhatsAppCarePriority } from "../lib/whatsapp/care-domain";
+import { db } from "../lib/db";
+import { syncMetaWhatsAppTemplates } from "../lib/whatsapp/template-sync";
 import { updateWhatsAppConversationCare } from "../lib/whatsapp/care-management";
 import { updateWhatsAppConversationContactTag } from "../lib/whatsapp/contact-tag-management";
 const text = (data: FormData, key: string, max: number) => { const value = String(data.get(key) ?? "").trim(); return value.length > 0 && value.length <= max ? value : null; };
@@ -88,9 +90,22 @@ export async function completeWhatsAppEmbeddedSignupAction(input: { state: strin
   if (!await purposeEntitled(context.businessId, input.purpose)) return { ok: false as const, error: "entitlement-required" };
   try {
     await completeEmbeddedSignup({ businessId: context.businessId, userId: context.userId, ...input });
+    // The successful signup remains valid even if Meta's template list is delayed.
+    // Resolve only the exact assets verified for this tenant, never its previous sender.
+    let templatesSynced = false;
+    try {
+      const connection = await db.whatsAppConnection.findFirst({ where: { businessId: context.businessId, provider: "meta", wabaId: input.wabaId, phoneNumberId: input.phoneNumberId, status: "connected", disabledAt: null }, select: { id: true } });
+      if (connection) {
+        await syncMetaWhatsAppTemplates({ businessId: context.businessId, connectionId: connection.id });
+        templatesSynced = true;
+      }
+    } catch {
+      await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "connection.templates.initial_sync", targetType: "connection", outcome: "failed", metadata: { reason: "template_sync_pending" } }).catch(() => undefined);
+    }
     revalidatePath("/dashboard/whatsapp/setup");
+    revalidatePath("/dashboard/whatsapp/templates");
     revalidatePath("/dashboard/working-hours");
-    return { ok: true as const };
+    return { ok: true as const, templatesSynced };
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     await writeWhatsAppAuditLog({ businessId: context.businessId, actorUserId: context.userId, action: "connection.signup.complete", targetType: "connection", outcome: "failed", metadata: { reason: code || "unknown" } }).catch(() => undefined);

@@ -138,3 +138,6 @@
 [data-dashboard-theme="dark"] #dashboard-main-content .infro-wa-readiness-card [class*="text-amber-"]{color:#ffe09b!important;background-color:#493e21!important}
 [data-dashboard-theme="dark"] #dashboard-main-content .infro-wa-readiness-card [class*="text-emerald-"]{color:#98f4cc!important;background-color:#174c3b!important}
 @media(max-width:1023px){[data-dashboard-path] .infro-nav-editor ol{max-height:24dvh}[data-dashboard-path] .infro-nav-editor li button{min-height:40px;min-width:32px}}
+[data-dashboard-path] .infro-nav-editor li .infro-nav-drag-handle{touch-action:none;min-height:44px;min-width:32px;cursor:grab;background:transparent;border-color:transparent}
+[data-dashboard-path] .infro-nav-editor li:has([data-drop-target="true"]){outline:2px solid #089889;outline-offset:-2px;background:#e2f3ed}
+[data-dashboard-theme="dark"] .infro-nav-editor li:has([data-drop-target="true"]){background:#245249}
