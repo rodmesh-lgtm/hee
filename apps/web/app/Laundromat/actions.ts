@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
 import { getCurrentUserForApiWrite } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
-import { laundryLines, moneyToHalalas, nextLaundryStatus, type LaundryService, type LaundryTicket } from "../lib/laundry-domain";
+import { LaundryInputError, laundryLines, moneyToHalalas, nextLaundryStatus, type LaundryService, type LaundryTicket } from "../lib/laundry-domain";
 
 const key = z.string().uuid();
 const command = z.discriminatedUnion("type", [
@@ -37,37 +37,37 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
       } else if (data.type === "archive") {
         id=data.id;
         const changed=await tx.$executeRaw`UPDATE "LaundryService" SET "active"=FALSE WHERE "businessId"=${business.id} AND "id"=${id}`;
-        if (!changed) throw new Error("الخدمة غير موجودة");
+        if (!changed) throw new LaundryInputError("الخدمة غير موجودة");
       } else if (data.type === "order") {
         const previous=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "requestId"=${data.requestId}`;
         if(previous[0]) return {id:previous[0].id};
         const dueAt=new Date(data.dueAt);
-        if(dueAt.getTime()<Date.now()-60000 || dueAt.getTime()>Date.now()+366*86400000) throw new Error("حدد موعد تسليم قادمًا خلال سنة");
+        if(dueAt.getTime()<Date.now()-60000 || dueAt.getTime()>Date.now()+366*86400000) throw new LaundryInputError("حدد موعد تسليم قادمًا خلال سنة");
         const catalog=await tx.$queryRaw<LaundryService[]>`SELECT * FROM "LaundryService" WHERE "businessId"=${business.id} AND "active"=TRUE`;
         const lines=laundryLines(data.items,catalog), total=lines.reduce((s,x)=>s+x.total,0), paid=moneyToHalalas(data.paid);
-        if(paid>total) throw new Error("الدفعة أكبر من إجمالي الطلب");
+        if(paid>total) throw new LaundryInputError("الدفعة أكبر من إجمالي الطلب");
         const rows=await tx.$queryRaw<Array<{number:number}>>`SELECT COALESCE(MAX("number"),0)+1 AS "number" FROM "LaundryTicket" WHERE "businessId"=${business.id}`;
         id=randomUUID();
         await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${data.phone},${JSON.stringify(lines)}::jsonb,${total},${paid},${dueAt},${data.notes},${user.id})`;
         if(paid>0) await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${randomUUID()},${business.id},${id},${data.requestId},${paid},${data.method},${user.id})`;
       } else if(data.type==="expense") {
         id=data.requestId; const amount=moneyToHalalas(data.amount);
-        if(amount<=0) throw new Error("أدخل مبلغًا أكبر من صفر");
+        if(amount<=0) throw new LaundryInputError("أدخل مبلغًا أكبر من صفر");
         await tx.$executeRaw`INSERT INTO "LaundryExpense" ("id","businessId","requestId","description","amount","createdBy") VALUES (${id},${business.id},${data.requestId},${data.description},${amount},${user.id}) ON CONFLICT ("businessId","requestId") DO NOTHING`;
       } else {
         id=data.id;
         const rows=await tx.$queryRaw<LaundryTicket[]>`SELECT * FROM "LaundryTicket" WHERE "id"=${id} AND "businessId"=${business.id} FOR UPDATE`;
-        const ticket=rows[0]; if(!ticket) throw new Error("الطلب غير موجود في منشأتك");
+        const ticket=rows[0]; if(!ticket) throw new LaundryInputError("الطلب غير موجود في منشأتك");
         if(data.type==="payment") {
           const old=await tx.$queryRaw<Array<{ticketId:string}>>`SELECT "ticketId" FROM "LaundryPayment" WHERE "businessId"=${business.id} AND "requestId"=${data.requestId}`;
-          if(old[0]) {if(old[0].ticketId!==id) throw new Error("معرّف الدفعة مستخدم");return {id};}
+          if(old[0]) {if(old[0].ticketId!==id) throw new LaundryInputError("معرّف الدفعة مستخدم");return {id};}
           const amount=moneyToHalalas(data.amount);
-          if(amount<=0 || amount>ticket.total-ticket.paid) throw new Error("الدفعة يجب ألا تتجاوز المبلغ المتبقي");
+          if(amount<=0 || amount>ticket.total-ticket.paid) throw new LaundryInputError("الدفعة يجب ألا تتجاوز المبلغ المتبقي");
           await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${randomUUID()},${business.id},${id},${data.requestId},${amount},${data.method},${user.id})`;
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "paid"="paid"+${amount},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
         } else {
           if(ticket.status===data.status)return {id};
-          if(!nextLaundryStatus(ticket.status,data.status,ticket.total-ticket.paid)) throw new Error("اتبع مراحل الطلب بالترتيب، وسدّد المتبقي قبل التسليم");
+          if(!nextLaundryStatus(ticket.status,data.status,ticket.total-ticket.paid)) throw new LaundryInputError("اتبع مراحل الطلب بالترتيب، وسدّد المتبقي قبل التسليم");
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "status"=${data.status},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
         }
       }
@@ -77,7 +77,6 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
     revalidatePath("/Laundromat");
     return {ok:true,id:result.id};
   } catch(error) {
-    const message=error instanceof Error?error.message:"";
-    return {ok:false,error:/[\u0600-\u06ff]/.test(message)?message:"تعذر حفظ العملية. أعد المحاولة؛ لن تتكرر الدفعة أو الطلب."};
+    return {ok:false,error:error instanceof LaundryInputError?error.message:"تعذر حفظ العملية. أعد المحاولة؛ لن تتكرر الدفعة أو الطلب."};
   }
 }
