@@ -1,4 +1,5 @@
 export const STAFF_SECTIONS = {
+  laundry: { label: "كاشير المغسلة", href: "/Laundromat" },
   page: { label: "صفحتي والخدمات والفروع", href: "/dashboard/my-page" },
   identity: { label: "الهوية الرقمية والتوثيق", href: "/dashboard/digital-identity" },
   orders: { label: "الطلبات", href: "/dashboard/inbox" },
@@ -28,6 +29,7 @@ export function staffSectionForPath(pathname: string): StaffSection | null {
   return roots[root] ?? null;
 }
 export function staffCanOpenPath(pathname: string, permissions: unknown) {
+  if (pathname === "/Laundromat") return memberCanAccess(permissions, "laundry");
   if (["/dashboard", "/dashboard/settings", "/dashboard/settings/sessions"].includes(pathname)) return true;
   const section = staffSectionForPath(pathname);
   return section !== null && memberCanAccess(permissions, section);

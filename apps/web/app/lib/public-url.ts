@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 
 export const RESERVED_PUBLIC_SLUGS = new Set([
+  "laundromat",
   "", "about", "admin", "api", "auth", "b", "blog", "business", "contact", "dashboard", "demo", "docs", "faq", "home", "index", "login", "join-team", "logout", "onboarding", "preview", "pricing", "privacy", "register", "settings", "signup", "support", "terms", "_next",
 ]);
 
