@@ -14,3 +14,11 @@ test("laundry persistence has tenant uniqueness, composite foreign keys and mone
  assert.ok(migration.includes('"paid" <= "total"'));
  assert.ok(migration.includes('UNIQUE ("businessId","number")'));
 });
+test("preset activation is owner-only, transactional, tenant-scoped and idempotent",()=>{
+ assert.ok(actions.includes('["service","catalog","archive","expense"]'));
+ assert.ok(actions.includes('resolveLaundryPreset(item.presetId,data.operation)'));
+ assert.ok(actions.includes('"businessId"=${business.id} AND "id"=${id} AND "action"=\'catalog\''));
+ assert.ok(actions.includes('WHERE NOT EXISTS (SELECT 1 FROM "LaundryService" s WHERE s."businessId"=${business.id}'));
+ assert.ok(actions.includes('jsonb_to_recordset(${JSON.stringify(presets)}::jsonb)'));
+ assert.ok(actions.includes('if(price<=0)'));
+});

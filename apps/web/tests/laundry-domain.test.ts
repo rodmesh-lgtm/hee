@@ -1,12 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { laundryLines, moneyToHalalas, nextLaundryStatus } from "../app/lib/laundry-domain";
+import { laundryFilter, laundryLines, moneyToHalalas, nextLaundryStatus } from "../app/lib/laundry-domain";
 import { isReservedPublicSlug } from "../app/lib/public-url";
 test("laundry workspace cannot be claimed as a public business slug",()=>{
  assert.equal(isReservedPublicSlug("laundromat"),true);
  assert.equal(isReservedPublicSlug("Laundromat"),true);
 });
 const service={id:"one",name:"ثوب — غسيل وكوي",category:"غسيل",price:525,active:true};
+test("laundry filters accept only known scalar values",()=>{
+ for(const value of ["all","overdue","ready","unpaid","delivered"])assert.equal(laundryFilter(value),value);
+ for(const value of [undefined,null,[],"__proto__","constructor","' OR TRUE --"])assert.equal(laundryFilter(value),"all");
+});
 test("laundry amounts use exact minor units and reject malformed or excessive values",()=>{
  assert.equal(moneyToHalalas("5.25"),525);assert.equal(moneyToHalalas("0.10"),10);
  for(const value of ["-1","1e3","1.005","NaN","100000.01",""])assert.throws(()=>moneyToHalalas(value));

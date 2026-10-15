@@ -610,13 +610,24 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         const page = await context.newPage(); page.setDefaultTimeout(15_000);
         page.on("dialog", dialog => dialog.accept());
         await page.goto(`${baseUrl}/dashboard/settings/sessions`);
-        await page.locator('input[name="sessionId"]').evaluate((element, value) => { (element as HTMLInputElement).value = value; }, foreign.id);
+        // Forge the submitted payload, not a controlled input that hydration can restore.
+        await page.locator('input[name="sessionId"]').evaluate((element, value) => {
+          const form = (element as HTMLInputElement).form!;
+          form.addEventListener("formdata", event => { event.formData.set("sessionId", value); });
+        }, foreign.id);
         await page.getByRole("button", { name: "إنهاء الجلسة", exact: true }).click();
         await expect(page).toHaveURL(/result=unchanged/);
         expect(await db.session.findUnique({ where: { id: foreign.id } })).not.toBeNull();
-        await page.locator('input[name="sessionId"]').evaluate((element, value) => { (element as HTMLInputElement).value = value; }, current.id);
+        expect(await db.session.findUnique({ where: { id: other.id } })).not.toBeNull();
+        // Reload removes the previous formdata listener before the next forged request.
+        await page.goto(`${baseUrl}/dashboard/settings/sessions`);
+        await page.locator('input[name="sessionId"]').evaluate((element, value) => {
+          const form = (element as HTMLInputElement).form!;
+          form.addEventListener("formdata", event => { event.formData.set("sessionId", value); });
+        }, current.id);
         await page.getByRole("button", { name: "إنهاء الجلسة", exact: true }).click();
         await expect(page).toHaveURL(/result=current/);
+        await page.goto(`${baseUrl}/dashboard/settings/sessions`);
         await page.getByRole("button", { name: "إنهاء جميع الجلسات الأخرى", exact: true }).click();
         await expect(page).toHaveURL(/result=revoked/);
         await expect(page.locator('section[aria-label="قائمة جلسات الحساب"] article')).toHaveCount(1);

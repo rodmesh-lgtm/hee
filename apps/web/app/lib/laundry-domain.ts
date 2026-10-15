@@ -1,5 +1,10 @@
 export const LAUNDRY_STATUSES = { received: "مستلم", processing: "قيد المعالجة", ready: "جاهز للاستلام", delivered: "تم التسليم" } as const;
 export class LaundryInputError extends Error {}
+export const LAUNDRY_FILTERS = { all: "جميع الطلبات", overdue: "متأخرة عن التسليم", ready: "جاهزة للاستلام", unpaid: "غير مسددة", delivered: "تم تسليمها" } as const;
+export type LaundryFilter = keyof typeof LAUNDRY_FILTERS;
+export function laundryFilter(value: unknown): LaundryFilter {
+  return typeof value === "string" && Object.hasOwn(LAUNDRY_FILTERS, value) ? value as LaundryFilter : "all";
+}
 export type LaundryStatus = keyof typeof LAUNDRY_STATUSES;
 export type LaundryService = { id: string; name: string; category: string; price: number; active: boolean };
 export type LaundryLine = { serviceId: string; name: string; quantity: number; unitPrice: number; total: number };

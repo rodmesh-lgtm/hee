@@ -248,10 +248,9 @@ jobs:
             /tmp/hee-production-backup-verify.dump
 
       - name: Prove restored critical data matches technically paused production source
-        env:
-          SOURCE_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-          RESTORE_DATABASE_URL: ${{ secrets.PRODUCTION_RESTORE_DATABASE_URL }}
-        run: npm run backup:production-proof
+        run: |
+          # Reuse the verified URLs used by pg_dump and pg_restore, not raw secrets.
+          SOURCE_DATABASE_URL="$DATABASE_URL" npm run backup:production-proof
 
       - name: Capture pre-migration critical data fingerprint
         run: npm run migration:production-data-proof -- --capture /tmp/hee-production-pre-migration-proof.json
