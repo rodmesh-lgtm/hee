@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 function isSensitivePrivatePath(pathname: string) {
+  if (pathname === "/Laundromat" || pathname.startsWith("/Laundromat/")) return true;
   return pathname.startsWith("/dashboard") || pathname.startsWith("/admin") || pathname === "/login" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/reset-password" || pathname === "/verify-email" || pathname === "/join-team" || pathname === "/onboarding" || pathname === "/preview";
 }
 function isProduction() { const appEnv = String(process.env.APP_ENV ?? "").trim().toLowerCase(); const vercelEnv = String(process.env.VERCEL_ENV ?? "").trim().toLowerCase(); return appEnv === "production" || vercelEnv === "production"; }

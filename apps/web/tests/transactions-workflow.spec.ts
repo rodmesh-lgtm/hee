@@ -84,6 +84,51 @@ async function cleanup(seed: Seeded) {
 }
 
 test.describe.serial("public transactions workflow", () => {
+  test("laundry cashier persists exact amounts, rejects cross-tenant replay, and prints saved orders", async ({browser},testInfo)=>{
+    test.setTimeout(120000);
+    const fixture=await seed();const outsider=await seed();const page=await browser.newPage({viewport:{width:1440,height:1000}});
+    try{
+      await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/Laundromat`);
+      await page.getByRole("button",{name:"الخدمات والأسعار",exact:true}).click();
+      await page.getByLabel("اسم القطعة والخدمة",{exact:true}).fill("ثوب — غسيل وكوي");
+      await page.getByLabel("التصنيف",{exact:true}).fill("غسيل وكوي");
+      await page.getByLabel("السعر بالريال",{exact:true}).fill("5.25");
+      await page.getByRole("button",{name:"إضافة الخدمة",exact:true}).click();
+      await expect(page.getByText("تم حفظ العملية بنجاح",{exact:true})).toBeVisible();
+      await page.getByRole("button",{name:"الكاشير",exact:true}).click();
+      const service=page.locator(".ld-services button").filter({hasText:"ثوب — غسيل وكوي"});await service.click();await service.click();
+      await page.getByLabel("اسم العميل",{exact:true}).fill("عميل اختبار المغسلة");
+      await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009940");
+      await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(2)}T16:00`);
+      await page.getByLabel("الدفعة المستلمة",{exact:true}).fill("5.25");
+      await page.screenshot({path:testInfo.outputPath("laundry-cashier-desktop.png"),fullPage:true});
+      const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+      await page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true}).click();const request=await sent;
+      await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toBeVisible();
+      const replay=()=>page.request.post(request.url(),{headers:{"next-action":request.headers()["next-action"],"content-type":request.headers()["content-type"],origin:new URL(baseUrl).origin},data:request.postData()??""});
+      await replay();
+      const rows=await db.$queryRaw<Array<{id:string;total:number;paid:number;status:string}>>`SELECT "id","total","paid","status" FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
+      expect(rows).toHaveLength(1);expect(rows[0]).toMatchObject({total:1050,paid:525,status:"received"});
+      await page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true}).click();
+      await expect(page.getByRole("heading",{name:"فاتورة خدمات / إيصال استلام",exact:true})).toBeVisible();
+      await page.getByLabel("دفعة إضافية",{exact:true}).fill("5.25");await page.getByRole("button",{name:"تسجيل الدفعة",exact:true}).click();
+      await expect(page.getByLabel("دفعة إضافية",{exact:true})).toHaveCount(0);
+      for(const status of ["قيد المعالجة","جاهز للاستلام","تم التسليم"]){await page.getByRole("button",{name:`المرحلة التالية: ${status}`,exact:true}).click();await expect(page.getByRole("button",{name:`المرحلة التالية: ${status}`,exact:true})).toHaveCount(0);}
+      await page.setViewportSize({width:390,height:844});await page.screenshot({path:testInfo.outputPath("laundry-invoice-mobile.png"),fullPage:true});
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+      await page.emulateMedia({media:"print"});await expect(page.locator(".ld-dialog-tools").first()).toBeHidden();await page.emulateMedia({media:"screen"});
+      await setSession(page,outsider.sessionToken);await replay();
+      const foreign=await db.$queryRaw<Array<{count:number}>>`SELECT COUNT(*)::int AS count FROM "LaundryTicket" WHERE "businessId"=${outsider.businessId}`;expect(foreign[0].count).toBe(0);
+    }finally{
+      await page.close();
+      await db.$executeRaw`DELETE FROM "LaundryAudit" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "LaundryPayment" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "LaundryExpense" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "LaundryService" WHERE "businessId"=${fixture.businessId}`;
+      await cleanup(fixture);await cleanup(outsider);
+    }
+  });
   test.beforeAll(async () => {
     const connectionString = String(process.env.DATABASE_URL ?? "").trim();
     if (!connectionString) throw new Error("DATABASE_URL is required");
