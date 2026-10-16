@@ -9,8 +9,8 @@ export async function getLaundryReport(value:unknown):Promise<{ok:true;report:La
  if(!parsed.success)return {ok:false,error:"راجع المنشأة وتواريخ التقرير"};
  const input=parsed.data;
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يرجى تسجيل الدخول"};
- const business=await getActiveBusinessForUser(user.id,"laundry");
- if(!business||business.ownerId!==user.id||business.id!==input.businessId)return {ok:false,error:"التقرير متاح لمالك المنشأة النشطة فقط"};
+ const business=await getActiveBusinessForUser(user.id,"laundryAccounting");
+ if(!business||business.id!==input.businessId)return {ok:false,error:"التقرير يتطلب صلاحية محاسبة المنشأة النشطة"};
  let range;try{range=laundryReportRange(input.from,input.to);}catch(error){return {ok:false,error:error instanceof Error?error.message:"فترة غير صالحة"};}
  const {start,end}=range;
  try{
