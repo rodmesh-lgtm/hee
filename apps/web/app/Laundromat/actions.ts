@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
+import { postLaundrySource } from "../lib/laundry-ledger";
 import { resolveLaundryPreset } from "../lib/laundry-catalog";
 import { getCurrentUserForApiWrite } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
@@ -17,7 +18,7 @@ const command = z.discriminatedUnion("type", [
   z.object({ type: z.literal("order"), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().regex(/^\+?[0-9]{9,15}$/), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer"]), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
   z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer"]) }),
   z.object({ type: z.literal("status"), requestId: key, id: key, status: z.enum(["received","processing","ready","delivered"]) }),
-  z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string() }),
+  z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string(), method:z.enum(["cash","transfer","unspecified"]).default("unspecified") }),
 ]);
 export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?:string;id?:string}> {
   const parsed = command.safeParse(value);
@@ -71,11 +72,16 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         const rows=await tx.$queryRaw<Array<{number:number}>>`SELECT COALESCE(MAX("number"),0)+1 AS "number" FROM "LaundryTicket" WHERE "businessId"=${business.id}`;
         id=randomUUID();
         await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${data.phone},${JSON.stringify(lines)}::jsonb,${total},${paid},${dueAt},${data.notes},${user.id})`;
-        if(paid>0) await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${randomUUID()},${business.id},${id},${data.requestId},${paid},${data.method},${user.id})`;
+        await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"order",amount:total,at:new Date(),description:`استلام طلب #${rows[0].number}`});
+        if(paid>0){const paymentId=randomUUID();await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${paymentId},${business.id},${id},${data.requestId},${paid},${data.method},${user.id})`;
+        await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id:paymentId,kind:"payment",amount:paid,method:data.method,at:new Date(),description:`تحصيل طلب #${rows[0].number}`});}
       } else if(data.type==="expense") {
         id=data.requestId; const amount=moneyToHalalas(data.amount);
         if(amount<=0) throw new LaundryInputError("أدخل مبلغًا أكبر من صفر");
-        await tx.$executeRaw`INSERT INTO "LaundryExpense" ("id","businessId","requestId","description","amount","createdBy") VALUES (${id},${business.id},${data.requestId},${data.description},${amount},${user.id}) ON CONFLICT ("businessId","requestId") DO NOTHING`;
+        const existing=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "LaundryExpense" WHERE "businessId"=${business.id} AND "requestId"=${data.requestId}`;
+        if(existing[0])return {id:existing[0].id};
+        await tx.$executeRaw`INSERT INTO "LaundryExpense" ("id","businessId","requestId","description","amount","method","createdBy") VALUES (${id},${business.id},${data.requestId},${data.description},${amount},${data.method},${user.id})`;
+        await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"expense",amount,method:data.method,at:new Date(),description:data.description});
       } else {
         id=data.id;
         const rows=await tx.$queryRaw<LaundryTicket[]>`SELECT * FROM "LaundryTicket" WHERE "id"=${id} AND "businessId"=${business.id} FOR UPDATE`;
@@ -85,17 +91,19 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           if(old[0]) {if(old[0].ticketId!==id) throw new LaundryInputError("معرّف الدفعة مستخدم");return {id};}
           const amount=moneyToHalalas(data.amount);
           if(amount<=0 || amount>ticket.total-ticket.paid) throw new LaundryInputError("الدفعة يجب ألا تتجاوز المبلغ المتبقي");
-          await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${randomUUID()},${business.id},${id},${data.requestId},${amount},${data.method},${user.id})`;
+          const paymentId=randomUUID();await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${paymentId},${business.id},${id},${data.requestId},${amount},${data.method},${user.id})`;
+          await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id:paymentId,kind:"payment",amount,method:data.method,at:new Date(),description:`تحصيل طلب #${ticket.number}`});
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "paid"="paid"+${amount},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
         } else {
           if(ticket.status===data.status)return {id};
           if(!nextLaundryStatus(ticket.status,data.status,ticket.total-ticket.paid)) throw new LaundryInputError("اتبع مراحل الطلب بالترتيب، وسدّد المتبقي قبل التسليم");
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "status"=${data.status},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
+          if(data.status==="delivered")await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"delivery",amount:ticket.total,at:new Date(),description:`إيراد تسليم طلب #${ticket.number}`});
         }
       }
       await tx.$executeRaw`INSERT INTO "LaundryAudit" ("id","businessId","actorId","action","targetId") VALUES (${(data.type==="catalog"||data.type==="product")?data.requestId:randomUUID()},${business.id},${user.id},${data.type},${id})`;
       return {id};
-    });
+    },{timeout:15000});
     revalidatePath("/Laundromat");
     return {ok:true,id:result.id};
   } catch(error) {

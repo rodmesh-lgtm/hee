@@ -2,7 +2,7 @@
 
 Updated 2026-10-16. User requested a multi-tenant product comparable in scope to the supplied MCSE feature list. INFRO remains the product name. A listed requirement is not a claim that it ships.
 
-## Release in this branch
+## Published cashier release (PR #391)
 
 - Touch targets, mobile catalog/cart switching, tablet split layout, product search, mobile order cards.
 - Approved INFRO brand component, tenant logo upload, receipt logo, A4 / 80 mm browser printing.
@@ -18,8 +18,8 @@ Updated 2026-10-16. User requested a multi-tenant product comparable in scope to
 | Cloud POS | Persisted orders, prices, payments, receipts, tenant guards; responsive work in this branch | Cash shifts, reconciliation, refunds/voids, controlled discounts, customer lookup |
 | Customers and laundry subscriptions | Customer name/phone snapshots on orders | Tenant customer profile, consent/contact preferences, statement, prepaid plans with audited purchase/redemption/expiry/refund; platform subscription is NOT a laundry subscription |
 | Inventory / stocktake / electronic warehouse | Not implemented for laundry | Warehouses, SKUs/units, receipts/issues/transfers, stock counts, adjustment reason, balances, reorder alerts, negative-stock/concurrent-write guards |
-| Journal and basic accounting | Operational cash/receivable report, not double-entry accounting | Chart of accounts, balanced journals, immutable posting, reversals, source links, period locking and audit |
-| Full accounting | Not implemented | Opening balances, receivables/payables, purchase bills, supplier ledger, bank reconciliation, general ledger, trial balance, accrual income and balance sheet; fixtures must prove debit=credit and source-to-ledger reconciliation |
+| Journal and basic accounting | In this branch, pending CI and schema deployment: tenant ledger, chart, balanced journals, automatic source posting, resumable backfill, reversals, locking, trial balance/account details and CSV | Production migration and end-to-end acceptance; automatic-source corrections remain future work |
+| Full accounting | Basic ledger in progress; not a complete ERP | Opening balances, receivables/payables, purchase bills, supplier ledger, bank reconciliation, general ledger, trial balance, accrual income and balance sheet; fixtures must prove debit=credit and source-to-ledger reconciliation |
 | Employees and permissions | Existing platform staff and laundry section access; owner-only configuration/expenses/reporting | Separate cashier, supervisor, accountant and driver scopes with server-enforced row/action access; no blanket driver access to customers/finance |
 | Delivery app | Not implemented | Mobile driver workspace, assigned jobs only, pickup/delivery stages, proof of delivery, customer location with consent, cash handoff and failed delivery handling; no claim of native-store app |
 | Contracts / vouchers / e-signature | Saved receipt / payment evidence only | Versioned contract, parties, terms, acceptance evidence, immutable signed copy, revocation/reissue; validated e-signature provider integration where required. Drawing a signature is not a certified digital signature |

@@ -88,7 +88,13 @@ test.describe.serial("public transactions workflow", () => {
     test.setTimeout(120000);
     const fixture=await seed();const outsider=await seed();const page=await browser.newPage({viewport:{width:1440,height:1000}});
     try{
+      // Historical expenses exercise more than one resumable backfill batch without inventing a cash source.
+      for(let i=0;i<26;i++)await db.$executeRaw`INSERT INTO "LaundryExpense" ("id","businessId","requestId","description","amount","createdBy","createdAt") VALUES (${crypto.randomUUID()},${fixture.businessId},${crypto.randomUUID()},'مصروف سابق تجريبي',100,${fixture.userId},now()-interval '1 day')`;
       await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/Laundromat`);
+      await page.getByRole("button",{name:"دفتر المحاسبة",exact:true}).click();
+      await page.getByRole("button",{name:"تهيئة الدفتر من العمليات المسجلة",exact:true}).click();
+      await expect(page.getByRole("heading",{name:"ميزان المراجعة ودليل الحسابات",exact:true})).toBeVisible();
+
       await page.getByRole("button",{name:"الخدمات والأسعار",exact:true}).click();
       await page.getByLabel("سعر فنيلة داخلية — غسيل وكوي",{exact:true}).fill("2.50");
       await page.getByLabel("سعر سروال داخلي — غسيل وكوي",{exact:true}).fill("3.00");
@@ -202,12 +208,65 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByRole("button",{name:"الطلبات والتسليم",exact:true}).click();
       await page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true}).click();
       await expect(page.getByAltText("شعار المنشأة في الفاتورة",{exact:true})).toBeVisible();
+      await page.getByRole("button",{name:"إغلاق",exact:true}).click();
+      await page.getByRole("button",{name:"دفتر المحاسبة",exact:true}).click();
+      await expect(page.getByRole("heading",{name:"ميزان المراجعة ودليل الحسابات",exact:true})).toBeVisible();
+      const sourceJournals=await db.$queryRaw<Array<{count:number}>>`SELECT COUNT(*)::int AS count FROM "LaundryJournal" WHERE "businessId"=${fixture.businessId}`;
+      expect(sourceJournals[0].count).toBe(30);
+      expect((await db.$queryRaw<Array<{balance:number}>>`SELECT SUM(credit-debit)::float8 AS balance FROM "LaundryJournalLine" WHERE "businessId"=${fixture.businessId} AND "accountCode"='2900'`)[0].balance).toBe(2600);
+      const ledgerBalances=await db.$queryRaw<Array<{accountCode:string;balance:number}>>`SELECT "accountCode",SUM(debit-credit)::float8 AS balance FROM "LaundryJournalLine" WHERE "businessId"=${fixture.businessId} GROUP BY "accountCode"`;
+      expect(ledgerBalances.find(a=>a.accountCode==="1200")?.balance).toBe(0);
+      expect(ledgerBalances.find(a=>a.accountCode==="2200")?.balance).toBe(0);
+      expect(ledgerBalances.find(a=>a.accountCode==="4000")?.balance).toBe(-750);
+      await page.getByLabel("بيان القيد",{exact:true}).fill("رصيد افتتاحي تجريبي موثق");
+      await page.getByLabel("الحساب — سطر 1",{exact:true}).selectOption("1100");
+      await page.getByLabel("الحساب — سطر 2",{exact:true}).selectOption("3000");
+      await page.getByLabel("المبلغ — سطر 1",{exact:true}).fill("25");
+      await page.getByLabel("المبلغ — سطر 2",{exact:true}).fill("24");
+      await page.getByRole("button",{name:"ترحيل القيد المتوازن",exact:true}).click();
+      await expect(page.getByRole("alert")).toContainText("إجمالي المدين يجب أن يساوي إجمالي الدائن");
+      await page.getByLabel("المبلغ — سطر 2",{exact:true}).fill("25");
+      const journalSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+      await page.getByRole("button",{name:"ترحيل القيد المتوازن",exact:true}).click();const journalRequest=await journalSent;
+      await expect(page.getByRole("button",{name:"عكس القيد",exact:true})).toBeVisible();
+      await page.request.post(journalRequest.url(),{headers:{"next-action":journalRequest.headers()["next-action"],"content-type":journalRequest.headers()["content-type"],origin:new URL(baseUrl).origin},data:journalRequest.postData()??""});
+      page.once("dialog",dialog=>dialog.accept("عكس تجريبي موثق"));
+      await page.getByRole("button",{name:"عكس القيد",exact:true}).click();
+      await expect(page.getByText("عُكس بقيد مستقل",{exact:true})).toBeVisible();
+      const manualCount=await db.$queryRaw<Array<{count:number}>>`SELECT COUNT(*)::int AS count FROM "LaundryJournal" WHERE "businessId"=${fixture.businessId} AND ("sourceKey" LIKE 'manual:%' OR "sourceKey" LIKE 'reversal:%')`;
+      expect(manualCount[0].count).toBe(2);
+      // Database constraint rejects incomplete journals even if application validation is bypassed.
+      await expect(db.$transaction(async tx=>{
+        await tx.$executeRaw`INSERT INTO "LaundryJournal" ("id","businessId","number","sourceKey","description","effectiveAt","createdBy") VALUES (${crypto.randomUUID()},${fixture.businessId},999,'test-unbalanced','قيد مرفوض',now(),${fixture.userId})`;
+      })).rejects.toThrow("LAUNDRY_JOURNAL_UNBALANCED");
+      await page.getByText("إقفال فترة محاسبية",{exact:true}).click();
+      await page.getByLabel("إقفال حتى نهاية يوم",{exact:true}).fill(riyadhDateKey(-1));
+      await page.getByRole("checkbox",{name:"راجعت الفترة وأفهم أن الإقفال يمنع الترحيل إليها"}).check();
+      await page.getByRole("button",{name:"إقفال الفترة السابقة",exact:true}).click();
+      await expect(page.getByText(/آخر حد إقفال:/)).toBeVisible();
+      await page.getByLabel("تاريخ القيد",{exact:true}).fill(riyadhDateKey(-1));
+      await page.getByLabel("بيان القيد",{exact:true}).fill("قيد مرفوض في فترة مقفلة");
+      await page.getByLabel("المبلغ — سطر 1",{exact:true}).fill("1");
+      await page.getByLabel("المبلغ — سطر 2",{exact:true}).fill("1");
+      await page.getByRole("button",{name:"ترحيل القيد المتوازن",exact:true}).click();
+      await expect(page.getByRole("alert")).toContainText("الفترة المحاسبية مغلقة");
+      await page.screenshot({path:testInfo.outputPath("laundry-ledger-mobile.png"),fullPage:true});
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
       await setSession(page,outsider.sessionToken);await replay();
+      const deniedJournal=await page.request.post(journalRequest.url(),{headers:{"next-action":journalRequest.headers()["next-action"],"content-type":journalRequest.headers()["content-type"],origin:new URL(baseUrl).origin},data:journalRequest.postData()??""});
+      expect(await deniedJournal.text()).toContain("دفتر الحسابات متاح لمالك المنشأة النشطة فقط");
       const deniedReport=await page.request.post(reportRequest.url(),{headers:{"next-action":reportRequest.headers()["next-action"],"content-type":reportRequest.headers()["content-type"],origin:new URL(baseUrl).origin},data:reportRequest.postData()??""});
       expect(await deniedReport.text()).toContain("التقرير متاح لمالك المنشأة النشطة فقط");
       const foreign=await db.$queryRaw<Array<{count:number}>>`SELECT COUNT(*)::int AS count FROM "LaundryTicket" WHERE "businessId"=${outsider.businessId}`;expect(foreign[0].count).toBe(0);
     }finally{
       await page.close();
+      await db.$transaction(async tx=>{
+        await tx.$executeRaw`DELETE FROM "LaundryJournalLine" WHERE "businessId"=${fixture.businessId}`;
+        await tx.$executeRaw`DELETE FROM "LaundryJournal" WHERE "businessId"=${fixture.businessId} AND "reversalOf" IS NOT NULL`;
+        await tx.$executeRaw`DELETE FROM "LaundryJournal" WHERE "businessId"=${fixture.businessId}`;
+        await tx.$executeRaw`DELETE FROM "LaundryAccount" WHERE "businessId"=${fixture.businessId}`;
+        await tx.$executeRaw`DELETE FROM "LaundryBook" WHERE "businessId"=${fixture.businessId}`;
+      });
       await db.$executeRaw`DELETE FROM "LaundryAudit" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryPayment" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
