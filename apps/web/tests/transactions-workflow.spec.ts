@@ -92,6 +92,7 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByRole("button",{name:"الخدمات والأسعار",exact:true}).click();
       await page.getByLabel("سعر فنيلة داخلية",{exact:true}).fill("2.50");
       await page.getByLabel("سعر سروال داخلي",{exact:true}).fill("3.00");
+      await page.getByLabel("سعر فنيلة داخلية — كوي فقط",{exact:true}).fill("1.25");
       const catalogSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
       await page.getByRole("button",{name:"إضافة الأصناف المسعّرة إلى الكاشير",exact:true}).click();
       const catalogRequest=await catalogSent;
@@ -100,14 +101,19 @@ test.describe.serial("public transactions workflow", () => {
       const presetRows=await db.$queryRaw<Array<{price:number}>>`SELECT "price" FROM "LaundryService" WHERE "businessId"=${fixture.businessId} AND "name"='فنيلة داخلية — غسيل وكوي'`;
       expect(presetRows).toEqual([{price:250}]);
       const allPresets=await db.$queryRaw<Array<{count:number}>>`SELECT COUNT(*)::int AS count FROM "LaundryService" WHERE "businessId"=${fixture.businessId}`;
-      expect(allPresets[0].count).toBe(2);
-      await page.getByLabel("اسم القطعة والخدمة",{exact:true}).fill("ثوب — غسيل وكوي");
-      await page.getByLabel("التصنيف",{exact:true}).fill("غسيل وكوي");
-      await page.getByLabel("السعر بالريال",{exact:true}).fill("5.25");
-      await page.getByRole("button",{name:"إضافة الخدمة",exact:true}).click();
+      expect(allPresets[0].count).toBe(3);
+      await expect(page.getByLabel("سعر فنيلة داخلية — غسيل وكوي",{exact:true})).toHaveCount(0);
+      await page.getByLabel("اسم الصنف",{exact:true}).fill("ثوب");
+      await page.getByLabel("التصنيف",{exact:true}).fill("ملابس رجالية");
+      await page.getByLabel("سعر غسيل وكوي",{exact:true}).fill("5.25");
+      await page.getByLabel("سعر كوي فقط",{exact:true}).fill("2.25");
+      await page.getByRole("button",{name:"إضافة الصنف",exact:true}).click();
       await expect(page.getByText("تم حفظ العملية بنجاح",{exact:true})).toBeVisible();
       await page.getByRole("button",{name:"الكاشير",exact:true}).click();
-      const service=page.locator(".ld-services button").filter({hasText:"ثوب — غسيل وكوي"});await service.click();await service.click();
+      const product=page.locator(".ld-product-card").filter({has:page.getByRole("heading",{name:"ثوب",exact:true})});
+      await expect(product).toHaveCount(1);
+      await product.getByRole("button",{name:"إضافة ثوب — غسيل وكوي",exact:true}).click();
+      await product.getByRole("button",{name:"إضافة ثوب — كوي",exact:true}).click();
       await page.getByLabel("اسم العميل",{exact:true}).fill("عميل اختبار المغسلة");
       await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009940");
       await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(2)}T16:00`);
@@ -119,7 +125,7 @@ test.describe.serial("public transactions workflow", () => {
       const replay=()=>page.request.post(request.url(),{headers:{"next-action":request.headers()["next-action"],"content-type":request.headers()["content-type"],origin:new URL(baseUrl).origin},data:request.postData()??""});
       await replay();
       const rows=await db.$queryRaw<Array<{id:string;total:number;paid:number;status:string}>>`SELECT "id","total","paid","status" FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
-      expect(rows).toHaveLength(1);expect(rows[0]).toMatchObject({total:1050,paid:525,status:"received"});
+      expect(rows).toHaveLength(1);expect(rows[0]).toMatchObject({total:750,paid:525,status:"received"});
       await db.$executeRaw`UPDATE "LaundryTicket" SET "dueAt"=now()-interval '1 hour' WHERE "businessId"=${fixture.businessId} AND "id"=${rows[0].id}`;
       await page.goto(`${baseUrl}/Laundromat?filter=overdue`);
       await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toHaveCount(1);
@@ -130,7 +136,9 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByRole("link",{name:"جميع الطلبات",exact:true}).click();
       await page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true}).click();
       await expect(page.getByRole("heading",{name:"فاتورة غير ضريبية / إيصال استلام",exact:true})).toBeVisible();
-      await page.getByLabel("دفعة إضافية",{exact:true}).fill("5.25");await page.getByRole("button",{name:"تسجيل الدفعة",exact:true}).click();
+      await expect(page.locator(".ld-receipt tbody tr")).toHaveCount(2);
+      await expect(page.locator(".ld-receipt")).toContainText("ثوب — كوي");
+      await page.getByLabel("دفعة إضافية",{exact:true}).fill("2.25");await page.getByRole("button",{name:"تسجيل الدفعة",exact:true}).click();
       await expect(page.getByLabel("دفعة إضافية",{exact:true})).toHaveCount(0);
       for(const status of ["قيد المعالجة","جاهز للاستلام","تم التسليم"]){await page.getByRole("button",{name:`المرحلة التالية: ${status}`,exact:true}).click();await expect(page.getByRole("button",{name:`المرحلة التالية: ${status}`,exact:true})).toHaveCount(0);}
       await page.setViewportSize({width:390,height:844});await page.screenshot({path:testInfo.outputPath("laundry-invoice-mobile.png"),fullPage:true});
