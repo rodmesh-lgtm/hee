@@ -112,8 +112,15 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByRole("button",{name:"الكاشير",exact:true}).click();
       const product=page.locator(".ld-product-card").filter({has:page.getByRole("heading",{name:"ثوب",exact:true})});
       await expect(product).toHaveCount(1);
-      await product.getByRole("button",{name:"إضافة ثوب — غسيل وكوي",exact:true}).click();
+      const operationTabs=page.getByRole("navigation",{name:"نوع خدمة المغسلة"});
+      await operationTabs.getByRole("button",{name:"كوي فقط",exact:true}).click();
+      await expect(page.locator(".ld-product-options button").filter({hasText:"غسيل وكوي"})).toHaveCount(0);
+      await expect(page.locator(".ld-product-card").filter({hasText:"سروال داخلي"})).toHaveCount(0);
       await product.getByRole("button",{name:"إضافة ثوب — كوي",exact:true}).click();
+      await operationTabs.getByRole("button",{name:"غسيل وكوي",exact:true}).click();
+      await expect(page.locator(".ld-cart-lines")).toContainText("ثوب — كوي");
+      await expect(product.getByRole("button",{name:"إضافة ثوب — كوي",exact:true})).toHaveCount(0);
+      await product.getByRole("button",{name:"إضافة ثوب — غسيل وكوي",exact:true}).click();
       await page.getByLabel("اسم العميل",{exact:true}).fill("عميل اختبار المغسلة");
       await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009940");
       await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(2)}T16:00`);
