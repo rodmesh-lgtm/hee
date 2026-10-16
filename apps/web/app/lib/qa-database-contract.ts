@@ -91,6 +91,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20261015070000_dashboard_navigation_order",
   "20261015104000_whatsapp_template_connection_names",
   "20261015190000_laundry_workspace",
+  "20261016090000_laundry_ledger",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;
