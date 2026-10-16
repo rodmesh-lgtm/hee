@@ -16,7 +16,7 @@ const commands=z.discriminatedUnion("type",[
 export async function laundryPurchaseCommand(value:unknown):Promise<{ok:boolean;error?:string}>{
  const p=commands.safeParse(value),scope=z.object({businessId:key,requestId:key}).safeParse(value);if(!p.success||!scope.success)return {ok:false,error:"راجع بيانات المورد أو الفاتورة"};
  const user=await getCurrentUserForApiWrite();if(!user)return {ok:false,error:"يلزم حساب موثق"};
- const b=await getActiveBusinessForUser(user.id,"laundry");if(!b||b.ownerId!==user.id||b.id!==scope.data.businessId)return {ok:false,error:"المشتريات متاحة لمالك المنشأة النشطة فقط"};
+ const b=await getActiveBusinessForUser(user.id,"laundryAccounting");if(!b||b.id!==scope.data.businessId)return {ok:false,error:"المشتريات تتطلب صلاحية محاسبة المنشأة النشطة"};
  const d=p.data,rid=scope.data.requestId;
  try{await db.$transaction(async tx=>{
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${b.id}`}))`;
@@ -51,7 +51,7 @@ export type PurchaseView={suppliers:Array<{id:string;name:string;phone:string;to
 export async function getLaundryPurchases(value:unknown):Promise<{ok:true;view:PurchaseView}|{ok:false;error:string}>{
  const p=z.object({businessId:key,supplierId:key.or(z.literal(""))}).safeParse(value);if(!p.success)return {ok:false,error:"راجع المورد"};
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يلزم تسجيل الدخول"};
- const b=await getActiveBusinessForUser(user.id,"laundry");if(!b||b.ownerId!==user.id||b.id!==p.data.businessId)return {ok:false,error:"المشتريات متاحة لمالك المنشأة النشطة فقط"};
+ const b=await getActiveBusinessForUser(user.id,"laundryAccounting");if(!b||b.id!==p.data.businessId)return {ok:false,error:"المشتريات تتطلب صلاحية محاسبة المنشأة النشطة"};
  try{const view=await db.$transaction(async tx=>{
  const suppliers=await tx.$queryRaw<PurchaseView["suppliers"]>`SELECT s.id,s.name,s.phone,COALESCE(SUM(p.total),0)::float8 AS total,COALESCE(SUM(p.paid),0)::float8 AS paid FROM "LaundrySupplier" s LEFT JOIN "LaundryPurchase" p ON p."businessId"=s."businessId" AND p."supplierId"=s.id WHERE s."businessId"=${b.id} GROUP BY s.id ORDER BY s.name LIMIT 500`;
  const purchases=await tx.$queryRaw<Array<Omit<PurchaseView["purchases"][number],"createdAt">&{createdAt:Date}>>`SELECT p.id,p."supplierId",s.name AS "supplierName",p.reference,p.description,p.total,p.paid,p."createdAt" FROM "LaundryPurchase" p JOIN "LaundrySupplier" s ON s."businessId"=p."businessId" AND s.id=p."supplierId" WHERE p."businessId"=${b.id} AND (${p.data.supplierId}='' OR p."supplierId"=${p.data.supplierId}) ORDER BY p."createdAt" DESC,p.id LIMIT 100`;

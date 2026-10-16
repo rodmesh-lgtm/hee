@@ -20,8 +20,8 @@ export async function laundryLedgerCommand(value:unknown):Promise<{ok:boolean;er
  const scope=z.object({businessId:z.string().uuid()}).safeParse(value),parsed=commands.safeParse(value);
  if(!scope.success||!parsed.success)return {ok:false,error:"راجع بيانات العملية المحاسبية"};
  const user=await getCurrentUserForApiWrite();if(!user)return {ok:false,error:"يلزم حساب موثّق"};
- const business=await getActiveBusinessForUser(user.id,"laundry");
- if(!business||business.ownerId!==user.id||business.id!==scope.data.businessId)return {ok:false,error:"دفتر الحسابات متاح لمالك المنشأة النشطة فقط"};
+ const business=await getActiveBusinessForUser(user.id,"laundryAccounting");
+ if(!business||business.id!==scope.data.businessId)return {ok:false,error:"دفتر الحسابات يتطلب صلاحية محاسبة المنشأة النشطة"};
  const data=parsed.data;
  try{
  const result=await db.$transaction(async tx=>{
@@ -83,7 +83,7 @@ export type LaundryLedgerView={initialized:boolean;exists:boolean;lockedBefore:s
 export async function getLaundryLedger(value:unknown):Promise<{ok:true;view:LaundryLedgerView}|{ok:false;error:string}>{
  const p=z.object({businessId:z.string().uuid(),from:z.string().max(10),to:z.string().max(10)}).safeParse(value);if(!p.success)return {ok:false,error:"راجع تواريخ الدفتر"};
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يلزم تسجيل الدخول"};
- const business=await getActiveBusinessForUser(user.id,"laundry");if(!business||business.ownerId!==user.id||business.id!==p.data.businessId)return {ok:false,error:"دفتر الحسابات متاح لمالك المنشأة النشطة فقط"};
+ const business=await getActiveBusinessForUser(user.id,"laundryAccounting");if(!business||business.id!==p.data.businessId)return {ok:false,error:"دفتر الحسابات يتطلب صلاحية محاسبة المنشأة النشطة"};
  try{
  const {start,end}=laundryReportRange(p.data.from,p.data.to);
  const view=await db.$transaction(async tx=>{
@@ -102,7 +102,7 @@ export async function getLaundryLedgerDetails(value:unknown):Promise<{ok:true;li
  const p=z.object({businessId:z.string().uuid(),id:z.string().uuid().optional(),accountCode:z.string().regex(/^\d{4,8}$/).optional(),from:z.string().max(10),to:z.string().max(10)}).safeParse(value);
  if(!p.success||(!p.data.id&&!p.data.accountCode))return {ok:false,error:"حدد القيد أو الحساب"};
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يلزم تسجيل الدخول"};
- const b=await getActiveBusinessForUser(user.id,"laundry");if(!b||b.ownerId!==user.id||b.id!==p.data.businessId)return {ok:false,error:"تفاصيل الدفتر متاحة لمالك المنشأة النشطة فقط"};
+ const b=await getActiveBusinessForUser(user.id,"laundryAccounting");if(!b||b.id!==p.data.businessId)return {ok:false,error:"تفاصيل الدفتر تتطلب صلاحية محاسبة المنشأة النشطة"};
  try{const {start,end}=laundryReportRange(p.data.from,p.data.to);const id=p.data.id??"",account=p.data.accountCode??"";
  const lines=await db.$queryRaw<Array<Omit<LedgerDetailLine,"effectiveAt">&{effectiveAt:Date}>>`SELECT l.id,j.number,j.description,j."effectiveAt",l."accountCode",a.name,l.debit::float8,l.credit::float8 FROM "LaundryJournalLine" l JOIN "LaundryJournal" j ON j."businessId"=l."businessId" AND j.id=l."journalId" JOIN "LaundryAccount" a ON a."businessId"=l."businessId" AND a.code=l."accountCode" WHERE l."businessId"=${b.id} AND (${id}='' OR j.id=${id}) AND (${account}='' OR l."accountCode"=${account}) AND j."effectiveAt">=${start} AND j."effectiveAt"<${end} ORDER BY j."effectiveAt" DESC,j.number DESC,l.id LIMIT 200`;
  return {ok:true,lines:lines.map(l=>({...l,effectiveAt:l.effectiveAt.toISOString()}))};

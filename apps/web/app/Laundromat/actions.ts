@@ -98,6 +98,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "paid"="paid"+${amount},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
         } else {
           if(ticket.status===data.status)return {id};
+          if(data.status==="delivered"){const delivery=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryDelivery" WHERE "businessId"=${business.id} AND "ticketId"=${id}`;if(delivery.length)throw new LaundryInputError("هذا الطلب مسند للتوصيل؛ وثّق تسليمه من مساحة التوصيل");}
           if(!nextLaundryStatus(ticket.status,data.status,ticket.total-ticket.paid)) throw new LaundryInputError("اتبع مراحل الطلب بالترتيب، وسدّد المتبقي قبل التسليم");
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "status"=${data.status},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
           if(data.status==="delivered")await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"delivery",amount:ticket.total,at:new Date(),description:`إيراد تسليم طلب #${ticket.number}`});

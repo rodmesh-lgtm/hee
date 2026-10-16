@@ -16,7 +16,7 @@ const commands=z.discriminatedUnion("type",[
 export async function laundryInventoryCommand(value:unknown):Promise<{ok:boolean;error?:string}>{
  const scope=z.object({businessId:uuid,requestId:uuid}).safeParse(value),p=commands.safeParse(value);if(!p.success||!scope.success)return {ok:false,error:"راجع بيانات المخزون وسبب الحركة"};
  const user=await getCurrentUserForApiWrite();if(!user)return {ok:false,error:"يلزم حساب موثق"};
- const b=await getActiveBusinessForUser(user.id,"laundry");if(!b||b.ownerId!==user.id||b.id!==scope.data.businessId)return {ok:false,error:"المخزون متاح لمالك المنشأة النشطة فقط"};
+ const b=await getActiveBusinessForUser(user.id,"laundryOperations");if(!b||b.id!==scope.data.businessId)return {ok:false,error:"المخزون يتطلب صلاحية إشراف المنشأة النشطة"};
  const d=p.data;
  try{await db.$transaction(async tx=>{
  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${b.id}`}))`;
@@ -57,7 +57,7 @@ export type LaundryInventoryView={warehouseId:string;warehouses:Array<{id:string
 export async function getLaundryInventory(value:unknown):Promise<{ok:true;view:LaundryInventoryView}|{ok:false;error:string}>{
  const p=z.object({businessId:uuid,warehouseId:uuid.or(z.literal(""))}).safeParse(value);if(!p.success)return {ok:false,error:"حدد المنشأة والمستودع"};
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يلزم تسجيل الدخول"};
- const b=await getActiveBusinessForUser(user.id,"laundry");if(!b||b.ownerId!==user.id||b.id!==p.data.businessId)return {ok:false,error:"المخزون متاح لمالك المنشأة النشطة فقط"};
+ const b=await getActiveBusinessForUser(user.id,"laundryOperations");if(!b||b.id!==p.data.businessId)return {ok:false,error:"المخزون يتطلب صلاحية إشراف المنشأة النشطة"};
  try{const view=await db.$transaction(async tx=>{
  const warehouses=await tx.$queryRaw<LaundryInventoryView["warehouses"]>`SELECT id,name FROM "LaundryWarehouse" WHERE "businessId"=${b.id} ORDER BY "createdAt",id`;
  const warehouseId=p.data.warehouseId||warehouses[0]?.id||"";if(warehouseId&&!warehouses.some(w=>w.id===warehouseId))throw new LaundryInputError("المستودع غير موجود في المنشأة");
