@@ -1,0 +1,7 @@
+"use client";
+import {useActionState} from "react";
+import {saveLaundryNotifications} from "./actions";
+export default function NotificationForm({businessId,enabled,templateId,templates}:{businessId:string;enabled:boolean;templateId:string;templates:Array<{id:string;label:string}>}){
+ const [state,action,pending]=useActionState(saveLaundryNotifications,{});
+ return <form action={action} className="space-y-5 rounded-2xl border bg-white p-5"><input type="hidden" name="businessId" value={businessId}/><label className="flex min-h-12 items-center gap-3"><input type="checkbox" name="enabled" defaultChecked={enabled} className="h-5 w-5"/>إرسال إشعار تلقائي عند جاهزية الطلب</label><label className="block space-y-2"><span>قالب واتساب المعتمد</span><select name="templateId" defaultValue={templateId} className="min-h-12 w-full max-w-full rounded-xl border p-3"><option value="">اختر القالب</option>{templates.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select></label><p className="text-sm leading-7 text-slate-600">التفعيل يسمح بإرسال رسالة خدمة عند تغيير حالة الطلب إلى جاهز للاستلام، بشرط تسجيل موافقة العميل عند إنشاء الطلب. قد تترتب رسوم Meta. لن تُرسل إشعارات للطلبات القديمة.</p><button disabled={pending} className="min-h-12 w-full rounded-xl bg-teal-800 px-5 text-white disabled:opacity-50">{pending?"جارٍ الحفظ…":"حفظ إعدادات الإشعار"}</button>{state.error?<p role="alert" className="text-red-700">{state.error}</p>:null}{state.success?<p role="status" className="text-teal-800">{state.success}</p>:null}</form>;
+}

@@ -1,4 +1,6 @@
 import "server-only";
+import { laundryReadyContext } from "./laundry-ready";
+import { laundryReadyEvent,laundryReadyTemplateSupported,LAUNDRY_READY_TEMPLATE_NAME } from "./laundry-ready-domain";
 
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
@@ -93,7 +95,7 @@ export async function processWhatsAppAutomationEvent(input: {
       if (!event.contactId) throw new Error("WHATSAPP_AUTOMATION_CONTACT_REQUIRED");
       const contact = await tx.whatsAppContact.findFirst({
         where: { id: event.contactId, businessId: event.businessId },
-        select: { id: true, phoneE164: true, displayName: true, optedOutAt: true },
+        select: { id: true, phoneE164: true, displayName: true, optedOutAt: true, deletedAt:true },
       });
       if (!contact) throw new Error("WHATSAPP_AUTOMATION_CONTACT_NOT_FOUND");
       const consent = await tx.whatsAppConsent.findUnique({
@@ -101,6 +103,8 @@ export async function processWhatsAppAutomationEvent(input: {
         select: { revokedAt: true, source: true },
       });
       let eventSkipReason: string | null = null;
+      const laundryParameters=event.triggerType==="laundry_ready"&&laundryReadyEvent(event)?await laundryReadyContext(tx,event.businessId,event.subjectId,contact.phoneE164):null;
+      if(event.triggerType==="laundry_ready"&&!laundryParameters)eventSkipReason="laundry_order_not_ready_or_consent_missing";
       let bookingConfirmationParameters: ReturnType<typeof buildBookingConfirmationTemplateParameters> | null = null;
       let sallaParameters: ReturnType<typeof sallaOrderTemplateParameters> | null = null;
       if (event.triggerType === "salla_order_status") {
@@ -181,7 +185,7 @@ export async function processWhatsAppAutomationEvent(input: {
         if (automation.businessId !== event.businessId) throw new Error("WHATSAPP_AUTOMATION_TENANT_MISMATCH");
         if (!automationMatchesEvent({ triggerType: automation.triggerType, triggerConfig: automation.triggerConfig, subjectType: event.subjectType })) continue;
         const key = automationIdempotencyKey({ businessId: event.businessId, automationId: automation.id, eventId: event.id, contactId: contact.id });
-        const skipReason = eventSkipReason ?? (contact.optedOutAt ? "contact_opted_out" : !consent || consent.revokedAt || (event.triggerType === "abandoned_cart" && consent.source === "booking") ? "marketing_consent_missing" : null);
+        const skipReason = eventSkipReason ?? (contact.optedOutAt || contact.deletedAt ? "contact_opted_out" : (event.triggerType!=="laundry_ready"&&!consent) || consent?.revokedAt || (event.triggerType === "abandoned_cart" && consent?.source === "booking") ? "marketing_consent_missing" : null);
         const cooldownSince = new Date(now.getTime() - automation.cooldownMinutes * 60_000);
         const recentlyRun = automation.cooldownMinutes > 0 && await tx.whatsAppAutomationRun.findFirst({
           where: { businessId: event.businessId, automationId: automation.id, contactId: contact.id, createdAt: { gte: cooldownSince }, status: { in: ["queued", "completed"] } },
@@ -215,7 +219,7 @@ export async function processWhatsAppAutomationEvent(input: {
               ...(event.triggerType === "booking_confirmation" ? { bookingEnabled: true } : { marketingEnabled: true }),
             },
           },
-          select: { id: true, category: true, components: true, parameterFormat: true },
+          select: { id: true, name:true, category: true, components: true, parameterFormat: true },
         });
         if (!template) throw new Error("WHATSAPP_AUTOMATION_TEMPLATE_NOT_APPROVED");
         if (isSallaOrderTrigger(event.triggerType) && (template.category !== "utility" || !sallaOrderTemplateSupported(template.components, template.parameterFormat))) {
@@ -224,7 +228,8 @@ export async function processWhatsAppAutomationEvent(input: {
         if (event.triggerType === "booking_confirmation" && !bookingConfirmationTemplateSupportsParameters(template.components, template.parameterFormat)) {
           throw new Error("WHATSAPP_BOOKING_CONFIRMATION_TEMPLATE_INVALID");
         }
-        const templateParameters = event.triggerType === "booking_confirmation"
+        if(event.triggerType==="laundry_ready"&&(template.name!==LAUNDRY_READY_TEMPLATE_NAME||template.category!=="utility"||!laundryReadyTemplateSupported(template.components,template.parameterFormat)))throw new Error("LAUNDRY_READY_TEMPLATE_INVALID");
+        const templateParameters = event.triggerType==="laundry_ready"?laundryParameters:event.triggerType === "booking_confirmation"
           ? bookingConfirmationParameters
           : isSallaOrderTrigger(event.triggerType) ? sallaParameters : action.parameters;
         await tx.whatsAppAutomationJob.upsert({
