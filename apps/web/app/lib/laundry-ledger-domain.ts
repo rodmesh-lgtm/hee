@@ -27,7 +27,7 @@ export function balancedLaundryLines(lines:LedgerLine[]){
 }
 export function laundrySourceLines(kind:"order"|"payment"|"delivery"|"expense",amount:number,method="unspecified"):LedgerLine[]{
  if(!Number.isSafeInteger(amount)||amount<=0)throw new LaundryInputError("مبلغ القيد غير صالح");
- const account=method==="cash"?"1100":method==="card"?"1110":method==="transfer"?"1120":null;
+ const account=method==="cash"?"1100":method==="card"?"1110":method==="transfer"?"1120":method==="prepaid"&&kind==="payment"?"2100":null;
  if(kind==="payment"&&!account)throw new LaundryInputError("طريقة التحصيل غير مدعومة في الدفتر");
  const [dr,cr]=kind==="order"?["1200","2200"]:kind==="payment"?[account!,"1200"]:kind==="delivery"?["2200","4000"]:["5000",account??"2900"];
  return [{accountCode:dr,debit:amount,credit:0},{accountCode:cr,debit:0,credit:amount}];
