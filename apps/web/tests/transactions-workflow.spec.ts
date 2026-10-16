@@ -121,6 +121,23 @@ test.describe.serial("public transactions workflow", () => {
       await expect(page.locator(".ld-cart-lines")).toContainText("ثوب — كوي");
       await expect(product.getByRole("button",{name:"إضافة ثوب — كوي",exact:true})).toHaveCount(0);
       await product.getByRole("button",{name:"إضافة ثوب — غسيل وكوي",exact:true}).click();
+      for(const viewport of [{width:390,height:844},{width:768,height:1024},{width:1024,height:768},{width:1440,height:1000}]){
+        await page.setViewportSize(viewport);
+        await page.getByLabel("البحث عن صنف",{exact:true}).fill("ثوب");
+        await expect(page.locator(".ld-product-card")).toHaveCount(1);
+        expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+        const target=await product.getByRole("button",{name:"إضافة ثوب — غسيل وكوي",exact:true}).boundingBox();
+        expect(target?.height).toBeGreaterThanOrEqual(44);
+        if(viewport.width===390){
+          await expect(page.locator(".ld-cart")).toBeHidden();
+          await page.getByRole("button",{name:/مراجعة الطلب/}).click();
+          await expect(page.getByLabel("اسم العميل",{exact:true})).toBeVisible();
+          await expect(page.locator(".ld-cart-lines")).toContainText("ثوب — كوي");
+          await page.getByRole("button",{name:"العودة إلى الأصناف",exact:true}).click();
+        }
+        await page.screenshot({path:testInfo.outputPath(`laundry-responsive-${viewport.width}.png`),fullPage:true});
+      }
+      await page.getByLabel("البحث عن صنف",{exact:true}).fill("");
       await page.getByLabel("اسم العميل",{exact:true}).fill("عميل اختبار المغسلة");
       await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009940");
       await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(2)}T16:00`);
@@ -128,6 +145,8 @@ test.describe.serial("public transactions workflow", () => {
       await page.screenshot({path:testInfo.outputPath("laundry-cashier-desktop.png"),fullPage:true});
       const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
       await page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true}).click();const request=await sent;
+      await expect(page.getByRole("heading",{name:"فاتورة غير ضريبية / إيصال استلام",exact:true})).toBeVisible();
+      await page.getByRole("button",{name:"إغلاق",exact:true}).click();
       await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toBeVisible();
       const replay=()=>page.request.post(request.url(),{headers:{"next-action":request.headers()["next-action"],"content-type":request.headers()["content-type"],origin:new URL(baseUrl).origin},data:request.postData()??""});
       await replay();
@@ -162,6 +181,25 @@ test.describe.serial("public transactions workflow", () => {
       await page.emulateMedia({media:"print"});
       expect(await page.evaluate(()=>getComputedStyle(document.body).page)).toBe("laundry-a4");
       await page.emulateMedia({media:"screen"});
+      await page.getByRole("button",{name:"إغلاق",exact:true}).click();
+      await page.getByRole("button",{name:"التحصيل والمصروفات",exact:true}).click();
+      await page.getByLabel("من تاريخ",{exact:true}).fill(riyadhDateKey(0));
+      await page.getByLabel("إلى تاريخ",{exact:true}).fill(riyadhDateKey(0));
+      await page.getByRole("button",{name:"عرض التقرير",exact:true}).click();
+      await expect(page.locator(".ld-report-summary")).toContainText("٧٫٥٠");
+      await expect(page.locator(".ld-report-summary article").filter({hasText:"ذمم نهاية الفترة"})).toContainText("٠٫٠٠");
+      await expect(page.locator(".ld-report tbody tr")).toHaveCount(2);
+      await page.getByRole("button",{name:"شعار المنشأة",exact:true}).click();
+      await page.getByLabel("رفع شعار المنشأة",{exact:true}).setInputFiles({name:"logo.png",mimeType:"image/png",buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD0cAAAAASUVORK5CYII=","base64")});
+      await page.getByRole("button",{name:"حفظ الشعار",exact:true}).click();
+      await expect(page.getByText("تم حفظ شعار المنشأة",{exact:true})).toBeVisible();
+      const branded=await db.business.findUnique({where:{id:fixture.businessId},select:{logoUrl:true}});
+      expect(branded?.logoUrl).toMatch(/^\/api\/storage\//);
+      const stored=await db.storedObject.findUnique({where:{id:branded!.logoUrl!.split("/").pop()!}});
+      expect(stored?.folder).toBe(`logos/${fixture.businessId}`);
+      await page.getByRole("button",{name:"الطلبات والتسليم",exact:true}).click();
+      await page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true}).click();
+      await expect(page.getByAltText("شعار المنشأة في الفاتورة",{exact:true})).toBeVisible();
       await setSession(page,outsider.sessionToken);await replay();
       const foreign=await db.$queryRaw<Array<{count:number}>>`SELECT COUNT(*)::int AS count FROM "LaundryTicket" WHERE "businessId"=${outsider.businessId}`;expect(foreign[0].count).toBe(0);
     }finally{
@@ -172,6 +210,7 @@ test.describe.serial("public transactions workflow", () => {
       await db.$executeRaw`DELETE FROM "LaundryExpense" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryService" WHERE "businessId"=${fixture.businessId}`;
       await cleanup(fixture);await cleanup(outsider);
+      await db.storedObject.deleteMany({where:{folder:`logos/${fixture.businessId}`}});
     }
   });
   test.beforeAll(async () => {
