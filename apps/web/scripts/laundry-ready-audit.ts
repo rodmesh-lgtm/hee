@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import {db} from "../app/lib/db";
+import {closePrismaForWorker} from "../lib/prisma";
 import {enqueueLaundryReady,laundryReadyContext} from "../app/lib/whatsapp/laundry-ready";
 import {LAUNDRY_READY_TEMPLATE_EXAMPLE} from "../app/lib/whatsapp/laundry-ready-domain";
 import {processWhatsAppAutomationEvent} from "../app/lib/whatsapp/automation-processor";
@@ -46,4 +47,4 @@ async function main(){
  console.log("laundry-ready: PASS consent, tenant isolation, deduplication, server parameters, no marketing opt-in, late delivery cancellation, opt-out");
  }finally{await db.business.update({where:{id:business.id},data:{deletedAt:new Date()}});await db.user.update({where:{id:user.id},data:{deletedAt:new Date()}});}
 }
-main().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>db.$disconnect());
+main().catch(e=>{console.error(e);process.exitCode=1;}).finally(closePrismaForWorker);

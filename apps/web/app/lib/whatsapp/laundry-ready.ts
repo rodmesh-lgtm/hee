@@ -10,7 +10,7 @@ export async function enqueueLaundryReady(tx:Prisma.TransactionClient,businessId
  const tickets=await tx.$queryRaw<Array<{phone:string;customerName:string}>>`SELECT phone,"customerName" FROM "LaundryTicket" WHERE id=${ticketId} AND "businessId"=${businessId} AND status='ready' AND "readyNotifyConsentAt" IS NOT NULL`;
  const t=tickets[0];if(!t)return;
  const a=await tx.whatsAppAutomation.findFirst({where:{businessId,triggerType:"laundry_ready",status:"active"},select:{id:true}});if(!a)return;
- const c=await tx.whatsAppContact.upsert({where:{businessId_phoneE164:{businessId,phoneE164:t.phone}},create:{businessId,phoneE164:t.phone,displayName:t.customerName,source:"laundry.ready"},update:{},select:{id:true,optedOutAt:true,deletedAt:true}});
+ const c=await tx.whatsAppContact.upsert({where:{businessId_phoneE164:{businessId,phoneE164:t.phone}},create:{businessId,phoneE164:t.phone,displayName:t.customerName,source:"integration"},update:{},select:{id:true,optedOutAt:true,deletedAt:true}});
  if(c.optedOutAt||c.deletedAt)return;
  await tx.whatsAppAutomationEvent.upsert({where:{businessId_source_externalEventId:{businessId,source:"laundry.ready",externalEventId:ticketId}},create:{businessId,automationId:a.id,source:"laundry.ready",externalEventId:ticketId,triggerType:"laundry_ready",subjectType:"laundry.ticket.ready",subjectId:ticketId,contactId:c.id,occurredAt:new Date()},update:{}});
 }

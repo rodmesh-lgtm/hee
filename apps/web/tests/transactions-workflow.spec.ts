@@ -112,6 +112,20 @@ test.describe.serial("public transactions workflow", () => {
       expect((await db.whatsAppAutomation.findFirstOrThrow({where:{businessId:fixture.businessId,triggerType:"laundry_ready"}})).status).toBe("active");
       expect(await db.whatsAppAutomationEvent.count({where:{businessId:fixture.businessId}})).toBe(0);
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath("laundry-notifications-mobile.png"),fullPage:true});
+      // Exercise the real status action: one consented order queues once; the other never queues.
+      for(const consent of [true,false]){
+        const id=crypto.randomUUID();const number=consent?1:2;
+        await db.$executeRaw`INSERT INTO "LaundryTicket" (id,"businessId",number,"requestId","customerName",phone,items,total,paid,status,"dueAt","createdBy","readyNotifyConsentAt") VALUES (${id},${fixture.businessId},${number},${crypto.randomUUID()},'عميل اختبار إشعار','+966500009940','[]'::jsonb,100,100,'processing',now(),${fixture.userId},${consent?new Date():null})`;
+        await page.goto(`${baseUrl}/Laundromat`);await page.getByRole("button",{name:"الطلبات والتسليم",exact:true}).click();
+        const row=page.locator(".ld-orders-table tbody tr").filter({hasText:`#${String(number).padStart(5,"0")}`});
+        await row.getByRole("button",{name:"التفاصيل والفاتورة",exact:true}).click();
+        const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+        await page.getByRole("button",{name:"المرحلة التالية: جاهز للاستلام",exact:true}).click();const request=await sent;
+        await expect(page.getByRole("button",{name:"المرحلة التالية: جاهز للاستلام",exact:true})).toHaveCount(0);
+        await page.request.post(request.url(),{headers:{"next-action":request.headers()["next-action"],"content-type":request.headers()["content-type"],origin:new URL(baseUrl).origin},data:request.postData()??""});
+        expect(await db.whatsAppAutomationEvent.count({where:{businessId:fixture.businessId}})).toBe(1);
+      }
+      await page.goto(`${baseUrl}/Laundromat/Notifications`);
       await page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true}).uncheck();await page.getByRole("button",{name:"حفظ إعدادات الإشعار",exact:true}).click();await expect(page.getByRole("status")).toContainText("تم إيقاف");
     }finally{await page.close();await staff.close();await db.businessMember.deleteMany({where:{businessId:fixture.businessId}});await cleanup(fixture);await cleanup(employee);}
   });
