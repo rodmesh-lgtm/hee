@@ -19,6 +19,8 @@ Published commit `98aae54350fe055e6462f752a8c599e94428806b`: ledger, customer di
 
 - Monetary prepaid subscriptions, exact paid value, customer-bound order redemption, unused-balance refunds and expiry without forfeiture. Requires initialized ledger; purchase/refund and redemption are atomic with journal postings.
 - Supplier directory, unique invoice references, operating purchases expensed on entry, partial payments and supplier balances. Inventory valuation and fixed assets are explicitly excluded.
+- Derived income statement and balance sheet separate period movements from cumulative results, reconcile the accounting equation, preserve negative balances and export CSV. These are recorded-ledger statements, not audited full-ERP statements.
+- Saved prepaid purchase/refund/settlement and supplier-payment vouchers print in A4 or 80 mm with the tenant logo, immutable movement reference, party, date and amount. No certified signature claim.
 - Owner-only actions, active-tenant checks, immutable payment histories and retry idempotency. No actual money transfer, VAT computation, auto-renewal or external integration.
 - Operational POS report remains scoped to direct order collections and legacy expenses; prepaid settlements reduce receivables without becoming new cash. Subscription and supplier cashflows are in their separate histories and accounting ledger.
 
@@ -33,7 +35,7 @@ Published commit `98aae54350fe055e6462f752a8c599e94428806b`: ledger, customer di
 | Full accounting | Basic ledger published; not a complete ERP | Opening balances, receivables/payables, purchase bills, supplier ledger, bank reconciliation, general ledger, trial balance, accrual income and balance sheet; fixtures must prove debit=credit and source-to-ledger reconciliation |
 | Employees and permissions | Existing platform staff and laundry section access; owner-only configuration/expenses/reporting | Separate cashier, supervisor, accountant and driver scopes with server-enforced row/action access; no blanket driver access to customers/finance |
 | Delivery app | Not implemented | Mobile driver workspace, assigned jobs only, pickup/delivery stages, proof of delivery, customer location with consent, cash handoff and failed delivery handling; no claim of native-store app |
-| Contracts / vouchers / e-signature | Saved receipt / payment evidence only | Versioned contract, parties, terms, acceptance evidence, immutable signed copy, revocation/reissue; validated e-signature provider integration where required. Drawing a signature is not a certified digital signature |
+| Contracts / vouchers / e-signature | Saved POS receipts plus prepaid/supplier vouchers in the pending release | Versioned contract, parties, terms, acceptance evidence, immutable signed copy, revocation/reissue; validated e-signature provider integration where required. Drawing a signature is not a certified digital signature |
 | ZATCA phase 2 | Not connected and not enabled | Separate eligible tenant tax configuration, compliant XML and cryptographic chain, sandbox conformance, reporting/clearance, rejection/retry monitoring, certificates and real onboarding before production. Never fabricate VAT registration or certification |
 
 ## External dependencies

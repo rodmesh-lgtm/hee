@@ -1,7 +1,7 @@
 -- Prepaid monetary subscriptions, no bonuses or forfeiture of customer balances.
 CREATE TABLE "LaundryPrepaid" (
  id TEXT PRIMARY KEY, "businessId" TEXT NOT NULL REFERENCES "LaundryBook"("businessId") ON DELETE RESTRICT,
- "customerId" TEXT NOT NULL, "requestId" TEXT NOT NULL, name TEXT NOT NULL,
+ "customerId" TEXT NOT NULL, "customerName" TEXT NOT NULL, "requestId" TEXT NOT NULL, name TEXT NOT NULL,
  amount INTEGER NOT NULL CHECK(amount>0 AND amount<=10000000),
  remaining INTEGER NOT NULL CHECK(remaining>=0 AND remaining<=amount),
  "expiresAt" TIMESTAMPTZ NOT NULL, "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),

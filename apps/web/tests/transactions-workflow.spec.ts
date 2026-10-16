@@ -378,8 +378,18 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByRole("button",{name:"تسجيل الدفعة للمورد",exact:true}).click();const paid=await paidSent;
       await expect(page.locator(".ld-purchases").getByRole("status")).toContainText("حُفظت عملية المورد");await replay(paid);
       expect((await db.$queryRaw<Array<{paid:number}>>`SELECT paid FROM "LaundryPurchase" WHERE "businessId"=${fixture.businessId}`)[0].paid).toBe(4000);
+      const excessive=JSON.parse(paid.postData()!);excessive[0].amount="21";excessive[0].requestId=crypto.randomUUID();
+      const rejected=await page.request.post(paid.url(),{headers:{"next-action":paid.headers()["next-action"],"content-type":paid.headers()["content-type"],origin:new URL(baseUrl).origin},data:JSON.stringify(excessive)});
+      expect(await rejected.text()).toContain("الدفعة تتجاوز المتبقي للمورد");
       const supplierBalances=await db.$queryRaw<Array<{accountCode:string;balance:number}>>`SELECT "accountCode",SUM(debit-credit)::float8 AS balance FROM "LaundryJournalLine" WHERE "businessId"=${fixture.businessId} GROUP BY "accountCode"`;
       expect(supplierBalances.find(a=>a.accountCode==="2000")?.balance).toBe(-2000);expect(supplierBalances.find(a=>a.accountCode==="5000")?.balance).toBe(6000);
+      await page.getByRole("button",{name:"عرض سند الصرف",exact:true}).click();
+      await expect(page.getByRole("dialog",{name:"سند العملية المالية"})).toContainText("سند دفع تجريبي 001");
+      await page.getByLabel("مقاس طباعة السند",{exact:true}).selectOption("thermal");
+      await page.emulateMedia({media:"print"});
+      expect(await page.evaluate(()=>getComputedStyle(document.body).page)).toBe("laundry-thermal");
+      await page.emulateMedia({media:"screen"});
+      await page.getByRole("button",{name:"إغلاق السند",exact:true}).click();
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
       await page.screenshot({path:testInfo.outputPath("laundry-purchases-mobile.png"),fullPage:true});
 

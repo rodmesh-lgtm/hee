@@ -32,12 +32,12 @@ export async function laundryPrepaidCommand(value:unknown):Promise<{ok:boolean;e
   const now=new Date();let id:string,paymentId:string|null=null,reason:string,method:string;
   if(d.type==="purchase"){
    const phone=laundryCustomerPhone(d.phone);
-   const customers=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryCustomer" WHERE "businessId"=${b.id} AND phone=${phone}`;
+   const customers=await tx.$queryRaw<Array<{id:string;name:string}>>`SELECT id,name FROM "LaundryCustomer" WHERE "businessId"=${b.id} AND phone=${phone}`;
    if(!customers[0])throw new LaundryInputError("أضف العميل أولًا من دليل العملاء ثم سجّل اشتراكه");
    const expiresAt=laundryReportRange(d.expires,d.expires).end;
    if(expiresAt<=now||expiresAt.getTime()>now.getTime()+366*86400000)throw new LaundryInputError("حدد نهاية استخدام خلال السنة القادمة");
    id=randomUUID();reason=`شراء اشتراك: ${d.name}`;method=d.method;
-   await tx.$executeRaw`INSERT INTO "LaundryPrepaid" (id,"businessId","customerId","requestId",name,amount,remaining,"expiresAt","createdBy") VALUES (${id},${b.id},${customers[0].id},${rid},${d.name},${amount},${amount},${expiresAt},${user.id})`;
+   await tx.$executeRaw`INSERT INTO "LaundryPrepaid" (id,"businessId","customerId","customerName","requestId",name,amount,remaining,"expiresAt","createdBy") VALUES (${id},${b.id},${customers[0].id},${customers[0].name},${rid},${d.name},${amount},${amount},${expiresAt},${user.id})`;
   }else{
    id=d.id;
    const rows=await tx.$queryRaw<Array<{customerId:string;remaining:number;expiresAt:Date}>>`SELECT "customerId",remaining,"expiresAt" FROM "LaundryPrepaid" WHERE "businessId"=${b.id} AND id=${id} FOR UPDATE`;
@@ -64,7 +64,7 @@ export async function laundryPrepaidCommand(value:unknown):Promise<{ok:boolean;e
  },{timeout:15000});revalidatePath("/Laundromat");return {ok:true,id};
  }catch(e){return {ok:false,error:e instanceof LaundryInputError?e.message:"تعذر حفظ الاشتراك. أعد المحاولة بنفس البيانات دون تكرار العملية."};}
 }
-export type PrepaidView={subscriptions:Array<{id:string;name:string;customerName:string;phone:string;amount:number;remaining:number;expiresAt:string}>,movements:Array<{id:string;name:string;kind:string;amount:number;method:string;reason:string;createdAt:string}>};
+export type PrepaidView={subscriptions:Array<{id:string;name:string;customerName:string;phone:string;amount:number;remaining:number;expiresAt:string}>,movements:Array<{id:string;name:string;customerName:string;kind:string;amount:number;method:string;reason:string;createdAt:string}>};
 export async function getLaundryPrepaid(value:unknown):Promise<{ok:true;view:PrepaidView}|{ok:false;error:string}>{
  const p=z.object({businessId:key,phone:z.string().max(40)}).safeParse(value);if(!p.success)return {ok:false,error:"راجع رقم العميل"};
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يلزم تسجيل الدخول"};
@@ -72,7 +72,7 @@ export async function getLaundryPrepaid(value:unknown):Promise<{ok:true;view:Pre
  try{const phone=p.data.phone.trim()?laundryCustomerPhone(p.data.phone):"";
  const view=await db.$transaction(async tx=>{
  const subscriptions=await tx.$queryRaw<Array<Omit<PrepaidView["subscriptions"][number],"expiresAt">&{expiresAt:Date}>>`SELECT s.id,s.name,c.name AS "customerName",c.phone,s.amount,s.remaining,s."expiresAt" FROM "LaundryPrepaid" s JOIN "LaundryCustomer" c ON c."businessId"=s."businessId" AND c.id=s."customerId" WHERE s."businessId"=${b.id} AND (${phone}='' OR c.phone=${phone}) ORDER BY s."createdAt" DESC,s.id LIMIT 100`;
- const movements=await tx.$queryRaw<Array<Omit<PrepaidView["movements"][number],"createdAt">&{createdAt:Date}>>`SELECT m.id,s.name,m.kind,m.amount,m.method,m.reason,m."createdAt" FROM "LaundryPrepaidMovement" m JOIN "LaundryPrepaid" s ON s."businessId"=m."businessId" AND s.id=m."prepaidId" JOIN "LaundryCustomer" c ON c."businessId"=s."businessId" AND c.id=s."customerId" WHERE m."businessId"=${b.id} AND (${phone}='' OR c.phone=${phone}) ORDER BY m."createdAt" DESC,m.id LIMIT 100`;
+ const movements=await tx.$queryRaw<Array<Omit<PrepaidView["movements"][number],"createdAt">&{createdAt:Date}>>`SELECT m.id,s.name,s."customerName",m.kind,m.amount,m.method,m.reason,m."createdAt" FROM "LaundryPrepaidMovement" m JOIN "LaundryPrepaid" s ON s."businessId"=m."businessId" AND s.id=m."prepaidId" JOIN "LaundryCustomer" c ON c."businessId"=s."businessId" AND c.id=s."customerId" WHERE m."businessId"=${b.id} AND (${phone}='' OR c.phone=${phone}) ORDER BY m."createdAt" DESC,m.id LIMIT 100`;
  return {subscriptions:subscriptions.map(s=>({...s,expiresAt:s.expiresAt.toISOString()})),movements:movements.map(m=>({...m,createdAt:m.createdAt.toISOString()}))};
  },{isolationLevel:"RepeatableRead",timeout:15000});return {ok:true,view};
  }catch(e){return {ok:false,error:e instanceof LaundryInputError?e.message:"تعذر قراءة الاشتراكات"};}
