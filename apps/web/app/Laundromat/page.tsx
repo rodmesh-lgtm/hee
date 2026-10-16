@@ -5,6 +5,7 @@ import { getActiveBusinessForUser } from "../lib/active-business";
 import { db } from "../lib/db";
 import type { LaundryService, LaundryTicket } from "../lib/laundry-domain";
 import { laundryFilter } from "../lib/laundry-domain";
+import { laundryCustomerPhone } from "../lib/laundry-customer";
 import { LaundryWorkspace } from "./workspace";
 import "./laundry.css";
 export const dynamic="force-dynamic";
@@ -17,11 +18,14 @@ export default async function LaundryPage({searchParams}:{searchParams:Promise<{
   const owner=business.ownerId===user.id;
   const params=await searchParams;
   const q=String(params.q??"").trim().slice(0,100);
+  let normalizedPhone=q;
+  try { normalizedPhone=laundryCustomerPhone(q); } catch {}
+  const localPhone=normalizedPhone.startsWith("+9665")?`0${normalizedPhone.slice(4)}`:normalizedPhone;
   const filter=laundryFilter(params.filter);
   const pattern=`%${q.replace(/[\\%_]/g,"\\$&")}%`;
   const [services,tickets,totals,expenses]=await Promise.all([
     db.$queryRaw<LaundryService[]>`SELECT * FROM "LaundryService" WHERE "businessId"=${business.id} AND "active"=TRUE ORDER BY "category","name"`,
-    db.$queryRaw<LaundryTicket[]>`SELECT "id","number","customerName","phone","items","total","paid","status","dueAt","notes","createdAt" FROM "LaundryTicket" WHERE "businessId"=${business.id} AND ("customerName" ILIKE ${pattern} OR "phone" ILIKE ${pattern} OR "number"::text=${q} OR ${q}='') AND (${filter}='all' OR (${filter}='overdue' AND "status"!='delivered' AND "dueAt"<now()) OR (${filter}='ready' AND "status"='ready') OR (${filter}='unpaid' AND "paid"<"total") OR (${filter}='delivered' AND "status"='delivered')) ORDER BY CASE WHEN ${filter}='overdue' THEN "dueAt" END ASC, "createdAt" DESC, "id" DESC LIMIT 100`,
+    db.$queryRaw<LaundryTicket[]>`SELECT "id","number","customerName","phone","items","total","paid","status","dueAt","notes","createdAt" FROM "LaundryTicket" WHERE "businessId"=${business.id} AND ("customerName" ILIKE ${pattern} OR "phone" ILIKE ${pattern} OR "phone" IN (${normalizedPhone},${normalizedPhone.replace(/^\+/,"")},${localPhone}) OR "number"::text=${q} OR ${q}='') AND (${filter}='all' OR (${filter}='overdue' AND "status"!='delivered' AND "dueAt"<now()) OR (${filter}='ready' AND "status"='ready') OR (${filter}='unpaid' AND "paid"<"total") OR (${filter}='delivered' AND "status"='delivered')) ORDER BY CASE WHEN ${filter}='overdue' THEN "dueAt" END ASC, "createdAt" DESC, "id" DESC LIMIT 100`,
     db.$queryRaw<Array<{active:number;ready:number;outstanding:number;collected:number;expenses:number}>>`SELECT (SELECT COUNT(*)::int FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "status"!='delivered') AS active,(SELECT COUNT(*)::int FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "status"='ready') AS ready,(SELECT COALESCE(SUM("total"-"paid"),0)::float8 FROM "LaundryTicket" WHERE "businessId"=${business.id}) AS outstanding,(SELECT COALESCE(SUM("amount"),0)::float8 FROM "LaundryPayment" WHERE "businessId"=${business.id}) AS collected,(SELECT COALESCE(SUM("amount"),0)::float8 FROM "LaundryExpense" WHERE "businessId"=${business.id}) AS expenses`,
     owner?db.$queryRaw<Array<{id:string;description:string;amount:number;createdAt:Date}>>`SELECT * FROM "LaundryExpense" WHERE "businessId"=${business.id} ORDER BY "createdAt" DESC LIMIT 50`:Promise.resolve([]),
   ]);

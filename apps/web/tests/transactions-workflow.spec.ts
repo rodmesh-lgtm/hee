@@ -166,6 +166,8 @@ test.describe.serial("public transactions workflow", () => {
       await replay();
       const rows=await db.$queryRaw<Array<{id:string;total:number;paid:number;status:string}>>`SELECT "id","total","paid","status" FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
       expect(rows).toHaveLength(1);expect(rows[0]).toMatchObject({total:750,paid:525,status:"received"});
+      await page.goto(`${baseUrl}/Laundromat?q=0500009940`);
+      await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toHaveCount(1);
       await db.$executeRaw`UPDATE "LaundryTicket" SET "dueAt"=now()-interval '1 hour' WHERE "businessId"=${fixture.businessId} AND "id"=${rows[0].id}`;
       await page.goto(`${baseUrl}/Laundromat?filter=overdue`);
       await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toHaveCount(1);
