@@ -85,7 +85,7 @@ async function cleanup(seed: Seeded) {
 
 test.describe.serial("public transactions workflow", () => {
   test("laundry cashier persists exact amounts, rejects cross-tenant replay, and prints saved orders", async ({browser},testInfo)=>{
-    test.setTimeout(120000);
+    test.setTimeout(180000);
     const fixture=await seed();const outsider=await seed();const page=await browser.newPage({viewport:{width:1440,height:1000}});
     try{
       // Historical expenses exercise more than one resumable backfill batch without inventing a cash source.
@@ -95,6 +95,11 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByRole("button",{name:"تهيئة الدفتر من العمليات المسجلة",exact:true}).click();
       await expect(page.getByRole("heading",{name:"ميزان المراجعة ودليل الحسابات",exact:true})).toBeVisible();
 
+      await page.getByRole("button",{name:"العملاء",exact:true}).click();
+      await page.getByLabel("اسم صاحب الملف",{exact:true}).fill("عميل اختبار المغسلة");
+      await page.getByLabel("جوال صاحب الملف",{exact:true}).fill("٠٥٠٠٠٠٩٩٤٠");
+      await page.getByRole("button",{name:"حفظ ملف العميل",exact:true}).click();
+      await expect(page.getByText("تم حفظ ملف العميل",{exact:true})).toBeVisible();
       await page.getByRole("button",{name:"الخدمات والأسعار",exact:true}).click();
       await page.getByLabel("سعر فنيلة داخلية — غسيل وكوي",{exact:true}).fill("2.50");
       await page.getByLabel("سعر سروال داخلي — غسيل وكوي",{exact:true}).fill("3.00");
@@ -146,6 +151,9 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByLabel("البحث عن صنف",{exact:true}).fill("");
       await page.getByLabel("اسم العميل",{exact:true}).fill("عميل اختبار المغسلة");
       await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009940");
+      await page.getByRole("button",{name:"استدعاء العميل بالجوال",exact:true}).click();
+      await expect(page.getByText("تم استدعاء العميل المحفوظ",{exact:true})).toBeVisible();
+      await expect(page.getByLabel("اسم العميل",{exact:true})).toHaveValue("عميل اختبار المغسلة");
       await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(2)}T16:00`);
       await page.getByLabel("الدفعة المستلمة",{exact:true}).fill("5.25");
       await page.screenshot({path:testInfo.outputPath("laundry-cashier-desktop.png"),fullPage:true});
@@ -252,7 +260,29 @@ test.describe.serial("public transactions workflow", () => {
       await expect(page.getByRole("alert")).toContainText("الفترة المحاسبية مغلقة");
       await page.screenshot({path:testInfo.outputPath("laundry-ledger-mobile.png"),fullPage:true});
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+      await page.getByRole("button",{name:"العملاء",exact:true}).click();
+      await page.getByRole("button",{name:"فتح ملف عميل اختبار المغسلة",exact:true}).click();
+      await expect(page.getByRole("heading",{name:"طلبات العميل المرتبطة",exact:true})).toBeVisible();
+      await expect(page.locator(".ld-customers")).toContainText("٧٫٥٠");
+      const profiles=await db.$queryRaw<Array<{id:string;phone:string}>>`SELECT id,phone FROM "LaundryCustomer" WHERE "businessId"=${fixture.businessId}`;
+      expect(profiles).toHaveLength(1);expect(profiles[0].phone).toBe("+966500009940");
+      await page.getByLabel("اسم صاحب الملف",{exact:true}).fill("اسم ملف محدّث");
+      const customerSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+      await page.getByRole("button",{name:"حفظ ملف العميل",exact:true}).click();const customerRequest=await customerSent;
+      await expect(page.getByText("تم حفظ ملف العميل",{exact:true})).toBeVisible();
+      const snapshots=await db.$queryRaw<Array<{customerName:string}>>`SELECT "customerName" FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
+      expect(snapshots[0].customerName).toBe("عميل اختبار المغسلة");
+      // Simulate a historical unlinked receipt, then prove deduplication preserves the curated profile.
+      await db.$executeRaw`UPDATE "LaundryTicket" SET "customerId"=NULL WHERE "businessId"=${fixture.businessId}`;
+      await page.getByText("ربط الطلبات السابقة بملفات العملاء",{exact:true}).click();
+      await page.getByRole("button",{name:"ربط الطلبات السابقة",exact:true}).click();
+      await expect(page.getByRole("status")).toContainText("رُبط 1 طلبًا");
+      expect((await db.$queryRaw<Array<{customerId:string}>>`SELECT "customerId" FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`)[0].customerId).toBe(profiles[0].id);
+      await page.screenshot({path:testInfo.outputPath("laundry-customers-mobile.png"),fullPage:true});
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
       await setSession(page,outsider.sessionToken);await replay();
+      const deniedCustomer=await page.request.post(customerRequest.url(),{headers:{"next-action":customerRequest.headers()["next-action"],"content-type":customerRequest.headers()["content-type"],origin:new URL(baseUrl).origin},data:customerRequest.postData()??""});
+      expect(await deniedCustomer.text()).toContain("تعديل العملاء متاح لمالك المنشأة النشطة فقط");
       const deniedJournal=await page.request.post(journalRequest.url(),{headers:{"next-action":journalRequest.headers()["next-action"],"content-type":journalRequest.headers()["content-type"],origin:new URL(baseUrl).origin},data:journalRequest.postData()??""});
       expect(await deniedJournal.text()).toContain("دفتر الحسابات متاح لمالك المنشأة النشطة فقط");
       const deniedReport=await page.request.post(reportRequest.url(),{headers:{"next-action":reportRequest.headers()["next-action"],"content-type":reportRequest.headers()["content-type"],origin:new URL(baseUrl).origin},data:reportRequest.postData()??""});
@@ -270,6 +300,7 @@ test.describe.serial("public transactions workflow", () => {
       await db.$executeRaw`DELETE FROM "LaundryAudit" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryPayment" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "LaundryCustomer" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryExpense" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryService" WHERE "businessId"=${fixture.businessId}`;
       await cleanup(fixture);await cleanup(outsider);
