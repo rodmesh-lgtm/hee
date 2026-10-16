@@ -10,7 +10,8 @@ import { LaundryInputError, laundryLines, moneyToHalalas, nextLaundryStatus, typ
 
 const key = z.string().uuid();
 const command = z.discriminatedUnion("type", [
-  z.object({type:z.literal("catalog"),requestId:key,operation:z.enum(["wash","iron","wash_iron","dry"]),items:z.array(z.object({presetId:z.string().max(50),price:z.string()})).min(1).max(60)}),
+  z.object({type:z.literal("product"),requestId:key,name:z.string().trim().min(2).max(80),category:z.string().trim().min(2).max(50),wash_iron:z.string(),iron:z.string()}),
+  z.object({type:z.literal("catalog"),requestId:key,operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),items:z.array(z.object({presetId:z.string().max(50),operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),price:z.string()})).min(1).max(120)}),
   z.object({ type: z.literal("service"), name: z.string().trim().min(2).max(100), category: z.string().trim().min(2).max(50), price: z.string(), requestId: key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
   z.object({ type: z.literal("order"), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().regex(/^\+?[0-9]{9,15}$/), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer"]), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
@@ -28,18 +29,20 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
   const scope=z.object({businessId:key}).safeParse(value);
   if(!scope.success || scope.data.businessId!==business.id) return {ok:false,error:"تغيرت المنشأة النشطة. حدّث الصفحة قبل حفظ العملية."};
   const data = parsed.data;
-  if (["service","catalog","archive","expense"].includes(data.type) && business.ownerId !== user.id) return {ok:false,error:"هذه العملية متاحة لمالك المنشأة فقط"};
+  if (["service","catalog","product","archive","expense"].includes(data.type) && business.ownerId !== user.id) return {ok:false,error:"هذه العملية متاحة لمالك المنشأة فقط"};
   try {
     const result = await db.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${business.id}`}))`;
       let id = "";
-      if (data.type === "catalog") {
+      if (data.type === "catalog" || data.type === "product") {
         id=data.requestId;
-        const replay=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "LaundryAudit" WHERE "businessId"=${business.id} AND "id"=${id} AND "action"='catalog'`;
+        const replay=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "LaundryAudit" WHERE "businessId"=${business.id} AND "id"=${id} AND "action"=${data.type}`;
         if(replay.length)return {id};
-        if(new Set(data.items.map(x=>x.presetId)).size!==data.items.length)throw new LaundryInputError("توجد أصناف مكررة");
-        const presets=data.items.map(item=>{
-          const preset=resolveLaundryPreset(item.presetId,data.operation);
+        const items=data.type==="catalog"?data.items.map(item=>({...item,operation:item.operation??data.operation})):(["wash_iron","iron"] as const).filter(operation=>data[operation].trim()!=="").map(operation=>({presetId:"custom",operation,price:data[operation]}));
+        if(!items.length)throw new LaundryInputError("أدخل سعر غسيل وكوي أو كوي فقط");
+        if(new Set(items.map(x=>`${x.presetId}:${x.operation}`)).size!==items.length)throw new LaundryInputError("توجد أصناف مكررة");
+        const presets=items.map(item=>{
+          const preset=data.type==="catalog"?resolveLaundryPreset(item.presetId,item.operation??""):{name:`${data.name} — ${item.operation==="iron"?"كوي":"غسيل وكوي"}`,category:data.category};
           if(!preset)throw new LaundryInputError("الصنف غير موجود في الدليل");
           const price=moneyToHalalas(item.price);
           if(price<=0)throw new LaundryInputError("حدد سعرًا أكبر من صفر لكل صنف ترغب بتفعيله");
@@ -49,7 +52,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         await tx.$executeRaw`INSERT INTO "LaundryService" ("id","businessId","name","category","price")
           SELECT p.id,${business.id},p.name,p.category,p.price
           FROM jsonb_to_recordset(${JSON.stringify(presets)}::jsonb) AS p(id text,name text,category text,price int)
-          WHERE NOT EXISTS (SELECT 1 FROM "LaundryService" s WHERE s."businessId"=${business.id} AND s."name"=p.name AND s."active"=TRUE)`;
+          WHERE NOT EXISTS (SELECT 1 FROM "LaundryService" s WHERE s."businessId"=${business.id} AND s."name"=p.name AND s."category"=p.category AND s."active"=TRUE)`;
       } else if (data.type === "service") {
         id=data.requestId; const price=moneyToHalalas(data.price);
         await tx.$executeRaw`INSERT INTO "LaundryService" ("id","businessId","name","category","price") VALUES (${id},${business.id},${data.name},${data.category},${price}) ON CONFLICT ("id") DO NOTHING`;
@@ -90,7 +93,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "status"=${data.status},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
         }
       }
-      await tx.$executeRaw`INSERT INTO "LaundryAudit" ("id","businessId","actorId","action","targetId") VALUES (${data.type==="catalog"?data.requestId:randomUUID()},${business.id},${user.id},${data.type},${id})`;
+      await tx.$executeRaw`INSERT INTO "LaundryAudit" ("id","businessId","actorId","action","targetId") VALUES (${(data.type==="catalog"||data.type==="product")?data.requestId:randomUUID()},${business.id},${user.id},${data.type},${id})`;
       return {id};
     });
     revalidatePath("/Laundromat");

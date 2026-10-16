@@ -55,3 +55,22 @@ export function resolveLaundryPreset(id:string,operation:string) {
   if(!item||!Object.hasOwn(LAUNDRY_OPERATIONS,operation))return null;
   return {name:`${item.name} — ${LAUNDRY_OPERATIONS[operation as keyof typeof LAUNDRY_OPERATIONS]}`,category:item.category};
 }
+
+export const LAUNDRY_PRIMARY_OPERATIONS = {wash_iron:"غسيل وكوي",iron:"كوي فقط"} as const;
+/** Preserve each persisted service ID and price; group only recognized suffixes. */
+export function groupLaundryServices<T extends {id:string;name:string;category:string}>(services:T[]) {
+  const groups=new Map<string,{key:string;name:string;category:string;options:Array<{label:string;operation:keyof typeof LAUNDRY_OPERATIONS|null;service:T}>}>();
+  for(const service of services){
+    const operation=(Object.keys(LAUNDRY_OPERATIONS) as Array<keyof typeof LAUNDRY_OPERATIONS>).find(key=>service.name.endsWith(` — ${LAUNDRY_OPERATIONS[key]}`));
+    const name=operation?service.name.slice(0,-(` — ${LAUNDRY_OPERATIONS[operation]}`.length)):service.name;
+    const key=JSON.stringify([service.category,name,operation?"group":service.id]);
+    const group=groups.get(key)??{key,name,category:service.category,options:[]};
+    group.options.push({operation:operation??null,label:operation==="iron"?"كوي فقط":operation?LAUNDRY_OPERATIONS[operation]:"إضافة",service});
+    groups.set(key,group);
+  }
+  return [...groups.values()].map(group=>({...group,options:group.options.sort((a,b)=>["غسيل وكوي","كوي فقط","غسيل","تنظيف جاف","إضافة"].indexOf(a.label)-["غسيل وكوي","كوي فقط","غسيل","تنظيف جاف","إضافة"].indexOf(b.label))}));
+}
+
+export function filterLaundryProducts<T extends {id:string;name:string;category:string}>(services:T[],operation:"all"|"wash_iron"|"iron") {
+  return groupLaundryServices(services).map(product=>({...product,options:product.options.filter(option=>operation==="all"||option.operation===operation)})).filter(product=>product.options.length>0);
+}
