@@ -109,6 +109,8 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByLabel("قالب واتساب المعتمد",{exact:true}).selectOption(template.id);await page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true}).check();
       await page.getByRole("button",{name:"حفظ إعدادات الإشعار",exact:true}).click();
       await expect(page.getByRole("status")).toContainText("تم تفعيل");
+      await expect(page.getByLabel("قالب واتساب المعتمد",{exact:true})).toHaveValue(template.id);
+      await expect(page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true})).toBeChecked();
       expect((await db.whatsAppAutomation.findFirstOrThrow({where:{businessId:fixture.businessId,triggerType:"laundry_ready"}})).status).toBe("active");
       expect(await db.whatsAppAutomationEvent.count({where:{businessId:fixture.businessId}})).toBe(0);
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath("laundry-notifications-mobile.png"),fullPage:true});
