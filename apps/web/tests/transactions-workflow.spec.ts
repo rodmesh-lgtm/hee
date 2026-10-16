@@ -425,7 +425,7 @@ test.describe.serial("public transactions workflow", () => {
     const ticketId=crypto.randomUUID();
     try{
       await db.user.update({where:{id:driver.userId},data:{name:"مندوب المغسلة التجريبي"}});
-      for(const f of [driver,other])await db.businessMember.create({data:{businessId:fixture.businessId,userId:f.userId,role:"staff",status:"active",permissions:["laundryDelivery"]}});
+      for(const f of [driver,other])await db.businessMember.create({data:{businessId:fixture.businessId,userId:f.userId,role:"viewer",status:"active",permissions:["laundryDelivery"]}});
       await db.$executeRaw`INSERT INTO "LaundryTicket" (id,"businessId",number,"requestId","customerName",phone,items,total,paid,status,"dueAt","createdBy") VALUES (${ticketId},${fixture.businessId},1,${crypto.randomUUID()},'عميل توصيل اختبار','+966500009942','[]'::jsonb,2500,2500,'ready',now()+interval '1 day',${fixture.userId})`;
       await db.$executeRaw`INSERT INTO "LaundryPayment" (id,"businessId","ticketId","requestId",amount,method,"createdBy") VALUES (${crypto.randomUUID()},${fixture.businessId},${ticketId},${crypto.randomUUID()},2500,'cash',${fixture.userId})`;
       await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/Laundromat`);
