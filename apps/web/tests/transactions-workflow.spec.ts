@@ -90,8 +90,8 @@ test.describe.serial("public transactions workflow", () => {
     try{
       await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/Laundromat`);
       await page.getByRole("button",{name:"الخدمات والأسعار",exact:true}).click();
-      await page.getByLabel("سعر فنيلة داخلية",{exact:true}).fill("2.50");
-      await page.getByLabel("سعر سروال داخلي",{exact:true}).fill("3.00");
+      await page.getByLabel("سعر فنيلة داخلية — غسيل وكوي",{exact:true}).fill("2.50");
+      await page.getByLabel("سعر سروال داخلي — غسيل وكوي",{exact:true}).fill("3.00");
       await page.getByLabel("سعر فنيلة داخلية — كوي فقط",{exact:true}).fill("1.25");
       const catalogSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
       await page.getByRole("button",{name:"إضافة الأصناف المسعّرة إلى الكاشير",exact:true}).click();
