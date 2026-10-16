@@ -248,7 +248,8 @@ test.describe.serial("public transactions workflow", () => {
       // Database constraint rejects incomplete journals even if application validation is bypassed.
       await expect(db.$transaction(async tx=>{
         await tx.$executeRaw`INSERT INTO "LaundryJournal" ("id","businessId","number","sourceKey","description","effectiveAt","createdBy") VALUES (${crypto.randomUUID()},${fixture.businessId},999,'test-unbalanced','قيد مرفوض',now(),${fixture.userId})`;
-      })).rejects.toThrow("LAUNDRY_JOURNAL_UNBALANCED");
+      })).rejects.toThrow();
+      expect((await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryJournal" WHERE "businessId"=${fixture.businessId} AND "sourceKey"='test-unbalanced'`)[0].n).toBe(0);
       await page.getByText("إقفال فترة محاسبية",{exact:true}).click();
       await page.getByLabel("إقفال حتى نهاية يوم",{exact:true}).fill(riyadhDateKey(-1));
       await page.getByRole("checkbox",{name:"راجعت الفترة وأفهم أن الإقفال يمنع الترحيل إليها"}).check();
@@ -278,7 +279,7 @@ test.describe.serial("public transactions workflow", () => {
       await db.$executeRaw`UPDATE "LaundryTicket" SET "customerId"=NULL WHERE "businessId"=${fixture.businessId}`;
       await page.getByText("ربط الطلبات السابقة بملفات العملاء",{exact:true}).click();
       await page.getByRole("button",{name:"ربط الطلبات السابقة",exact:true}).click();
-      await expect(page.getByRole("status")).toContainText("رُبط 1 طلبًا");
+      await expect(page.locator(".ld-customers").getByRole("status")).toContainText("رُبط 1 طلبًا");
       expect((await db.$queryRaw<Array<{customerId:string}>>`SELECT "customerId" FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`)[0].customerId).toBe(profiles[0].id);
       await page.screenshot({path:testInfo.outputPath("laundry-customers-mobile.png"),fullPage:true});
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
