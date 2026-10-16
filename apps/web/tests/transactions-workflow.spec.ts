@@ -84,6 +84,54 @@ async function cleanup(seed: Seeded) {
 }
 
 test.describe.serial("public transactions workflow", () => {
+  test("laundry owner manages staff and enables approved ready notifications on mobile",async({browser},testInfo)=>{
+    test.setTimeout(120000);
+    const fixture=await seed(),employee=await seed();const page=await browser.newPage({viewport:{width:390,height:844}}),staff=await browser.newPage();
+    try{
+      await db.user.update({where:{id:employee.userId},data:{name:"موظف المغسلة التجريبي"}});
+      const member=await db.businessMember.create({data:{businessId:fixture.businessId,userId:employee.userId,role:"viewer",permissions:["laundry"],status:"active"}});
+      await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/Laundromat/Staff`);
+      await expect(page.getByRole("heading",{name:"إضافة موظف جديد",exact:true})).toBeVisible();
+      const details=page.locator("details").filter({hasText:"موظف المغسلة التجريبي"});await details.locator("summary").click();
+      await details.getByLabel("محاسبة المغسلة — الدفتر والاشتراكات والموردون",{exact:true}).check();
+      await details.getByRole("button",{name:"حفظ صلاحيات الموظف",exact:true}).click();
+      await expect.poll(async()=>(await db.businessMember.findUniqueOrThrow({where:{id:member.id}})).permissions).toEqual(["laundryAccounting","laundry"]);
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath("laundry-staff-mobile.png"),fullPage:true});
+      await setSession(staff,employee.sessionToken);await staff.context().addCookies([{name:"hee_active_business",value:fixture.businessId,url:baseUrl}]);
+      await staff.goto(`${baseUrl}/Laundromat/Staff`);await expect(staff.getByRole("heading",{name:"إدارة الموظفين متاحة لمالك المنشأة فقط",exact:true})).toBeVisible();
+      await staff.goto(`${baseUrl}/Laundromat/Notifications`);await expect(staff.getByRole("heading",{name:"إعدادات الإشعارات متاحة لمالك المنشأة فقط",exact:true})).toBeVisible();
+      const plan=await db.businessPlan.upsert({where:{code:"BUSINESS"},update:{},create:{code:"BUSINESS",name:"Business",monthlyPrice:100,productLimit:10}});
+      await db.subscription.updateMany({where:{businessId:fixture.businessId},data:{planId:plan.id}});
+      const connection=await db.whatsAppConnection.create({data:{businessId:fixture.businessId,provider:"meta",status:"connected",marketingEnabled:true,wabaId:crypto.randomUUID(),phoneNumberId:crypto.randomUUID(),credentialEnvelope:{}}});
+      const template=await db.whatsAppTemplate.create({data:{businessId:fixture.businessId,connectionId:connection.id,providerTemplateId:crypto.randomUUID(),name:"infro_laundry_ready",language:"ar",category:"utility",status:"approved",providerStatus:"APPROVED",components:[{type:"BODY",text:"مرحبًا {{1}} طلب {{3}} جاهز لدى {{2}}"}],rawPayload:{},lastSyncedAt:new Date()}});
+      await page.goto(`${baseUrl}/Laundromat/Notifications`);
+      await expect(page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true})).not.toBeChecked();
+      await page.getByLabel("قالب واتساب المعتمد",{exact:true}).selectOption(template.id);await page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true}).check();
+      await page.getByRole("button",{name:"حفظ إعدادات الإشعار",exact:true}).click();
+      await expect(page.getByRole("status")).toContainText("تم تفعيل");
+      await expect(page.getByLabel("قالب واتساب المعتمد",{exact:true})).toHaveValue(template.id);
+      await expect(page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true})).toBeChecked();
+      expect((await db.whatsAppAutomation.findFirstOrThrow({where:{businessId:fixture.businessId,triggerType:"laundry_ready"}})).status).toBe("active");
+      expect(await db.whatsAppAutomationEvent.count({where:{businessId:fixture.businessId}})).toBe(0);
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath("laundry-notifications-mobile.png"),fullPage:true});
+      // Exercise the real status action: one consented order queues once; the other never queues.
+      for(const consent of [true,false]){
+        const id=crypto.randomUUID();const number=consent?1:2;
+        await db.$executeRaw`INSERT INTO "LaundryTicket" (id,"businessId",number,"requestId","customerName",phone,items,total,paid,status,"dueAt","createdBy","readyNotifyConsentAt") VALUES (${id},${fixture.businessId},${number},${crypto.randomUUID()},'عميل اختبار إشعار','+966500009940','[]'::jsonb,100,100,'processing',now(),${fixture.userId},${consent?new Date():null})`;
+        await page.goto(`${baseUrl}/Laundromat`);await page.getByRole("button",{name:"الطلبات والتسليم",exact:true}).click();
+        const row=page.locator(".ld-orders-table tbody tr").filter({hasText:`#${String(number).padStart(5,"0")}`});
+        await row.getByRole("button",{name:"التفاصيل والفاتورة",exact:true}).click();
+        const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+        await page.getByRole("button",{name:"المرحلة التالية: جاهز للاستلام",exact:true}).click();const request=await sent;
+        await expect(page.getByRole("button",{name:"المرحلة التالية: جاهز للاستلام",exact:true})).toHaveCount(0);
+        await page.request.post(request.url(),{headers:{"next-action":request.headers()["next-action"],"content-type":request.headers()["content-type"],origin:new URL(baseUrl).origin},data:request.postData()??""});
+        expect(await db.whatsAppAutomationEvent.count({where:{businessId:fixture.businessId}})).toBe(1);
+      }
+      await page.goto(`${baseUrl}/Laundromat/Notifications`);
+      await page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true}).uncheck();await page.getByRole("button",{name:"حفظ إعدادات الإشعار",exact:true}).click();await expect(page.getByRole("status")).toContainText("تم إيقاف");
+    }finally{await page.close();await staff.close();await db.businessMember.deleteMany({where:{businessId:fixture.businessId}});await cleanup(fixture);await cleanup(employee);}
+  });
+
   test("laundry cashier persists exact amounts, rejects cross-tenant replay, and prints saved orders", async ({browser},testInfo)=>{
     test.setTimeout(180000);
     const fixture=await seed();const outsider=await seed();const page=await browser.newPage({viewport:{width:1440,height:1000}});

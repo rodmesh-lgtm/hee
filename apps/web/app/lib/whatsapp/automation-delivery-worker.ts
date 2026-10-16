@@ -1,4 +1,6 @@
 import "server-only";
+import { laundryReadyContext } from "./laundry-ready";
+import { laundryReadyEvent,laundryReadyTemplateSupported,LAUNDRY_READY_TEMPLATE_NAME } from "./laundry-ready-domain";
 
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
@@ -108,12 +110,12 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   const context = await database.whatsAppAutomationJob.findFirst({
     where: { id: job.id, businessId: job.businessId, automationId: job.automationId, runId: job.runId, connectionId: job.connectionId },
     select: {
-      templateParameters: true,
-      automation: { select: { status: true, triggerConfig: true } },
+      templateParameters: true, templateId:true,
+      automation: { select: { status: true, triggerConfig: true, actionConfig:true } },
       run: { select: { event: { select: { source: true, triggerType: true, subjectType: true, subjectId: true, occurredAt: true } } } },
-      contact: { select: { id: true, phoneE164: true, displayName: true, optedOutAt: true } },
-      template: { select: { provider: true, status: true, category: true, name: true, language: true } },
-      connection: { select: { provider: true, status: true, phoneNumberId: true, credentialEnvelope: true, marketingEnabled: true, bookingEnabled: true } },
+      contact: { select: { id: true, phoneE164: true, displayName: true, optedOutAt: true, deletedAt:true } },
+      template: { select: { provider: true, status: true, category: true, name: true, language: true, components:true, parameterFormat:true } },
+      connection: { select: { provider: true, status: true, disabledAt:true, phoneNumberId: true, credentialEnvelope: true, marketingEnabled: true, bookingEnabled: true } },
     },
   });
   if (!context) {
@@ -252,12 +254,20 @@ export async function processNextWhatsAppAutomationDelivery(input: {
       return { processed: true as const, result: "cart_closed" as const, jobId: job.id };
     }
   }
+  const laundryJob=context.run.event.triggerType==="laundry_ready";
+  if(laundryJob){
+    const current=laundryReadyEvent(context.run.event)?await laundryReadyContext(database,job.businessId,context.run.event.subjectId,context.contact.phoneE164):null;
+    const revoked=await database.whatsAppConsent.findFirst({where:{businessId:job.businessId,phoneE164:context.contact.phoneE164,revokedAt:{not:null}},select:{id:true}});
+    if(!current||revoked||context.connection.disabledAt||(context.automation.actionConfig as {templateId?:string})?.templateId!==context.templateId||!isDeepStrictEqual(current,context.templateParameters)||context.template.name!==LAUNDRY_READY_TEMPLATE_NAME||context.template.category!=="utility"||!laundryReadyTemplateSupported(context.template.components,context.template.parameterFormat)){
+      await releaseAs(database,job,"cancelled",now,"LAUNDRY_READY_NO_LONGER_AUTHORIZED");return {processed:true as const,result:"cancelled" as const,jobId:job.id};
+    }
+  }
   const consent = await database.whatsAppConsent.findFirst({
     where: { businessId: job.businessId, phoneE164: context.contact.phoneE164, revokedAt: null, consentedAt: { lte: now },
       ...(context.run.event.triggerType === "abandoned_cart" ? { source: { not: "booking" } } : {}),
     }, select: { id: true },
   });
-  if (context.contact.optedOutAt || !consent) {
+  if (context.contact.optedOutAt || context.contact.deletedAt || (!laundryJob&&!consent)) {
     await releaseAs(database, job, "cancelled", now, "OPT_OUT_OR_CONSENT_REVOKED");
     return { processed: true as const, result: "skipped_opt_out" as const, jobId: job.id };
   }

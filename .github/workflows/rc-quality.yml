@@ -95,6 +95,10 @@ jobs:
         env:
           ALLOW_LAUNDRY_INTEGRITY_AUDIT: "true"
         run: node --import tsx scripts/laundry-integrity-audit.ts
+      - name: Verify laundry readiness notification consent and delivery cancellation
+        env:
+          ALLOW_LAUNDRY_READY_AUDIT: "true"
+        run: node --conditions=react-server --import tsx scripts/laundry-ready-audit.ts
       - name: Verify billing database integrity
         env:
           ALLOW_BILLING_INTEGRITY_AUDIT: "true"

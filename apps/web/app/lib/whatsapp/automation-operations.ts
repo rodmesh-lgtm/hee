@@ -122,6 +122,7 @@ export async function operateWhatsAppAutomation(input: {
       select: { id: true, connectionId: true, status: true, triggerType: true, triggerConfig: true, actionType: true, actionConfig: true },
     });
     if (!automation) throw new Error("WHATSAPP_AUTOMATION_NOT_FOUND");
+    if (automation.triggerType === "laundry_ready") throw new Error("LAUNDRY_NOTIFICATIONS_OWNER_SETTINGS_REQUIRED");
     if (automation.actionType !== "send_template") throw new Error("WHATSAPP_AUTOMATION_ACTION_INVALID");
 
     let nextStatus: "active" | "paused";

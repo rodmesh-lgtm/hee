@@ -1,3 +1,4 @@
+import { LAUNDRY_READY_TEMPLATE_EXAMPLE } from "./laundry-ready-domain";
 import { BOOKING_CONFIRMATION_TEMPLATE_EXAMPLE } from "./booking-confirmation-domain";
 import { SALLA_ORDER_CONFIRMATION_TEMPLATE_EXAMPLE } from "./salla-order-confirmation-domain";
 // Draft copy only. Selection never creates a template or enables an automation.
@@ -8,6 +9,7 @@ export const TEMPLATE_STARTERS = [
   { key: "reactivation", label: "إعادة تواصل مع العملاء", category: "MARKETING", name: "infro_customer_return", body: "يسعدنا التواصل معك مجددًا. نحن هنا لمساعدتك عند حاجتك إلى خدماتنا. تواصل معنا لمعرفة المزيد. لإيقاف الرسائل أرسل إيقاف.", examples: "", hint: "متوافق مع مسار العملاء غير النشطين. يتطلب موافقة تسويقية سارية." },
   { key: "order_confirmation", label: "تأكيد الطلب", category: "UTILITY", name: "infro_order_confirmation", body: SALLA_ORDER_CONFIRMATION_TEMPLATE_EXAMPLE, examples: "أحمد | متجر المثال | 1024", hint: "متوافق مع متغيرات مسار تأكيد طلب سلة المدفوع." },
   { key: "order_shipped", label: "شحن الطلب", category: "UTILITY", name: "infro_order_shipped", body: "مرحبًا {{1}}، تم شحن طلبك رقم {{3}} من {{2}}.", examples: "أحمد | متجر المثال | 1024", hint: "متوافق مع متغيرات مسار شحن طلب سلة." },
+  { key: "laundry-ready", label: "طلب المغسلة جاهز للاستلام", category: "UTILITY", name: "infro_laundry_ready", body: LAUNDRY_READY_TEMPLATE_EXAMPLE, examples: "أحمد | مغاسل المنشأة | 123", hint: "بعد اعتماد القالب، اختره من إشعارات واتساب داخل المغسلة." },
   { key: "booking", label: "تأكيد الموعد", category: "UTILITY", name: "infro_booking_confirmation", body: BOOKING_CONFIRMATION_TEMPLATE_EXAMPLE, examples: "المنشأة التجريبية | صيانة | الفرع الرئيسي | الأحد 4 أكتوبر | 4 مساءً | 5 مساءً | ABC12345", hint: "متوافق مع متغيرات إشعار الحجز السبعة. اربطه من إعدادات الحجوزات بعد اعتماده." },
   { key: "cart", label: "تذكير بسلة متروكة", category: "MARKETING", name: "infro_cart_reminder", body: "مرحبًا، ما زالت مشترياتك بانتظارك في متجرنا. يسعدنا مساعدتك لإكمال طلبك. لإيقاف الرسائل أرسل إيقاف.", examples: "", hint: "نموذج بلا متغيرات متوافق مع مسار السلة الحالي، ويتطلب موافقة تسويقية." },
   { key: "review", label: "طلب تقييم الخدمة", category: "MARKETING", name: "infro_service_feedback", body: "مرحبًا {{1}}، يسعدنا معرفة رأيك في تجربتك مع {{2}}. شاركنا تقييمك لنقدم لك خدمة أفضل. لإيقاف الرسائل أرسل إيقاف.", examples: "أحمد | المنشأة التجريبية", hint: "أضف رابط التقييم في زر القالب. التصنيف النهائي تحدده Meta." },
@@ -28,6 +30,6 @@ export const TEMPLATE_GROUPS = [{ key: "all", label: "كل النماذج" }, { 
 export function starterGroup(key: string) {
   if (key === "otp") return "authentication";
   if (key.startsWith("review") || key === "follow_up") return "reviews";
-  if (key.startsWith("order_") || key === "booking") return "operations";
+  if (key.startsWith("order_") || key === "booking" || key === "laundry-ready") return "operations";
   return "marketing";
 }

@@ -49,7 +49,7 @@ export async function inviteStaffAction(_state: StaffActionState, form: FormData
         sent = response.ok;
       } catch { /* The owner can share the invitation link through their chosen channel. */ }
     }
-    revalidatePath("/dashboard/staff");
+    revalidatePath("/dashboard/staff");revalidatePath("/Laundromat/Staff");
     return { success: sent ? "أُرسلت الدعوة إلى بريد الموظف. يمكنه إنشاء حسابه وقبولها." : "تم إنشاء الدعوة. انسخ الرابط وأرسله للموظف لإكمال حسابه.", inviteUrl };
   } catch { return { error: "تعذر إنشاء الدعوة الآن. حاول مرة أخرى." }; }
 }
@@ -68,6 +68,7 @@ export async function updateStaffAction(_state: StaffActionState, form: FormData
     });
     if (!updated) return { error: "لم يتم العثور على الموظف في هذه المنشأة." };
     revalidatePath("/dashboard", "layout");
+    revalidatePath("/Laundromat/Staff");
     return { success: "تم تحديث صلاحيات الموظف. تطبّق عند كل طلب جديد." };
   } catch { return { error: "تعذر حفظ الصلاحيات الآن." }; }
 }
@@ -77,7 +78,7 @@ export async function revokeStaffInvitationAction(form: FormData) {
   const business = await getActiveBusinessForUser(user.id);
   if (!business) return;
   await db.oAuthState.deleteMany({ where: { id: text(form, "invitationId"), nonce: business.id, provider: STAFF_INVITE_PROVIDER } });
-  revalidatePath("/dashboard/staff");
+  revalidatePath("/dashboard/staff");revalidatePath("/Laundromat/Staff");
 }
 
 export async function startStaffJoinAction(form: FormData) {
@@ -112,5 +113,6 @@ export async function acceptStaffInvitationAction(form: FormData) {
   jar.set(ACTIVE_BUSINESS_COOKIE, invitation.business.id, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" && !isExplicitTestRuntime(), path: "/", maxAge: 365 * 86400 });
   await syncWorkspaceBusinessPreference(invitation.business.id);
   revalidatePath("/dashboard", "layout");
+    revalidatePath("/Laundromat/Staff");
   redirect("/dashboard");
 }
