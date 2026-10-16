@@ -19,6 +19,10 @@ export async function postLaundryJournal(tx:Tx,input:{businessId:string;actorId:
  await tx.$executeRaw`INSERT INTO "LaundryJournal" ("id","businessId","number","sourceKey","description","effectiveAt","createdBy","reversalOf") SELECT ${id},${businessId},COALESCE(MAX("number"),0)+1,${sourceKey},${input.description},${effectiveAt},${input.actorId},${input.reversalOf??null} FROM "LaundryJournal" WHERE "businessId"=${businessId}`;
  const lines=input.lines.map(l=>({...l,id:randomUUID()}));
  await tx.$executeRaw`INSERT INTO "LaundryJournalLine" ("id","businessId","journalId","accountCode","debit","credit") SELECT l.id,${businessId},${id},l."accountCode",l.debit,l.credit FROM jsonb_to_recordset(${JSON.stringify(lines)}::jsonb) AS l(id text,"accountCode" text,debit bigint,credit bigint)`;
+ // Surface deferred database failures inside the query boundary, before the
+ // adapter reports the transaction result. Restore deferral for the next journal.
+ await tx.$executeRaw`SET CONSTRAINTS laundry_journal_header_balance, laundry_journal_lines_balance IMMEDIATE`;
+ await tx.$executeRaw`SET CONSTRAINTS laundry_journal_header_balance, laundry_journal_lines_balance DEFERRED`;
  return id;
 }
 export async function postLaundrySource(tx:Tx,input:{businessId:string;actorId:string;id:string;kind:"order"|"payment"|"delivery"|"expense";amount:number;method?:string;at:Date;description:string}){

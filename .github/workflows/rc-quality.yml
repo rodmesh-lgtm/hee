@@ -91,6 +91,10 @@ jobs:
         env:
           ALLOW_PUBLIC_TRANSACTIONS_AUDIT: "true"
         run: npm run public:transactions-audit
+      - name: Verify laundry database accounting constraints
+        env:
+          ALLOW_LAUNDRY_INTEGRITY_AUDIT: "true"
+        run: node --import tsx scripts/laundry-integrity-audit.ts
       - name: Verify billing database integrity
         env:
           ALLOW_BILLING_INTEGRITY_AUDIT: "true"

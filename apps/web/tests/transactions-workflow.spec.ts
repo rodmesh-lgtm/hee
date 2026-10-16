@@ -246,9 +246,12 @@ test.describe.serial("public transactions workflow", () => {
       const manualCount=await db.$queryRaw<Array<{count:number}>>`SELECT COUNT(*)::int AS count FROM "LaundryJournal" WHERE "businessId"=${fixture.businessId} AND ("sourceKey" LIKE 'manual:%' OR "sourceKey" LIKE 'reversal:%')`;
       expect(manualCount[0].count).toBe(2);
       // Database constraint rejects incomplete journals even if application validation is bypassed.
-      await expect(db.$transaction(async tx=>{
-        await tx.$executeRaw`INSERT INTO "LaundryJournal" ("id","businessId","number","sourceKey","description","effectiveAt","createdBy") VALUES (${crypto.randomUUID()},${fixture.businessId},999,'test-unbalanced','قيد مرفوض',now(),${fixture.userId})`;
-      })).rejects.toThrow();
+      const accountingClient=await pool.connect();
+      try{
+        await accountingClient.query("BEGIN");
+        await accountingClient.query('INSERT INTO "LaundryJournal" (id,"businessId",number,"sourceKey",description,"effectiveAt","createdBy") VALUES ($1,$2,999,$3,$4,now(),$5)',[crypto.randomUUID(),fixture.businessId,"test-unbalanced","قيد مرفوض",fixture.userId]);
+        await expect(accountingClient.query("COMMIT")).rejects.toThrow("LAUNDRY_JOURNAL_UNBALANCED");
+      }finally{await accountingClient.query("ROLLBACK");accountingClient.release();}
       expect((await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryJournal" WHERE "businessId"=${fixture.businessId} AND "sourceKey"='test-unbalanced'`)[0].n).toBe(0);
       await page.getByText("إقفال فترة محاسبية",{exact:true}).click();
       await page.getByLabel("إقفال حتى نهاية يوم",{exact:true}).fill(riyadhDateKey(-1));
