@@ -185,7 +185,9 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByRole("button",{name:"التحصيل والمصروفات",exact:true}).click();
       await page.getByLabel("من تاريخ",{exact:true}).fill(riyadhDateKey(0));
       await page.getByLabel("إلى تاريخ",{exact:true}).fill(riyadhDateKey(0));
+      const reportSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
       await page.getByRole("button",{name:"عرض التقرير",exact:true}).click();
+      const reportRequest=await reportSent;
       await expect(page.locator(".ld-report-summary")).toContainText("٧٫٥٠");
       await expect(page.locator(".ld-report-summary article").filter({hasText:"ذمم نهاية الفترة"})).toContainText("٠٫٠٠");
       await expect(page.locator(".ld-report tbody tr")).toHaveCount(2);
@@ -201,6 +203,8 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true}).click();
       await expect(page.getByAltText("شعار المنشأة في الفاتورة",{exact:true})).toBeVisible();
       await setSession(page,outsider.sessionToken);await replay();
+      const deniedReport=await page.request.post(reportRequest.url(),{headers:{"next-action":reportRequest.headers()["next-action"],"content-type":reportRequest.headers()["content-type"],origin:new URL(baseUrl).origin},data:reportRequest.postData()??""});
+      expect(await deniedReport.text()).toContain("التقرير متاح لمالك المنشأة النشطة فقط");
       const foreign=await db.$queryRaw<Array<{count:number}>>`SELECT COUNT(*)::int AS count FROM "LaundryTicket" WHERE "businessId"=${outsider.businessId}`;expect(foreign[0].count).toBe(0);
     }finally{
       await page.close();

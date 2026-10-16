@@ -1,9 +1,13 @@
 "use server";
+import { z } from "zod";
 import { getCurrentUser } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
 import { db } from "../lib/db";
 import { laundryReportRange, type LaundryReport } from "../lib/laundry-report";
-export async function getLaundryReport(input:{businessId:string;from:string;to:string}):Promise<{ok:true;report:LaundryReport}|{ok:false;error:string}>{
+export async function getLaundryReport(value:unknown):Promise<{ok:true;report:LaundryReport}|{ok:false;error:string}>{
+ const parsed=z.object({businessId:z.string().uuid(),from:z.string().max(10),to:z.string().max(10)}).safeParse(value);
+ if(!parsed.success)return {ok:false,error:"راجع المنشأة وتواريخ التقرير"};
+ const input=parsed.data;
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يرجى تسجيل الدخول"};
  const business=await getActiveBusinessForUser(user.id,"laundry");
  if(!business||business.ownerId!==user.id||business.id!==input.businessId)return {ok:false,error:"التقرير متاح لمالك المنشأة النشطة فقط"};
