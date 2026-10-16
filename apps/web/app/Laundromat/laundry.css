@@ -48,3 +48,5 @@
 .ld-account-link{border:0;background:transparent;color:var(--ld-green);text-decoration:underline;text-underline-offset:4px;min-height:44px;text-align:right;font-weight:700;cursor:pointer}.ld-ledger-detail{margin-top:24px;padding:16px;border:1px solid var(--ld-line);border-radius:12px;background:#f8fbfb}.ld-ledger{scroll-margin-top:85px}
 
 .ld-customers{display:grid;gap:20px}.ld-customers details{margin:16px 0}.ld-customers summary{cursor:pointer;padding:12px 0;font-weight:700}.ld-customers .ld-panel>form>label{margin:12px 0}
+
+.ld-inventory{display:grid;gap:20px;scroll-margin-top:110px}.ld-inventory summary{cursor:pointer;padding:14px 0;font-weight:700}.ld-inventory details+details{border-top:1px solid #e2e8f0}

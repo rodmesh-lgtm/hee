@@ -307,6 +307,81 @@ test.describe.serial("public transactions workflow", () => {
       await db.storedObject.deleteMany({where:{folder:`logos/${fixture.businessId}`}});
     }
   });
+  test("laundry inventory preserves transfer totals, rejects negative and stale counts, and isolates tenants", async ({browser},testInfo)=>{
+    test.setTimeout(120000);
+    const fixture=await seed(),outsider=await seed();
+    const page=await browser.newPage({viewport:{width:390,height:844}});
+    const other=await browser.newPage({viewport:{width:1024,height:768}});
+    try{
+      await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/Laundromat`);
+      await page.getByRole("button",{name:"المخزون والجرد",exact:true}).click();
+      await page.getByText("إضافة مستودع",{exact:true}).click();
+      for(const name of ["المستودع الرئيسي","مستودع الفرع"]){
+        await page.getByLabel("اسم المستودع",{exact:true}).fill(name);
+        await page.getByRole("button",{name:"حفظ المستودع",exact:true}).click();
+        await expect(page.getByLabel("اسم المستودع",{exact:true})).toHaveValue("");
+      }
+      await page.getByText("إضافة مادة للمخزون",{exact:true}).click();
+      await page.getByLabel("اسم المادة",{exact:true}).fill("سائل تنظيف تجريبي");
+      await page.getByLabel("رمز المادة",{exact:true}).fill("SOAP-01");
+      await page.getByLabel("وحدة المادة",{exact:true}).selectOption("liter");
+      await page.getByLabel("حد إعادة الطلب لكل مستودع",{exact:true}).fill("5");
+      await page.getByRole("button",{name:"حفظ المادة",exact:true}).click();
+      await expect(page.getByLabel("اسم المادة",{exact:true})).toHaveValue("");
+      const warehouses=await db.$queryRaw<Array<{id:string;name:string}>>`SELECT id,name FROM "LaundryWarehouse" WHERE "businessId"=${fixture.businessId}`;
+      const source=warehouses.find(w=>w.name==="المستودع الرئيسي")!.id,destination=warehouses.find(w=>w.name==="مستودع الفرع")!.id;
+      const item=(await db.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryStockItem" WHERE "businessId"=${fixture.businessId}`)[0].id;
+      await page.getByLabel("مادة الحركة",{exact:true}).selectOption(item);
+      await page.getByLabel("كمية الحركة",{exact:true}).fill("10.5");
+      await page.getByLabel("سبب الحركة أو مرجع الاستلام",{exact:true}).fill("استلام تجريبي موثق");
+      const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+      await page.getByRole("button",{name:"حفظ حركة المخزون",exact:true}).click();const receiptRequest=await sent;
+      await expect(page.getByLabel("كمية الحركة",{exact:true})).toHaveValue("");
+      const replay=()=>page.request.post(receiptRequest.url(),{headers:{"next-action":receiptRequest.headers()["next-action"],"content-type":receiptRequest.headers()["content-type"],origin:new URL(baseUrl).origin},data:receiptRequest.postData()??""});
+      await replay();
+      expect((await db.$queryRaw<Array<{quantity:number}>>`SELECT quantity::float8 FROM "LaundryStockBalance" WHERE "businessId"=${fixture.businessId} AND "warehouseId"=${source}`)[0].quantity).toBe(10500);
+      await page.getByLabel("نوع حركة المخزون",{exact:true}).selectOption("issue");
+      await page.getByLabel("كمية الحركة",{exact:true}).fill("11");
+      await page.getByLabel("سبب الحركة أو مرجع الاستلام",{exact:true}).fill("صرف يتجاوز المتاح");
+      await page.getByRole("button",{name:"حفظ حركة المخزون",exact:true}).click();
+      await expect(page.getByRole("alert").filter({hasText:"الرصيد غير كافٍ"})).toBeVisible();
+      await page.getByLabel("نوع حركة المخزون",{exact:true}).selectOption("transfer");
+      await page.getByLabel("المستودع المستلم",{exact:true}).selectOption(destination);
+      await page.getByLabel("كمية الحركة",{exact:true}).fill("2.25");
+      await page.getByLabel("سبب الحركة أو مرجع الاستلام",{exact:true}).fill("تحويل تجريبي للفرع");
+      await page.getByRole("button",{name:"حفظ حركة المخزون",exact:true}).click();
+      await expect(page.getByLabel("كمية الحركة",{exact:true})).toHaveValue("");
+      await page.getByLabel("نوع حركة المخزون",{exact:true}).selectOption("count");
+      await page.getByLabel("الكمية الفعلية بعد العد",{exact:true}).fill("8");
+      await page.getByLabel("سبب الحركة أو مرجع الاستلام",{exact:true}).fill("جرد تجريبي بعد العد");
+      await setSession(other,fixture.sessionToken);await other.goto(`${baseUrl}/Laundromat`);
+      await other.getByRole("button",{name:"المخزون والجرد",exact:true}).click();
+      await other.getByLabel("مادة الحركة",{exact:true}).selectOption(item);
+      await other.getByLabel("نوع حركة المخزون",{exact:true}).selectOption("issue");
+      await other.getByLabel("كمية الحركة",{exact:true}).fill("0.25");
+      await other.getByLabel("سبب الحركة أو مرجع الاستلام",{exact:true}).fill("صرف متزامن أثناء الجرد");
+      await other.getByRole("button",{name:"حفظ حركة المخزون",exact:true}).click();
+      await expect(other.getByLabel("كمية الحركة",{exact:true})).toHaveValue("");
+      await page.getByRole("button",{name:"حفظ حركة المخزون",exact:true}).click();
+      await expect(page.getByRole("alert").filter({hasText:"تغير رصيد المادة"})).toBeVisible();
+      await page.getByRole("button",{name:"تحديث المخزون",exact:true}).click();
+      await expect(page.getByRole("button",{name:"تحديث المخزون",exact:true})).toBeEnabled();
+      await page.getByRole("button",{name:"حفظ حركة المخزون",exact:true}).click();
+      await expect(page.getByLabel("الكمية الفعلية بعد العد",{exact:true})).toHaveValue("");
+      const totals=await db.$queryRaw<Array<{n:number}>>`SELECT SUM(quantity)::float8 AS n FROM "LaundryStockBalance" WHERE "businessId"=${fixture.businessId}`;expect(totals[0].n).toBe(10250);
+      const moves=await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryStockMovement" WHERE "businessId"=${fixture.businessId}`;expect(moves[0].n).toBe(5);
+      await page.screenshot({path:testInfo.outputPath("laundry-stock-mobile.png"),fullPage:true});expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+      await setSession(page,outsider.sessionToken);expect(await (await replay()).text()).toContain("المخزون متاح لمالك المنشأة النشطة فقط");
+    }finally{
+      await page.close();await other.close();
+      await db.$executeRaw`DELETE FROM "LaundryStockMovement" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "LaundryStockBalance" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "LaundryStockItem" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "LaundryWarehouse" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "LaundryAudit" WHERE "businessId"=${fixture.businessId}`;
+      await cleanup(fixture);await cleanup(outsider);
+    }
+  });
   test.beforeAll(async () => {
     const connectionString = String(process.env.DATABASE_URL ?? "").trim();
     if (!connectionString) throw new Error("DATABASE_URL is required");
