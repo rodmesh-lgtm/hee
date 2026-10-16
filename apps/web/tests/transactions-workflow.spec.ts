@@ -234,7 +234,7 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByLabel("المبلغ — سطر 1",{exact:true}).fill("25");
       await page.getByLabel("المبلغ — سطر 2",{exact:true}).fill("24");
       await page.getByRole("button",{name:"ترحيل القيد المتوازن",exact:true}).click();
-      await expect(page.getByRole("alert")).toContainText("إجمالي المدين يجب أن يساوي إجمالي الدائن");
+      await expect(page.locator(".ld-ledger").getByRole("alert")).toContainText("إجمالي المدين يجب أن يساوي إجمالي الدائن");
       await page.getByLabel("المبلغ — سطر 2",{exact:true}).fill("25");
       const journalSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
       await page.getByRole("button",{name:"ترحيل القيد المتوازن",exact:true}).click();const journalRequest=await journalSent;
@@ -259,7 +259,7 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByLabel("المبلغ — سطر 1",{exact:true}).fill("1");
       await page.getByLabel("المبلغ — سطر 2",{exact:true}).fill("1");
       await page.getByRole("button",{name:"ترحيل القيد المتوازن",exact:true}).click();
-      await expect(page.getByRole("alert")).toContainText("الفترة المحاسبية مغلقة");
+      await expect(page.locator(".ld-ledger").getByRole("alert")).toContainText("الفترة المحاسبية مغلقة");
       await page.screenshot({path:testInfo.outputPath("laundry-ledger-mobile.png"),fullPage:true});
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
       await page.getByRole("button",{name:"العملاء",exact:true}).click();
