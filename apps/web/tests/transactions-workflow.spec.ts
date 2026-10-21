@@ -84,6 +84,42 @@ async function cleanup(seed: Seeded) {
 }
 
 test.describe.serial("public transactions workflow", () => {
+  test("laundry inventory valuation reconciles opening stock, purchases, consumption and transfers", async ({browser},testInfo) => {
+    test.setTimeout(180000);
+    const fixture=await seed();const page=await browser.newPage({viewport:{width:390,height:844}});
+    const item=crypto.randomUUID(),warehouse=crypto.randomUUID(),destination=crypto.randomUUID(),supplier=crypto.randomUUID();
+    try {
+      await db.$executeRaw`INSERT INTO "LaundryWarehouse" (id,"businessId",name) VALUES (${warehouse},${fixture.businessId},'مستودع التقييم'),(${destination},${fixture.businessId},'مستودع النقل')`;
+      await db.$executeRaw`INSERT INTO "LaundryStockItem" (id,"businessId",sku,name,unit) VALUES (${item},${fixture.businessId},'VAL-001','مادة تقييم تجريبية','piece')`;
+      await db.$executeRaw`INSERT INTO "LaundryStockBalance" ("businessId","warehouseId","itemId",quantity) VALUES (${fixture.businessId},${warehouse},${item},10000)`;
+      await db.$executeRaw`INSERT INTO "LaundrySupplier" (id,"businessId",name) VALUES (${supplier},${fixture.businessId},'مورد التقييم')`;
+      await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/Laundromat/Accounting`);
+      await page.getByRole("button",{name:"تهيئة الدفتر من العمليات المسجلة",exact:true}).click();await expect(page.getByRole("heading",{name:"ميزان المراجعة ودليل الحسابات",exact:true})).toBeVisible();
+      await page.getByRole("button",{name:"المخزون وتقييمه",exact:true}).click();
+      await page.getByLabel("المستودع المعروض",{exact:true}).selectOption(warehouse);
+      await page.getByLabel("مادة الحركة",{exact:true}).selectOption(item);
+      await page.getByText("تقييم افتتاحي للمادة المحددة",{exact:true}).click();
+      await page.getByLabel("قيمة الرصيد الحالي الموثقة — ريال",{exact:true}).fill("100");
+      await page.getByLabel("مرجع تكلفة الرصيد الافتتاحي",{exact:true}).fill("رصيد افتتاحي موثق للاختبار");
+      await page.getByRole("checkbox",{name:"راجعت التكلفة ولم أسجلها سابقًا في حساب المخزون"}).check();
+      await page.getByRole("button",{name:"اعتماد القيمة الافتتاحية",exact:true}).click();await expect(page.getByRole("status")).toContainText("تم حفظ");
+      await page.getByRole("button",{name:"الموردون والمشتريات",exact:true}).click();
+      await page.getByLabel("نوع الشراء",{exact:true}).selectOption("inventory");await page.getByLabel("مادة الشراء",{exact:true}).selectOption(item);await page.getByLabel("مستودع الشراء",{exact:true}).selectOption(warehouse);
+      await page.getByLabel("كمية الشراء بوحدة المادة",{exact:true}).fill("10");await page.getByLabel("مورد الفاتورة",{exact:true}).selectOption(supplier);await page.getByLabel("رقم فاتورة المورد",{exact:true}).fill("STOCK-001");await page.getByLabel("إجمالي الفاتورة الفعلي",{exact:true}).fill("300");await page.getByLabel("وصف الخدمة أو مواد الشراء",{exact:true}).fill("شراء مواد للمخزون بتكلفة موثقة");
+      const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));await page.getByRole("button",{name:"حفظ فاتورة المورد وترحيلها",exact:true}).click();const request=await sent;await expect(page.getByRole("status")).toContainText("حُفظت");
+      await page.request.post(request.url(),{headers:{"next-action":request.headers()["next-action"],"content-type":request.headers()["content-type"],origin:new URL(baseUrl).origin},data:request.postData()??""});
+      const balance=async()=>db.$queryRaw<Array<{quantity:number;value:number}>>`SELECT quantity::float8,value::float8 FROM "LaundryStockBalance" WHERE "businessId"=${fixture.businessId} AND "warehouseId"=${warehouse} AND "itemId"=${item}`;
+      expect((await balance())[0]).toEqual({quantity:20000,value:40000});
+      await page.getByRole("button",{name:"المخزون وتقييمه",exact:true}).click();await page.getByLabel("المستودع المعروض",{exact:true}).selectOption(warehouse);await page.getByLabel("مادة الحركة",{exact:true}).selectOption(item);
+      await page.getByLabel("نوع حركة المخزون",{exact:true}).selectOption("issue");await page.getByLabel("كمية الحركة",{exact:true}).fill("5");await page.getByLabel("سبب الحركة أو مرجع الاستلام",{exact:true}).fill("صرف للاستهلاك في الاختبار");await page.getByRole("button",{name:"حفظ حركة المخزون",exact:true}).click();await expect(page.getByRole("status")).toContainText("تم حفظ");expect((await balance())[0]).toEqual({quantity:15000,value:30000});
+      await page.getByLabel("نوع حركة المخزون",{exact:true}).selectOption("transfer");await page.getByLabel("المستودع المستلم",{exact:true}).selectOption(destination);await page.getByLabel("كمية الحركة",{exact:true}).fill("5");await page.getByLabel("سبب الحركة أو مرجع الاستلام",{exact:true}).fill("نقل يحافظ على قيمة المخزون");await page.getByRole("button",{name:"حفظ حركة المخزون",exact:true}).click();await expect(page.getByRole("status")).toContainText("تم حفظ");expect((await balance())[0]).toEqual({quantity:10000,value:20000});
+      await page.getByLabel("المستودع المعروض",{exact:true}).selectOption(destination);await page.getByLabel("نوع حركة المخزون",{exact:true}).selectOption("count");await page.getByLabel("الكمية الفعلية بعد العد",{exact:true}).fill("3");await page.getByLabel("سبب الحركة أو مرجع الاستلام",{exact:true}).fill("عجز جرد موثق للاختبار");await page.getByRole("button",{name:"حفظ حركة المخزون",exact:true}).click();await expect(page.getByRole("status")).toContainText("تم حفظ");
+      const totals=await db.$queryRaw<Array<{stock:number;ledger:number;expense:number}>>`SELECT (SELECT SUM(value)::float8 FROM "LaundryStockBalance" WHERE "businessId"=${fixture.businessId}) AS stock,(SELECT SUM(debit-credit)::float8 FROM "LaundryJournalLine" WHERE "businessId"=${fixture.businessId} AND "accountCode"='1300') AS ledger,(SELECT SUM(debit-credit)::float8 FROM "LaundryJournalLine" WHERE "businessId"=${fixture.businessId} AND "accountCode"='5100') AS expense`;
+      expect(totals[0]).toEqual({stock:26000,ledger:26000,expense:14000});
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath("laundry-valued-stock-mobile.png"),fullPage:true});
+    } finally {await page.close();await db.session.deleteMany({where:{userId:fixture.userId}});await db.business.update({where:{id:fixture.businessId},data:{deletedAt:new Date(),isPublished:false}});}
+  });
+
   test("laundry contracts preserve signed terms, print on mobile and isolate tenants", async ({browser},testInfo) => {
     test.setTimeout(120000);
     const fixture=await seed(), outsider=await seed();
@@ -506,7 +542,7 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByLabel("مورد الفاتورة",{exact:true}).selectOption({label:"مورد التشغيل التجريبي"});
       await page.getByLabel("رقم فاتورة المورد",{exact:true}).fill("INV-001");
       await page.getByLabel("إجمالي الفاتورة الفعلي",{exact:true}).fill("60");
-      await page.getByLabel("وصف الخدمة أو المستلزمات المستهلكة",{exact:true}).fill("خدمة صيانة تشغيلية منفذة");
+      await page.getByLabel("وصف الخدمة أو مواد الشراء",{exact:true}).fill("خدمة صيانة تشغيلية منفذة");
       const billSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
       await page.getByRole("button",{name:"حفظ فاتورة المورد وترحيلها",exact:true}).click();const bill=await billSent;
       await expect(page.getByRole("button",{name:"سداد الفاتورة",exact:true})).toBeVisible();await replay(bill);

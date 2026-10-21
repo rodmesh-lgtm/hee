@@ -19,3 +19,14 @@ test("receipt, issue, transfer and stocktake conserve quantities and reject nega
  assert.throws(()=>laundryStockChange(1000,1001,"issue"));
  assert.throws(()=>laundryStockChange(0,0.5,"receipt"));
 });
+import { laundryStockCost } from "../app/lib/laundry-stock-domain";
+test("weighted inventory cost preserves every halala across partial and final issues",()=>{
+ let quantity=3000,value=100;
+ const first=laundryStockCost(quantity,value,1000);quantity-=1000;value-=first;
+ const second=laundryStockCost(quantity,value,1000);quantity-=1000;value-=second;
+ const last=laundryStockCost(quantity,value,1000);
+ assert.equal(first+second+last,100);
+ assert.equal(laundryStockCost(20000,40000,5000),10000);
+ assert.equal(laundryStockCost(1000000000000,999999999999,333333333333),333333333333);
+ for(const args of [[0,100,0],[100,100,101],[100,-1,1],[1.5,100,1],[100,1.2,1]])assert.throws(()=>laundryStockCost(...args as [number,number,number]));
+});

@@ -16,3 +16,9 @@ export function laundryStockChange(current:number,quantity:number,kind:"receipt"
  return {delta,after};
 }
 export const laundryStockFormat=(n:number)=>new Intl.NumberFormat("ar-SA",{maximumFractionDigits:3}).format(n/1000);
+// Quantities are thousandths; value is halalas. BigInt avoids multiplication rounding.
+export function laundryStockCost(quantity:number,value:number,removed:number){
+ if(![quantity,value,removed].every(Number.isSafeInteger)||quantity<=0||value<0||removed<0||removed>quantity||quantity>1e12||value>1e12)throw new LaundryInputError("كمية أو قيمة المخزون غير صالحة للتقييم");
+ if(removed===quantity)return value;
+ return Number((BigInt(value)*BigInt(removed)+BigInt(quantity)/2n)/BigInt(quantity));
+}
