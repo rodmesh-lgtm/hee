@@ -62,3 +62,5 @@
  .ld-shell:has(.ld-dialog[open]) *:not(.ld-dialog,.ld-dialog *):not(:has(.ld-dialog[open])){display:none!important}
  .ld-contract-document{font-size:12px}.ld-contract-document h2,.ld-contract-document h3{break-after:avoid}.ld-saved-signature{break-inside:avoid}
 }
+
+@media screen and (max-width:700px){.ld-top:has(>strong){height:auto;min-height:72px;flex-wrap:wrap;padding:14px;gap:12px}.ld-top:has(>strong) .ld-brand{flex-shrink:0}.ld-top>strong{flex:1;min-width:0;overflow-wrap:anywhere}.ld-top:has(>strong)>a:not(.ld-brand){font-size:12px;min-height:36px;display:flex;align-items:center}}
