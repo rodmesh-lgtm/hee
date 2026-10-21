@@ -152,7 +152,7 @@ test.describe.serial("public transactions workflow", () => {
       await page.request.post(request.url(),replay);
       expect((await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryAudit" WHERE "businessId"=${fixture.businessId} AND action='contract-sign'`)[0].n).toBe(1);
       await expect(db.$executeRaw`UPDATE "LaundryContract" SET terms='changed' WHERE "businessId"=${fixture.businessId}`).rejects.toThrow("LAUNDRY_CONTRACT_TERMS_IMMUTABLE");
-      await page.emulateMedia({media:"print"});await expect(dialog.locator(".ld-receipt")).toBeVisible();await expect(dialog.getByRole("img",{name:"التوقيع المحفوظ",exact:true})).toBeVisible();
+      await page.emulateMedia({media:"print"});await expect(page.locator(".ld-dialog[open] .ld-receipt")).toBeVisible();await expect(page.locator('.ld-dialog[open] svg[aria-label="التوقيع المحفوظ"]')).toBeVisible();
       expect(await page.evaluate(()=>getComputedStyle(document.body).page)).toBe("laundry-a4");
       await page.emulateMedia({media:"screen"});expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath("laundry-contract-mobile.png"),fullPage:true});
       await page.getByText("إلغاء العقد مع حفظ سجله",{exact:true}).click();
