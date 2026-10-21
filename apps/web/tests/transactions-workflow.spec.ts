@@ -84,6 +84,53 @@ async function cleanup(seed: Seeded) {
 }
 
 test.describe.serial("public transactions workflow", () => {
+  test("laundry bank reconciliation persists balanced evidence and denies tenant replay", async ({browser}, testInfo) => {
+    test.setTimeout(120000);
+    const fixture=await seed(), outsider=await seed();
+    const page=await browser.newPage({viewport:{width:390,height:844}});
+    try {
+      await setSession(page,fixture.sessionToken); await page.goto(`${baseUrl}/Laundromat/Accounting`);
+      await page.getByRole("button",{name:"تهيئة الدفتر من العمليات المسجلة",exact:true}).click();
+      await expect(page.getByRole("heading",{name:"ميزان المراجعة ودليل الحسابات",exact:true})).toBeVisible();
+      await page.getByLabel("تاريخ القيد",{exact:true}).fill(riyadhDateKey(-2));
+      await page.getByLabel("بيان القيد",{exact:true}).fill("رصيد البنك الموثق للاختبار");
+      await page.getByLabel("الحساب — سطر 1",{exact:true}).selectOption("1120");
+      await page.getByLabel("الحساب — سطر 2",{exact:true}).selectOption("3000");
+      await page.getByLabel("المبلغ — سطر 1",{exact:true}).fill("100");
+      await page.getByLabel("المبلغ — سطر 2",{exact:true}).fill("100");
+      await page.getByRole("button",{name:"ترحيل القيد المتوازن",exact:true}).click();
+      await expect(page.getByRole("button",{name:"عكس القيد",exact:true})).toBeVisible();
+      await page.getByText("إقفال فترة محاسبية",{exact:true}).click();
+      await page.getByLabel("إقفال حتى نهاية يوم",{exact:true}).fill(riyadhDateKey(-1));
+      await page.getByRole("checkbox",{name:"راجعت الفترة وأفهم أن الإقفال يمنع الترحيل إليها"}).check();
+      await page.getByRole("button",{name:"إقفال الفترة السابقة",exact:true}).click();
+      await expect(page.getByText(/آخر حد إقفال:/)).toBeVisible();
+      await page.getByRole("button",{name:"التسوية البنكية",exact:true}).click();
+      await page.getByLabel("تاريخ نهاية كشف البنك",{exact:true}).fill(riyadhDateKey(-1));
+      await page.getByRole("button",{name:"تحميل حركات المطابقة",exact:true}).click();
+      await page.getByLabel("مرجع كشف البنك",{exact:true}).fill("BANK-AUDIT-001");
+      await page.getByLabel("رصيد نهاية الكشف — ريال",{exact:true}).fill("99");
+      await page.getByRole("checkbox",{name:/مطابقة القيد/}).check();
+      await page.getByRole("checkbox",{name:/راجعت الكشف والحركات/}).check();
+      await expect(page.getByRole("button",{name:"اعتماد المطابقة المتوازنة",exact:true})).toBeDisabled();
+      await page.getByLabel("رصيد نهاية الكشف — ريال",{exact:true}).fill("100");
+      const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+      await page.getByRole("button",{name:"اعتماد المطابقة المتوازنة",exact:true}).click();const request=await sent;
+      await expect(page.getByRole("status")).toContainText("اعتُمدت المطابقة");
+      await expect(page.getByText("BANK-AUDIT-001",{exact:true})).toBeVisible();
+      const replay={headers:{"next-action":request.headers()["next-action"],"content-type":request.headers()["content-type"],origin:new URL(baseUrl).origin},data:request.postData()??""};
+      await page.request.post(request.url(),replay);
+      expect((await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryReconciliation" WHERE "businessId"=${fixture.businessId}`)[0].n).toBe(1);
+      const download=page.waitForEvent("download");await page.getByRole("button",{name:"تصدير المطابقة CSV",exact:true}).click();expect((await download).suggestedFilename()).toContain("INFRO-reconciliation");
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath("laundry-bank-mobile.png"),fullPage:true});
+      await setSession(page,outsider.sessionToken);const denied=await page.request.post(request.url(),replay);expect(await denied.text()).toContain("المنشأة النشطة");
+    } finally {
+      await page.close();await db.session.deleteMany({where:{userId:fixture.userId}});
+      await db.business.update({where:{id:fixture.businessId},data:{deletedAt:new Date(),isPublished:false}});
+      await cleanup(outsider);
+    }
+  });
+
   test("laundry owner manages staff and enables approved ready notifications on mobile",async({browser},testInfo)=>{
     test.setTimeout(120000);
     const fixture=await seed(),employee=await seed();const page=await browser.newPage({viewport:{width:390,height:844}}),staff=await browser.newPage();

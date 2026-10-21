@@ -99,6 +99,10 @@ jobs:
         env:
           ALLOW_LAUNDRY_READY_AUDIT: "true"
         run: node --conditions=react-server --import tsx scripts/laundry-ready-audit.ts
+      - name: Verify laundry bank reconciliation isolation and immutable accounting evidence
+        env:
+          ALLOW_LAUNDRY_RECONCILIATION_AUDIT: "true"
+        run: node --conditions=react-server --import tsx scripts/laundry-reconciliation-audit.ts
       - name: Verify billing database integrity
         env:
           ALLOW_BILLING_INTEGRITY_AUDIT: "true"
