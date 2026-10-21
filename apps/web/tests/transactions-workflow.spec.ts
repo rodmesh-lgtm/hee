@@ -84,6 +84,51 @@ async function cleanup(seed: Seeded) {
 }
 
 test.describe.serial("public transactions workflow", () => {
+  test("laundry contracts preserve signed terms, print on mobile and isolate tenants", async ({browser},testInfo) => {
+    test.setTimeout(120000);
+    const fixture=await seed(), outsider=await seed();
+    const page=await browser.newPage({viewport:{width:390,height:844}});
+    try {
+      await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/Laundromat/Accounting`);
+      await page.getByRole("button",{name:"العقود والتوقيع",exact:true}).click();
+      await page.getByLabel("مرجع العقد",{exact:true}).fill("CONTRACT-001");
+      await page.getByLabel("عنوان العقد",{exact:true}).fill("عقد خدمات مغسلة تجريبي");
+      await page.getByLabel("اسم عميل العقد",{exact:true}).fill("عميل توقيع تجريبي");
+      await page.getByLabel("جوال عميل العقد",{exact:true}).fill("0500009941");
+      await page.getByLabel("بداية العقد",{exact:true}).fill(riyadhDateKey(0));
+      await page.getByLabel("نهاية العقد",{exact:true}).fill(riyadhDateKey(30));
+      await page.getByLabel("القيمة التعاقدية الإجمالية — ريال",{exact:true}).fill("250");
+      await page.getByLabel("شروط العقد والخدمات المتفق عليها",{exact:true}).fill("شروط اختبار فقط: خدمات غسيل وكوي وفق الاتفاق المسجل بين الطرفين.");
+      await page.getByRole("button",{name:"إنشاء نسخة العقد",exact:true}).click();
+      await page.getByRole("button",{name:"فتح العقد CONTRACT-001",exact:true}).click();
+      const dialog=page.getByRole("dialog",{name:"عقد خدمات المغسلة"});await expect(dialog).toBeVisible();
+      const box=await page.getByRole("img",{name:"مساحة توقيع العميل",exact:true}).boundingBox();expect(box).not.toBeNull();
+      await page.mouse.move(box!.x+20,box!.y+40);await page.mouse.down();
+      for(let i=1;i<12;i++)await page.mouse.move(box!.x+20+i*12,box!.y+40+(i%2)*30);
+      await page.mouse.up();
+      await page.getByLabel("اسم الموقّع على العقد",{exact:true}).fill("عميل توقيع تجريبي");
+      await page.getByRole("checkbox",{name:/أنا العميل أو ممثله/}).check();
+      const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+      await page.getByRole("button",{name:"حفظ توقيع العميل",exact:true}).click();const request=await sent;
+      await expect(dialog.getByRole("img",{name:"التوقيع المحفوظ",exact:true})).toBeVisible();
+      await expect(dialog.getByRole("button",{name:"حفظ توقيع العميل",exact:true})).toHaveCount(0);
+      const replay={headers:{"next-action":request.headers()["next-action"],"content-type":request.headers()["content-type"],origin:new URL(baseUrl).origin},data:request.postData()??""};
+      await page.request.post(request.url(),replay);
+      expect((await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryAudit" WHERE "businessId"=${fixture.businessId} AND action='contract-sign'`)[0].n).toBe(1);
+      await expect(db.$executeRaw`UPDATE "LaundryContract" SET terms='changed' WHERE "businessId"=${fixture.businessId}`).rejects.toThrow("LAUNDRY_CONTRACT_TERMS_IMMUTABLE");
+      await page.emulateMedia({media:"print"});await expect(page.locator(".ld-dialog[open] .ld-receipt")).toBeVisible();await expect(page.locator('.ld-dialog[open] svg[aria-label="التوقيع المحفوظ"]')).toBeVisible();
+      expect(await page.evaluate(()=>getComputedStyle(document.body).page)).toBe("laundry-a4");
+      await page.emulateMedia({media:"screen"});expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath("laundry-contract-mobile.png"),fullPage:true});
+      await page.getByText("إلغاء العقد مع حفظ سجله",{exact:true}).click();
+      await page.getByLabel("سبب إلغاء العقد",{exact:true}).fill("انتهاء الاتفاق التجريبي");await page.getByRole("button",{name:"تأكيد إلغاء العقد",exact:true}).click();
+      await expect(dialog.getByText("سبب الإلغاء: انتهاء الاتفاق التجريبي",{exact:true})).toBeVisible();await expect(dialog.getByRole("img",{name:"التوقيع المحفوظ",exact:true})).toBeVisible();
+      await setSession(page,outsider.sessionToken);const denied=await page.request.post(request.url(),replay);expect(await denied.text()).toContain("المنشأة النشطة");
+    } finally {
+      await page.close();await db.session.deleteMany({where:{userId:fixture.userId}});
+      await db.business.update({where:{id:fixture.businessId},data:{deletedAt:new Date(),isPublished:false}});await cleanup(outsider);
+    }
+  });
+
   test("laundry bank reconciliation persists balanced evidence and denies tenant replay", async ({browser}, testInfo) => {
     test.setTimeout(120000);
     const fixture=await seed(), outsider=await seed();
