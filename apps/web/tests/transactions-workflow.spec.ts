@@ -115,12 +115,25 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009955");
       await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(2)}T16:00`);
       await page.getByLabel("الدفعة المستلمة",{exact:true}).fill("10");
+      await page.getByLabel("طريقة التحصيل",{exact:true}).selectOption("mixed");
+      await page.getByLabel("الجزء النقدي من الدفعة",{exact:true}).fill("3");
       await page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true}).click();
       const receipt=page.getByRole("dialog",{name:"تفاصيل طلب العميل",exact:true});
       await expect(receipt).toBeVisible();await expect(receipt).toContainText("مستند طلب / إيصال تحصيل");
       await expect(receipt).toContainText("فحص جهاز");await expect(receipt).not.toContainText("المنشأة غير مسجلة");
       const rows=await db.$queryRaw<Array<{total:number;paid:number;items:Array<{name:string}>}>>`SELECT total,paid,items FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
       expect(rows).toHaveLength(1);expect(rows[0].total).toBe(2500);expect(rows[0].paid).toBe(1000);expect(rows[0].items[0].name).toBe("فحص جهاز");
+      const payments=await db.$queryRaw<Array<{method:string;amount:number}>>`SELECT method,amount FROM "LaundryPayment" WHERE "businessId"=${fixture.businessId} ORDER BY method`;
+      expect(payments).toEqual([{method:"card",amount:700},{method:"cash",amount:300}]);
+      await expect(receipt.getByLabel("تفصيل الدفعات")).toContainText("شبكة — تسجيل يدوي");
+      await receipt.getByLabel("دفعة إضافية",{exact:true}).fill("15");
+      await receipt.getByLabel("الطريقة",{exact:true}).selectOption("mixed");
+      await receipt.getByLabel("الجزء النقدي من الدفعة",{exact:true}).fill("5");
+      await receipt.getByRole("button",{name:"تسجيل الدفعة",exact:true}).click();
+      await expect(receipt.getByLabel("دفعة إضافية",{exact:true})).toHaveCount(0);
+      const finalPayments=await db.$queryRaw<Array<{method:string;amount:number}>>`SELECT method,SUM(amount)::int AS amount FROM "LaundryPayment" WHERE "businessId"=${fixture.businessId} GROUP BY method ORDER BY method`;
+      expect(finalPayments).toEqual([{method:"card",amount:1700},{method:"cash",amount:800}]);
+
       await page.getByRole("button",{name:"إغلاق",exact:true}).click();await openLaundrySection(page,"الكاشير");
       for(const width of [1440,390]){await page.setViewportSize({width,height:1000});expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath(`laundry-unified-general-${width}.png`),fullPage:true});}
       await page.context().clearCookies();await setSession(page,laundry.sessionToken);await page.goto(`${baseUrl}/Accounting`);
