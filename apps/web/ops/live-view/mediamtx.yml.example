@@ -1,0 +1,28 @@
+logLevel: warn
+api: false
+metrics: false
+pprof: false
+playback: false
+rtsp: false
+rtmp: false
+srt: false
+webrtc: false
+hls: true
+hlsAddress: :8888
+hlsAlwaysRemux: true
+hlsVariant: mpegts
+hlsSegmentCount: 3
+hlsSegmentDuration: 2s
+hlsSegmentMaxSize: 4M
+# Permit only the private guard network to read. This port is never published.
+authMethod: internal
+authInternalUsers:
+  - user: any
+    permissions:
+      - action: read
+paths:
+  REPLACE_WITH_32_HEX_STATION_KEY:
+    # Replace locally with a read-only camera account; never commit this file.
+    source: rtsp://CAMERA_READ_USER:URL_ENCODED_PASSWORD@CAMERA_LAN_IP:554/STREAM_PATH
+    rtspTransport: tcp
+    record: false

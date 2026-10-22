@@ -1,0 +1,30 @@
+# Central relay for multiple independent tenant connectors. INFRO operators only.
+services:
+  media:
+    image: bluenviron/mediamtx:1.21.2
+    restart: unless-stopped
+    ports:
+      - "1936:1936"
+    volumes:
+      - ./relay-mediamtx.yml:/mediamtx.yml:ro
+      - ./relay-certs:/certs:ro
+    networks: [relay]
+  guard:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      LIVE_VIEW_GATEWAY_SECRET: ${LIVE_VIEW_GATEWAY_SECRET:?Set a random secret}
+      LIVE_VIEW_RELAY_AUTH_SECRET: ${LIVE_VIEW_RELAY_AUTH_SECRET:?Set a separate random secret}
+    volumes:
+      - ./RelayCaddyfile:/etc/caddy/Caddyfile:ro
+    networks: [relay]
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?Set the media hostname tunnel token}
+    networks: [relay]
+networks:
+  relay:
+    driver: bridge

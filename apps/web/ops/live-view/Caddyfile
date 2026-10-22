@@ -1,0 +1,21 @@
+{
+  auto_https off
+  admin off
+}
+:80 {
+  @authorized {
+    header Authorization "Bearer {$LIVE_VIEW_GATEWAY_SECRET}"
+    method GET
+    path_regexp media ^/[a-f0-9]{32}/[A-Za-z0-9_-]{1,160}\.(m3u8|ts|mp4|m4s)$
+  }
+  handle @authorized {
+    header Cache-Control "private, no-store"
+    reverse_proxy media:8888 {
+      header_up -Authorization
+    }
+  }
+  handle {
+    respond "Unavailable" 403
+  }
+  # Deliberately no access log: never log bearer headers or source credentials.
+}
