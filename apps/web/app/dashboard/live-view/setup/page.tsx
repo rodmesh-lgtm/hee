@@ -1,3 +1,4 @@
+import { LiveViewPreparation } from "../preparation";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../../lib/auth";
@@ -10,6 +11,7 @@ export const dynamic="force-dynamic";
 export default async function LiveSetupPage({searchParams}:{searchParams:Promise<{q?:string}>}) {
   const user=await getCurrentUser();if(!user)redirect("/login");
   const business=await getActiveBusinessForUser(user.id);if(!business)return <p role="alert">إعداد أجهزة الربط والكاميرات متاح لمالك المنشأة فقط. يستطيع الموظف المفوض إدارة الجلسات من المشاهدة المؤقتة.</p>;
+  if(!connectorPlatformConfig()) return <LiveViewPreparation setup/>;
   const q=String((await searchParams).q||"").trim().slice(0,100),ready=Boolean(connectorPlatformConfig());
   const [connectors,stations]=await Promise.all([
     db.liveViewConnector.findMany({where:{businessId:business.id},select:{id:true,name:true,activity:true,enrolledAt:true,lastSeenAt:true,revokedAt:true},orderBy:{createdAt:"asc"}}),

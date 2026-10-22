@@ -1,3 +1,4 @@
+import { LiveViewPreparation } from "./preparation";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connectorOnline } from "../../lib/live-view/camera-profiles";
@@ -12,6 +13,8 @@ export default async function LiveViewPage({ searchParams }: { searchParams: Pro
   const user = await getCurrentUser(); if (!user) redirect("/login");
   const business = await getActiveBusinessForUser(user.id, "liveView");
   if (!business) return <p role="alert">لا تملك صلاحية الوصول إلى المشاهدة المؤقتة لهذه المنشأة.</p>;
+  // Publish the section without requiring an unprovisioned media database.
+  if (!liveGatewayConfig()) return <LiveViewPreparation />;
   const query = await searchParams;
   const q = String(query.q || "").trim().slice(0,100);
   const status = ["active","ended"].includes(query.status || "") ? query.status : "all";
