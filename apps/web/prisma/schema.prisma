@@ -199,6 +199,8 @@ model Business {
   whatsappShopifyWebhookSyncs WhatsAppShopifyWebhookSync[]
   sallaWebhookEvents SallaWebhookEvent[]
   commerceBookingEligibilities CommerceBookingEligibility[]
+  liveViewStations LiveViewStation[]
+  liveViewSessions LiveViewSession[]
   shortLinks BusinessShortLink[]
   @@index([ownerId])
   @@index([planId])
@@ -1539,4 +1541,41 @@ model StoredObject {
   @@index([folder])
   @@index([storageDriver])
   @@index([createdAt])
+}
+
+// A station can represent a lift, room or service area. Stream credentials live
+// exclusively at the gateway; streamKey is an opaque path, never an RTSP URL.
+model LiveViewStation {
+  id String @id @default(uuid())
+  businessId String
+  name String
+  location String
+  kind String @default("bay")
+  streamKey String @unique
+  enabled Boolean @default(true)
+  lastCheckedAt DateTime?
+  lastOnline Boolean @default(false)
+  reuseAfterAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  sessions LiveViewSession[]
+  @@unique([id, businessId])
+  @@index([businessId, createdAt])
+}
+
+model LiveViewSession {
+  id String @id @default(uuid())
+  businessId String
+  stationId String
+  customerName String
+  reference String
+  tokenHash String @unique
+  expiresAt DateTime
+  endedAt DateTime?
+  createdAt DateTime @default(now())
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  station LiveViewStation @relation(fields: [stationId, businessId], references: [id, businessId], onDelete: Restrict)
+  @@index([businessId, createdAt])
+  @@index([stationId, endedAt])
 }
