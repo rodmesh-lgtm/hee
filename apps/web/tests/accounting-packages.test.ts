@@ -21,3 +21,9 @@ test("package periods use Riyadh calendar and reject rollover and past dates",()
  assert.throws(()=>packagePeriod("2026-10-22",0,now));
  assert.throws(()=>allocateSubscriptions([sub()],[{serviceId:"a",total:1.2}],1,now));
 });
+
+test("overlapping packages reallocate general credit instead of leaving a false debt",()=>{
+ const result=allocateSubscriptions([sub({id:"general",remaining:500}),sub({id:"iron-only",remaining:500,serviceIds:["iron"],expiresAt:"2026-12-01T00:00:00Z"})],[{serviceId:"iron",total:500},{serviceId:"wash",total:500}],1000,now);
+ assert.equal(result.covered,1000);assert.equal(result.outstanding,0);
+ assert.deepEqual(result.allocations.map(a=>a.amount),[500,500]);
+});

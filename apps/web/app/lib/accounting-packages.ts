@@ -18,16 +18,38 @@ export function packagePeriod(start:string,days:number,now=new Date()) {
 // Only used for a new order: no earlier payments/allocations exist on its lines.
 export function allocateSubscriptions(subscriptions:SubscriberBalance[],lines:Pick<LaundryLine,"serviceId"|"total">[],outstanding:number,now=new Date()) {
  if(!Number.isSafeInteger(outstanding)||outstanding<0||lines.some(l=>!Number.isSafeInteger(l.total)||l.total<0))throw new LaundryInputError("مبلغ الطلب غير صالح");
- const budgets=lines.map(l=>({...l}));let due=outstanding;
- const allocations:Array<{id:string;name:string;amount:number;remaining:number}>=[];
- for(const s of [...subscriptions].sort((a,b)=>a.expiresAt.localeCompare(b.expiresAt)||a.id.localeCompare(b.id))){
-  if(subscriberStatus(s,now)!=="active"||!Number.isSafeInteger(s.remaining)||s.remaining<1)continue;
-  let capacity=Math.min(s.remaining,due),amount=0;
-  for(const line of budgets){if(s.serviceIds.length&&!s.serviceIds.includes(line.serviceId))continue;const take=Math.min(capacity,line.total);line.total-=take;capacity-=take;amount+=take;}
-  if(amount){allocations.push({id:s.id,name:s.name,amount,remaining:s.remaining-amount});due-=amount;}
-  if(!due)break;
+ const valid=subscriptions.filter(s=>subscriberStatus(s,now)==="active"&&Number.isSafeInteger(s.remaining)&&s.remaining>0).sort((a,b)=>a.expiresAt.localeCompare(b.expiresAt)||a.id.localeCompare(b.id));
+ // Residual paths can move unrestricted credit to another line, leaving restricted
+ // credit usable. A simple FIFO loop can incorrectly leave an otherwise covered debt.
+ type Edge={to:number;reverse:number;capacity:number};
+ const source=0,budget=1,firstPackage=2,firstLine=firstPackage+valid.length,sink=firstLine+lines.length;
+ const graph:Edge[][]=Array.from({length:sink+1},()=>[]);
+ function connect(from:number,to:number,capacity:number){
+  const edge:Edge={to,reverse:graph[to].length,capacity};
+  graph[from].push(edge);graph[to].push({to:from,reverse:graph[from].length-1,capacity:0});return edge;
  }
- return {allocations,covered:outstanding-due,outstanding:due};
+ connect(source,budget,outstanding);
+ const packageEdges=valid.map((s,i)=>{
+  const edge=connect(budget,firstPackage+i,s.remaining);
+  lines.forEach((line,j)=>{if(!s.serviceIds.length||s.serviceIds.includes(line.serviceId))connect(firstPackage+i,firstLine+j,line.total);});
+  return edge;
+ });
+ lines.forEach((line,j)=>connect(firstLine+j,sink,line.total));
+ let covered=0;
+ while(covered<outstanding){
+  const parent:Array<{node:number;edge:number}|undefined>=Array(graph.length);parent[source]={node:source,edge:0};
+  const queue=[source];
+  for(let q=0;q<queue.length&&!parent[sink];q++){
+   const node=queue[q];graph[node].forEach((edge,i)=>{if(edge.capacity>0&&!parent[edge.to]){parent[edge.to]={node,edge:i};queue.push(edge.to);}});
+  }
+  if(!parent[sink])break;
+  let amount=outstanding-covered;
+  for(let node=sink;node!==source;){const p=parent[node]!;amount=Math.min(amount,graph[p.node][p.edge].capacity);node=p.node;}
+  for(let node=sink;node!==source;){const p=parent[node]!,edge=graph[p.node][p.edge];edge.capacity-=amount;graph[node][edge.reverse].capacity+=amount;node=p.node;}
+  covered+=amount;
+ }
+ const allocations=valid.flatMap((s,i)=>{const amount=s.remaining-packageEdges[i].capacity;return amount?[{id:s.id,name:s.name,amount,remaining:s.remaining-amount}]:[];});
+ return {allocations,covered,outstanding:outstanding-covered};
 }
 export function assertSubscriptionServices(serviceIds:string[],lines:Pick<LaundryLine,"serviceId">[]) {
  if(serviceIds.length&&(!lines.length||lines.some(l=>!serviceIds.includes(l.serviceId))))throw new LaundryInputError("الطلب يحتوي خدمات خارج الباقة؛ استخدم الخصم التلقائي عند إنشاء طلب بالخدمات المشمولة");
