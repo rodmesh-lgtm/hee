@@ -1,5 +1,6 @@
 "use server";
 import { enqueueLaundryReady } from "../lib/whatsapp/laundry-ready";
+import { collectionAllocations } from "../lib/accounting-collection";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -17,8 +18,8 @@ const command = z.discriminatedUnion("type", [
   z.object({type:z.literal("catalog"),requestId:key,operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),items:z.array(z.object({presetId:z.string().max(50),operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),price:z.string()})).min(1).max(120)}),
   z.object({ type: z.literal("service"), name: z.string().trim().min(2).max(100), category: z.string().trim().min(2).max(50), price: z.string(), requestId: key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
-  z.object({ type: z.literal("order"), readyNotifyConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer"]), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
-  z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer"]) }),
+  z.object({ type: z.literal("order"), readyNotifyConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
+  z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0") }),
   z.object({ type: z.literal("status"), requestId: key, id: key, status: z.enum(["received","processing","ready","delivered"]) }),
   z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string(), method:z.enum(["cash","transfer","unspecified"]).default("unspecified") }),
 ]);
@@ -70,6 +71,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         if(dueAt.getTime()<Date.now()-60000 || dueAt.getTime()>Date.now()+366*86400000) throw new LaundryInputError("حدد موعد تسليم قادمًا خلال سنة");
         const catalog=await tx.$queryRaw<LaundryService[]>`SELECT * FROM "LaundryService" WHERE "businessId"=${business.id} AND "active"=TRUE`;
         const lines=laundryLines(data.items,catalog), total=lines.reduce((s,x)=>s+x.total,0), paid=moneyToHalalas(data.paid);
+        const allocations=collectionAllocations(data.paid,data.method,data.cashPaid);
         if(paid>total) throw new LaundryInputError("الدفعة أكبر من إجمالي الطلب");
         const rows=await tx.$queryRaw<Array<{number:number}>>`SELECT COALESCE(MAX("number"),0)+1 AS "number" FROM "LaundryTicket" WHERE "businessId"=${business.id}`;
         id=randomUUID();
@@ -77,8 +79,10 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${customer.phone},${customer.id},${JSON.stringify(lines)}::jsonb,${total},${paid},${dueAt},${data.notes},${user.id})`;
         if(data.readyNotifyConsent)await tx.$executeRaw`UPDATE "LaundryTicket" SET "readyNotifyConsentAt"=now() WHERE id=${id} AND "businessId"=${business.id}`;
         await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"order",amount:total,at:new Date(),description:`استلام طلب #${rows[0].number}`});
-        if(paid>0){const paymentId=randomUUID();await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${paymentId},${business.id},${id},${data.requestId},${paid},${data.method},${user.id})`;
-        await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id:paymentId,kind:"payment",amount:paid,method:data.method,at:new Date(),description:`تحصيل طلب #${rows[0].number}`});}
+        for(const [index,allocation] of allocations.entries()) {const paymentId=randomUUID();const paymentRequest=index===0?data.requestId:`${data.requestId}:${index}`;
+          await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${paymentId},${business.id},${id},${paymentRequest},${allocation.amount},${allocation.method},${user.id})`;
+          await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id:paymentId,kind:"payment",amount:allocation.amount,method:allocation.method,at:new Date(),description:`تحصيل طلب #${rows[0].number}`});
+        }
       } else if(data.type==="expense") {
         id=data.requestId; const amount=moneyToHalalas(data.amount);
         if(amount<=0) throw new LaundryInputError("أدخل مبلغًا أكبر من صفر");
@@ -95,8 +99,11 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           if(old[0]) {if(old[0].ticketId!==id) throw new LaundryInputError("معرّف الدفعة مستخدم");return {id};}
           const amount=moneyToHalalas(data.amount);
           if(amount<=0 || amount>ticket.total-ticket.paid) throw new LaundryInputError("الدفعة يجب ألا تتجاوز المبلغ المتبقي");
-          const paymentId=randomUUID();await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${paymentId},${business.id},${id},${data.requestId},${amount},${data.method},${user.id})`;
-          await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id:paymentId,kind:"payment",amount,method:data.method,at:new Date(),description:`تحصيل طلب #${ticket.number}`});
+          const allocations=collectionAllocations(data.amount,data.method,data.cashPaid);
+          for(const [index,allocation] of allocations.entries()){const paymentId=randomUUID();const paymentRequest=index===0?data.requestId:`${data.requestId}:${index}`;
+            await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${paymentId},${business.id},${id},${paymentRequest},${allocation.amount},${allocation.method},${user.id})`;
+            await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id:paymentId,kind:"payment",amount:allocation.amount,method:allocation.method,at:new Date(),description:`تحصيل طلب #${ticket.number}`});
+          }
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "paid"="paid"+${amount},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
         } else {
           if(ticket.status===data.status)return {id};
