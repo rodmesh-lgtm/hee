@@ -27,6 +27,30 @@ webhook, payment persistence, or automatic ledger posting is enabled by this cha
 The existing `card` method remains manual recording of an independently completed payment.
 Do not describe this checkpoint as a working mada integration.
 
+## Mixed tender and device cancellation (confirmed requirement)
+
+The cashier must accept multiple allocations on one order, including cash plus mada.
+For a 100 SAR order with 30 SAR received in cash, dispatch only 70 SAR to the terminal.
+Persist cash as a separate payment; never mark the entire order paid while the card
+allocation is pending. The `split-payment.ts` domain helpers implement the amount
+planning and balance projection only; they are not connected to checkout or storage yet.
+
+An authenticated terminal cancellation/decline cancels only that card attempt,
+releases its reservation and leaves the order partially paid with the cash intact.
+It must update the open cashier automatically through authenticated status polling
+or a verified event, with the persisted state surviving browser reloads. A timeout
+keeps funds reserved until the same transaction is resolved. Closing a dialog is
+not terminal cancellation. Approval followed by cancellation is a reconciliation
+conflict, not permission to erase the payment; void/refund requires a separate
+provider-confirmed operation and compensating ledger entry.
+
+Each allocation needs a stable idempotency key, actor, method, amount and status.
+Ledger posting must be atomic, unique and append-only; receipts show confirmed cash,
+confirmed card and remaining balance separately. Simultaneous manual collection
+must not consume funds reserved by an unresolved terminal attempt. Unit tests cover
+mixed amounts, cancellation, repeated results, late approval, reservations and scope;
+provider-backed and database concurrency tests are still required before activation.
+
 ## Completed
 
 - Owner-only device information section in the unified accounting workspace.
