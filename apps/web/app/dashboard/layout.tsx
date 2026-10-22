@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { getCurrentUser } from "../lib/auth";
+import { HUB_ORIGIN, safeHubPath } from "../lib/customer-hub";
 import { isAdminEmail } from "../lib/admin";
 import { getQaAuditSessionUser } from "../lib/qa-audit";
 import { getDashboardBusinessForUser, getDashboardBusinessSummaries } from "../lib/active-business";
@@ -30,7 +31,7 @@ export default async function DashboardLayout({children}:{children:ReactNode}){
   if(!user){
     const requestHeaders = await headers();
     const host = requestHeaders.get("host")?.split(":")[0];
-    if(host === "hub.ir.sa") redirect(`/api/auth/hub/start?next=${encodeURIComponent(requestHeaders.get("x-infro-return-path") ?? "/")}`);
+    if(host === "hub.ir.sa") redirect(`${HUB_ORIGIN}/api/auth/hub/start?next=${encodeURIComponent(safeHubPath(requestHeaders.get("x-infro-return-path")))}`);
     redirect("/login");
   }
   const[qaAuditUser,business,businesses]=await Promise.all([getQaAuditSessionUser(),getDashboardBusinessForUser(user.id),getDashboardBusinessSummaries(user.id)]);
