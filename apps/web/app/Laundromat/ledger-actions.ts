@@ -79,9 +79,9 @@ export async function laundryLedgerCommand(value:unknown):Promise<{ok:boolean;er
  revalidatePath("/Laundromat");return {ok:true,...result};
  }catch(error){return {ok:false,error:error instanceof LaundryInputError?error.message:"تعذر حفظ العملية المحاسبية. أعد المحاولة دون تغيير البيانات."};}
 }
-export type LaundryLedgerView={initialized:boolean;exists:boolean;lockedBefore:string|null;accounts:Array<{code:string;name:string;kind:string;opening:number;debit:number;credit:number;balance:number}>;journals:Array<{id:string;number:number;sourceKey:string;description:string;effectiveAt:string;total:number;reversed:boolean}>;journalCount:number};
+export type LaundryLedgerView={initialized:boolean;exists:boolean;lockedBefore:string|null;accounts:Array<{code:string;name:string;kind:string;opening:number;debit:number;credit:number;balance:number}>;journals:Array<{id:string;number:number;sourceKey:string;description:string;effectiveAt:string;total:number;reversed:boolean}>;journalCount:number;page:number};
 export async function getLaundryLedger(value:unknown):Promise<{ok:true;view:LaundryLedgerView}|{ok:false;error:string}>{
- const p=z.object({businessId:z.string().uuid(),from:z.string().max(10),to:z.string().max(10)}).safeParse(value);if(!p.success)return {ok:false,error:"راجع تواريخ الدفتر"};
+ const p=z.object({businessId:z.string().uuid(),from:z.string().max(10),to:z.string().max(10),page:z.number().int().min(0).max(100000).default(0)}).safeParse(value);if(!p.success)return {ok:false,error:"راجع تواريخ الدفتر"};
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يلزم تسجيل الدخول"};
  const business=await getActiveBusinessForUser(user.id,"laundryAccounting");if(!business||business.id!==p.data.businessId)return {ok:false,error:"دفتر الحسابات يتطلب صلاحية محاسبة المنشأة النشطة"};
  try{
@@ -90,21 +90,29 @@ export async function getLaundryLedger(value:unknown):Promise<{ok:true;view:Laun
  const [books,accounts,journals,counts]=await Promise.all([
  tx.$queryRaw<Array<{initializedAt:Date|null;lockedBefore:Date|null}>>`SELECT "initializedAt","lockedBefore" FROM "LaundryBook" WHERE "businessId"=${business.id}`,
  tx.$queryRaw<LaundryLedgerView["accounts"]>`SELECT a.code,a.name,a.kind,COALESCE(SUM(l.debit-l.credit) FILTER(WHERE j."effectiveAt"<${start}),0)::float8 AS opening,COALESCE(SUM(l.debit) FILTER(WHERE j."effectiveAt">=${start}),0)::float8 AS debit,COALESCE(SUM(l.credit) FILTER(WHERE j."effectiveAt">=${start}),0)::float8 AS credit,COALESCE(SUM(l.debit-l.credit),0)::float8 AS balance FROM "LaundryAccount" a LEFT JOIN ("LaundryJournalLine" l JOIN "LaundryJournal" j ON j."businessId"=l."businessId" AND j.id=l."journalId" AND j."effectiveAt"<${end}) ON l."businessId"=a."businessId" AND l."accountCode"=a.code WHERE a."businessId"=${business.id} GROUP BY a.code,a.name,a.kind ORDER BY a.code`,
- tx.$queryRaw<Array<{id:string;number:number;sourceKey:string;description:string;effectiveAt:Date;total:number;reversed:boolean}>>`SELECT j.id,j.number,j."sourceKey",j.description,j."effectiveAt",SUM(l.debit)::float8 AS total,EXISTS(SELECT 1 FROM "LaundryJournal" r WHERE r."businessId"=j."businessId" AND r."reversalOf"=j.id) AS reversed FROM "LaundryJournal" j JOIN "LaundryJournalLine" l ON l."businessId"=j."businessId" AND l."journalId"=j.id WHERE j."businessId"=${business.id} AND j."effectiveAt">=${start} AND j."effectiveAt"<${end} GROUP BY j.id ORDER BY j."effectiveAt" DESC,j.number DESC LIMIT 100`,
+ tx.$queryRaw<Array<{id:string;number:number;sourceKey:string;description:string;effectiveAt:Date;total:number;reversed:boolean}>>`SELECT j.id,j.number,j."sourceKey",j.description,j."effectiveAt",SUM(l.debit)::float8 AS total,EXISTS(SELECT 1 FROM "LaundryJournal" r WHERE r."businessId"=j."businessId" AND r."reversalOf"=j.id) AS reversed FROM "LaundryJournal" j JOIN "LaundryJournalLine" l ON l."businessId"=j."businessId" AND l."journalId"=j.id WHERE j."businessId"=${business.id} AND j."effectiveAt">=${start} AND j."effectiveAt"<${end} GROUP BY j.id ORDER BY j."effectiveAt" DESC,j.number DESC LIMIT 100 OFFSET ${p.data.page*100}`,
  tx.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryJournal" WHERE "businessId"=${business.id} AND "effectiveAt">=${start} AND "effectiveAt"<${end}`,
  ]);
- return {exists:books.length>0,initialized:!!books[0]?.initializedAt,lockedBefore:books[0]?.lockedBefore?.toISOString()??null,accounts,journals:journals.map(j=>({...j,effectiveAt:j.effectiveAt.toISOString()})),journalCount:counts[0].n};
+ return {exists:books.length>0,initialized:!!books[0]?.initializedAt,lockedBefore:books[0]?.lockedBefore?.toISOString()??null,accounts,journals:journals.map(j=>({...j,effectiveAt:j.effectiveAt.toISOString()})),journalCount:counts[0].n,page:p.data.page};
  },{isolationLevel:"RepeatableRead",timeout:15000});return {ok:true,view};
  }catch{return {ok:false,error:"تعذر قراءة دفتر الحسابات"};}
 }
-export type LedgerDetailLine={id:string;number:number;description:string;effectiveAt:string;accountCode:string;name:string;debit:number;credit:number};
-export async function getLaundryLedgerDetails(value:unknown):Promise<{ok:true;lines:LedgerDetailLine[]}|{ok:false;error:string}>{
- const p=z.object({businessId:z.string().uuid(),id:z.string().uuid().optional(),accountCode:z.string().regex(/^\d{4,8}$/).optional(),from:z.string().max(10),to:z.string().max(10)}).safeParse(value);
- if(!p.success||(!p.data.id&&!p.data.accountCode))return {ok:false,error:"حدد القيد أو الحساب"};
+export type LedgerDetailLine={id:string;number:number;description:string;effectiveAt:string;accountCode:string;name:string;debit:number;credit:number;runningBalance:number};
+export async function getLaundryLedgerDetails(value:unknown):Promise<{ok:true;lines:LedgerDetailLine[];totalCount:number;opening:number;page:number}|{ok:false;error:string}>{
+ const p=z.object({businessId:z.string().uuid(),id:z.string().uuid().optional(),accountCode:z.string().regex(/^\d{4,8}$/).optional(),from:z.string().max(10),to:z.string().max(10),page:z.number().int().min(0).max(100000).default(0)}).safeParse(value);
+ if(!p.success||(Boolean(p.data.id)===Boolean(p.data.accountCode)))return {ok:false,error:"حدد القيد أو الحساب"};
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يلزم تسجيل الدخول"};
  const b=await getActiveBusinessForUser(user.id,"laundryAccounting");if(!b||b.id!==p.data.businessId)return {ok:false,error:"تفاصيل الدفتر تتطلب صلاحية محاسبة المنشأة النشطة"};
  try{const {start,end}=laundryReportRange(p.data.from,p.data.to);const id=p.data.id??"",account=p.data.accountCode??"";
- const lines=await db.$queryRaw<Array<Omit<LedgerDetailLine,"effectiveAt">&{effectiveAt:Date}>>`SELECT l.id,j.number,j.description,j."effectiveAt",l."accountCode",a.name,l.debit::float8,l.credit::float8 FROM "LaundryJournalLine" l JOIN "LaundryJournal" j ON j."businessId"=l."businessId" AND j.id=l."journalId" JOIN "LaundryAccount" a ON a."businessId"=l."businessId" AND a.code=l."accountCode" WHERE l."businessId"=${b.id} AND (${id}='' OR j.id=${id}) AND (${account}='' OR l."accountCode"=${account}) AND j."effectiveAt">=${start} AND j."effectiveAt"<${end} ORDER BY j."effectiveAt" DESC,j.number DESC,l.id LIMIT 200`;
- return {ok:true,lines:lines.map(l=>({...l,effectiveAt:l.effectiveAt.toISOString()}))};
+ const result=await db.$transaction(async tx=>{
+ const [openingRows,counts]=await Promise.all([
+ tx.$queryRaw<Array<{amount:number}>>`SELECT COALESCE(SUM(l.debit-l.credit),0)::float8 AS amount FROM "LaundryJournalLine" l JOIN "LaundryJournal" j ON j."businessId"=l."businessId" AND j.id=l."journalId" WHERE l."businessId"=${b.id} AND l."accountCode"=${account} AND j."effectiveAt"<${start}`,
+ tx.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryJournalLine" l JOIN "LaundryJournal" j ON j."businessId"=l."businessId" AND j.id=l."journalId" WHERE l."businessId"=${b.id} AND (${id}='' OR j.id=${id}) AND (${account}='' OR l."accountCode"=${account}) AND j."effectiveAt">=${start} AND j."effectiveAt"<${end}`
+ ]);
+ const opening=openingRows[0].amount;
+ const lines=await tx.$queryRaw<Array<Omit<LedgerDetailLine,"effectiveAt">&{effectiveAt:Date}>>`SELECT l.id,j.number,j.description,j."effectiveAt",l."accountCode",a.name,l.debit::float8,l.credit::float8,(${opening}::numeric+SUM(l.debit-l.credit) OVER(ORDER BY j."effectiveAt",j.number,l.id ROWS UNBOUNDED PRECEDING))::float8 AS "runningBalance" FROM "LaundryJournalLine" l JOIN "LaundryJournal" j ON j."businessId"=l."businessId" AND j.id=l."journalId" JOIN "LaundryAccount" a ON a."businessId"=l."businessId" AND a.code=l."accountCode" WHERE l."businessId"=${b.id} AND (${id}='' OR j.id=${id}) AND (${account}='' OR l."accountCode"=${account}) AND j."effectiveAt">=${start} AND j."effectiveAt"<${end} ORDER BY j."effectiveAt",j.number,l.id LIMIT 200 OFFSET ${p.data.page*200}`;
+ return {lines:lines.map(l=>({...l,effectiveAt:l.effectiveAt.toISOString()})),totalCount:counts[0].n,opening,page:p.data.page};
+ },{isolationLevel:"RepeatableRead",timeout:15000});
+ return {ok:true,...result};
  }catch{return {ok:false,error:"تعذر قراءة تفاصيل القيد أو الحساب"};}
 }
