@@ -32,6 +32,6 @@ export async function saveLaundryLogo(form: FormData): Promise<{ok:boolean;error
     if(url)await removePersistentUrl(url,folder).catch(()=>undefined);
     return {ok:false,error:"تعذر حفظ الشعار. تأكد من أن الملف صورة JPG أو PNG أو WebP أو GIF صالحة، ثم حاول مرة أخرى."};
   }
-  revalidatePath("/Laundromat");revalidatePath("/dashboard/branding");revalidatePath(`/${business.slug}`);
+  revalidatePath("/Laundromat");revalidatePath("/Accounting");revalidatePath("/dashboard/branding");revalidatePath(`/${business.slug}`);
   return {ok:true};
 }

@@ -8,7 +8,7 @@ const groups=[
  {label:"إعداد المغسلة",items:[{id:"services",label:"الخدمات والأسعار",icon:Settings2},{id:"branding",label:"شعار المنشأة",icon:Image}]}
 ];
 export const laundryTitles=Object.fromEntries(groups.flatMap(g=>g.items.map(i=>[i.id,i.label])));
-export function LaundryNavigation({tab,onChange,owner,allowed}:{allowed?:string[];tab:string;onChange:(tab:string)=>void;owner:boolean}){
+export function LaundryNavigation({tab,onChange,owner,allowed,program=false}:{program?:boolean;allowed?:string[];tab:string;onChange:(tab:string)=>void;owner:boolean}){
  const [open,setOpen]=useState(false),[search,setSearch]=useState("");
  function select(id:string){onChange(id);setOpen(false);setSearch("");}
  return <aside className={`ld-sidebar ld-navigation ${open?"is-open":""}`} aria-label="أقسام المغسلة">
@@ -16,7 +16,7 @@ export function LaundryNavigation({tab,onChange,owner,allowed}:{allowed?:string[
   <nav id="laundry-navigation" className="ld-nav-content" aria-label="التنقل بين أقسام المغسلة">
    <label className="ld-nav-search"><Search size={16}/><input aria-label="البحث عن قسم" placeholder="ابحث عن قسم…" value={search} onChange={e=>setSearch(e.target.value)}/></label>
    {groups.map(group=>{const items=group.items.filter(i=>(allowed?allowed.includes(i.id):owner||["pos","orders"].includes(i.id))&&i.label.includes(search));return items.length?<div className="ld-nav-group" key={group.label}><p>{group.label}</p>{items.map(item=><button key={item.id} aria-current={tab===item.id?"page":undefined} onClick={()=>select(item.id)} className={tab===item.id?"active":""}><item.icon size={18}/><span>{item.label}</span></button>)}</div>:null;})}
-   {owner?<div className="ld-nav-group ld-nav-settings"><p>الفريق والتواصل</p>{[{href:"Staff",label:"الموظفون والصلاحيات",icon:UserRoundCog},{href:"Notifications",label:"إشعارات واتساب",icon:MessageCircle},{href:"Delivery",label:"إدارة التوصيل",icon:Truck}].filter(i=>i.label.includes(search)).map(i=><Link key={i.href} href={`/Laundromat/${i.href}`}><i.icon size={18}/><span>{i.label}</span></Link>)}</div>:null}
+   {owner?<div className="ld-nav-group ld-nav-settings"><p>الفريق والتواصل</p>{[{href:"Staff",label:"الموظفون والصلاحيات",icon:UserRoundCog},{href:"Notifications",label:"إشعارات واتساب",icon:MessageCircle},{href:"Delivery",label:"إدارة التوصيل",icon:Truck}].filter(i=>i.label.includes(search)).map(i=><Link key={i.href} href={program&&i.href==="Delivery"?"/Accounting?view=delivery":`/Laundromat/${i.href}`}><i.icon size={18}/><span>{i.label}</span></Link>)}</div>:null}
    {search&&!groups.some(g=>g.items.some(i=>(allowed?allowed.includes(i.id):owner||["pos","orders"].includes(i.id))&&i.label.includes(search)))?<p className="ld-fine">اختر من النتائج أو غيّر كلمة البحث.</p>:null}
   </nav>
  </aside>;

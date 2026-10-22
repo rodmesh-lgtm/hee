@@ -39,7 +39,7 @@ export async function saveLaundryCustomer(value:unknown):Promise<{ok:boolean;err
  }else{const old=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryCustomer" WHERE "businessId"=${b.id} AND phone=${phone}`;if(old.length)throw new LaundryInputError("العميل موجود بالفعل؛ افتح ملفه لتعديله");id=(await ensureLaundryCustomer(tx,b.id,p.data.name,phone)).id;}
  await tx.$executeRaw`UPDATE "LaundryCustomer" SET name=${p.data.name},notes=${p.data.notes},address=${p.data.address},"updatedAt"=now() WHERE "businessId"=${b.id} AND id=${id}`;
  await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${randomUUID()},${b.id},${user.id},'customer-save',${id})`;
- },{timeout:15000});revalidatePath("/Laundromat");return {ok:true};}catch(e){return {ok:false,error:e instanceof LaundryInputError?e.message:"تعذر حفظ العميل"};}
+ },{timeout:15000});revalidatePath("/Laundromat");revalidatePath("/Accounting");return {ok:true};}catch(e){return {ok:false,error:e instanceof LaundryInputError?e.message:"تعذر حفظ العميل"};}
 }
 export async function importLaundryCustomers(value:unknown):Promise<{ok:boolean;processed?:number;skipped?:number;more?:boolean;cursor?:string;error?:string}>{
  const p=z.object({businessId:z.string().uuid(),cursor:z.string().uuid().or(z.literal(""))}).safeParse(value);if(!p.success)return {ok:false,error:"راجع بيانات الاستيراد"};
@@ -52,7 +52,7 @@ export async function importLaundryCustomers(value:unknown):Promise<{ok:boolean;
  for(const r of rows){let phone:string;try{phone=laundryCustomerPhone(r.phone);}catch{skipped++;continue;}const c=await ensureLaundryCustomer(tx,b.id,r.customerName,phone);await tx.$executeRaw`UPDATE "LaundryTicket" SET "customerId"=${c.id} WHERE "businessId"=${b.id} AND id=${r.id}`;processed++;}
  if(processed)await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${randomUUID()},${b.id},${user.id},'customer-import',${b.id})`;
  return {processed,skipped,more:rows.length===25,cursor:rows.at(-1)?.id??p.data.cursor};
- },{timeout:30000});revalidatePath("/Laundromat");return {ok:true,...result};}catch{return {ok:false,error:"تعذر ترحيل العملاء. يمكنك إعادة المحاولة دون تكرار الملفات"};}
+ },{timeout:30000});revalidatePath("/Laundromat");revalidatePath("/Accounting");return {ok:true,...result};}catch{return {ok:false,error:"تعذر ترحيل العملاء. يمكنك إعادة المحاولة دون تكرار الملفات"};}
 }
 export type LaundryCustomerOrder={id:string;number:number;createdAt:string;status:string;total:number;paid:number};
 export async function getLaundryCustomerOrders(value:unknown):Promise<{ok:true;orders:LaundryCustomerOrder[]}|{ok:false;error:string}>{

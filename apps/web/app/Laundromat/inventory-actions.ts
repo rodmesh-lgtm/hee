@@ -80,7 +80,7 @@ export async function laundryInventoryCommand(value:unknown):Promise<{ok:boolean
  target=d.itemId;
  }
  await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${scope.data.requestId},${b.id},${user.id},${`stock-${d.type}`},${target})`;
- },{timeout:15000});revalidatePath("/Laundromat");return {ok:true};}catch(e){return {ok:false,error:e instanceof LaundryInputError?e.message:"تعذر حفظ حركة المخزون. أعد المحاولة بنفس البيانات"};}
+ },{timeout:15000});revalidatePath("/Laundromat");revalidatePath("/Accounting");return {ok:true};}catch(e){return {ok:false,error:e instanceof LaundryInputError?e.message:"تعذر حفظ حركة المخزون. أعد المحاولة بنفس البيانات"};}
 }
 export type LaundryInventoryView={canValue:boolean;valuationSummary:{value:number;unvalued:number;ledger:number|null};warehouseId:string;warehouses:Array<{id:string;name:string}>;items:Array<{id:string;sku:string;name:string;unit:"piece"|"liter"|"kg";reorderLevel:number;quantity:number;version:number;value:number|null}>;movements:Array<{id:string;name:string;unit:"piece"|"liter"|"kg";kind:string;quantity:number;balanceAfter:number;valueDelta:number|null;reason:string;createdAt:string}>};
 export async function getLaundryInventory(value:unknown):Promise<{ok:true;view:LaundryInventoryView}|{ok:false;error:string}>{

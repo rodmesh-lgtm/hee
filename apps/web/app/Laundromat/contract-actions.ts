@@ -51,7 +51,7 @@ export async function laundryContractCommand(value: unknown): Promise<{ ok: bool
       }
       await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${scope.data.requestId},${b.id},${user.id},${`contract-${d.type}`},${target})`;
     }, { timeout: 15000 });
-    revalidatePath("/Laundromat"); revalidatePath("/Laundromat/Accounting"); return { ok: true };
+    revalidatePath("/Laundromat");revalidatePath("/Accounting"); revalidatePath("/Laundromat/Accounting"); return { ok: true };
   } catch (e) { return { ok: false, error: e instanceof LaundryInputError ? e.message : "تعذر حفظ العقد؛ أعد المحاولة بنفس البيانات" }; }
 }
 export async function getLaundryContracts(value: unknown): Promise<{ ok: true; rows: LaundryContractRow[] } | { ok: false; error: string }> {

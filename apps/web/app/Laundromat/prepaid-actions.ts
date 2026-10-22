@@ -61,7 +61,7 @@ export async function laundryPrepaidCommand(value:unknown):Promise<{ok:boolean;e
   if(d.type!=="redeem")await postLaundryJournal(tx,{businessId:b.id,actorId:user.id,sourceKey:`prepaid:${movementId}`,description:reason,effectiveAt:now,lines:prepaidCashLines(d.type,amount,method)});
   await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${randomUUID()},${b.id},${user.id},${`prepaid-${d.type}`},${id})`;
   return id;
- },{timeout:15000});revalidatePath("/Laundromat");return {ok:true,id};
+ },{timeout:15000});revalidatePath("/Laundromat");revalidatePath("/Accounting");return {ok:true,id};
  }catch(e){return {ok:false,error:e instanceof LaundryInputError?e.message:"تعذر حفظ الاشتراك. أعد المحاولة بنفس البيانات دون تكرار العملية."};}
 }
 export type PrepaidView={subscriptions:Array<{id:string;name:string;customerName:string;phone:string;amount:number;remaining:number;expiresAt:string}>,movements:Array<{id:string;name:string;customerName:string;kind:string;amount:number;method:string;reason:string;createdAt:string}>};

@@ -76,7 +76,7 @@ export async function laundryLedgerCommand(value:unknown):Promise<{ok:boolean;er
   await tx.$executeRaw`INSERT INTO "LaundryAudit" ("id","businessId","actorId","action","targetId") VALUES (${randomUUID()},${business.id},${user.id},${`ledger-${data.type}`},${target})`;
   return {};
  },{timeout:30000});
- revalidatePath("/Laundromat");return {ok:true,...result};
+ revalidatePath("/Laundromat");revalidatePath("/Accounting");return {ok:true,...result};
  }catch(error){return {ok:false,error:error instanceof LaundryInputError?error.message:"تعذر حفظ العملية المحاسبية. أعد المحاولة دون تغيير البيانات."};}
 }
 export type LaundryLedgerView={initialized:boolean;exists:boolean;lockedBefore:string|null;accounts:Array<{code:string;name:string;kind:string;opening:number;debit:number;credit:number;balance:number}>;journals:Array<{id:string;number:number;sourceKey:string;description:string;effectiveAt:string;total:number;reversed:boolean}>;journalCount:number;page:number};

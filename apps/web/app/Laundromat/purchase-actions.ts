@@ -49,7 +49,7 @@ export async function laundryPurchaseCommand(value:unknown):Promise<{ok:boolean;
    }
   }
   await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${rid},${b.id},${user.id},${`purchase-${d.type}`},${target})`;
- },{timeout:15000});revalidatePath("/Laundromat");return {ok:true};
+ },{timeout:15000});revalidatePath("/Laundromat");revalidatePath("/Accounting");return {ok:true};
  }catch(e){return {ok:false,error:e instanceof LaundryInputError?e.message:"تعذر حفظ عملية المشتريات. أعد المحاولة بنفس البيانات."};}
 }
 export type PurchaseView={suppliers:Array<{id:string;name:string;phone:string;total:number;paid:number}>,purchases:Array<{id:string;supplierId:string;supplierName:string;reference:string;description:string;kind:"operating"|"inventory";total:number;paid:number;createdAt:string}>,payments:Array<{id:string;reference:string;invoice:string;supplierName:string;amount:number;method:string;createdAt:string}>};

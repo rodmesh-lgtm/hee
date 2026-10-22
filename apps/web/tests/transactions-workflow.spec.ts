@@ -90,6 +90,49 @@ async function cleanup(seed: Seeded) {
 }
 
 test.describe.serial("public transactions workflow", () => {
+  test("unified accounting adapts catalogues and records a general service order", async ({browser},testInfo)=>{
+    test.setTimeout(120000);
+    const fixture=await seed(),laundry=await seed();const page=await browser.newPage({viewport:{width:1440,height:1000}});
+    try {
+      await db.business.update({where:{id:fixture.businessId},data:{businessCategory:"صيانة الأجهزة"}});
+      await db.business.update({where:{id:laundry.businessId},data:{businessCategory:"مغاسل الملابس"}});
+      await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/dashboard`);
+      const navigation=page.getByRole("navigation",{name:"التنقل الرئيسي",exact:true});
+      await expect(navigation.getByRole("link",{name:"البرنامج المحاسبي",exact:true})).toHaveCount(1);
+      await expect(navigation.getByRole("link",{name:"كاشير المغسلة",exact:true})).toHaveCount(0);
+      await navigation.getByRole("link",{name:"البرنامج المحاسبي",exact:true}).click();
+      await expect(page.locator(".accounting-program-bar")).toContainText("صيانة الأجهزة");
+      await expect(page.getByRole("navigation",{name:"نوع خدمة المغسلة",exact:true})).toHaveCount(0);
+      await openLaundrySection(page,"الخدمات والأسعار");
+      await page.getByLabel("اسم الصنف",{exact:true}).fill("فحص جهاز");
+      await page.getByLabel("التصنيف",{exact:true}).fill("صيانة");
+      await page.getByLabel("السعر بالريال",{exact:true}).fill("25");
+      await page.getByRole("button",{name:"إضافة الصنف",exact:true}).click();
+      await expect(page.getByRole("status")).toContainText("تم حفظ العملية بنجاح");
+      await openLaundrySection(page,"الكاشير");
+      await page.getByRole("button",{name:"إضافة فحص جهاز",exact:true}).click();
+      await page.getByLabel("اسم العميل",{exact:true}).fill("عميل صيانة تجريبي");
+      await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009955");
+      await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(2)}T16:00`);
+      await page.getByLabel("الدفعة المستلمة",{exact:true}).fill("10");
+      await page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true}).click();
+      const receipt=page.getByRole("dialog",{name:"تفاصيل طلب العميل",exact:true});
+      await expect(receipt).toBeVisible();await expect(receipt).toContainText("مستند طلب / إيصال تحصيل");
+      await expect(receipt).toContainText("فحص جهاز");await expect(receipt).not.toContainText("المنشأة غير مسجلة");
+      const rows=await db.$queryRaw<Array<{total:number;paid:number;items:Array<{name:string}>}>>`SELECT total,paid,items FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
+      expect(rows).toHaveLength(1);expect(rows[0].total).toBe(2500);expect(rows[0].paid).toBe(1000);expect(rows[0].items[0].name).toBe("فحص جهاز");
+      await page.getByRole("button",{name:"إغلاق",exact:true}).click();await openLaundrySection(page,"الكاشير");
+      for(const width of [1440,390]){await page.setViewportSize({width,height:1000});expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath(`laundry-unified-general-${width}.png`),fullPage:true});}
+      await page.context().clearCookies();await setSession(page,laundry.sessionToken);await page.goto(`${baseUrl}/Accounting`);
+      await expect(page.getByRole("navigation",{name:"نوع خدمة المغسلة",exact:true})).toBeVisible();
+      await expect(page.getByRole("button",{name:"إضافة فحص جهاز",exact:true})).toHaveCount(0);
+      await expect(page.locator(".accounting-program-bar")).toContainText("مغسلة ملابس");
+    } finally {
+      await page.close();
+      for(const f of [fixture,laundry]){await db.session.deleteMany({where:{userId:f.userId}});await db.business.update({where:{id:f.businessId},data:{deletedAt:new Date(),isPublished:false}});}
+    }
+  });
+
   test("laundry accounting pages retain running balances and responsive navigation", async ({browser},testInfo)=>{
     test.setTimeout(120000);
     const fixture=await seed(),outsider=await seed();const page=await browser.newPage({viewport:{width:1440,height:1000}});
@@ -268,7 +311,7 @@ test.describe.serial("public transactions workflow", () => {
       await setSession(page,fixture.sessionToken);await page.goto(`${baseUrl}/Laundromat/Staff`);
       await expect(page.getByRole("heading",{name:"إضافة موظف جديد",exact:true})).toBeVisible();
       const details=page.locator("details").filter({hasText:"موظف المغسلة التجريبي"});await details.locator("summary").click();
-      await details.getByLabel("محاسبة المغسلة — الدفتر والاشتراكات والموردون",{exact:true}).check();
+      await details.getByLabel("المحاسبة — الدفتر والاشتراكات والموردون",{exact:true}).check();
       await details.getByRole("button",{name:"حفظ صلاحيات الموظف",exact:true}).click();
       await expect.poll(async()=>(await db.businessMember.findUniqueOrThrow({where:{id:member.id}})).permissions).toEqual(["laundryAccounting","laundry"]);
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath("laundry-staff-mobile.png"),fullPage:true});
@@ -669,6 +712,8 @@ test.describe.serial("public transactions workflow", () => {
       expect((await db.$queryRaw<Array<{status:string}>>`SELECT status FROM "LaundryTicket" WHERE id=${ticketId}`)[0].status).toBe("delivered");
       expect(await horizontalOverflow(driverPage)).toBeLessThanOrEqual(1);await driverPage.screenshot({path:testInfo.outputPath("laundry-delivery-mobile.png"),fullPage:true});
       await driverPage.goto(`${baseUrl}/Laundromat`);await expect(driverPage.getByRole("heading",{name:"تحتاج صلاحية كاشير المغسلة",exact:true})).toBeVisible();
+      await driverPage.goto(`${baseUrl}/Accounting`);await expect(driverPage.getByRole("heading",{name:"مهام التوصيل المسندة إليّ",exact:true})).toBeVisible();
+      await driverPage.goto(`${baseUrl}/Accounting?view=cashier`);await expect(driverPage.getByRole("heading",{name:"هذه المهمة غير متاحة لحسابك",exact:true})).toBeVisible();
       await driverPage.context().clearCookies();await setSession(driverPage,other.sessionToken);await driverPage.context().addCookies([{name:"hee_active_business",value:fixture.businessId,url:baseUrl}]);await driverPage.goto(`${baseUrl}/Laundromat/Delivery`);await expect(driverPage.getByText("لا توجد مهام توصيل مسندة.",{exact:true})).toBeVisible();
       expect(await (await replay()).text()).toContain("العملية غير متاحة لهذا الحساب");
       await db.businessMember.updateMany({where:{businessId:fixture.businessId,userId:other.userId},data:{status:"suspended"}});await driverPage.reload();await expect(driverPage.getByRole("heading",{name:"طلب #1 · عميل توصيل اختبار",exact:true})).toHaveCount(0);expect(await (await replay()).text()).toContain("ليست لديك صلاحية توصيل لهذه المنشأة");

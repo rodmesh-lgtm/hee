@@ -2,7 +2,8 @@
 export function orderDashboardItems<T extends { href: string }>(items: readonly T[], order: readonly string[]): T[] {
   const remaining = new Map(items.map(item => [item.href, item]));
   const result: T[] = [];
-  for (const href of order) {
+  for (const savedHref of order) {
+    const href = ["/Laundromat", "/Laundromat/Accounting", "/Laundromat/Operations", "/Laundromat/Delivery"].includes(savedHref) ? "/Accounting" : savedHref;
     const item = remaining.get(href);
     if (item) { result.push(item); remaining.delete(href); }
   }
