@@ -94,3 +94,11 @@
 
 @media screen{.accounting-program-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 24px;background:#132f3e;color:#fff;border-bottom:1px solid #325060}.accounting-program-bar>div{display:grid;gap:3px}.accounting-program-bar span{font-size:12px;color:#c0d7df}.accounting-program-bar nav{display:flex;flex-wrap:wrap;gap:6px}.accounting-program-bar a{padding:9px 14px;border:1px solid #46616e;border-radius:8px;font-size:13px}.accounting-program-bar a[aria-current=page]{background:#c7f4e9;color:#123b43}.accounting-program-bar a:focus-visible{outline:2px solid #fff;outline-offset:3px}@media(max-width:600px){.accounting-program-bar{align-items:flex-start;flex-direction:column;padding:12px}.accounting-program-bar nav{width:100%}}}
 @media print{.accounting-program-bar{display:none!important}}
+
+/* Subscriber packages share the accounting workspace on desktop and touch devices. */
+.ld-package-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px;margin-block:16px}
+.ld-package-card{border:1px solid #d7e6e2;border-radius:16px;padding:18px;background:linear-gradient(145deg,#f1faf7,#fff);display:flex;flex-direction:column;gap:10px;min-width:0;overflow-wrap:anywhere}
+.ld-package-card h3,.ld-package-card p{margin:0}.ld-package-card>strong{font-size:1.4rem;color:#126958}.ld-package-card small{font-size:.8rem;font-weight:400}
+.ld-package-services{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:8px;max-height:280px;overflow:auto;padding:10px}
+.ld-subscriber-checkout{padding:14px;border:1px solid #b9dbce;border-radius:14px;background:#f1faf7;margin-block:12px;min-width:0;overflow-wrap:anywhere}
+.ld-subscriber-checkout ul{padding-inline-start:20px}.ld-subscriber-checkout li{margin-block:8px}.ld-package-services input[type=checkbox],.ld-subscriber-checkout input[type=checkbox]{width:20px;min-height:20px;flex-shrink:0}
