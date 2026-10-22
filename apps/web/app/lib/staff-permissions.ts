@@ -1,8 +1,8 @@
 export const STAFF_SECTIONS = {
-  laundryAccounting: { label: "محاسبة المغسلة — الدفتر والاشتراكات والموردون", href: "/Laundromat/Accounting" },
-  laundryOperations: { label: "إشراف المغسلة — العملاء والمخزون", href: "/Laundromat/Operations" },
-  laundryDelivery: { label: "توصيل المغسلة — المهام المسندة فقط", href: "/Laundromat/Delivery" },
-  laundry: { label: "كاشير المغسلة", href: "/Laundromat" },
+  laundryAccounting: { label: "المحاسبة — الدفتر والاشتراكات والموردون", href: "/Laundromat/Accounting" },
+  laundryOperations: { label: "التشغيل — العملاء والمخزون", href: "/Laundromat/Operations" },
+  laundryDelivery: { label: "التوصيل — المهام المسندة فقط", href: "/Laundromat/Delivery" },
+  laundry: { label: "نقطة البيع — الطلبات والتحصيل", href: "/Laundromat" },
   page: { label: "صفحتي والخدمات والفروع", href: "/dashboard/my-page" },
   identity: { label: "الهوية الرقمية والتوثيق", href: "/dashboard/digital-identity" },
   orders: { label: "الطلبات", href: "/dashboard/inbox" },
@@ -32,6 +32,7 @@ export function staffSectionForPath(pathname: string): StaffSection | null {
   return roots[root] ?? null;
 }
 export function staffCanOpenPath(pathname: string, permissions: unknown) {
+  if (pathname === "/Accounting") return ["laundry", "laundryAccounting", "laundryOperations", "laundryDelivery"].some(section => memberCanAccess(permissions, section as StaffSection));
   if (pathname === "/Laundromat/Accounting") return memberCanAccess(permissions, "laundryAccounting");
   if (pathname === "/Laundromat/Operations") return memberCanAccess(permissions, "laundryOperations");
   if (pathname === "/Laundromat/Delivery") return memberCanAccess(permissions, "laundryDelivery");

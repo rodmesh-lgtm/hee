@@ -32,7 +32,7 @@ export async function confirmLaundryBank(value: unknown): Promise<{ ok: boolean;
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${b.id}`}))`;
       await saveLaundryBank(tx, { ...p.data, businessId: b.id, actorId: user.id, statementBalance });
     }, { timeout: 15000 });
-    revalidatePath("/Laundromat");
+    revalidatePath("/Laundromat");revalidatePath("/Accounting");
     revalidatePath("/Laundromat/Accounting");
     return { ok: true };
   } catch (e) { return { ok: false, error: e instanceof LaundryInputError ? e.message : "تعذر اعتماد المطابقة؛ أعد المحاولة بنفس البيانات" }; }

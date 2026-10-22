@@ -110,7 +110,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
       await tx.$executeRaw`INSERT INTO "LaundryAudit" ("id","businessId","actorId","action","targetId") VALUES (${(data.type==="catalog"||data.type==="product")?data.requestId:randomUUID()},${business.id},${user.id},${data.type},${id})`;
       return {id};
     },{timeout:15000});
-    revalidatePath("/Laundromat");
+    revalidatePath("/Laundromat");revalidatePath("/Accounting");
     return {ok:true,id:result.id};
   } catch(error) {
     return {ok:false,error:error instanceof LaundryInputError?error.message:"تعذر حفظ العملية. أعد المحاولة؛ لن تتكرر الدفعة أو الطلب."};
