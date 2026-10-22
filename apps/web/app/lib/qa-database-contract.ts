@@ -101,6 +101,8 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20261021190000_laundry_reconciliation",
   "20261021200000_laundry_contracts",
   "20261021210000_laundry_stock_valuation",
+  "20261022160000_live_view",
+  "20261022180000_live_view_self_service",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;
