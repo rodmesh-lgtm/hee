@@ -2,8 +2,8 @@
 /** INFRO Live connector v1 — Node 20+, ffmpeg and ffprobe. No shell execution. */
 import { spawn } from "node:child_process";
 import { mkdir, readFile, writeFile, rename, chmod } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { homedir, platform } from "node:os";
+import { join, isAbsolute } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 
@@ -29,13 +29,14 @@ export function trustedPlatformOrigin(raw) {
   return u.origin;
 }
 export function publisherNeedsRestart(startedAt,now=Date.now()) {return now-startedAt>=240_000;}
+let ffmpegBinary="ffmpeg",ffprobeBinary="ffprobe";
 async function dependency(binary) {
   return new Promise(resolve=>{const p=spawn(binary,["-version"],{stdio:"ignore",shell:false});p.on("error",()=>resolve(false));p.on("close",code=>resolve(code===0));});
 }
 async function probe(camera) {
   return new Promise(resolve=>{
     let output="",finished=false;
-    const proc=spawn("ffprobe",["-v","error","-protocol_whitelist","rtsp,tcp,udp,rtp,crypto","-rtsp_transport","tcp","-rw_timeout","8000000","-i",camera.source,"-select_streams","v:0","-show_entries","stream=codec_name","-of","json"],{stdio:["ignore","pipe","ignore"],shell:false});
+    const proc=spawn(ffprobeBinary,["-v","error","-protocol_whitelist","rtsp,tcp,udp,rtp,crypto","-rtsp_transport","tcp","-rw_timeout","8000000","-i",camera.source,"-select_streams","v:0","-show_entries","stream=codec_name","-of","json"],{stdio:["ignore","pipe","ignore"],shell:false});
     const finish=status=>{if(finished)return;finished=true;clearTimeout(timer);proc.kill("SIGKILL");resolve(status);};
     const timer=setTimeout(()=>finish("unreachable"),10_000);
     proc.stdout.on("data",chunk=>{output+=chunk.toString();if(output.length>64000)finish("unavailable");});
@@ -60,11 +61,16 @@ async function enroll(statePath) {
 }
 export async function main() {
   if(Number(process.versions.node.split(".")[0])<20)throw new Error("NODE_20_REQUIRED");
-  if(!(await dependency("ffmpeg"))||!(await dependency("ffprobe")))throw new Error("INSTALL_FFMPEG_AND_FFPROBE_FIRST");
+  const mediaDirIndex=process.argv.indexOf("--ffmpeg-directory");
+  if(mediaDirIndex!==-1){const dir=process.argv[mediaDirIndex+1];if(platform()!=="win32"||!dir||!isAbsolute(dir))throw new Error("INVALID_MEDIA_DIRECTORY");ffmpegBinary=join(dir,"ffmpeg.exe");ffprobeBinary=join(dir,"ffprobe.exe");}
+  if(!(await dependency(ffmpegBinary))||!(await dependency(ffprobeBinary)))throw new Error("INSTALL_FFMPEG_AND_FFPROBE_FIRST");
   const dir=join(homedir(),".infro-live");await mkdir(dir,{recursive:true,mode:0o700});await chmod(dir,0o700);
   const statePath=join(dir,"connector.json");let state;
   if(!process.argv.includes("--pair")){try{state=JSON.parse(await readFile(statePath,"utf8"));state.origin=trustedPlatformOrigin(state.origin);if(!/^[A-Za-z0-9_-]{43}$/.test(state.token))throw new Error("INVALID_STATE");}catch(error){if(error.code!=="ENOENT")throw new Error("INVALID_STATE_USE_PAIR");}}
+  // Scheduled execution must never wait for an invisible interactive prompt.
+  if(!state&&process.argv.includes("--run"))throw new Error("PAIR_INTERACTIVELY_FIRST");
   if(!state)state=await enroll(statePath);
+  if(process.argv.includes("--pair-only")){console.log("INFRO pairing saved. You can now enable automatic startup.");return;}
   const workers=new Map();let stopping=false;
   const api=(path,options={})=>fetch(`${state.origin}/api/live-view/connectors/${path}`,{...options,headers:{Authorization:`Bearer ${state.token}`,"Content-Type":"application/json"},redirect:"error",signal:AbortSignal.timeout(12_000)});
   const report=async worker=>{try{await api("report",{method:"POST",body:JSON.stringify({id:worker.camera.id,version:worker.camera.version,nonce:worker.camera.nonce,status:worker.status})});}catch{/* Report only fixed status values, never raw FFmpeg output. */}};
@@ -73,7 +79,7 @@ export async function main() {
   async function start(worker){
     worker.status="probing";const result=await probe(worker.camera);if(worker.cancelled||stopping)return;
     if(result!=="ready"){worker.status=result;worker.retryAt=Date.now()+30_000;void report(worker);return;}
-    const proc=spawn("ffmpeg",ffmpegArgs(worker.camera),{stdio:["ignore","ignore","ignore","pipe"],shell:false});
+    const proc=spawn(ffmpegBinary,ffmpegArgs(worker.camera),{stdio:["ignore","ignore","ignore","pipe"],shell:false});
     worker.proc=proc;worker.startedAt=Date.now();worker.status="probing";let progress="";
     proc.stdio[3].on("data",chunk=>{progress=(progress+chunk.toString()).slice(-4096);if(/frame=\s*[1-9][0-9]*/.test(progress))worker.status="publishing";});
     const failed=()=>{if(worker.cancelled)return;worker.proc=null;worker.status="unavailable";worker.retryAt=Date.now()+10_000;};

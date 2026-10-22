@@ -1,0 +1,36 @@
+# Direct VPS alternative to compose-relay.yml; no tunnel account required.
+services:
+  media:
+    image: bluenviron/mediamtx:1.21.2
+    restart: unless-stopped
+    ports: ["1936:1936"]
+    environment:
+      MTX_RTMPSERVERKEY: /certificates/live/${LIVE_VIEW_GATEWAY_HOST:?Set the relay hostname}/privkey.pem
+      MTX_RTMPSERVERCERT: /certificates/live/${LIVE_VIEW_GATEWAY_HOST}/fullchain.pem
+    volumes:
+      - ./relay-mediamtx.yml:/mediamtx.yml:ro
+      - ./letsencrypt:/certificates:ro
+    networks: [relay]
+  guard:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      LIVE_VIEW_GATEWAY_HOST: ${LIVE_VIEW_GATEWAY_HOST}
+      LIVE_VIEW_GATEWAY_SECRET: ${LIVE_VIEW_GATEWAY_SECRET:?Set the gateway secret}
+      LIVE_VIEW_RELAY_AUTH_SECRET: ${LIVE_VIEW_RELAY_AUTH_SECRET:?Set the relay secret}
+    volumes:
+      - ./DirectCaddyfile:/etc/caddy/Caddyfile:ro
+      - ./letsencrypt:/certificates:ro
+      - ./acme-webroot:/var/www/acme:ro
+    networks: [relay]
+  certbot:
+    image: certbot/certbot:v4.0.0
+    profiles: [tools]
+    volumes:
+      - ./letsencrypt:/etc/letsencrypt
+      - ./acme-webroot:/var/www/acme
+    networks: [relay]
+networks:
+  relay:
+    driver: bridge

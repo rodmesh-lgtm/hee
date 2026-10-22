@@ -1,4 +1,4 @@
-.env
-.env.*
-mediamtx.yml
+letsencrypt/
+acme-webroot/
 relay-certs/
+platform.env

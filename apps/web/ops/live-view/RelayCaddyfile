@@ -3,6 +3,15 @@
   admin off
 }
 :80 {
+  @health {
+    header Authorization "Bearer {$LIVE_VIEW_GATEWAY_SECRET}"
+    method GET
+    path /_infro/health
+  }
+  handle @health {
+    header Cache-Control "private, no-store"
+    respond "INFRO relay guard ready" 200
+  }
   @authorized {
     header Authorization "Bearer {$LIVE_VIEW_GATEWAY_SECRET}"
     method GET
