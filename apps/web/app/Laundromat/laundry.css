@@ -89,3 +89,5 @@
 @media screen and (max-width:700px){
  .ld-top{height:64px;padding-inline:12px}.ld-platform-logo{height:30px}.ld-main{padding:16px 12px 100px}.ld-heading{margin-bottom:16px}.ld-heading h1{font-size:22px}.ld-stats{gap:8px}.ld-stats article{padding:10px 12px}.ld-stats strong{font-size:22px}.ld-stats small{font-size:10px}.ld-panel{padding:14px}.ld-pos{display:block}.ld-catalog .ld-services{max-height:none}.ld-services{grid-template-columns:repeat(2,minmax(0,1fr))}.ld-cart{position:static}.ld-mobile-nav small{display:none}.ld-navigation{padding-inline:12px}.ld-navigation.is-open .ld-nav-content{gap:14px 6px}.ld-nav-group>button,.ld-nav-group>a{font-size:12px;padding:10px 8px;gap:6px}.ld-nav-group>p{margin-inline:8px}.ld-accounting-tabs{gap:4px;padding:4px}.ld-accounting-tabs button{min-width:calc(50% - 4px);font-size:12px}.ld-journal-balance{gap:8px;padding:12px}.ld-journal-balance strong{font-size:18px}.ld-pagination>span{order:-1;flex-basis:100%;text-align:center}
 }
+/* Grid children must shrink so wide financial tables scroll inside their panel. */
+.ld-ledger>*,.ld-ledger-detail{min-width:0}
