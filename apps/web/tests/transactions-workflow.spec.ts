@@ -639,6 +639,42 @@ test.describe.serial("public transactions workflow", () => {
       expect(balances.find(a=>a.accountCode==="1100")?.balance).toBe(2500);expect(balances.find(a=>a.accountCode==="2100")?.balance).toBe(0);expect(balances.find(a=>a.accountCode==="1200")?.balance).toBe(0);
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
       await page.screenshot({path:testInfo.outputPath("laundry-prepaid-mobile.png"),fullPage:true});
+      // Reusable packages work with the tenant's own service catalogue and auto-cover a new order.
+      const packageService=crypto.randomUUID();
+      await db.$executeRaw`INSERT INTO "LaundryService" (id,"businessId",name,category,price) VALUES (${packageService},${fixture.businessId},'خدمة الباقة','خدمات',2500)`;
+      await page.reload();await openLaundrySection(page,"اشتراكات العملاء");
+      await page.getByText("إضافة باقة جديدة",{exact:true}).click();
+      await page.getByLabel("اسم الباقة",{exact:true}).fill("باقة الخدمة الشهرية");
+      await page.getByLabel("سعر الباقة / رصيدها بالريال",{exact:true}).fill("100");
+      await page.getByLabel("وصف الباقة وشروطها",{exact:true}).fill("رصيد لخدمات المنشأة المختارة");
+      await page.getByRole("checkbox",{name:"خدمة الباقة · خدمات",exact:true}).check();
+      await page.getByRole("button",{name:"حفظ الباقة",exact:true}).click();
+      await page.getByRole("button",{name:"تسجيل مشترك في باقة الخدمة الشهرية",exact:true}).click();
+      await page.getByLabel("جوال عميل مسجل",{exact:true}).fill("0500009941");
+      await page.getByLabel("تاريخ بداية الباقة",{exact:true}).fill(riyadhDateKey(0));
+      await page.getByRole("button",{name:"حفظ الاشتراك والتحصيل",exact:true}).click();
+      await expect.poll(async()=>(await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int n FROM "LaundryPrepaid" WHERE "businessId"=${fixture.businessId} AND "packageId" IS NOT NULL`)[0].n).toBe(1);
+      // Archiving stops new enrolments, not benefits already purchased.
+      await page.getByRole("button",{name:"إيقاف الاشتراكات الجديدة",exact:true}).click();
+      await expect(page.getByRole("button",{name:"تسجيل مشترك في باقة الخدمة الشهرية",exact:true})).toHaveCount(0);
+      await openLaundrySection(page,"الكاشير");
+      await page.locator('.ld-product-card').filter({hasText:'خدمة الباقة'}).getByRole('button').first().click();
+      const review=page.getByRole("button",{name:/مراجعة الطلب/});if(await review.isVisible())await review.click();
+      await page.getByLabel("اسم العميل",{exact:true}).fill("عميل الاشتراك");
+      await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009941");
+      await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(1)}T12:00`);
+      await page.getByLabel("الدفعة المستلمة",{exact:true}).fill("5");
+      await expect(page.getByRole("region",{name:"اشتراكات العميل في الكاشير"})).toContainText("باقة الخدمة الشهرية");
+      await expect(page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true})).toBeEnabled();
+      const autoSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+      await page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true}).click();const autoOrder=await autoSent;
+      await expect(page.getByRole("dialog")).toBeVisible();await replay(autoOrder);
+      expect((await db.$queryRaw<Array<{remaining:number}>>`SELECT remaining FROM "LaundryPrepaid" WHERE "businessId"=${fixture.businessId} AND "packageId" IS NOT NULL`)[0].remaining).toBe(8000);
+      const autoPayments=await db.$queryRaw<Array<{method:string;amount:number}>>`SELECT p.method,p.amount FROM "LaundryPayment" p JOIN "LaundryTicket" t ON t.id=p."ticketId" WHERE p."businessId"=${fixture.businessId} AND t.number=2 ORDER BY method`;
+      expect(autoPayments).toEqual([{method:"cash",amount:500},{method:"prepaid",amount:2000}]);
+      await expect(page.locator('[aria-label="تفصيل الدفعات"]')).toContainText("اشتراك");
+      await page.getByRole("button",{name:"إغلاق",exact:true}).click();
+
       await openLaundrySection(page,"الموردون والمشتريات");
       await page.getByText("إضافة مورد جديد",{exact:true}).click();
       await page.getByLabel("اسم المورد",{exact:true}).fill("مورد التشغيل التجريبي");
@@ -675,6 +711,9 @@ test.describe.serial("public transactions workflow", () => {
       await page.screenshot({path:testInfo.outputPath("laundry-purchases-mobile.png"),fullPage:true});
 
       await page.context().clearCookies();await setSession(page,outsider.sessionToken);
+      const foreignLookup=await page.request.post(`${baseUrl}/api/accounting/subscriptions`,{data:{businessId:fixture.businessId,phone:"0500009941"}});
+      expect((await foreignLookup.json()).ok).toBe(false);
+      expect(await (await replay(autoOrder)).text()).toContain("تغيرت المنشأة النشطة");
       expect(await (await replay(purchase)).text()).toContain("إدارة الاشتراكات تتطلب صلاحية محاسبة المنشأة النشطة");
       expect(await (await replay(redemption)).text()).toContain("إدارة الاشتراكات تتطلب صلاحية محاسبة المنشأة النشطة");
       expect(await (await replay(refund)).text()).toContain("إدارة الاشتراكات تتطلب صلاحية محاسبة المنشأة النشطة");
@@ -687,6 +726,7 @@ test.describe.serial("public transactions workflow", () => {
       await db.$executeRaw`DELETE FROM "LaundrySupplier" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryPrepaidMovement" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryPrepaid" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "AccountingPackage" WHERE "businessId"=${fixture.businessId}`;
       await db.$transaction(async tx=>{
         await tx.$executeRaw`DELETE FROM "LaundryJournalLine" WHERE "businessId"=${fixture.businessId}`;
         await tx.$executeRaw`DELETE FROM "LaundryJournal" WHERE "businessId"=${fixture.businessId}`;
@@ -696,6 +736,7 @@ test.describe.serial("public transactions workflow", () => {
       await db.$executeRaw`DELETE FROM "LaundryAudit" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryPayment" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
+      await db.$executeRaw`DELETE FROM "LaundryService" WHERE "businessId"=${fixture.businessId}`;
       await db.$executeRaw`DELETE FROM "LaundryCustomer" WHERE "businessId"=${fixture.businessId}`;
       await cleanup(fixture);await cleanup(outsider);
     }
