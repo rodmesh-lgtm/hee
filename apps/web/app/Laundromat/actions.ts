@@ -80,7 +80,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${customer.phone},${customer.id},${JSON.stringify(lines)}::jsonb,${total},${paid},${dueAt},${data.notes},${user.id})`;
         await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"order",amount:total,at:new Date(),description:`استلام طلب #${rows[0].number}`});
         if(data.useSubscription){
-          const balances=await tx.$queryRaw<Array<Omit<SubscriberBalance,"startsAt"|"expiresAt">&{startsAt:Date;expiresAt:Date}>>`SELECT id,name,remaining,"startsAt","expiresAt","serviceIds" FROM "LaundryPrepaid" WHERE "businessId"=${business.id} AND "customerId"=${customer.id} AND remaining>0 ORDER BY "expiresAt",id LIMIT 100 FOR UPDATE`;
+          const balances=await tx.$queryRaw<Array<Omit<SubscriberBalance,"startsAt"|"expiresAt">&{startsAt:Date;expiresAt:Date}>>`SELECT id,name,remaining,"startsAt","expiresAt","serviceIds" FROM "LaundryPrepaid" WHERE "businessId"=${business.id} AND "customerId"=${customer.id} AND remaining>0 AND "startsAt"<=now() AND "expiresAt">now() ORDER BY "expiresAt",id LIMIT 100 FOR UPDATE`;
           const quote=allocateSubscriptions(balances.map(s=>({...s,startsAt:s.startsAt.toISOString(),expiresAt:s.expiresAt.toISOString()})),lines,total-paid);
           if(data.subscriptionCovered!==quote.covered)throw new LaundryInputError("تغير رصيد الاشتراك أو لم يكتمل تحميله. أعد قراءة الرصيد قبل حفظ الطلب");
           for(const allocation of quote.allocations){

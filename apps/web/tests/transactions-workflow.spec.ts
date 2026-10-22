@@ -654,6 +654,8 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByLabel("تاريخ بداية الباقة",{exact:true}).fill(riyadhDateKey(0));
       await page.getByRole("button",{name:"حفظ الاشتراك والتحصيل",exact:true}).click();
       await expect.poll(async()=>(await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int n FROM "LaundryPrepaid" WHERE "businessId"=${fixture.businessId} AND "packageId" IS NOT NULL`)[0].n).toBe(1);
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
+      await page.screenshot({path:testInfo.outputPath("laundry-subscriber-package-mobile.png"),fullPage:true});
       // Archiving stops new enrolments, not benefits already purchased.
       await page.getByRole("button",{name:"إيقاف الاشتراكات الجديدة",exact:true}).click();
       await expect(page.getByRole("button",{name:"تسجيل مشترك في باقة الخدمة الشهرية",exact:true})).toHaveCount(0);

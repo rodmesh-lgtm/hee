@@ -47,7 +47,7 @@ export async function getCashierSubscriptions(value:unknown):Promise<{ok:true;su
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يلزم تسجيل الدخول"};
  const b=await getActiveBusinessForUser(user.id,"laundry");if(!b||b.id!==p.data.businessId)return {ok:false,error:"يلزم صلاحية الكاشير في المنشأة النشطة"};
  try{const phone=laundryCustomerPhone(p.data.phone);
- const rows=await db.$queryRaw<Array<Omit<SubscriberBalance,"startsAt"|"expiresAt">&{startsAt:Date;expiresAt:Date}>>`SELECT s.id,s.name,s.remaining,s."startsAt",s."expiresAt",s."serviceIds" FROM "LaundryPrepaid" s JOIN "LaundryCustomer" c ON c.id=s."customerId" AND c."businessId"=s."businessId" WHERE s."businessId"=${b.id} AND c.phone=${phone} AND s.remaining>0 ORDER BY s."expiresAt",s.id LIMIT 100`;
+ const rows=await db.$queryRaw<Array<Omit<SubscriberBalance,"startsAt"|"expiresAt">&{startsAt:Date;expiresAt:Date}>>`SELECT s.id,s.name,s.remaining,s."startsAt",s."expiresAt",s."serviceIds" FROM "LaundryPrepaid" s JOIN "LaundryCustomer" c ON c.id=s."customerId" AND c."businessId"=s."businessId" WHERE s."businessId"=${b.id} AND c.phone=${phone} AND s.remaining>0 ORDER BY (s."startsAt"<=now() AND s."expiresAt">now()) DESC,s."expiresAt",s.id LIMIT 100`;
  return {ok:true,subscriptions:rows.map(s=>({...s,startsAt:s.startsAt.toISOString(),expiresAt:s.expiresAt.toISOString()}))};
  }catch{return {ok:false,error:"تعذر قراءة اشتراكات العميل؛ تحقق من الجوال وأعد المحاولة"};}
 }
