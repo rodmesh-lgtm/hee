@@ -1,0 +1,30 @@
+# Pilot connector: run on a Linux mini-PC inside the client's camera network.
+# The Cloudflare Tunnel hostname must route ONLY to http://guard:80.
+services:
+  media:
+    image: bluenviron/mediamtx:1.21.2
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    networks: [camera]
+    # No ports published. Camera source access is outbound from this container.
+  guard:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      LIVE_VIEW_GATEWAY_SECRET: ${LIVE_VIEW_GATEWAY_SECRET:?Set a random secret of at least 32 characters}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    networks: [camera]
+    depends_on: [media]
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?Set the private Cloudflare Tunnel token}
+    networks: [camera]
+    depends_on: [guard]
+networks:
+  camera:
+    driver: bridge

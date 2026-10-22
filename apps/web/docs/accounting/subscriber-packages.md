@@ -8,7 +8,7 @@ On cashier phone entry the authenticated, no-store lookup returns this tenant's 
 
 Manual redemption remains available to accounting staff. Restricted packages can manually settle only orders wholly within their service scope; mixed-scope orders must use the automatic allocation at creation. Expired balances cannot fund an order but remain refundable under the existing refund flow. Refunds record money actually returned; no bank transfer or neoleap request is sent.
 
-Apply migration `20261022140000_accounting_packages` using the existing reviewed migration workflow **before deploying** this version. It adds AccountingPackage and additive fields on LaundryPrepaid; it preserves original balances and backfills startsAt from createdAt. It does not modify platform billing subscriptions or the separate Salla automation draft.
+Apply migration `20261022200000_accounting_packages` using the existing reviewed migration workflow **before deploying** this version. It adds AccountingPackage and additive fields on LaundryPrepaid; it preserves original balances and backfills startsAt from createdAt. It does not modify platform billing subscriptions or the separate Salla automation draft.
 
 Limits: the current catalogue lists the latest 200 package definitions; the subscriber list and cashier lookup show up to 100 records. No automatic renewal charge, quantity/visit entitlements, automatic subscription WhatsApp messaging or live neoleap integration is included. The existing ready-order notification integration is separate.
 

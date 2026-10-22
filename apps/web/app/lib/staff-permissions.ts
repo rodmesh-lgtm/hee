@@ -3,6 +3,7 @@ export const STAFF_SECTIONS = {
   laundryOperations: { label: "التشغيل — العملاء والمخزون", href: "/Laundromat/Operations" },
   laundryDelivery: { label: "التوصيل — المهام المسندة فقط", href: "/Laundromat/Delivery" },
   laundry: { label: "نقطة البيع — الطلبات والتحصيل", href: "/Laundromat" },
+  liveView: { label: "المشاهدة المؤقتة — المحطات وجلسات العملاء", href: "/dashboard/live-view" },
   page: { label: "صفحتي والخدمات والفروع", href: "/dashboard/my-page" },
   identity: { label: "الهوية الرقمية والتوثيق", href: "/dashboard/digital-identity" },
   orders: { label: "الطلبات", href: "/dashboard/inbox" },
@@ -28,7 +29,7 @@ export function staffSectionForPath(pathname: string): StaffSection | null {
   if (["my-page", "services", "products", "catalog", "gallery", "offers", "contact-links", "page-builder", "page-customization", "preview", "share", "branding", "directory", "tools"].includes(root)) return "page";
   if (["digital-identity", "verification"].includes(root)) return "identity";
   if (["appointments", "working-hours"].includes(root)) return "appointments";
-  const roots: Record<string, StaffSection> = { inbox: "orders", whatsapp: "whatsapp", reminders: "reminders", notifications: "notifications", notes: "notes", "business-store": "store", analytics: "analytics", support: "support" };
+  const roots: Record<string, StaffSection> = { "live-view": "liveView", inbox: "orders", whatsapp: "whatsapp", reminders: "reminders", notifications: "notifications", notes: "notes", "business-store": "store", analytics: "analytics", support: "support" };
   return roots[root] ?? null;
 }
 export function staffCanOpenPath(pathname: string, permissions: unknown) {
