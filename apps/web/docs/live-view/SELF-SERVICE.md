@@ -135,8 +135,15 @@ The connector emits only fixed status messages, never FFmpeg stderr or URLs.
 The connector is a command-line transport, not a customer management application.
 For unattended operation, pair interactively first, then configure the OS service
 manager to run the same file under the paired user's home directory and restart on
-failure. `--pair` explicitly re-enrolls with a new code. This release does not ship
-an automatic Windows/macOS installer, auto-updater, local UI or ONVIF discovery.
+failure. `--pair` explicitly re-enrolls with a new code. `--pair-only` saves pairing
+and exits; `--run` refuses to launch an invisible pairing prompt.
+
+Windows now has a Node-based setup helper downloadable from the INFRO setup page.
+It checks prerequisites, downloads a checksum-pinned connector, protects the token
+directory with Windows ACLs and registers a least-privilege Task Scheduler entry
+for the same signed-in user. See [PILOT.md](PILOT.md) for its limits. This is not a
+signed MSI, dependency installer, boot-time Windows service, auto-updater, local UI
+or ONVIF discovery. Windows execution still requires validation on the real machine.
 
 Cameras limited to a vendor's closed cloud app/serial-number pairing without RTSP
 are not connected by entering the model. A vendor API/SDK integration is needed.

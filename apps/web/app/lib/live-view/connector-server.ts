@@ -11,7 +11,7 @@ export function connectorPlatformConfig() {
   const relaySecret=process.env.LIVE_VIEW_RELAY_AUTH_SECRET || "";
   try {
     const publish=new URL(process.env.LIVE_VIEW_PUBLISH_ORIGIN || "");
-    if(!validCameraKey(key) || relaySecret.length<32 || publish.protocol!=="rtmps:" || publish.username || publish.password || publish.pathname!=="/" || publish.search || publish.hash) return null;
+    if(!validCameraKey(key) || relaySecret.length<32 || publish.protocol!=="rtmps:" || publish.username || publish.password || !["","/"].includes(publish.pathname) || publish.search || publish.hash) return null;
     return { ...gateway, key, relaySecret, publishOrigin:publish.toString().replace(/\/$/,"") };
   } catch { return null; }
 }
