@@ -1,5 +1,27 @@
 # INFRO terminal integration — implementation checkpoint
 
+## Confirmed customer provider (2026-10-22)
+
+The owner confirms that Layla Clean already uses **neoleap** POS terminals.
+Hardware procurement is no longer a blocker for this tenant. Do not ask again
+whether the customer has bought a terminal, and do not substitute Nami or another
+provider. This is a tenant-specific integration requirement, not a platform-wide
+default or an activated terminal binding.
+
+Official neoleap POS pages describe cashier/accounting solutions, but the public
+pages reviewed did not expose the terminal ECR API/SDK specification. Do not use
+the separate online payment gateway documentation as a terminal purchase protocol.
+
+Required next evidence from neoleap: supported device model and payment app version,
+ECR activation procedure, official terminal integration SDK/API and sample responses,
+cloud versus local bridge availability for iPad/mobile/desktop web, sandbox access,
+status lookup after timeout, duplicate request handling and result authentication.
+No endpoint, payload, signature scheme or transport should be invented.
+
+Official references: https://www.neoleap.com.sa/en/pos and
+https://www.neoleap.com.sa/ar/pos (reviewed 2026-10-22).
+Published support phone: 8001000085. No support message has been sent.
+
 Status: foundation only. No live provider, device connection, purchase endpoint,
 webhook, payment persistence, or automatic ledger posting is enabled by this change.
 The existing `card` method remains manual recording of an independently completed payment.
