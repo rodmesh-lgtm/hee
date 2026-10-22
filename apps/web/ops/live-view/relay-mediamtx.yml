@@ -1,0 +1,30 @@
+# Central relay, managed by INFRO. Never install this shared service at a tenant.
+logLevel: error
+api: false
+metrics: false
+pprof: false
+playback: false
+rtsp: false
+rtmp: true
+rtmpEncryption: strict
+rtmpsAddress: :1936
+rtmpServerKey: /certs/privkey.pem
+rtmpServerCert: /certs/fullchain.pem
+srt: false
+webrtc: false
+hls: true
+hlsAddress: :8888
+hlsAlwaysRemux: true
+hlsVariant: mpegts
+hlsSegmentCount: 3
+hlsSegmentDuration: 2s
+hlsSegmentMaxSize: 4M
+authMethod: http
+authHTTPAddress: http://guard:8081/auth
+authHTTPExclude: []
+pathDefaults:
+  source: publisher
+  overridePublisher: false
+  record: false
+paths:
+  '~^[a-f0-9]{32}$': {}

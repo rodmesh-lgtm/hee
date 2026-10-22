@@ -199,6 +199,7 @@ model Business {
   whatsappShopifyWebhookSyncs WhatsAppShopifyWebhookSync[]
   sallaWebhookEvents SallaWebhookEvent[]
   commerceBookingEligibilities CommerceBookingEligibility[]
+  liveViewConnectors LiveViewConnector[]
   liveViewStations LiveViewStation[]
   liveViewSessions LiveViewSession[]
   shortLinks BusinessShortLink[]
@@ -1544,13 +1545,47 @@ model StoredObject {
 }
 
 // A station can represent a lift, room or service area. Stream credentials live
-// exclusively at the gateway; streamKey is an opaque path, never an RTSP URL.
+// encrypted for delivery only to the enrolled on-site connector.
+model LiveViewConnector {
+  id String @id @default(uuid())
+  businessId String
+  name String
+  activity String @default("other")
+  pairingHash String? @unique
+  pairingExpiresAt DateTime?
+  tokenHash String? @unique
+  enrolledAt DateTime?
+  lastSeenAt DateTime?
+  revokedAt DateTime?
+  agentVersion String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  stations LiveViewStation[]
+  @@unique([id, businessId])
+  @@index([businessId, createdAt])
+}
+
 model LiveViewStation {
   id String @id @default(uuid())
   businessId String
   name String
   location String
   kind String @default("bay")
+  connectorId String?
+  cameraBrand String?
+  cameraModel String?
+  deviceType String?
+  cameraHost String?
+  cameraPort Int @default(554)
+  cameraChannel Int @default(1)
+  cameraProfile String @default("sub")
+  cameraPath String?
+  credentialEnvelope String?
+  configVersion Int @default(1)
+  probeNonce String?
+  inputStatus String @default("unconfigured")
+  inputCheckedAt DateTime?
   streamKey String @unique
   enabled Boolean @default(true)
   lastCheckedAt DateTime?
@@ -1560,6 +1595,8 @@ model LiveViewStation {
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
   sessions LiveViewSession[]
+  connector LiveViewConnector? @relation(fields: [connectorId, businessId], references: [id, businessId], onDelete: Restrict)
+  @@index([connectorId, businessId])
   @@unique([id, businessId])
   @@index([businessId, createdAt])
 }

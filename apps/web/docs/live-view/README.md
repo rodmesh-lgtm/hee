@@ -1,5 +1,10 @@
 # INFRO Live — temporary customer viewing
 
+Self-service sites/cameras and central relay are now implemented. Start with
+[SELF-SERVICE.md](SELF-SERVICE.md); the original pilot recipe below applies only
+to legacy, manually preconfigured stations. Current customer sessions are managed
+entirely in INFRO; an external work-order system is not required.
+
 ## Implemented scope
 
 `/dashboard/live-view` is the business workspace. Owners and explicitly authorized
@@ -11,7 +16,7 @@ entities. Existing members receive no implicit camera permission.
 `/watch/<256-bit-capability>` is the customer page. It works without an INFRO login
 and uses native HLS or a lazily loaded hls.js player. This first release uses bearer
 links: possession grants access. There is no OTP, automatic WhatsApp delivery,
-work-order integration, camera discovery, recording, or automatic station transfer.
+external work-order integration, camera discovery, recording, or automatic station transfer.
 The operator can copy/share the link through WhatsApp. No messages are sent by the
 application. A completed job must be closed using the dashboard; an external job
 system's completion does not yet close a lease automatically.
