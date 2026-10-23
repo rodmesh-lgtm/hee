@@ -6,7 +6,7 @@ import { CAMERA_BRANDS, LIVE_ACTIVITIES, cameraPath, isPrivateCameraHost } from 
 
 const field = "mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900";
 
-export function CameraPreparationGuide() {
+export function CameraPreparationGuide({ activated = false }: { activated?: boolean }) {
   const [activity, setActivity] = useState<keyof typeof LIVE_ACTIVITIES>("workshop");
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
@@ -43,7 +43,7 @@ export function CameraPreparationGuide() {
   ].join("\n");
 
   return <section aria-labelledby="camera-guide-title" className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6">
-    <div className="flex items-start gap-3"><Camera className="mt-1 shrink-0 text-teal-700" size={23}/><div><h2 id="camera-guide-title" className="text-lg font-black">جهّز كاميرتك للربط</h2><p className="mt-2 text-sm leading-7 text-slate-600">اختر جهازك للحصول على خطوات التجهيز ومسار بث مقترح. يمكنك استخدام الدليل الآن؛ الاقتران وفحص الصورة يتاحان بعد تفعيل الخدمة.</p></div></div>
+    <div className="flex items-start gap-3"><Camera className="mt-1 shrink-0 text-teal-700" size={23}/><div><h2 id="camera-guide-title" className="text-lg font-black">جهّز كاميرتك للربط</h2><p className="mt-2 text-sm leading-7 text-slate-600">اختر جهازك للحصول على خطوات التجهيز ومسار بث مقترح. {activated ? "بعد التجهيز، أضف الموقع واقرن جهازه ثم افحص الصورة من حسابك." : "يمكنك استخدام الدليل الآن؛ الاقتران وفحص الصورة يتاحان بعد تفعيل الخدمة."}</p></div></div>
     <div className="mt-5 grid gap-4 sm:grid-cols-2">
       <label className="text-sm font-bold">نوع النشاط<select className={field} value={activity} onChange={e => setActivity(e.target.value as keyof typeof LIVE_ACTIVITIES)}>{Object.entries(LIVE_ACTIVITIES).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}</select></label>
       <label className="text-sm font-bold">نوع الجهاز<select className={field} value={device} onChange={e => setDevice(e.target.value)}><option value="camera">كاميرا مباشرة</option><option value="recorder">جهاز تسجيل NVR / DVR</option></select></label>
@@ -60,7 +60,7 @@ export function CameraPreparationGuide() {
       {pathError ? <p role="alert" className="mt-3 text-sm text-red-700">{pathError}</p> : path ? <><code dir="ltr" className="mt-3 block select-all break-all rounded-xl bg-slate-950 p-4 text-xs leading-7 text-teal-200">{path}</code><p className="mt-3 text-xs leading-7 text-slate-600">قالب حسب الماركة؛ قد يختلف باختلاف الموديل وإصدار الجهاز. كتابة الموديل لا تعني اعتماد توافقه. يُحسم التوافق بفحص المصدر والصورة الفعليين.</p></> : <p className="mt-3 text-sm text-slate-600">اختر الماركة لعرض المسار المقترح.</p>}
     </div>}
     <fieldset className="mt-5 space-y-3"><legend className="mb-3 text-sm font-black">قائمة التجهيز · {checks.length} من {tasks.length}</legend>{tasks.map(task => <label key={task.id} className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm leading-7"><input type="checkbox" checked={checks.includes(task.id)} onChange={e => { const checked = e.target.checked; setChecks(previous => checked ? [...previous, task.id] : previous.filter(id => id !== task.id)); }} className="mt-2 size-4 shrink-0 accent-teal-700"/>{task.text}</label>)}</fieldset>
-    <p className="mt-4 text-xs leading-7 text-slate-500">هذه اختيارات تجهيز على هذه الصفحة، وتُمسح عند مغادرتها. لا تُدخل كلمات المرور هنا؛ مكانها نموذج ربط الكاميرا بعد تفعيل الخدمة.</p>
+    <p className="mt-4 text-xs leading-7 text-slate-500">هذه اختيارات تجهيز على هذه الصفحة، وتُمسح عند مغادرتها. لا تُدخل كلمات المرور هنا؛ {activated ? "مكانها نموذج إضافة الكاميرا في هذه الصفحة." : "مكانها نموذج ربط الكاميرا بعد تفعيل الخدمة."}</p>
     <button type="button" disabled={!path || !validHost || rtsp === "no"} onClick={async () => { try { await navigator.clipboard.writeText(summary); setCopied("تم نسخ ملخص التجهيز."); } catch { setCopied("تعذر النسخ. يمكنك تحديد المسار ونسخه يدويًا."); } }} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><Copy size={16}/> نسخ ملخص التجهيز للفني</button>
     <p aria-live="polite" className="mt-3 text-sm text-teal-800">{copied && <span className="inline-flex items-center gap-2"><CheckCircle2 size={16}/>{copied}</span>}</p>
   </section>;
