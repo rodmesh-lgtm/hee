@@ -595,7 +595,7 @@ test.describe.serial("public transactions workflow", () => {
     }
   });
   test("laundry prepaid purchases, redemptions and refunds reconcile and isolate tenants",async({browser},testInfo)=>{
-    test.setTimeout(120000);
+    test.setTimeout(180000);
     const fixture=await seed(),outsider=await seed();const page=await browser.newPage({viewport:{width:390,height:844}});
     const customerId=crypto.randomUUID(),ticketId=crypto.randomUUID();
     try{
@@ -645,7 +645,7 @@ test.describe.serial("public transactions workflow", () => {
       await page.reload();await openLaundrySection(page,"اشتراكات العملاء");
       await page.getByText("إضافة باقة جديدة",{exact:true}).click();
       await page.getByLabel("اسم الباقة",{exact:true}).fill("باقة الخدمة الشهرية");
-      await page.getByLabel("سعر الباقة / رصيدها بالريال",{exact:true}).fill("100");
+      await page.getByLabel("سعر الباقة بالريال",{exact:true}).fill("100");
       await page.getByLabel("وصف الباقة وشروطها",{exact:true}).fill("رصيد لخدمات المنشأة المختارة");
       await page.getByRole("checkbox",{name:"خدمة الباقة · خدمات",exact:true}).check();
       await page.getByRole("button",{name:"حفظ الباقة",exact:true}).click();
@@ -675,6 +675,50 @@ test.describe.serial("public transactions workflow", () => {
       const autoPayments=await db.$queryRaw<Array<{method:string;amount:number}>>`SELECT p.method,p.amount FROM "LaundryPayment" p JOIN "LaundryTicket" t ON t.id=p."ticketId" WHERE p."businessId"=${fixture.businessId} AND t.number=2 ORDER BY method`;
       expect(autoPayments).toEqual([{method:"cash",amount:500},{method:"prepaid",amount:2000}]);
       await expect(page.locator('[aria-label="تفصيل الدفعات"]')).toContainText("اشتراك");
+      await page.getByRole("button",{name:"إغلاق",exact:true}).click();
+
+      // Counted service packages price each covered unit from the purchased value.
+      await openLaundrySection(page,"اشتراكات العملاء");
+      await page.getByText("إضافة باقة جديدة",{exact:true}).click();
+      await page.getByLabel("نوع الباقة",{exact:true}).selectOption("pieces");
+      await page.getByLabel("اسم الباقة",{exact:true}).fill("ثلاث قطع");
+      await page.getByLabel("العدد المشمول",{exact:true}).fill("3");
+      await page.getByLabel("سعر الباقة بالريال",{exact:true}).fill("10");
+      await page.getByRole("radio",{name:"خدمة الباقة · خدمات",exact:true}).check();
+      await page.getByRole("button",{name:"حفظ الباقة",exact:true}).click();
+      await page.getByRole("button",{name:"تسجيل مشترك في ثلاث قطع",exact:true}).click();
+      await page.getByLabel("جوال عميل مسجل",{exact:true}).fill("0500009941");
+      await page.getByLabel("تاريخ بداية الباقة",{exact:true}).fill(riyadhDateKey(0));
+      await page.getByRole("button",{name:"حفظ الاشتراك والتحصيل",exact:true}).click();
+      await expect.poll(async()=>(await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int n FROM "LaundryPrepaid" WHERE "businessId"=${fixture.businessId} AND kind='pieces'`)[0].n).toBe(1);
+      const counted=(await db.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryPrepaid" WHERE "businessId"=${fixture.businessId} AND kind='pieces'`)[0];
+      await openLaundrySection(page,"الكاشير");
+      await page.locator('.ld-product-card').filter({hasText:'خدمة الباقة'}).getByRole('button').first().click();
+      if(await review.isVisible())await review.click();
+      await page.getByLabel("اسم العميل",{exact:true}).fill("عميل الاشتراك");
+      await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009941");
+      await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(1)}T12:00`);
+      await expect(page.getByRole("region",{name:"اشتراكات العميل في الكاشير"})).toContainText("سيبقى 2 قطعة");
+      const countedSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
+      await page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true}).click();const countedOrder=await countedSent;
+      await expect(page.getByRole("dialog")).toBeVisible();await Promise.all([replay(countedOrder),replay(countedOrder)]);
+      expect((await db.$queryRaw<Array<{remaining:number;unitsRemaining:number}>>`SELECT remaining,"unitsRemaining" FROM "LaundryPrepaid" WHERE id=${counted.id}`)[0]).toEqual({remaining:667,unitsRemaining:2});
+      expect((await db.$queryRaw<Array<{total:number;paid:number}>>`SELECT total,paid FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId} AND number=3`)[0]).toEqual({total:333,paid:333});
+      expect((await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int n FROM "LaundryPrepaidMovement" WHERE "prepaidId"=${counted.id} AND kind='redeem'`)[0].n).toBe(1);
+      await expect(page.getByRole("dialog")).toContainText("ثلاث قطع");
+      await page.screenshot({path:testInfo.outputPath("laundry-counted-package-receipt.png"),fullPage:true});
+      const postModified=async(req:typeof purchase,patch:Record<string,unknown>)=>{
+        const payload=JSON.parse(req.postData()!);Object.assign(payload[0],patch,{requestId:crypto.randomUUID()});
+        return page.request.post(req.url(),{headers:{"next-action":req.headers()["next-action"],"content-type":req.headers()["content-type"],origin:new URL(baseUrl).origin},data:JSON.stringify(payload)});
+      };
+      const stale=await postModified(countedOrder,{});expect(await stale.text()).toContain("تغير رصيد الاشتراك");
+      expect((await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int n FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`)[0].n).toBe(3);
+      const manualCounted=await postModified(redemption,{id:counted.id,amount:"1"});expect(await manualCounted.text()).toContain("تُستخدم تلقائيًا");
+      const partialCounted=await postModified(refund,{id:counted.id,amount:"1"});expect(await partialCounted.text()).toContain("كامل القيمة غير المستخدمة");
+      const fullCounted=await postModified(refund,{id:counted.id,amount:"6.67"});expect(await fullCounted.text()).not.toContain('"ok":false');
+      expect((await db.$queryRaw<Array<{remaining:number;unitsRemaining:number}>>`SELECT remaining,"unitsRemaining" FROM "LaundryPrepaid" WHERE id=${counted.id}`)[0]).toEqual({remaining:0,unitsRemaining:0});
+      const liability=(await db.$queryRaw<Array<{balance:number}>>`SELECT SUM(debit-credit)::float8 balance FROM "LaundryJournalLine" WHERE "businessId"=${fixture.businessId} AND "accountCode"='2100'`)[0].balance;
+      expect(liability).toBe(-8000);
       await page.getByRole("button",{name:"إغلاق",exact:true}).click();
 
       await openLaundrySection(page,"الموردون والمشتريات");
