@@ -1,4 +1,5 @@
 "use server";
+import { liveStationReadiness } from "../lib/live-view/readiness";
 import { connectorOnline } from "../lib/live-view/camera-profiles";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
@@ -67,7 +68,7 @@ export async function createLiveSessionAction(_: LiveViewState, form: FormData):
   try {
     await db.$transaction(async tx => {
       const station = await stationLock(tx, who.business.id, id); const now = new Date();
-      if ((station?.connectorId && (!station.connector || !connectorOnline(station.connector))) || !station?.enabled || !station.lastOnline || !station.lastCheckedAt || now.getTime() - station.lastCheckedAt.getTime() > 15 * 60_000) throw new Error("CHECK_CAMERA");
+      if (!station || !liveStationReadiness(station, now.getTime()).ready) throw new Error("CHECK_CAMERA");
       if (station.reuseAfterAt && station.reuseAfterAt > now) throw new Error("COOLDOWN");
       const open = await tx.liveViewSession.findFirst({ where: { stationId: id, businessId: who.business.id, endedAt: null } });
       if (open && open.expiresAt > now) throw new Error("BUSY");
