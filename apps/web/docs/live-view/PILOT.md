@@ -2,11 +2,25 @@
 
 ## Current release boundary
 
-The dashboard section is published. The central relay host has not been supplied
-or provisioned. Production camera migrations and LIVE_VIEW settings have not been
-activated by this change. No physical customer camera has been tested. Do not
-represent a passing unit/media test, a scheduled-task registration, or a relay
-health response as an end-to-end camera acceptance test.
+The dashboard and self-service camera linking are enabled in Production as of
+2026-10-23. The direct relay is provisioned at `live.ir.sa`; HTTPS and RTMPS use a
+trusted Let's Encrypt certificate. Docker services `media` and `guard` are running.
+Anonymous health/media requests are denied, the platform reader callback succeeds,
+and invalid relay/publisher credentials are denied. The twice-daily
+`infro-live-renew.timer` is enabled; both renewal dry-run and its oneshot service
+passed. `renew-direct.sh` uses noninteractive Docker execution.
+
+Production migration workflow 39962395723 verified a clean, checksum-matched
+106-migration release with no pending migrations. The activated dashboard queries
+its live tables successfully. Platform secrets are stored as sensitive Production
+variables; never include their values in this document or logs. The temporary
+Vercel administration sandbox must be stopped and its operator key removed after
+bring-up. The Linux host's operational configuration is under `/opt/infro-live`.
+
+No physical customer camera has been tested. Infrastructure checks do not prove
+camera compatibility, Windows startup, playback, grant rotation, or revocation on
+an actual viewing device. Complete the acceptance section below before calling
+the customer's camera service fully operational.
 
 The customer confirmed a Windows machine is available at the workshop. Camera/NVR
 brand, model and RTSP availability are not yet known. Never request passwords in
