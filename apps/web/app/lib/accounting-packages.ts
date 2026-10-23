@@ -1,6 +1,8 @@
 import { LaundryInputError, type LaundryLine } from "./laundry-domain";
-export type AccountingPackage = {id:string;name:string;description:string;amount:number;durationDays:number;serviceIds:string[];active:boolean};
-export type SubscriberBalance = {id:string;name:string;remaining:number;startsAt:string;expiresAt:string;serviceIds:string[]};
+export type PackageKind = "credit"|"pieces"|"visits";
+export const packageUnitLabels={credit:"ر.س",pieces:"قطعة",visits:"زيارة"};
+export type AccountingPackage = {kind?:PackageKind;unitsIncluded?:number|null;id:string;name:string;description:string;amount:number;durationDays:number;serviceIds:string[];active:boolean};
+export type SubscriberBalance = {kind?:PackageKind;unitsIncluded?:number|null;unitsRemaining?:number|null;id:string;name:string;remaining:number;startsAt:string;expiresAt:string;serviceIds:string[]};
 export function subscriberStatus(s:SubscriberBalance,now=new Date()) {
  if(s.remaining===0)return "exhausted";
  if(new Date(s.startsAt)>now)return "scheduled";
@@ -53,4 +55,31 @@ export function allocateSubscriptions(subscriptions:SubscriberBalance[],lines:Pi
 }
 export function assertSubscriptionServices(serviceIds:string[],lines:Pick<LaundryLine,"serviceId">[]) {
  if(serviceIds.length&&(!lines.length||lines.some(l=>!serviceIds.includes(l.serviceId))))throw new LaundryInputError("الطلب يحتوي خدمات خارج الباقة؛ استخدم الخصم التلقائي عند إنشاء طلب بالخدمات المشمولة");
+}
+
+export function countedValue(remaining:number,unitsRemaining:number,units:number) {
+ if(!Number.isSafeInteger(remaining)||!Number.isSafeInteger(unitsRemaining)||!Number.isSafeInteger(units)||units<1||unitsRemaining<units||remaining<unitsRemaining)throw new LaundryInputError("رصيد وحدات الباقة غير صالح");
+ return Math.floor(remaining*units/unitsRemaining);
+}
+export function quoteSubscriberOrder(subscriptions:SubscriberBalance[],lines:LaundryLine[],paid:number,now=new Date()) {
+ if(!Number.isSafeInteger(paid)||paid<0||lines.some(l=>!Number.isSafeInteger(l.quantity)||l.quantity<1||!Number.isSafeInteger(l.unitPrice)||l.unitPrice<0||l.total!==l.quantity*l.unitPrice))throw new LaundryInputError("راجع كميات الطلب والدفعة");
+ const remainingLines=lines.map(l=>({...l})),packageLines:LaundryLine[]=[];
+ const allocations:Array<{id:string;name:string;amount:number;remaining:number;units:number;unitsRemaining:number|null;kind:PackageKind}>=[];
+ const counted=subscriptions.filter(s=>s.kind&&s.kind!=="credit"&&subscriberStatus(s,now)==="active").sort((a,b)=>a.expiresAt.localeCompare(b.expiresAt)||a.id.localeCompare(b.id));
+ for(const s of counted){
+  if(s.serviceIds.length!==1||!s.unitsRemaining)continue;
+  const line=remainingLines.find(l=>l.serviceId===s.serviceIds[0]);if(!line?.quantity)continue;
+  const units=Math.min(line.quantity,s.unitsRemaining),amount=countedValue(s.remaining,s.unitsRemaining,units);
+  const price=Math.floor(amount/units),extra=amount%units;
+  // Two integer-priced rows preserve exact halalas without fractional unit prices.
+  for(const [quantity,unitPrice] of [[units-extra,price],[extra,price+1]])if(quantity)packageLines.push({...line,name:`${line.name} — ${s.name}`,quantity,unitPrice,total:quantity*unitPrice});
+  line.quantity-=units;line.total=line.quantity*line.unitPrice;
+  allocations.push({id:s.id,name:s.name,amount,remaining:s.remaining-amount,units,unitsRemaining:s.unitsRemaining-units,kind:s.kind!});
+ }
+ const uncovered=remainingLines.filter(l=>l.quantity>0),retail=uncovered.reduce((sum,l)=>sum+l.total,0);
+ if(paid>retail)throw new LaundryInputError("الدفعة الجديدة تتجاوز الخدمات غير المغطاة بالباقة؛ خفّض الدفعة أو أوقف استخدام الاشتراك");
+ const credit=allocateSubscriptions(subscriptions.filter(s=>!s.kind||s.kind==="credit"),uncovered,retail-paid,now);
+ allocations.push(...credit.allocations.map(a=>({...a,units:0,unitsRemaining:null,kind:"credit" as const})));
+ const adjustedLines=[...uncovered,...packageLines],total=adjustedLines.reduce((sum,l)=>sum+l.total,0),covered=allocations.reduce((sum,a)=>sum+a.amount,0);
+ return {lines:adjustedLines,total,covered,outstanding:total-paid-covered,allocations,token:JSON.stringify(allocations.map(a=>[a.id,a.amount,a.remaining,a.units,a.unitsRemaining]))};
 }

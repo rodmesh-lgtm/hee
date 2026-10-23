@@ -13,3 +13,12 @@ Apply migration `20261022200000_accounting_packages` using the existing reviewed
 Limits: the current catalogue lists the latest 200 package definitions; the subscriber list and cashier lookup show up to 100 records. No automatic renewal charge, quantity/visit entitlements, automatic subscription WhatsApp messaging or live neoleap integration is included. The existing ready-order notification integration is separate.
 
 Verification includes domain tests for service restrictions, split coverage, expiry and Riyadh dates, plus the existing browser transaction scenario extended with package creation, enrolment, archival, automatic partial-cash redemption, replay and tenant-isolated lookups.
+
+## Counted service packages (2026-10-23)
+
+- The owner selects monetary credit, pieces, or service visits. A counted plan has one explicit service and 1–10,000 units. Each ordered quantity of that service consumes one unit; a visit is **not** an unlimited multi-item order. Bundles with several different service entitlements are not supported in this version.
+- Counted entitlements are applied before monetary credit, earliest expiry first. Uncovered quantities keep catalogue prices. Covered quantities are priced at their proportional share of the purchased package, preserving prepaid liabilities and delivery revenue. Integer halala rounding is carried into remaining value; receipt rows split if necessary so quantity × unit price always equals the row total.
+- Cash/card collections pay uncovered services only. Preview shows the resulting order total, balance, and remaining units. Authoritative transaction recomputes the quote under the existing tenant lock and rejects a stale allocation token. Counted requests require that token; older monetary requests retain compatibility.
+- Renewal creates a separate balance. Archival does not remove purchased benefits. Existing-order manual monetary redemption rejects counted balances. Refund of a counted balance requires its full unused monetary value and closes all remaining units; partial counted refunds are not offered.
+- Additive migration `20261023090000_accounting_counted_packages` leaves existing credit balances unchanged and constrains counts, service scope, and monetary remainder. All new fields are read from authenticated tenant-scoped paths.
+- Tests cover rounding, multiple renewals, eligibility, expiry, mixed credit/cash, replay, stale quote rollback, counted refund, and liability reconciliation. Production test transactions must not be used.

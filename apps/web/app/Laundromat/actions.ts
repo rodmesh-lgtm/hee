@@ -1,6 +1,6 @@
 "use server";
 import { enqueueLaundryReady } from "../lib/whatsapp/laundry-ready";
-import { allocateSubscriptions,type SubscriberBalance } from "../lib/accounting-packages";
+import { quoteSubscriberOrder,type SubscriberBalance } from "../lib/accounting-packages";
 import { collectionAllocations } from "../lib/accounting-collection";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -19,7 +19,7 @@ const command = z.discriminatedUnion("type", [
   z.object({type:z.literal("catalog"),requestId:key,operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),items:z.array(z.object({presetId:z.string().max(50),operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),price:z.string()})).min(1).max(120)}),
   z.object({ type: z.literal("service"), name: z.string().trim().min(2).max(100), category: z.string().trim().min(2).max(50), price: z.string(), requestId: key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
-  z.object({ type: z.literal("order"), useSubscription:z.boolean().default(false),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
+  z.object({ type: z.literal("order"), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
   z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0") }),
   z.object({ type: z.literal("status"), requestId: key, id: key, status: z.enum(["received","processing","ready","delivered"]) }),
   z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string(), method:z.enum(["cash","transfer","unspecified"]).default("unspecified") }),
@@ -71,23 +71,28 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         const dueAt=new Date(data.dueAt);
         if(dueAt.getTime()<Date.now()-60000 || dueAt.getTime()>Date.now()+366*86400000) throw new LaundryInputError("حدد موعد تسليم قادمًا خلال سنة");
         const catalog=await tx.$queryRaw<LaundryService[]>`SELECT * FROM "LaundryService" WHERE "businessId"=${business.id} AND "active"=TRUE`;
-        const lines=laundryLines(data.items,catalog), total=lines.reduce((s,x)=>s+x.total,0), paid=moneyToHalalas(data.paid);
+        let lines=laundryLines(data.items,catalog);const paid=moneyToHalalas(data.paid);
+        let total=lines.reduce((s,x)=>s+x.total,0);
         const allocations=collectionAllocations(data.paid,data.method,data.cashPaid);
         if(paid>total) throw new LaundryInputError("الدفعة أكبر من إجمالي الطلب");
         const rows=await tx.$queryRaw<Array<{number:number}>>`SELECT COALESCE(MAX("number"),0)+1 AS "number" FROM "LaundryTicket" WHERE "businessId"=${business.id}`;
         id=randomUUID();
         const customer=await ensureLaundryCustomer(tx,business.id,data.customerName,data.phone);
+        let quote:ReturnType<typeof quoteSubscriberOrder>|null=null;
+        if(data.useSubscription){
+          const balances=await tx.$queryRaw<Array<Omit<SubscriberBalance,"startsAt"|"expiresAt">&{startsAt:Date;expiresAt:Date}>>`SELECT id,name,remaining,kind,"unitsIncluded","unitsRemaining","startsAt","expiresAt","serviceIds" FROM "LaundryPrepaid" WHERE "businessId"=${business.id} AND "customerId"=${customer.id} AND remaining>0 AND "startsAt"<=now() AND "expiresAt">now() ORDER BY "expiresAt",id LIMIT 100 FOR UPDATE`;
+          quote=quoteSubscriberOrder(balances.map(s=>({...s,startsAt:s.startsAt.toISOString(),expiresAt:s.expiresAt.toISOString()})),lines,paid);
+          if(data.subscriptionCovered!==quote.covered||(data.subscriptionToken!==undefined&&data.subscriptionToken!==quote.token)||(quote.allocations.some(a=>a.units>0)&&data.subscriptionToken===undefined))throw new LaundryInputError("تغير رصيد الاشتراك أو تفاصيل الباقة. أعد قراءة الرصيد قبل حفظ الطلب");
+          lines=quote.lines;total=quote.total;
+        }
         await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${customer.phone},${customer.id},${JSON.stringify(lines)}::jsonb,${total},${paid},${dueAt},${data.notes},${user.id})`;
         await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"order",amount:total,at:new Date(),description:`استلام طلب #${rows[0].number}`});
-        if(data.useSubscription){
-          const balances=await tx.$queryRaw<Array<Omit<SubscriberBalance,"startsAt"|"expiresAt">&{startsAt:Date;expiresAt:Date}>>`SELECT id,name,remaining,"startsAt","expiresAt","serviceIds" FROM "LaundryPrepaid" WHERE "businessId"=${business.id} AND "customerId"=${customer.id} AND remaining>0 AND "startsAt"<=now() AND "expiresAt">now() ORDER BY "expiresAt",id LIMIT 100 FOR UPDATE`;
-          const quote=allocateSubscriptions(balances.map(s=>({...s,startsAt:s.startsAt.toISOString(),expiresAt:s.expiresAt.toISOString()})),lines,total-paid);
-          if(data.subscriptionCovered!==quote.covered)throw new LaundryInputError("تغير رصيد الاشتراك أو لم يكتمل تحميله. أعد قراءة الرصيد قبل حفظ الطلب");
+        if(quote){
           for(const allocation of quote.allocations){
             const paymentId=randomUUID(),movementId=randomUUID(),requestId=`${data.requestId}:subscription:${allocation.id}`;
-            await tx.$executeRaw`UPDATE "LaundryPrepaid" SET remaining=remaining-${allocation.amount} WHERE "businessId"=${business.id} AND id=${allocation.id}`;
+            await tx.$executeRaw`UPDATE "LaundryPrepaid" SET remaining=remaining-${allocation.amount},"unitsRemaining"="unitsRemaining"-${allocation.units} WHERE "businessId"=${business.id} AND id=${allocation.id}`;
             await tx.$executeRaw`INSERT INTO "LaundryPayment" (id,"businessId","ticketId","requestId",amount,method,"createdBy") VALUES (${paymentId},${business.id},${id},${requestId},${allocation.amount},'prepaid',${user.id})`;
-            await tx.$executeRaw`INSERT INTO "LaundryPrepaidMovement" (id,"businessId","prepaidId","requestId",kind,amount,method,"paymentId",reason,"createdBy") VALUES (${movementId},${business.id},${allocation.id},${requestId},'redeem',${allocation.amount},'prepaid',${paymentId},${`سداد تلقائي للطلب #${rows[0].number}: ${allocation.name}`},${user.id})`;
+            await tx.$executeRaw`INSERT INTO "LaundryPrepaidMovement" (id,"businessId","prepaidId","requestId",kind,amount,method,"paymentId",reason,units,"createdBy") VALUES (${movementId},${business.id},${allocation.id},${requestId},'redeem',${allocation.amount},'prepaid',${paymentId},${`سداد تلقائي للطلب #${rows[0].number}: ${allocation.name}`},${allocation.units},${user.id})`;
             await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id:paymentId,kind:"payment",amount:allocation.amount,method:"prepaid",at:new Date(),description:`سداد من اشتراك: ${allocation.name}`});
           }
           if(quote.covered)await tx.$executeRaw`UPDATE "LaundryTicket" SET paid=paid+${quote.covered} WHERE "businessId"=${business.id} AND id=${id}`;
