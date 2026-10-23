@@ -1,4 +1,6 @@
 "use server";
+import { liveViewRecipientPhone } from "../lib/live-view/whatsapp-domain";
+import { sendLiveViewWhatsAppAction } from "./live-view-whatsapp";
 import { liveStationReadiness } from "../lib/live-view/readiness";
 import { connectorOnline } from "../lib/live-view/camera-profiles";
 import { randomBytes } from "node:crypto";
@@ -11,7 +13,7 @@ import { db } from "../lib/db";
 import { fetchLiveMedia, liveGatewayConfig, readBoundedMedia } from "../lib/live-view/gateway";
 import { LIVE_VIEW_COOLDOWN_MS, LIVE_VIEW_MAX_HOURS, newLiveToken, rewriteLivePlaylist } from "../lib/live-view/policy";
 
-export type LiveViewState = { error?: string; success?: string; watchPath?: string };
+export type LiveViewState = { error?: string; success?: string; watchPath?: string; sessionId?: string; whatsappError?: string; whatsappSuccess?: string };
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
 async function actor() {
   const user = await getCurrentUserForWrites();
@@ -64,9 +66,11 @@ export async function createLiveSessionAction(_: LiveViewState, form: FormData):
   const id = text(form, "stationId"), customerName = text(form, "customerName"), reference = text(form, "reference");
   const hours = Number(text(form, "hours"));
   if (customerName.length < 2 || customerName.length > 80 || !reference || reference.length > 100 || !Number.isInteger(hours) || hours < 1 || hours > LIVE_VIEW_MAX_HOURS || form.get("privacyConfirmed") !== "on") return { error: "أكمل بيانات العميل والمرجع والمدة، وأكد تخصيص المحطة للعميل." };
+  const sendWhatsApp = form.get("sendWhatsApp") === "on";
+  if (sendWhatsApp && (!liveViewRecipientPhone(text(form, "phone")) || form.get("whatsappConsent") !== "on")) return { error: "أدخل رقم واتساب العميل وأكد موافقته قبل بدء الخدمة والإرسال." };
   const { token, hash } = newLiveToken();
   try {
-    await db.$transaction(async tx => {
+    const createdSession = await db.$transaction(async tx => {
       const station = await stationLock(tx, who.business.id, id); const now = new Date();
       if (!station || !liveStationReadiness(station, now.getTime()).ready) throw new Error("CHECK_CAMERA");
       if (station.reuseAfterAt && station.reuseAfterAt > now) throw new Error("COOLDOWN");
@@ -79,10 +83,20 @@ export async function createLiveSessionAction(_: LiveViewState, form: FormData):
       }
       const created = await tx.liveViewSession.create({ data: { businessId: who.business.id, stationId: id, customerName, reference, tokenHash: hash, createdAt: now, expiresAt: new Date(now.getTime() + hours * 3600_000) } });
       await audit(tx, who.business.id, who.user.id, "session.created", created.id);
+      return created;
     });
     revalidatePath("/dashboard/live-view");
     // Only this response contains the bearer link. It is never persisted or logged.
-    return { success: "أُنشئت الجلسة. انسخ الرابط الآن؛ لن يُعرض مجددًا بعد مغادرة الصفحة.", watchPath: `/watch/${token}` };
+    const result: LiveViewState = { success: "بدأت الخدمة وأُنشئت جلسة المشاهدة. يتوقف الرابط عند إنهاء الخدمة أو انتهاء المدة، ولن يُعرض مجددًا بعد مغادرة الصفحة.", watchPath: `/watch/${token}`, sessionId: createdSession.id };
+    if (sendWhatsApp) {
+      const deliveryForm = new FormData();
+      deliveryForm.set("sessionId", createdSession.id); deliveryForm.set("watchPath", result.watchPath!);
+      deliveryForm.set("phone", text(form, "phone")); deliveryForm.set("whatsappConsent", "on");
+      // Sending failure must never roll back a committed service session or hide its link.
+      try { const delivery = await sendLiveViewWhatsAppAction({}, deliveryForm); result.whatsappError = delivery.error; result.whatsappSuccess = delivery.success; }
+      catch { result.whatsappError = "بدأت الجلسة لكن تعذر تأكيد إرسال واتساب. راجع سجل الرسائل قبل إعادة المحاولة."; }
+    }
+    return result;
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
     return { error: code === "BUSY" ? "المحطة مرتبطة بجلسة أخرى. أنهِها أولًا." : code === "COOLDOWN" ? "انتظر 30 ثانية بعد انتهاء الجلسة السابقة قبل إعادة استخدام المحطة." : code === "CHECK_CAMERA" ? "فعّل المحطة وأعد فحص اتصال الكاميرا؛ صلاحية الفحص 15 دقيقة." : "تعذر إنشاء الجلسة. حدّث الصفحة وحاول مجددًا." };
@@ -135,6 +149,6 @@ export async function reissueLiveSessionAction(_: LiveViewState, form: FormData)
       if(!changed.count) throw new Error("ENDED");
       await audit(tx,who.business.id,who.user.id,"session.link-rotated",session.id);
     });
-    revalidatePath("/dashboard/live-view");return {success:"أُبطل الرابط السابق. شارك الرابط الجديد مع عميلك؛ مدة الجلسة لم تتغير.",watchPath:`/watch/${token.token}`};
+    revalidatePath("/dashboard/live-view");return {success:"أُبطل الرابط السابق. شارك الرابط الجديد مع عميلك؛ مدة الجلسة لم تتغير.",watchPath:`/watch/${token.token}`,sessionId:text(form,"sessionId")};
   } catch {return {error:"تعذر إصدار رابط بديل. تحقق من أن الجلسة نشطة والمحطة متصلة."};}
 }

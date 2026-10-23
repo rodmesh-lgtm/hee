@@ -22,6 +22,39 @@ camera compatibility, Windows startup, playback, grant rotation, or revocation o
 an actual viewing device. Complete the acceptance section below before calling
 the customer's camera service fully operational.
 
+## Service lifecycle and WhatsApp
+
+The Live View dashboard starts a service session, assigns one ready station and
+creates its capability. The default WhatsApp option sends that capability in the
+same user operation after the session commits. The employee must enter and verify
+the recipient and confirm consent. Turning that option off retains manual sharing.
+Sending failure never rolls back the committed session or hides its one-time link.
+Ending the service in INFRO invalidates access; the expiry is also checked on every
+media request, without depending on a cleanup cron. Existing received video buffers
+cannot be recalled. This is a Live View service lifecycle; the free-text reference
+does not automatically bind it to a laundry ticket, booking or external repair order.
+
+Before actual sending, the business needs its own active marketing-purpose Meta
+connection, WhatsApp entitlement, outbound configuration and the approved Utility
+template `infro_live_view_v1`. Its exact four-parameter body is available as the
+"رابط المشاهدة المؤقتة" starter in the existing template editor. Submit it through
+the existing tenant template workflow, then synchronize after provider approval.
+No shared sender or free-text fallback is used. Both Live View and WhatsApp reply
+permissions are required. Opted-out/deleted contacts and expired/rotated sessions
+are denied. Each capability can be sent once; a database advisory lock and durable
+audit claim suppress duplicate clicks even when the recipient changes. Network
+uncertainty or 5xx results are never retried automatically. A worker crash after
+claiming also remains uncertain, preventing an accidental second delivery.
+
+Only the request to Meta contains the raw viewing token. Message history stores a
+redacted description and provider ID for existing delivery/read webhooks. Audit
+data contains the token digest, session ID, consent confirmation and last four
+recipient digits. Provider error bodies are discarded because they can echo links.
+"Accepted" means Meta accepted sending, not that the recipient received the message.
+Test with one explicitly authorized recipient after template approval; none has
+been sent by the implementation tests. A real camera and real recipient acceptance
+remain necessary to verify the complete service lifecycle.
+
 The customer confirmed a Windows machine is available at the workshop. Camera/NVR
 brand, model and RTSP availability are not yet known. Never request passwords in
 chat: the owner enters camera credentials in their INFRO account after activation.
