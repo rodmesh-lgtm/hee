@@ -108,5 +108,6 @@
   [data-operations-shell][data-dashboard-theme] { display:contents; color-scheme:light; background:#fff !important; color:#000 !important; }
   .infro-operations-header { display:none !important; }
   [data-operations-shell] .laundry { --ld-ink:#000; --ld-muted:#333; --ld-line:#999; --ld-green:#000; }
+  [data-operations-shell] .ld-dialog { background:#fff !important; color:#000 !important; }
   [data-operations-shell] .ld-receipt, [data-operations-shell] .ld-receipt * { color:#000 !important; background:#fff !important; }
 }
