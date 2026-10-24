@@ -21,7 +21,7 @@ export async function AccountingWorkspacePage({searchParams,activity="laundry",b
   const filter=laundryFilter(params.filter);
   const pattern=`%${q.replace(/[\\%_]/g,"\\$&")}%`;
   const [services,tickets,totals,expenses]=await Promise.all([
-    db.$queryRaw<LaundryService[]>`SELECT * FROM "LaundryService" WHERE "businessId"=${business.id} AND "active"=TRUE ORDER BY "category","name"`,
+    db.$queryRaw<LaundryService[]>`SELECT s.*,u.price AS "urgentPrice" FROM "LaundryService" s LEFT JOIN "LaundryService" u ON u.id='urgent:'||s.id AND u."businessId"=s."businessId" AND u.active=TRUE WHERE s."businessId"=${business.id} AND s.active=TRUE AND s.id NOT LIKE 'urgent:%' ORDER BY s.category,s.name`,
     db.$queryRaw<LaundryTicket[]>`SELECT "id","number","customerName","phone","items","total","paid","status","dueAt","notes","createdAt",(SELECT COALESCE(jsonb_agg(jsonb_build_object('method',c.method,'amount',c.amount) ORDER BY c.method),'[]'::jsonb) FROM (SELECT p.method,SUM(p.amount)::int AS amount FROM "LaundryPayment" p WHERE p."businessId"=${business.id} AND p."ticketId"="LaundryTicket".id GROUP BY p.method) c) AS collections,
     (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'kind',s.kind,'originalAmount',s.amount,'usedAmount',COALESCE(used.amount,0),
        'remaining',s.amount-COALESCE((SELECT SUM(m.amount) FROM "LaundryPrepaidMovement" m WHERE m."businessId"=s."businessId" AND m."prepaidId"=s.id AND m.kind IN ('redeem','refund') AND m."createdAt"<=COALESCE(used.at,"LaundryTicket"."createdAt")),0),
