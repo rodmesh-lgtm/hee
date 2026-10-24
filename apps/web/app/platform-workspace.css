@@ -85,6 +85,7 @@
   [data-operations-shell] .ld-table-wrap { border:1px solid var(--ui-line); border-radius:12px; scrollbar-width:thin; }
   [data-operations-shell] .laundry tbody tr:nth-child(even) { background:var(--ui-soft); }
   [data-operations-shell][data-dashboard-theme="dark"] .laundry { --ld-ink:var(--ui-ink); --ld-muted:var(--ui-muted); --ld-line:var(--ui-line); --ld-green:var(--ui-accent); background:var(--ui-canvas) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] .ld-brand { color:var(--ui-ink) !important; }
   [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-top,.ld-panel,.ld-stats article,.ld-dialog,.ld-gate,.laundry-gate,.ld-services>button,.ld-product-card,.ld-filters button,.ld-outline,.ld-order-filters a,.ld-stepper button,.ld-ledger-detail) { background:var(--ui-panel) !important; color:var(--ui-ink) !important; border-color:var(--ui-line) !important; }
   [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-report-summary article,.ld-finance article,.ld-journal-balance,.ld-package-card,.ld-service-icon,.ld-catalog-setup summary,.ld-services .ld-product-options button,.ld-accounting-tabs,.ld-operation-tabs,.ld-subscriber-checkout,.ld-chip,.ld-status,.ld-add) { background:var(--ui-soft) !important; color:var(--ui-ink) !important; border-color:var(--ui-line) !important; }
   [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-journal-balance span,.ld-journal-balance strong,.ld-report-summary strong,.ld-chip) { color:var(--ui-ink) !important; }
