@@ -56,6 +56,7 @@ export type BottomActionConfig = { id: BottomActionId; enabled: boolean; sortOrd
 
 export type PageModuleConfig = {
   appearance?: IdentityAppearance;
+  invoicePhone?: string;
   title?: string;
   ctaLabel?: string;
   sheetTitle?: string;
@@ -276,6 +277,7 @@ function normalizeConfig(id: PageModuleId, raw: unknown) {
     ...(typeof source.ctaLabel === "string" ? { ctaLabel: source.ctaLabel } : {}),
     ...(typeof source.sheetTitle === "string" ? { sheetTitle: source.sheetTitle } : {}),
     ...(typeof source.sheetDescription === "string" ? { sheetDescription: source.sheetDescription } : {}),
+    ...(id === "contact" && typeof source.invoicePhone === "string" ? { invoicePhone: source.invoicePhone.trim().slice(0, 40) } : {}),
     ...(typeof source.showPrice === "boolean" ? { showPrice: source.showPrice } : {}),
     ...(typeof source.showUnit === "boolean" ? { showUnit: source.showUnit } : {}),
     ...(typeof source.careersEnabled === "boolean" ? { careersEnabled: source.careersEnabled } : {}),

@@ -5,7 +5,7 @@ import { Shirt, PackageCheck, Wallet, Users, ReceiptText, Warehouse, FileSignatu
 const groups=[
  {label:"التشغيل",items:[{id:"pos",label:"الكاشير",icon:Shirt},{id:"orders",label:"الطلبات والتسليم",icon:PackageCheck},{id:"customers",label:"العملاء",icon:Users},{id:"inventory",label:"المخزون والجرد",icon:Warehouse}]},
  {label:"الإدارة المالية",items:[{id:"ledger",label:"دفتر المحاسبة",icon:BookOpen},{id:"finance",label:"التحصيل والمصروفات",icon:Wallet},{id:"purchases",label:"الموردون والمشتريات",icon:ReceiptText},{id:"prepaid",label:"اشتراكات العملاء",icon:Wallet},{id:"contracts",label:"العقود والتوقيع",icon:FileSignature},{id:"bank",label:"التسوية البنكية",icon:Landmark}]},
- {label:"إعداد المنشأة",items:[{id:"services",label:"الخدمات والأسعار",icon:Settings2},{id:"branding",label:"شعار المنشأة",icon:Image}]}
+ {label:"إعداد المنشأة",items:[{id:"services",label:"الخدمات والأسعار",icon:Settings2},{id:"branding",label:"الشعار وبيانات الفواتير",icon:Image}]}
 ];
 export const laundryTitles=Object.fromEntries(groups.flatMap(g=>g.items.map(i=>[i.id,i.label])));
 export function LaundryNavigation({tab,onChange,owner,allowed,program=false}:{program?:boolean;allowed?:string[];tab:string;onChange:(tab:string)=>void;owner:boolean}){

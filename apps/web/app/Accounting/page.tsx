@@ -1,3 +1,4 @@
+import { invoiceContactPhone } from "../lib/invoice-contact";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getCurrentUser } from "../lib/auth";
@@ -33,6 +34,6 @@ export default async function AccountingProgram({ searchParams }: { searchParams
     </section>
     {view.id === "cashier" ? <AccountingWorkspacePage searchParams={Promise.resolve(params)} activity={activity} basePath="/Accounting" />
       : view.id === "delivery" ? <LaundryDeliveryWorkspace program key={business.id} business={{ id: business.id, name: business.name }} owner={owner} />
-      : <LaundryProfessionalWorkspace key={`${business.id}:${view.id}`} mode={view.id} owner={owner} program business={{ id: business.id, name: business.name, logoUrl: business.logoUrl }} />}
+      : <LaundryProfessionalWorkspace key={`${business.id}:${view.id}`} mode={view.id} owner={owner} program business={{ id: business.id, name: business.name, logoUrl: business.logoUrl,phone:invoiceContactPhone(business.pageModules,business.businessType),address:business.address??"" }} />}
   </>;
 }

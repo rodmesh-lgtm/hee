@@ -10,7 +10,7 @@ import { laundryMoney as money } from "../lib/laundry-domain";
 const kinds:Record<string,string>={purchase:"شراء اشتراك",redeem:"سداد من الاشتراك",refund:"استرداد رصيد"};
 const methods:Record<string,string>={cash:"نقد",card:"شبكة — تسجيل يدوي",transfer:"تحويل — تسجيل يدوي",prepaid:"رصيد اشتراك"};
 const date=(s:string)=>new Intl.DateTimeFormat("ar-SA-u-ca-gregory",{timeZone:"Asia/Riyadh",dateStyle:"medium",timeStyle:"short"}).format(new Date(s));
-export function LaundryPrepaid({businessId,business}:{businessId:string;business:{name:string;logoUrl:string|null}}){
+export function LaundryPrepaid({businessId,business}:{businessId:string;business:{name:string;logoUrl:string|null;phone?:string;address?:string}}){
  const [plan,setPlan]=useState<AccountingPackage|null>(null),[enrollPhone,setEnrollPhone]=useState("");
  const enroll=useRef<HTMLElement>(null);
  const [voucher,setVoucher]=useState<LaundryVoucherData|null>(null);

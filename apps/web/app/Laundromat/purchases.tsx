@@ -5,7 +5,7 @@ import { useEffect,useRef,useState } from "react";
 import { getLaundryPurchases,laundryPurchaseCommand,type PurchaseView } from "./purchase-actions";
 import { laundryMoney as money } from "../lib/laundry-domain";
 import { laundryCsv } from "../lib/laundry-report";
-export function LaundryPurchases({businessId,business}:{businessId:string;business:{name:string;logoUrl:string|null}}){
+export function LaundryPurchases({businessId,business}:{businessId:string;business:{name:string;logoUrl:string|null;phone?:string;address?:string}}){
  const [purchaseKind,setPurchaseKind]=useState("operating"),[stock,setStock]=useState<LaundryInventoryView|null>(null);
  useEffect(()=>{let alive=true;getLaundryInventory({businessId,warehouseId:""}).then(r=>{if(alive&&r.ok)setStock(r.view);}).catch(()=>{});return()=>{alive=false;};},[businessId]);
  const [voucher,setVoucher]=useState<LaundryVoucherData|null>(null);
