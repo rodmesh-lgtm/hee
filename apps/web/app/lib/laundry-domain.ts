@@ -7,7 +7,9 @@ export function laundryFilter(value: unknown): LaundryFilter {
 }
 export type LaundryStatus = keyof typeof LAUNDRY_STATUSES;
 export type LaundryService = { id: string; name: string; category: string; price: number; active: boolean };
-export type LaundryLine = { serviceId: string; name: string; quantity: number; unitPrice: number; total: number };
+export const LAUNDRY_SERVICE_SPEEDS = {normal:"عادي",urgent:"مستعجل"} as const;
+export type LaundryServiceSpeed = keyof typeof LAUNDRY_SERVICE_SPEEDS;
+export type LaundryLine = { serviceSpeed?: LaundryServiceSpeed; serviceId: string; name: string; quantity: number; unitPrice: number; total: number };
 export type LaundryTicket = { subscriptionBalances?: Array<{id:string;name:string;originalAmount:number;usedAmount:number;remaining:number;unitsRemaining:number|null;kind:"credit"|"pieces"|"visits"}>; collections?: Array<{method:string;amount:number}>; id: string; number: number; customerName: string; phone: string; items: LaundryLine[]; total: number; paid: number; status: LaundryStatus; dueAt: Date; notes: string; createdAt: Date };
 export function moneyToHalalas(value: string) {
   if (!/^\d{1,7}(\.\d{1,2})?$/.test(value)) throw new LaundryInputError("أدخل مبلغًا صحيحًا بمنزلتين عشريتين كحد أقصى");
@@ -31,3 +33,13 @@ export function nextLaundryStatus(current: LaundryStatus, next: LaundryStatus, o
   return sequence.indexOf(next) === sequence.indexOf(current) + 1 && (next !== "delivered" || outstanding === 0);
 }
 export const laundryMoney = (amount: number) => (amount / 100).toLocaleString("ar-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Service speed is part of the immutable JSON service snapshot, alongside its price.
+export function laundryServiceSpeed(lines:LaundryLine[]):LaundryServiceSpeed|undefined {
+ const speed=lines[0]?.serviceSpeed;
+ return (speed==="normal"||speed==="urgent")&&lines.every(line=>line.serviceSpeed===speed)?speed:undefined;
+}
+export function withLaundryServiceSpeed(lines:LaundryLine[],speed:LaundryServiceSpeed):LaundryLine[] {
+ if(speed!=="normal"&&speed!=="urgent")throw new LaundryInputError("اختر خدمة عادية أو مستعجلة");
+ return lines.map(line=>({...line,serviceSpeed:speed}));
+}

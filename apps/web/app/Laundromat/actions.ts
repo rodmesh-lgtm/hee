@@ -11,7 +11,7 @@ import { postLaundrySource } from "../lib/laundry-ledger";
 import { resolveLaundryPreset } from "../lib/laundry-catalog";
 import { getCurrentUserForApiWrite } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
-import { LaundryInputError, laundryLines, moneyToHalalas, nextLaundryStatus, type LaundryService, type LaundryTicket } from "../lib/laundry-domain";
+import { LaundryInputError, withLaundryServiceSpeed, laundryLines, moneyToHalalas, nextLaundryStatus, type LaundryService, type LaundryTicket } from "../lib/laundry-domain";
 
 const key = z.string().uuid();
 const command = z.discriminatedUnion("type", [
@@ -19,7 +19,7 @@ const command = z.discriminatedUnion("type", [
   z.object({type:z.literal("catalog"),requestId:key,operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),items:z.array(z.object({presetId:z.string().max(50),operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),price:z.string()})).min(1).max(120)}),
   z.object({ type: z.literal("service"), name: z.string().trim().min(2).max(100), category: z.string().trim().min(2).max(50), price: z.string(), requestId: key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
-  z.object({ type: z.literal("order"), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
+  z.object({ type: z.literal("order"), serviceSpeed:z.enum(["normal","urgent"]).default("normal"), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
   z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0") }),
   z.object({ type: z.literal("status"), requestId: key, id: key, status: z.enum(["received","processing","ready","delivered"]) }),
   z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string(), method:z.enum(["cash","transfer","unspecified"]).default("unspecified") }),
@@ -85,7 +85,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           if(data.subscriptionCovered!==quote.covered||(data.subscriptionToken!==undefined&&data.subscriptionToken!==quote.token)||(quote.allocations.some(a=>a.units>0)&&data.subscriptionToken===undefined))throw new LaundryInputError("تغير رصيد الاشتراك أو تفاصيل الباقة. أعد قراءة الرصيد قبل حفظ الطلب");
           lines=quote.lines;total=quote.total;
         }
-        await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${customer.phone},${customer.id},${JSON.stringify(lines)}::jsonb,${total},${paid},${dueAt},${data.notes},${user.id})`;
+        await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${customer.phone},${customer.id},${JSON.stringify(withLaundryServiceSpeed(lines,data.serviceSpeed))}::jsonb,${total},${paid},${dueAt},${data.notes},${user.id})`;
         await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"order",amount:total,at:new Date(),description:`استلام طلب #${rows[0].number}`});
         if(quote){
           for(const allocation of quote.allocations){
