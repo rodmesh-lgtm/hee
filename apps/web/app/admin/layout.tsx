@@ -7,7 +7,6 @@ import { requireAdmin } from "../lib/admin";
 import { IrLogo } from "../../components/brand/ir-logo";
 import { DashboardThemeToggle } from "../../components/dashboard/dashboard-theme-toggle";
 import { AdminDesktopNavigation, AdminMobileNavigation } from "./admin-navigation";
-import "../dashboard/dashboard-theme.css";
 
 export const metadata: Metadata = { title: "إدارة INFRO", robots: { index: false, follow: false, noarchive: true, nocache: true } };
 

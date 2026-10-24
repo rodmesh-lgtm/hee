@@ -9,8 +9,10 @@ function resolved(theme:Theme){return theme==="system"?systemTheme():theme}
 function apply(theme:Theme,persist=true){
   const value=resolved(theme);
   for(const root of workspaces()){root.dataset.dashboardTheme=value;root.setAttribute("data-dashboard-theme",value);root.style.colorScheme=value}
-  document.documentElement.dataset.infroWorkspaceTheme=value;
-  document.documentElement.style.colorScheme=value;
+  // The native control scheme belongs to the active workspace, never to the
+  // document: client navigation must not leave dark checkboxes on a light page.
+  delete document.documentElement.dataset.infroWorkspaceTheme;
+  document.documentElement.style.removeProperty("color-scheme");
   if(persist){
     try{localStorage.setItem("infro-dashboard-theme",theme)}catch{}
     window.dispatchEvent(new Event("infro-theme-change"));

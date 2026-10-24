@@ -1,0 +1,113 @@
+/* Authenticated workspaces share readable surfaces, controls and state colors. */
+:is([data-dashboard-path],[data-admin-shell]) {
+  --ui-canvas:#f3f7f6; --ui-panel:#fff; --ui-soft:#edf4f2;
+  --ui-ink:#173a36; --ui-muted:#506b65; --ui-line:#bfd2cc;
+  --ui-input:#fff; --ui-input-line:#92afa5; --ui-accent:#086d60;
+  --ui-on-accent:#fff; --ui-selected:#e1f3ec; --ui-selected-line:#318d73;
+  --ui-disabled:#e2eae6; --ui-disabled-ink:#526a61;
+  font-family:var(--font-ibm-plex-sans-arabic),sans-serif;
+}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="dark"] {
+  --ui-canvas:#081b1d; --ui-panel:#0d2728; --ui-soft:#133532;
+  --ui-ink:#edf9f5; --ui-muted:#b0c9c0; --ui-line:#34574e;
+  --ui-input:#0a2020; --ui-input-line:#527d6f; --ui-accent:#62dfbd;
+  --ui-on-accent:#0b3027; --ui-selected:#18483c; --ui-selected-line:#65d6b5;
+  --ui-disabled:#28443c; --ui-disabled-ink:#c1d6cd;
+  color-scheme:dark;
+}
+:is([data-dashboard-path],[data-admin-shell])[data-dashboard-theme="light"] { color-scheme:light; }
+:is([data-dashboard-path],[data-admin-shell]) :is(input,select,textarea):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+  border-color:var(--ui-input-line) !important; color:var(--ui-ink) !important;
+  background-color:var(--ui-input) !important; min-height:44px;
+}
+:is([data-dashboard-path],[data-admin-shell]) :is(input,textarea)::placeholder { color:var(--ui-muted) !important; opacity:1; }
+:is([data-dashboard-path],[data-admin-shell]) :is(input[type="checkbox"],input[type="radio"]) {
+  width:18px; height:18px; min-height:18px; padding:0; flex:0 0 18px; accent-color:var(--ui-accent);
+  color-scheme:inherit; vertical-align:middle; cursor:pointer;
+}
+:is([data-dashboard-path],[data-admin-shell]) :is(input,select,textarea,button,a,summary):focus-visible { outline:3px solid var(--ui-accent); outline-offset:3px; }
+:is([data-dashboard-path],[data-admin-shell]) :is(button,[role="button"]):disabled {
+  cursor:not-allowed !important; opacity:1 !important;
+  color:var(--ui-disabled-ink) !important; background:var(--ui-disabled) !important;
+  border-color:var(--ui-line) !important; box-shadow:none !important;
+}
+/* Shared action classes also work on standalone operational pages. */
+:is([data-dashboard-path],[data-admin-shell]) .infro-workspace-action {
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:46px; padding:10px 20px; border:1px solid transparent;
+  border-radius:12px; background:var(--ui-accent) !important;
+  color:var(--ui-on-accent) !important; font-weight:700; line-height:1.6;
+}
+:is([data-dashboard-path],[data-admin-shell]) .infro-workspace-action:disabled { background:var(--ui-disabled) !important; color:var(--ui-disabled-ink) !important; }
+.infro-operations-header { display:flex; justify-content:space-between; align-items:center; gap:18px; padding:14px clamp(16px,3vw,32px); border-bottom:1px solid var(--ui-line); background:var(--ui-panel); color:var(--ui-ink); }
+.infro-operations-brand { display:flex; gap:12px; align-items:center; text-decoration:none; }
+.infro-operations-brand>span { display:grid; place-items:center; width:42px; height:42px; border-radius:14px; background:var(--ui-accent); color:var(--ui-on-accent); font-size:23px; font-weight:700; }
+.infro-operations-brand b { display:block; letter-spacing:.1em; }
+.infro-operations-brand small { display:block; font-size:13px; color:var(--ui-muted); }
+.infro-operations-header nav { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.infro-operations-header nav>a { display:flex; align-items:center; gap:7px; min-height:44px; border:1px solid var(--ui-line); padding:8px 12px; border-radius:10px; font-size:14px; }
+[data-operations-shell][data-dashboard-theme] { background:var(--ui-canvas) !important; color:var(--ui-ink) !important; }
+[data-operations-shell] :where(main:not(.laundry-gate)) { max-width:1440px; }
+[data-operations-shell] :where(.text-xs) { font-size:14px; line-height:1.8; }
+/* Inline dialogs keep their own solid panel, independent of the dimmed backdrop. */
+:is([data-dashboard-path],[data-admin-shell]) :is(dialog,[role="dialog"]):not(.ld-dialog) { color:var(--ui-ink); }
+:is([data-dashboard-path],[data-admin-shell]) dialog { background:var(--ui-panel); border:1px solid var(--ui-line); border-radius:18px; }
+:is([data-dashboard-path],[data-admin-shell]) dialog::backdrop { background:rgb(3 20 19 / .62); }
+.infro-staff-page { display:grid; gap:24px; color:var(--ui-ink); }
+.infro-staff-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap; padding:clamp(20px,3vw,30px); border:1px solid var(--ui-line); border-radius:20px; background:var(--ui-panel); }
+.infro-staff-heading>div { max-width:720px; }
+.infro-staff-heading h1 { margin-top:8px; font-size:26px; font-weight:700; }
+.infro-staff-heading p { color:var(--ui-muted); line-height:1.9; }
+.infro-staff-eyebrow { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--ui-accent) !important; }
+.infro-staff-secure { display:flex; gap:7px; align-items:center; padding:8px 12px; border:1px solid var(--ui-line); border-radius:99px; font-size:13px; color:var(--ui-muted); }
+.infro-staff-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.infro-staff-metrics>div { padding:16px 20px; border:1px solid var(--ui-line); border-radius:14px; background:var(--ui-panel); }
+.infro-staff-metrics dt { font-size:14px; color:var(--ui-muted); }
+.infro-staff-metrics dd { font-size:28px; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums; }
+.infro-staff-section { padding:clamp(18px,3vw,28px); border:1px solid var(--ui-line); border-radius:20px; background:var(--ui-panel); }
+.infro-staff-section h2 { font-size:19px; font-weight:700; }
+.infro-staff-description { font-size:14px; color:var(--ui-muted); line-height:1.9; margin:8px 0 20px; }
+.infro-permissions { border:1px solid var(--ui-line); border-radius:16px; padding:18px; }
+.infro-permissions legend { padding:0 8px; font-size:15px; font-weight:700; }
+.infro-permission-choice { display:flex; align-items:flex-start; gap:12px; padding:14px; border:1px solid var(--ui-line); border-radius:12px; background:var(--ui-soft); cursor:pointer; min-height:68px; }
+.infro-permission-choice:has(input:checked) { border-color:var(--ui-selected-line); background:var(--ui-selected); }
+.infro-permission-choice:focus-within { outline:2px solid var(--ui-accent); outline-offset:2px; }
+.infro-permission-choice input { margin-top:4px; }
+.infro-permission-choice span { display:grid; gap:4px; }
+.infro-permission-choice b { font-size:14px; font-weight:700; }
+.infro-permission-choice small { color:var(--ui-muted); font-size:13px; line-height:1.65; }
+.infro-staff-note { margin-top:14px; padding:12px 14px; border-radius:10px; background:var(--ui-soft); color:var(--ui-muted); line-height:1.9; font-size:14px; }
+.infro-staff-empty { padding:24px; border:1px dashed var(--ui-line); border-radius:14px; background:var(--ui-panel); color:var(--ui-muted); text-align:center; line-height:1.9; }
+@media screen {
+  [data-operations-shell] .laundry :is(input,select,textarea) { font-size:15px; }
+  [data-operations-shell] .laundry label { font-size:14px; }
+  [data-operations-shell] .laundry :is(th,td) { font-size:14px; line-height:1.8; }
+  [data-operations-shell] .ld-table-wrap { border:1px solid var(--ui-line); border-radius:12px; scrollbar-width:thin; }
+  [data-operations-shell] .laundry tbody tr:nth-child(even) { background:var(--ui-soft); }
+  [data-operations-shell][data-dashboard-theme="dark"] .laundry { --ld-ink:var(--ui-ink); --ld-muted:var(--ui-muted); --ld-line:var(--ui-line); --ld-green:var(--ui-accent); background:var(--ui-canvas) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-top,.ld-panel,.ld-stats article,.ld-dialog,.ld-gate,.laundry-gate,.ld-services>button,.ld-outline,.ld-order-filters a,.ld-stepper button) { background:var(--ui-panel) !important; color:var(--ui-ink) !important; border-color:var(--ui-line) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-report-summary article,.ld-finance article,.ld-journal-balance,.ld-package-card,.ld-service-icon,.ld-catalog-setup summary,.ld-services .ld-product-options button,.ld-accounting-tabs) { background:var(--ui-soft) !important; color:var(--ui-ink) !important; border-color:var(--ui-line) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-journal-balance span,.ld-journal-balance strong,.ld-report-summary strong,.ld-chip) { color:var(--ui-ink) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-primary,.ld-order-filters a[aria-current="page"],.ld-filters button.active,.ld-accounting-tabs button[aria-pressed="true"]) { background:var(--ui-accent) !important; color:var(--ui-on-accent) !important; border-color:var(--ui-accent) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :is(.laundry th,.laundry tbody tr:hover) { background:var(--ui-soft) !important; color:var(--ui-ink) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] .ld-alert { background:#3d202c; color:#fecdd3; border-color:#794052; }
+  [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-success,.ld-status.ready,.ld-status.delivered) { background:#12372d; color:#a7f3d0; }
+  [data-operations-shell][data-dashboard-theme="dark"] .ld-status.processing { background:#182f4a; color:#bfdbfe; }
+}
+@media(max-width:640px) {
+  [data-operations-shell] .laundry :is(input,select,textarea) { font-size:16px; }
+  .infro-operations-header { flex-wrap:wrap; gap:12px; }
+  .infro-operations-header nav { width:100%; gap:8px; }
+  .infro-operations-header nav>a { flex:1; justify-content:center; font-size:13px; padding:8px; }
+  .infro-staff-metrics { gap:8px; }
+  .infro-staff-metrics>div { padding:14px 10px; }
+  .infro-staff-metrics dt { font-size:12px; }
+  .infro-staff-metrics dd { font-size:24px; }
+}
+@media print {
+  [data-operations-shell][data-dashboard-theme] { display:contents; color-scheme:light; background:#fff !important; color:#000 !important; }
+  .infro-operations-header { display:none !important; }
+  [data-operations-shell] .laundry { --ld-ink:#000; --ld-muted:#333; --ld-line:#999; --ld-green:#000; }
+  [data-operations-shell] .ld-dialog { background:#fff !important; color:#000 !important; }
+  [data-operations-shell] .ld-receipt, [data-operations-shell] .ld-receipt * { color:#000 !important; background:#fff !important; }
+}

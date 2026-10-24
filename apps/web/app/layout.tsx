@@ -12,6 +12,8 @@ import "./globals.css";
 import "./ir-brand-compat.css";
 import "./ir-floating-header.css";
 import "./platform-readability.css";
+import "./dashboard/dashboard-theme.css";
+import "./platform-workspace.css";
 const inter=Inter({variable:"--font-inter",subsets:["latin"]});const ibmPlexSansArabic=IBM_Plex_Sans_Arabic({variable:"--font-ibm-plex-sans-arabic",subsets:["arabic"],weight:["400","500","600","700"]});
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:[{media:"(prefers-color-scheme: light)",color:"#f8fafc"},{media:"(prefers-color-scheme: dark)",color:"#061619"}]};
 async function publishedDesign(){try{return(await readPlatformDesign()).published}catch{return DEFAULT_PLATFORM_DESIGN}}
