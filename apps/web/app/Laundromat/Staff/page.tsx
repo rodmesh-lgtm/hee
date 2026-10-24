@@ -8,5 +8,5 @@ export const metadata={title:"INFRO · موظفو المغسلة",robots:{index:
 export default async function LaundryStaffPage(){
  const user=await getCurrentUser();const b=user?await getDashboardBusinessForUser(user.id):null;
  if(!b||b.ownerId!==user?.id)return <main className="laundry-gate" dir="rtl"><h1>إدارة الموظفين متاحة لمالك المنشأة فقط</h1><Link href="/Laundromat">الكاشير</Link></main>;
- return <main dir="rtl" className="mx-auto max-w-5xl space-y-5 p-4 sm:p-8"><Link href="/Laundromat" className="inline-flex min-h-11 items-center underline">العودة إلى المغسلة</Link><p className="rounded-2xl bg-teal-50 p-4 leading-8">حدد مهام كل موظف: الكاشير للطلبات والتحصيل، والمحاسبة للقيود والموردين والاشتراكات، والإشراف للعملاء والمخزون، والتوصيل للمهام المسندة فقط. يمكن جمع أكثر من صلاحية. إضافة الموظفين وتغيير صلاحياتهم للمالك فقط.</p><StaffPage/></main>;
+ return <main dir="rtl" className="mx-auto w-full max-w-7xl space-y-5 p-4 sm:p-7"><nav aria-label="مسار صفحة الموظفين" className="text-sm"><Link href="/Laundromat" className="inline-flex min-h-11 items-center font-bold underline underline-offset-4">العودة إلى نقطة البيع</Link></nav><StaffPage/></main>;
 }
