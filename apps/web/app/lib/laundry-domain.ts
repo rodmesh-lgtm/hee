@@ -6,10 +6,10 @@ export function laundryFilter(value: unknown): LaundryFilter {
   return typeof value === "string" && Object.hasOwn(LAUNDRY_FILTERS, value) ? value as LaundryFilter : "all";
 }
 export type LaundryStatus = keyof typeof LAUNDRY_STATUSES;
-export type LaundryService = { id: string; name: string; category: string; price: number; active: boolean };
+export type LaundryService = { id: string; name: string; category: string; price: number; urgentPrice?: number|null; active: boolean };
 export const LAUNDRY_SERVICE_SPEEDS = {normal:"عادي",urgent:"مستعجل"} as const;
 export type LaundryServiceSpeed = keyof typeof LAUNDRY_SERVICE_SPEEDS;
-export type LaundryLine = { serviceSpeed?: LaundryServiceSpeed; serviceId: string; name: string; quantity: number; unitPrice: number; total: number };
+export type LaundryLine = { serviceSpeed?: LaundryServiceSpeed; regularUnitPrice?: number; serviceId: string; name: string; quantity: number; unitPrice: number; total: number };
 export type LaundryTicket = { subscriptionBalances?: Array<{id:string;name:string;originalAmount:number;usedAmount:number;remaining:number;unitsRemaining:number|null;kind:"credit"|"pieces"|"visits"}>; collections?: Array<{method:string;amount:number}>; id: string; number: number; customerName: string; phone: string; items: LaundryLine[]; total: number; paid: number; status: LaundryStatus; dueAt: Date; notes: string; createdAt: Date };
 export function moneyToHalalas(value: string) {
   if (!/^\d{1,7}(\.\d{1,2})?$/.test(value)) throw new LaundryInputError("أدخل مبلغًا صحيحًا بمنزلتين عشريتين كحد أقصى");
@@ -42,4 +42,21 @@ export function laundryServiceSpeed(lines:LaundryLine[]):LaundryServiceSpeed|und
 export function withLaundryServiceSpeed(lines:LaundryLine[],speed:LaundryServiceSpeed):LaundryLine[] {
  if(speed!=="normal"&&speed!=="urgent")throw new LaundryInputError("اختر خدمة عادية أو مستعجلة");
  return lines.map(line=>({...line,serviceSpeed:speed}));
+}
+
+export function laundryUnitPrice(service:LaundryService,speed:LaundryServiceSpeed):number|null {
+ return speed==="urgent"?service.urgentPrice??null:service.price;
+}
+export function laundryPricedLines(input:Array<{serviceId:string;quantity:number}>,catalog:LaundryService[],speed:LaundryServiceSpeed):LaundryLine[] {
+ const requested=new Set(input.map(item=>item.serviceId));
+ const priced=catalog.map(service=>{
+  if(!requested.has(service.id))return service;
+  const price=laundryUnitPrice(service,speed);
+  if(price===null||!Number.isSafeInteger(price)||price<0||(speed==="urgent"&&price<=service.price))throw new LaundryInputError(`حدد سعر المستعجل لخدمة ${service.name} من الخدمات والأسعار`);
+  return {...service,price};
+ });
+ return laundryLines(input,priced).map(line=>({...line,...(speed==="urgent"?{regularUnitPrice:catalog.find(s=>s.id===line.serviceId)!.price}:{})}));
+}
+export function laundryPriceToken(lines:LaundryLine[]) {
+ return JSON.stringify(lines.map(l=>[l.serviceId,l.quantity,l.unitPrice,l.regularUnitPrice??l.unitPrice]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
 }
