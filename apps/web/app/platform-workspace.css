@@ -85,13 +85,17 @@
   [data-operations-shell] .ld-table-wrap { border:1px solid var(--ui-line); border-radius:12px; scrollbar-width:thin; }
   [data-operations-shell] .laundry tbody tr:nth-child(even) { background:var(--ui-soft); }
   [data-operations-shell][data-dashboard-theme="dark"] .laundry { --ld-ink:var(--ui-ink); --ld-muted:var(--ui-muted); --ld-line:var(--ui-line); --ld-green:var(--ui-accent); background:var(--ui-canvas) !important; }
-  [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-top,.ld-panel,.ld-stats article,.ld-dialog,.ld-gate,.laundry-gate,.ld-services>button,.ld-outline,.ld-order-filters a,.ld-stepper button) { background:var(--ui-panel) !important; color:var(--ui-ink) !important; border-color:var(--ui-line) !important; }
-  [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-report-summary article,.ld-finance article,.ld-journal-balance,.ld-package-card,.ld-service-icon,.ld-catalog-setup summary,.ld-services .ld-product-options button,.ld-accounting-tabs) { background:var(--ui-soft) !important; color:var(--ui-ink) !important; border-color:var(--ui-line) !important; }
-  [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-journal-balance span,.ld-journal-balance strong,.ld-report-summary strong,.ld-chip) { color:var(--ui-ink) !important; }
-  [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-primary,.ld-order-filters a[aria-current="page"],.ld-filters button.active,.ld-accounting-tabs button[aria-pressed="true"]) { background:var(--ui-accent) !important; color:var(--ui-on-accent) !important; border-color:var(--ui-accent) !important; }
-  [data-operations-shell][data-dashboard-theme="dark"] :is(.laundry th,.laundry tbody tr:hover) { background:var(--ui-soft) !important; color:var(--ui-ink) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] .ld-brand { color:var(--ui-ink) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :where(.ld-top,.ld-panel,.ld-stats article,.ld-dialog,.ld-gate,.laundry-gate,.ld-services>button,.ld-product-card,.ld-filters button,.ld-outline,.ld-order-filters a,.ld-stepper button,.ld-ledger-detail) { background:var(--ui-panel) !important; color:var(--ui-ink) !important; border-color:var(--ui-line) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :where(.ld-report-summary article,.ld-finance article,.ld-journal-balance,.ld-package-card,.ld-service-icon,.ld-catalog-setup summary,.ld-services .ld-product-options button,.ld-accounting-tabs,.ld-operation-tabs,.ld-subscriber-checkout,.ld-chip,.ld-status,.ld-add) { background:var(--ui-soft) !important; color:var(--ui-ink) !important; border-color:var(--ui-line) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :where(.ld-journal-balance span,.ld-journal-balance strong,.ld-report-summary strong,.ld-chip) { color:var(--ui-ink) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :where(.ld-primary,.ld-order-filters a[aria-current="page"],.ld-filters button.active,.ld-accounting-tabs button[aria-pressed="true"],.ld-operation-tabs button[aria-pressed="true"]) { background:var(--ui-accent) !important; color:var(--ui-on-accent) !important; border-color:var(--ui-accent) !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] .ld-product-options button.selected { border-color:var(--ui-selected-line) !important; background:var(--ui-selected) !important; }
+  [data-operations-shell][data-dashboard-theme] button:disabled, [data-operations-shell][data-dashboard-theme] .laundry button:disabled { background:var(--ui-disabled) !important; color:var(--ui-disabled-ink) !important; border-color:var(--ui-line) !important; opacity:1 !important; box-shadow:none !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :where(.ld-signature-pad,.ld-logo-preview) { background:#fff !important; color:#173a36 !important; }
+  [data-operations-shell][data-dashboard-theme="dark"] :where(.laundry th,.laundry tbody tr:hover) { background:var(--ui-soft) !important; color:var(--ui-ink) !important; }
   [data-operations-shell][data-dashboard-theme="dark"] .ld-alert { background:#3d202c; color:#fecdd3; border-color:#794052; }
-  [data-operations-shell][data-dashboard-theme="dark"] :is(.ld-success,.ld-status.ready,.ld-status.delivered) { background:#12372d; color:#a7f3d0; }
+  [data-operations-shell][data-dashboard-theme="dark"] :where(.ld-success,.ld-status.ready,.ld-status.delivered) { background:#12372d; color:#a7f3d0; }
   [data-operations-shell][data-dashboard-theme="dark"] .ld-status.processing { background:#182f4a; color:#bfdbfe; }
 }
 @media(max-width:640px) {
