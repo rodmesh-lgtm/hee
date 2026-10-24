@@ -1,4 +1,5 @@
 "use server";
+import { calendarSubscriptionPeriod } from "../lib/accounting-dates";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -13,7 +14,7 @@ import { prepaidCashLines,prepaidRemaining } from "../lib/laundry-prepaid-domain
 import { packagePeriod,assertSubscriptionServices,type AccountingPackage,type PackageKind } from "../lib/accounting-packages";
 const key=z.string().uuid();
 const command=z.discriminatedUnion("type",[
- z.object({type:z.literal("purchase"),phone:z.string().max(40),packageId:key.optional(),starts:z.string().max(10).optional(),name:z.string().trim().min(2).max(100),amount:z.string(),expires:z.string().max(10),method:z.enum(["cash","card","transfer"])}),
+ z.object({type:z.literal("purchase"),phone:z.string().max(40),packageId:key.optional(),durationMonths:z.union([z.coerce.number().int().min(1).max(12),z.enum(["plan","custom"])]).optional(),starts:z.string().max(10).optional(),name:z.string().trim().min(2).max(100),amount:z.string(),expires:z.string().max(10),method:z.enum(["cash","card","transfer"])}),
  z.object({type:z.literal("redeem"),id:key,number:z.coerce.number().int().positive(),amount:z.string()}),
  z.object({type:z.literal("refund"),id:key,amount:z.string(),method:z.enum(["cash","transfer"]),reason:z.string().trim().min(4).max(200)}),
 ]);
@@ -41,11 +42,15 @@ export async function laundryPrepaidCommand(value:unknown):Promise<{ok:boolean;e
     const plans=await tx.$queryRaw<AccountingPackage[]>`SELECT * FROM "AccountingPackage" WHERE "businessId"=${b.id} AND id=${d.packageId} AND active=TRUE`;
     const plan=plans[0];if(!plan)throw new LaundryInputError("الباقة غير متاحة للاشتراك في هذه المنشأة");
     if(amount!==plan.amount)throw new LaundryInputError("تغير سعر الباقة؛ حدّث الصفحة وراجع المبلغ المستلم");
-    ({startsAt,expiresAt}=packagePeriod(d.starts??"",plan.durationDays,now));
+    ({startsAt,expiresAt}=typeof d.durationMonths==="number"?calendarSubscriptionPeriod(d.starts??"",d.durationMonths,now):packagePeriod(d.starts??"",plan.durationDays,now));
     name=plan.name;description=plan.description;serviceIds=plan.serviceIds;amount=plan.amount;kind=plan.kind??"credit";unitsIncluded=plan.unitsIncluded??null;units=unitsIncluded??0;
    }else{
-    expiresAt=laundryReportRange(d.expires,d.expires).end;
-    if(expiresAt<=now||expiresAt.getTime()>now.getTime()+366*86400000)throw new LaundryInputError("حدد نهاية استخدام خلال السنة القادمة");
+    if(typeof d.durationMonths==="number")({startsAt,expiresAt}=calendarSubscriptionPeriod(d.starts??"",d.durationMonths,now));
+    else {
+     expiresAt=laundryReportRange(d.expires,d.expires).end;
+     if(d.starts){startsAt=packagePeriod(d.starts,1,now).startsAt;}
+     if(expiresAt<=startsAt||expiresAt<=now||expiresAt.getTime()>startsAt.getTime()+367*86400000)throw new LaundryInputError("حدد نهاية بعد البداية وخلال سنة منها");
+    }
    }
    id=randomUUID();reason=`شراء اشتراك: ${name}`;method=d.method;
    await tx.$executeRaw`INSERT INTO "LaundryPrepaid" (id,"businessId","customerId","customerName","requestId",name,amount,remaining,"startsAt","expiresAt","packageId","packageDescription","serviceIds",kind,"unitsIncluded","unitsRemaining","createdBy") VALUES (${id},${b.id},${customers[0].id},${customers[0].name},${rid},${name},${amount},${amount},${startsAt},${expiresAt},${d.packageId??null},${description},${JSON.stringify(serviceIds)}::jsonb,${kind},${unitsIncluded},${unitsIncluded},${user.id})`;

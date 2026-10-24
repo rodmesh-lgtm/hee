@@ -102,3 +102,5 @@
 .ld-package-services{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:8px;max-height:280px;overflow:auto;padding:10px}
 .ld-subscriber-checkout{padding:14px;border:1px solid #b9dbce;border-radius:14px;background:#f1faf7;margin-block:12px;min-width:0;overflow-wrap:anywhere}
 .ld-subscriber-checkout ul{padding-inline-start:20px}.ld-subscriber-checkout li{margin-block:8px}.ld-package-services input[type=checkbox],.ld-subscriber-checkout input[type=checkbox]{width:20px;min-height:20px;flex-shrink:0}
+
+.ld-schedule{border:1px solid var(--ui-line,#bfd2cc);border-radius:14px;padding:16px;margin:16px 0;min-width:0}.ld-schedule legend{font-weight:800;padding:0 6px}.ld-schedule-shortcuts{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.ld-schedule-shortcuts button{min-height:44px}.ld-schedule-summary{background:var(--ui-soft,#edf4f2);color:var(--ui-ink,#173a36);padding:12px;border-radius:10px;line-height:1.8}.ld-receipt-balances{border-block:1px dashed #777;margin:14px 0;padding:10px 0;break-inside:avoid}.ld-receipt-balances h4{margin:0 0 8px}
