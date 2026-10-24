@@ -58,7 +58,7 @@
   font-weight: 700;
   box-shadow: 0 6px 18px -12px var(--live-accent);
 }
-[data-dashboard-theme] .infro-live-workspace .infro-live-action:disabled { opacity: 1; background: var(--live-disabled) !important; color: var(--live-disabled-ink) !important; box-shadow: none; }
+[data-dashboard-theme] .infro-live-workspace .infro-live-action:disabled { opacity: 1 !important; background: var(--live-disabled) !important; color: var(--live-disabled-ink) !important; box-shadow: none; }
 [data-dashboard-theme] .infro-live-workspace .infro-live-action:hover:not(:disabled) { filter: brightness(1.08); }
 [data-dashboard-theme] .infro-live-workspace .infro-live-action:focus-visible { outline: 3px solid var(--live-accent); outline-offset: 3px; }
 .infro-live-workspace .infro-live-delivery-body { margin-top: 20px; display: grid; gap: 14px; }
