@@ -47,6 +47,7 @@
 .infro-operations-header nav { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .infro-operations-header nav>a { display:flex; align-items:center; gap:7px; min-height:44px; border:1px solid var(--ui-line); padding:8px 12px; border-radius:10px; font-size:14px; }
 [data-operations-shell][data-dashboard-theme] { background:var(--ui-canvas) !important; color:var(--ui-ink) !important; }
+[data-operations-shell] .laundry { color-scheme:inherit; }
 [data-operations-shell] :where(main:not(.laundry-gate)) { max-width:1440px; }
 [data-operations-shell] :where(.text-xs) { font-size:14px; line-height:1.8; }
 /* Inline dialogs keep their own solid panel, independent of the dimmed backdrop. */
