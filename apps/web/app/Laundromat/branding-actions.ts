@@ -1,4 +1,7 @@
 "use server";
+import { normalizePageModulesForPersistence } from "../lib/page-modules";
+import { normalizeInvoicePhone } from "../lib/invoice-contact";
+import { LaundryInputError } from "../lib/laundry-domain";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
@@ -34,4 +37,24 @@ export async function saveLaundryLogo(form: FormData): Promise<{ok:boolean;error
   }
   revalidatePath("/Laundromat");revalidatePath("/Accounting");revalidatePath("/dashboard/branding");revalidatePath(`/${business.slug}`);
   return {ok:true};
+}
+
+export async function saveInvoiceContact(form:FormData):Promise<{ok:boolean;error?:string}> {
+ const user=await getCurrentUserForApiWrite();if(!user)return {ok:false,error:"يرجى تسجيل الدخول بحساب موثّق"};
+ const business=await getActiveBusinessForUser(user.id,"laundry");
+ if(!business||business.ownerId!==user.id||form.get("businessId")!==business.id)return {ok:false,error:"تعديل بيانات الفواتير متاح لمالك المنشأة النشطة فقط"};
+ try {
+  const raw=String(form.get("invoicePhone")??"");if(raw.length>40)throw new LaundryInputError("رقم التواصل طويل جدًا");
+  const phone=normalizeInvoicePhone(raw);
+  await db.$transaction(async tx=>{
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`page-modules:${business.id}`}))`;
+   const current=await tx.business.findFirst({where:{id:business.id,ownerId:user.id,deletedAt:null},select:{pageModules:true,businessType:true,updatedAt:true}});
+   if(!current)throw new LaundryInputError("المنشأة غير متاحة");
+   const modules=normalizePageModulesForPersistence(current.pageModules,current.businessType).map(module=>module.id==="contact"?{...module,config:{...module.config,invoicePhone:phone}}:module);
+   const changed=await tx.business.updateMany({where:{id:business.id,ownerId:user.id,deletedAt:null,updatedAt:current.updatedAt},data:{pageModules:JSON.parse(JSON.stringify(modules))}});
+   if(changed.count!==1)throw new LaundryInputError("تغيرت بيانات المنشأة؛ حدّث الصفحة ثم أعد حفظ رقم التواصل");
+   await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${randomUUID()},${business.id},${user.id},'invoice-contact',${business.id})`;
+  });
+  revalidatePath("/Laundromat");revalidatePath("/Accounting");revalidatePath("/Laundromat/Accounting");return {ok:true};
+ }catch(e){return {ok:false,error:e instanceof LaundryInputError?e.message:"تعذر حفظ رقم التواصل. أعد المحاولة"};}
 }
