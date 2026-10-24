@@ -24,14 +24,17 @@ test("receipt query keeps balances at ticket redemption, includes exhausted unit
  const values:Record<string,string>={"business.id":"shop",pattern:"%",q:"",filter:"all",normalizedPhone:"",'normalizedPhone.replace(/^\\+/,"")':"",localPhone:""};
  const parameters:string[]=[];
  const sql=template.replace(/\$\{([^}]+)\}/g,(_,key:string)=>{assert.ok(key in values,key);parameters.push(values[key]);return `$${parameters.length}`;});
- const result=await db.query<{subscriptionBalances:Array<{id:string;remaining:number;unitsRemaining:number|null}>}>(sql,parameters);
+ const result=await db.query<{subscriptionBalances:Array<{id:string;originalAmount:number;usedAmount:number;remaining:number;unitsRemaining:number|null}>}>(sql,parameters);
  assert.equal(result.rows.length,1);
- assert.deepEqual(result.rows[0].subscriptionBalances.map(s=>({id:s.id,remaining:s.remaining,unitsRemaining:s.unitsRemaining})),[
- {id:"credit",remaining:600,unitsRemaining:null},{id:"pieces",remaining:0,unitsRemaining:0}
+ assert.deepEqual(result.rows[0].subscriptionBalances.map(s=>({id:s.id,originalAmount:s.originalAmount,usedAmount:s.usedAmount,remaining:s.remaining,unitsRemaining:s.unitsRemaining})),[
+ {id:"credit",originalAmount:1000,usedAmount:400,remaining:600,unitsRemaining:null},{id:"pieces",originalAmount:200,usedAmount:200,remaining:0,unitsRemaining:0}
  ]);
  // A manual later redemption on this same ticket updates the receipt cutoff.
  await db.exec(`INSERT INTO "LaundryPayment" VALUES ('later','shop','ticket','prepaid',100); INSERT INTO "LaundryPrepaidMovement" VALUES ('m5','shop','credit','later','redeem',100,0,'2026-10-24T08:00Z')`);
- const later=await db.query<{subscriptionBalances:Array<{id:string;remaining:number}>}>(sql,parameters);
- assert.equal(later.rows[0].subscriptionBalances.find(s=>s.id==="credit")?.remaining,200);
+ const later=await db.query<{subscriptionBalances:Array<{id:string;originalAmount:number;usedAmount:number;remaining:number}>}>(sql,parameters);
+ const credit=later.rows[0].subscriptionBalances.find(s=>s.id==="credit")!;
+ assert.equal(credit.remaining,200);
+ assert.equal(credit.usedAmount,500);
+ assert.equal(credit.originalAmount,1000);
  } finally { await db.close(); }
 });
