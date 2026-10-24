@@ -1,0 +1,37 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { PGlite } from "@electric-sql/pglite";
+test("receipt query keeps balances at ticket redemption, includes exhausted units and isolates businesses",async()=>{
+ const db=new PGlite();
+ try {
+ await db.exec(`
+ CREATE TABLE "LaundryTicket" (id text,"businessId" text,number int,"customerId" text,"customerName" text,phone text,items jsonb,total int,paid int,status text,"dueAt" timestamptz,notes text,"createdAt" timestamptz);
+ CREATE TABLE "LaundryPayment" (id text,"businessId" text,"ticketId" text,method text,amount int);
+ CREATE TABLE "LaundryPrepaid" (id text,"businessId" text,"customerId" text,name text,kind text,amount int,"unitsIncluded" int);
+ CREATE TABLE "LaundryPrepaidMovement" (id text,"businessId" text,"prepaidId" text,"paymentId" text,kind text,amount int,units int,"createdAt" timestamptz);
+ INSERT INTO "LaundryTicket" VALUES ('ticket','shop',1,'customer','Customer','0500000000','[]',600,600,'received',now(),'','2026-10-24T06:00Z');
+ INSERT INTO "LaundryPayment" VALUES ('cash-use','shop','ticket','prepaid',400),('piece-use','shop','ticket','prepaid',200),('foreign-pay','other','ticket','prepaid',800);
+ INSERT INTO "LaundryPrepaid" VALUES ('credit','shop','customer','Monthly credit','credit',1000,NULL),('pieces','shop','customer','Two pieces','pieces',200,2),('foreign','other','customer','Private','credit',900,NULL);
+ INSERT INTO "LaundryPrepaidMovement" VALUES
+ ('m1','shop','credit','cash-use','redeem',400,0,'2026-10-24T06:00Z'),
+ ('m2','shop','credit',NULL,'redeem',300,0,'2026-10-24T07:00Z'),
+ ('m3','shop','pieces','piece-use','redeem',200,2,'2026-10-24T06:00Z'),
+ ('m4','other','foreign','foreign-pay','redeem',800,0,'2026-10-24T06:00Z');
+ `);
+ const source=await readFile(new URL("../app/Laundromat/server-workspace.tsx",import.meta.url),"utf8");
+ const template=source.match(/db\.\$queryRaw<LaundryTicket\[\]>`([\s\S]*?)`/)![1];
+ const values:Record<string,string>={"business.id":"shop",pattern:"%",q:"",filter:"all",normalizedPhone:"",'normalizedPhone.replace(/^\\+/,"")':"",localPhone:""};
+ const parameters:string[]=[];
+ const sql=template.replace(/\$\{([^}]+)\}/g,(_,key:string)=>{assert.ok(key in values,key);parameters.push(values[key]);return `$${parameters.length}`;});
+ const result=await db.query<{subscriptionBalances:Array<{id:string;remaining:number;unitsRemaining:number|null}>}>(sql,parameters);
+ assert.equal(result.rows.length,1);
+ assert.deepEqual(result.rows[0].subscriptionBalances.map(s=>({id:s.id,remaining:s.remaining,unitsRemaining:s.unitsRemaining})),[
+ {id:"credit",remaining:600,unitsRemaining:null},{id:"pieces",remaining:0,unitsRemaining:0}
+ ]);
+ // A manual later redemption on this same ticket updates the receipt cutoff.
+ await db.exec(`INSERT INTO "LaundryPayment" VALUES ('later','shop','ticket','prepaid',100); INSERT INTO "LaundryPrepaidMovement" VALUES ('m5','shop','credit','later','redeem',100,0,'2026-10-24T08:00Z')`);
+ const later=await db.query<{subscriptionBalances:Array<{id:string;remaining:number}>}>(sql,parameters);
+ assert.equal(later.rows[0].subscriptionBalances.find(s=>s.id==="credit")?.remaining,200);
+ } finally { await db.close(); }
+});
