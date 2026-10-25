@@ -14,17 +14,20 @@ export async function reserveTemplateProcessing(businessId:string,jobId:string,d
   await tx.$executeRaw`INSERT INTO "RequestRateLimit" (key,"windowStart",count,"updatedAt") VALUES (${receipt},${start},1,${now})`;
  });
 }
-export async function assertLiveTransferAvailable(businessId:string){
- const plan=await commercialAccess(businessId);if(!plan.liveView)throw new CommercialLimitError();if(plan.liveTransferKB===null)return;
- const {period}=commercialMonth(),key=commercialQuotaKey(businessId,"live-kb",period);
- const rows=await db.$queryRaw<Array<{count:number}>>`SELECT count FROM "RequestRateLimit" WHERE key=${key}`;
- if((rows[0]?.count??0)>=plan.liveTransferKB)throw new CommercialLimitError();
+export type LiveTransferReservation={key:string;amountKB:number}|null;
+/** Reserve before contacting the relay so concurrent viewers cannot overdraw origin traffic. */
+export async function reserveLiveTransfer(businessId:string):Promise<LiveTransferReservation>{
+ const plan=await commercialAccess(businessId);if(!plan.liveView)throw new CommercialLimitError();if(plan.liveTransferKB===null)return null;
+ const {start,period}=commercialMonth(),key=commercialQuotaKey(businessId,"live-kb",period),amountKB=Math.ceil(4_000_000/1024);
+ if(amountKB>plan.liveTransferKB||!(await db.$queryRaw<Array<{count:number}>>(incrementCommercialQuota(key,amountKB,plan.liveTransferKB,start,new Date()))).length)throw new CommercialLimitError();
+ return {key,amountKB};
 }
-export async function consumeLiveTransfer(businessId:string,bytes:number){
- const plan=await commercialAccess(businessId);if(!plan.liveView)throw new CommercialLimitError();if(plan.liveTransferKB===null)return;
- const {start,period}=commercialMonth(),key=commercialQuotaKey(businessId,"live-kb",period);
- const amount=Math.max(1,Math.ceil(bytes/1024));
- if(amount>plan.liveTransferKB||!(await db.$queryRaw<Array<{count:number}>>(incrementCommercialQuota(key,amount,plan.liveTransferKB,start,new Date()))).length)throw new CommercialLimitError();
+export async function settleLiveTransfer(reservation:LiveTransferReservation,actualBytes:number){
+ if(!reservation)return;
+ const actualKB=Math.max(0,Math.ceil(actualBytes/1024));
+ if(!Number.isSafeInteger(actualKB)||actualKB>reservation.amountKB)throw new Error("INVALID_LIVE_TRANSFER_SETTLEMENT");
+ const refund=reservation.amountKB-actualKB;
+ if(refund)await db.$executeRaw`UPDATE "RequestRateLimit" SET count=GREATEST(0,count-${refund}),"updatedAt"=CURRENT_TIMESTAMP WHERE key=${reservation.key}`;
 }
 export async function assertInvoiceCapacity(tx:Prisma.TransactionClient,businessId:string){
  const plan=await commercialAccess(businessId,tx);if(!plan.cashier)throw new CommercialLimitError();if(plan.monthlyInvoices===null)return;

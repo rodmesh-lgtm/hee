@@ -49,3 +49,15 @@ test("operational cleanup retains current monthly budgets after a week of inacti
  await db.exec(query);assert.deepEqual((await db.query<{key:string}>('SELECT key FROM "RequestRateLimit" ORDER BY key')).rows.map(r=>r.key),['commercial:active']);
  }finally{await db.close();}
 });
+
+test("live transfer reservations bound simultaneous origin fetches and refund unused bytes",async()=>{
+ const db=new PGlite();try{
+ await db.exec('CREATE TABLE "RequestRateLimit" (key text PRIMARY KEY,"windowStart" timestamptz,count int,"updatedAt" timestamptz)');
+ const now=new Date(),{start}=commercialMonth(now),amount=Math.ceil(4_000_000/1024),q=incrementCommercialQuota('commercial:live',amount,amount*3,start,now);
+ const results=await Promise.all(Array.from({length:20},()=>db.query(q.text,q.values)));
+ assert.equal(results.filter(r=>r.rows.length).length,3);
+ await db.query('UPDATE "RequestRateLimit" SET count=GREATEST(0,count-$1) WHERE key=$2',[amount-1000,'commercial:live']);
+ assert.equal((await db.query<{count:number}>('SELECT count FROM "RequestRateLimit"')).rows[0].count,amount*2+1000);
+ assert.equal((await db.query(q.text,q.values)).rows.length,0);
+ }finally{await db.close();}
+});
