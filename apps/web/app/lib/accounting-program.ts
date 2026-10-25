@@ -16,5 +16,7 @@ export function allowedAccountingViews(owner: boolean, permissions: unknown) {
 /** Resolve explicit laundry metadata or a previously configured laundry catalogue. */
 export function accountingActivity(business: { businessType: string; businessCategory?: string | null }, hasLaundryCatalogue = false): AccountingActivity {
   const activity = `${business.businessCategory ?? ""} ${business.businessType}`.normalize("NFKC").toLowerCase();
+  // Car washes must never inherit clothing-specific catalogue operations.
+  if (/سيارات|سيارة|car\s*wash|auto\s*wash/.test(activity)) return "general";
   return /مغسل|مغاسل|laundry|laundromat/.test(activity) || hasLaundryCatalogue ? "laundry" : "general";
 }
