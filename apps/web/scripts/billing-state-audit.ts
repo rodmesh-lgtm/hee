@@ -1,3 +1,4 @@
+import { COMMERCIAL_PLANS } from "../app/lib/commercial-plans";
 import "dotenv/config";
 
 import { PrismaClient } from "@prisma/client";
@@ -35,9 +36,9 @@ async function main() {
   drifts.push(...planPriceDrift);
 
   if (production) {
-    const requiredPlans = await db.businessPlan.findMany({ where: { code: { in: ["FREE", "BUSINESS", "PRO"] }, isActive: true }, select: { code: true } });
+    const requiredPlans = await db.businessPlan.findMany({ where: { code: { in: COMMERCIAL_PLANS.map(p=>p.code) }, isActive: true }, select: { code: true } });
     const present = new Set(requiredPlans.map((plan) => plan.code));
-    for (const code of ["FREE", "BUSINESS", "PRO"]) if (!present.has(code)) drifts.push({ businessId: `plan:${code}`, detail: "required public plan is missing or inactive" });
+    for (const code of COMMERCIAL_PLANS.map(p=>p.code)) if (!present.has(code)) drifts.push({ businessId: `plan:${code}`, detail: "required public plan is missing or inactive" });
 
     if (!recordHeartbeat && String(process.env.BILLING_OPERATIONS_READY ?? "").trim().toLowerCase() === "true") {
       const heartbeat = await db.billingOperationsHeartbeat.findUnique({ where: { id: "billing-operations" } });
@@ -56,7 +57,7 @@ async function main() {
   // receipt/provider invariant below.
   const paidWithoutLive = await db.$queryRaw<DriftRow[]>`
     SELECT b."id" AS "businessId", 'paid business plan without matching unexpired live subscription or active access-code entitlement' AS detail
-    FROM "Business" b JOIN "BusinessPlan" p ON p."id"=b."planId" AND p."code" IN ('BUSINESS','PRO')
+    FROM "Business" b JOIN "BusinessPlan" p ON p."id"=b."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE')
     WHERE b."deletedAt" IS NULL AND NOT EXISTS (
       SELECT 1
       FROM "Subscription" s
@@ -102,7 +103,7 @@ async function main() {
              WHEN s."endsAt" IS NULL THEN 'paid subscription has no finite paid-through date'
              ELSE 'expired subscription is still marked active'
            END AS detail
-    FROM "Subscription" s JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO')
+    FROM "Subscription" s JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE')
     WHERE s."provider" IS DISTINCT FROM 'access_code'
       AND (
         (s."status"='active' AND (s."endsAt" IS NULL OR s."endsAt" <= CURRENT_TIMESTAMP))
@@ -114,7 +115,7 @@ async function main() {
   const invalidAccessCodeEntitlement = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'access-code subscription lacks a valid active grant/code lineage' AS detail
     FROM "Subscription" s
-    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO')
+    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE')
     WHERE s."provider"='access_code'
       AND s."status"='active'
       AND (
@@ -144,7 +145,7 @@ async function main() {
   const strandedPastDue = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'expired past_due subscription has no recoverable renewal attempt' AS detail
     FROM "Subscription" s
-    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO')
+    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE')
     WHERE s."status"='past_due'
       AND s."provider" IS DISTINCT FROM 'access_code'
       AND s."endsAt" IS NOT NULL

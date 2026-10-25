@@ -1,4 +1,5 @@
 import "server-only";
+import { reserveTemplateProcessing } from "../commercial-usage";
 
 import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
@@ -152,6 +153,7 @@ export async function processNextWhatsAppDelivery(input: {
   const templatePayload: JsonRecord = { name: template.name, language: { code: template.language } };
   if (Array.isArray(context.recipient.templateParameters)) templatePayload.components = context.recipient.templateParameters;
 
+  try{await reserveTemplateProcessing(job.businessId,job.id,database);}catch{await releaseAs(database, job.id, "failed", {lastErrorCode:"PLAN_USAGE_LIMIT",lastErrorMessage:"Monthly template processing limit reached"});return {processed:true as const,result:"failed" as const,jobId:job.id};}
   let response: Response;
   try {
     response = await (input.fetcher ?? fetch)(metaWhatsAppGraphUrl(config, `${context.connection.phoneNumberId}/messages`), {

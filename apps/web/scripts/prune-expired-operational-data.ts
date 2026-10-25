@@ -18,7 +18,7 @@ async function counts() {
   const [sessions, oauthStates, rateLimits, submissions, verification] = await Promise.all([
     db.session.count({ where: { expiresAt: { lt: now } } }),
     db.oAuthState.count({ where: { expiresAt: { lt: now } } }),
-    db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "RequestRateLimit" WHERE "updatedAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`,
+    db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "RequestRateLimit" WHERE "updatedAt" < CURRENT_TIMESTAMP - INTERVAL '7 days' AND NOT ("key" LIKE 'commercial:%' AND "windowStart" >= (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Riyadh') AT TIME ZONE 'Asia/Riyadh'))`,
     db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "PublicSubmission" WHERE "createdAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`,
     db.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "BookingVisitorVerification" WHERE GREATEST("expiresAt",COALESCE("accessExpiresAt","expiresAt")) < CURRENT_TIMESTAMP - INTERVAL '1 day'`,
   ]);
@@ -43,7 +43,7 @@ async function main() {
   const [sessionDelete, oauthDelete, rateLimitDelete, submissionDelete, verificationDelete] = await db.$transaction([
     db.session.deleteMany({ where: { expiresAt: { lt: now } } }),
     db.oAuthState.deleteMany({ where: { expiresAt: { lt: now } } }),
-    db.$executeRaw`DELETE FROM "RequestRateLimit" WHERE "updatedAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`,
+    db.$executeRaw`DELETE FROM "RequestRateLimit" WHERE "updatedAt" < CURRENT_TIMESTAMP - INTERVAL '7 days' AND NOT ("key" LIKE 'commercial:%' AND "windowStart" >= (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Riyadh') AT TIME ZONE 'Asia/Riyadh'))`,
     db.$executeRaw`DELETE FROM "PublicSubmission" WHERE "createdAt" < CURRENT_TIMESTAMP - INTERVAL '7 days'`,
     db.$executeRaw`DELETE FROM "BookingVisitorVerification" WHERE GREATEST("expiresAt",COALESCE("accessExpiresAt","expiresAt")) < CURRENT_TIMESTAMP - INTERVAL '1 day'`,
   ]);

@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function LiveViewPage({ searchParams }: { searchParams: Promise<{q?:string;status?:string}> }) {
   const user = await getCurrentUser(); if (!user) redirect("/login");
   const business = await getActiveBusinessForUser(user.id, "liveView");
-  if (!business) return <p role="alert">لا تملك صلاحية الوصول إلى المشاهدة المؤقتة لهذه المنشأة.</p>;
+  if (!business) return <section dir="rtl" className="rounded-2xl border p-6"><h1 className="text-xl font-bold">المشاهدة المؤقتة</h1><p className="my-3">تتوفر ضمن الباقة الشاملة، ويحدد المالك صلاحية الموظفين للوصول إليها.</p><Link href="/dashboard/plans" className="font-bold underline">الباقات وحدود المشاهدة</Link></section>;
   // Publish the section without requiring an unprovisioned media database.
   if (!liveGatewayConfig()) return <LiveViewPreparation />;
   const query = await searchParams;

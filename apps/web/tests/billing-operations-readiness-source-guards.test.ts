@@ -20,7 +20,7 @@ test("production checkout remains closed until recurring billing operations are 
 
 test("production live rehearsal is isolated from general paid checkout and public mode is deployment-proven", () => {
   const billing = source("app/lib/billing.ts");
-  const branding = source("app/dashboard/branding/page.tsx");
+  const branding = source("app/dashboard/plans/page.tsx");
   const request = source("app/actions/subscription-request.ts");
   const direct = source("app/actions/billing.ts");
   const ready = source("app/api/health/ready/route.ts");

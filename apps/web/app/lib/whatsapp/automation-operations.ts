@@ -38,7 +38,7 @@ async function assertRunnableTemplate(tx: Prisma.TransactionClient, input: {
         provider: "meta",
         status: "connected",
         disabledAt: null,
-        ...(input.triggerType === "booking_confirmation" ? { bookingEnabled: true } : { marketingEnabled: true }),
+        ...(input.triggerType === "booking_confirmation" ? { bookingEnabled: true } : input.triggerType === "laundry_ready" ? {OR:[{bookingEnabled:true},{marketingEnabled:true}]} : { marketingEnabled: true }),
       },
     },
     select: { id: true, connectionId: true, category: true, components: true, parameterFormat: true },

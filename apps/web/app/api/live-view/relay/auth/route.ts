@@ -1,3 +1,4 @@
+import { commercialAccess } from "../../../../lib/commercial-access";
 import { db } from "../../../../lib/db";
 import { boundedJson, connectorPlatformConfig } from "../../../../lib/live-view/connector-server";
 import { livePrivateHeaders } from "../../../../lib/live-view/access";
@@ -18,6 +19,7 @@ export async function POST(request:Request) {
     const expires=verifyPublisherPassword(config.relaySecret,body.user,body.path,body.password);if(!expires)return deny();
     const station=await db.liveViewStation.findFirst({where:{streamKey:body.path,connectorId:body.user,enabled:true,credentialEnvelope:{not:null},business:{deletedAt:null}},include:{connector:true}});
     if(!station?.connector||!connectorOnline(station.connector))return deny();
+    if(!(await commercialAccess(station.businessId)).liveView)return deny();
     // MediaMTX v1.21.2 closes the publishing connection at this expiration.
     return Response.json({expireAt:expires.toISOString()},{headers:livePrivateHeaders});
   }catch{return deny();}

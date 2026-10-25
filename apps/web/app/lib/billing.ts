@@ -1,7 +1,8 @@
 import "server-only";
 import { isExplicitTestRuntime, isProductionRuntime } from "./runtime-environment";
 
-const paidCodes = new Set(["BUSINESS", "PRO"]);
+import { SUPPORTED_PAID_PLAN_CODES } from "./commercial-plans";
+const paidCodes = new Set<string>(SUPPORTED_PAID_PLAN_CODES);
 
 function enabled(name: string) {
   return String(process.env[name] ?? "").trim().toLowerCase() === "true";

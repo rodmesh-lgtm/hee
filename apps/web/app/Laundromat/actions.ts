@@ -1,4 +1,5 @@
 "use server";
+import { assertInvoiceCapacity,CommercialLimitError } from "../lib/commercial-usage";
 import { cashierUrgentEnabled,hasClothingCatalogue } from "../lib/cashier-settings";
 import { normalizePageModulesForPersistence } from "../lib/page-modules";
 import { enqueueLaundryReady } from "../lib/whatsapp/laundry-ready";
@@ -97,6 +98,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
       } else if (data.type === "order") {
         const previous=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "requestId"=${data.requestId}`;
         if(previous[0]) return {id:previous[0].id};
+        await assertInvoiceCapacity(tx,business.id);
         const dueAt=new Date(data.dueAt);
         if(dueAt.getTime()<Date.now()-60000 || dueAt.getTime()>Date.now()+366*86400000) throw new LaundryInputError("حدد موعد تسليم قادمًا خلال سنة");
         const catalog=await tx.$queryRaw<LaundryService[]>`SELECT s.*,u.price AS "urgentPrice" FROM "LaundryService" s LEFT JOIN "LaundryService" u ON u.id='urgent:'||s.id AND u."businessId"=s."businessId" AND u.active=TRUE WHERE s."businessId"=${business.id} AND s.active=TRUE AND s.id NOT LIKE 'urgent:%'`;
@@ -173,6 +175,6 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
     revalidatePath("/Laundromat");revalidatePath("/Accounting");
     return {ok:true,id:result.id};
   } catch(error) {
-    return {ok:false,error:error instanceof LaundryInputError?error.message:"تعذر حفظ العملية. أعد المحاولة؛ لن تتكرر الدفعة أو الطلب."};
+    return {ok:false,error:error instanceof LaundryInputError || error instanceof CommercialLimitError?error.message:"تعذر حفظ العملية. أعد المحاولة؛ لن تتكرر الدفعة أو الطلب."};
   }
 }

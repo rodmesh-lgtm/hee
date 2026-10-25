@@ -1,4 +1,5 @@
 "use server";
+import { commercialAccess } from "../lib/commercial-access";
 import { randomBytes, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
@@ -13,7 +14,7 @@ export type CameraSetupState={error?:string;success?:string;pairingCode?:string}
 const text=(form:FormData,key:string)=>String(form.get(key)??"").trim();
 async function owner() {
   const user=await getCurrentUserForWrites();const business=await getActiveBusinessForUser(user.id);
-  if(!business || !user.emailVerifiedAt)return null;
+  if(!business || !user.emailVerifiedAt || !(await commercialAccess(business.id)).liveView)return null;
   const rate=await consumePublicWriteLimit({scope:"live-view-setup",businessId:business.id,identity:user.id,limit:30,windowSeconds:60});
   return rate.allowed?{user,business}:null;
 }
@@ -92,7 +93,7 @@ export async function saveLiveCameraAction(_:CameraSetupState,form:FormData):Pro
         await tx.liveViewSession.updateMany({where:{stationId,businessId:who.business.id,endedAt:null},data:{endedAt:new Date()}});
       }else{
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`live-view-business:${who.business.id}`}))`;
-        if(await tx.liveViewStation.count({where:{businessId:who.business.id}})>=100)throw new Error("LIMIT");
+        if(await tx.liveViewStation.count({where:{businessId:who.business.id}})>=(await commercialAccess(who.business.id,tx)).liveCameraLimit)throw new Error("LIMIT");
         await tx.liveViewStation.create({data:{id:stationId,businessId:who.business.id,...data}});
       }
       await tx.whatsAppAuditLog.create({data:{businessId:who.business.id,actorUserId:who.user.id,action:"live-view.camera.configured",targetType:"live-view-station",targetId:stationId,outcome:"success"}});

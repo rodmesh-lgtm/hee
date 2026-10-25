@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { db } from "./db";
+import { SUPPORTED_PAID_PLAN_CODES } from "./commercial-plans";
 
 export function activeSubscriptionWhere(businessId: string, now = new Date()): Prisma.SubscriptionWhereInput {
   return {
@@ -33,7 +34,7 @@ export async function getEffectiveSubscription(input: { businessId: string; data
   const subscriptions = await database.subscription.findMany({
     where: {
       ...activeSubscriptionWhere(input.businessId, now),
-      ...(input.paidPlansOnly === false ? {} : { plan: { code: { in: ["BUSINESS", "PRO"] } } }),
+      ...(input.paidPlansOnly === false ? {} : { plan: { code: { in: [...SUPPORTED_PAID_PLAN_CODES] } } }),
     },
     include: {
       plan: true,
@@ -49,7 +50,6 @@ export async function getEffectiveSubscription(input: { businessId: string; data
 }
 
 export async function hasActiveBusinessSubscription(input: { businessId: string; database?: PrismaClient; now?: Date }) {
-  // Booking/transaction eligibility historically accepts a valid internal term;
-  // it must not be confused with unlocking the paid-plan feature catalog.
-  return Boolean(await getEffectiveSubscription({ ...input, paidPlansOnly: false }));
+  // Booking requires a supported paid term; a FREE access grant does not unlock it.
+  return Boolean(await getEffectiveSubscription({ ...input, paidPlansOnly: true }));
 }

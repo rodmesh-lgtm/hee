@@ -1,4 +1,5 @@
 import "server-only";
+import { reserveTemplateProcessing } from "../commercial-usage";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { connectorOnline } from "./camera-profiles";
@@ -49,6 +50,7 @@ export async function sendLiveViewWhatsApp(input: Input, deps: Dependencies = {}
     // Revalidate immediately before the external side effect, including rotation.
     const current = await database.liveViewSession.findFirst({ where: { id: input.sessionId, businessId: input.businessId, tokenHash: capability.hash, endedAt: null, expiresAt: { gt: new Date() }, station: { enabled: true }, business: { deletedAt: null } }, select: { id: true } });
     if (!current) { await database.whatsAppAuditLog.update({ where: { id: receiptId }, data: { outcome: "cancelled" } }); throw new Error("LIVE_SESSION_UNAVAILABLE"); }
+    await reserveTemplateProcessing(input.businessId,receiptId,database);
     response = await (deps.fetcher ?? fetch)(metaWhatsAppGraphUrl(config, `${template.connection.phoneNumberId}/messages`), { method: "POST", cache: "no-store", signal: AbortSignal.timeout(15_000), headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: phone, type: "template", template: { name: template.name, language: { code: template.language }, components: liveViewTemplateParameters(claim.session.customerName, claim.session.business.name, claim.session.reference, input.watchPath) } }) });
   } catch (error) {
     if (error instanceof Error && error.message === "LIVE_SESSION_UNAVAILABLE") throw error;

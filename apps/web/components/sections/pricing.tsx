@@ -1,28 +1,9 @@
+import { COMMERCIAL_PLANS } from "../../app/lib/commercial-plans";
 import { Container } from "../shared/container";
 import { Heading } from "../shared/heading";
 import { PricingCard } from "../shared/pricing-card";
 
-const plans = [
-  {
-    title: "الباقة الأساسية",
-    price: "مجانية",
-    description: "للمشاريع الصغيرة والاختبارات المبكرة.",
-    features: ["صفحة احترافية", "منتجات محددة", "دعم أساسي"],
-  },
-  {
-    title: "الباقة الاحترافية",
-    price: "299 ريال",
-    description: "الأنسب لرواد الأعمال الذين يحتاجون سرعة وسهولة.",
-    featured: true,
-    features: ["كل ما في الأساسية", "أدوات إدارة متقدمة", "إدارة العروض", "تصميم مخصص"],
-  },
-  {
-    title: "الباقة التوسعية",
-    price: "599 ريال",
-    description: "للمتاجر التي تحتاج توسعاً وأكثر من واجهة واحدة.",
-    features: ["كل ما في الاحترافية", "إدارة فريق", "تقارير أساسية", "تحسينات مخصصة"],
-  },
-];
+const plans=COMMERCIAL_PLANS.map(p=>({title:p.name,price:p.monthlyPrice?`${p.monthlyPrice} ريال / شهر`:"مجانية",description:p.description,featured:p.featured,features:[...p.features]}));
 
 export function PricingSection() {
   return (
@@ -35,7 +16,7 @@ export function PricingSection() {
           align="start"
         />
 
-        <div className="mt-10 grid gap-5 lg:grid-cols-3">
+        <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => (
             <PricingCard
               key={plan.title}

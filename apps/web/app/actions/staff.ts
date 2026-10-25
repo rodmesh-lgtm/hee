@@ -1,5 +1,6 @@
 "use server";
 
+import { assertStaffCapacity,CommercialLimitError } from "../lib/commercial-usage";
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -37,6 +38,7 @@ export async function inviteStaffAction(_state: StaffActionState, form: FormData
     const inviteUrl = `${origin}/join-team?token=${token}`;
     const row = await db.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`staff-invite:${business.id}:${email}`}))`;
+      await assertStaffCapacity(tx,business.id,email);
       await tx.oAuthState.deleteMany({ where: { provider: STAFF_INVITE_PROVIDER, nonce: business.id, redirectTo: email } });
       const created = await tx.oAuthState.create({ data: { provider: STAFF_INVITE_PROVIDER, nonce: business.id, state: inviteHash(token), redirectTo: email, codeVerifier: JSON.stringify({ name, email, permissions, role: safeRole(form) }), expiresAt: new Date(Date.now() + 7 * 86400_000) } });
       await tx.whatsAppAuditLog.create({ data: { businessId: business.id, actorUserId: user.id, action: "staff.invited", targetType: "staff-invitation", targetId: created.id, outcome: "success" } });
@@ -51,7 +53,7 @@ export async function inviteStaffAction(_state: StaffActionState, form: FormData
     }
     revalidatePath("/dashboard/staff");revalidatePath("/Laundromat/Staff");
     return { success: sent ? "أُرسلت الدعوة إلى بريد الموظف. يمكنه إنشاء حسابه وقبولها." : "تم إنشاء الدعوة. انسخ الرابط وأرسله للموظف لإكمال حسابه.", inviteUrl };
-  } catch { return { error: "تعذر إنشاء الدعوة الآن. حاول مرة أخرى." }; }
+  } catch(error) { return { error:error instanceof CommercialLimitError?error.message:"تعذر إنشاء الدعوة الآن. حاول مرة أخرى." }; }
 }
 
 export async function updateStaffAction(_state: StaffActionState, form: FormData): Promise<StaffActionState> {
@@ -62,6 +64,8 @@ export async function updateStaffAction(_state: StaffActionState, form: FormData
   if (!["active", "suspended", "revoked"].includes(status)) return { error: "حالة غير صحيحة." };
   try {
     const updated = await db.$transaction(async tx => {
+      const current=await tx.businessMember.findFirst({where:{id,businessId:business.id},select:{status:true}});
+      if(status==="active"&&current?.status!=="active")await assertStaffCapacity(tx,business.id,undefined,id);
       const result = await tx.businessMember.updateMany({ where: { id, businessId: business.id, userId: { not: user.id } }, data: { status, permissions: staffSections(form.getAll("permissions")), role: safeRole(form) } });
       if (result.count) await tx.whatsAppAuditLog.create({ data: { businessId: business.id, actorUserId: user.id, action: "staff.permissions.updated", targetType: "business-member", targetId: id, outcome: "success", metadata: { status } } });
       return result.count;
@@ -70,7 +74,7 @@ export async function updateStaffAction(_state: StaffActionState, form: FormData
     revalidatePath("/dashboard", "layout");
     revalidatePath("/Laundromat/Staff");
     return { success: "تم تحديث صلاحيات الموظف. تطبّق عند كل طلب جديد." };
-  } catch { return { error: "تعذر حفظ الصلاحيات الآن." }; }
+  } catch(error) { return { error:error instanceof CommercialLimitError?error.message:"تعذر حفظ الصلاحيات الآن." }; }
 }
 
 export async function revokeStaffInvitationAction(form: FormData) {
@@ -102,6 +106,7 @@ export async function acceptStaffInvitationAction(form: FormData) {
     const existing = await tx.businessMember.findUnique({ where: { businessId_userId: { businessId: pending.nonce, userId: user.id } } });
     // A stale invitation cannot reactivate a member whose owner has suspended/revoked access.
     if (existing) return false;
+    try{await assertStaffCapacity(tx,pending.nonce,data.email);}catch(error){if(error instanceof CommercialLimitError)return false;throw error;}
     const member = await tx.businessMember.create({ data: { businessId: pending.nonce, userId: user.id, role: data.role, permissions: data.permissions, status: "active" } });
     await tx.oAuthState.delete({ where: { id: pending.id } });
     await tx.whatsAppAuditLog.create({ data: { businessId: pending.nonce, actorUserId: user.id, action: "staff.joined", targetType: "business-member", targetId: member.id, outcome: "success" } });
