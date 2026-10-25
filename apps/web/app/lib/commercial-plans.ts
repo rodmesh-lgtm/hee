@@ -8,4 +8,4 @@ export const COMMERCIAL_PLANS = [
 export const PUBLIC_PAID_PLAN_CODES=["OPERATE","GROWTH","SCALE"] as const;
 export const SUPPORTED_PAID_PLAN_CODES=["BUSINESS","PRO",...PUBLIC_PAID_PLAN_CODES] as const;
 export function isPublicPaidPlan(code:string):boolean{return PUBLIC_PAID_PLAN_CODES.some(value=>value===code);}
-export const PLAN_BILLING_NOTE="رسوم Meta مستقلة وتُدفع من حساب المنشأة. حصص الرسائل تخص معالجة INFRO وتشمل الرسائل التشغيلية والتسويقية بحسب الباقة. الأجهزة والطابعة ومدى والكاميرات والتركيب ليست ضمن الاشتراك. حصص الشهر بتوقيت الرياض، ولا توجد رسوم تجاوز تلقائية. التوثيق بعد المراجعة، وربط الأجهزة والخدمات الخارجية يتطلب تهيئتها واختبارها.";
+export const PLAN_BILLING_NOTE="رسوم Meta مستقلة وتُدفع من حساب المنشأة. حصص الرسائل تخص معالجة INFRO وتشمل الرسائل التشغيلية والتسويقية بحسب الباقة. الأجهزة والطابعة ومدى والكاميرات والتركيب ليست ضمن الاشتراك. الفروع للهوية والمواعيد والمحاسبة على مستوى المنشأة. المساعدة الذكية السحابية غير مشمولة في الباقات الجديدة حاليًا. حصص الشهر بتوقيت الرياض، ولا توجد رسوم تجاوز تلقائية. التوثيق بعد المراجعة، وربط الأجهزة والخدمات الخارجية يتطلب تهيئتها واختبارها.";

@@ -1,3 +1,4 @@
+import { getEffectiveSubscription } from "../../lib/subscription-entitlement";
 import { HistoryResetLink } from "../../../components/dashboard/history-reset-link";
 import { HistoryPagination } from "../../../components/dashboard/history-pagination";
 import { HISTORY_PAGE_SIZE, historyPage, historyQuery } from "../../lib/history-navigation";
@@ -50,8 +51,9 @@ export default async function BusinessNotesPage({searchParams}:{searchParams:Pro
       LIMIT ${HISTORY_PAGE_SIZE} OFFSET ${(page-1)*HISTORY_PAGE_SIZE}`);
     return {filtered,matching,page,pages,counts:{active:Number(stats.active),draft:Number(stats.draft),archived:Number(stats.archived),pinned:Number(stats.pinned),followUp:Number(stats.followUp),attention:Number(stats.attention)}};
   },{isolationLevel:Prisma.TransactionIsolationLevel.RepeatableRead});
-  const voiceAvailable=businessVoiceAiReady();
-  const memoryAiAvailable=businessMemoryAiReady();
+  const aiTerm=await getEffectiveSubscription({businessId:business.id});
+  const voiceAvailable=Boolean(aiTerm?.plan.aiEnabled)&&businessVoiceAiReady();
+  const memoryAiAvailable=Boolean(aiTerm?.plan.aiEnabled)&&businessMemoryAiReady();
   return <div dir="rtl" className="space-y-6 pb-10">
     <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-[#07181b] p-6 text-white shadow-sm sm:p-7"><div className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#00d8c6]/15 blur-3xl"/><div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="mb-3 flex items-center gap-2 text-[10px] font-black tracking-[.16em] text-[#4ee7d4]"><BriefcaseBusiness className="h-4 w-4"/>INFRO BUSINESS MEMORY</div><h1 className="text-2xl font-black sm:text-3xl">مذكرات الأعمال</h1><p className="mt-2 max-w-3xl text-sm leading-7 text-slate-300">ذاكرة تشغيلية للمنشأة: اجتماعات، قرارات، عملاء، موردون، مالية وتشغيل — مع نتيجة واضحة وخطوة تالية قابلة للتحويل إلى تذكير.</p></div><div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-bold text-[#a8f2e8]"><ShieldCheck className="h-4 w-4"/>خاصة بالمنشأة النشطة</div></div></header>
     <Notice params={params}/>
