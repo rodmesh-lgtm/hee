@@ -7,7 +7,7 @@ const homepage = readFileSync(resolve(process.cwd(), "components/homepage-profes
 const page = readFileSync(resolve(process.cwd(), "app/page.tsx"), "utf8");
 
 test("homepage exposes a navigable and visible About INFRO section", () => {
-  assert.match(homepage, /href="#about">عن INFRO/);
+  assert.match(homepage, /href="#about">\{t\("عن INFRO"\)\}/);
   assert.match(homepage, /<section id="about" aria-labelledby="about-title"/);
   assert.match(homepage, /INFRO مشروع تقني سعودي/);
   assert.match(homepage, /هوية أعمال رقمية وتسويقية موثوقة ومنظمة/);

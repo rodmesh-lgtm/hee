@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import type { AppLocale } from "../app/lib/i18n";
+import { homepageText } from "../app/lib/homepage-i18n";
 import { useEffect, useRef } from "react";
 import { ArrowUpLeft } from "lucide-react";
 
@@ -8,7 +10,8 @@ import { ArrowUpLeft } from "lucide-react";
 const PHONE_WIDTH = 390;
 const PHONE_HEIGHT = 844;
 
-export function HomePhonePreview() {
+export function HomePhonePreview({ locale = "ar" }: { locale?: AppLocale }) {
+  const t = (text: string) => homepageText(locale, text);
   const screenRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
 
@@ -26,7 +29,7 @@ export function HomePhonePreview() {
   }, []);
 
   return (
-    <figure className="mx-auto w-full max-w-[320px]" aria-label="معاينة صفحة العميل داخل هاتف">
+    <figure className="mx-auto w-full max-w-[320px]" aria-label={t("معاينة صفحة العميل داخل هاتف")}>
       <div className="infro-phone-frame rounded-[44px] border border-slate-600 bg-[#102329] p-2 shadow-[0_32px_65px_-28px_rgba(7,24,27,.45)] ring-1 ring-white/60">
         <div className="flex h-6 items-center justify-center" aria-hidden="true">
           <span className="h-1 w-12 rounded-full bg-slate-500/60" />
@@ -35,7 +38,7 @@ export function HomePhonePreview() {
           <iframe
             ref={frameRef}
             src="/demo"
-            title="نموذج صفحة عميل INFRO"
+            title={t("نموذج صفحة عميل INFRO")}
             width={PHONE_WIDTH}
             height={PHONE_HEIGHT}
             tabIndex={-1}
@@ -49,10 +52,9 @@ export function HomePhonePreview() {
         </div>
       </div>
       <figcaption className="mt-4 text-center">
-        <Link href="/demo" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#cfe5e1] bg-white px-4 text-sm font-bold text-[#07545d] shadow-sm hover:bg-[#effbf9]">
-          استكشف صفحة العميل <ArrowUpLeft className="h-4 w-4" aria-hidden="true" />
+        <Link href="/demo" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#cfe5e1] bg-white px-4 text-sm font-bold text-[#07545d] shadow-sm hover:bg-[#effbf9]">{t("استكشف صفحة العميل")}<ArrowUpLeft className="h-4 w-4" aria-hidden="true" />
         </Link>
-        <p className="mt-1 text-xs text-slate-500">صفحة نموذجية ببيانات توضيحية</p>
+        <p className="mt-1 text-xs text-slate-500">{t("صفحة نموذجية ببيانات توضيحية")}</p>
       </figcaption>
     </figure>
   );
