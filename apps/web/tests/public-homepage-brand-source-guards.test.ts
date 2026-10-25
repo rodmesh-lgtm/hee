@@ -25,7 +25,7 @@ test("public homepage exposes INFRO as the product brand while preserving ir.sa 
   assert.match(homepageSource, /منصة INFRO/);
   assert.match(homepageSource, /صُممت INFRO/);
   assert.match(homepageSource, /على INFRO/);
-  assert.match(homepageSource, /صفحة أعمال INFRO/);
+  assert.match(homepageSource, /شاهد صفحة أعمال نموذجية/);
   assert.match(homepageSource, /ir\.sa\//);
 
   for (const legacyVisibleCopy of [
