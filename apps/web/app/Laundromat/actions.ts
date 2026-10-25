@@ -1,4 +1,6 @@
 "use server";
+import { cashierUrgentEnabled,hasClothingCatalogue } from "../lib/cashier-settings";
+import { normalizePageModulesForPersistence } from "../lib/page-modules";
 import { enqueueLaundryReady } from "../lib/whatsapp/laundry-ready";
 import { quoteSubscriberOrder,type SubscriberBalance } from "../lib/accounting-packages";
 import { collectionAllocations } from "../lib/accounting-collection";
@@ -18,6 +20,7 @@ const command = z.discriminatedUnion("type", [
   z.object({type:z.literal("product"),requestId:key,name:z.string().trim().min(2).max(80),category:z.string().trim().min(2).max(50),wash_iron:z.string(),iron:z.string()}),
   z.object({type:z.literal("catalog"),requestId:key,operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),items:z.array(z.object({presetId:z.string().max(50),operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),price:z.string()})).min(1).max(120)}),
   z.object({ type: z.literal("service"), name: z.string().trim().min(2).max(100), category: z.string().trim().min(2).max(50), price: z.string(), requestId: key }),
+  z.object({type:z.literal("urgent-settings"),enabled:z.boolean(),requestId:key}),
   z.object({ type:z.literal("urgent-price"),id:key,price:z.string(),requestId:key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
   z.object({ type: z.literal("order"), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
@@ -31,16 +34,27 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
   const user = await getCurrentUserForApiWrite();
   if (!user) return {ok:false,error:"يرجى تسجيل الدخول بحساب موثّق"};
   const business = await getActiveBusinessForUser(user.id,"laundry");
-  if (!business) return {ok:false,error:"ليس لديك صلاحية كاشير المغسلة"};
+  if (!business) return {ok:false,error:"ليس لديك صلاحية كاشير المنشأة"};
   const scope=z.object({businessId:key}).safeParse(value);
   if(!scope.success || scope.data.businessId!==business.id) return {ok:false,error:"تغيرت المنشأة النشطة. حدّث الصفحة قبل حفظ العملية."};
   const data = parsed.data;
   if (["service","catalog","product","archive","expense","urgent-price"].includes(data.type) && business.ownerId !== user.id) return {ok:false,error:"هذه العملية متاحة لمالك المنشأة فقط"};
+  if(data.type==="urgent-settings"&&business.ownerId!==user.id)return {ok:false,error:"إعداد خيارات الخدمة متاح للمالك فقط"};
   try {
     const result = await db.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${business.id}`}))`;
       let id = "";
-      if (data.type === "catalog" || data.type === "product") {
+      if(data.type==="urgent-settings") {
+        id=data.requestId;
+        const replay=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryAudit" WHERE "businessId"=${business.id} AND id=${id} AND action='urgent-settings'`;
+        if(replay.length)return {id};
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`page-modules:${business.id}`}))`;
+        const current=await tx.business.findFirst({where:{id:business.id,ownerId:user.id,deletedAt:null},select:{pageModules:true,businessType:true,updatedAt:true}});
+        if(!current)throw new LaundryInputError("المنشأة غير متاحة");
+        const modules=normalizePageModulesForPersistence(current.pageModules,current.businessType).map(module=>module.id==="contact"?{...module,config:{...module.config,cashierUrgentEnabled:data.enabled}}:module);
+        const changed=await tx.business.updateMany({where:{id:business.id,ownerId:user.id,deletedAt:null,updatedAt:current.updatedAt},data:{pageModules:JSON.parse(JSON.stringify(modules))}});
+        if(changed.count!==1)throw new LaundryInputError("تغيرت الإعدادات؛ حدّث الصفحة وأعد المحاولة");
+      } else if (data.type === "catalog" || data.type === "product") {
         id=data.requestId;
         const replay=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "LaundryAudit" WHERE "businessId"=${business.id} AND "id"=${id} AND "action"=${data.type}`;
         if(replay.length)return {id};
@@ -86,6 +100,10 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         const dueAt=new Date(data.dueAt);
         if(dueAt.getTime()<Date.now()-60000 || dueAt.getTime()>Date.now()+366*86400000) throw new LaundryInputError("حدد موعد تسليم قادمًا خلال سنة");
         const catalog=await tx.$queryRaw<LaundryService[]>`SELECT s.*,u.price AS "urgentPrice" FROM "LaundryService" s LEFT JOIN "LaundryService" u ON u.id='urgent:'||s.id AND u."businessId"=s."businessId" AND u.active=TRUE WHERE s."businessId"=${business.id} AND s.active=TRUE AND s.id NOT LIKE 'urgent:%'`;
+        const current=await tx.business.findFirst({where:{id:business.id,deletedAt:null},select:{pageModules:true,businessType:true,businessCategory:true}});
+        if(!current)throw new LaundryInputError("المنشأة غير متاحة");
+        const supportsUrgent=cashierUrgentEnabled(current.pageModules,current,hasClothingCatalogue(catalog));
+        if(data.serviceSpeed==="urgent"&&!supportsUrgent)throw new LaundryInputError("خيار المستعجل غير مفعّل لهذا النشاط؛ حدّث الصفحة وراجع الطلب");
         let lines=laundryPricedLines(data.items,catalog,data.serviceSpeed);const paid=moneyToHalalas(data.paid);
         if((data.serviceSpeed==="urgent"&&!data.priceToken)||(data.priceToken!==undefined&&data.priceToken!==laundryPriceToken(lines)))throw new LaundryInputError("تغيرت أسعار الطلب؛ حدّث الصفحة وراجع أسعار المنيو قبل الحفظ");
         let total=lines.reduce((s,x)=>s+x.total,0);
@@ -101,7 +119,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           if(data.subscriptionCovered!==quote.covered||(data.subscriptionToken!==undefined&&data.subscriptionToken!==quote.token)||(quote.allocations.some(a=>a.units>0)&&data.subscriptionToken===undefined))throw new LaundryInputError("تغير رصيد الاشتراك أو تفاصيل الباقة. أعد قراءة الرصيد قبل حفظ الطلب");
           lines=quote.lines;total=quote.total;
         }
-        await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${customer.phone},${customer.id},${JSON.stringify(withLaundryServiceSpeed(lines,data.serviceSpeed))}::jsonb,${total},${paid},${dueAt},${data.notes},${user.id})`;
+        await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${customer.phone},${customer.id},${JSON.stringify(supportsUrgent?withLaundryServiceSpeed(lines,data.serviceSpeed):lines)}::jsonb,${total},${paid},${dueAt},${data.notes},${user.id})`;
         await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"order",amount:total,at:new Date(),description:`استلام طلب #${rows[0].number}`});
         if(quote){
           for(const allocation of quote.allocations){
@@ -149,7 +167,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           if(data.status==="delivered")await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"delivery",amount:ticket.total,at:new Date(),description:`إيراد تسليم طلب #${ticket.number}`});
         }
       }
-      await tx.$executeRaw`INSERT INTO "LaundryAudit" ("id","businessId","actorId","action","targetId") VALUES (${(data.type==="catalog"||data.type==="product"||data.type==="urgent-price")?data.requestId:randomUUID()},${business.id},${user.id},${data.type},${id})`;
+      await tx.$executeRaw`INSERT INTO "LaundryAudit" ("id","businessId","actorId","action","targetId") VALUES (${(data.type==="catalog"||data.type==="product"||data.type==="urgent-price"||data.type==="urgent-settings")?data.requestId:randomUUID()},${business.id},${user.id},${data.type},${id})`;
       return {id};
     },{timeout:15000});
     revalidatePath("/Laundromat");revalidatePath("/Accounting");
