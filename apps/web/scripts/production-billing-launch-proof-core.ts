@@ -1,3 +1,4 @@
+import { SUPPORTED_PAID_PLAN_CODES } from "../app/lib/commercial-plans";
 export type RehearsalCandidate = {
   userId: string;
   email: string;
@@ -110,7 +111,7 @@ export function assertPaidRehearsalProof(input: {
   if (!row.subscriptionId || row.subscriptionStatus !== "active") throw new Error("Paid rehearsal did not create an active subscription");
   if (row.subscriptionProvider !== "moyasar" || row.subscriptionProviderReference !== row.providerPaymentId) throw new Error("Subscription is not bound to the settled Moyasar payment");
   if (row.businessPlanId !== row.planId) throw new Error("Business entitlement plan does not match the paid plan");
-  if (!new Set(["BUSINESS", "PRO"]).has(row.planCode) || !row.planIsActive) throw new Error("Paid rehearsal target plan is not an active public paid plan");
+  if (!new Set<string>(SUPPORTED_PAID_PLAN_CODES).has(row.planCode) || !row.planIsActive) throw new Error("Paid rehearsal target plan is not an active public paid plan");
   if (!row.subscriptionEndsAt || time(row.subscriptionEndsAt) <= now.getTime()) throw new Error("Paid rehearsal subscription has no future paid-through date");
 
   if (!row.subscriptionAutoRenew || !row.subscriptionPaymentMethodId) throw new Error("Paid rehearsal did not establish auto-renew with a stored payment method");

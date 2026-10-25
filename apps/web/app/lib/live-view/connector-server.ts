@@ -1,4 +1,5 @@
 import "server-only";
+import { commercialAccess } from "../commercial-access";
 import { db } from "../db";
 import { liveTokenHash, validLiveToken } from "./policy";
 import { liveGatewayConfig } from "./gateway";
@@ -20,6 +21,7 @@ export async function connectorForRequest(request: Request) {
   if(!validLiveToken(token)) return null;
   const connector=await db.liveViewConnector.findUnique({ where:{tokenHash:liveTokenHash(token)},include:{business:{select:{deletedAt:true}}} });
   if(!connector || connector.revokedAt || !connector.enrolledAt || connector.business.deletedAt) return null;
+  if(!(await commercialAccess(connector.businessId)).liveView)return null;
   const rate=await consumePublicWriteLimit({businessId:connector.businessId,scope:"live-connector-api",identity:connector.id,limit:100,windowSeconds:60});
   return rate.allowed ? connector : null;
 }

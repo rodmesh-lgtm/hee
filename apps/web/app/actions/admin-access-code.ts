@@ -1,4 +1,5 @@
 "use server";
+import { ensureCommercialCatalog } from "../lib/commercial-catalog";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -32,9 +33,10 @@ export async function createSubscriptionAccessCodeAdminAction(
   if (expiresAt && (!Number.isFinite(expiresAt.getTime()) || expiresAt <= new Date())) {
     return { status: "error", message: "يجب أن يكون تاريخ انتهاء إنشاء الاستخدامات في المستقبل." };
   }
+  await db.$transaction(tx=>ensureCommercialCatalog(tx));
   const plan = await db.businessPlan.findFirst({ where: { code: planCode, isActive: true }, select: { id: true, code: true } });
   if (!plan || plan.code.toUpperCase() === "FREE") return { status: "error", message: "الباقة المختارة غير صالحة لهذا النوع من الأكواد." };
-  if (!isSupportedPaidPlan(plan.code)) return { status: "error", message: "هذه الباقة لا تملك تعريفًا معتمدًا للميزات. اختر Business أو Pro." };
+  if (!isSupportedPaidPlan(plan.code)) return { status: "error", message: "هذه الباقة لا تملك تعريفًا معتمدًا للميزات. اختر باقة تشغيل أو نمو أو شاملة معرّفة." };
 
   const plaintext = `INFRO-${randomBytes(12).toString("hex").toUpperCase()}`;
   await db.subscriptionAccessCode.create({
@@ -92,4 +94,11 @@ export async function revokeSubscriptionAccessCodeAdminAction(formData: FormData
     }
   });
   redirect("/admin/access-codes?access=revoked");
+}
+
+export async function publishCommercialCatalogAction(){
+ await requireAdmin();
+ await db.$transaction(tx=>ensureCommercialCatalog(tx));
+ revalidatePath("/admin/access-codes");revalidatePath("/dashboard/plans");
+ redirect("/admin/access-codes?access=catalog-published");
 }

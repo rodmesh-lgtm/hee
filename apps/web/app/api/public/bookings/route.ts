@@ -1,3 +1,4 @@
+import { assertBookingCapacity,CommercialLimitError } from "../../../lib/commercial-usage";
 import { Prisma } from "@prisma/client";
 import { after, NextResponse } from "next/server";
 import { db } from "../../../lib/db";
@@ -772,6 +773,7 @@ export async function POST(request: Request) {
           notes: notes || null,
           status: "pending",
       };
+      if(!managedBooking)await assertBookingCapacity(tx,business.id);
       const booking = managedBooking ? await tx.booking.update({where:{id:managedBooking.id},data:bookingData,select:{id:true}}) : await tx.booking.create({data:bookingData,select:{id:true}});
       if(manage) {
         await cancelWhatsAppAppointmentReminders({database:tx,businessId:business.id,bookingId:booking.id});
@@ -878,6 +880,7 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ ok: true, bookingId: result.id, replayed: result.replayed, rescheduled: Boolean(manage), whatsappConfirmationQueued: Boolean(result.confirmationEventId) }, { status: result.replayed || manage ? 200 : 201 });
   } catch (error) {
+    if(error instanceof CommercialLimitError)return NextResponse.json({ok:false,error:error.message},{status:409});
     if(error instanceof Error && error.message === "PUBLIC_BOOKING_VERIFICATION_EXPIRED") return NextResponse.json({ok:false,error:"تغير الموعد أو انتهى التحقق؛ اطلب رمزًا جديدًا"},{status:401});
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_SLOT_FULL") {
       return NextResponse.json({ ok: false, error: "اكتملت سعة هذه الفترة. اختر الفترة التالية المتاحة." }, { status: 409 });

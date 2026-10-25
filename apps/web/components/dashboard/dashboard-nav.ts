@@ -52,7 +52,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { group: "growth", keywords: "إحصائيات تقارير تحليلات زيارات", label: "الأداء", href: "/dashboard/analytics", icon: BarChart3 },
   { group: "account", keywords: "تواصل دعم مساعدة مشكلة", label: "الدعم والمساعدة", href: "/dashboard/support", icon: LifeBuoy },
   { group: "account", keywords: "فريق مستخدمين موظف صلاحية", label: "الموظفون والصلاحيات", href: "/dashboard/staff", icon: UsersRound },
-  { group: "account", keywords: "إعدادات بريد ايميل جوال اسم اشتراك فاتورة دفع", label: "الحساب والباقات", href: "/dashboard/settings", icon: Settings2, activePrefixes: ["/dashboard/billing", "/dashboard/account-deletion"] },
+  { group: "account", keywords: "إعدادات بريد ايميل جوال اسم اشتراك فاتورة دفع", label: "الحساب والباقات", href: "/dashboard/settings", icon: Settings2, activePrefixes: ["/dashboard/billing", "/dashboard/plans", "/dashboard/account-deletion"] },
 ];
 
 function normalizeNavSearch(value: string) {

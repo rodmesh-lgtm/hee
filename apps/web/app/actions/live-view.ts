@@ -1,4 +1,5 @@
 "use server";
+import { commercialAccess } from "../lib/commercial-access";
 import { liveViewRecipientPhone } from "../lib/live-view/whatsapp-domain";
 import { sendLiveViewWhatsAppAction } from "./live-view-whatsapp";
 import { liveStationReadiness } from "../lib/live-view/readiness";
@@ -37,12 +38,12 @@ export async function createLiveStationAction(_: LiveViewState, form: FormData):
     await db.$transaction(async tx => {
       // Serialize the per-business station limit.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`live-view-business:${who.business.id}`}))`;
-      if (await tx.liveViewStation.count({ where: { businessId: who.business.id } }) >= 100) throw new Error("LIMIT");
+      if (await tx.liveViewStation.count({ where: { businessId: who.business.id } }) >=(await commercialAccess(who.business.id,tx)).liveCameraLimit) throw new Error("LIMIT");
       const station = await tx.liveViewStation.create({ data: { businessId: who.business.id, name, location, kind, streamKey: randomBytes(16).toString("hex") } });
       await audit(tx, who.business.id, who.user.id, "station.created", station.id);
     });
     revalidatePath("/dashboard/live-view"); return { success: "أُضيفت المحطة. اربط مسارها في بوابة البث ثم افحص الاتصال." };
-  } catch { return { error: "تعذرت إضافة المحطة. الحد الحالي 100 محطة لكل منشأة." }; }
+  } catch { return { error: "تعذرت إضافة المحطة. راجع عدد الكاميرات المتاح ضمن باقتك." }; }
 }
 export async function checkLiveStationAction(_: LiveViewState, form: FormData): Promise<LiveViewState> {
   const who = await actor(); if (!who) return { error: "غير مصرح أو محاولات كثيرة." };

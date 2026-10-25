@@ -1,4 +1,5 @@
 import "server-only";
+import { commercialAccess } from "./commercial-access";
 
 import { cookies, headers } from "next/headers";
 import { db } from "./db";
@@ -28,7 +29,12 @@ async function requestedBusinessId() {
 export async function getActiveBusinessForUser(userId: string, section?: StaffSection) {
   if (section) {
     const business = await getDashboardBusinessForUser(userId);
-    return business && (business.ownerId === userId || memberCanAccess(business.members[0]?.permissions, section)) ? business : null;
+    if(!business || !(business.ownerId===userId || memberCanAccess(business.members[0]?.permissions,section)))return null;
+    if(section==="liveView"||section.startsWith("laundry")){
+      const plan=await commercialAccess(business.id);
+      if(section==="liveView"?!plan.liveView:!plan.cashier)return null;
+    }
+    return business;
   }
   const requestedId = await requestedBusinessId();
   if (requestedId) {

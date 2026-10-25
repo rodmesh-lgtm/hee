@@ -14,8 +14,9 @@ test("active homepage publishes the same current monthly prices as the seeded pa
   const seed = source("prisma/seed.ts");
   assert.match(seed, /code: "BUSINESS"[^\n]*monthlyPrice: 199/);
   assert.match(seed, /code: "PRO"[^\n]*monthlyPrice: 399/);
-  assert.match(homepage, /199 ر\.س \/ شهر/);
-  assert.match(homepage, /399 ر\.س \/ شهر/);
+  assert.match(homepage, /COMMERCIAL_PLANS\.map/);
+  const catalogue=source("app/lib/commercial-plans.ts");
+  for(const price of [0,199,399,699])assert.ok(catalogue.includes(`monthlyPrice:${price}`));
 });
 
 test("active homepage does not market premium themes before those themes are actually launch-ready", () => {

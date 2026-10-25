@@ -1,15 +1,16 @@
+import { SUPPORTED_PAID_PLAN_CODES } from "../../app/lib/commercial-plans";
 import { db } from "../../app/lib/db";
 import { repairAccessCodePlanAdminAction } from "../../app/actions/admin-access-code-repair";
 
 export async function AccessCodePlanRepair() {
   const [codes, plans] = await Promise.all([
     db.subscriptionAccessCode.findMany({
-      where: { isActive: true, revokedAt: null, plan: { code: { notIn: ["FREE", "BUSINESS", "PRO"] } } },
+      where: { isActive: true, revokedAt: null, plan: { code: { notIn: ["FREE",...SUPPORTED_PAID_PLAN_CODES] } } },
       take: 100,
       orderBy: { createdAt: "desc" },
       select: { id: true, label: true, plan: { select: { name: true } }, grants: { where: { revokedAt: null }, select: { business: { select: { name: true, slug: true } } } } },
     }),
-    db.businessPlan.findMany({ where: { isActive: true, code: { in: ["BUSINESS", "PRO"] } }, select: { code: true, name: true }, orderBy: { monthlyPrice: "asc" } }),
+    db.businessPlan.findMany({ where: { isActive: true, code: { in: [...SUPPORTED_PAID_PLAN_CODES] } }, select: { code: true, name: true }, orderBy: { monthlyPrice: "asc" } }),
   ]);
   if (!codes.length) return null;
   return <section className="space-y-4 rounded-3xl border border-amber-200 bg-amber-50 p-5">
@@ -22,7 +23,7 @@ export async function AccessCodePlanRepair() {
       <label className="grid gap-2 text-sm font-bold">الباقة البديلة
         <select name="plan" required defaultValue="" className="min-h-11 rounded-xl border border-amber-300 bg-transparent px-3">
           <option value="" disabled>اختر الباقة المعتمدة</option>
-          {plans.map((plan) => <option key={plan.code} value={plan.code}>{plan.name} — {plan.code === "BUSINESS" ? "5 فروع و8 أعضاء فريق" : "فروع وأعضاء فريق غير محدودين"}</option>)}
+          {plans.map((plan) => <option key={plan.code} value={plan.code}>{plan.name} — {plan.code}</option>)}
         </select>
       </label>
       <button className="min-h-11 rounded-xl bg-[#07181b] px-4 text-sm font-bold text-white">تصحيح الكود والمنح النشطة</button>

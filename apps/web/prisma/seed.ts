@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { COMMERCIAL_PLANS } from "../app/lib/commercial-plans";
 
 import { hash } from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -15,6 +16,7 @@ const pool = new Pool({ connectionString: getDatabaseUrl() });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 const plans = [
+  ...COMMERCIAL_PLANS.filter(p=>p.code!=="FREE").map(p=>({code:p.code,name:p.name,monthlyPrice:p.monthlyPrice,productLimit:p.productLimit,aiEnabled:false,onlinePay:true})),
   { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, aiEnabled: false, onlinePay: false },
   { code: "BUSINESS", name: "Business", monthlyPrice: 199, productLimit: 10, aiEnabled: true, onlinePay: true },
   { code: "PRO", name: "Pro", monthlyPrice: 399, productLimit: 30, aiEnabled: true, onlinePay: true },

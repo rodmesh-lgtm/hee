@@ -1,4 +1,5 @@
 import "server-only";
+import { reserveTemplateProcessing } from "./commercial-usage";
 import { requireApprovedBookingAuthentication, sendBookingAuthentication, BookingProviderError } from "./booking-verification-provider";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -77,6 +78,7 @@ export async function requestBookingVerification(slug:string, rawPhone:unknown, 
     const now=new Date();const windowStart=new Date(Math.floor(now.getTime()/60000)*60000);const limit=outboundRateLimit();
     const slot=await db.$queryRaw<Array<{sentCount:number}>>`INSERT INTO "WhatsAppSendRateBucket" ("connectionId","businessId","windowStart","sentCount","updatedAt") VALUES (${current.id},${business.id},${windowStart},1,${now}) ON CONFLICT ("connectionId","windowStart") DO UPDATE SET "sentCount"="WhatsAppSendRateBucket"."sentCount"+1,"updatedAt"=${now} WHERE "WhatsAppSendRateBucket"."businessId"=${business.id} AND "WhatsAppSendRateBucket"."sentCount"<${limit} RETURNING "sentCount"`;
     if(!slot.length) throw new Error("RATE_LIMITED");
+    await reserveTemplateProcessing(business.id,challengeId);
     const messageId=await sendBookingAuthentication({url:metaWhatsAppGraphUrl(config,`${template.connection.phoneNumberId}/messages`),token,name:template.name,phone,code});
     await db.$executeRaw`UPDATE "BookingVisitorVerification" SET "status"='accepted',"providerMessageId"=${messageId} WHERE "id"=${challengeId} AND "businessId"=${business.id} AND "status"='pending' AND "expiresAt">CURRENT_TIMESTAMP`;
   } catch(error) {

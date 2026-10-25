@@ -1,3 +1,4 @@
+import { commercialAccess } from "../lib/commercial-access";
 import { invoiceContactPhone } from "../lib/invoice-contact";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -16,6 +17,7 @@ export default async function AccountingProgram({ searchParams }: { searchParams
   const user = await getCurrentUser();
   const business = user ? await getDashboardBusinessForUser(user.id) : null;
   if (!user || !business) return <main className="laundry-gate" dir="rtl"><h1>البرنامج المحاسبي</h1><p>سجّل الدخول واختر منشأتك للوصول إلى حساباتها.</p><Link href={user ? "/dashboard" : "/login"}>{user ? "اختيار المنشأة" : "تسجيل الدخول"}</Link></main>;
+  if(!(await commercialAccess(business.id)).cashier)return <main className="laundry-gate" dir="rtl"><h1>الكاشير والبرنامج المحاسبي</h1><p>هذه الخدمات ضمن باقات التشغيل والنمو والشاملة. الهوية مجانية دون مواعيد أو كاشير.</p><Link href="/dashboard/plans">مقارنة الباقات والترقية</Link></main>;
   const owner = business.ownerId === user.id;
   const views = allowedAccountingViews(owner, business.members[0]?.permissions);
   if (!views.length) return <main className="laundry-gate" dir="rtl"><h1>تحتاج صلاحية البرنامج المحاسبي</h1><p>يحدد مالك المنشأة مهامك من الموظفين والصلاحيات.</p><Link href="/dashboard">لوحة التحكم</Link></main>;

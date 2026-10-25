@@ -1,4 +1,6 @@
 import "server-only";
+import { ensureCommercialCatalog } from "./commercial-catalog";
+import { COMMERCIAL_PLANS, isPublicPaidPlan } from "./commercial-plans";
 
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
@@ -83,7 +85,7 @@ function proratedUpgradeAmount(input: {
 
 export async function createBillingIntent(userId: string, businessId: string, requestedCode: string) {
   const requestedPlan = normalizePlanCode(requestedCode);
-  if (requestedPlan === "FREE") throw new Error("INVALID_PAID_PLAN");
+  if (!isPublicPaidPlan(requestedPlan)) throw new Error("INVALID_PAID_PLAN");
 
   return db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${billingBusinessLockKey(businessId)}))`;
@@ -93,8 +95,9 @@ export async function createBillingIntent(userId: string, businessId: string, re
     });
     if (!business) throw new Error("BUSINESS_NOT_FOUND");
 
+    await ensureCommercialCatalog(tx);
     const target = await tx.businessPlan.findUnique({ where: { code: requestedPlan } });
-    if (!target?.isActive || target.monthlyPrice <= 0) throw new Error("PLAN_UNAVAILABLE");
+    if (!target?.isActive || target.monthlyPrice <= 0 || target.monthlyPrice!==COMMERCIAL_PLANS.find(p=>p.code===requestedPlan)?.monthlyPrice) throw new Error("PLAN_UNAVAILABLE");
 
     const now = new Date();
     const currentSubscription = await getEffectiveSubscription({ businessId, database: tx, now });
@@ -273,7 +276,7 @@ export async function activateVerifiedMoyasarPayment(billingId: string, payment:
       FROM "Business" b
       JOIN "User" u ON u."id" = b."ownerId"
       JOIN "BusinessPlan" p ON p."id" = ${billing.planId} AND p."isActive" = true
-        AND p."code" IN ('BUSINESS','PRO')
+        AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE')
       WHERE b."id" = ${billing.businessId}
         AND b."deletedAt" IS NULL
         AND u."deletedAt" IS NULL

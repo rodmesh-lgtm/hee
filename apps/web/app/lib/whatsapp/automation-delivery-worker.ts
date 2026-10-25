@@ -1,4 +1,5 @@
 import "server-only";
+import { reserveTemplateProcessing } from "../commercial-usage";
 import { laundryReadyContext } from "./laundry-ready";
 import { laundryReadyEvent,laundryReadyTemplateSupported,LAUNDRY_READY_TEMPLATE_NAME } from "./laundry-ready-domain";
 
@@ -122,7 +123,8 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     await releaseAs(database, job, "failed", now, "WHATSAPP_AUTOMATION_DELIVERY_CONTEXT_MISSING");
     return { processed: true as const, result: "failed" as const, jobId: job.id };
   }
-  const entitled = context.run.event.triggerType === "booking_confirmation"
+  const operational=context.run.event.triggerType === "booking_confirmation" || context.run.event.triggerType === "laundry_ready";
+  const entitled = operational
     ? await hasActiveBusinessSubscription({ businessId: job.businessId, database, now })
     : await hasActiveWhatsAppMarketingEntitlement({ businessId: job.businessId, database, now });
   if (!entitled) {
@@ -139,7 +141,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   }
   const connectionPurposeActive = context.run.event.triggerType === "booking_confirmation"
     ? context.connection.bookingEnabled
-    : context.connection.marketingEnabled;
+    : context.run.event.triggerType==="laundry_ready"?(context.connection.marketingEnabled||context.connection.bookingEnabled):context.connection.marketingEnabled;
   if (!connectionPurposeActive) {
     await releaseAs(database, job, "cancelled", now, "WHATSAPP_CONNECTION_PURPOSE_INACTIVE");
     return { processed: true as const, result: "cancelled" as const, jobId: job.id };
@@ -289,6 +291,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
 
   const template: JsonRecord = { name: context.template.name, language: { code: context.template.language } };
   if (Array.isArray(context.templateParameters)) template.components = context.templateParameters;
+  try{await reserveTemplateProcessing(job.businessId,job.id,database);}catch{await releaseAs(database,job,"failed",now,"PLAN_USAGE_LIMIT");return {processed:true as const,result:"failed" as const,jobId:job.id};}
   let response: Response;
   try {
     response = await (input.fetcher ?? fetch)(metaWhatsAppGraphUrl(config, `${context.connection.phoneNumberId}/messages`), {
