@@ -32,7 +32,7 @@ export function nextLaundryStatus(current: LaundryStatus, next: LaundryStatus, o
   const sequence = Object.keys(LAUNDRY_STATUSES);
   return sequence.indexOf(next) === sequence.indexOf(current) + 1 && (next !== "delivered" || outstanding === 0);
 }
-export const laundryMoney = (amount: number) => (amount / 100).toLocaleString("ar-SA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const laundryMoney = (amount: number, locale = "ar-SA") => (amount / 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Service speed is part of the immutable JSON service snapshot, alongside its price.
 export function laundryServiceSpeed(lines:LaundryLine[]):LaundryServiceSpeed|undefined {

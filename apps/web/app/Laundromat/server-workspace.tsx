@@ -1,3 +1,4 @@
+import { UiText, UiAttributes } from "../../components/i18n/locale-provider";
 import { cashierUrgentEnabled, hasClothingCatalogue } from "../lib/cashier-settings";
 import { accountingActivity } from "../lib/accounting-program";
 import { invoiceContactPhone } from "../lib/invoice-contact";
@@ -12,9 +13,9 @@ import { LaundryWorkspace } from "./workspace";
 import "./laundry.css";
 export async function AccountingWorkspacePage({searchParams,basePath="/Laundromat"}:{searchParams:Promise<{q?:string;filter?:string}>;activity?:"laundry"|"general";basePath?:string}) {
   const user=await getCurrentUser();
-  if(!user)return <main className="laundry-gate" dir="rtl"><p>INFRO / ACCOUNTING</p><h1>مساحة عمل منشأتك</h1><p>الطلبات والفواتير وبيانات العملاء محمية بحساب المنشأة.</p><Link href="/login">تسجيل الدخول</Link><p>بعد الدخول افتح <Link href="/Laundromat">كاشير المنشأة</Link>.</p></main>;
+  if(!user)return <UiAttributes direction><main className="laundry-gate" dir="rtl"><p>INFRO / ACCOUNTING</p><h1><UiText>{"مساحة عمل منشأتك"}</UiText></h1><p><UiText>{"الطلبات والفواتير وبيانات العملاء محمية بحساب المنشأة."}</UiText></p><Link href="/login"><UiText>{"تسجيل الدخول"}</UiText></Link><p><UiText>{"بعد الدخول افتح"}</UiText><Link href="/Laundromat"><UiText>{"كاشير المنشأة"}</UiText></Link>.</p></main></UiAttributes>;
   const business=await getActiveBusinessForUser(user.id,"laundry");
-  if(!business)return <main className="laundry-gate" dir="rtl"><h1>تحتاج صلاحية كاشير المنشأة</h1><p>اختر المنشأة من لوحة التحكم، أو اطلب من مالكها إتاحة قسم كاشير المنشأة لحسابك.</p><Link href="/dashboard">العودة إلى لوحة التحكم</Link></main>;
+  if(!business)return <UiAttributes direction><main className="laundry-gate" dir="rtl"><h1><UiText>{"تحتاج صلاحية كاشير المنشأة"}</UiText></h1><p><UiText>{"اختر المنشأة من لوحة التحكم، أو اطلب من مالكها إتاحة قسم كاشير المنشأة لحسابك."}</UiText></p><Link href="/dashboard"><UiText>{"العودة إلى لوحة التحكم"}</UiText></Link></main></UiAttributes>;
   const owner=business.ownerId===user.id;
   const params=await searchParams;
   const q=String(params.q??"").trim().slice(0,100);

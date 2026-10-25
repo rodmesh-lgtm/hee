@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { AppLocale } from "../app/lib/i18n";
-import { homepageText } from "../app/lib/homepage-i18n";
+import { useI18n } from "./i18n/locale-provider";
 import { useEffect, useRef } from "react";
 import { ArrowUpLeft } from "lucide-react";
 
@@ -11,7 +11,7 @@ const PHONE_WIDTH = 390;
 const PHONE_HEIGHT = 844;
 
 export function HomePhonePreview({ locale = "ar" }: { locale?: AppLocale }) {
-  const t = (text: string) => homepageText(locale, text);
+  const { t } = useI18n();
   const screenRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
 
@@ -29,7 +29,7 @@ export function HomePhonePreview({ locale = "ar" }: { locale?: AppLocale }) {
   }, []);
 
   return (
-    <figure className="mx-auto w-full max-w-[320px]" aria-label={t("معاينة صفحة العميل داخل هاتف")}>
+    <figure lang={locale} className="mx-auto w-full max-w-[320px]" aria-label={t("معاينة صفحة العميل داخل هاتف")}>
       <div className="infro-phone-frame rounded-[44px] border border-slate-600 bg-[#102329] p-2 shadow-[0_32px_65px_-28px_rgba(7,24,27,.45)] ring-1 ring-white/60">
         <div className="flex h-6 items-center justify-center" aria-hidden="true">
           <span className="h-1 w-12 rounded-full bg-slate-500/60" />

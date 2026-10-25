@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { LOCALE_META, type AppLocale } from "../app/lib/i18n";
-import { uiText as homepageText } from "../app/lib/ui-i18n";
+import { useI18n } from "./i18n/locale-provider";
 import { ServiceDirectory } from "./service-directory";
 import { COMMERCIAL_PLANS, PLAN_BILLING_NOTE } from "../app/lib/commercial-plans";
 import styles from "./homepage-professional.module.css";
@@ -36,7 +36,7 @@ function Logo({ header = false }: { header?: boolean }) {
 }
 
 export function HomepageProfessional({ locale = "ar" }: { locale?: AppLocale }) {
-  const t = (text: string) => homepageText(locale, text);
+  const { t } = useI18n();
   const direction = LOCALE_META[locale].dir;
   const plans=COMMERCIAL_PLANS.map(plan=>({name:t(plan.name),price:plan.monthlyPrice ? `${plan.monthlyPrice} ${t("ر.س / شهر")}` : t("مجانية"),text:t(plan.description),items:plan.features.map(t),featured:plan.featured}));
   const design = usePlatformBrand();
