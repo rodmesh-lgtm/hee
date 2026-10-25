@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { LOCALE_COOKIE, LEGACY_LOCALE_COOKIE, localeCookieDomain, safeLocaleReturnTo, SUPPORTED_LOCALES, LOCALE_META } from "../app/lib/i18n";
 import { HOMEPAGE_TRANSLATIONS } from "../app/lib/homepage-i18n";
-import { uiText, UI_TRANSLATIONS } from "../app/lib/ui-i18n";
+import { localizeUiAttributes, uiFormat, uiText, UI_TRANSLATIONS } from "../app/lib/ui-i18n";
 import { SERVICE_GUIDES, serviceGuide } from "../app/lib/service-guides";
 import { SELLABLE_PLANS } from "../app/lib/commercial-plans";
 
@@ -37,10 +37,16 @@ test("dashboard navigation translates labels and searches both Arabic and the se
 });
 test("service routes are bounded, use canonical plan prices and disclose external activation requirements",()=>{
  assert.equal(serviceGuide("missing"),undefined);assert.equal(SERVICE_GUIDES.length,4);
- const page=read("app/services/[service]/page.tsx");assert.match(page,/if\(!guide\)notFound\(\)/);assert.match(page,/SELLABLE_PLANS.filter/);assert.match(page,/plan.monthlyPrice/);assert.doesNotMatch(page,/dangerouslySetInnerHTML/);
+ const page=read("app/services/[service]/page.tsx");assert.match(page,/if\(!guide\)notFound\(\)/);assert.match(page,/guide.planCodes.map\(code=>SELLABLE_PLANS.find/);assert.match(page,/plan.monthlyPrice/);assert.doesNotMatch(page,/dangerouslySetInnerHTML/);
  for(const guide of SERVICE_GUIDES)assert.ok(guide.requirements.length>80);
  assert.match(serviceGuide("whatsapp")!.requirements,/رسوم Meta منفصلة/);assert.match(serviceGuide("live-view")!.requirements,/RTSP/);
 });
 test("localized server copy never inserts a React component into an element attribute",()=>{
  for(const file of ["app/dashboard/page.tsx","components/dashboard/page-header.tsx","components/dashboard/empty-state.tsx","components/dashboard/stat-grid.tsx","components/dashboard/dashboard-section-page.tsx"]){const source=ts.createSourceFile(file,read(file),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);function visit(node:ts.Node){if(ts.isJsxAttribute(node)&&node.initializer)assert.ok(!node.initializer.getText(source).includes("<UiText>"),`${file}: localized component inside attribute`);ts.forEachChild(node,visit);}visit(source);}
+});
+
+test("UI attribute localization preserves form values, action references and payload identity",()=>{
+ const action=()=>{};const props={name:"category",value:"العربية",title:"الحالة","aria-label":"الحالة",placeholder:"الاسم",formAction:action,onClick:action,children:"نص العميل",disabled:true};
+ const localized=localizeUiAttributes("en",props);assert.equal(localized.title,"Status");assert.equal(localized["aria-label"],"Status");assert.equal(localized.placeholder,"Name");assert.equal(localized.value,props.value);assert.equal(localized.name,props.name);assert.equal(localized.children,props.children);assert.equal(localized.formAction,action);assert.equal(localized.onClick,action);assert.equal(localized.disabled,true);
+ assert.equal(uiFormat("en","الرقم: {number}",{number:"<original>"}),"Number: <original>");
 });

@@ -20,7 +20,7 @@ test("WhatsApp dashboard exposes all operational sections in persistent local na
   for (const route of ["contacts", "templates", "campaigns", "automations", "integrations", "inbox", "setup", "audit", "messages", "blacklist", "guides", "tools", "carts"]) {
     assert.match(sectionNav, new RegExp(`/dashboard/whatsapp/${route}`));
   }
-  assert.match(sectionNav, /aria-label="أقسام تسويق واتساب"/);
+  assert.match(sectionNav, /aria-label=\{tr\("أقسام تسويق واتساب"\)\}/);
   assert.match(sectionNav, /aria-current=\{active\(href\) \? "page"/);
   assert.match(sectionNav, /aria-pressed=/);
   const css=fs.readFileSync(path.join(root,"app/dashboard/whatsapp/workspace.css"),"utf8");

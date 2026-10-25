@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "../../../../components/i18n/locale-provider";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -22,10 +23,12 @@ const groups = [
   ] },
 ] as const;
 export function WhatsAppSectionNav() {
+ const { t: tr } = useI18n();
+
   const pathname = usePathname();
   const [selected, setSelected] = useState<number | null>(null);
   const active = (href: string) => pathname === href || (href !== "/dashboard/whatsapp" && pathname.startsWith(href + "/") && !groups.some(group => group.items.some(item => item[0] !== href && item[0].startsWith(href + "/") && pathname.startsWith(item[0]))));
   const currentGroup = groups.findIndex(group => group.items.some(([href]) => active(href)));
   const visibleGroup = selected ?? Math.max(0, currentGroup);
-  return <nav aria-label="أقسام تسويق واتساب" className="wa-navigation"><div className="wa-nav-groups" role="group" aria-label="مجموعات أدوات واتساب">{groups.map((group, index) => <button key={group.label} type="button" aria-pressed={visibleGroup === index} onClick={() => setSelected(index)}><span className="wa-group-icon" aria-hidden="true">{index===0?<Megaphone size={18}/>:index===1?<Inbox size={18}/>:index===2?<Workflow size={18}/>:<SlidersHorizontal size={18}/>}</span>{group.label}{currentGroup === index ? <span className="wa-nav-dot" aria-hidden="true"/> : null}</button>)}</div><div className="wa-nav-links">{groups[visibleGroup].items.map(([href, label, Icon]) => <Link key={href} href={href} onClick={() => setSelected(null)} aria-current={active(href) ? "page" : undefined}><Icon size={16} aria-hidden="true"/>{label}</Link>)}</div></nav>;
+  return <nav aria-label={tr("أقسام تسويق واتساب")} className="wa-navigation"><div className="wa-nav-groups" role="group" aria-label={tr("مجموعات أدوات واتساب")}>{groups.map((group, index) => <button key={group.label} type="button" aria-pressed={visibleGroup === index} onClick={() => setSelected(index)}><span className="wa-group-icon" aria-hidden="true">{index===0?<Megaphone size={18}/>:index===1?<Inbox size={18}/>:index===2?<Workflow size={18}/>:<SlidersHorizontal size={18}/>}</span>{tr(group.label)}{currentGroup === index ? <span className="wa-nav-dot" aria-hidden="true"/> : null}</button>)}</div><div className="wa-nav-links">{groups[visibleGroup].items.map(([href, label, Icon]) => <Link key={href} href={href} onClick={() => setSelected(null)} aria-current={active(href) ? "page" : undefined}><Icon size={16} aria-hidden="true"/>{tr(String(label))}</Link>)}</div></nav>;
 }
