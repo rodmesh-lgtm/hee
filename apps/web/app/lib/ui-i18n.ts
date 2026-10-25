@@ -1,3 +1,5 @@
+import { formattedUiText, translatedUiAttributes, type UiMessages } from "./i18n-presentation";
+import { HOMEPAGE_TRANSLATIONS } from "./homepage-i18n";
 import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
@@ -3128,7 +3130,12 @@ export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, st
     "es": "ajustes correo móvil nombre suscripción factura pago",
     "ur": "ترتیبات ای میل موبائل نام اشتراک بل ادائیگی"
   },
-  "نشاط جديد": {"en":"New business","zh-CN":"新企业","es":"Nuevo negocio","ur":"نیا کاروبار"},
+  "نشاط جديد": {
+    "en": "New business",
+    "zh-CN": "新企业",
+    "es": "Nuevo negocio",
+    "ur": "نیا کاروبار"
+  },
   "اربط رقم إشعارات المنشأة": {
     "en": "Connect the business notification number",
     "zh-CN": "连接企业通知号码",
@@ -4701,7 +4708,1807 @@ export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, st
     "es": "Número: {number}",
     "ur": "نمبر: {number}"
   },
-  "أرفق {type} للمعاينة": {"en":"Attach {type} for preview","zh-CN":"附加{type}以预览","es":"Adjunta {type} para la vista previa","ur":"پیش منظر کے لیے {type} شامل کریں"}
+  "أرفق {type} للمعاينة": {
+    "en": "Attach {type} for preview",
+    "zh-CN": "附加{type}以预览",
+    "es": "Adjunta {type} para la vista previa",
+    "ur": "پیش منظر کے لیے {type} شامل کریں"
+  },
+  "الكل": {
+    "en": "All",
+    "zh-CN": "全部",
+    "es": "Todos",
+    "ur": "سب"
+  },
+  "تعذر الحفظ": {
+    "en": "Couldn't save",
+    "zh-CN": "无法保存",
+    "es": "No se pudo guardar",
+    "ur": "محفوظ نہیں ہو سکا"
+  },
+  "حُفظ الطلب وأصبحت الفاتورة جاهزة للطباعة.": {
+    "en": "Order saved. The invoice is ready to print.",
+    "zh-CN": "订单已保存，发票可打印。",
+    "es": "Pedido guardado. La factura está lista para imprimir.",
+    "ur": "آرڈر محفوظ ہو گیا۔ بل پرنٹ کے لیے تیار ہے۔"
+  },
+  "حُفظ الطلب وأصبح المستند جاهزًا للطباعة.": {
+    "en": "Order saved. The document is ready to print.",
+    "zh-CN": "订单已保存，单据可打印。",
+    "es": "Pedido guardado. El documento está listo para imprimir.",
+    "ur": "آرڈر محفوظ ہو گیا۔ دستاویز پرنٹ کے لیے تیار ہے۔"
+  },
+  "تم حفظ العملية بنجاح": {
+    "en": "Operation saved successfully",
+    "zh-CN": "操作已成功保存",
+    "es": "Operación guardada correctamente",
+    "ur": "عمل کامیابی سے محفوظ ہو گیا"
+  },
+  "تعذر الاتصال. أعد المحاولة بنفس البيانات لتجنب تكرار العملية.": {
+    "en": "Connection failed. Retry with the same details to avoid duplication.",
+    "zh-CN": "连接失败。请使用相同资料重试，以免重复操作。",
+    "es": "Error de conexión. Reintenta con los mismos datos para evitar duplicados.",
+    "ur": "رابطہ ناکام۔ دہرا عمل روکنے کے لیے انہی تفصیلات سے دوبارہ کوشش کریں۔"
+  },
+  "إضافة": {
+    "en": "Add",
+    "zh-CN": "添加",
+    "es": "Añadir",
+    "ur": "شامل کریں"
+  },
+  "شعار المنشأة": {
+    "en": "Business logo",
+    "zh-CN": "企业标志",
+    "es": "Logotipo del negocio",
+    "ur": "کاروبار کا لوگو"
+  },
+  "INFRO · مساحة العمل": {
+    "en": "INFRO · Workspace",
+    "zh-CN": "INFRO · 工作空间",
+    "es": "INFRO · Espacio de trabajo",
+    "ur": "INFRO · کام کی جگہ"
+  },
+  "اختر القطع، حدد الخدمة، وأصدر مستند الطلب.": {
+    "en": "Choose items and service, then issue the order document.",
+    "zh-CN": "选择衣物及服务，然后生成订单单据。",
+    "es": "Elige prendas y servicio y emite el documento del pedido.",
+    "ur": "اشیا اور خدمت چنیں، پھر آرڈر کی دستاویز جاری کریں۔"
+  },
+  "اختر الأصناف والخدمات، وسجّل طلب العميل والتحصيل.": {
+    "en": "Choose items and services, then record the customer order and payment.",
+    "zh-CN": "选择商品及服务，登记客户订单和收款。",
+    "es": "Elige artículos y servicios y registra el pedido y el cobro.",
+    "ur": "اشیا اور خدمات چنیں، پھر گاہک کا آرڈر اور وصولی درج کریں۔"
+  },
+  "راجع حساباتك، أنشئ القيود وتابع التقارير المالية.": {
+    "en": "Review accounts, create entries and follow financial reports.",
+    "zh-CN": "查看账务、创建分录并跟进财务报表。",
+    "es": "Revisa cuentas, crea asientos y consulta informes financieros.",
+    "ur": "حسابات دیکھیں، اندراج بنائیں اور مالی رپورٹس کی پیروی کریں۔"
+  },
+  "أدوات متصلة ببيانات منشأتك وحساباتها.": {
+    "en": "Tools connected to your business data and accounts.",
+    "zh-CN": "与企业资料和账务相连的工具。",
+    "es": "Herramientas conectadas a los datos y cuentas de tu negocio.",
+    "ur": "آپ کے کاروباری ڈیٹا اور حسابات سے مربوط اوزار۔"
+  },
+  "نشاط المغاسل": {
+    "en": "Laundry activity",
+    "zh-CN": "洗衣业务",
+    "es": "Actividad de lavandería",
+    "ur": "لانڈری کا کاروبار"
+  },
+  "خدمات ومنتجات": {
+    "en": "Services and products",
+    "zh-CN": "服务与产品",
+    "es": "Servicios y productos",
+    "ur": "خدمات اور مصنوعات"
+  },
+  "طلبات تحت العمل": {
+    "en": "Orders in progress",
+    "zh-CN": "处理中的订单",
+    "es": "Pedidos en curso",
+    "ur": "زیرِ تکمیل آرڈرز"
+  },
+  "جميع الطلبات غير المسلّمة": {
+    "en": "All undelivered orders",
+    "zh-CN": "所有未交付订单",
+    "es": "Todos los pedidos sin entregar",
+    "ur": "تمام غیر پہنچائے گئے آرڈرز"
+  },
+  "جاهز للاستلام": {
+    "en": "Ready for pickup",
+    "zh-CN": "可取件",
+    "es": "Listo para recoger",
+    "ur": "وصولی کے لیے تیار"
+  },
+  "بانتظار زيارة العميل": {
+    "en": "Awaiting customer visit",
+    "zh-CN": "等待客户到访",
+    "es": "Esperando al cliente",
+    "ur": "گاہک کی آمد کا منتظر"
+  },
+  "تحصيل الطلبات المباشر": {
+    "en": "Direct order collections",
+    "zh-CN": "订单直接收款",
+    "es": "Cobros directos de pedidos",
+    "ur": "آرڈرز کی براہِ راست وصولی"
+  },
+  "ر.س": {
+    "en": "SAR",
+    "zh-CN": "沙特里亚尔",
+    "es": "SAR",
+    "ur": "ریال"
+  },
+  "منذ بدء استخدام النظام": {
+    "en": "Since system use began",
+    "zh-CN": "自开始使用系统以来",
+    "es": "Desde el inicio del sistema",
+    "ur": "نظام کے استعمال کے آغاز سے"
+  },
+  "مبالغ متبقية": {
+    "en": "Outstanding amounts",
+    "zh-CN": "未收款项",
+    "es": "Importes pendientes",
+    "ur": "باقی رقوم"
+  },
+  "ذمم طلبات المنشأة": {
+    "en": "Receivables on business orders",
+    "zh-CN": "企业订单应收款",
+    "es": "Cuentas por cobrar de pedidos",
+    "ur": "کاروباری آرڈرز کی واجب الوصول رقوم"
+  },
+  "أولوية متابعة الطلبات": {
+    "en": "Order follow-up priority",
+    "zh-CN": "订单跟进优先级",
+    "es": "Prioridad de seguimiento",
+    "ur": "آرڈرز کی پیروی کی ترجیح"
+  },
+  "الأقدم تأخرًا يظهر أولًا. يشمل الطلبات الجاهزة التي لم يستلمها العميل؛ لا يعني ذلك تأخر التجهيز بالضرورة.": {
+    "en": "Oldest overdue orders appear first, including ready orders not yet picked up. This does not necessarily mean preparation is late.",
+    "zh-CN": "最早逾期订单优先显示，包括已就绪但未取件的订单，并不一定代表处理延误。",
+    "es": "Los más atrasados aparecen primero, incluidos los listos sin recoger. No implica necesariamente retraso de preparación.",
+    "ur": "سب سے پرانے تاخیر شدہ آرڈر پہلے ہیں، تیار مگر غیر وصول شدہ بھی شامل ہیں۔ اس کا مطلب لازماً تیاری میں تاخیر نہیں۔"
+  },
+  "تُطبّق الفلاتر على كامل سجل المنشأة قبل عرض آخر 100 نتيجة.": {
+    "en": "Filters apply to the full business history before showing the latest 100 results.",
+    "zh-CN": "先筛选企业完整记录，再显示最新 100 条结果。",
+    "es": "Los filtros se aplican a todo el historial antes de mostrar los últimos 100 resultados.",
+    "ur": "تازہ ترین 100 نتائج سے پہلے پورے کاروباری ریکارڈ پر فلٹر لگتا ہے۔"
+  },
+  "اختر الخدمات": {
+    "en": "Choose services",
+    "zh-CN": "选择服务",
+    "es": "Elegir servicios",
+    "ur": "خدمات منتخب کریں"
+  },
+  "صنفًا": {
+    "en": "items",
+    "zh-CN": "件商品",
+    "es": "artículos",
+    "ur": "اشیا"
+  },
+  "نوع الخدمة وأسعار المنيو": {
+    "en": "Service type and menu prices",
+    "zh-CN": "服务类型与价目表",
+    "es": "Tipo de servicio y precios",
+    "ur": "خدمت کی قسم اور مینو کی قیمتیں"
+  },
+  "نوع الغسيل": {
+    "en": "Laundry type",
+    "zh-CN": "洗衣类型",
+    "es": "Tipo de lavado",
+    "ur": "دھلائی کی قسم"
+  },
+  "سرعة الخدمة": {
+    "en": "Service speed",
+    "zh-CN": "服务速度",
+    "es": "Rapidez del servicio",
+    "ur": "خدمت کی رفتار"
+  },
+  "تسعير المستعجل": {
+    "en": "Rush pricing",
+    "zh-CN": "加急定价",
+    "es": "Precios urgentes",
+    "ur": "فوری خدمت کی قیمتیں"
+  },
+  "بأسعار المستعجل": {
+    "en": "At rush prices",
+    "zh-CN": "按加急价格",
+    "es": "Con precios urgentes",
+    "ur": "فوری خدمت کی قیمتوں پر"
+  },
+  "بالأسعار العادية": {
+    "en": "At standard prices",
+    "zh-CN": "按普通价格",
+    "es": "Con precios normales",
+    "ur": "عام قیمتوں پر"
+  },
+  "منيو المستعجل · الأسعار النهائية موضحة على الأصناف. غير المسعّر غير متاح.": {
+    "en": "Rush menu · Final item prices are shown. Items without a rush price are unavailable.",
+    "zh-CN": "加急菜单 · 显示商品最终价格，未设置加急价的商品不可用。",
+    "es": "Menú urgente · Se muestran precios finales. Sin precio urgente, el artículo no está disponible.",
+    "ur": "فوری مینو · آخری قیمتیں اشیا پر ہیں۔ بغیر فوری قیمت والی خدمت دستیاب نہیں۔"
+  },
+  "منيو العادي · اختر نوع الخدمة قبل إضافة الأصناف.": {
+    "en": "Standard menu · Choose the service type before adding items.",
+    "zh-CN": "普通菜单 · 添加商品前请选择服务类型。",
+    "es": "Menú normal · Elige el servicio antes de añadir artículos.",
+    "ur": "عام مینو · اشیا شامل کرنے سے پہلے خدمت کی قسم چنیں۔"
+  },
+  "البحث عن صنف": {
+    "en": "Search items",
+    "zh-CN": "搜索商品",
+    "es": "Buscar artículos",
+    "ur": "اشیا تلاش کریں"
+  },
+  "ابحث عن ثوب، شماغ، بطانية…": {
+    "en": "Search thobe, shemagh, blanket…",
+    "zh-CN": "搜索长袍、头巾、毯子…",
+    "es": "Busca túnica, pañuelo, manta…",
+    "ur": "ثوب، شماغ، کمبل تلاش کریں…"
+  },
+  "ابحث باسم الصنف أو الخدمة…": {
+    "en": "Search by item or service name…",
+    "zh-CN": "按商品或服务名称搜索…",
+    "es": "Busca por artículo o servicio…",
+    "ur": "صنف یا خدمت کے نام سے تلاش کریں…"
+  },
+  "نوع خدمة المغسلة": {
+    "en": "Laundry service type",
+    "zh-CN": "洗衣服务类型",
+    "es": "Tipo de servicio de lavandería",
+    "ur": "لانڈری خدمت کی قسم"
+  },
+  "غسيل وكوي": {
+    "en": "Wash and iron",
+    "zh-CN": "洗涤与熨烫",
+    "es": "Lavado y planchado",
+    "ur": "دھلائی اور استری"
+  },
+  "كوي فقط": {
+    "en": "Iron only",
+    "zh-CN": "仅熨烫",
+    "es": "Solo planchado",
+    "ur": "صرف استری"
+  },
+  "تصنيف الملابس": {
+    "en": "Clothing category",
+    "zh-CN": "衣物分类",
+    "es": "Categoría de prendas",
+    "ur": "کپڑوں کی قسم"
+  },
+  "تصنيف الأصناف": {
+    "en": "Item category",
+    "zh-CN": "商品分类",
+    "es": "Categoría de artículos",
+    "ur": "اشیا کی قسم"
+  },
+  "ابدأ بقائمة خدماتك": {
+    "en": "Start with your service menu",
+    "zh-CN": "先设置服务菜单",
+    "es": "Empieza con tu lista de servicios",
+    "ur": "اپنی خدمات کی فہرست سے شروع کریں"
+  },
+  "أضف أصناف منشأتك وخدماتها وأسعارها الفعلية. لن تُضاف أسعار افتراضية إلى حساباتك.": {
+    "en": "Add your own items, services and actual prices. No default prices will be added to your accounts.",
+    "zh-CN": "添加企业自己的商品、服务及实际价格，不会向账务中加入默认价格。",
+    "es": "Añade tus artículos, servicios y precios reales. No se agregarán precios predeterminados a tus cuentas.",
+    "ur": "اپنی اشیا، خدمات اور اصل قیمتیں شامل کریں۔ حسابات میں فرضی قیمتیں نہیں ڈالی جائیں گی۔"
+  },
+  "إضافة أول خدمة": {
+    "en": "Add first service",
+    "zh-CN": "添加首项服务",
+    "es": "Añadir primer servicio",
+    "ur": "پہلی خدمت شامل کریں"
+  },
+  "اطلب من المالك إعداد الخدمات.": {
+    "en": "Ask the owner to configure services.",
+    "zh-CN": "请所有者配置服务。",
+    "es": "Pide al propietario que configure los servicios.",
+    "ur": "مالک سے خدمات تیار کرنے کو کہیں۔"
+  },
+  "لا توجد أصناف مطابقة. جرّب البحث أو التصنيف الآخر، أو أضف الأسعار من الخدمات والأسعار.": {
+    "en": "No matching items. Try another search or category, or add prices in Services and pricing.",
+    "zh-CN": "没有匹配商品，请更改搜索或分类，或在服务与价格中添加价格。",
+    "es": "No hay coincidencias. Prueba otra búsqueda o categoría o añade precios en Servicios y precios.",
+    "ur": "کوئی موزوں صنف نہیں۔ تلاش یا قسم بدلیں، یا خدمات اور قیمتوں میں قیمتیں شامل کریں۔"
+  },
+  "سعر المستعجل غير محدد": {
+    "en": "Rush price not set",
+    "zh-CN": "未设置加急价格",
+    "es": "Precio urgente sin definir",
+    "ur": "فوری قیمت مقرر نہیں"
+  },
+  "العودة إلى الأصناف": {
+    "en": "Back to items",
+    "zh-CN": "返回商品",
+    "es": "Volver a artículos",
+    "ur": "اشیا پر واپس جائیں"
+  },
+  "تفاصيل الطلب": {
+    "en": "Order details",
+    "zh-CN": "订单详情",
+    "es": "Detalles del pedido",
+    "ur": "آرڈر کی تفصیلات"
+  },
+  "وحدة": {
+    "en": "unit",
+    "zh-CN": "单位",
+    "es": "unidad",
+    "ur": "اکائی"
+  },
+  "حدد سعر المستعجل أو اختر عادي": {
+    "en": "Set a rush price or choose standard",
+    "zh-CN": "设置加急价或选择普通服务",
+    "es": "Define precio urgente o elige normal",
+    "ur": "فوری قیمت مقرر کریں یا عام خدمت چنیں"
+  },
+  "اختر الخدمات لإضافتها إلى الطلب.": {
+    "en": "Choose services to add to the order.",
+    "zh-CN": "选择要加入订单的服务。",
+    "es": "Elige servicios para añadir al pedido.",
+    "ur": "آرڈر میں شامل کرنے کے لیے خدمات چنیں۔"
+  },
+  "نوع الخدمة:": {
+    "en": "Service type:",
+    "zh-CN": "服务类型：",
+    "es": "Tipo de servicio:",
+    "ur": "خدمت کی قسم:"
+  },
+  "· تغييره من أعلى المنيو": {
+    "en": "· Change it above the menu",
+    "zh-CN": "· 可在菜单上方更改",
+    "es": "· Cámbialo encima del menú",
+    "ur": "· اسے مینو کے اوپر بدلیں"
+  },
+  "بعض أصناف السلة دون سعر مستعجل. حدد أسعارها من الخدمات والأسعار، أو ارجع للوضع العادي قبل حفظ الطلب.": {
+    "en": "Some cart items have no rush price. Set prices in Services and pricing or switch to standard before saving.",
+    "zh-CN": "部分购物车商品没有加急价。请先设置价格，或切换普通服务后保存。",
+    "es": "Algunos artículos no tienen precio urgente. Defínelo o vuelve al modo normal antes de guardar.",
+    "ur": "کچھ اشیا کی فوری قیمت نہیں۔ قیمتیں مقرر کریں یا محفوظ کرنے سے پہلے عام طریقہ چنیں۔"
+  },
+  "وافق العميل على إشعار واتساب عند جاهزية هذا الطلب للاستلام": {
+    "en": "Customer agreed to a WhatsApp notice when this order is ready for pickup",
+    "zh-CN": "客户同意在本订单可取件时接收 WhatsApp 通知",
+    "es": "El cliente acepta el aviso por WhatsApp cuando este pedido esté listo",
+    "ur": "گاہک اس آرڈر کی تیاری پر واٹس ایپ اطلاع سے متفق ہے"
+  },
+  "وافق العميل على تذكير استلام هذا الطلب وتذكير المبلغ المتبقي عند الجاهزية": {
+    "en": "Customer agreed to pickup and outstanding-payment reminders when this order is ready",
+    "zh-CN": "客户同意在订单就绪时接收取件和未付款提醒",
+    "es": "El cliente acepta recordatorios de recogida y saldo pendiente al estar listo",
+    "ur": "گاہک تیاری پر اس آرڈر کی وصولی اور باقی ادائیگی کی یاد دہانیوں سے متفق ہے"
+  },
+  "وافق العميل على رسالة تطلب تقييم خدمة هذا الطلب بعد التسليم": {
+    "en": "Customer agreed to a service review request after this order is delivered",
+    "zh-CN": "客户同意在订单交付后接收服务评价请求",
+    "es": "El cliente acepta una solicitud de valoración tras la entrega",
+    "ur": "گاہک آرڈر پہنچنے کے بعد خدمت کے جائزے کی درخواست سے متفق ہے"
+  },
+  "ملاحظات الطلب": {
+    "en": "Order notes",
+    "zh-CN": "订单备注",
+    "es": "Notas del pedido",
+    "ur": "آرڈر کے نوٹس"
+  },
+  "لون القطعة، بقعة، تعليمات خاصة…": {
+    "en": "Item color, stain, special instructions…",
+    "zh-CN": "衣物颜色、污渍、特殊要求…",
+    "es": "Color, mancha, instrucciones especiales…",
+    "ur": "رنگ، داغ، خصوصی ہدایات…"
+  },
+  "تفاصيل الطلب وتعليمات العميل…": {
+    "en": "Order details and customer instructions…",
+    "zh-CN": "订单详情与客户要求…",
+    "es": "Detalles e instrucciones del cliente…",
+    "ur": "آرڈر کی تفصیلات اور گاہک کی ہدایات…"
+  },
+  "الإجمالي بأسعار القائمة": {
+    "en": "Total at menu prices",
+    "zh-CN": "按价目表计算的总额",
+    "es": "Total según los precios de lista",
+    "ur": "مینو کی قیمتوں کے مطابق کل"
+  },
+  "التسعير غير مكتمل": {
+    "en": "Pricing incomplete",
+    "zh-CN": "定价未完成",
+    "es": "Precios incompletos",
+    "ur": "قیمتیں نامکمل ہیں"
+  },
+  "المبالغ حسب أسعار خدماتك. المنشأة غير مسجلة في ضريبة القيمة المضافة؛ لا تُحتسب ضريبة.": {
+    "en": "Amounts follow your service prices. The business is not VAT registered; VAT is not charged.",
+    "zh-CN": "金额按服务价格计算。企业未登记增值税，不计收增值税。",
+    "es": "Importes según tus precios. El negocio no está registrado en IVA; no se calcula este impuesto.",
+    "ur": "رقوم آپ کی خدمت کی قیمتوں کے مطابق ہیں۔ کاروبار VAT میں رجسٹرڈ نہیں؛ ٹیکس نہیں لیا جاتا۔"
+  },
+  "هذا المسار يسجّل الطلبات والتحصيل دون احتساب الضريبة، ولا يصدر فاتورة ضريبية. إعداد الفوترة الضريبية مستقل عن نوع النشاط.": {
+    "en": "This workflow records orders and payments without tax and does not issue tax invoices. Tax invoicing requires separate setup, regardless of business activity.",
+    "zh-CN": "此流程登记不含税的订单与收款，不开具税务发票。税务开票需单独设置，与业务类型无关。",
+    "es": "Este flujo registra pedidos y cobros sin impuestos y no emite facturas fiscales. La facturación fiscal requiere configuración independiente de la actividad.",
+    "ur": "یہ طریقہ بغیر ٹیکس آرڈرز اور وصولیاں درج کرتا ہے، ٹیکس بل نہیں بناتا۔ ٹیکس بلنگ کی تیاری کاروباری نوعیت سے الگ ہے۔"
+  },
+  "تسجيل الشبكة لا ينفّذ دفعًا إلكترونيًا.": {
+    "en": "Recording a card payment does not execute an electronic payment.",
+    "zh-CN": "登记刷卡收款不会执行电子支付。",
+    "es": "Registrar un pago con tarjeta no ejecuta el pago electrónico.",
+    "ur": "کارڈ ادائیگی درج کرنے سے الیکٹرانک ادائیگی نہیں ہوتی۔"
+  },
+  "حفظ الطلب وإصدار المستند": {
+    "en": "Save order and issue document",
+    "zh-CN": "保存订单并生成单据",
+    "es": "Guardar pedido y emitir documento",
+    "ur": "آرڈر محفوظ اور دستاویز جاری کریں"
+  },
+  "مراجعة الطلب ·": {
+    "en": "Review order ·",
+    "zh-CN": "检查订单 ·",
+    "es": "Revisar pedido ·",
+    "ur": "آرڈر کا جائزہ ·"
+  },
+  "راجع أسعار المستعجل": {
+    "en": "Review rush prices",
+    "zh-CN": "检查加急价格",
+    "es": "Revisar precios urgentes",
+    "ur": "فوری قیمتیں دیکھیں"
+  },
+  "سجل الطلبات": {
+    "en": "Order history",
+    "zh-CN": "订单记录",
+    "es": "Historial de pedidos",
+    "ur": "آرڈرز کا ریکارڈ"
+  },
+  "آخر 100 نتيجة": {
+    "en": "Latest 100 results",
+    "zh-CN": "最新 100 条结果",
+    "es": "Últimos 100 resultados",
+    "ur": "تازہ ترین 100 نتائج"
+  },
+  "اسم العميل، الجوال أو رقم الطلب": {
+    "en": "Customer name, mobile or order number",
+    "zh-CN": "客户姓名、手机或订单号",
+    "es": "Nombre, móvil o número de pedido",
+    "ur": "گاہک کا نام، موبائل یا آرڈر نمبر"
+  },
+  "البحث في الطلبات": {
+    "en": "Search orders",
+    "zh-CN": "搜索订单",
+    "es": "Buscar pedidos",
+    "ur": "آرڈرز تلاش کریں"
+  },
+  "بحث": {
+    "en": "Search",
+    "zh-CN": "搜索",
+    "es": "Buscar",
+    "ur": "تلاش"
+  },
+  "الطلب / العميل": {
+    "en": "Order / customer",
+    "zh-CN": "订单 / 客户",
+    "es": "Pedido / cliente",
+    "ur": "آرڈر / گاہک"
+  },
+  "التسليم المتوقع": {
+    "en": "Expected delivery",
+    "zh-CN": "预计交付",
+    "es": "Entrega prevista",
+    "ur": "متوقع ڈیلیوری"
+  },
+  "الإجمالي / المتبقي": {
+    "en": "Total / remaining",
+    "zh-CN": "总额 / 余额",
+    "es": "Total / pendiente",
+    "ur": "کل / باقی"
+  },
+  "الإجراء": {
+    "en": "Action",
+    "zh-CN": "操作",
+    "es": "Acción",
+    "ur": "عمل"
+  },
+  "موعد التسليم": {
+    "en": "Delivery appointment",
+    "zh-CN": "交付时间",
+    "es": "Fecha de entrega",
+    "ur": "ڈیلیوری کا موعد"
+  },
+  "نوع الخدمة": {
+    "en": "Service type",
+    "zh-CN": "服务类型",
+    "es": "Tipo de servicio",
+    "ur": "خدمت کی قسم"
+  },
+  "المتبقي": {
+    "en": "Remaining",
+    "zh-CN": "余额",
+    "es": "Pendiente",
+    "ur": "باقی"
+  },
+  "التفاصيل والفاتورة": {
+    "en": "Details and invoice",
+    "zh-CN": "详情与发票",
+    "es": "Detalles y factura",
+    "ur": "تفصیلات اور بل"
+  },
+  "لا توجد طلبات مطابقة بعد": {
+    "en": "No matching orders yet",
+    "zh-CN": "暂无匹配订单",
+    "es": "Todavía no hay pedidos coincidentes",
+    "ur": "ابھی کوئی موزوں آرڈر نہیں"
+  },
+  "الطلبات التي تحفظها ستظهر هنا مع حالة التجهيز والتحصيل.": {
+    "en": "Saved orders appear here with preparation and payment status.",
+    "zh-CN": "保存的订单将显示处理及收款状态。",
+    "es": "Los pedidos guardados aparecen con su preparación y cobro.",
+    "ur": "محفوظ آرڈر یہاں تیاری اور وصولی کی حالت کے ساتھ دکھیں گے۔"
+  },
+  "دليل خدمات المغسلة": {
+    "en": "Laundry service catalog",
+    "zh-CN": "洗衣服务目录",
+    "es": "Catálogo de lavandería",
+    "ur": "لانڈری خدمات کی فہرست"
+  },
+  "الأصناف والخدمات": {
+    "en": "Items and services",
+    "zh-CN": "商品与服务",
+    "es": "Artículos y servicios",
+    "ur": "اشیا اور خدمات"
+  },
+  "الأسعار محفوظة لكل منشأة بشكل مستقل": {
+    "en": "Prices are saved independently for each business",
+    "zh-CN": "每家企业的价格独立保存",
+    "es": "Los precios se guardan por negocio",
+    "ur": "ہر کاروبار کی قیمتیں الگ محفوظ ہیں"
+  },
+  "اسم الصنف": {
+    "en": "Item name",
+    "zh-CN": "商品名称",
+    "es": "Nombre del artículo",
+    "ur": "صنف کا نام"
+  },
+  "ثوب": {
+    "en": "Thobe",
+    "zh-CN": "长袍",
+    "es": "Túnica",
+    "ur": "ثوب"
+  },
+  "اسم المنتج أو الخدمة": {
+    "en": "Product or service name",
+    "zh-CN": "产品或服务名称",
+    "es": "Nombre de producto o servicio",
+    "ur": "مصنوعہ یا خدمت کا نام"
+  },
+  "التصنيف": {
+    "en": "Category",
+    "zh-CN": "分类",
+    "es": "Categoría",
+    "ur": "قسم"
+  },
+  "ملابس رجالية": {
+    "en": "Men's clothing",
+    "zh-CN": "男装",
+    "es": "Ropa de hombre",
+    "ur": "مردانہ کپڑے"
+  },
+  "سعر غسيل وكوي": {
+    "en": "Wash and iron price",
+    "zh-CN": "洗涤熨烫价格",
+    "es": "Precio de lavado y planchado",
+    "ur": "دھلائی اور استری کی قیمت"
+  },
+  "سعر كوي فقط": {
+    "en": "Iron-only price",
+    "zh-CN": "仅熨烫价格",
+    "es": "Precio de solo planchado",
+    "ur": "صرف استری کی قیمت"
+  },
+  "السعر بالريال": {
+    "en": "Price in SAR",
+    "zh-CN": "价格（沙特里亚尔）",
+    "es": "Precio en SAR",
+    "ur": "قیمت ریال میں"
+  },
+  "إضافة الصنف": {
+    "en": "Add item",
+    "zh-CN": "添加商品",
+    "es": "Añadir artículo",
+    "ur": "صنف شامل کریں"
+  },
+  "إيقاف الخدمة للطلبات الجديدة؟ الطلبات السابقة تبقى محفوظة.": {
+    "en": "Disable this service for new orders? Previous orders remain saved.",
+    "zh-CN": "停止为新订单提供此服务？历史订单将保留。",
+    "es": "¿Desactivar para pedidos nuevos? Los anteriores se conservan.",
+    "ur": "نئے آرڈرز کے لیے خدمت بند کریں؟ سابق آرڈرز محفوظ رہیں گے۔"
+  },
+  "إيقاف": {
+    "en": "Disable",
+    "zh-CN": "停用",
+    "es": "Desactivar",
+    "ur": "بند کریں"
+  },
+  "لتغيير سعر خدمة: أوقفها وأضف النسخة الجديدة. تحتفظ الطلبات السابقة بأسمائها وأسعارها عند الاستلام.": {
+    "en": "To change a service price, disable it and add a new version. Previous orders keep the names and prices recorded when received.",
+    "zh-CN": "修改价格时，请停用旧服务并新增版本。历史订单保留接收时的名称和价格。",
+    "es": "Para cambiar el precio, desactiva y añade una versión nueva. Los pedidos anteriores conservan nombres y precios originales.",
+    "ur": "قیمت بدلنے کے لیے خدمت بند کرکے نیا نسخہ شامل کریں۔ پرانے آرڈر وصولی کے نام اور قیمتیں برقرار رکھتے ہیں۔"
+  },
+  "التحصيل والمصروفات": {
+    "en": "Collections and expenses",
+    "zh-CN": "收款与费用",
+    "es": "Cobros y gastos",
+    "ur": "وصولیاں اور اخراجات"
+  },
+  "ملخص تشغيلي · جميع الفترات": {
+    "en": "Operational summary · All periods",
+    "zh-CN": "运营摘要 · 所有期间",
+    "es": "Resumen operativo · Todos los periodos",
+    "ur": "عملی خلاصہ · تمام ادوار"
+  },
+  "المحصّل": {
+    "en": "Collected",
+    "zh-CN": "已收款",
+    "es": "Cobrado",
+    "ur": "وصول شدہ"
+  },
+  "المصروفات المسجلة": {
+    "en": "Recorded expenses",
+    "zh-CN": "已登记费用",
+    "es": "Gastos registrados",
+    "ur": "درج شدہ اخراجات"
+  },
+  "صافي التحصيل بعد المصروفات": {
+    "en": "Net collections after expenses",
+    "zh-CN": "扣除费用后的净收款",
+    "es": "Cobros netos tras gastos",
+    "ur": "اخراجات کے بعد خالص وصولی"
+  },
+  "يشمل تحصيل الطلبات المباشر والمصروفات فقط؛ شراء الاشتراكات واستردادها ودفعات الموردين في سجلاتها والدفتر. هذا ملخص نقدي تشغيلي، وليس قائمة أرباح أو دفتر محاسبة معتمدًا. لا تُحتسب ضريبة قيمة مضافة، وتُسجّل مدفوعات الشبكة والتحويل يدويًا.": {
+    "en": "Includes direct order collections and expenses only. Subscription purchases/refunds and supplier payments are in their own records and the ledger. This is an operational cash summary, not a profit statement or approved accounting ledger. No VAT is calculated; card and transfer payments are recorded manually.",
+    "zh-CN": "仅包含订单直接收款与费用。订阅购买、退款及供应商付款在各自记录和账簿中。此为运营现金摘要，并非利润表或正式会计账簿。不计算增值税；刷卡及转账收款手动登记。",
+    "es": "Incluye solo cobros directos y gastos. Las compras y reembolsos de suscripciones y pagos a proveedores están en sus registros y libro. Es un resumen operativo de efectivo, no un estado de resultados ni un libro contable aprobado. Sin IVA; tarjetas y transferencias se registran manualmente.",
+    "ur": "صرف آرڈرز کی براہِ راست وصولی اور اخراجات شامل ہیں۔ اشتراک کی خرید، واپسی اور سپلائر ادائیگیاں اپنے ریکارڈ اور کھاتے میں ہیں۔ یہ نقد عملی خلاصہ ہے، منافع کی رپورٹ یا منظور شدہ حسابی کھاتہ نہیں۔ VAT نہیں لگتا؛ کارڈ اور منتقلی دستی درج ہیں۔"
+  },
+  "تسجيل مصروف": {
+    "en": "Record expense",
+    "zh-CN": "登记费用",
+    "es": "Registrar gasto",
+    "ur": "اخراجات درج کریں"
+  },
+  "بيان المصروف": {
+    "en": "Expense description",
+    "zh-CN": "费用说明",
+    "es": "Descripción del gasto",
+    "ur": "اخراجات کی تفصیل"
+  },
+  "مواد تنظيف، تغليف…": {
+    "en": "Cleaning supplies, packaging…",
+    "zh-CN": "清洁用品、包装…",
+    "es": "Limpieza, embalaje…",
+    "ur": "صفائی کا سامان، پیکنگ…"
+  },
+  "المبلغ بالريال": {
+    "en": "Amount in SAR",
+    "zh-CN": "金额（沙特里亚尔）",
+    "es": "Importe en SAR",
+    "ur": "رقم ریال میں"
+  },
+  "مصدر دفع المصروف": {
+    "en": "Expense payment source",
+    "zh-CN": "费用支付来源",
+    "es": "Origen del pago del gasto",
+    "ur": "اخراجات کی ادائیگی کا ذریعہ"
+  },
+  "الصندوق": {
+    "en": "Cash fund",
+    "zh-CN": "现金箱",
+    "es": "Caja",
+    "ur": "نقد صندوق"
+  },
+  "تحويل مسجل": {
+    "en": "Recorded transfer",
+    "zh-CN": "已登记转账",
+    "es": "Transferencia registrada",
+    "ur": "درج شدہ منتقلی"
+  },
+  "غير محدد — يحتاج تسوية": {
+    "en": "Unspecified — reconciliation needed",
+    "zh-CN": "未指定 — 需要对账",
+    "es": "Sin definir — requiere conciliación",
+    "ur": "غیر مقرر — تطبیق درکار"
+  },
+  "تسجيل المصروف": {
+    "en": "Save expense",
+    "zh-CN": "保存费用",
+    "es": "Guardar gasto",
+    "ur": "اخراجات محفوظ کریں"
+  },
+  "آخر 50 مصروفًا": {
+    "en": "Latest 50 expenses",
+    "zh-CN": "最近 50 笔费用",
+    "es": "Últimos 50 gastos",
+    "ur": "تازہ ترین 50 اخراجات"
+  },
+  "تفاصيل طلب المغسلة": {
+    "en": "Laundry order details",
+    "zh-CN": "洗衣订单详情",
+    "es": "Detalles del pedido de lavandería",
+    "ur": "لانڈری آرڈر کی تفصیلات"
+  },
+  "تفاصيل طلب العميل": {
+    "en": "Customer order details",
+    "zh-CN": "客户订单详情",
+    "es": "Detalles del pedido del cliente",
+    "ur": "گاہک کے آرڈر کی تفصیلات"
+  },
+  "مقاس الطباعة": {
+    "en": "Paper size",
+    "zh-CN": "打印纸张大小",
+    "es": "Tamaño de impresión",
+    "ur": "پرنٹ کا سائز"
+  },
+  "حراري 80 مم": {
+    "en": "80 mm thermal",
+    "zh-CN": "80 毫米热敏纸",
+    "es": "Térmico de 80 mm",
+    "ur": "80 ملی میٹر تھرمل"
+  },
+  "طباعة": {
+    "en": "Print",
+    "zh-CN": "打印",
+    "es": "Imprimir",
+    "ur": "پرنٹ کریں"
+  },
+  "اختر ورق 80 مم في إعدادات الطابعة، والمقياس 100٪، وأوقف رؤوس وتذييلات المتصفح.": {
+    "en": "Select 80 mm paper, 100% scale and disable browser headers and footers.",
+    "zh-CN": "选择 80 毫米纸张、100% 缩放，并关闭浏览器页眉页脚。",
+    "es": "Elige papel de 80 mm, escala 100% y desactiva encabezados y pies del navegador.",
+    "ur": "80 ملی میٹر کاغذ، 100٪ پیمانہ منتخب کریں اور براؤزر کے سرنامے و اختتامی متن بند کریں۔"
+  },
+  "اختر ورق A4، والمقياس 100٪، وأوقف رؤوس وتذييلات المتصفح.": {
+    "en": "Select A4 paper, 100% scale and disable browser headers and footers.",
+    "zh-CN": "选择 A4 纸张、100% 缩放，并关闭浏览器页眉页脚。",
+    "es": "Elige A4, escala 100% y desactiva encabezados y pies del navegador.",
+    "ur": "A4 کاغذ، 100٪ پیمانہ منتخب کریں اور براؤزر کے سرنامے و اختتامی متن بند کریں۔"
+  },
+  "شعار المنشأة في الفاتورة": {
+    "en": "Business logo on invoice",
+    "zh-CN": "发票上的企业标志",
+    "es": "Logotipo en la factura",
+    "ur": "بل پر کاروبار کا لوگو"
+  },
+  "فاتورة": {
+    "en": "Invoice",
+    "zh-CN": "发票",
+    "es": "Factura",
+    "ur": "بل"
+  },
+  "رقم الطلب #": {
+    "en": "Order #",
+    "zh-CN": "订单号 #",
+    "es": "Pedido #",
+    "ur": "آرڈر #"
+  },
+  "التسليم المتوقع:": {
+    "en": "Expected delivery:",
+    "zh-CN": "预计交付：",
+    "es": "Entrega prevista:",
+    "ur": "متوقع ڈیلیوری:"
+  },
+  "الحالة:": {
+    "en": "Status:",
+    "zh-CN": "状态：",
+    "es": "Estado:",
+    "ur": "حالت:"
+  },
+  "الكمية": {
+    "en": "Quantity",
+    "zh-CN": "数量",
+    "es": "Cantidad",
+    "ur": "تعداد"
+  },
+  "السعر": {
+    "en": "Price",
+    "zh-CN": "价格",
+    "es": "Precio",
+    "ur": "قیمت"
+  },
+  "المجموع": {
+    "en": "Subtotal",
+    "zh-CN": "小计",
+    "es": "Subtotal",
+    "ur": "ذیلی کل"
+  },
+  "الإجمالي": {
+    "en": "Total",
+    "zh-CN": "合计",
+    "es": "Total",
+    "ur": "کل"
+  },
+  "المدفوع:": {
+    "en": "Paid:",
+    "zh-CN": "已付：",
+    "es": "Pagado:",
+    "ur": "ادا شدہ:"
+  },
+  "تفصيل الدفعات": {
+    "en": "Payment breakdown",
+    "zh-CN": "付款明细",
+    "es": "Desglose de pagos",
+    "ur": "ادائیگی کی تفصیل"
+  },
+  "المتبقي على الفاتورة:": {
+    "en": "Outstanding invoice balance:",
+    "zh-CN": "发票未付余额：",
+    "es": "Saldo pendiente de factura:",
+    "ur": "بل کی باقی رقم:"
+  },
+  "رصيد الاشتراك المتبقي": {
+    "en": "Remaining subscription balance",
+    "zh-CN": "订阅剩余余额",
+    "es": "Saldo de suscripción restante",
+    "ur": "اشتراک کا باقی بیلنس"
+  },
+  "تفاصيل رصيد الاشتراك": {
+    "en": "Subscription balance details",
+    "zh-CN": "订阅余额详情",
+    "es": "Detalles del saldo de suscripción",
+    "ur": "اشتراک کے بیلنس کی تفصیل"
+  },
+  "رصيد الاشتراك الأصلي:": {
+    "en": "Original subscription balance:",
+    "zh-CN": "原始订阅余额：",
+    "es": "Saldo original de suscripción:",
+    "ur": "اشتراک کا اصل بیلنس:"
+  },
+  "المستخدم من الاشتراك في هذه الفاتورة:": {
+    "en": "Subscription used on this invoice:",
+    "zh-CN": "本发票使用的订阅金额：",
+    "es": "Suscripción usada en esta factura:",
+    "ur": "اس بل میں استعمال شدہ اشتراک:"
+  },
+  "رصيد الاشتراك المتبقي بعد هذه الفاتورة:": {
+    "en": "Subscription balance after this invoice:",
+    "zh-CN": "本发票后的订阅余额：",
+    "es": "Saldo tras esta factura:",
+    "ur": "اس بل کے بعد اشتراک کا باقی بیلنس:"
+  },
+  "الوحدات المتبقية:": {
+    "en": "Remaining units:",
+    "zh-CN": "剩余数量：",
+    "es": "Unidades restantes:",
+    "ur": "باقی اکائیاں:"
+  },
+  "قطعة": {
+    "en": "item",
+    "zh-CN": "件",
+    "es": "artículo",
+    "ur": "صنف"
+  },
+  "زيارة": {
+    "en": "visit",
+    "zh-CN": "次",
+    "es": "visita",
+    "ur": "دورہ"
+  },
+  "الرصيد عند إصدار الفاتورة أو آخر سداد من الاشتراك لها؛ لا يشمل العمليات اللاحقة.": {
+    "en": "Balance at invoice issue or the latest subscription payment for this invoice; later transactions are excluded.",
+    "zh-CN": "余额以开票时或本发票最近一次订阅付款时为准，不含之后的交易。",
+    "es": "Saldo al emitir la factura o en su último pago con suscripción; no incluye operaciones posteriores.",
+    "ur": "بل کے اجرا یا اس کی آخری اشتراکی ادائیگی کا بیلنس؛ بعد کی کارروائیاں شامل نہیں۔"
+  },
+  "ملاحظات:": {
+    "en": "Notes:",
+    "zh-CN": "备注：",
+    "es": "Notas:",
+    "ur": "نوٹس:"
+  },
+  "تسجيل الدفعة": {
+    "en": "Record payment",
+    "zh-CN": "登记付款",
+    "es": "Registrar pago",
+    "ur": "ادائیگی درج کریں"
+  },
+  "المرحلة التالية:": {
+    "en": "Next stage:",
+    "zh-CN": "下一阶段：",
+    "es": "Siguiente etapa:",
+    "ur": "اگلا مرحلہ:"
+  },
+  "الإدارة المالية": {
+    "en": "Financial management",
+    "zh-CN": "财务管理",
+    "es": "Gestión financiera",
+    "ur": "مالی انتظام"
+  },
+  "إشراف المغسلة": {
+    "en": "Laundry supervision",
+    "zh-CN": "洗衣店运营监督",
+    "es": "Supervisión de lavandería",
+    "ur": "لانڈری کی نگرانی"
+  },
+  "محاسبة المغسلة": {
+    "en": "Laundry accounting",
+    "zh-CN": "洗衣店会计",
+    "es": "Contabilidad de lavandería",
+    "ur": "لانڈری کے حسابات"
+  },
+  "الكاشير": {
+    "en": "POS",
+    "zh-CN": "收银",
+    "es": "Caja",
+    "ur": "کیشئر"
+  },
+  "الطلبات والتسليم": {
+    "en": "Orders and delivery",
+    "zh-CN": "订单与交付",
+    "es": "Pedidos y entregas",
+    "ur": "آرڈرز اور ڈیلیوری"
+  },
+  "المخزون والجرد": {
+    "en": "Inventory and stocktaking",
+    "zh-CN": "库存与盘点",
+    "es": "Inventario y recuento",
+    "ur": "اسٹاک اور گنتی"
+  },
+  "دفتر المحاسبة": {
+    "en": "Accounting ledger",
+    "zh-CN": "会计账簿",
+    "es": "Libro contable",
+    "ur": "حسابات کا کھاتہ"
+  },
+  "الموردون والمشتريات": {
+    "en": "Suppliers and purchases",
+    "zh-CN": "供应商与采购",
+    "es": "Proveedores y compras",
+    "ur": "سپلائرز اور خریداری"
+  },
+  "اشتراكات العملاء": {
+    "en": "Customer subscriptions",
+    "zh-CN": "客户订阅",
+    "es": "Suscripciones de clientes",
+    "ur": "گاہکوں کے اشتراک"
+  },
+  "العقود والتوقيع": {
+    "en": "Contracts and signing",
+    "zh-CN": "合同与签署",
+    "es": "Contratos y firma",
+    "ur": "معاہدے اور دستخط"
+  },
+  "التسوية البنكية": {
+    "en": "Bank reconciliation",
+    "zh-CN": "银行对账",
+    "es": "Conciliación bancaria",
+    "ur": "بینک تطبیق"
+  },
+  "إعداد المنشأة": {
+    "en": "Business setup",
+    "zh-CN": "企业设置",
+    "es": "Configuración del negocio",
+    "ur": "کاروبار کی تیاری"
+  },
+  "الخدمات والأسعار": {
+    "en": "Services and pricing",
+    "zh-CN": "服务与价格",
+    "es": "Servicios y precios",
+    "ur": "خدمات اور قیمتیں"
+  },
+  "الشعار وبيانات الفواتير": {
+    "en": "Logo and invoice details",
+    "zh-CN": "标志与发票资料",
+    "es": "Logotipo y datos de facturas",
+    "ur": "لوگو اور بل کی تفصیلات"
+  },
+  "أقسام البرنامج": {
+    "en": "Program sections",
+    "zh-CN": "程序栏目",
+    "es": "Secciones del programa",
+    "ur": "پروگرام کے حصے"
+  },
+  "إغلاق قائمة الأقسام": {
+    "en": "Close sections menu",
+    "zh-CN": "关闭栏目菜单",
+    "es": "Cerrar menú de secciones",
+    "ur": "حصوں کا مینو بند کریں"
+  },
+  "فتح قائمة الأقسام": {
+    "en": "Open sections menu",
+    "zh-CN": "打开栏目菜单",
+    "es": "Abrir menú de secciones",
+    "ur": "حصوں کا مینو کھولیں"
+  },
+  "الأقسام": {
+    "en": "Sections",
+    "zh-CN": "栏目",
+    "es": "Secciones",
+    "ur": "حصے"
+  },
+  "طلب جديد": {
+    "en": "New order",
+    "zh-CN": "新订单",
+    "es": "Pedido nuevo",
+    "ur": "نیا آرڈر"
+  },
+  "التنقل بين أقسام البرنامج": {
+    "en": "Program navigation",
+    "zh-CN": "程序导航",
+    "es": "Navegación del programa",
+    "ur": "پروگرام کی نیویگیشن"
+  },
+  "البحث عن قسم": {
+    "en": "Search sections",
+    "zh-CN": "搜索栏目",
+    "es": "Buscar sección",
+    "ur": "حصہ تلاش کریں"
+  },
+  "ابحث عن قسم…": {
+    "en": "Search a section…",
+    "zh-CN": "搜索栏目…",
+    "es": "Busca una sección…",
+    "ur": "حصہ تلاش کریں…"
+  },
+  "الفريق والتواصل": {
+    "en": "Team and communication",
+    "zh-CN": "团队与沟通",
+    "es": "Equipo y comunicación",
+    "ur": "ٹیم اور رابطہ"
+  },
+  "إشعارات واتساب": {
+    "en": "WhatsApp notifications",
+    "zh-CN": "WhatsApp 通知",
+    "es": "Avisos de WhatsApp",
+    "ur": "واٹس ایپ اطلاعات"
+  },
+  "اختر من النتائج أو غيّر كلمة البحث.": {
+    "en": "Choose a result or change your search.",
+    "zh-CN": "选择结果或更改搜索。",
+    "es": "Elige un resultado o cambia la búsqueda.",
+    "ur": "نتیجہ چنیں یا تلاش بدلیں۔"
+  },
+  "دفعة إضافية": {
+    "en": "Additional payment",
+    "zh-CN": "追加付款",
+    "es": "Pago adicional",
+    "ur": "اضافی ادائیگی"
+  },
+  "الدفعة المستلمة": {
+    "en": "Payment received",
+    "zh-CN": "已收款项",
+    "es": "Pago recibido",
+    "ur": "وصول شدہ ادائیگی"
+  },
+  "الطريقة": {
+    "en": "Method",
+    "zh-CN": "方式",
+    "es": "Método",
+    "ur": "طریقہ"
+  },
+  "طريقة التحصيل": {
+    "en": "Collection method",
+    "zh-CN": "收款方式",
+    "es": "Método de cobro",
+    "ur": "وصولی کا طریقہ"
+  },
+  "نقدًا": {
+    "en": "Cash",
+    "zh-CN": "现金",
+    "es": "Efectivo",
+    "ur": "نقد"
+  },
+  "شبكة — تسجيل يدوي": {
+    "en": "Card — manual record",
+    "zh-CN": "银行卡 — 手动登记",
+    "es": "Tarjeta — registro manual",
+    "ur": "کارڈ — دستی اندراج"
+  },
+  "تحويل — تسجيل يدوي": {
+    "en": "Transfer — manual record",
+    "zh-CN": "转账 — 手动登记",
+    "es": "Transferencia — registro manual",
+    "ur": "منتقلی — دستی اندراج"
+  },
+  "نقدًا + شبكة — تسجيل يدوي": {
+    "en": "Cash + card — manual record",
+    "zh-CN": "现金 + 银行卡 — 手动登记",
+    "es": "Efectivo + tarjeta — registro manual",
+    "ur": "نقد + کارڈ — دستی اندراج"
+  },
+  "الجزء النقدي من الدفعة": {
+    "en": "Cash part of payment",
+    "zh-CN": "付款中的现金部分",
+    "es": "Parte en efectivo",
+    "ur": "ادائیگی کا نقد حصہ"
+  },
+  "يُسجّل باقي الدفعة كشبكة. أكّد نجاح الدفع على الجهاز قبل الحفظ؛ الربط التلقائي لم يُفعّل بعد.": {
+    "en": "The rest is recorded as card payment. Confirm payment success on the terminal before saving; automatic integration is not active yet.",
+    "zh-CN": "剩余部分登记为银行卡收款。保存前请确认终端支付成功，自动集成尚未启用。",
+    "es": "El resto se registra como tarjeta. Confirma el éxito en el terminal antes de guardar; la integración automática aún no está activa.",
+    "ur": "باقی حصہ کارڈ ادائیگی درج ہوگا۔ محفوظ کرنے سے پہلے مشین پر کامیاب ادائیگی کی تصدیق کریں؛ خودکار ربط ابھی فعال نہیں۔"
+  },
+  "متى يستلم العميل طلبه؟": {
+    "en": "When will the customer pick up the order?",
+    "zh-CN": "客户何时取件？",
+    "es": "¿Cuándo recogerá el cliente?",
+    "ur": "گاہک آرڈر کب وصول کرے گا؟"
+  },
+  "اختر موعدًا سريعًا أو حدد اليوم والوقت. جميع المواعيد بتوقيت الرياض.": {
+    "en": "Choose a quick option or set the date and time. All times use Riyadh time.",
+    "zh-CN": "选择快捷时间或指定日期和时间，均为利雅得时间。",
+    "es": "Elige una opción rápida o fecha y hora. Se usa la hora de Riad.",
+    "ur": "فوری انتخاب یا تاریخ اور وقت چنیں۔ تمام اوقات ریاض کے ہیں۔"
+  },
+  "بعد ساعتين": {
+    "en": "In 2 hours",
+    "zh-CN": "2 小时后",
+    "es": "En 2 horas",
+    "ur": "2 گھنٹے بعد"
+  },
+  "بعد 4 ساعات": {
+    "en": "In 4 hours",
+    "zh-CN": "4 小时后",
+    "es": "En 4 horas",
+    "ur": "4 گھنٹے بعد"
+  },
+  "غدًا في هذا الوقت": {
+    "en": "Tomorrow at this time",
+    "zh-CN": "明天此时",
+    "es": "Mañana a esta hora",
+    "ur": "کل اسی وقت"
+  },
+  "بعد يومين": {
+    "en": "In 2 days",
+    "zh-CN": "2 天后",
+    "es": "En 2 días",
+    "ur": "2 دن بعد"
+  },
+  "يوم التسليم": {
+    "en": "Delivery date",
+    "zh-CN": "交付日期",
+    "es": "Día de entrega",
+    "ur": "ڈیلیوری کی تاریخ"
+  },
+  "ساعة التسليم": {
+    "en": "Delivery hour",
+    "zh-CN": "交付小时",
+    "es": "Hora de entrega",
+    "ur": "ڈیلیوری کا گھنٹہ"
+  },
+  "الدقيقة": {
+    "en": "Minute",
+    "zh-CN": "分钟",
+    "es": "Minuto",
+    "ur": "منٹ"
+  },
+  "دقيقة التسليم": {
+    "en": "Delivery minute",
+    "zh-CN": "交付分钟",
+    "es": "Minuto de entrega",
+    "ur": "ڈیلیوری کا منٹ"
+  },
+  "الفترة": {
+    "en": "AM / PM",
+    "zh-CN": "上午 / 下午",
+    "es": "AM / PM",
+    "ur": "صبح / شام"
+  },
+  "فترة التسليم": {
+    "en": "Delivery AM / PM",
+    "zh-CN": "交付上午 / 下午",
+    "es": "AM / PM de entrega",
+    "ur": "ڈیلیوری صبح / شام"
+  },
+  "صباحًا": {
+    "en": "AM",
+    "zh-CN": "上午",
+    "es": "AM",
+    "ur": "صبح"
+  },
+  "مساءً": {
+    "en": "PM",
+    "zh-CN": "下午",
+    "es": "PM",
+    "ur": "شام"
+  },
+  "موعد التسليم:": {
+    "en": "Delivery appointment:",
+    "zh-CN": "交付时间：",
+    "es": "Fecha de entrega:",
+    "ur": "ڈیلیوری کا موعد:"
+  },
+  "لم يُحدد موعد بعد. اضغط أحد الخيارات أو اختر يوم التسليم.": {
+    "en": "No appointment selected. Choose a quick option or a delivery date.",
+    "zh-CN": "尚未选择时间，请使用快捷选项或选择交付日期。",
+    "es": "No hay fecha. Elige una opción rápida o un día de entrega.",
+    "ur": "ابھی موعد منتخب نہیں۔ فوری انتخاب یا ڈیلیوری کی تاریخ چنیں۔"
+  },
+  "راجع التاريخ": {
+    "en": "Check date",
+    "zh-CN": "检查日期",
+    "es": "Revisa la fecha",
+    "ur": "تاریخ دیکھیں"
+  },
+  "بداية الاشتراك ومدته": {
+    "en": "Subscription start and duration",
+    "zh-CN": "订阅开始与时长",
+    "es": "Inicio y duración de suscripción",
+    "ur": "اشتراک کا آغاز اور مدت"
+  },
+  "تاريخ البداية": {
+    "en": "Start date",
+    "zh-CN": "开始日期",
+    "es": "Fecha de inicio",
+    "ur": "آغاز کی تاریخ"
+  },
+  "تاريخ بداية الاشتراك": {
+    "en": "Subscription start date",
+    "zh-CN": "订阅开始日期",
+    "es": "Fecha inicial de suscripción",
+    "ur": "اشتراک کی ابتدائی تاریخ"
+  },
+  "مدة الاشتراك": {
+    "en": "Subscription duration",
+    "zh-CN": "订阅时长",
+    "es": "Duración de suscripción",
+    "ur": "اشتراک کی مدت"
+  },
+  "مدة الباقة الأصلية ·": {
+    "en": "Original package duration ·",
+    "zh-CN": "原套餐时长 ·",
+    "es": "Duración original del paquete ·",
+    "ur": "اصل پیکیج کی مدت ·"
+  },
+  "يوم": {
+    "en": "days",
+    "zh-CN": "天",
+    "es": "días",
+    "ur": "دن"
+  },
+  "تاريخ نهاية مخصص": {
+    "en": "Custom end date",
+    "zh-CN": "自定义结束日期",
+    "es": "Fin personalizado",
+    "ur": "اختیاری آخری تاریخ"
+  },
+  "آخر يوم للاستخدام": {
+    "en": "Last usable day",
+    "zh-CN": "最后可用日期",
+    "es": "Último día de uso",
+    "ur": "استعمال کا آخری دن"
+  },
+  "يبدأ:": {
+    "en": "Starts:",
+    "zh-CN": "开始：",
+    "es": "Empieza:",
+    "ur": "آغاز:"
+  },
+  "ينتهي:": {
+    "en": "Ends:",
+    "zh-CN": "结束：",
+    "es": "Termina:",
+    "ur": "اختتام:"
+  },
+  "تُحسب الأشهر تقويميًا تلقائيًا، مع مراعاة فبراير ونهاية الشهر. ينتهي الاستخدام عند الموعد الموضح أعلاه.": {
+    "en": "Calendar months are calculated automatically, including February and month ends. Use expires at the time shown above.",
+    "zh-CN": "自动按自然月计算，考虑二月及月末情况，使用权限在上方时间到期。",
+    "es": "Se calculan meses naturales, incluidos febrero y fin de mes. El uso vence en la fecha indicada.",
+    "ur": "فروری اور مہینے کے اختتام سمیت تقویمی مہینے خودکار شمار ہوتے ہیں۔ استعمال اوپر دکھائے وقت ختم ہوگا۔"
+  },
+  "تعذر قراءة الاشتراكات": {
+    "en": "Couldn't read subscriptions",
+    "zh-CN": "无法读取订阅",
+    "es": "No se pudieron leer las suscripciones",
+    "ur": "اشتراک پڑھنے میں ناکامی"
+  },
+  "راجع الطلب": {
+    "en": "Review order",
+    "zh-CN": "检查订单",
+    "es": "Revisar pedido",
+    "ur": "آرڈر دیکھیں"
+  },
+  "اشتراكات العميل في الكاشير": {
+    "en": "Customer subscriptions at POS",
+    "zh-CN": "收银中的客户订阅",
+    "es": "Suscripciones en caja",
+    "ur": "کیشئر میں گاہکوں کے اشتراک"
+  },
+  "استخدام رصيد اشتراك العميل تلقائيًا": {
+    "en": "Use the customer's subscription balance automatically",
+    "zh-CN": "自动使用客户订阅余额",
+    "es": "Usar el saldo de suscripción automáticamente",
+    "ur": "گاہک کا اشتراکی بیلنس خودکار استعمال کریں"
+  },
+  "أدخل جوال العميل للتعرف على باقاته ورصيدها.": {
+    "en": "Enter the customer's mobile to find packages and balances.",
+    "zh-CN": "输入客户手机号以查找套餐和余额。",
+    "es": "Introduce el móvil para consultar paquetes y saldos.",
+    "ur": "پیکیجز اور بیلنس جاننے کے لیے گاہک کا موبائل لکھیں۔"
+  },
+  "إعادة قراءة الرصيد": {
+    "en": "Refresh balance",
+    "zh-CN": "刷新余额",
+    "es": "Actualizar saldo",
+    "ur": "بیلنس تازہ کریں"
+  },
+  "جارٍ قراءة اشتراكات العميل…": {
+    "en": "Reading customer subscriptions…",
+    "zh-CN": "正在读取客户订阅…",
+    "es": "Leyendo suscripciones…",
+    "ur": "گاہک کے اشتراک پڑھے جا رہے ہیں…"
+  },
+  "· المتبقي": {
+    "en": "· Remaining",
+    "zh-CN": "· 剩余",
+    "es": "· Restante",
+    "ur": "· باقی"
+  },
+  "· حتى": {
+    "en": "· Until",
+    "zh-CN": "· 截至",
+    "es": "· Hasta",
+    "ur": "· تک"
+  },
+  "إجمالي الطلب بعد تسعير الباقات:": {
+    "en": "Order total after package pricing:",
+    "zh-CN": "套餐计价后的订单总额：",
+    "es": "Total tras aplicar paquetes:",
+    "ur": "پیکیج کی قیمت کے بعد آرڈر کا کل:"
+  },
+  "المغطى من الاشتراكات:": {
+    "en": "Covered by subscriptions:",
+    "zh-CN": "订阅覆盖金额：",
+    "es": "Cubierto por suscripciones:",
+    "ur": "اشتراک سے ادا شدہ:"
+  },
+  "المتبقي على الطلب بعد الدفعة والاشتراك:": {
+    "en": "Remaining order balance after payment and subscription:",
+    "zh-CN": "付款及订阅抵扣后的订单余额：",
+    "es": "Pendiente tras pago y suscripción:",
+    "ur": "ادائیگی اور اشتراک کے بعد آرڈر کی باقی رقم:"
+  },
+  ": سيبقى": {
+    "en": ": Remaining",
+    "zh-CN": "：剩余",
+    "es": ": Quedará",
+    "ur": ": باقی رہے گا"
+  },
+  "بعد الحفظ": {
+    "en": "after saving",
+    "zh-CN": "保存后",
+    "es": "después de guardar",
+    "ur": "محفوظ کرنے کے بعد"
+  },
+  "لا يوجد رصيد اشتراك لهذا العميل في المنشأة.": {
+    "en": "This customer has no subscription balance at this business.",
+    "zh-CN": "此客户在本企业没有订阅余额。",
+    "es": "El cliente no tiene saldo de suscripción en este negocio.",
+    "ur": "اس کاروبار میں گاہک کا کوئی اشتراکی بیلنس نہیں۔"
+  },
+  "تحديث رصيد الاشتراكات": {
+    "en": "Refresh subscription balances",
+    "zh-CN": "刷新订阅余额",
+    "es": "Actualizar saldos de suscripción",
+    "ur": "اشتراک کے بیلنس تازہ کریں"
+  },
+  "يخصم العدد عند حفظ الطلب. كل كمية من الخدمة المحددة تستهلك قطعة أو زيارة واحدة؛ الزيارة ليست جميع أصناف الطلب. تُسعّر الوحدات المغطاة بحصتها من سعر الباقة": {
+    "en": "Units are deducted when saving. Each quantity of the selected service uses one item or visit; a visit does not cover all order items. Covered units use their share of the package price",
+    "zh-CN": "保存时扣减数量。所选服务的每个数量消耗一件或一次额度；一次并不覆盖订单的所有商品。覆盖数量按其套餐价格份额计价",
+    "es": "Las unidades se descuentan al guardar. Cada cantidad del servicio consume un artículo o visita; una visita no cubre todo el pedido. Las unidades cubiertas usan su parte del precio del paquete",
+    "ur": "محفوظ کرنے پر تعداد کم ہوتی ہے۔ منتخب خدمت کی ہر تعداد ایک صنف یا دورہ استعمال کرتی ہے؛ دورہ آرڈر کی تمام اشیا نہیں۔ شامل اکائیاں پیکیج کی قیمت کے حصے سے شمار ہوتی ہیں"
+  },
+  "، ويُحتسب فرق المستعجل للوحدات المغطاة بصورة مستقلة": {
+    "en": ", and the rush surcharge on covered units is calculated separately",
+    "zh-CN": "，加急差价另行计算",
+    "es": ", y el suplemento urgente se calcula por separado",
+    "ur": "، اور شامل اکائیوں کا فوری خدمت کا فرق الگ شمار ہوتا ہے"
+  },
+  "، ثم يطبّق الرصيد المالي على الخدمات المتبقية. الدفعة المستلمة أدناه مبلغ جديد فقط؛ لا تشمل رصيد الاشتراك.": {
+    "en": ", then credit applies to remaining services. The payment below is new money only and excludes subscription credit.",
+    "zh-CN": "，然后将余额用于剩余服务。下方收款仅为新增付款，不含订阅余额。",
+    "es": ", después se aplica el saldo a los servicios restantes. El pago inferior es dinero nuevo; excluye el crédito de suscripción.",
+    "ur": "، پھر مالی بیلنس باقی خدمات پر لگتا ہے۔ نیچے کی وصولی صرف نئی رقم ہے؛ اشتراک کا بیلنس شامل نہیں۔"
+  },
+  "خيارات الخدمة": {
+    "en": "Service options",
+    "zh-CN": "服务选项",
+    "es": "Opciones de servicio",
+    "ur": "خدمت کے اختیارات"
+  },
+  "فعّل العادي والمستعجل فقط إذا كانت منشأتك تقدم الخدمة بسرعتين. إيقاف الخيار يخفيه من المنيو والطلبات الجديدة ويحفظ أسعار وفواتير العمليات السابقة.": {
+    "en": "Enable standard/rush only if you offer two speeds. Disabling hides it from the menu and new orders while preserving previous prices and invoices.",
+    "zh-CN": "仅在提供两种速度时启用普通与加急。关闭后从菜单和新订单隐藏，但保留历史价格和发票。",
+    "es": "Activa normal/urgente solo si ofreces ambas velocidades. Desactivar lo oculta sin alterar precios ni facturas anteriores.",
+    "ur": "عام اور فوری صرف دو رفتاروں والی خدمت کے لیے فعال کریں۔ بند کرنے سے مینو اور نئے آرڈرز سے چھپتا ہے؛ سابق قیمتیں اور بل محفوظ رہتے ہیں۔"
+  },
+  "تفعيل عادي / مستعجل لهذا النشاط": {
+    "en": "Enable standard / rush for this activity",
+    "zh-CN": "为此业务启用普通 / 加急",
+    "es": "Activar normal / urgente",
+    "ur": "اس کاروبار کے لیے عام / فوری فعال کریں"
+  },
+  "أسعار المستعجل": {
+    "en": "Rush service prices",
+    "zh-CN": "加急服务价格",
+    "es": "Precios de urgencia",
+    "ur": "فوری خدمت کی قیمتیں"
+  },
+  "من": {
+    "en": "From",
+    "zh-CN": "从",
+    "es": "Desde",
+    "ur": "سے"
+  },
+  "خدمة مسعّرة": {
+    "en": "priced services",
+    "zh-CN": "项已定价服务",
+    "es": "servicios con precio",
+    "ur": "قیمت والی خدمات"
+  },
+  "حدد السعر النهائي للمستعجل لكل خدمة. يظهر السعر مباشرة في منيو المستعجل والسلة. اترك الحقل فارغًا وأحفظ لإيقاف المستعجل لهذه الخدمة. الفواتير السابقة تحتفظ بأسعارها.": {
+    "en": "Set each service's final rush price. It appears in the menu and cart. Leave blank and save to disable rush for that service. Old invoices retain their prices.",
+    "zh-CN": "设置各服务最终加急价，将显示于菜单和购物车。留空保存可停用该项加急服务，历史发票价格不变。",
+    "es": "Define el precio urgente final. Se verá en menú y carrito. Deja vacío y guarda para desactivarlo. Las facturas anteriores conservan sus precios.",
+    "ur": "ہر خدمت کی آخری فوری قیمت مقرر کریں، جو مینو اور سلة میں دکھے گی۔ خالی چھوڑ کر محفوظ کرنے سے اس خدمت کی فوری صورت بند ہوگی۔ سابق بلوں کی قیمتیں برقرار ہیں۔"
+  },
+  "ابحث عن خدمة لتسعير المستعجل": {
+    "en": "Search a service for rush pricing",
+    "zh-CN": "搜索要设置加急价的服务",
+    "es": "Buscar servicio para precio urgente",
+    "ur": "فوری قیمت کے لیے خدمت تلاش کریں"
+  },
+  "ثوب، بطانية، كوي…": {
+    "en": "Thobe, blanket, ironing…",
+    "zh-CN": "长袍、毯子、熨烫…",
+    "es": "Túnica, manta, planchado…",
+    "ur": "ثوب، کمبل، استری…"
+  },
+  "· العادي": {
+    "en": "· Standard",
+    "zh-CN": "· 普通",
+    "es": "· Normal",
+    "ur": "· عام"
+  },
+  "سعر المستعجل بالريال": {
+    "en": "Rush price in SAR",
+    "zh-CN": "加急价（沙特里亚尔）",
+    "es": "Precio urgente en SAR",
+    "ur": "فوری قیمت ریال میں"
+  },
+  "حفظ سعر المستعجل": {
+    "en": "Save rush price",
+    "zh-CN": "保存加急价",
+    "es": "Guardar precio urgente",
+    "ur": "فوری قیمت محفوظ کریں"
+  },
+  "أضف الخدمات أولًا، ثم حدد أسعار المستعجل هنا.": {
+    "en": "Add services first, then set rush prices here.",
+    "zh-CN": "请先添加服务，再设置加急价格。",
+    "es": "Añade servicios primero y define aquí sus precios urgentes.",
+    "ur": "پہلے خدمات شامل کریں، پھر یہاں فوری قیمتیں طے کریں۔"
+  },
+  "دليل أصناف المغسلة الجاهز": {
+    "en": "Ready-made laundry item catalog",
+    "zh-CN": "预设洗衣商品目录",
+    "es": "Catálogo de prendas preparado",
+    "ur": "تیار لانڈری اشیا کی فہرست"
+  },
+  "سعّر الصنف مرة واحدة: غسيل وكوي، وكوي فقط. اترك السعر فارغًا للخدمة التي لا تقدمها. الأسعار المحفوظة ظاهرة ولا تتغير عند إضافة الخدمة الأخرى.": {
+    "en": "Price each item once for wash-and-iron and iron-only. Leave unsupported services blank. Saved prices remain visible and unchanged when adding the other service.",
+    "zh-CN": "分别为洗涤熨烫及仅熨烫设置价格，不提供的服务留空。新增另一种服务不会改变已保存价格。",
+    "es": "Define lavado/planchado y solo planchado una vez. Deja vacío lo que no ofreces. Añadir otra opción no cambia los precios guardados.",
+    "ur": "ہر صنف کی دھلائی و استری اور صرف استری کی قیمت ایک بار دیں۔ غیر فراہم خدمت خالی رکھیں۔ دوسری خدمت شامل کرنے پر محفوظ قیمتیں نہیں بدلتیں۔"
+  },
+  "أدخل سعر خدمة واحدة على الأقل لإضافتها.": {
+    "en": "Enter at least one service price to add the item.",
+    "zh-CN": "至少填写一项服务价格才能添加商品。",
+    "es": "Introduce al menos un precio para añadirlo.",
+    "ur": "شامل کرنے کے لیے کم از کم ایک خدمت کی قیمت لکھیں۔"
+  },
+  "أصناف": {
+    "en": "items",
+    "zh-CN": "件商品",
+    "es": "artículos",
+    "ur": "اشیا"
+  },
+  "ر.س · مفعّلة": {
+    "en": "SAR · Active",
+    "zh-CN": "沙特里亚尔 · 已启用",
+    "es": "SAR · Activa",
+    "ur": "ریال · فعال"
+  },
+  "إضافة الأصناف المسعّرة إلى الكاشير": {
+    "en": "Add priced items to POS",
+    "zh-CN": "将已定价商品加入收银",
+    "es": "Añadir artículos con precio a caja",
+    "ur": "قیمت والی اشیا کیشئر میں شامل کریں"
+  },
+  "مساحة عمل منشأتك": {
+    "en": "Your business workspace",
+    "zh-CN": "企业工作空间",
+    "es": "Espacio de tu negocio",
+    "ur": "آپ کے کاروبار کی کام کی جگہ"
+  },
+  "الطلبات والفواتير وبيانات العملاء محمية بحساب المنشأة.": {
+    "en": "Orders, invoices and customer data are protected by the business account.",
+    "zh-CN": "订单、发票和客户资料受企业账户保护。",
+    "es": "Pedidos, facturas y clientes están protegidos por la cuenta del negocio.",
+    "ur": "آرڈر، بل اور گاہکوں کا ڈیٹا کاروباری اکاؤنٹ سے محفوظ ہے۔"
+  },
+  "بعد الدخول افتح": {
+    "en": "After signing in, open",
+    "zh-CN": "登录后打开",
+    "es": "Después de entrar, abre",
+    "ur": "لاگ ان کے بعد کھولیں"
+  },
+  "كاشير المنشأة": {
+    "en": "Business POS",
+    "zh-CN": "企业收银",
+    "es": "Caja del negocio",
+    "ur": "کاروبار کا کیشئر"
+  },
+  "تحتاج صلاحية كاشير المنشأة": {
+    "en": "Business POS permission required",
+    "zh-CN": "需要企业收银权限",
+    "es": "Necesitas permiso de caja",
+    "ur": "کاروبار کے کیشئر کی اجازت درکار ہے"
+  },
+  "اختر المنشأة من لوحة التحكم، أو اطلب من مالكها إتاحة قسم كاشير المنشأة لحسابك.": {
+    "en": "Choose the business from the dashboard or ask its owner to grant POS access.",
+    "zh-CN": "从控制面板选择企业，或请所有者授予收银权限。",
+    "es": "Elige el negocio o pide al propietario acceso a caja.",
+    "ur": "ڈیش بورڈ سے کاروبار چنیں یا مالک سے کیشئر کی اجازت لیں۔"
+  },
+  "العودة إلى لوحة التحكم": {
+    "en": "Back to dashboard",
+    "zh-CN": "返回控制面板",
+    "es": "Volver al panel",
+    "ur": "ڈیش بورڈ پر واپس جائیں"
+  },
+  "INFRO · البرنامج المحاسبي": {
+    "en": "INFRO · Accounting software",
+    "zh-CN": "INFRO · 会计软件",
+    "es": "INFRO · Programa contable",
+    "ur": "INFRO · حسابات کا سافٹ ویئر"
+  },
+  "سجّل الدخول واختر منشأتك للوصول إلى حساباتها.": {
+    "en": "Sign in and choose your business to access its accounts.",
+    "zh-CN": "登录并选择企业以访问账务。",
+    "es": "Inicia sesión y elige el negocio para acceder a sus cuentas.",
+    "ur": "حسابات تک رسائی کے لیے لاگ ان کریں اور اپنا کاروبار چنیں۔"
+  },
+  "اختيار المنشأة": {
+    "en": "Choose business",
+    "zh-CN": "选择企业",
+    "es": "Elegir negocio",
+    "ur": "کاروبار منتخب کریں"
+  },
+  "هذه الخدمات ضمن باقات التشغيل والنمو والشاملة. الهوية مجانية دون مواعيد أو كاشير.": {
+    "en": "These services are included in Operations, Growth and Complete. Identity is free without appointments or POS.",
+    "zh-CN": "这些服务包含于运营、成长和全能套餐。免费身份套餐不含预约或收银。",
+    "es": "Incluidas en Operaciones, Crecimiento e Integral. Identidad es gratuita, sin citas ni caja.",
+    "ur": "یہ خدمات آپریشنز، ترقی اور جامع میں ہیں۔ شناخت مفت ہے، بغیر ملاقاتوں یا کیشئر کے۔"
+  },
+  "مقارنة الباقات والترقية": {
+    "en": "Compare plans and upgrade",
+    "zh-CN": "比较套餐并升级",
+    "es": "Comparar planes y mejorar",
+    "ur": "پیکیجز کا موازنہ اور اپ گریڈ"
+  },
+  "تحتاج صلاحية البرنامج المحاسبي": {
+    "en": "Accounting permission required",
+    "zh-CN": "需要会计权限",
+    "es": "Necesitas permiso contable",
+    "ur": "حسابات کی اجازت درکار ہے"
+  },
+  "يحدد مالك المنشأة مهامك من الموظفين والصلاحيات.": {
+    "en": "The business owner assigns your tasks in Staff and permissions.",
+    "zh-CN": "企业所有者在员工与权限中分配任务。",
+    "es": "El propietario define tus tareas en Personal y permisos.",
+    "ur": "مالک ملازمین اور اجازتوں میں آپ کے کام طے کرتا ہے۔"
+  },
+  "هذه المهمة غير متاحة لحسابك": {
+    "en": "This task is unavailable to your account",
+    "zh-CN": "您的账户无法使用此任务",
+    "es": "Esta tarea no está disponible para tu cuenta",
+    "ur": "یہ کام آپ کے اکاؤنٹ کے لیے دستیاب نہیں"
+  },
+  "العودة إلى البرنامج المحاسبي": {
+    "en": "Back to accounting software",
+    "zh-CN": "返回会计软件",
+    "es": "Volver al programa contable",
+    "ur": "حسابات کے پروگرام پر واپس جائیں"
+  },
+  "مغسلة ملابس": {
+    "en": "Laundry",
+    "zh-CN": "洗衣店",
+    "es": "Lavandería",
+    "ur": "لانڈری"
+  },
+  "مهام البرنامج المحاسبي": {
+    "en": "Accounting tasks",
+    "zh-CN": "会计任务",
+    "es": "Tareas contables",
+    "ur": "حسابات کے کام"
+  },
+  "شهر": {
+    "en": "month",
+    "zh-CN": "个月",
+    "es": "mes",
+    "ur": "ماہ"
+  },
+  "شهران": {
+    "en": "2 months",
+    "zh-CN": "2 个月",
+    "es": "2 meses",
+    "ur": "2 ماہ"
+  },
+  "3 أشهر": {
+    "en": "3 months",
+    "zh-CN": "3 个月",
+    "es": "3 meses",
+    "ur": "3 ماہ"
+  },
+  "4 أشهر": {
+    "en": "4 months",
+    "zh-CN": "4 个月",
+    "es": "4 meses",
+    "ur": "4 ماہ"
+  },
+  "5 أشهر": {
+    "en": "5 months",
+    "zh-CN": "5 个月",
+    "es": "5 meses",
+    "ur": "5 ماہ"
+  },
+  "6 أشهر": {
+    "en": "6 months",
+    "zh-CN": "6 个月",
+    "es": "6 meses",
+    "ur": "6 ماہ"
+  },
+  "7 أشهر": {
+    "en": "7 months",
+    "zh-CN": "7 个月",
+    "es": "7 meses",
+    "ur": "7 ماہ"
+  },
+  "8 أشهر": {
+    "en": "8 months",
+    "zh-CN": "8 个月",
+    "es": "8 meses",
+    "ur": "8 ماہ"
+  },
+  "9 أشهر": {
+    "en": "9 months",
+    "zh-CN": "9 个月",
+    "es": "9 meses",
+    "ur": "9 ماہ"
+  },
+  "10 أشهر": {
+    "en": "10 months",
+    "zh-CN": "10 个月",
+    "es": "10 meses",
+    "ur": "10 ماہ"
+  },
+  "11 أشهر": {
+    "en": "11 months",
+    "zh-CN": "11 个月",
+    "es": "11 meses",
+    "ur": "11 ماہ"
+  },
+  "سنة كاملة": {
+    "en": "Full year",
+    "zh-CN": "全年",
+    "es": "Un año completo",
+    "ur": "مکمل سال"
+  },
+  "مستلم": {
+    "en": "Received",
+    "zh-CN": "已接收",
+    "es": "Recibido",
+    "ur": "موصول"
+  },
+  "قيد المعالجة": {
+    "en": "Processing",
+    "zh-CN": "处理中",
+    "es": "En proceso",
+    "ur": "زیرِ عمل"
+  },
+  "تم التسليم": {
+    "en": "Delivered",
+    "zh-CN": "已交付",
+    "es": "Entregado",
+    "ur": "پہنچا دیا گیا"
+  },
+  "جميع الطلبات": {
+    "en": "All orders",
+    "zh-CN": "所有订单",
+    "es": "Todos los pedidos",
+    "ur": "تمام آرڈرز"
+  },
+  "متأخرة عن التسليم": {
+    "en": "Past delivery time",
+    "zh-CN": "交付逾期",
+    "es": "Entrega atrasada",
+    "ur": "ڈیلیوری سے تاخیر شدہ"
+  },
+  "جاهزة للاستلام": {
+    "en": "Ready for pickup",
+    "zh-CN": "可取件",
+    "es": "Listos para recoger",
+    "ur": "وصولی کے لیے تیار"
+  },
+  "غير مسددة": {
+    "en": "Unpaid",
+    "zh-CN": "未付款",
+    "es": "Sin pagar",
+    "ur": "غیر ادا شدہ"
+  },
+  "تم تسليمها": {
+    "en": "Delivered",
+    "zh-CN": "已交付",
+    "es": "Entregados",
+    "ur": "پہنچائے گئے"
+  },
+  "عادي": {
+    "en": "Standard",
+    "zh-CN": "普通",
+    "es": "Normal",
+    "ur": "عام"
+  },
+  "مستعجل": {
+    "en": "Rush",
+    "zh-CN": "加急",
+    "es": "Urgente",
+    "ur": "فوری"
+  },
+  "لم يبدأ": {
+    "en": "Not started",
+    "zh-CN": "未开始",
+    "es": "Sin iniciar",
+    "ur": "شروع نہیں ہوا"
+  },
+  "منتهي الصلاحية": {
+    "en": "Expired",
+    "zh-CN": "已过期",
+    "es": "Caducado",
+    "ur": "مدت ختم"
+  },
+  "نفد الرصيد": {
+    "en": "Balance exhausted",
+    "zh-CN": "余额已用完",
+    "es": "Saldo agotado",
+    "ur": "بیلنس ختم"
+  },
+  "تحويل": {
+    "en": "Transfer",
+    "zh-CN": "转账",
+    "es": "Transferencia",
+    "ur": "منتقلی"
+  },
+  "رصيد اشتراك": {
+    "en": "Subscription credit",
+    "zh-CN": "订阅余额",
+    "es": "Crédito de suscripción",
+    "ur": "اشتراکی بیلنس"
+  },
+  "الكمية: {count}": {
+    "en": "Qty: {count}",
+    "zh-CN": "数量：{count}",
+    "es": "Cantidad: {count}",
+    "ur": "تعداد: {count}"
+  },
+  "من إجمالي": {
+    "en": "of",
+    "zh-CN": "共",
+    "es": "de",
+    "ur": "کل میں سے"
+  },
+  "شهر واحد": {
+    "en": "1 month",
+    "zh-CN": "1 个月",
+    "es": "1 mes",
+    "ur": "1 ماہ"
+  },
+  "الهوية والتشغيل والتسويق": {"en":"Business identity, operations and marketing","zh-CN":"企业身份、运营与营销","es":"Identidad, operaciones y marketing","ur":"شناخت، انتظام اور مارکیٹنگ"}
 };
 
 export function uiText(locale: AppLocale, text: string): string {
@@ -4710,14 +6517,16 @@ export function uiText(locale: AppLocale, text: string): string {
 }
 
 export function localizeUiAttributes<T extends Record<string, unknown>>(locale: AppLocale, props: T): T {
-  const translated: Record<string, unknown> = { ...props };
-  for (const key of ["aria-label", "placeholder", "title", "alt"]) {
-    if (typeof props[key] === "string") translated[key] = uiText(locale, props[key]);
-  }
-  return translated as T;
+  return translatedUiAttributes(uiMessagesForLocale(locale),props);
 }
 
 /** Interpolate presentation variables without changing identifiers or interpreting markup. */
 export function uiFormat(locale: AppLocale, text: string, values: Record<string, string | number | bigint>): string {
- return uiText(locale,text).replace(/\{([A-Za-z][A-Za-z0-9_]*)\}/g,(match,key:string)=>Object.prototype.hasOwnProperty.call(values,key)?String(values[key]):match);
+ return formattedUiText(uiMessagesForLocale(locale),text,values);
+}
+
+/** Only the selected language is serialized to the browser. No business content is included. */
+export function uiMessagesForLocale(locale:AppLocale):UiMessages {
+ if(locale==="ar")return {};
+ return Object.freeze(Object.fromEntries([...Object.entries(HOMEPAGE_TRANSLATIONS),...Object.entries(UI_TRANSLATIONS)].map(([key,value])=>[key,value[locale]])));
 }

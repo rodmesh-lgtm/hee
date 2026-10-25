@@ -1,19 +1,21 @@
 "use client";
 
-import { cloneElement, createContext, useContext, useCallback, type ReactElement, type ReactNode } from "react";
+import { cloneElement, createContext, useContext, useCallback, useMemo, type ReactElement, type ReactNode } from "react";
 import { DEFAULT_LOCALE, LOCALE_META, type AppLocale } from "../../app/lib/i18n";
-import { localizeUiAttributes, uiFormat, uiText } from "../../app/lib/ui-i18n";
+import { formattedUiText, translatedUiAttributes, translatedUiText, type UiMessages } from "../../app/lib/i18n-presentation";
 
-const LocaleContext = createContext<AppLocale>(DEFAULT_LOCALE);
+const EMPTY_MESSAGES:UiMessages=Object.freeze({});
+const LocaleContext = createContext<{locale:AppLocale;messages:UiMessages}>({locale:DEFAULT_LOCALE,messages:EMPTY_MESSAGES});
 
-export function LocaleProvider({ locale, children }: { locale: AppLocale; children: ReactNode }) {
-  return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;
+export function LocaleProvider({ locale, messages=EMPTY_MESSAGES, children }: { locale: AppLocale; messages?:UiMessages; children: ReactNode }) {
+  const value=useMemo(()=>({locale,messages}),[locale,messages]);
+  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
 }
 
 export function useI18n() {
-  const locale = useContext(LocaleContext);
-  const t = useCallback((text: string) => uiText(locale, text), [locale]);
-  const f = useCallback((text: string, values: Record<string, string | number | bigint>) => uiFormat(locale, text, values), [locale]);
+  const {locale,messages} = useContext(LocaleContext);
+  const t = useCallback((text: string) => translatedUiText(messages, text), [messages]);
+  const f = useCallback((text: string, values: Record<string, string | number | bigint>) => formattedUiText(messages, text, values), [messages]);
   return { locale, t, f, dir: LOCALE_META[locale].dir, intlLocale: LOCALE_META[locale].intlLocale };
 }
 
@@ -24,7 +26,8 @@ export function UiText({ children }: { children: string }) {
 }
 
 /** Translate only presentation attributes; values, names, refs and actions are preserved. */
-export function UiAttributes({ children }: { children: ReactElement<Record<string, unknown>> }) {
-  const { locale } = useI18n();
-  return cloneElement(children, localizeUiAttributes(locale, children.props));
+export function UiAttributes({ children, direction = false }: { children: ReactElement<Record<string, unknown>>; direction?: boolean }) {
+  const {locale,messages}=useContext(LocaleContext);
+  const props = translatedUiAttributes(messages, children.props);
+  return cloneElement(children, direction ? { ...props, dir: LOCALE_META[locale].dir } : props);
 }

@@ -1,10 +1,12 @@
+import { translatedUiText } from "../app/lib/i18n-presentation";
+import { laundryMoney } from "../app/lib/laundry-domain";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { LOCALE_COOKIE, LEGACY_LOCALE_COOKIE, localeCookieDomain, safeLocaleReturnTo, SUPPORTED_LOCALES, LOCALE_META } from "../app/lib/i18n";
 import { HOMEPAGE_TRANSLATIONS } from "../app/lib/homepage-i18n";
-import { localizeUiAttributes, uiFormat, uiText, UI_TRANSLATIONS } from "../app/lib/ui-i18n";
+import { localizeUiAttributes, uiFormat, uiMessagesForLocale, uiText, UI_TRANSLATIONS } from "../app/lib/ui-i18n";
 import { SERVICE_GUIDES, serviceGuide } from "../app/lib/service-guides";
 import { SELLABLE_PLANS } from "../app/lib/commercial-plans";
 
@@ -49,4 +51,19 @@ test("UI attribute localization preserves form values, action references and pay
  const action=()=>{};const props={name:"category",value:"العربية",title:"الحالة","aria-label":"الحالة",placeholder:"الاسم",formAction:action,onClick:action,children:"نص العميل",disabled:true};
  const localized=localizeUiAttributes("en",props);assert.equal(localized.title,"Status");assert.equal(localized["aria-label"],"Status");assert.equal(localized.placeholder,"Name");assert.equal(localized.value,props.value);assert.equal(localized.name,props.name);assert.equal(localized.children,props.children);assert.equal(localized.formAction,action);assert.equal(localized.onClick,action);assert.equal(localized.disabled,true);
  assert.equal(uiFormat("en","الرقم: {number}",{number:"<original>"}),"Number: <original>");
+});
+
+test("browser messages contain only the selected language and preserve unknown business text",()=>{
+ assert.deepEqual(uiMessagesForLocale("ar"),{});
+ const english=uiMessagesForLocale("en"),spanish=uiMessagesForLocale("es");
+ assert.equal(english["الحالة"],"Status");assert.equal(spanish["الحالة"],"Estado");
+ assert.ok(Object.values(english).every(value=>typeof value==="string"));
+ assert.equal(translatedUiText(english,"اسم منشأة العميل"),"اسم منشأة العميل");
+ for(const key of ["constructor","__proto__","toString"])assert.equal(translatedUiText(english,key),key);
+});
+test("cashier amount formatting changes notation without changing minor-unit conversion",()=>{
+ assert.equal(laundryMoney(12345,"en-SA"),"123.45");
+ assert.equal(laundryMoney(12345,"es-SA"),"123,45");
+ assert.equal(laundryMoney(105,"en-SA"),"1.05");
+ assert.equal(laundryMoney(105),laundryMoney(105,"ar-SA"));
 });
