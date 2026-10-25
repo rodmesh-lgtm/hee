@@ -9,7 +9,7 @@ import { normalizeE164 } from "./whatsapp/contact-domain";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl } from "./whatsapp/meta-config";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./whatsapp/credential-envelope";
 import { assertOutboundEnabled, outboundRateLimit } from "./whatsapp/delivery-domain";
-import { hasActiveBusinessSubscription } from "./subscription-entitlement";
+import { hasActiveBookingEntitlement } from "./subscription-entitlement";
 import { writeWhatsAppAuditLog } from "./whatsapp/audit";
 import { consumePublicWriteLimit, requestClientAddress } from "./rate-limit";
 import { asciiDigits, bookingAccessCredential, bookingCredentialDigest, bookingDigestsEqual, bookingVerificationCode, newBookingAccessToken, newBookingVerificationCode, authenticationCopyCodeTemplate, BOOKING_VERIFICATION_TEMPLATE, BOOKING_CODE_TTL_MS, BOOKING_ACCESS_TTL_MS, BOOKING_CODE_MAX_ATTEMPTS } from "./booking-verification-domain";
@@ -21,7 +21,7 @@ function secret() { const value=process.env.SESSION_SECRET??""; if(value.length<
 export function verificationPhone(value: unknown) { return typeof value === "string" ? normalizeE164(asciiDigits(value), "966") : null; }
 export async function verificationBusiness(slug: string) {
   const business = await db.business.findFirst({where:{slug,deletedAt:null,isPublished:true,bookingAvailable:true,owner:{deletedAt:null,emailVerifiedAt:{not:null}}},select:{id:true}});
-  if(!business || !await canBusinessUsePublicSlug(business.id,slug) || !await hasActiveBusinessSubscription({businessId:business.id})) throw new BookingVerificationError(409,"تعديل الموعد غير متاح حاليًا لدى المنشأة");
+  if(!business || !await canBusinessUsePublicSlug(business.id,slug) || !await hasActiveBookingEntitlement({businessId:business.id})) throw new BookingVerificationError(409,"تعديل الموعد غير متاح حاليًا لدى المنشأة");
   return business;
 }
 async function limited(businessId:string, request:Request, identity:string, scope:string, limit:number) {
@@ -73,12 +73,12 @@ export async function requestBookingVerification(slug:string, rawPhone:unknown, 
   if(!created) return receipt;
   try {
     const current=await db.whatsAppConnection.findFirst({where:{id:template.connectionId,businessId:business.id,status:"connected",disabledAt:null,bookingEnabled:true},select:{id:true}});
-    if(!current || !await hasActiveBusinessSubscription({businessId:business.id})) throw new Error("UNAVAILABLE");
+    if(!current || !await hasActiveBookingEntitlement({businessId:business.id})) throw new Error("UNAVAILABLE");
     assertOutboundEnabled();
     const now=new Date();const windowStart=new Date(Math.floor(now.getTime()/60000)*60000);const limit=outboundRateLimit();
     const slot=await db.$queryRaw<Array<{sentCount:number}>>`INSERT INTO "WhatsAppSendRateBucket" ("connectionId","businessId","windowStart","sentCount","updatedAt") VALUES (${current.id},${business.id},${windowStart},1,${now}) ON CONFLICT ("connectionId","windowStart") DO UPDATE SET "sentCount"="WhatsAppSendRateBucket"."sentCount"+1,"updatedAt"=${now} WHERE "WhatsAppSendRateBucket"."businessId"=${business.id} AND "WhatsAppSendRateBucket"."sentCount"<${limit} RETURNING "sentCount"`;
     if(!slot.length) throw new Error("RATE_LIMITED");
-    await reserveTemplateProcessing(business.id,challengeId);
+    await reserveTemplateProcessing(business.id,challengeId,undefined,"operational");
     const messageId=await sendBookingAuthentication({url:metaWhatsAppGraphUrl(config,`${template.connection.phoneNumberId}/messages`),token,name:template.name,phone,code});
     await db.$executeRaw`UPDATE "BookingVisitorVerification" SET "status"='accepted',"providerMessageId"=${messageId} WHERE "id"=${challengeId} AND "businessId"=${business.id} AND "status"='pending' AND "expiresAt">CURRENT_TIMESTAMP`;
   } catch(error) {

@@ -4,13 +4,16 @@ import { db } from "./db";
 import { commercialAccess } from "./commercial-access";
 import { commercialMonth,commercialQuotaKey,incrementCommercialQuota } from "./commercial-quota-sql";
 export class CommercialLimitError extends Error {constructor(){super("بلغت حد الاستخدام في باقتك. راجع الباقات؛ لا تُحتسب زيادة تلقائية.");}}
-export async function reserveTemplateProcessing(businessId:string,jobId:string,database:PrismaClient=db){
+export async function reserveTemplateProcessing(businessId:string,jobId:string,database:PrismaClient=db,scope:"marketing"|"operational"="marketing"){
  return database.$transaction(async tx=>{
   const plan=await commercialAccess(businessId,tx);if(plan.monthlyTemplates===null)return;
-  const {start,period}=commercialMonth(),key=commercialQuotaKey(businessId,"templates",period),receipt=commercialQuotaKey(businessId,"templates",period,jobId),now=new Date();
+  const split=plan.monthlyMarketingTemplates!==undefined;
+  const limit=split?(scope==="marketing"?plan.monthlyMarketingTemplates!:plan.monthlyOperationalTemplates!):plan.monthlyTemplates;
+  const metric=split?`templates:${scope}`:"templates";
+  const {start,period}=commercialMonth(),key=commercialQuotaKey(businessId,metric,period),receipt=commercialQuotaKey(businessId,metric,period,jobId),now=new Date();
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
   const seen=await tx.$queryRaw<Array<{count:number}>>`SELECT count FROM "RequestRateLimit" WHERE key=${receipt}`;if(seen.length)return;
-  if(plan.monthlyTemplates<1||!(await tx.$queryRaw<Array<{count:number}>>(incrementCommercialQuota(key,1,plan.monthlyTemplates,start,now))).length)throw new CommercialLimitError();
+  if(limit<1||!(await tx.$queryRaw<Array<{count:number}>>(incrementCommercialQuota(key,1,limit,start,now))).length)throw new CommercialLimitError();
   await tx.$executeRaw`INSERT INTO "RequestRateLimit" (key,"windowStart",count,"updatedAt") VALUES (${receipt},${start},1,${now})`;
  });
 }
@@ -55,7 +58,8 @@ export async function commercialUsageSummary(businessId:string){
  const [invoices,bookings,staff,counters]=await Promise.all([
  db.$queryRaw<Array<{count:number}>>`SELECT COUNT(*)::int AS count FROM "LaundryTicket" WHERE "businessId"=${businessId} AND "createdAt">=${start} AND "createdAt"<${end}`,
  db.booking.count({where:{businessId,createdAt:{gte:start,lt:end}}}),db.businessMember.count({where:{businessId,status:"active"}}),
- db.$queryRaw<Array<{key:string;count:number}>>`SELECT key,count FROM "RequestRateLimit" WHERE key IN (${commercialQuotaKey(businessId,"templates",period)},${commercialQuotaKey(businessId,"live-kb",period)})`
+ db.$queryRaw<Array<{key:string;count:number}>>`SELECT key,count FROM "RequestRateLimit" WHERE key IN (${commercialQuotaKey(businessId,"templates",period)},${commercialQuotaKey(businessId,"live-kb",period)},${commercialQuotaKey(businessId,"templates:marketing",period)},${commercialQuotaKey(businessId,"templates:operational",period)})`
  ]);
- return {invoices:invoices[0]?.count??0,bookings,staff:staff+1,templates:counters.find(c=>c.key===commercialQuotaKey(businessId,"templates",period))?.count??0,liveKB:counters.find(c=>c.key===commercialQuotaKey(businessId,"live-kb",period))?.count??0};
+ const marketing=counters.find(c=>c.key===commercialQuotaKey(businessId,"templates:marketing",period))?.count??0,operational=counters.find(c=>c.key===commercialQuotaKey(businessId,"templates:operational",period))?.count??0;
+ return {marketing,operational,invoices:invoices[0]?.count??0,bookings,staff:staff+1,templates:marketing+operational+(counters.find(c=>c.key===commercialQuotaKey(businessId,"templates",period))?.count??0),liveKB:counters.find(c=>c.key===commercialQuotaKey(businessId,"live-kb",period))?.count??0};
 }

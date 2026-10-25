@@ -1,3 +1,5 @@
+import {cashierNotice,cashierNoticeTemplateSupported} from "./cashier-notice-domain";
+import {cashierNoticeContext} from "./cashier-notices";
 import "server-only";
 import { laundryReadyContext } from "./laundry-ready";
 import { laundryReadyEvent,laundryReadyTemplateSupported,LAUNDRY_READY_TEMPLATE_NAME } from "./laundry-ready-domain";
@@ -103,6 +105,7 @@ export async function processWhatsAppAutomationEvent(input: {
         select: { revokedAt: true, source: true },
       });
       let eventSkipReason: string | null = null;
+      const cashierJob=Boolean(cashierNotice(event.triggerType));
       const laundryParameters=event.triggerType==="laundry_ready"&&laundryReadyEvent(event)?await laundryReadyContext(tx,event.businessId,event.subjectId,contact.phoneE164):null;
       if(event.triggerType==="laundry_ready"&&!laundryParameters)eventSkipReason="laundry_order_not_ready_or_consent_missing";
       let bookingConfirmationParameters: ReturnType<typeof buildBookingConfirmationTemplateParameters> | null = null;
@@ -175,17 +178,17 @@ export async function processWhatsAppAutomationEvent(input: {
             provider: "meta",
             status: "connected",
             disabledAt: null,
-            ...(event.triggerType === "booking_confirmation" ? { bookingEnabled: true } : event.triggerType === "laundry_ready" ? {OR:[{bookingEnabled:true},{marketingEnabled:true}]} : { marketingEnabled: true }),
+            ...(event.triggerType === "booking_confirmation" ? { bookingEnabled: true } : (event.triggerType === "laundry_ready"||cashierJob) ? {OR:[{bookingEnabled:true},{marketingEnabled:true}]} : { marketingEnabled: true }),
           },
         },
-        select: { id: true, businessId: true, connectionId: true, triggerType: true, triggerConfig: true, actionType: true, actionConfig: true, cooldownMinutes: true },
+        select: { id: true, businessId: true, connectionId: true, triggerType: true, triggerConfig: true, actionType: true, actionConfig: true, cooldownMinutes: true, activatedAt:true },
       });
       let jobs = 0;
       for (const automation of automations) {
         if (automation.businessId !== event.businessId) throw new Error("WHATSAPP_AUTOMATION_TENANT_MISMATCH");
         if (!automationMatchesEvent({ triggerType: automation.triggerType, triggerConfig: automation.triggerConfig, subjectType: event.subjectType })) continue;
         const key = automationIdempotencyKey({ businessId: event.businessId, automationId: automation.id, eventId: event.id, contactId: contact.id });
-        const skipReason = eventSkipReason ?? (contact.optedOutAt || contact.deletedAt ? "contact_opted_out" : (event.triggerType!=="laundry_ready"&&!consent) || consent?.revokedAt || (event.triggerType === "abandoned_cart" && consent?.source === "booking") ? "marketing_consent_missing" : null);
+        const skipReason = eventSkipReason ?? (contact.optedOutAt || contact.deletedAt ? "contact_opted_out" : (event.triggerType!=="laundry_ready"&&!cashierJob&&!consent) || consent?.revokedAt || (event.triggerType === "abandoned_cart" && consent?.source === "booking") ? "marketing_consent_missing" : null);
         const cooldownSince = new Date(now.getTime() - automation.cooldownMinutes * 60_000);
         const recentlyRun = automation.cooldownMinutes > 0 && await tx.whatsAppAutomationRun.findFirst({
           where: { businessId: event.businessId, automationId: automation.id, contactId: contact.id, createdAt: { gte: cooldownSince }, status: { in: ["queued", "completed"] } },
@@ -216,7 +219,7 @@ export async function processWhatsAppAutomationEvent(input: {
               provider: "meta",
               status: "connected",
               disabledAt: null,
-              ...(event.triggerType === "booking_confirmation" ? { bookingEnabled: true } : event.triggerType === "laundry_ready" ? {OR:[{bookingEnabled:true},{marketingEnabled:true}]} : { marketingEnabled: true }),
+              ...(event.triggerType === "booking_confirmation" ? { bookingEnabled: true } : (event.triggerType === "laundry_ready"||cashierJob) ? {OR:[{bookingEnabled:true},{marketingEnabled:true}]} : { marketingEnabled: true }),
             },
           },
           select: { id: true, name:true, category: true, components: true, parameterFormat: true },
@@ -229,7 +232,9 @@ export async function processWhatsAppAutomationEvent(input: {
           throw new Error("WHATSAPP_BOOKING_CONFIRMATION_TEMPLATE_INVALID");
         }
         if(event.triggerType==="laundry_ready"&&(template.name!==LAUNDRY_READY_TEMPLATE_NAME||template.category!=="utility"||!laundryReadyTemplateSupported(template.components,template.parameterFormat)))throw new Error("LAUNDRY_READY_TEMPLATE_INVALID");
-        const templateParameters = event.triggerType==="laundry_ready"?laundryParameters:event.triggerType === "booking_confirmation"
+        const cashierParameters=cashierJob?await cashierNoticeContext(tx,event,event.businessId,contact.phoneE164,automation.activatedAt,automation.triggerConfig,now):null;
+        if(cashierJob&&(!cashierParameters||!cashierNoticeTemplateSupported(event.triggerType,template)))throw new Error("CASHIER_NOTICE_NO_LONGER_AUTHORIZED");
+        const templateParameters = cashierJob?cashierParameters:event.triggerType==="laundry_ready"?laundryParameters:event.triggerType === "booking_confirmation"
           ? bookingConfirmationParameters
           : isSallaOrderTrigger(event.triggerType) ? sallaParameters : action.parameters;
         await tx.whatsAppAutomationJob.upsert({

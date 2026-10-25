@@ -60,7 +60,7 @@ async function candidate(email: string) {
         COALESCE(p."code", 'FREE') AS "planCode",
         (
           SELECT COUNT(*)::int FROM "Subscription" s
-          JOIN "BusinessPlan" sp ON sp."id"=s."planId" AND sp."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE')
+          JOIN "BusinessPlan" sp ON sp."id"=s."planId" AND sp."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE','OPERATE_35','GROWTH_35','SCALE_35','BOOKING_ONLY_35','ACCOUNTING_ONLY_35','WHATSAPP_ONLY_35','LIVE_ONLY_35')
           WHERE s."businessId"=b."id" AND s."status" IN ('active','past_due') AND s."endsAt" > CURRENT_TIMESTAMP
         ) AS "activePaidSubscriptions",
         (

@@ -1,4 +1,5 @@
 "use server";
+import {endOrderLiveSessions} from "../lib/live-view/order-link";
 import { assertInvoiceCapacity,CommercialLimitError } from "../lib/commercial-usage";
 import { cashierUrgentEnabled,hasClothingCatalogue } from "../lib/cashier-settings";
 import { normalizePageModulesForPersistence } from "../lib/page-modules";
@@ -24,7 +25,7 @@ const command = z.discriminatedUnion("type", [
   z.object({type:z.literal("urgent-settings"),enabled:z.boolean(),requestId:key}),
   z.object({ type:z.literal("urgent-price"),id:key,price:z.string(),requestId:key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
-  z.object({ type: z.literal("order"), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
+  z.object({ type: z.literal("order"), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
   z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0") }),
   z.object({ type: z.literal("status"), requestId: key, id: key, status: z.enum(["received","processing","ready","delivered"]) }),
   z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string(), method:z.enum(["cash","transfer","unspecified"]).default("unspecified") }),
@@ -133,6 +134,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           }
           if(quote.covered)await tx.$executeRaw`UPDATE "LaundryTicket" SET paid=paid+${quote.covered} WHERE "businessId"=${business.id} AND id=${id}`;
         }
+        for(const [given,action] of [[data.reminderConsent,"order-reminder-consent"],[data.reviewConsent,"order-review-consent"]] as const)if(given)await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${randomUUID()},${business.id},${user.id},${action},${id})`;
         if(data.readyNotifyConsent)await tx.$executeRaw`UPDATE "LaundryTicket" SET "readyNotifyConsentAt"=now() WHERE id=${id} AND "businessId"=${business.id}`;
         for(const [index,allocation] of allocations.entries()) {const paymentId=randomUUID();const paymentRequest=index===0?data.requestId:`${data.requestId}:${index}`;
           await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${paymentId},${business.id},${id},${paymentRequest},${allocation.amount},${allocation.method},${user.id})`;
@@ -165,6 +167,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           if(data.status==="delivered"){const delivery=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryDelivery" WHERE "businessId"=${business.id} AND "ticketId"=${id}`;if(delivery.length)throw new LaundryInputError("هذا الطلب مسند للتوصيل؛ وثّق تسليمه من مساحة التوصيل");}
           if(!nextLaundryStatus(ticket.status,data.status,ticket.total-ticket.paid)) throw new LaundryInputError("اتبع مراحل الطلب بالترتيب، وسدّد المتبقي قبل التسليم");
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "status"=${data.status},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
+          if(data.status==="ready"||data.status==="delivered")await endOrderLiveSessions(tx,business.id,id,user.id);
           if(data.status==="ready")await enqueueLaundryReady(tx,business.id,id);
           if(data.status==="delivered")await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"delivery",amount:ticket.total,at:new Date(),description:`إيراد تسليم طلب #${ticket.number}`});
         }

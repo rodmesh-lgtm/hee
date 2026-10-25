@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readSallaOrderStatusConfig, sallaOrderStatusConfig } from "./salla-order-journey-domain";
 
 export const WHATSAPP_AUTOMATION_TRIGGER_TYPES = [
-  "laundry_ready", "welcome", "booking_confirmation", "appointment_reminder", "follow_up", "order_update",
+  "cashier_pickup_reminder", "cashier_payment_reminder", "cashier_review_request", "laundry_ready", "welcome", "booking_confirmation", "appointment_reminder", "follow_up", "order_update",
   "inactive_customer", "abandoned_cart", "api_event", "salla_order_confirmation", "salla_order_status",
 ] as const;
 
@@ -102,7 +102,7 @@ export function readAutomationTriggerConfig(value: unknown, triggerTypeValue: st
     : triggerType === "appointment_reminder" ? ["version", "leadMinutes"]
       : triggerType === "inactive_customer" ? ["version", "inactiveDays"]
         : triggerType === "abandoned_cart" ? ["version", "delayMinutes"]
-          : triggerType === "api_event" ? ["version", "eventName"] : ["version"];
+          : triggerType === "api_event" ? ["version", "eventName"] : triggerType==="cashier_review_request"?["version","reviewUrl"]:["version"];
   if (Object.keys(record).some((key) => !allowedKeys.includes(key)) || record.version !== 1) {
     throw new Error("WHATSAPP_AUTOMATION_TRIGGER_CONFIG_INVALID");
   }
@@ -140,6 +140,7 @@ export function automationMatchesEvent(input: { triggerType: string; triggerConf
   const config = readAutomationTriggerConfig(input.triggerConfig, input.triggerType);
   if (input.triggerType === "salla_order_status") return "orderStatus" in config && input.subjectType === `salla.order.status.${config.orderStatus}`;
   if (input.triggerType === "salla_order_confirmation") return input.subjectType === "salla.order.confirmed";
+  if (["cashier_pickup_reminder","cashier_payment_reminder","cashier_review_request"].includes(input.triggerType)) return input.subjectType===input.triggerType;
   if (input.triggerType === "laundry_ready") return input.subjectType === "laundry.ticket.ready";
   if (input.triggerType === "welcome") return input.subjectType === "contact.consent_granted";
   if (input.triggerType === "booking_confirmation") return input.subjectType === "booking.created" || input.subjectType === "booking.rescheduled";

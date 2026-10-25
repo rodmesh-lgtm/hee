@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { db } from "./db";
+import {getPlanEntitlements} from "./plan-entitlements";
 import { SUPPORTED_PAID_PLAN_CODES } from "./commercial-plans";
 
 export function activeSubscriptionWhere(businessId: string, now = new Date()): Prisma.SubscriptionWhereInput {
@@ -52,4 +53,9 @@ export async function getEffectiveSubscription(input: { businessId: string; data
 export async function hasActiveBusinessSubscription(input: { businessId: string; database?: PrismaClient; now?: Date }) {
   // Booking requires a supported paid term; a FREE access grant does not unlock it.
   return Boolean(await getEffectiveSubscription({ ...input, paidPlansOnly: true }));
+}
+
+export async function hasActiveBookingEntitlement(input:{businessId:string;database?:PrismaClient;now?:Date}){
+ const subscription=await getEffectiveSubscription(input);
+ return Boolean(subscription&&getPlanEntitlements(subscription.plan.code).bookings);
 }

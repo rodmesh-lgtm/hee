@@ -42,7 +42,9 @@ test("automation delivery rechecks every outbound authorization boundary", () =>
   assert.match(worker, /context\.automation\.status !== "active"/);
   assert.match(worker, /context\.connection\.provider !== "meta"/);
   assert.match(worker, /context\.template\.status !== "approved"/);
-  assert.match(worker, /context\.contact\.optedOutAt \|\| context\.contact\.deletedAt \|\| \(!laundryJob&&!consent\)/);
+  assert.match(worker, /context\.contact\.optedOutAt \|\| context\.contact\.deletedAt \|\| \(!laundryJob&&!cashierJob&&!consent\)/);
+  assert.match(worker, /cashierNoticeContext/);
+  assert.match(worker, /cashierNoticeTemplateSupported/);
   assert.match(worker, /consentedAt: \{ lte: now \}/);
 });
 

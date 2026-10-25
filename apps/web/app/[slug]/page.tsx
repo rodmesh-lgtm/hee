@@ -17,7 +17,7 @@ import { isPreviewQaEnvironment } from "../lib/qa-audit";
 import { resolveBusinessSlugAlias } from "../lib/slug-alias";
 import { canBusinessUsePublicSlug } from "../lib/protected-public-slug";
 import { normalizePageModules } from "../lib/page-modules";
-import { hasActiveBusinessSubscription } from "../lib/subscription-entitlement";
+import { hasActiveBookingEntitlement } from "../lib/subscription-entitlement";
 
 export const dynamic = "force-dynamic";
 const getPublicBusinessForRequest = cache((slug: string) =>
@@ -169,7 +169,7 @@ export default async function PublicBusinessPageRoute({
   if (resolved.isAlias) permanentRedirect(`/${resolved.business.slug}`);
 
   const business = resolved.business;
-  const bookingSubscriptionActive = await hasActiveBusinessSubscription({ businessId: business.id });
+  const bookingSubscriptionActive = await hasActiveBookingEntitlement({ businessId: business.id });
   const publicBusiness = sanitizePublicBusiness(business);
   const pageModules = normalizePageModules(
     business.pageModules,

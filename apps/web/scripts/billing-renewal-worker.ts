@@ -240,7 +240,7 @@ async function expireIneligibleDueRenewals() {
   return expired;
 }
 
-async function dueSubscriptions() {
+async function dueSubscriptions(limit=100) {
   const horizon = new Date(Date.now() + DUE_WINDOW_MS);
   // In-flight provider money remains reconcilable even after the customer disables
   // auto-renew or account eligibility changes. The autoRenew predicate applies only to
@@ -263,7 +263,7 @@ async function dueSubscriptions() {
       AND s."endsAt" IS NOT NULL
       AND s."endsAt" <= ${horizon}
     ORDER BY s."endsAt" ASC
-    LIMIT 100
+    LIMIT ${limit}
   `;
 }
 
@@ -705,7 +705,7 @@ async function processSubscription(sub: DueSubscription) {
   await submitAttempt(sub, nextAttempt);
 }
 
-async function main() {
+async function main(batchSize=100,deadline=Number.POSITIVE_INFINITY) {
   if (String(process.env.BILLING_RENEWAL_ENABLED ?? "").trim().toLowerCase() !== "true") {
     throw new Error("BILLING_RENEWAL_ENABLED must be true");
   }
@@ -718,13 +718,15 @@ async function main() {
 
   const preClosed = await expireIneligibleDueRenewals();
   const nonRenewingExpired = await expireEndedNonRenewingSubscriptions();
-  const due = await dueSubscriptions();
-  for (const sub of due) await processSubscription(sub);
+  const due = await dueSubscriptions(batchSize);
+  for (const sub of due) {if(Date.now()>deadline)break;await processSubscription(sub);}
   const postClosed = await expireIneligibleDueRenewals();
   console.log(`billing-renewal-worker: PASS (${preClosed + postClosed} ineligible renewals closed, ${nonRenewingExpired} ended subscriptions expired, ${due.length} renewable subscriptions checked)`);
 }
 
-main()
+export async function runBillingRenewalWorker(){return main(10,Date.now()+90_000);}
+
+if(/(?:^|[\\/])billing-renewal-worker\.(?:ts|js)$/.test(process.argv[1]??""))main()
   .catch((error) => {
     console.error("billing-renewal-worker: FAIL", error instanceof Error ? error.message : error);
     process.exitCode = 1;

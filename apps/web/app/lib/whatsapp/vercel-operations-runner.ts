@@ -1,4 +1,5 @@
 import "server-only";
+import {scheduleCashierNotices} from "./cashier-notices";
 
 import { randomUUID } from "node:crypto";
 
@@ -150,7 +151,7 @@ export async function runVercelWhatsAppStage(stage: StageName, env: NodeJS.Proce
     case "whatsapp:campaigns": return runCampaigns(env);
     case "whatsapp:deliveries": return runDeliveries(env);
     case "whatsapp:replies": return runReplies(env);
-    case "whatsapp:automation-schedules": await scheduleInactiveCustomerAutomationEvents(); return;
+    case "whatsapp:automation-schedules": await scheduleCashierNotices(); await scheduleInactiveCustomerAutomationEvents(); return;
     case "whatsapp:automations": return runAutomations(env);
     case "whatsapp:automation-deliveries": return runAutomationDeliveries(env);
     case "whatsapp:reminder-schedules": return runReminderSchedules(env);

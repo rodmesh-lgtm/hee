@@ -1,8 +1,10 @@
 import { db } from "../app/lib/db";
 import { scheduleInactiveCustomerAutomationEvents } from "../app/lib/whatsapp/automation-scheduler";
 
+import {scheduleCashierNotices} from "../app/lib/whatsapp/cashier-notices";
 async function main() {
   try {
+    await scheduleCashierNotices();
     const result = await scheduleInactiveCustomerAutomationEvents();
     console.log("whatsapp-automation-scheduler: complete", result);
   } catch (error) {

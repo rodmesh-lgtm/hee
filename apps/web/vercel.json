@@ -21,6 +21,10 @@
     {
       "path": "/api/cron/business-memory-retention",
       "schedule": "17 3 * * *"
+    },
+    {
+      "path": "/api/cron/billing-operations",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
