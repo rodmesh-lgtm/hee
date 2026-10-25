@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "../i18n/locale-provider";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
@@ -20,6 +21,8 @@ function chime(context: AudioContext) {
 }
 
 export function BookingBell({ businessId }: { businessId: string }) {
+ const { t, intlLocale } = useI18n();
+
   const audio = useRef<AudioContext | null>(null);
   const enabled = useRef(false);
   const [sound, setSound] = useState(false);
@@ -69,5 +72,5 @@ export function BookingBell({ businessId }: { businessId: string }) {
       enabled.current = true; setSound(true); setNotice(""); chime(audio.current);
     } catch { setNotice("تعذر تشغيل الصوت. اسمح بالصوت لهذا الموقع ثم حاول مجددًا."); }
   }
-  return <section aria-label="تنبيهات الحجز الجديد" className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold">جرس الحجوزات الجديدة</p><p className="mt-1 text-xs leading-5 text-slate-500">{sound ? "الجرس مفعّل ما دامت اللوحة مفتوحة. قد يعلّق المتصفح المتابعة عند قفل الجهاز." : "فعّل الصوت مرة عند فتح اللوحة لتسمع جرسًا عند وصول حجز جديد."}</p></div><button type="button" disabled={blocked} aria-pressed={sound} onClick={toggle} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-4 text-sm font-bold text-teal-800 disabled:opacity-50">{sound ? <BellOff size={17} aria-hidden="true" /> : <Bell size={17} aria-hidden="true" />}{sound ? "كتم جرس الحجوزات" : "تفعيل جرس الحجوزات"}</button></div>{notice ? <p role="status" className="mt-2 text-xs text-amber-800">{notice}</p> : null}{newCount > 0 ? <div role="status" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-teal-50 p-3 text-sm font-bold text-teal-900"><span>وصل حجز جديد · {new Intl.NumberFormat("ar-SA").format(newCount)}</span><Link href="/dashboard/appointments?tab=new" onClick={() => setNewCount(0)} className="inline-flex min-h-11 items-center underline">عرض الحجوزات الجديدة</Link><button type="button" className="min-h-11 px-2 text-xs" onClick={() => setNewCount(0)}>إخفاء التنبيه</button></div> : null}</section>;
+  return <section aria-label={t("تنبيهات الحجز الجديد")} className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold">{t("جرس الحجوزات الجديدة")}</p><p className="mt-1 text-xs leading-5 text-slate-500">{sound ? t("الجرس مفعّل ما دامت اللوحة مفتوحة. قد يعلّق المتصفح المتابعة عند قفل الجهاز.") : t("فعّل الصوت مرة عند فتح اللوحة لتسمع جرسًا عند وصول حجز جديد.")}</p></div><button type="button" disabled={blocked} aria-pressed={sound} onClick={toggle} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-4 text-sm font-bold text-teal-800 disabled:opacity-50">{sound ? <BellOff size={17} aria-hidden="true" /> : <Bell size={17} aria-hidden="true" />}{sound ? t("كتم جرس الحجوزات") : t("تفعيل جرس الحجوزات")}</button></div>{notice ? <p role="status" className="mt-2 text-xs text-amber-800">{t(notice)}</p> : null}{newCount > 0 ? <div role="status" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-teal-50 p-3 text-sm font-bold text-teal-900"><span>{t("وصل حجز جديد ·")}{new Intl.NumberFormat(intlLocale).format(newCount)}</span><Link href="/dashboard/appointments?tab=new" onClick={() => setNewCount(0)} className="inline-flex min-h-11 items-center underline">{t("عرض الحجوزات الجديدة")}</Link><button type="button" className="min-h-11 px-2 text-xs" onClick={() => setNewCount(0)}>{t("إخفاء التنبيه")}</button></div> : null}</section>;
 }

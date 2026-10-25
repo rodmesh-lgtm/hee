@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { LOCALE_META, type AppLocale } from "../app/lib/i18n";
-import { homepageText } from "../app/lib/homepage-i18n";
+import { uiText as homepageText } from "../app/lib/ui-i18n";
+import { ServiceDirectory } from "./service-directory";
 import { COMMERCIAL_PLANS, PLAN_BILLING_NOTE } from "../app/lib/commercial-plans";
 import styles from "./homepage-professional.module.css";
 import { usePlatformBrand } from "./brand/platform-brand-provider";
@@ -39,6 +40,7 @@ export function HomepageProfessional({ locale = "ar" }: { locale?: AppLocale }) 
   const direction = LOCALE_META[locale].dir;
   const plans=COMMERCIAL_PLANS.map(plan=>({name:t(plan.name),price:plan.monthlyPrice ? `${plan.monthlyPrice} ${t("ر.س / شهر")}` : t("مجانية"),text:t(plan.description),items:plan.features.map(t),featured:plan.featured}));
   const design = usePlatformBrand();
+  const legacyIdentityHero = !design.homeHeroTitleAr || design.homeHeroTitleAr.startsWith("هويتك الرقمية والتسويقية");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -89,7 +91,7 @@ export function HomepageProfessional({ locale = "ar" }: { locale?: AppLocale }) 
         <nav dir={direction} className="hidden items-center gap-1 lg:flex" aria-label={t("التنقل الرئيسي")}>
           <Link className="rounded-xl px-4 py-2 text-sm font-black text-[#008f87]" href="#home">{t("الرئيسية")}</Link>
           <Link className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-[#effbf9]" href="#about">{t("عن INFRO")}</Link>
-          <Link className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-[#effbf9]" href="#features">{t("المميزات")}</Link>
+          <Link className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-[#effbf9]" href="#our-services">{t("خدماتنا")}</Link>
           <Link className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-[#effbf9]" href="#samples">{t("نماذج الصفحات")}</Link>
           <Link className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-[#effbf9]" href="#pricing">{t("الباقات")}</Link>
           <Link className="rounded-xl px-3 py-2 text-sm font-bold text-slate-600 hover:bg-[#effbf9]" href="#faq">{t("الأسئلة الشائعة")}</Link>
@@ -105,7 +107,7 @@ export function HomepageProfessional({ locale = "ar" }: { locale?: AppLocale }) 
     <dialog ref={menuRef} id="home-mobile-menu" aria-label={t("قائمة التنقل")} onCancel={() => setMenuOpen(false)} onClick={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }} className="fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none bg-transparent p-2 backdrop:bg-[#061619]/40 backdrop:backdrop-blur-sm">
       <div className="max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-[28px] bg-white p-4 shadow-2xl">
         <div dir="ltr" className="flex items-center justify-between"><Logo header /><button type="button" onClick={() => setMenuOpen(false)} className="grid h-11 w-11 place-items-center rounded-full bg-[#eef8f7]" aria-label={t("إغلاق القائمة")}><X className="h-5 w-5" /></button></div>
-        <nav aria-label={t("التنقل على الجوال")} className="mt-4 grid gap-1 text-start font-bold">{[["#about",t("عن INFRO")],["#features",t("المميزات")],["#samples",t("نماذج الصفحات")],["#pricing",t("الباقات")],["#faq",t("الأسئلة الشائعة")]].map(([href,label]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)} className="rounded-2xl px-4 py-3 hover:bg-[#effbf9]">{label}</Link>)}</nav>
+        <nav aria-label={t("التنقل على الجوال")} className="mt-4 grid gap-1 text-start font-bold">{[["#about",t("عن INFRO")],["#our-services",t("خدماتنا")],["#samples",t("نماذج الصفحات")],["#pricing",t("الباقات")],["#faq",t("الأسئلة الشائعة")]].map(([href,label]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)} className="rounded-2xl px-4 py-3 hover:bg-[#effbf9]">{label}</Link>)}</nav>
         <div className="mt-4 grid grid-cols-2 gap-2"><Link href="/register" className="rounded-full bg-[#008f87] px-4 py-3 text-center text-sm font-black text-white">{t("ابدأ مجانًا")}</Link><Link href="/login" className="rounded-full border border-[#bdebe5] px-4 py-3 text-center text-sm font-black">{t("تسجيل الدخول")}</Link></div>
       </div>
     </dialog>
@@ -119,8 +121,8 @@ export function HomepageProfessional({ locale = "ar" }: { locale?: AppLocale }) 
 
         <div className="order-1 text-center lg:order-2 lg:text-start">
           <span className="inline-flex items-center gap-2 rounded-full bg-[#e9fbf8] px-3.5 py-2 text-[11px] font-black text-[#008f87] sm:text-xs"><span className={styles.brandRule} aria-hidden="true" />{t("مصممة للأعمال والمنشآت")}</span>
-          <h1 className="mx-auto mt-4 max-w-3xl text-[2.15rem] font-black leading-[1.14] tracking-tight sm:mt-5 sm:text-5xl lg:mx-0 lg:text-[4rem]">{locale === "ar" && design.homeHeroTitleAr ? design.homeHeroTitleAr : <>{t("هويتك الرقمية والتسويقية.")}<br/><span className="text-[#008f87]">{t("في مساحة أعمال واحدة.")}</span></>}</h1>
-          <p className="mx-auto mt-4 max-w-xl text-[14px] leading-7 text-slate-600 sm:text-lg sm:leading-8 lg:mx-0">{locale === "ar" && design.homeHeroSubtitleAr ? design.homeHeroSubtitleAr : t("اجمع هوية منشأتك وحضورها الرقمي وتذكيرات أعمالك وتسويق واتساب في تجربة واحدة مترابطة وسهلة الإدارة.")}</p>
+          <h1 className="mx-auto mt-4 max-w-3xl text-[2.15rem] font-black leading-[1.14] tracking-tight sm:mt-5 sm:text-5xl lg:mx-0 lg:text-[4rem]">{locale === "ar" && !legacyIdentityHero ? design.homeHeroTitleAr : <>{t("شغّل أعمالك، وتواصل مع عملائك.")}<br/><span className="text-[#008f87]">{t("منصة واحدة لهويتك وتشغيلك ونموك.")}</span></>}</h1>
+          <p className="mx-auto mt-4 max-w-xl text-[14px] leading-7 text-slate-600 sm:text-lg sm:leading-8 lg:mx-0">{locale === "ar" && !legacyIdentityHero ? design.homeHeroSubtitleAr : t("هوية رقمية، كاشير ومحاسبة ومواعيد، تسويق واتساب ومشاهدة مباشرة لعملائك. اختر الخدمات التي تناسب نشاطك وأدرها من حسابك.")}</p>
 
           <div className={`mx-auto mt-6 max-w-xl rounded-[22px] border bg-white p-2 shadow-[0_18px_45px_-25px_rgba(0,143,135,.30)] transition ${effectiveAvailability === "available" ? "border-emerald-300" : effectiveAvailability === "taken" ? "border-rose-300" : "border-[#bdebe5]"} lg:mx-0`}>
             <div dir="ltr" className="flex min-w-0 items-center gap-1 rounded-2xl bg-[#f5fffd] px-3"><span className="shrink-0 text-base font-black text-[#008f87]">ir.sa/</span><input value={slug} onChange={e => { setSlug(e.target.value); setAvailability("idle"); }} dir="ltr" inputMode="url" autoComplete="off" spellCheck={false} placeholder="your-business" aria-label={t("تحقق من توفر اسم رابط منشأتك")} className="h-14 min-w-0 flex-1 bg-transparent px-1 text-left text-base font-semibold outline-none"/></div>
@@ -133,6 +135,8 @@ export function HomepageProfessional({ locale = "ar" }: { locale?: AppLocale }) 
         </div>
       </div>
     </section>
+
+    <ServiceDirectory compact />
 
     <section id="features" className="scroll-mt-28 mx-auto max-w-6xl px-4 pb-16 sm:px-6"><div className="grid overflow-hidden rounded-[26px] border border-[#dcebea] bg-white shadow-[0_18px_55px_-35px_rgba(0,95,88,.24)] sm:grid-cols-2 lg:grid-cols-4">{[[Link2,t("رابط مختصر"),t("سهل الحفظ والمشاركة")],[Palette,t("هوية احترافية"),t("تخصيص يناسب علامتك")],[BarChart3,t("إحصاءات واضحة"),t("افهم تفاعل زوارك")],[ShieldCheck,t("حضور موثوق"),t("واجهة أعمال منظمة")]].map(([Icon,title,text],i) => { const I=Icon as typeof Link2; return <div key={i} className="flex gap-3 border-b border-[#e7f0ef] p-4 last:border-0 sm:p-5 lg:border-b-0 lg:border-l"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><I className="h-5 w-5"/></span><div><h3 className="text-sm font-black sm:text-base">{String(title)}</h3><p className="mt-1 text-xs leading-5 text-slate-500">{String(text)}</p></div></div>})}</div></section>
 

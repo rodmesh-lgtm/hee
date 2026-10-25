@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/locale-provider";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Breadcrumb } from "./breadcrumb";
@@ -17,8 +18,8 @@ export function DashboardPageHeader({ breadcrumbs, title, description, actionLab
       <Breadcrumb items={breadcrumbs} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-3xl space-y-2">
-          <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">{title}</h1>
-          <p className="max-w-2xl text-sm leading-7 text-slate-400 md:text-base">{description}</p>
+          <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl"><UiText>{title}</UiText></h1>
+          <p className="max-w-2xl text-sm leading-7 text-slate-400 md:text-base"><UiText>{description}</UiText></p>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
         {actionLabel && actionHref ? (
@@ -26,7 +27,7 @@ export function DashboardPageHeader({ breadcrumbs, title, description, actionLab
             href={actionHref}
             className="inline-flex h-11 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 text-sm font-bold text-white shadow-[0_18px_60px_-22px_rgba(79,70,229,0.9)] transition hover:brightness-110"
           >
-            {actionLabel}
+            <UiText>{actionLabel}</UiText>
           </Link>
         ) : null}
       </div>

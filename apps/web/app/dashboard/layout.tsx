@@ -1,3 +1,6 @@
+import { getRequestLocale } from "../lib/i18n-server";
+import { uiText } from "../lib/ui-i18n";
+import { UiText } from "../../components/i18n/locale-provider";
 import { staffSections } from "../lib/staff-permissions";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
@@ -24,7 +27,7 @@ import "./dashboard-interior.css";
 import "./readability.css";
 import "./customer-workspace.css";
 
-export const metadata:Metadata={title:"INFRO | لوحة التحكم",robots:{index:false,follow:false,noarchive:true,nocache:true}};
+export async function generateMetadata():Promise<Metadata>{const locale=await getRequestLocale();return {title:`INFRO | ${uiText(locale,"لوحة التحكم")}`,robots:{index:false,follow:false,noarchive:true,nocache:true}};}
 
 export default async function DashboardLayout({children}:{children:ReactNode}){
   const user=await getCurrentUser();
@@ -34,14 +37,15 @@ export default async function DashboardLayout({children}:{children:ReactNode}){
     if(host === "hub.ir.sa") redirect(`${HUB_ORIGIN}/api/auth/hub/start?next=${encodeURIComponent(safeHubPath(requestHeaders.get("x-infro-return-path")))}`);
     redirect("/login");
   }
+  const locale=await getRequestLocale();
   const[qaAuditUser,business,businesses]=await Promise.all([getQaAuditSessionUser(),getDashboardBusinessForUser(user.id),getDashboardBusinessSummaries(user.id)]);
   const isStaff = Boolean(business && business.ownerId !== user.id);
   const permissions = isStaff ? (business!.members[0]?.permissions ?? ["whatsapp"]) : undefined;
   const hasWhatsAppMarketing=business?await hasActiveWhatsAppMarketingEntitlement({businessId:business.id}):false;
   const effectivelyPublished=Boolean(business?.isPublished&&user.emailVerifiedAt);
   return <>
-    <a href="#dashboard-main-content" className="fixed right-4 top-3 z-[100] -translate-y-24 rounded-xl bg-[#07181b] px-4 py-2 text-sm font-black text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2">الانتقال إلى المحتوى الرئيسي</a>
-    <DashboardShell initialNavOrder={user.dashboardNavOrder} staffPermissions={isStaff ? staffSections(permissions) : undefined} businessId={business?.id??null} businessName={business?.name??"نشاط جديد"} businessSlug={business?.slug??null} isPublished={effectivelyPublished} businesses={businesses.map(({id,name,slug})=>({id,name,slug}))} showQaBadge={Boolean(qaAuditUser)} showAdminLink={!qaAuditUser&&Boolean(user.emailVerifiedAt)&&isAdminEmail(user.email)} hasWhatsAppMarketing={hasWhatsAppMarketing}>
+    <a href="#dashboard-main-content" className="fixed right-4 top-3 z-[100] -translate-y-24 rounded-xl bg-[#07181b] px-4 py-2 text-sm font-black text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2"><UiText>{"الانتقال إلى المحتوى الرئيسي"}</UiText></a>
+    <DashboardShell initialNavOrder={user.dashboardNavOrder} staffPermissions={isStaff ? staffSections(permissions) : undefined} businessId={business?.id??null} businessName={business?.name??uiText(locale,"نشاط جديد")} businessSlug={business?.slug??null} isPublished={effectivelyPublished} businesses={businesses.map(({id,name,slug})=>({id,name,slug}))} showQaBadge={Boolean(qaAuditUser)} showAdminLink={!qaAuditUser&&Boolean(user.emailVerifiedAt)&&isAdminEmail(user.email)} hasWhatsAppMarketing={hasWhatsAppMarketing}>
       <div id="dashboard-main-content" tabIndex={-1} className="outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-4">{children}</div>
     </DashboardShell>
   </>;

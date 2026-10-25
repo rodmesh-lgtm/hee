@@ -2,7 +2,23 @@ export const SUPPORTED_LOCALES = ["ar", "en", "zh-CN", "es", "ur"] as const;
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const DEFAULT_LOCALE: AppLocale = "ar";
-export const LOCALE_COOKIE = "hee_locale";
+export const LOCALE_COOKIE = "infro_locale";
+export const LEGACY_LOCALE_COOKIE = "hee_locale";
+
+export function safeLocaleReturnTo(value: unknown): string {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw.startsWith("/") || raw.startsWith("//") || /[\\\u0000-\u001f\u007f]/.test(raw)) return "/";
+  try {
+    if (new URL(raw, "https://ir.sa").origin !== "https://ir.sa") return "/";
+  } catch { return "/"; }
+  return raw;
+}
+
+/** Share presentation preferences across INFRO surfaces, never authentication cookies. */
+export function localeCookieDomain(host: string | null): string | undefined {
+  const hostname = (host ?? "").toLowerCase().split(":")[0];
+  return hostname === "ir.sa" || hostname.endsWith(".ir.sa") ? ".ir.sa" : undefined;
+}
 
 export const LOCALE_META: Record<AppLocale, { label: string; nativeLabel: string; dir: "rtl" | "ltr"; htmlLang: string; intlLocale: string }> = {
   ar: { label: "Arabic", nativeLabel: "العربية", dir: "rtl", htmlLang: "ar", intlLocale: "ar-SA" },
