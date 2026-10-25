@@ -8,7 +8,7 @@ import { DashboardThemeToggle } from "./dashboard-theme-toggle";
 const titles: Record<string, string> = {
   "/Laundromat": "نقطة البيع وإدارة المغسلة",
   "/Laundromat/Staff": "الفريق والصلاحيات",
-  "/Laundromat/Notifications": "إشعارات جاهزية الطلب",
+  "/Laundromat/Notifications": "إشعارات الكاشير والعملاء",
   "/Laundromat/Accounting": "حسابات المنشأة",
   "/Laundromat/Operations": "العملاء والمخزون",
   "/Laundromat/Delivery": "إدارة التوصيل",

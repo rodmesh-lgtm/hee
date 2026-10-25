@@ -16,7 +16,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { db } from "../../../lib/db";
-import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
+import {whatsappManagementAccess} from "../../../lib/whatsapp/management-access";
+import {WhatsAppPhoneRegistration} from "../../../../components/dashboard/whatsapp-phone-registration";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
 import { getMetaEmbeddedSignupPublicConfig } from "../../../lib/whatsapp/meta-config";
 import { DisconnectConnection } from "./disconnect-connection";
@@ -33,13 +34,13 @@ export default async function WhatsAppSetupPage({ searchParams }: { searchParams
   const params = await searchParams;
   const context = await getWhatsAppReadContext("connection.manage");
   if (!context) redirect("/dashboard/whatsapp/inbox?access=denied");
-  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) {
-    redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
-  }
+  const access=await whatsappManagementAccess(context.businessId);
+  if(!access.allowed)redirect("/dashboard/plans");
+  const purpose=access.marketing?"marketing":"booking";
 
   const [connection, latestSession, templateSummary, campaignCount, conversationCount] = await Promise.all([
     db.whatsAppConnection.findFirst({
-      where: { businessId: context.businessId, provider: "meta" },
+      where: { businessId: context.businessId, provider: "meta",OR:[{marketingEnabled:true},{bookingEnabled:true}] },
       orderBy: [{ marketingEnabled: "desc" }, { updatedAt: "desc" }],
       select: {
         id: true,
@@ -55,13 +56,13 @@ export default async function WhatsAppSetupPage({ searchParams }: { searchParams
       },
     }),
     db.whatsAppEmbeddedSignupSession.findFirst({
-      where: { businessId: context.businessId, purpose: "marketing" },
+      where: { businessId: context.businessId, purpose },
       orderBy: { createdAt: "desc" },
       select: { status: true, expiresAt: true, consumedAt: true, lastErrorCode: true, createdAt: true },
     }),
     db.whatsAppTemplate.groupBy({
       by: ["status"],
-      where: { businessId: context.businessId, provider: "meta", connection: { marketingEnabled: true } },
+      where: { businessId: context.businessId, provider: "meta", connection: { OR:[{marketingEnabled:true},{bookingEnabled:true}] } },
       _count: { _all: true },
     }),
     db.whatsAppCampaign.count({ where: { businessId: context.businessId } }),
@@ -91,8 +92,9 @@ export default async function WhatsAppSetupPage({ searchParams }: { searchParams
         ? { title: "تحديث بيانات الرقم", detail: "الاتصال موجود لكن الاسم أو الرقم لم يصلا بعد من Meta. أعد تفويض الربط بأمان.", href: "#meta-connect", label: "إكمال الخطوة" }
         : approvedTemplates === 0
           ? { title: "تجهيز قالب للحملة", detail: "الرقم مرتبط. الخطوة التالية هي مزامنة قالب معتمد من Meta؛ الربط وحده لا يؤكد جاهزية الإرسال.", href: "/dashboard/whatsapp/templates", label: "إكمال الخطوة" }
-          : { title: "الربط والقوالب مكتملة", detail: "اعتماد القالب لا يؤكد تسجيل الرقم للإرسال. افحص حالة رقم الحجوزات وأكمل تسجيله عند الحاجة.", href: "/dashboard/working-hours", label: "فحص رقم الحجوزات" };
+          : { title: "الربط والقوالب مكتملة", detail: "اعتماد القالب لا يؤكد تسجيل الرقم للإرسال. افحص حالة رقم الحجوزات وأكمل تسجيله عند الحاجة.", href: "#phone-registration", label: "فحص تسجيل الرقم" };
 
+  if(!access.marketing)return <main dir="rtl" className="space-y-5"><header className="rounded-3xl bg-slate-950 p-6 text-white"><p className="text-sm text-teal-200">واتساب لخدمتك</p><h1 className="mt-2 text-2xl font-black">ربط رقم إشعارات المنشأة</h1><p className="mt-3 text-sm leading-8">اربط رقمك لإشعارات الطلبات والمواعيد وروابط المشاهدة المتاحة في اشتراكك. لا يلزم شراء حملات واتساب لتشغيل هذه الإشعارات.</p></header><section className="space-y-4 rounded-2xl border bg-white p-5 text-slate-900"><h2 className="text-lg font-bold">1. اتصال رقم المنشأة</h2><p>{connected?"✓ الرقم متصل لدى Meta":"بانتظار ربط الرقم"}</p>{connection?<p dir="ltr">{connection.displayPhoneNumber}</p>:null}{publicConfig?<EmbeddedSignupButton {...publicConfig} purpose="booking" purposeLabel="إشعارات الخدمة"/>:<p>إدارة INFRO تحتاج استكمال إعداد ربط Meta أولًا.</p>}{connected&&connection?<DisconnectConnection connectionId={connection.id} label={connection.displayPhoneNumber??"رقم المنشأة"}/>:null}</section>{connected&&connection?<WhatsAppPhoneRegistration connectionId={connection.id} phone={connection.displayPhoneNumber??"رقم المنشأة"}/>:null}<section className="space-y-3 rounded-2xl border bg-white p-5 text-slate-900"><h2 className="text-lg font-bold">2. اعتماد قوالب الخدمة</h2><p className="text-sm leading-8">القالب المعتمد لا يفعّل الإرسال تلقائيًا. جهّز نصوص الخدمة ثم اخترها في إعداداتها بعد موافقة العميل. رسوم Meta مستقلة.</p><Link href="/dashboard/whatsapp/templates" className="inline-flex min-h-12 items-center rounded-xl bg-teal-700 px-5 font-bold text-white">إدارة قوالب إشعارات الخدمة</Link></section><nav className="flex flex-wrap gap-5 rounded-2xl border bg-white p-5 font-bold text-teal-800">{access.cashier?<Link href="/Laundromat/Notifications">إشعارات الكاشير والتقييم</Link>:null}{access.bookings?<Link href="/dashboard/working-hours">إشعارات المواعيد</Link>:null}{access.liveView?<Link href="/dashboard/live-view">روابط المشاهدة</Link>:null}</nav></main>;
   return <div className="min-w-0 space-y-5 pb-5">
     {params.disconnect ? <p role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-900">{params.disconnect === "complete" ? "تم إلغاء ربط الرقم وإيقاف استخدامه داخل INFRO. يمكنك ربطه مجددًا بتفويض Meta جديد." : "تعذر إلغاء الربط. حدّث الصفحة وتأكد من تحديد الرقم والتأكيد ثم أعد المحاولة."}</p> : null}
     <header className="relative overflow-hidden rounded-[30px] bg-[#061619] p-5 text-white shadow-[0_30px_80px_-50px_rgba(3,23,25,.9)] sm:p-7">
@@ -116,6 +118,8 @@ export default async function WhatsAppSetupPage({ searchParams }: { searchParams
       <Kpi label="المحادثات" value={conversationCount} helper="على رقم المنشأة" />
     </section>
 
+    {!access.marketing?<aside className="rounded-2xl border border-teal-200 bg-teal-50 p-5 text-sm leading-7">اشتراكك يتيح ربط الرقم وقوالب إشعارات خدمتك. الحملات والجمهور التسويقي لها اشتراك مستقل.</aside>:null}
+    {connected&&connection?<WhatsAppPhoneRegistration connectionId={connection.id} phone={connection.displayPhoneNumber??"رقم المنشأة"}/>:null}
     <section className="grid min-w-0 items-start gap-5 xl:grid-cols-[.95fr_1.05fr]">
       <article className="min-w-0 rounded-[26px] border border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><Link2 className="h-4 w-4" /></span><div><h2 className="font-black">هوية الرقم والاتصال</h2><p className="text-[9px] text-slate-400">بيانات رقم منشأتك</p></div></div><span className={`rounded-full px-3 py-1.5 text-[9px] font-black ${connected ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{connection ? connection.disabledAt ? "الربط متوقف" : connectionStatusLabel[connection.status] || "يحتاج مراجعة" : "لا يوجد اتصال"}</span></div>
@@ -129,7 +133,7 @@ export default async function WhatsAppSetupPage({ searchParams }: { searchParams
         <div className="relative flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-[#6eead8]">{connected ? <RefreshCw className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}</span><div><h2 className="font-black">{connected ? "تحديث التفويض الرسمي" : "بدء الربط الرسمي"}</h2><p className="text-[9px] text-slate-400">اتصال آمن عبر Meta</p></div></div>
         <p className="relative mt-4 text-xs leading-7 text-slate-300">سجّل الدخول إلى Meta، ثم اختر حساب واتساب ورقم منشأتك. سنعرض بيانات الرقم هنا بعد اكتمال الربط.</p>
         <div className="relative mt-4 grid gap-2 sm:grid-cols-3"><FlowStep number="01" title="Meta" text="تسجيل دخول رسمي" /><FlowStep number="02" title="رقم منشأتك" text="اختيار الحساب والرقم" /><FlowStep number="03" title="INFRO" text="تحقق وربط بالنشاط" /></div>
-        <div className="relative mt-5 rounded-[18px] border border-white/10 bg-white/[.05] p-3 sm:p-4">{publicConfig ? <EmbeddedSignupButton {...publicConfig} /> : <div role="status" className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-[10px] font-bold leading-6 text-amber-100"><b className="block">خدمة Embedded Signup غير مجهزة في هذه البيئة</b><span className="mt-1 block font-medium text-amber-100/80">زر الربط الرسمي يظهر فقط عندما تتوفر إعدادات Meta العامة المطلوبة. لن تعيد INFRO تحميل الصفحة أو توهمك بأن خطوة ربط بدأت وهي غير متاحة.</span></div>}</div>
+        <div className="relative mt-5 rounded-[18px] border border-white/10 bg-white/[.05] p-3 sm:p-4">{publicConfig ? <EmbeddedSignupButton {...publicConfig} purpose={purpose} purposeLabel={access.marketing?"التسويق":"إشعارات الخدمة"} /> : <div role="status" className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-[10px] font-bold leading-6 text-amber-100"><b className="block">خدمة Embedded Signup غير مجهزة في هذه البيئة</b><span className="mt-1 block font-medium text-amber-100/80">زر الربط الرسمي يظهر فقط عندما تتوفر إعدادات Meta العامة المطلوبة. لن تعيد INFRO تحميل الصفحة أو توهمك بأن خطوة ربط بدأت وهي غير متاحة.</span></div>}</div>
         {latestSession ? <div className="relative mt-3 rounded-xl border border-white/10 bg-white/[.04] p-3 text-[9px] leading-5 text-slate-400"><div className="flex flex-wrap items-center justify-between gap-2"><span>آخر محاولة: {signupStatusLabel(latestSession.status)}</span><span>{formatDate(latestSession.createdAt)}</span></div>{latestSession.consumedAt ? <span className="mt-1 block text-emerald-300">تم استهلاك جلسة التفويض بأمان.</span> : latestSession.expiresAt < new Date() ? <span className="mt-1 block text-amber-300">انتهت صلاحية جلسة الربط السابقة؛ ابدأ جلسة جديدة.</span> : null}</div> : null}
         {recentSignupProblem ? <div aria-live="polite" className="relative mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-[10px] leading-6 text-amber-100"><b className="block">لم تكتمل آخر محاولة ربط</b><span>لم نعتمد رقمًا جديدًا. استخدم حساب Meta الذي يملك صلاحية إدارة رقم الشركة ثم أعد المحاولة.</span></div> : null}
       </article>

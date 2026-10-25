@@ -25,6 +25,8 @@ import { resolveManualAudience } from "../lib/whatsapp/manual-audience-query";
 import { disconnectWhatsAppConnection } from "../lib/whatsapp/connection-disconnect";
 import { removeWhatsAppContacts } from "../lib/whatsapp/contact-removal";
 
+import {whatsappManagementAccess} from "../lib/whatsapp/management-access";
+
 const field = (form: FormData, key: string, max: number) => {
   const value = String(form.get(key) ?? "").trim();
   return value && value.length <= max ? value : null;
@@ -238,7 +240,8 @@ export async function retryWhatsAppContactImportAction(form: FormData) {
 }
 
 export async function syncWhatsAppTemplatesAction(form: FormData) {
-  const context = await campaignContext();
+  const context = await getWhatsAppWriteContext("campaign.manage");
+  if(!context||!(await whatsappManagementAccess(context.businessId)).allowed)redirect("/dashboard/plans");
   const connectionId = field(form, "connectionId", 128);
   if (!connectionId) redirect("/dashboard/whatsapp/templates?sync=invalid");
   let destination: string;

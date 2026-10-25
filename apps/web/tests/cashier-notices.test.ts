@@ -47,3 +47,13 @@ test("real followup query isolates tenants and rechecks consent, status, balance
  await d.exec(`DELETE FROM "LaundryAudit" WHERE action='order-reminder-consent'`);assert.deepEqual(await fetch(),[]);
  }finally{await d.close();}
 });
+
+test("ready notices exclude pre-activation orders and require the current tenant, phone, status and explicit order consent",async()=>{
+ const {readyNoticeQuery}=await import("../app/lib/whatsapp/ready-notice-query");const d=new PGlite();try{
+ await d.exec(`CREATE TABLE "Business"(id text PRIMARY KEY,name text,"deletedAt" timestamptz);CREATE TABLE "LaundryTicket"(id text,"businessId" text,number int,phone text,"customerName" text,status text,"readyNotifyConsentAt" timestamptz,"createdAt" timestamptz);INSERT INTO "Business" VALUES('a','A',NULL),('b','B',NULL);INSERT INTO "LaundryTicket" VALUES('t','a',1,'+966500000000','عميل','ready','2026-10-25T00:00Z','2026-10-25T00:00Z');`);
+ const rows=async(businessId='a',phone='+966500000000',activatedAt=new Date('2026-10-24T00:00Z'))=>{const q=readyNoticeQuery(businessId,'t',phone,activatedAt);return (await d.query(q.text,q.values)).rows;};
+ assert.equal((await rows()).length,1);assert.equal((await rows('b')).length,0);assert.equal((await rows('a','+966511111111')).length,0);assert.equal((await rows('a','+966500000000',new Date('2026-10-26T00:00Z'))).length,0);
+ await d.exec(`UPDATE "LaundryTicket" SET status='delivered'`);assert.equal((await rows()).length,0);
+ await d.exec(`UPDATE "LaundryTicket" SET status='ready',"readyNotifyConsentAt"=NULL`);assert.equal((await rows()).length,0);
+ }finally{await d.close();}
+});

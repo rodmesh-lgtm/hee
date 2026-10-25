@@ -268,7 +268,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   }
   const laundryJob=context.run.event.triggerType==="laundry_ready";
   if(laundryJob){
-    const current=laundryReadyEvent(context.run.event)?await laundryReadyContext(database,job.businessId,context.run.event.subjectId,context.contact.phoneE164):null;
+    const current=laundryReadyEvent(context.run.event)?await laundryReadyContext(database,job.businessId,context.run.event.subjectId,context.contact.phoneE164,context.automation.activatedAt):null;
     const revoked=await database.whatsAppConsent.findFirst({where:{businessId:job.businessId,phoneE164:context.contact.phoneE164,revokedAt:{not:null}},select:{id:true}});
     if(!current||revoked||context.connection.disabledAt||(context.automation.actionConfig as {templateId?:string})?.templateId!==context.templateId||!isDeepStrictEqual(current,context.templateParameters)||context.template.name!==LAUNDRY_READY_TEMPLATE_NAME||context.template.category!=="utility"||!laundryReadyTemplateSupported(context.template.components,context.template.parameterFormat)){
       await releaseAs(database,job,"cancelled",now,"LAUNDRY_READY_NO_LONGER_AUTHORIZED");return {processed:true as const,result:"cancelled" as const,jobId:job.id};

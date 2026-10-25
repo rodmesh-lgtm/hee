@@ -37,9 +37,10 @@ test("dashboard, setup and server actions fail closed without entitlement", () =
   assert.match(actions, /getWhatsAppWriteContext/);
   assert.match(actions, /hasActiveWhatsAppMarketingEntitlement/g);
   assert.match(inbox, /hasActiveWhatsAppMarketingEntitlement/);
-  assert.match(setup, /hasActiveWhatsAppMarketingEntitlement/);
+  assert.match(setup, /whatsappManagementAccess/);
+  assert.match(setup, /if\(!access.allowed\)redirect/);
   assert.match(inbox, /feature=whatsapp-marketing/);
-  assert.match(setup, /feature=whatsapp-marketing/);
+  assert.match(setup, /if\(!access.marketing\)return/);
 });
 
 test("workers recheck entitlement immediately before outbound Meta work", () => {

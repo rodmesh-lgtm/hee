@@ -10,7 +10,8 @@ const sectionNav = fs.readFileSync(path.join(root, "app/dashboard/whatsapp/_comp
 test("WhatsApp dashboard gives every nested page persistent parent navigation", () => {
   assert.match(layout, /aria-label="مسار التنقل"/);
   assert.match(layout, /href="\/dashboard"/);
-  assert.match(layout, /href="\/dashboard\/whatsapp"/);
+  assert.match(layout, /href=\{operational\?"\/dashboard\/whatsapp\/setup":"\/dashboard\/whatsapp"\}/);
+  assert.match(layout, /aria-label="إدارة إشعارات الخدمة"/);
   assert.match(layout, /مركز واتساب/);
   assert.match(layout, /focus-visible:ring-2/);
 });
