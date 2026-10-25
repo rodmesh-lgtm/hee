@@ -27,7 +27,7 @@ import "./dashboard-interior.css";
 import "./readability.css";
 import "./customer-workspace.css";
 
-export async function generateMetadata():Promise<Metadata>{const locale=await getRequestLocale();return {title:`INFRO | ${uiText(locale,"لوحة التحكم")}`,robots:{index:false,follow:false,noarchive:true,nocache:true}};}
+export async function generateMetadata():Promise<Metadata>{const locale=await getRequestLocale();return {title:{absolute:`INFRO | ${uiText(locale,"لوحة التحكم")}`},robots:{index:false,follow:false,noarchive:true,nocache:true}};}
 
 export default async function DashboardLayout({children}:{children:ReactNode}){
   const user=await getCurrentUser();

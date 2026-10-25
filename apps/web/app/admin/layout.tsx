@@ -11,7 +11,7 @@ import { IrLogo } from "../../components/brand/ir-logo";
 import { DashboardThemeToggle } from "../../components/dashboard/dashboard-theme-toggle";
 import { AdminDesktopNavigation, AdminMobileNavigation } from "./admin-navigation";
 
-export async function generateMetadata():Promise<Metadata>{const locale=await getRequestLocale();return {title:uiText(locale,"إدارة INFRO"),robots:{index:false,follow:false,noarchive:true,nocache:true}};}
+export async function generateMetadata():Promise<Metadata>{const locale=await getRequestLocale();return {title:{absolute:uiText(locale,"إدارة INFRO")},robots:{index:false,follow:false,noarchive:true,nocache:true}};}
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const admin = await requireAdmin();
