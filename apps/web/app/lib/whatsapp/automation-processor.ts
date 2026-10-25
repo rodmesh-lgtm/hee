@@ -106,8 +106,8 @@ export async function processWhatsAppAutomationEvent(input: {
       });
       let eventSkipReason: string | null = null;
       const cashierJob=Boolean(cashierNotice(event.triggerType));
-      const laundryParameters=event.triggerType==="laundry_ready"&&laundryReadyEvent(event)?await laundryReadyContext(tx,event.businessId,event.subjectId,contact.phoneE164):null;
-      if(event.triggerType==="laundry_ready"&&!laundryParameters)eventSkipReason="laundry_order_not_ready_or_consent_missing";
+      let laundryParameters:Awaited<ReturnType<typeof laundryReadyContext>>=null;
+
       let bookingConfirmationParameters: ReturnType<typeof buildBookingConfirmationTemplateParameters> | null = null;
       let sallaParameters: ReturnType<typeof sallaOrderTemplateParameters> | null = null;
       if (event.triggerType === "salla_order_status") {
@@ -188,6 +188,7 @@ export async function processWhatsAppAutomationEvent(input: {
         if (automation.businessId !== event.businessId) throw new Error("WHATSAPP_AUTOMATION_TENANT_MISMATCH");
         if (!automationMatchesEvent({ triggerType: automation.triggerType, triggerConfig: automation.triggerConfig, subjectType: event.subjectType })) continue;
         const key = automationIdempotencyKey({ businessId: event.businessId, automationId: automation.id, eventId: event.id, contactId: contact.id });
+        if(event.triggerType==="laundry_ready"){laundryParameters=laundryReadyEvent(event)?await laundryReadyContext(tx,event.businessId,event.subjectId,contact.phoneE164,automation.activatedAt):null;if(!laundryParameters)eventSkipReason="laundry_order_not_ready_or_consent_missing";}
         const skipReason = eventSkipReason ?? (contact.optedOutAt || contact.deletedAt ? "contact_opted_out" : (event.triggerType!=="laundry_ready"&&!cashierJob&&!consent) || consent?.revokedAt || (event.triggerType === "abandoned_cart" && consent?.source === "booking") ? "marketing_consent_missing" : null);
         const cooldownSince = new Date(now.getTime() - automation.cooldownMinutes * 60_000);
         const recentlyRun = automation.cooldownMinutes > 0 && await tx.whatsAppAutomationRun.findFirst({

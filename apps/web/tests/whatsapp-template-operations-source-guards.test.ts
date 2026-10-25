@@ -6,7 +6,9 @@ const page = readFileSync(new URL("../app/dashboard/whatsapp/templates/page.tsx"
 
 test("template operations remains tenant, Meta and entitlement scoped", () => {
   assert.match(page, /getWhatsAppReadContext\("campaign\.manage"\)/);
-  assert.match(page, /hasActiveWhatsAppMarketingEntitlement/);
+  assert.match(page, /whatsappManagementAccess/);
+  assert.match(page, /if\(!access.allowed\)redirect/);
+  assert.match(page, /serviceTemplateAllowed\(access,t\)/);
   assert.match(page, /businessId: context\.businessId/g);
   assert.match(page, /provider: "meta"/g);
 });

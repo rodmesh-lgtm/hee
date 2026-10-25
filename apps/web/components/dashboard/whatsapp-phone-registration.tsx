@@ -12,14 +12,14 @@ export function WhatsAppPhoneRegistration({ connectionId, phone }: { connectionI
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error || "تعذر إكمال العملية.");
       setState(result.state);
-      setMessage(result.state === "registered" ? "أكدت Meta تسجيل الرقم للإرسال. يمكن للعميل طلب رمز جديد؛ لم يتم إرسال رسالة تجريبية." : "الرقم موثّق لدى Meta لكنه يحتاج إكمال التسجيل للإرسال.");
+      setMessage(result.state === "registered" ? "أكدت Meta تسجيل الرقم للإرسال. يمكن استخدامه للإشعارات المفعّلة؛ لم يتم إرسال رسالة تجريبية." : "الرقم موثّق لدى Meta لكنه يحتاج إكمال التسجيل للإرسال.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "تعذر إكمال العملية."); }
     finally { form?.reset(); setBusy(false); }
   }
   function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); void perform("register", event.currentTarget); }
-  return <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-    <h3 className="font-bold">تسجيل رقم الحجوزات للإرسال</h3>
-    <p className="mt-2 text-sm leading-7">رقم الحجوزات: <b dir="ltr">{phone}</b>. الربط واعتماد القالب لا يكفيان؛ يجب أن تؤكد Meta تسجيل الرقم للإرسال.</p>
+  return <div id="phone-registration" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <h3 className="font-bold">تسجيل رقم واتساب للإرسال</h3>
+    <p className="mt-2 text-sm leading-7">رقم المنشأة: <b dir="ltr">{phone}</b>. الربط واعتماد القالب لا يكفيان؛ يجب أن تؤكد Meta تسجيل الرقم للإرسال.</p>
     <button type="button" disabled={busy} onClick={() => void perform("check")} className="mt-3 min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold disabled:opacity-50">{busy ? "جارٍ التحقق…" : "فحص حالة الرقم"}</button>
     {message ? <p role="status" className="mt-3 text-sm leading-7">{message}</p> : null}
     {state === "needs_registration" ? <form onSubmit={submit} className="mt-4 space-y-3">

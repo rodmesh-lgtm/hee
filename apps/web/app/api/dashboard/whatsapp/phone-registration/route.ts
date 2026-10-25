@@ -1,3 +1,4 @@
+import {whatsappManagementAccess} from "../../../../lib/whatsapp/management-access";
 import { NextResponse } from "next/server";
 import { getOwnedBusinessForApiWrite } from "../../../../lib/ownership";
 import { db } from "../../../../lib/db";
@@ -21,10 +22,11 @@ export async function POST(request: Request) {
     if (!business) return reply({ ok: false, error: "هذه الخطوة متاحة لمالك المنشأة فقط." }, 403);
     const verifiedOwner = await db.user.findFirst({ where: { id: business.ownerId, deletedAt: null, emailVerifiedAt: { not: null } }, select: { id: true } });
     if (!verifiedOwner) return reply({ ok: false, error: "أكد بريد حساب المالك أولًا." }, 403);
+    if(!(await whatsappManagementAccess(business.id)).allowed)return reply({ok:false,error:"يلزم اشتراك يتيح إشعارات واتساب أو التسويق."},403);
     const body = await readBoundedJson(request, 2048) as Record<string, unknown>;
     if (!body || typeof body.connectionId !== "string" || !["check", "register"].includes(String(body.operation))) return reply({ ok: false, error: "طلب غير صالح." }, 400);
-    const connection = await db.whatsAppConnection.findFirst({ where: { id: body.connectionId, businessId: business.id, provider: "meta", status: "connected", disabledAt: null, bookingEnabled: true } });
-    if (!connection) return reply({ ok: false, error: "رقم الحجوزات لم يعد مرتبطًا بهذه المنشأة." }, 409);
+    const connection = await db.whatsAppConnection.findFirst({ where: { id: body.connectionId, businessId: business.id, provider: "meta", status: "connected", disabledAt: null, OR:[{bookingEnabled:true},{marketingEnabled:true}] } });
+    if (!connection) return reply({ ok: false, error: "رقم واتساب لم يعد مرتبطًا بهذه المنشأة." }, 409);
     if (body.operation === "register" && (body.confirm !== true || typeof body.pin !== "string" || !/^\d{6}$/.test(body.pin))) return reply({ ok: false, error: "أدخل PIN من ستة أرقام وأكد تسجيل الرقم." }, 400);
     const limit = await consumePublicWriteLimit({ businessId: business.id, identity: connection.id, scope: `whatsapp-phone-${body.operation}`, limit: body.operation === "register" ? 1 : 10, windowSeconds: 60 });
     if (!limit.allowed) return reply({ ok: false, error: "انتظر دقيقة قبل إعادة المحاولة." }, 429);

@@ -30,7 +30,7 @@ function loginForCode(configId: string) {
   });
 }
 
-export function EmbeddedSignupButton({ appId, configId, graphVersion, purpose = "marketing" }: { appId: string; configId: string; graphVersion: string; purpose?: "marketing" | "booking" }) {
+export function EmbeddedSignupButton({ appId, configId, graphVersion, purpose = "marketing",purposeLabel }: { appId: string; configId: string; graphVersion: string; purpose?: "marketing" | "booking";purposeLabel?:string }) {
   const router = useRouter();
   const [sdkReady, setSdkReady] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export function EmbeddedSignupButton({ appId, configId, graphVersion, purpose = 
         Promise.all([sessionPromise, authorizationCodePromise, assetsPromise]), attempt.expired,
       ]);
       const result = await completeWhatsAppEmbeddedSignupAction({ state: session.state, authorizationCode, purpose, ...assets });
-      setMessage(result.ok ? `تم التحقق من الرقم وتعيينه لخدمة ${purpose === "booking" ? "الحجوزات" : "التسويق"}. ${result.templatesSynced ? "تم تحديث قوالب هذا الحساب من Meta." : "الربط محفوظ، لكن تحديث القوالب لم يكتمل. اضغط تحديث القوالب دون إعادة الربط."}${purpose === "booking" ? " جهّز قالب التحقق من خطوات الإعداد أدناه قبل استقبال طلبات الرموز." : ""}` : result.error === "asset-assigned" ? "هذه الأصول مرتبطة بنشاط آخر." : result.error === "asset-invalid" ? "الرقم لا يتبع حساب WABA المحدد." : "لم يكتمل الربط. يمكنك المحاولة مجددًا بأمان.");
+      setMessage(result.ok ? `تم التحقق من الرقم وتعيينه لخدمة ${purposeLabel??(purpose === "booking" ? "الحجوزات" : "التسويق")}. ${result.templatesSynced ? "تم تحديث قوالب هذا الحساب من Meta." : "الربط محفوظ، لكن تحديث القوالب لم يكتمل. اضغط تحديث القوالب دون إعادة الربط."}${purpose === "booking"&&!purposeLabel ? " جهّز قالب التحقق من خطوات الإعداد أدناه قبل استقبال طلبات الرموز." : ""}` : result.error === "asset-assigned" ? "هذه الأصول مرتبطة بنشاط آخر." : result.error === "asset-invalid" ? "الرقم لا يتبع حساب WABA المحدد." : "لم يكتمل الربط. يمكنك المحاولة مجددًا بأمان.");
       if (result.ok) router.refresh();
     } catch (error) {
       setMessage(signupErrorMessage(error));

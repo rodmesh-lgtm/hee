@@ -7,7 +7,7 @@ import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
 import { completeEmbeddedSignup, createEmbeddedSignupSession } from "../lib/whatsapp/embedded-signup";
 import type { WhatsAppConnectionPurpose } from "../lib/whatsapp/embedded-signup";
 import { enqueueWhatsAppReply } from "../lib/whatsapp/reply-queue";
-import { hasActiveBusinessSubscription } from "../lib/subscription-entitlement";
+import {whatsappManagementAccess} from "../lib/whatsapp/management-access";
 import { isWhatsAppCarePriority } from "../lib/whatsapp/care-domain";
 import { db } from "../lib/db";
 import { syncMetaWhatsAppTemplates } from "../lib/whatsapp/template-sync";
@@ -69,7 +69,7 @@ export async function updateWhatsAppConversationContactTagAction(formData: FormD
 async function purposeEntitled(businessId: string, purpose: WhatsAppConnectionPurpose) {
   return purpose === "marketing"
     ? hasActiveWhatsAppMarketingEntitlement({ businessId })
-    : hasActiveBusinessSubscription({ businessId });
+    : (await whatsappManagementAccess(businessId)).allowed;
 }
 
 export async function startWhatsAppEmbeddedSignupAction(purpose: WhatsAppConnectionPurpose = "marketing") {

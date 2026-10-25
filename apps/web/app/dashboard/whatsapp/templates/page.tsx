@@ -6,7 +6,8 @@ import { syncWhatsAppTemplatesAction } from "../../../actions/whatsapp-marketing
 import { TemplateEditor } from "./template-editor";
 import { TemplateStatusRefresh } from "./template-status-refresh";
 import { db } from "../../../lib/db";
-import { hasActiveWhatsAppMarketingEntitlement } from "../../../lib/whatsapp/feature-entitlement";
+import {whatsappManagementAccess} from "../../../lib/whatsapp/management-access";
+import {serviceTemplateAllowed} from "../../../lib/whatsapp/service-policy";
 import { getWhatsAppReadContext } from "../../../lib/whatsapp/rbac";
 
 const actionClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#07181b] px-4 text-sm font-black text-white transition hover:bg-[#0d2a2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2";
@@ -35,7 +36,8 @@ type TemplateRow = {
 export default async function WhatsAppTemplatesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const context = await getWhatsAppReadContext("campaign.manage");
   if (!context) redirect("/dashboard/whatsapp?access=denied");
-  if (!await hasActiveWhatsAppMarketingEntitlement({ businessId: context.businessId })) redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
+  const access=await whatsappManagementAccess(context.businessId);
+  if(!access.allowed)redirect("/dashboard/plans");
   const params = await searchParams;
   const query = String(params.q ?? "").trim().slice(0, 80);
   const requestedStatus = String(params.status ?? "all") as StatusFilter;
@@ -46,14 +48,14 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
   const languageFilter: LanguageFilter = languageFilters.includes(requestedLanguage) ? requestedLanguage : "all";
 
   const connections = await db.whatsAppConnection.findMany({
-      where: { businessId: context.businessId, provider: "meta", marketingEnabled: true },
+      where: { businessId: context.businessId, provider: "meta", OR:[{marketingEnabled:true},{bookingEnabled:true}] },
       orderBy: { updatedAt: "desc" },
       select: { id: true, status: true, disabledAt: true, verifiedName: true, displayPhoneNumber: true },
     });
   const connection = connections.find(item => item.id === params.connectionId) ?? connections.find(item => item.status === "connected" && !item.disabledAt) ?? connections[0];
-  const [templates, automations] = await Promise.all([
+  const [allTemplates, automations] = await Promise.all([
     db.whatsAppTemplate.findMany({
-      where: { businessId: context.businessId, provider: "meta", connectionId: connection?.id ?? "unconnected", connection: { marketingEnabled: true } },
+      where: { businessId: context.businessId, provider: "meta", connectionId: connection?.id ?? "unconnected", connection: { OR:[{marketingEnabled:true},{bookingEnabled:true}] } },
       orderBy: [{ updatedAt: "desc" }],
       take: 200,
       select: { id: true, connectionId: true, name: true, language: true, category: true, status: true, providerStatus: true, parameterFormat: true, qualityScore: true, rejectedReason: true, components: true, lastSyncedAt: true },
@@ -61,13 +63,14 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
     db.whatsAppAutomation.findMany({ where: { businessId: context.businessId, connectionId: connection?.id ?? "unconnected" }, select: { connectionId: true, name: true, status: true, actionConfig: true } }),
   ]);
 
+  const templates=allTemplates.filter(t=>serviceTemplateAllowed(access,t));
   const connectionReady = connection?.status === "connected" && !connection.disabledAt;
   const syncHealth = connection ? await db.whatsAppOperationsHeartbeat.findUnique({
     where: { id: `template-sync:${connection.id}` },
     select: { lastStartedAt: true, lastSucceededAt: true, lastErrorCode: true },
   }) : null;
   const isCampaignReady = (template: TemplateRow) => Boolean(
-    connectionReady && connection && template.connectionId === connection.id && template.status === "approved" && template.category !== "unknown" && template.category !== "authentication",
+    access.marketing && connectionReady && connection && template.connectionId === connection.id && template.status === "approved" && template.category !== "unknown" && template.category !== "authentication",
   );
   const approvedCount = templates.filter((item) => item.status === "approved").length;
   const pendingCount = templates.filter((item) => item.status === "pending").length;
@@ -141,25 +144,27 @@ export default async function WhatsAppTemplatesPage({ searchParams }: { searchPa
         <div className="rounded-[24px] border border-amber-100 bg-white p-4"><WandSparkles className="h-4 w-4 text-amber-700"/><b className="mt-2 block text-xs text-slate-900">الإنشاء والاعتماد لدى Meta</b><p className="mt-2 text-sm leading-5 text-slate-600">أنشئ القالب من محرر INFRO وأرسله للمراجعة. يظهر في المكتبة فور تأكيد استلامه، ثم تتحدّث حالته عند المزامنة مع Meta.</p></div>
       </aside>
     </section>
-    <TemplateEditor key={connection?.id ?? "unconnected"} connectionId={connectionReady ? connection?.id : undefined} templates={templates}/>
+    <TemplateEditor key={connection?.id ?? "unconnected"} connectionId={connectionReady ? connection?.id : undefined} templates={templates} access={access}/>
     <TemplateStatusRefresh enabled={Boolean(connectionReady && pendingCount > 0)}/>
-    <section aria-label="تشغيل القوالب في الأتمتة" className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-7 text-slate-700">
+    <section className="rounded-2xl border border-teal-200 bg-teal-50 p-5 text-sm leading-7"><h2 className="font-bold">إشعارات الخدمات</h2><div className="mt-3 flex flex-wrap gap-5">{access.cashier?<Link href="/Laundromat/Notifications" className="font-bold underline">جاهزية الطلب والتذكيرات وطلب التقييم</Link>:null}{access.liveView?<Link href="/dashboard/live-view" className="font-bold underline">إرسال روابط المشاهدة</Link>:null}{access.bookings?<Link href="/dashboard/working-hours" className="font-bold underline">إشعارات المواعيد</Link>:null}</div><p>اعتماد القالب لا يرسل رسالة؛ فعّل الإشعار من إعدادات خدمته بعد تسجيل موافقة العميل.</p></section>
+    {access.marketing?<section aria-label="تشغيل القوالب في الأتمتة" className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-7 text-slate-700">
       <h2 className="font-bold text-slate-900">بعد اعتماد القالب: اربطه بالمسار المناسب</h2>
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <Link href="/dashboard/whatsapp/automations" className="rounded-xl border border-slate-200 p-3"><b className="block">الترحيب والمتابعة والسلال</b>اختر قالبًا معتمدًا بلا متغيرات في الأتمتة العامة، ثم راجع شروط التشغيل وفعّل المسار.</Link>
         <Link href="/dashboard/working-hours" className="rounded-xl border border-slate-200 p-3"><b className="block">تأكيد الموعد</b>اختر قالب تأكيد الحجز ذي المتغيرات السبعة ورقم إشعارات الحجوزات من إعدادات المواعيد.</Link>
         <Link href="/dashboard/whatsapp/integrations" className="rounded-xl border border-slate-200 p-3"><b className="block">تأكيد طلب سلة</b>اربط المتجر واضبط إشعار الطلب المدفوع بقالب تأكيد الطلب. اعتماد القالب وحده لا يفعّل المسار.</Link>
       </div>
-    </section>
+    </section>:null}
   </div>;
 }
 
 function TemplateCard({ template, campaignReady, bindings }: { template: TemplateRow; campaignReady: boolean; bindings: string[] }) {
   const preview = templatePreview(template.components);
+  const serviceHref=template.name=== "infro_live_view_v1"?"/dashboard/live-view":["infro_laundry_ready","infro_pickup_reminder","infro_payment_reminder","infro_order_review"].includes(template.name)?"/Laundromat/Notifications":null;
   return <article className="overflow-hidden rounded-[20px] border border-slate-200 bg-[#fbfdfd]">
     <div className="p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><b className="break-words text-sm text-slate-900">{template.name}</b>{campaignReady?<span className="rounded-full bg-emerald-100 px-2.5 py-1 text-sm font-black text-emerald-800">جاهز للحملة</span>:null}</div><span className="mt-1 block text-sm text-slate-500">{languageLabel(template.language)} · {categoryLabel(template.category)} · {template.parameterFormat || "صيغة افتراضية"}</span></div><TemplateStatus status={template.status}/></div>
       <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_220px]"><div className="rounded-[16px] border border-slate-100 bg-white p-3"><span className="text-sm font-bold text-slate-500">معاينة الرسالة</span>{preview.header?<b className="mt-2 block text-sm text-slate-700">{preview.header}</b>:null}<p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{preview.body || "لا يحتوي هذا القالب على نص BODY قابل للمعاينة."}</p>{preview.footer?<span className="mt-2 block text-sm text-slate-500">{preview.footer}</span>:null}{preview.buttons.length?<div className="mt-3 flex flex-wrap gap-1.5">{preview.buttons.map((button)=><span key={button} className="rounded-lg border border-[#bdebe5] bg-[#effbf9] px-2 py-1 text-sm font-bold text-[#008f87]">{button}</span>)}</div>:null}</div><dl className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-1"><MetaCell label="الجودة / ملاحظة Meta" value={template.rejectedReason || template.qualityScore || "لا توجد ملاحظة"}/><MetaCell label="آخر مزامنة" value={template.lastSyncedAt.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}/></dl></div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4"><p className="text-sm leading-7 text-slate-600">{bindings.length ? `مسارات الأتمتة: ${bindings.join("، ")}` : "لا يوجد مسار أتمتة مسجل لهذا القالب. راجع إعدادات الحجوزات للربط الخاص بالمواعيد."}</p><Link href="/dashboard/whatsapp/automations" className="inline-flex min-h-11 items-center rounded-xl border border-teal-300 px-4 text-sm font-bold text-teal-700">إدارة ربط الأتمتة</Link></div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4"><p className="text-sm leading-7 text-slate-600">{bindings.length ? `مسارات الأتمتة: ${bindings.join("، ")}` : serviceHref?"قالب إشعار خدمة؛ التفعيل من إعدادات الخدمة، واعتماد Meta لا يفعّله تلقائيًا.":"لا توجد أتمتة مرتبطة بهذا القالب بعد."}</p><Link href={serviceHref??"/dashboard/whatsapp/automations"} className="inline-flex min-h-11 items-center rounded-xl border border-teal-300 px-4 text-sm font-bold text-teal-700">{serviceHref?"إعداد إشعار الخدمة":"إدارة ربط الأتمتة"}</Link></div>
     </div>
   </article>;
 }

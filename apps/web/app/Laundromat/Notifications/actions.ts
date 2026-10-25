@@ -37,5 +37,5 @@ export async function saveLaundryNotifications(_:NotificationState,form:FormData
   await tx.whatsAppAuditLog.create({data:{businessId:business.id,actorUserId:user.id,action:"laundry.notifications.updated",targetType:"business",targetId:business.id,outcome:"success",metadata:{enabled,triggerType}}});
  });
  revalidatePath("/Laundromat/Notifications");return {success:enabled?"تم تفعيل الإشعار للطلبات الجديدة فقط، بعد تسجيل موافقة العميل وتحقق حالة الطلب.":"تم إيقاف الإشعارات وإلغاء الرسائل التي لم تبدأ معالجتها."};
- }catch(error){return {error:error instanceof Error&&error.message==="CONNECTION"?"الإعداد الحالي مرتبط برقم آخر. استخدم قالبًا معتمدًا على الرقم نفسه.":"تعذر الحفظ. تأكد من اتصال الرقم واعتماد قالب جاهزية الطلب."};}
+ }catch(error){return {error:error instanceof Error&&error.message==="CONNECTION"?"الإعداد الحالي مرتبط برقم آخر. استخدم قالبًا معتمدًا على الرقم نفسه.":"تعذر الحفظ. تأكد من اتصال الرقم واعتماد القالب المناسب لهذا الإشعار."};}
 }
