@@ -1,3 +1,4 @@
+import { getEffectiveSubscription } from "../../../lib/subscription-entitlement";
 import { NextResponse } from "next/server";
 import { getActiveBusinessForUser } from "../../../lib/active-business";
 import { getCurrentUserForApiWrite } from "../../../lib/auth";
@@ -22,6 +23,8 @@ export async function POST(request: Request) {
   if (!user) return json({ ok: false, code: "unauthorized" }, 401);
   const business = await getActiveBusinessForUser(user.id, "notes");
   if (!business) return json({ ok: false, code: "business_required" }, 403);
+  const term=await getEffectiveSubscription({businessId:business.id});
+  if(!term?.plan.aiEnabled)return json({ok:false,code:"ai_plan_required"},403);
 
   try {
     const limit = await consumePublicWriteLimit({
