@@ -8,7 +8,7 @@ import { LOCALE_COOKIE, LEGACY_LOCALE_COOKIE, localeCookieDomain, safeLocaleRetu
 import { HOMEPAGE_TRANSLATIONS } from "../app/lib/homepage-i18n";
 import { localizeUiAttributes, uiFormat, uiMessagesForLocale, uiText, UI_TRANSLATIONS } from "../app/lib/ui-i18n";
 import { SERVICE_GUIDES, serviceGuide } from "../app/lib/service-guides";
-import { SELLABLE_PLANS } from "../app/lib/commercial-plans";
+import { SELLABLE_PLANS, PLAN_BILLING_NOTE } from "../app/lib/commercial-plans";
 
 const read = (path:string)=>readFileSync(new URL(`../${path}`,import.meta.url),"utf8");
 test("language switching cannot redirect to an external host through slashes, backslashes or controls",()=>{
@@ -66,4 +66,11 @@ test("cashier amount formatting changes notation without changing minor-unit con
  assert.equal(laundryMoney(12345,"es-SA"),"123,45");
  assert.equal(laundryMoney(105,"en-SA"),"1.05");
  assert.equal(laundryMoney(105),laundryMoney(105,"ar-SA"));
+});
+
+
+test("all sellable plans and standalone terms are translated without changing amounts or codes",()=>{
+ const copy=[PLAN_BILLING_NOTE,...SELLABLE_PLANS.flatMap(plan=>[plan.name,plan.description,...plan.features])];
+ for(const locale of SUPPORTED_LOCALES.filter(locale=>locale!=="ar"))for(const text of copy)assert.notEqual(uiText(locale,text),text,`${locale}: ${text}`);
+ for(const locale of SUPPORTED_LOCALES){const name="شركة العميل {vip} / Client";assert.ok(uiFormat(locale,"ملف {name}",{name}).includes(name));assert.ok(uiFormat(locale,"إضافة {name}",{name}).includes(name));}
 });
