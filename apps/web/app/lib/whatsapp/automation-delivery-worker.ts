@@ -1,4 +1,7 @@
 import "server-only";
+import {cashierNotice,cashierNoticeTemplateSupported} from "./cashier-notice-domain";
+import {cashierNoticeContext} from "./cashier-notices";
+import {commercialAccess} from "../commercial-access";
 import { reserveTemplateProcessing } from "../commercial-usage";
 import { laundryReadyContext } from "./laundry-ready";
 import { laundryReadyEvent,laundryReadyTemplateSupported,LAUNDRY_READY_TEMPLATE_NAME } from "./laundry-ready-domain";
@@ -15,7 +18,7 @@ import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "./cr
 import { assertOutboundEnabled, isRetryableMetaStatus, outboundRateLimit, parseRetryAfter, retryDelayMs } from "./delivery-domain";
 import { hasActiveWhatsAppMarketingEntitlement } from "./feature-entitlement";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "./meta-config";
-import { hasActiveBusinessSubscription } from "../subscription-entitlement";
+import { hasActiveBookingEntitlement } from "../subscription-entitlement";
 
 const MAX_ATTEMPTS = 8;
 type JsonRecord = Record<string, unknown>;
@@ -112,7 +115,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     where: { id: job.id, businessId: job.businessId, automationId: job.automationId, runId: job.runId, connectionId: job.connectionId },
     select: {
       templateParameters: true, templateId:true,
-      automation: { select: { status: true, triggerConfig: true, actionConfig:true } },
+      automation: { select: { status: true, triggerConfig: true, actionConfig:true, activatedAt:true } },
       run: { select: { event: { select: { source: true, triggerType: true, subjectType: true, subjectId: true, occurredAt: true } } } },
       contact: { select: { id: true, phoneE164: true, displayName: true, optedOutAt: true, deletedAt:true } },
       template: { select: { provider: true, status: true, category: true, name: true, language: true, components:true, parameterFormat:true } },
@@ -123,9 +126,10 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     await releaseAs(database, job, "failed", now, "WHATSAPP_AUTOMATION_DELIVERY_CONTEXT_MISSING");
     return { processed: true as const, result: "failed" as const, jobId: job.id };
   }
-  const operational=context.run.event.triggerType === "booking_confirmation" || context.run.event.triggerType === "laundry_ready";
-  const entitled = operational
-    ? await hasActiveBusinessSubscription({ businessId: job.businessId, database, now })
+  const cashierJob=Boolean(cashierNotice(context.run.event.triggerType));
+  const operational=cashierJob||context.run.event.triggerType === "booking_confirmation" || context.run.event.triggerType === "laundry_ready";
+  const entitled = (cashierJob||context.run.event.triggerType==="laundry_ready")?(await commercialAccess(job.businessId,database)).cashier:operational
+    ? context.run.event.triggerType==="booking_confirmation"?await hasActiveBookingEntitlement({businessId:job.businessId,database,now}):false
     : await hasActiveWhatsAppMarketingEntitlement({ businessId: job.businessId, database, now });
   if (!entitled) {
     await releaseAs(database, job, "cancelled", now, context.run.event.triggerType === "booking_confirmation" ? "BUSINESS_SUBSCRIPTION_REQUIRED" : "WHATSAPP_MARKETING_ENTITLEMENT_REQUIRED");
@@ -141,7 +145,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   }
   const connectionPurposeActive = context.run.event.triggerType === "booking_confirmation"
     ? context.connection.bookingEnabled
-    : context.run.event.triggerType==="laundry_ready"?(context.connection.marketingEnabled||context.connection.bookingEnabled):context.connection.marketingEnabled;
+    : (cashierJob||context.run.event.triggerType==="laundry_ready")?(context.connection.marketingEnabled||context.connection.bookingEnabled):context.connection.marketingEnabled;
   if (!connectionPurposeActive) {
     await releaseAs(database, job, "cancelled", now, "WHATSAPP_CONNECTION_PURPOSE_INACTIVE");
     return { processed: true as const, result: "cancelled" as const, jobId: job.id };
@@ -256,6 +260,12 @@ export async function processNextWhatsAppAutomationDelivery(input: {
       return { processed: true as const, result: "cart_closed" as const, jobId: job.id };
     }
   }
+  if(cashierJob){
+    const current=await cashierNoticeContext(database,context.run.event,job.businessId,context.contact.phoneE164,context.automation.activatedAt,context.automation.triggerConfig,now);
+    if(!current||!isDeepStrictEqual(current,context.templateParameters)||!cashierNoticeTemplateSupported(context.run.event.triggerType,context.template)||context.connection.disabledAt||(context.automation.actionConfig as {templateId?:string})?.templateId!==context.templateId){
+     await releaseAs(database,job,"cancelled",now,"CASHIER_NOTICE_NO_LONGER_AUTHORIZED");return {processed:true as const,result:"cancelled" as const,jobId:job.id};
+    }
+  }
   const laundryJob=context.run.event.triggerType==="laundry_ready";
   if(laundryJob){
     const current=laundryReadyEvent(context.run.event)?await laundryReadyContext(database,job.businessId,context.run.event.subjectId,context.contact.phoneE164):null;
@@ -269,7 +279,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
       ...(context.run.event.triggerType === "abandoned_cart" ? { source: { not: "booking" } } : {}),
     }, select: { id: true },
   });
-  if (context.contact.optedOutAt || context.contact.deletedAt || (!laundryJob&&!consent)) {
+  if (context.contact.optedOutAt || context.contact.deletedAt || (!laundryJob&&!cashierJob&&!consent)) {
     await releaseAs(database, job, "cancelled", now, "OPT_OUT_OR_CONSENT_REVOKED");
     return { processed: true as const, result: "skipped_opt_out" as const, jobId: job.id };
   }
@@ -291,7 +301,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
 
   const template: JsonRecord = { name: context.template.name, language: { code: context.template.language } };
   if (Array.isArray(context.templateParameters)) template.components = context.templateParameters;
-  try{await reserveTemplateProcessing(job.businessId,job.id,database);}catch{await releaseAs(database,job,"failed",now,"PLAN_USAGE_LIMIT");return {processed:true as const,result:"failed" as const,jobId:job.id};}
+  try{await reserveTemplateProcessing(job.businessId,job.id,database,operational?"operational":"marketing");}catch{await releaseAs(database,job,"failed",now,"PLAN_USAGE_LIMIT");return {processed:true as const,result:"failed" as const,jobId:job.id};}
   let response: Response;
   try {
     response = await (input.fetcher ?? fetch)(metaWhatsAppGraphUrl(config, `${context.connection.phoneNumberId}/messages`), {

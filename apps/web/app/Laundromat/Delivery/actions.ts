@@ -1,4 +1,5 @@
 "use server";
+import {endOrderLiveSessions} from "../../lib/live-view/order-link";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -42,7 +43,9 @@ export async function laundryDeliveryCommand(value:unknown):Promise<{ok:boolean;
    if(d.recipient.length<2)throw new LaundryInputError("سجّل اسم مستلم الطلب لتوثيق التسليم");
    const tickets=await tx.$queryRaw<Array<{id:string;number:number;total:number;paid:number;status:string}>>`SELECT id,number,total,paid,status FROM "LaundryTicket" WHERE "businessId"=${b.id} AND id=${job.ticketId} FOR UPDATE`;
    const t=tickets[0];if(!t||t.status!=="ready"||t.paid!==t.total)throw new LaundryInputError("حالة الطلب تغيرت؛ راجع المالك قبل التسليم");
+   await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${randomUUID()},${b.id},${user.id},'status',${t.id})`;
    await tx.$executeRaw`UPDATE "LaundryTicket" SET status='delivered',"updatedAt"=now() WHERE "businessId"=${b.id} AND id=${t.id}`;
+   await endOrderLiveSessions(tx,b.id,t.id,user.id);
    await postLaundrySource(tx,{businessId:b.id,actorId:user.id,id:t.id,kind:"delivery",amount:t.total,at:new Date(),description:`إيراد توصيل الطلب #${t.number}`});
    note=`المستلم: ${d.recipient}. ${note}`;
   }

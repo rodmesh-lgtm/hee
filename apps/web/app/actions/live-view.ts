@@ -65,6 +65,8 @@ export async function createLiveSessionAction(_: LiveViewState, form: FormData):
   const who = await actor(); if (!who) return { error: "غير مصرح أو محاولات كثيرة." };
   if (!liveGatewayConfig()) return { error: "إنشاء روابط المشاهدة متوقف حتى تكتمل تهيئة بوابة البث." };
   const id = text(form, "stationId"), customerName = text(form, "customerName"), reference = text(form, "reference");
+  const orderId=text(form,"orderId");
+  if(orderId){const cashier=await getActiveBusinessForUser(who.user.id,"laundry");if(!cashier||cashier.id!==who.business.id)return {error:"ربط جلسة بأمر كاشير يحتاج صلاحية الكاشير والاشتراك المناسب."};}
   const hours = Number(text(form, "hours"));
   if (customerName.length < 2 || customerName.length > 80 || !reference || reference.length > 100 || !Number.isInteger(hours) || hours < 1 || hours > LIVE_VIEW_MAX_HOURS || form.get("privacyConfirmed") !== "on") return { error: "أكمل بيانات العميل والمرجع والمدة، وأكد تخصيص المحطة للعميل." };
   const sendWhatsApp = form.get("sendWhatsApp") === "on";
@@ -72,6 +74,13 @@ export async function createLiveSessionAction(_: LiveViewState, form: FormData):
   const { token, hash } = newLiveToken();
   try {
     const createdSession = await db.$transaction(async tx => {
+      let order:{customerName:string;phone:string;number:number}|undefined;
+      if(orderId){
+       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${who.business.id}`}))`;
+       if(!(await commercialAccess(who.business.id,tx)).cashier)throw new Error("ORDER");
+       const rows=await tx.$queryRaw<Array<{customerName:string;phone:string;number:number}>>`SELECT "customerName",phone,number FROM "LaundryTicket" WHERE id=${orderId} AND "businessId"=${who.business.id} AND status IN ('received','processing')`;
+       order=rows[0];if(!order||customerName!==order.customerName.slice(0,80)||(sendWhatsApp&&liveViewRecipientPhone(text(form,"phone"))!==order.phone))throw new Error("ORDER");
+      }
       const station = await stationLock(tx, who.business.id, id); const now = new Date();
       if (!station || !liveStationReadiness(station, now.getTime()).ready) throw new Error("CHECK_CAMERA");
       if (station.reuseAfterAt && station.reuseAfterAt > now) throw new Error("COOLDOWN");
@@ -82,7 +91,8 @@ export async function createLiveSessionAction(_: LiveViewState, form: FormData):
         if (now.getTime() - open.expiresAt.getTime() < LIVE_VIEW_COOLDOWN_MS) throw new Error("COOLDOWN");
         await tx.liveViewSession.update({ where: { id: open.id }, data: { endedAt: open.expiresAt } });
       }
-      const created = await tx.liveViewSession.create({ data: { businessId: who.business.id, stationId: id, customerName, reference, tokenHash: hash, createdAt: now, expiresAt: new Date(now.getTime() + hours * 3600_000) } });
+      const created = await tx.liveViewSession.create({ data: { businessId: who.business.id, stationId: id, customerName, reference:order?`الطلب #${order.number}`:reference, tokenHash: hash, createdAt: now, expiresAt: new Date(now.getTime() + hours * 3600_000) } });
+      if(orderId)await tx.whatsAppAuditLog.create({data:{businessId:who.business.id,actorUserId:who.user.id,action:"live-view.order.linked",targetType:"live-view",targetId:created.id,outcome:"success",metadata:{ticketId:orderId}}});
       await audit(tx, who.business.id, who.user.id, "session.created", created.id);
       return created;
     });
@@ -100,7 +110,7 @@ export async function createLiveSessionAction(_: LiveViewState, form: FormData):
     return result;
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
-    return { error: code === "BUSY" ? "المحطة مرتبطة بجلسة أخرى. أنهِها أولًا." : code === "COOLDOWN" ? "انتظر 30 ثانية بعد انتهاء الجلسة السابقة قبل إعادة استخدام المحطة." : code === "CHECK_CAMERA" ? "فعّل المحطة وأعد فحص اتصال الكاميرا؛ صلاحية الفحص 15 دقيقة." : "تعذر إنشاء الجلسة. حدّث الصفحة وحاول مجددًا." };
+    return { error: code === "ORDER" ? "اختر طلبًا نشطًا في منشأتك، وطابق اسم العميل ورقمه. الطلب الجاهز أو المسلّم لا يقبل جلسة مشاهدة جديدة." : code === "BUSY" ? "المحطة مرتبطة بجلسة أخرى. أنهِها أولًا." : code === "COOLDOWN" ? "انتظر 30 ثانية بعد انتهاء الجلسة السابقة قبل إعادة استخدام المحطة." : code === "CHECK_CAMERA" ? "فعّل المحطة وأعد فحص اتصال الكاميرا؛ صلاحية الفحص 15 دقيقة." : "تعذر إنشاء الجلسة. حدّث الصفحة وحاول مجددًا." };
   }
 }
 export async function endLiveSessionAction(_: LiveViewState, form: FormData): Promise<LiveViewState> {

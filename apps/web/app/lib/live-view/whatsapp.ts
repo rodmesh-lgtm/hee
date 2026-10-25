@@ -6,7 +6,7 @@ import { connectorOnline } from "./camera-profiles";
 import { liveViewTemplateSupported, liveViewTemplateParameters, liveViewWatchCapability, LIVE_VIEW_TEMPLATE_NAME, liveViewRecipientPhone } from "./whatsapp-domain";
 import { decryptWhatsAppCredential, type WhatsAppCredentialEnvelope } from "../whatsapp/credential-envelope";
 import { assertOutboundEnabled, outboundRateLimit } from "../whatsapp/delivery-domain";
-import { hasActiveWhatsAppMarketingEntitlement } from "../whatsapp/feature-entitlement";
+import { commercialAccess } from "../commercial-access";
 import { getMetaWhatsAppConfig, metaWhatsAppGraphUrl, type MetaWhatsAppConfig } from "../whatsapp/meta-config";
 
 const ACTION = "live-view.whatsapp.send";
@@ -19,9 +19,9 @@ export async function sendLiveViewWhatsApp(input: Input, deps: Dependencies = {}
   const phone = liveViewRecipientPhone(input.phone);
   if (!phone || !input.consent) throw new Error("LIVE_PHONE_CONSENT_REQUIRED");
   const capability = liveViewWatchCapability(input.watchPath);
-  const entitled = deps.entitled ?? (businessId => hasActiveWhatsAppMarketingEntitlement({ businessId, database }));
+  const entitled = deps.entitled ?? (async businessId => (await commercialAccess(businessId,database)).liveView);
   if (!await entitled(input.businessId)) throw new Error("LIVE_WHATSAPP_ENTITLEMENT_REQUIRED");
-  const template = await database.whatsAppTemplate.findFirst({ where: { businessId: input.businessId, provider: "meta", name: LIVE_VIEW_TEMPLATE_NAME, status: "approved", category: "utility", connection: { businessId: input.businessId, provider: "meta", status: "connected", disabledAt: null, marketingEnabled: true } }, include: { connection: true }, orderBy: { lastSyncedAt: "desc" } });
+  const template = await database.whatsAppTemplate.findFirst({ where: { businessId: input.businessId, provider: "meta", name: LIVE_VIEW_TEMPLATE_NAME, status: "approved", category: "utility", connection: { businessId: input.businessId, provider: "meta", status: "connected", disabledAt: null, OR:[{marketingEnabled:true},{bookingEnabled:true}] } }, include: { connection: true }, orderBy: { lastSyncedAt: "desc" } });
   if (!template || !liveViewTemplateSupported(template)) throw new Error("LIVE_WHATSAPP_TEMPLATE_REQUIRED");
   const config = deps.config ?? getMetaWhatsAppConfig(env);
   const accessToken = decryptWhatsAppCredential({ envelope: template.connection.credentialEnvelope as WhatsAppCredentialEnvelope, encryptionKeyBase64: config.META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY, businessId: input.businessId });
@@ -50,7 +50,7 @@ export async function sendLiveViewWhatsApp(input: Input, deps: Dependencies = {}
     // Revalidate immediately before the external side effect, including rotation.
     const current = await database.liveViewSession.findFirst({ where: { id: input.sessionId, businessId: input.businessId, tokenHash: capability.hash, endedAt: null, expiresAt: { gt: new Date() }, station: { enabled: true }, business: { deletedAt: null } }, select: { id: true } });
     if (!current) { await database.whatsAppAuditLog.update({ where: { id: receiptId }, data: { outcome: "cancelled" } }); throw new Error("LIVE_SESSION_UNAVAILABLE"); }
-    await reserveTemplateProcessing(input.businessId,receiptId,database);
+    await reserveTemplateProcessing(input.businessId,receiptId,database,"operational");
     response = await (deps.fetcher ?? fetch)(metaWhatsAppGraphUrl(config, `${template.connection.phoneNumberId}/messages`), { method: "POST", cache: "no-store", signal: AbortSignal.timeout(15_000), headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" }, body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: phone, type: "template", template: { name: template.name, language: { code: template.language }, components: liveViewTemplateParameters(claim.session.customerName, claim.session.business.name, claim.session.reference, input.watchPath) } }) });
   } catch (error) {
     if (error instanceof Error && error.message === "LIVE_SESSION_UNAVAILABLE") throw error;

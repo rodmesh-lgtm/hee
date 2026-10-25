@@ -1,5 +1,5 @@
-import { COMMERCIAL_PLANS, SUPPORTED_PAID_PLAN_CODES } from "./commercial-plans";
-export type HeePlanCode = "FREE" | "BUSINESS" | "PRO" | "OPERATE" | "GROWTH" | "SCALE";
+import { COMMERCIAL_PLANS,STANDALONE_SERVICES,SELLABLE_PLANS, SUPPORTED_PAID_PLAN_CODES } from "./commercial-plans";
+export type HeePlanCode = "FREE" | typeof SUPPORTED_PAID_PLAN_CODES[number];
 
 export type PlanEntitlements = {
   code: HeePlanCode;
@@ -10,6 +10,8 @@ export type PlanEntitlements = {
   monthlyInvoices:number|null;
   monthlyBookings:number|null;
   monthlyTemplates:number|null;
+  monthlyMarketingTemplates?:number;
+  monthlyOperationalTemplates?:number;
   liveCameraLimit:number;
   liveTransferKB:number|null;
   label: string;
@@ -26,11 +28,18 @@ export type PlanEntitlements = {
   whatsappMarketing: boolean;
 };
 
-function commercialEntitlements(code:"OPERATE"|"GROWTH"|"SCALE"):PlanEntitlements {
- const plan=COMMERCIAL_PLANS.find(p=>p.code===code)!;
- return {code,label:plan.name,productLimit:plan.productLimit,branchLimit:plan.branchLimit,serviceLimit:null,contactLimit:code==="OPERATE"?3:code==="GROWTH"?8:15,departmentLimit:code==="OPERATE"?3:code==="GROWTH"?8:15,premiumThemes:true,customColors:true,verificationEligible:true,offerDesigner:false,analytics:code==="OPERATE"?"basic":"advanced",whatsappMarketing:code!=="OPERATE",bookings:true,cashier:true,liveView:plan.cameras>0,staffLimit:plan.staffLimit,monthlyInvoices:plan.monthlyInvoices,monthlyBookings:plan.monthlyBookings,monthlyTemplates:plan.monthlyTemplates,liveCameraLimit:plan.cameras,liveTransferKB:plan.liveTransferKB};
+function commercialEntitlements(code:Exclude<HeePlanCode,"FREE"|"BUSINESS"|"PRO">):PlanEntitlements {
+ const baseCode=["OPERATE","GROWTH","SCALE"].includes(code)?`${code}_35`:code;
+ const bundle=COMMERCIAL_PLANS.find(p=>p.code===baseCode),single=STANDALONE_SERVICES.find(p=>p.code===baseCode),plan=bundle??single!;
+ const historic=["OPERATE","GROWTH","SCALE"].includes(code);
+ const buckets=historic?{}:{monthlyMarketingTemplates:plan.monthlyMarketingTemplates,monthlyOperationalTemplates:plan.monthlyOperationalTemplates};
+ const historicTemplates=code==="OPERATE"?1000:code==="GROWTH"?5000:15000;
+ const bookings=single?single.bookings:true,cashier=single?single.cashier:true,marketing=single?single.whatsappMarketing:baseCode!=="OPERATE_35";
+ return {code,label:plan.name,productLimit:plan.productLimit,branchLimit:plan.branchLimit,serviceLimit:null,contactLimit:baseCode==="GROWTH_35"?8:baseCode==="SCALE_35"?15:3,departmentLimit:baseCode==="GROWTH_35"?8:baseCode==="SCALE_35"?15:3,premiumThemes:true,customColors:true,verificationEligible:true,offerDesigner:false,analytics:marketing?"advanced":"basic",whatsappMarketing:marketing,bookings,cashier,liveView:plan.cameras>0,staffLimit:plan.staffLimit,monthlyInvoices:plan.monthlyInvoices,monthlyBookings:plan.monthlyBookings,monthlyTemplates:historic?historicTemplates:plan.monthlyTemplates,...buckets,liveCameraLimit:plan.cameras,liveTransferKB:plan.liveTransferKB};
 }
 export const HEE_PLAN_ENTITLEMENTS: Record<HeePlanCode, PlanEntitlements> = {
+  OPERATE_35:commercialEntitlements("OPERATE_35"),GROWTH_35:commercialEntitlements("GROWTH_35"),SCALE_35:commercialEntitlements("SCALE_35"),
+  BOOKING_ONLY_35:commercialEntitlements("BOOKING_ONLY_35"),ACCOUNTING_ONLY_35:commercialEntitlements("ACCOUNTING_ONLY_35"),WHATSAPP_ONLY_35:commercialEntitlements("WHATSAPP_ONLY_35"),LIVE_ONLY_35:commercialEntitlements("LIVE_ONLY_35"),
   OPERATE:commercialEntitlements("OPERATE"),
   GROWTH:commercialEntitlements("GROWTH"),
   SCALE:commercialEntitlements("SCALE"),
@@ -89,6 +98,7 @@ const PLAN_RANK: Record<HeePlanCode, number> = {
   BUSINESS: 1,
   PRO: 2,
   OPERATE:1,GROWTH:2,SCALE:3,
+  OPERATE_35:1,GROWTH_35:2,SCALE_35:3,BOOKING_ONLY_35:1,ACCOUNTING_ONLY_35:1,WHATSAPP_ONLY_35:1,LIVE_ONLY_35:1,
 };
 
 // A persisted catalog row alone does not define feature access. Do not issue a
@@ -133,4 +143,12 @@ export function usageOverLimit(current: number, limit: number | null) {
 
 export function formatPlanLimit(limit: number | null) {
   return limit === null ? "غير محدود" : String(limit);
+}
+
+/** Upgrades preserve the currently purchased service set and never charge a cheaper replacement period twice. */
+export function isCommercialUpgrade(current:string|undefined,target:string,currentMonthlyPrice:number){
+ const to=SELLABLE_PLANS.find(plan=>plan.code===target);if(!to||to.monthlyPrice<=currentMonthlyPrice)return false;
+ const from=getPlanEntitlements(current),next=getPlanEntitlements(target);
+ const maintainsLimits=(["staffLimit","monthlyInvoices","monthlyBookings","monthlyTemplates","liveTransferKB"] as const).every(key=>next[key]===null||(from[key]!==null&&next[key]!>=from[key]!));
+ return maintainsLimits&&from.code!==next.code&&(!from.bookings||next.bookings)&&(!from.cashier||next.cashier)&&(!from.whatsappMarketing||next.whatsappMarketing)&&(!from.liveView||next.liveView);
 }

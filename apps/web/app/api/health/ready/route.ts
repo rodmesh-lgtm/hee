@@ -1,4 +1,4 @@
-import { COMMERCIAL_PLANS } from "../../../lib/commercial-plans";
+import { SELLABLE_PLANS } from "../../../lib/commercial-plans";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { productionWebRuntimeReleaseSha } from "../../../lib/production-runtime-readiness";
@@ -30,11 +30,11 @@ async function runtimeReady() {
   if (configured("BILLING_REHEARSAL_USER_EMAIL")) return false;
 
   const plans = await prisma.businessPlan.findMany({
-    where: { code: { in: COMMERCIAL_PLANS.map(p=>p.code) }, isActive: true },
+    where: { code: { in: SELLABLE_PLANS.map(p=>p.code) }, isActive: true },
     select: { code: true, monthlyPrice: true },
   });
   const prices = new Map(plans.map((plan) => [plan.code, plan.monthlyPrice]));
-  if (COMMERCIAL_PLANS.some(plan=>prices.get(plan.code)!==plan.monthlyPrice)) return false;
+  if (SELLABLE_PLANS.some(plan=>prices.get(plan.code)!==plan.monthlyPrice)) return false;
 
   const heartbeat = await prisma.billingOperationsHeartbeat.findUnique({ where: { id: "billing-operations" } });
   if (!heartbeat || Date.now() - heartbeat.lastSucceededAt.getTime() > HEARTBEAT_MAX_AGE_MS) return false;

@@ -3,7 +3,9 @@ import { LAUNDRY_READY_TEMPLATE_EXAMPLE } from "./laundry-ready-domain";
 import { BOOKING_CONFIRMATION_TEMPLATE_EXAMPLE } from "./booking-confirmation-domain";
 import { SALLA_ORDER_CONFIRMATION_TEMPLATE_EXAMPLE } from "./salla-order-confirmation-domain";
 // Draft copy only. Selection never creates a template or enables an automation.
+import {CASHIER_NOTICES} from "./cashier-notice-domain";
 export const TEMPLATE_STARTERS = [
+  ...CASHIER_NOTICES.map(n=>({key:n.trigger,label:n.label,category:"UTILITY",name:n.name,body:n.body,examples:n.trigger==="cashier_pickup_reminder"?"أحمد | المنشأة | 123":n.trigger==="cashier_payment_reminder"?"أحمد | المنشأة | 123 | 25.00":"أحمد | المنشأة | 123 | https://example.com/review",hint:"رسالة تخص طلبًا معينًا بموافقة صاحبه. اعتماد الفئة النهائي لدى Meta؛ التفعيل من إعدادات إشعارات الكاشير."})),
   { key: "otp", label: "رمز التحقق OTP", category: "AUTHENTICATION", name: "infro_verification_code", body: "", examples: "", hint: "نص مصادقة ثابت من Meta مع زر نسخ الرمز. يحتاج مسار تحقق يولّد الرمز ويتحقق منه؛ ليس رسالة حملة جماعية." },
   { key: "welcome", label: "ترحيب بالعميل", category: "MARKETING", name: "infro_welcome", body: "أهلًا بك، يسعدنا انضمامك إلى عملائنا. فريقنا جاهز لمساعدتك والإجابة عن استفساراتك. لإيقاف الرسائل أرسل إيقاف.", examples: "", hint: "متوافق مع الأتمتة العامة بلا متغيرات، ويتطلب موافقة العميل التسويقية." },
   { key: "follow_up", label: "متابعة بعد الخدمة", category: "MARKETING", name: "infro_follow_up", body: "شكرًا لاختيارك خدماتنا. نتمنى أن تكون تجربتك مميزة، ويسعدنا استقبال ملاحظاتك والرد على استفساراتك. لإيقاف الرسائل أرسل إيقاف.", examples: "", hint: "متوافق مع أتمتة المتابعة بعد إتمام طلب أو حجز، بعد اعتماد القالب وموافقة العميل." },

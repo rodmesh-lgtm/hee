@@ -14,7 +14,7 @@ import { emitInternalWhatsAppAutomationEvent, cancelWhatsAppAppointmentReminders
 import { processWhatsAppAutomationEvent } from "../../../lib/whatsapp/automation-processor";
 import { processNextWhatsAppAutomationDelivery } from "../../../lib/whatsapp/automation-delivery-worker";
 import { normalizeE164 } from "../../../lib/whatsapp/contact-domain";
-import { hasActiveBusinessSubscription } from "../../../lib/subscription-entitlement";
+import { hasActiveBookingEntitlement } from "../../../lib/subscription-entitlement";
 import { commerceBookingGate } from "../../../lib/commerce/booking-eligibility";
 import { bookingCandidateMinutes } from "../../../lib/booking-time";
 import { readPublishedBookingForm } from "../../../lib/booking-form-settings";
@@ -228,7 +228,7 @@ export async function GET(request: Request) {
       },
     });
     const service = business?.services[0];
-    if (!business || !service || !await hasActiveBusinessSubscription({ businessId: business.id })) {
+    if (!business || !service || !await hasActiveBookingEntitlement({ businessId: business.id })) {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة غير متاحين" }, { status: 409, headers: availabilityResponseHeaders });
     }
     const availabilityAccess=request.headers.get("x-booking-access");
@@ -405,7 +405,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "30" } });
   }
   if (!business) return NextResponse.json({ ok: false }, { status: 404 });
-  if (!await hasActiveBusinessSubscription({ businessId: business.id })) {
+  if (!await hasActiveBookingEntitlement({ businessId: business.id })) {
     return NextResponse.json({ ok: false, error: "الحجز متوقف لأن اشتراك المنشأة غير نشط" }, { status: 409 });
   }
 

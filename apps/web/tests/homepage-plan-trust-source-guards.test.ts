@@ -16,7 +16,7 @@ test("active homepage publishes the same current monthly prices as the seeded pa
   assert.match(seed, /code: "PRO"[^\n]*monthlyPrice: 399/);
   assert.match(homepage, /COMMERCIAL_PLANS\.map/);
   const catalogue=source("app/lib/commercial-plans.ts");
-  for(const price of [0,199,399,699])assert.ok(catalogue.includes(`monthlyPrice:${price}`));
+  for(const price of [0,117,214,491])assert.ok(catalogue.includes(`monthlyPrice:${price}`));
 });
 
 test("active homepage does not market premium themes before those themes are actually launch-ready", () => {

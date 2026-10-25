@@ -1,4 +1,4 @@
-import { COMMERCIAL_PLANS } from "../app/lib/commercial-plans";
+import { SELLABLE_PLANS } from "../app/lib/commercial-plans";
 import "dotenv/config";
 
 import { PrismaClient } from "@prisma/client";
@@ -10,7 +10,6 @@ if (!connectionString) throw new Error("DATABASE_URL is required");
 const pool = new Pool({ connectionString, max: 2 });
 const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 const production = String(process.env.APP_ENV ?? "").trim().toLowerCase() === "production";
-const recordHeartbeat = process.argv.includes("--record-heartbeat");
 const HEARTBEAT_MAX_AGE_MINUTES = 90;
 const MAX_RENEWAL_ATTEMPTS = 3;
 const releaseSha = String(process.env.RELEASE_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "").trim().toLowerCase();
@@ -18,7 +17,7 @@ const validReleaseSha = /^[0-9a-f]{40}$/.test(releaseSha);
 
 type DriftRow = { businessId: string; detail: string };
 
-async function main() {
+async function main(recordHeartbeat=process.argv.includes("--record-heartbeat")) {
   const drifts: DriftRow[] = [];
 
   if (production && !validReleaseSha) {
@@ -36,9 +35,10 @@ async function main() {
   drifts.push(...planPriceDrift);
 
   if (production) {
-    const requiredPlans = await db.businessPlan.findMany({ where: { code: { in: COMMERCIAL_PLANS.map(p=>p.code) }, isActive: true }, select: { code: true } });
+    const requiredPlans = await db.businessPlan.findMany({ where: { code: { in: SELLABLE_PLANS.map(p=>p.code) }, isActive: true }, select: { code: true,monthlyPrice:true } });
     const present = new Set(requiredPlans.map((plan) => plan.code));
-    for (const code of COMMERCIAL_PLANS.map(p=>p.code)) if (!present.has(code)) drifts.push({ businessId: `plan:${code}`, detail: "required public plan is missing or inactive" });
+    for(const model of SELLABLE_PLANS){const stored=requiredPlans.find(p=>p.code===model.code);if(stored&&stored.monthlyPrice!==model.monthlyPrice)drifts.push({businessId:`plan:${model.code}`,detail:"catalog price differs from the public offer"});}
+    for (const code of SELLABLE_PLANS.map(p=>p.code)) if (!present.has(code)) drifts.push({ businessId: `plan:${code}`, detail: "required public plan is missing or inactive" });
 
     if (!recordHeartbeat && String(process.env.BILLING_OPERATIONS_READY ?? "").trim().toLowerCase() === "true") {
       const heartbeat = await db.billingOperationsHeartbeat.findUnique({ where: { id: "billing-operations" } });
@@ -57,7 +57,7 @@ async function main() {
   // receipt/provider invariant below.
   const paidWithoutLive = await db.$queryRaw<DriftRow[]>`
     SELECT b."id" AS "businessId", 'paid business plan without matching unexpired live subscription or active access-code entitlement' AS detail
-    FROM "Business" b JOIN "BusinessPlan" p ON p."id"=b."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE')
+    FROM "Business" b JOIN "BusinessPlan" p ON p."id"=b."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE','OPERATE_35','GROWTH_35','SCALE_35','BOOKING_ONLY_35','ACCOUNTING_ONLY_35','WHATSAPP_ONLY_35','LIVE_ONLY_35')
     WHERE b."deletedAt" IS NULL AND NOT EXISTS (
       SELECT 1
       FROM "Subscription" s
@@ -103,7 +103,7 @@ async function main() {
              WHEN s."endsAt" IS NULL THEN 'paid subscription has no finite paid-through date'
              ELSE 'expired subscription is still marked active'
            END AS detail
-    FROM "Subscription" s JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE')
+    FROM "Subscription" s JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE','OPERATE_35','GROWTH_35','SCALE_35','BOOKING_ONLY_35','ACCOUNTING_ONLY_35','WHATSAPP_ONLY_35','LIVE_ONLY_35')
     WHERE s."provider" IS DISTINCT FROM 'access_code'
       AND (
         (s."status"='active' AND (s."endsAt" IS NULL OR s."endsAt" <= CURRENT_TIMESTAMP))
@@ -115,7 +115,7 @@ async function main() {
   const invalidAccessCodeEntitlement = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'access-code subscription lacks a valid active grant/code lineage' AS detail
     FROM "Subscription" s
-    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE')
+    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE','OPERATE_35','GROWTH_35','SCALE_35','BOOKING_ONLY_35','ACCOUNTING_ONLY_35','WHATSAPP_ONLY_35','LIVE_ONLY_35')
     WHERE s."provider"='access_code'
       AND s."status"='active'
       AND (
@@ -145,7 +145,7 @@ async function main() {
   const strandedPastDue = await db.$queryRaw<DriftRow[]>`
     SELECT s."businessId" AS "businessId", 'expired past_due subscription has no recoverable renewal attempt' AS detail
     FROM "Subscription" s
-    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE')
+    JOIN "BusinessPlan" p ON p."id"=s."planId" AND p."code" IN ('BUSINESS','PRO','OPERATE','GROWTH','SCALE','OPERATE_35','GROWTH_35','SCALE_35','BOOKING_ONLY_35','ACCOUNTING_ONLY_35','WHATSAPP_ONLY_35','LIVE_ONLY_35')
     WHERE s."status"='past_due'
       AND s."provider" IS DISTINCT FROM 'access_code'
       AND s."endsAt" IS NOT NULL
@@ -252,7 +252,9 @@ async function main() {
   console.log("billing-state-audit: PASS");
 }
 
-main().catch((error) => {
+export async function runBillingStateAudit(){return main(true);}
+
+if(/(?:^|[\\/])billing-state-audit\.(?:ts|js)$/.test(process.argv[1]??""))main().catch((error) => {
   console.error("billing-state-audit: FAIL", error instanceof Error ? error.message : error);
   process.exitCode = 1;
 }).finally(async () => {
