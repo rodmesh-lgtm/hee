@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "../i18n/locale-provider";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -62,19 +63,21 @@ function requestId() {
   return `booking-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
-function dayName(date: string) {
-  return new Intl.DateTimeFormat("ar-SA", { weekday: "short", timeZone: "Asia/Riyadh" }).format(new Date(`${date}T12:00:00+03:00`));
+function dayName(date: string, locale = "ar-SA") {
+  return new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "Asia/Riyadh" }).format(new Date(`${date}T12:00:00+03:00`));
 }
 
-function compactDate(date: string) {
-  return new Intl.DateTimeFormat("ar-SA", { day: "numeric", month: "short", timeZone: "Asia/Riyadh" }).format(new Date(`${date}T12:00:00+03:00`));
+function compactDate(date: string, locale = "ar-SA") {
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "Asia/Riyadh" }).format(new Date(`${date}T12:00:00+03:00`));
 }
 
-function displayTime(time: string) {
-  return new Intl.DateTimeFormat("ar-SA", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Riyadh" }).format(new Date(`2020-01-01T${time}:00+03:00`));
+function displayTime(time: string, locale = "ar-SA") {
+  return new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Riyadh" }).format(new Date(`2020-01-01T${time}:00+03:00`));
 }
 
 export function PublicTransactionLauncher({ serviceRequestEnabled = true, bookingInRibbon = false, bookingForm = DEFAULT_BOOKING_FORM, slug, businessName, whatsapp, phone, bookingAvailable, sallaBookingEligibilityRequired, whatsappBookingConfirmationAvailable, whatsappBookingSender, hasWorkingHours, services, branches }: Props) {
+ const { t, dir, intlLocale } = useI18n();
+
   const [ribbonTarget, setRibbonTarget] = useState<HTMLElement | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
@@ -292,79 +295,79 @@ export function PublicTransactionLauncher({ serviceRequestEnabled = true, bookin
   if (!canRequest && !canBook) return null;
 
   const content = <>
-    {canRequest || (canBook && !bookingInRibbon) ? <section dir="rtl" className="relative z-20 mx-auto mt-3 w-full rounded-[22px] border border-[#cfe5e1] bg-white/95 p-3 shadow-[0_14px_36px_rgba(3,55,58,.10)] sm:w-[calc(100%-2rem)]" aria-label="إجراءات الطلب والحجز">
-      <div className="mb-2 flex items-center justify-between gap-3 px-1"><div><span className="text-[9px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">CONNECT WITH US</span><h2 className="mt-0.5 text-sm font-black text-[#12384a]">اختر طريقة التواصل المناسبة</h2></div><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><MessageCircle className="h-4 w-4" /></span></div>
+    {canRequest || (canBook && !bookingInRibbon) ? <section dir={dir} className="relative z-20 mx-auto mt-3 w-full rounded-[22px] border border-[#cfe5e1] bg-white/95 p-3 shadow-[0_14px_36px_rgba(3,55,58,.10)] sm:w-[calc(100%-2rem)]" aria-label={t("إجراءات الطلب والحجز")}>
+      <div className="mb-2 flex items-center justify-between gap-3 px-1"><div><span className="text-[9px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">CONNECT WITH US</span><h2 className="mt-0.5 text-sm font-black text-[#12384a]">{t("اختر طريقة التواصل المناسبة")}</h2></div><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><MessageCircle className="h-4 w-4" /></span></div>
       <div className="grid gap-2 min-[420px]:grid-cols-2">
-        {canRequest ? <button onClick={() => setRequestOpen(true)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,#00b99f,#00a6bd)] px-3 text-[13px] font-black text-[#041b1d] shadow-[0_7px_18px_rgba(0,203,178,.16)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><MessageCircle className="h-4 w-4" />طلب خدمة</button> : null}
-        {canBook && !bookingInRibbon ? <button ref={bookingOpenerRef} onClick={openBooking} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#8dd9d3] bg-[#eefbf9] px-3 text-[13px] font-black text-[#07545d] transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><CalendarDays className="h-4 w-4 text-[#008f9f]" />حجز موعد</button> : null}
+        {canRequest ? <button onClick={() => setRequestOpen(true)} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,#00b99f,#00a6bd)] px-3 text-[13px] font-black text-[#041b1d] shadow-[0_7px_18px_rgba(0,203,178,.16)] transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><MessageCircle className="h-4 w-4" />{t("طلب خدمة")}</button> : null}
+        {canBook && !bookingInRibbon ? <button ref={bookingOpenerRef} onClick={openBooking} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#8dd9d3] bg-[#eefbf9] px-3 text-[13px] font-black text-[#07545d] transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79f4df] active:scale-[.99]"><CalendarDays className="h-4 w-4 text-[#008f9f]" />{t("حجز موعد")}</button> : null}
       </div>
     </section> : null}
 
-    {canRequest ? <PublicActionDialog open={requestOpen} onClose={() => setRequestOpen(false)} mode="request" businessName={businessName} whatsapp={whatsapp} phone={phone} title="طلب خدمة" description="سنسجل طلبك داخل INFRO ثم نجهز التواصل مع المنشأة." ctaLabel="تسجيل الطلب والمتابعة" /> : null}
+    {canRequest ? <PublicActionDialog open={requestOpen} onClose={() => setRequestOpen(false)} mode="request" businessName={businessName} whatsapp={whatsapp} phone={phone} title={t("طلب خدمة")} description={t("سنسجل طلبك داخل INFRO ثم نجهز التواصل مع المنشأة.")} ctaLabel="تسجيل الطلب والمتابعة" /> : null}
 
-    {bookingOpen ? <div dir="rtl" className="fixed inset-0 z-[260] flex items-start justify-center overflow-y-auto bg-black/70 p-3 sm:items-center" style={{ paddingTop: "max(12px, env(safe-area-inset-top))", paddingBottom: "max(12px, env(safe-area-inset-bottom))" }} onClick={closeBooking}>
+    {bookingOpen ? <div dir={dir} className="fixed inset-0 z-[260] flex items-start justify-center overflow-y-auto bg-black/70 p-3 sm:items-center" style={{ paddingTop: "max(12px, env(safe-area-inset-top))", paddingBottom: "max(12px, env(safe-area-inset-bottom))" }} onClick={closeBooking}>
       <div ref={bookingDialogRef} data-public-dialog role="dialog" aria-modal="true" aria-labelledby="infro-booking-title" aria-describedby="infro-booking-description" className="my-auto flex max-h-[calc(100dvh-24px)] w-full max-w-[520px] flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#dfebe8] bg-[#f7fbfa] p-4">
-          <div><span className="text-[9px] font-black tracking-[.16em] text-[#008f87]" dir="rtl">المواعيد</span><h2 id="infro-booking-title" className="mt-1 text-lg font-black text-[#102527]">{bookingForm.title}</h2><p id="infro-booking-description" className="mt-1 text-xs text-[#667b79]">{bookingForm.description}</p></div>
-          <button onClick={closeBooking} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#d7e6e3] bg-white text-[#667b79] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d]" aria-label="إغلاق"><X className="h-4 w-4" /></button>
+          <div><span className="text-[9px] font-black tracking-[.16em] text-[#008f87]" dir={dir}>{t("المواعيد")}</span><h2 id="infro-booking-title" className="mt-1 text-lg font-black text-[#102527]">{bookingForm.title}</h2><p id="infro-booking-description" className="mt-1 text-xs text-[#667b79]">{bookingForm.description}</p></div>
+          <button onClick={closeBooking} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#d7e6e3] bg-white text-[#667b79] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d]" aria-label={t("إغلاق")}><X className="h-4 w-4" /></button>
         </div>
-        {success ? <div className="overflow-y-auto p-5"><div role="status" aria-live="polite" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-7 text-emerald-700">{success}</div><button onClick={closeBooking} className="mt-4 h-11 w-full rounded-xl bg-[#073437] text-sm font-black text-white">إغلاق</button></div> : <form onSubmit={submitBooking} className="min-h-0 space-y-4 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-5">
-          <a href={`/${slug}/booking`} className="flex min-h-11 items-center justify-center rounded-xl border border-[#bed5cf] px-3 text-sm font-bold text-[#075c54]">لديّ موعد بالفعل · تعديل موعدي</a>
+        {success ? <div className="overflow-y-auto p-5"><div role="status" aria-live="polite" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-7 text-emerald-700">{t(success)}</div><button onClick={closeBooking} className="mt-4 h-11 w-full rounded-xl bg-[#073437] text-sm font-black text-white">{t("إغلاق")}</button></div> : <form onSubmit={submitBooking} className="min-h-0 space-y-4 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-5">
+          <a href={`/${slug}/booking`} className="flex min-h-11 items-center justify-center rounded-xl border border-[#bed5cf] px-3 text-sm font-bold text-[#075c54]">{t("لديّ موعد بالفعل · تعديل موعدي")}</a>
           <div className="grid gap-3">
-            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-600"><span>رقم الجوال</span><input ref={firstBookingInputRef} type="tel" required maxLength={20} placeholder="05xxxxxxxx" dir="ltr" inputMode="tel" autoComplete="tel" value={values.phone} onChange={(event) => setValues((current) => ({ ...current, phone: event.target.value }))} className="h-11 min-w-0 w-full rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15" /></label>
+            <label className="grid min-w-0 gap-1.5 text-xs font-bold text-slate-600"><span>{t("رقم الجوال")}</span><input ref={firstBookingInputRef} type="tel" required maxLength={20} placeholder="05xxxxxxxx" dir="ltr" inputMode="tel" autoComplete="tel" value={values.phone} onChange={(event) => setValues((current) => ({ ...current, phone: event.target.value }))} className="h-11 min-w-0 w-full rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15" /></label>
           </div>
 
-          {bookableBranches.length > 1 ? <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>الفرع</span><select aria-label="الفرع" value={values.branchId} onChange={(event) => selectBranch(event.target.value)} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15"><option value="">اختر الفرع</option>{bookableBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}{branch.city ? ` · ${branch.city}` : ""}</option>)}</select></label> : null}
+          {bookableBranches.length > 1 ? <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>{t("الفرع")}</span><select aria-label={t("الفرع")} value={values.branchId} onChange={(event) => selectBranch(event.target.value)} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15"><option value="">{t("اختر الفرع")}</option>{bookableBranches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}{branch.city ? ` · ${branch.city}` : ""}</option>)}</select></label> : null}
 
           {bookableServices.length > 1 ? <label className="grid gap-1.5 text-xs font-bold text-slate-600">
-            <span>الخدمة</span>
-            <select aria-label="الخدمة" value={values.serviceId} onChange={(event) => selectService(event.target.value)} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15">
-              <option value="">اختر الخدمة</option>
+            <span>{t("الخدمة")}</span>
+            <select aria-label={t("الخدمة")} value={values.serviceId} onChange={(event) => selectService(event.target.value)} className="h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15">
+              <option value="">{t("اختر الخدمة")}</option>
               {bookableServices.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
             </select>
           </label> : null}
 
-          {availabilityState === "loading" ? <div role="status" className="flex min-h-24 items-center justify-center gap-2 rounded-2xl border border-[#dce9e6] bg-[#f7fbfa] text-xs font-bold text-[#58726f]"><LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" />جارٍ تحميل المواعيد المتاحة</div> : null}
-          {availabilityState === "error" ? <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-6 text-amber-800"><p>{availabilityError}</p><button type="button" onClick={retryAvailability} className="mt-2 min-h-10 rounded-xl border border-amber-300 bg-white px-3">إعادة المحاولة</button></div> : null}
+          {availabilityState === "loading" ? <div role="status" className="flex min-h-24 items-center justify-center gap-2 rounded-2xl border border-[#dce9e6] bg-[#f7fbfa] text-xs font-bold text-[#58726f]"><LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" />{t("جارٍ تحميل المواعيد المتاحة")}</div> : null}
+          {availabilityState === "error" ? <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-6 text-amber-800"><p>{availabilityError}</p><button type="button" onClick={retryAvailability} className="mt-2 min-h-10 rounded-xl border border-amber-300 bg-white px-3">{t("إعادة المحاولة")}</button></div> : null}
           {availabilityState === "ready" ? <>
-            <fieldset aria-label="التاريخ" className="min-w-0">
-              <div className="mb-2 flex items-center justify-between gap-3"><legend className="text-xs font-black text-slate-700">اختر اليوم</legend><span className="text-[10px] font-bold text-slate-400">30 يومًا قادمة</span></div>
+            <fieldset aria-label={t("التاريخ")} className="min-w-0">
+              <div className="mb-2 flex items-center justify-between gap-3"><legend className="text-xs font-black text-slate-700">{t("اختر اليوم")}</legend><span className="text-[10px] font-bold text-slate-400">{t("30 يومًا قادمة")}</span></div>
               <div className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-2">
                 {availabilityDays.map((day) => {
                   const selected = values.bookingDate === day.date;
-                  return <button key={day.date} type="button" data-booking-date={day.date} disabled={!day.available} aria-pressed={selected} aria-label={day.available ? `اختيار ${dayName(day.date)} ${compactDate(day.date)}` : `${dayName(day.date)} ${compactDate(day.date)} غير متاح`} onClick={() => setValues((current) => ({ ...current, bookingDate: day.date, bookingTime: "" }))} className={`min-h-[72px] min-w-[82px] snap-start rounded-2xl border px-2 py-2 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#009eac] bg-[#e8fbfb] text-[#07545d] shadow-[0_7px_18px_rgba(0,158,172,.12)]" : day.available ? "border-[#d7e6e3] bg-white text-[#244246] hover:border-[#8dd9d3]" : "border-slate-100 bg-slate-50 text-slate-300"}`}>
-                    <span className="block text-[10px] font-bold">{dayName(day.date)}</span>
-                    <b className="mt-1 block text-[11px]">{compactDate(day.date)}</b>
-                    <span className={`mt-1 block text-[8px] font-black ${day.available ? "text-emerald-600" : "text-slate-300"}`}>{day.available ? "متاح" : "غير متاح"}</span>
+                  return <button key={day.date} type="button" data-booking-date={day.date} disabled={!day.available} aria-pressed={selected} aria-label={day.available ? `اختيار ${dayName(day.date, intlLocale)} ${compactDate(day.date, intlLocale)}` : `${dayName(day.date, intlLocale)} ${compactDate(day.date, intlLocale)} ${t("غير متاح")}`} onClick={() => setValues((current) => ({ ...current, bookingDate: day.date, bookingTime: "" }))} className={`min-h-[72px] min-w-[82px] snap-start rounded-2xl border px-2 py-2 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#009eac] bg-[#e8fbfb] text-[#07545d] shadow-[0_7px_18px_rgba(0,158,172,.12)]" : day.available ? "border-[#d7e6e3] bg-white text-[#244246] hover:border-[#8dd9d3]" : "border-slate-100 bg-slate-50 text-slate-300"}`}>
+                    <span className="block text-[10px] font-bold">{dayName(day.date, intlLocale)}</span>
+                    <b className="mt-1 block text-[11px]">{compactDate(day.date, intlLocale)}</b>
+                    <span className={`mt-1 block text-[8px] font-black ${day.available ? "text-emerald-600" : "text-slate-300"}`}>{day.available ? t("متاح") : t("غير متاح")}</span>
                   </button>;
                 })}
               </div>
             </fieldset>
 
-            {selectedDay?.available ? <fieldset aria-label="الوقت">
-              <div className="mb-2 flex items-center justify-between gap-3"><legend className="text-xs font-black text-slate-700">اختر الفترة</legend>{durationMinutes ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400"><Clock3 className="h-3 w-3" />مدة الفترة {durationMinutes} دقيقة</span> : null}</div>
+            {selectedDay?.available ? <fieldset aria-label={t("الوقت")}>
+              <div className="mb-2 flex items-center justify-between gap-3"><legend className="text-xs font-black text-slate-700">{t("اختر الفترة")}</legend>{durationMinutes ? <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400"><Clock3 className="h-3 w-3" />{t("مدة الفترة")}{durationMinutes}{t("دقيقة")}</span> : null}</div>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {(selectedDay.slotDetails ?? selectedDay.slots.map((time) => ({ start: time, end: time }))).map((slot) => {
                   const time = slot.start;
                   const selected = values.bookingTime === time;
-                  return <button key={time} type="button" data-booking-time={time} aria-pressed={selected} aria-label={`فترة من ${displayTime(time)} إلى ${displayTime(slot.end)}، متاحة للحجز`} onClick={() => setValues((current) => ({ ...current, bookingTime: time }))} className={`relative min-h-14 rounded-xl border px-2 py-2 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#008f9f] bg-[#073f43] text-white" : "border-[#d7e6e3] bg-[#f8fbfa] text-[#25474a] hover:border-[#8dd9d3]"}`}>
-                    {selected ? <Check className="absolute left-1.5 top-1.5 h-3 w-3 text-[#68ead7]" /> : null}<span className="block" dir="rtl">{displayTime(time)} – {displayTime(slot.end)}</span><small className={`mt-1 block text-[8px] ${selected ? "text-[#68ead7]" : "text-emerald-600"}`}>متاح للحجز</small>
+                  return <button key={time} type="button" data-booking-time={time} aria-pressed={selected} aria-label={`فترة من ${displayTime(time, intlLocale)} إلى ${displayTime(slot.end, intlLocale)}، متاحة للحجز`} onClick={() => setValues((current) => ({ ...current, bookingTime: time }))} className={`relative min-h-14 rounded-xl border px-2 py-2 text-[10px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] ${selected ? "border-[#008f9f] bg-[#073f43] text-white" : "border-[#d7e6e3] bg-[#f8fbfa] text-[#25474a] hover:border-[#8dd9d3]"}`}>
+                    {selected ? <Check className="absolute left-1.5 top-1.5 h-3 w-3 text-[#68ead7]" /> : null}<span className="block" dir={dir}>{displayTime(time, intlLocale)} – {displayTime(slot.end, intlLocale)}</span><small className={`mt-1 block text-[8px] ${selected ? "text-[#68ead7]" : "text-emerald-600"}`}>{t("متاح للحجز")}</small>
                   </button>;
                 })}
               </div>
-            </fieldset> : <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-center text-xs font-bold text-slate-400">لا توجد أوقات متاحة في هذا اليوم.</p>}
+            </fieldset> : <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3 text-center text-xs font-bold text-slate-400">{t("لا توجد أوقات متاحة في هذا اليوم.")}</p>}
           </> : null}
 
           {bookingForm.notesEnabled ? <label className="grid gap-1.5 text-xs font-bold text-slate-600"><span>{bookingForm.notesLabel}</span><textarea value={values.notes} maxLength={1000} onChange={(event) => setValues((current) => ({ ...current, notes: event.target.value }))} className="min-h-[76px] rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 py-2.5 text-sm outline-none focus:border-[#00a99d] focus:ring-2 focus:ring-[#00a99d]/15" /></label> : null}
-          {bookingForm.fields.map(field => <label key={field.id} className="grid gap-1.5 text-xs font-bold text-slate-600"><span>{field.label}{field.required ? " *" : " (اختياري)"}</span>{field.type === "select" ? <select aria-label={field.label} required={field.required} value={answers[field.id] ?? ""} onChange={e => setAnswers(current => ({ ...current, [field.id]: e.target.value }))} className="min-h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm"><option value="">اختر</option>{field.options.map(option => <option key={option}>{option}</option>)}</select> : field.type === "textarea" ? <textarea required={field.required} maxLength={300} value={answers[field.id] ?? ""} onChange={e => setAnswers(current => ({ ...current, [field.id]: e.target.value }))} className="min-h-20 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] p-3 text-sm"/> : <input required={field.required} maxLength={300} value={answers[field.id] ?? ""} onChange={e => setAnswers(current => ({ ...current, [field.id]: e.target.value }))} className="min-h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm"/>}</label>)}
-          {sallaBookingEligibilityRequired ? <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold leading-6 text-amber-900">لإتمام الحجز، استخدم رقم الجوال نفسه المسجل في طلبك المدفوع والمؤكد من متجر المنشأة.</p> : null}
-          {whatsappBookingConfirmationAvailable ? <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#bdebe5] bg-[#effbf9] p-3 text-xs leading-6 text-[#315b5d]"><input type="checkbox" checked={values.whatsappConfirmationConsent} onChange={(event) => setValues((current) => ({ ...current, whatsappConfirmationConsent: event.target.checked }))} className="mt-1 h-5 w-5 shrink-0 accent-[#00a99d]"/><span><b className="block text-[#07545d]">إرسال تأكيد الموعد عبر واتساب</b>أوافق على استلام تأكيد هذا الحجز وتحديثاته من {whatsappBookingSender || businessName} على رقم الجوال الذي أدخلته.</span></label> : null}
-          {error ? <p role="alert" aria-live="assertive" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">{error}</p> : null}
-          <button disabled={submitting || availabilityState !== "ready" || !values.bookingDate || !values.bookingTime} className="h-12 w-full rounded-2xl bg-[linear-gradient(135deg,#073437,#0b5955)] text-sm font-black text-white shadow-[0_10px_25px_rgba(7,52,55,.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? "جارٍ تسجيل الحجز..." : "تأكيد الحجز"}</button>
+          {bookingForm.fields.map(field => <label key={field.id} className="grid gap-1.5 text-xs font-bold text-slate-600"><span>{t(field.label)}{field.required ? " *" : t(" (اختياري)")}</span>{field.type === "select" ? <select aria-label={t(field.label)} required={field.required} value={answers[field.id] ?? ""} onChange={e => setAnswers(current => ({ ...current, [field.id]: e.target.value }))} className="min-h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm"><option value="">{t("اختر")}</option>{field.options.map(option => <option key={option}>{option}</option>)}</select> : field.type === "textarea" ? <textarea required={field.required} maxLength={300} value={answers[field.id] ?? ""} onChange={e => setAnswers(current => ({ ...current, [field.id]: e.target.value }))} className="min-h-20 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] p-3 text-sm"/> : <input required={field.required} maxLength={300} value={answers[field.id] ?? ""} onChange={e => setAnswers(current => ({ ...current, [field.id]: e.target.value }))} className="min-h-11 rounded-xl border border-[#d7e6e3] bg-[#f8fbfa] px-3 text-sm"/>}</label>)}
+          {sallaBookingEligibilityRequired ? <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold leading-6 text-amber-900">{t("لإتمام الحجز، استخدم رقم الجوال نفسه المسجل في طلبك المدفوع والمؤكد من متجر المنشأة.")}</p> : null}
+          {whatsappBookingConfirmationAvailable ? <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#bdebe5] bg-[#effbf9] p-3 text-xs leading-6 text-[#315b5d]"><input type="checkbox" checked={values.whatsappConfirmationConsent} onChange={(event) => setValues((current) => ({ ...current, whatsappConfirmationConsent: event.target.checked }))} className="mt-1 h-5 w-5 shrink-0 accent-[#00a99d]"/><span><b className="block text-[#07545d]">{t("إرسال تأكيد الموعد عبر واتساب")}</b>{t("أوافق على استلام تأكيد هذا الحجز وتحديثاته من")}{whatsappBookingSender || businessName}{t("على رقم الجوال الذي أدخلته.")}</span></label> : null}
+          {error ? <p role="alert" aria-live="assertive" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">{t(error)}</p> : null}
+          <button disabled={submitting || availabilityState !== "ready" || !values.bookingDate || !values.bookingTime} className="h-12 w-full rounded-2xl bg-[linear-gradient(135deg,#073437,#0b5955)] text-sm font-black text-white shadow-[0_10px_25px_rgba(7,52,55,.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? t("جارٍ تسجيل الحجز...") : t("تأكيد الحجز")}</button>
         </form>}
       </div>
     </div> : null}
   </>;
 
-  return <><div ref={attachMount} data-public-transactions-mount />{target ? createPortal(content, target) : null}{canBook && bookingInRibbon && ribbonTarget ? createPortal(<button type="button" ref={bookingOpenerRef} onClick={openBooking} className="flex h-14 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-[15px] bg-[#07545d] px-1 text-[11px] font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"><CalendarDays aria-hidden="true" className="h-4 w-4"/><span className="whitespace-nowrap">حجز موعد</span></button>, ribbonTarget) : null}</>;
+  return <><div ref={attachMount} data-public-transactions-mount />{target ? createPortal(content, target) : null}{canBook && bookingInRibbon && ribbonTarget ? createPortal(<button type="button" ref={bookingOpenerRef} onClick={openBooking} className="flex h-14 w-full min-w-0 flex-col items-center justify-center gap-1 rounded-[15px] bg-[#07545d] px-1 text-[11px] font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"><CalendarDays aria-hidden="true" className="h-4 w-4"/><span className="whitespace-nowrap">{t("حجز موعد")}</span></button>, ribbonTarget) : null}</>;
 }

@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
-import { HOMEPAGE_TRANSLATIONS, homepageText } from "../app/lib/homepage-i18n";
+import { HOMEPAGE_TRANSLATIONS } from "../app/lib/homepage-i18n";
+import { UI_TRANSLATIONS, uiText as homepageText } from "../app/lib/ui-i18n";
 import { SUPPORTED_LOCALES } from "../app/lib/i18n";
 import { COMMERCIAL_PLANS, PLAN_BILLING_NOTE } from "../app/lib/commercial-plans";
 
@@ -13,7 +14,7 @@ test("all homepage copy, including hidden FAQs, status messages and accessible l
   for (const path of ["components/homepage-professional.tsx", "components/home-phone-preview.tsx"]) {
     const source = ts.createSourceFile(path, read(path), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     function visit(node: ts.Node) {
-      if (ts.isStringLiteral(node) && /[\u0600-\u06ff]/.test(node.text)) strings.add(node.text);
+      if (ts.isStringLiteral(node) && /[\u0600-\u06ff]/.test(node.text) && !(ts.isCallExpression(node.parent) && ts.isPropertyAccessExpression(node.parent.expression) && node.parent.expression.name.text === "startsWith")) strings.add(node.text);
       assert.ok(!(ts.isJsxText(node) && /[\u0600-\u06ff]/.test(node.text)), "Static JSX text bypasses localization");
       ts.forEachChild(node, visit);
     }
@@ -27,7 +28,7 @@ test("all homepage copy, including hidden FAQs, status messages and accessible l
     const actual = homepageText(locale, text);
     if (locale === "ar") assert.equal(actual, text);
     else {
-      assert.ok(HOMEPAGE_TRANSLATIONS[text]?.[locale]?.trim(), `${locale} missing: ${text}`);
+      assert.ok((UI_TRANSLATIONS[text]?.[locale] ?? HOMEPAGE_TRANSLATIONS[text]?.[locale])?.trim(), `${locale} missing: ${text}`);
       assert.notEqual(actual, text, `${locale} fell back to Arabic: ${text}`);
       if (locale !== "ur") assert.doesNotMatch(actual, /[\u0600-\u06ff]/, "Unexpected Arabic in translated copy");
     }
@@ -54,5 +55,5 @@ test("homepage reads the same server locale as the switcher and uses it for copy
   assert.match(home, /LOCALE_META\[locale\]\.dir/);
   assert.match(home, /data-infro-home dir=\{direction\}/);
   assert.doesNotMatch(home, /dir="rtl"|lg:text-right/);
-  assert.match(home, /locale === "ar" && design\.homeHeroTitleAr/);
+  assert.match(home, /locale === "ar" && !legacyIdentityHero/);
 });

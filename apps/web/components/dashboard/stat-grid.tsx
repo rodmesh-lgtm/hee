@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/locale-provider";
 import { Card } from "../ui/card";
 import type { LucideIcon } from "lucide-react";
 
@@ -18,14 +19,14 @@ export function DashboardStatGrid({ stats }: { stats: DashboardStat[] }) {
           <Card key={stat.label} className="space-y-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-sm text-slate-400">{stat.label}</div>
+                <div className="text-sm text-slate-400"><UiText>{stat.label}</UiText></div>
                 <div className="mt-2 text-3xl font-black text-white">{stat.value}</div>
               </div>
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-200">
                 <Icon className="h-5 w-5" />
               </div>
             </div>
-            <p className="text-sm leading-7 text-slate-400">{stat.description}</p>
+            <p className="text-sm leading-7 text-slate-400"><UiText>{stat.description}</UiText></p>
           </Card>
         );
       })}

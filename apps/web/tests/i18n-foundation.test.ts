@@ -42,8 +42,10 @@ test("locale preference is strict, durable and cannot become an open redirect", 
   assert.match(action, /httpOnly: true/);
   assert.match(action, /sameSite: "lax"/);
   assert.match(action, /maxAge: 60 \* 60 \* 24 \* 365/);
-  assert.match(action, /!raw\.startsWith\("\/"\)/);
-  assert.match(action, /raw\.startsWith\("\/\/"\)/);
+  assert.match(action, /safeLocaleReturnTo\(formData.get\("returnTo"\)\)/);
+  const preferences = read("app/lib/i18n.ts");
+  assert.match(preferences, /!raw\.startsWith\("\/"\)/);
+  assert.match(preferences, /raw\.startsWith\("\/\/"\)/);
 });
 
 test("global language control stays clear of the mobile dashboard navigation", () => {

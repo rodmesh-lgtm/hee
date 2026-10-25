@@ -12,7 +12,7 @@ test("smart reminders are discoverable without adding a sixth customer mobile pr
   const quickMatch = customerShell.match(/const quick=\[([\s\S]*?)\];/);
   assert.ok(quickMatch, "customer mobile quick navigation must remain explicit");
   assert.equal((quickMatch[1].match(/label:/g) ?? []).length, 4);
-  assert.match(customerShell, /<span>المزيد<\/span>/);
+  assert.match(customerShell, /<span>\{t\("المزيد"\)\}<\/span>/);
   assert.doesNotMatch(quickMatch[1], /\/dashboard\/reminders/);
 });
 
@@ -22,6 +22,6 @@ test("admin reminder operations are reachable from operations navigation while m
   const mobileMatch = adminNav.match(/const mobilePrimary:[\s\S]*?=\s*\[([\s\S]*?)\];/);
   assert.ok(mobileMatch, "admin mobile primary navigation must remain explicit");
   assert.equal((mobileMatch[1].match(/href:/g) ?? []).length, 4);
-  assert.match(adminNav, /<span>المزيد<\/span>/);
+  assert.match(adminNav, /<span>\{t\("المزيد"\)\}<\/span>/);
   assert.doesNotMatch(mobileMatch[1], /\/admin\/whatsapp\/reminders/);
 });

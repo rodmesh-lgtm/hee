@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/locale-provider";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "../ui/card";
 import { DashboardEmptyState } from "./empty-state";
@@ -65,8 +66,8 @@ export function DashboardSectionPage({
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-200">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-black text-white">{card.title}</h3>
-                <p className="text-sm leading-7 text-slate-400">{card.description}</p>
+                <h3 className="text-lg font-black text-white"><UiText>{card.title}</UiText></h3>
+                <p className="text-sm leading-7 text-slate-400"><UiText>{card.description}</UiText></p>
               </Card>
             );
           })}

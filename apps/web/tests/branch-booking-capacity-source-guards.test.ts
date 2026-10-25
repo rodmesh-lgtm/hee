@@ -44,7 +44,7 @@ test("public booking capacity is branch-scoped serialized and rechecked at commi
 });
 
 test("visitor selects a branch without seeing capacity or remaining seats", () => {
-  assert.match(launcher, /aria-label="الفرع"/);
+  assert.match(launcher, /aria-label=\{t\("الفرع"\)\}/);
   assert.match(launcher, /مدة الفترة/);
   assert.match(launcher, /متاح للحجز/);
   assert.doesNotMatch(launcher, /slot\.remaining/);

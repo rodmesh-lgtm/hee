@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "../i18n/locale-provider";
 import { useEffect,useLayoutEffect,useSyncExternalStore } from "react";
 import { Monitor,Moon,Sun } from "lucide-react";
 type Theme="light"|"dark"|"system";
@@ -25,6 +26,8 @@ function subscribeTheme(listener:()=>void){
 }
 function serverTheme():Theme{return "system"}
 export function DashboardThemeToggle({showLabel=false}:{showLabel?:boolean}){
+ const { t } = useI18n();
+
   const theme=useSyncExternalStore(subscribeTheme,savedTheme,serverTheme);
   useLayoutEffect(()=>{apply(theme,false)},[theme]);
   useEffect(()=>{
@@ -36,9 +39,9 @@ export function DashboardThemeToggle({showLabel=false}:{showLabel?:boolean}){
   },[theme]);
   const cycle=()=>{const next:Theme=theme==="system"?"light":theme==="light"?"dark":"system";apply(next)};
   const Icon=theme==="dark"?Moon:theme==="light"?Sun:Monitor;
-  const nextLabel=theme==="system"?"الفاتح":theme==="light"?"الداكن":"التلقائي";
-  const currentLabel=theme==="dark"?"داكن":theme==="light"?"فاتح":"تلقائي";
-  const label=`المظهر الحالي: ${currentLabel}. اضغط للتبديل إلى ${nextLabel}.`;
+  const nextLabel=t(theme==="system"?"الفاتح":theme==="light"?"الداكن":"التلقائي");
+  const currentLabel=t(theme==="dark"?"داكن":theme==="light"?"فاتح":"تلقائي");
+  const label=`${t("المظهر الحالي")}: ${currentLabel}. ${t("تبديل المظهر")}: ${nextLabel}.`;
   return <button type="button" onClick={cycle} aria-label={label} title={label} className="infro-theme-toggle group inline-flex h-10 shrink-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 text-[10px] font-black text-slate-600 shadow-[0_12px_30px_-20px_rgba(7,24,27,.45)] transition hover:-translate-y-0.5 hover:border-[#9fe8df] hover:text-[#008f87] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none">
     <span className="relative grid h-6 w-6 place-items-center overflow-hidden rounded-full bg-slate-100 transition group-hover:bg-[#e9fbf8]"><Icon className="h-3.5 w-3.5" aria-hidden="true"/></span>
     <span className={showLabel?"inline":"hidden xl:inline"}>{currentLabel}</span>

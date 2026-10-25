@@ -1,3 +1,4 @@
+import { UiText } from "../i18n/locale-provider";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
@@ -17,10 +18,10 @@ export function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
             {index > 0 ? <ChevronLeft className="h-4 w-4 text-slate-500 rtl:rotate-180" /> : null}
             {item.href && !isLast ? (
               <Link href={item.href} className="font-semibold text-slate-400 transition hover:text-white">
-                {item.label}
+                <UiText>{item.label}</UiText>
               </Link>
             ) : (
-              <span className={isLast ? "font-semibold text-white" : ""}>{item.label}</span>
+              <span className={isLast ? "font-semibold text-white" : ""}><UiText>{item.label}</UiText></span>
             )}
           </span>
         );
