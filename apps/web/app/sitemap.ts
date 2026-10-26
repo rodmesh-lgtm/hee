@@ -7,6 +7,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: "https://ir.sa", changeFrequency: "weekly", priority: 1 },
     { url: "https://ir.sa/contact", changeFrequency: "monthly", priority: 0.5 },
+    { url: "https://ir.sa/integrations/salla", changeFrequency: "monthly", priority: 0.6 },
     { url: "https://ir.sa/privacy", changeFrequency: "yearly", priority: 0.2 },
     { url: "https://ir.sa/terms", changeFrequency: "yearly", priority: 0.2 },
   ];
