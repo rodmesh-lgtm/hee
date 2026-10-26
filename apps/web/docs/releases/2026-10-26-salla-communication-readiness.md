@@ -211,3 +211,25 @@ delivery, uninstall/reinstall and subscription billing tests remain release gate
 - The guide links directly to the dedicated connection page; booking settings
   also expose it. Paid Salla entitlement mapping, delivery acceptance, a verified
   tutorial and final submission remain incomplete.
+
+
+## In-flight import and webhook revocation safety
+
+- Order imports capture the original store and connection timestamp, check it
+  before each request, and lock the same integration row used by disconnect and
+  uninstall before saving each response. A late response from a revoked or
+  replaced authorization cannot re-enable booking eligibility.
+- Success/failure health updates are scoped to that same connection generation,
+  so an old request cannot mark a replacement connection unhealthy or synced.
+- The signed webhook worker locks the integration before checking its inbox
+  lease and writing orders. Uninstall and webhook processing now serialize on
+  the same row; an uninstall-completed inbox lease is not revived.
+- Manual INFRO disconnect also invalidates scoped Salla booking eligibility,
+  including repeated disconnect. Reconnection requires fresh order verification.
+- Six added injected integration tests cover normal import, disconnect/reconnect
+  during a response, revocation before HTTP, stale failure health writes, manual
+  disconnect/replay and webhook/uninstall ordering. Combined token, uninstall and
+  import checks: 13 passed. These are deterministic dependency-injected tests,
+  not a completed live demo uninstall or message-delivery acceptance test.
+- Google sign-in is still awaiting user passkey verification; no repeated
+  authentication attempts or Meta restriction retries were made.

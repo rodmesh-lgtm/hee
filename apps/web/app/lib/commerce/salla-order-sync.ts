@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { Prisma } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "../whatsapp/audit";
@@ -10,13 +10,29 @@ import { mapSallaOrderWebhook } from "./salla-domain";
 
 const FETCH_TIMEOUT_MS = 15_000;
 
-export async function syncSallaBookingOrders(input: { businessId: string; integrationId: string; actorUserId?: string; maxPages?: number }) {
-  const integration = await db.whatsAppCommerceIntegration.findFirst({
+export async function syncSallaBookingOrders(input: { businessId: string; integrationId: string; actorUserId?: string; maxPages?: number }, dependencies: { database?: PrismaClient; fetcher?: typeof fetch; loadToken?: typeof getSallaAccessToken } = {}) {
+  const database = dependencies.database ?? db;
+  const fetcher = dependencies.fetcher ?? fetch;
+  const loadToken = dependencies.loadToken ?? getSallaAccessToken;
+  const integration = await database.whatsAppCommerceIntegration.findFirst({
     where: { id: input.integrationId, businessId: input.businessId, provider: "salla", status: "active" },
-    select: { id: true, credentialEnvelope: true },
+    select: { id: true, credentialEnvelope: true, connectedAt: true, externalStoreId: true },
   });
-  if (!integration?.credentialEnvelope) throw new Error("SALLA_INTEGRATION_UNAVAILABLE");
-  let token = await getSallaAccessToken({ businessId: input.businessId, integrationId: integration.id });
+  if (!integration?.credentialEnvelope || !integration.connectedAt) throw new Error("SALLA_INTEGRATION_UNAVAILABLE");
+  // A token refresh keeps connectedAt; a new authorization changes it. Never let
+  // an in-flight import write into a later authorization, even for the same store.
+  const generationWhere = { id: integration.id, businessId: input.businessId, provider: "salla", status: "active", connectedAt: integration.connectedAt, externalStoreId: integration.externalStoreId };
+  const lockGeneration = async (tx: Prisma.TransactionClient) => {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT "id" FROM "WhatsAppCommerceIntegration"
+      WHERE "id" = ${integration.id} AND "businessId" = ${input.businessId}
+        AND "provider" = 'salla' AND "status" = 'active'
+        AND "connectedAt" = ${integration.connectedAt}
+        AND "externalStoreId" = ${integration.externalStoreId} FOR UPDATE
+    `);
+    if (!rows[0]) throw new Error("SALLA_CONNECTION_CHANGED");
+  };
+  let token = await loadToken({ businessId: input.businessId, integrationId: integration.id, database });
   const maxPages = Math.max(1, Math.min(input.maxPages ?? 10, 20));
   let imported = 0;
   let page = 1;
@@ -26,21 +42,27 @@ export async function syncSallaBookingOrders(input: { businessId: string; integr
       const url = new URL("https://api.salla.dev/admin/v2/orders");
       url.searchParams.set("page", String(page));
       url.searchParams.set("per_page", "30");
-      const requestPage = () => fetch(url, {
-        headers: { authorization: `Bearer ${token}`, accept: "application/json" },
-        cache: "no-store",
-        redirect: "error",
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      });
+      const requestPage = async () => {
+        const current = await database.whatsAppCommerceIntegration.findFirst({ where: generationWhere, select: { id: true } });
+        if (!current) throw new Error("SALLA_CONNECTION_CHANGED");
+        return fetcher(url, {
+          headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+          cache: "no-store",
+          redirect: "error",
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
+      };
       let response = await requestPage();
       if (response.status === 401) {
-        token = await getSallaAccessToken({ businessId: input.businessId, integrationId: integration.id, rejectedAccessToken: token });
+        await response.body?.cancel();
+        token = await loadToken({ businessId: input.businessId, integrationId: integration.id, rejectedAccessToken: token, database });
         response = await requestPage();
       }
       const payload = await response.json().catch(() => null) as { data?: unknown[]; pagination?: { totalPages?: unknown; total_pages?: unknown } } | null;
       if (!response.ok || !payload || !Array.isArray(payload.data)) throw new Error(`SALLA_ORDERS_HTTP_${response.status}`);
       const mappings = payload.data.map((order) => mapSallaOrderWebhook({ event: "order.updated", data: order }));
-      await db.$transaction(async (tx) => {
+      await database.$transaction(async (tx) => {
+        await lockGeneration(tx);
         for (const mapping of mappings) {
           if (mapping.kind !== "order") continue;
           const sourceEventId = `salla:sync:${createHash("sha256").update(`${integration.id}:${mapping.order.externalOrderId}:${mapping.order.providerUpdatedAt?.toISOString() ?? "unknown"}`).digest("hex")}`;
@@ -62,13 +84,14 @@ export async function syncSallaBookingOrders(input: { businessId: string; integr
       const totalPages = typeof totalPagesRaw === "number" ? totalPagesRaw : Number(totalPagesRaw);
       if (payload.data.length < 30 || Number.isFinite(totalPages) && page >= totalPages) break;
     }
-    await db.$transaction(async (tx) => {
-      await tx.whatsAppCommerceIntegration.updateMany({ where: { id: integration.id, businessId: input.businessId, status: "active" }, data: { lastWebhookAt: new Date(), lastErrorCode: null } });
+    await database.$transaction(async (tx) => {
+      await lockGeneration(tx);
+      await tx.whatsAppCommerceIntegration.updateMany({ where: generationWhere, data: { lastWebhookAt: new Date(), lastErrorCode: null } });
       await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.actorUserId, actorType: input.actorUserId ? "user" : "worker", action: "commerce.salla.orders.sync", targetType: "commerce_integration", targetId: integration.id, outcome: "success", metadata: { imported, pages: completedPages }, database: tx });
     });
     return { imported, pages: completedPages };
   } catch (error) {
-    await db.whatsAppCommerceIntegration.updateMany({ where: { id: integration.id, businessId: input.businessId }, data: { lastErrorCode: "SALLA_ORDER_SYNC_FAILED" } }).catch(() => undefined);
+    await database.whatsAppCommerceIntegration.updateMany({ where: generationWhere, data: { lastErrorCode: "SALLA_ORDER_SYNC_FAILED" } }).catch(() => undefined);
     throw error;
   }
 }
