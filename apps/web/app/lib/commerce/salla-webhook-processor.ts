@@ -54,16 +54,22 @@ export async function processSallaWebhookEvent(input: {
     }
     const mapping = mapSallaOrderWebhook(event.payload);
     return await database.$transaction(async (tx) => {
+      // Use the same first lock as uninstall/disconnect. Checking active status
+      // without locking lets uninstall invalidate orders before this worker
+      // commits an old payload and grants eligibility again.
+      const currentIntegrations = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id" FROM "WhatsAppCommerceIntegration"
+        WHERE "id" = ${event.integrationId} AND "businessId" = ${event.businessId}
+          AND "provider" = 'salla' AND "status" = 'active'
+          AND "externalStoreId" = ${event.merchantId}
+          AND "connectedAt" <= ${event.receivedAt} FOR UPDATE
+      `);
       const leased = await tx.sallaWebhookEvent.findFirst({
         where: { id: event.id, businessId: event.businessId, status: "processing", leaseOwner: input.workerId },
         select: { id: true },
       });
       if (!leased) throw new Error("SALLA_WEBHOOK_LEASE_LOST");
-      const currentIntegration = await tx.whatsAppCommerceIntegration.findFirst({
-        where: { id: event.integrationId, businessId: event.businessId, provider: "salla", status: "active", connectedAt: { lte: event.receivedAt } },
-        select: { id: true },
-      });
-      if (!currentIntegration) {
+      if (!currentIntegrations[0]) {
         await tx.sallaWebhookEvent.update({ where: { id: event.id }, data: {
           status: "ignored", processedAt: now, leaseOwner: null, leaseExpiresAt: null, lastErrorCode: "SALLA_PREVIOUS_CONNECTION_EVENT",
         } });

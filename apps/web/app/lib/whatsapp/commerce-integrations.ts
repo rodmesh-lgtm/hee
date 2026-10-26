@@ -86,6 +86,10 @@ export async function disconnectWhatsAppCommerceIntegration(input: {
       where: { id: integration.id, businessId: input.businessId, status: { in: ["draft", "active"] } },
       data: { status: "disconnected", credentialEnvelope: Prisma.DbNull, disconnectedAt: now, lastErrorCode: null },
     });
+    if (integration.provider === "salla") await tx.commerceBookingEligibility.updateMany({
+      where: { businessId: input.businessId, integrationId: integration.id, provider: "salla" },
+      data: { eligible: false },
+    });
     await writeWhatsAppAuditLog({
       businessId: input.businessId, actorUserId: input.actorUserId, action: "commerce.integration.disconnect",
       targetType: "commerce_integration", targetId: integration.id, outcome: "success",
