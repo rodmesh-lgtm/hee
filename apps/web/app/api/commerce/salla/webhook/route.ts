@@ -6,6 +6,8 @@ import { db } from "../../../../lib/db";
 import { readBoundedText } from "../../../../lib/request-body";
 import { getSallaConfig } from "../../../../lib/commerce/salla-config";
 import { sallaWebhookStoragePayload } from "../../../../lib/commerce/salla-webhook-storage";
+import { parseSallaUninstall } from "../../../../lib/commerce/salla-lifecycle-domain";
+import { applySallaUninstall } from "../../../../lib/commerce/salla-uninstall";
 import { processNextSallaWebhookEvent } from "../../../../lib/commerce/salla-webhook-processor";
 import { sallaEventType, sallaMerchantId, sallaWebhookEventId, verifySallaWebhookSignature } from "../../../../lib/commerce/salla-domain";
 
@@ -29,11 +31,19 @@ export async function POST(request: Request) {
   const eventType = sallaEventType(payload);
   if (!/^\d{1,32}$/.test(merchantId) || !eventType) return NextResponse.json({ ok: false }, { status: 400 });
   const integration = await db.whatsAppCommerceIntegration.findFirst({
-    where: { provider: "salla", externalStoreId: merchantId, status: "active" },
+    where: { provider: "salla", externalStoreId: merchantId, status: eventType === "app.uninstalled" ? { in: ["active", "disconnected"] } : "active" },
+    orderBy: [{ status: "asc" }, { connectedAt: "desc" }, { createdAt: "desc" }],
     select: { id: true, businessId: true },
   });
   if (!integration) return NextResponse.json({ ok: false }, { status: 404 });
   const eventId = sallaWebhookEventId(rawBody, merchantId, request.headers.get("x-salla-event-id"));
+  if (eventType === "app.uninstalled") {
+    let uninstall;
+    try { uninstall = parseSallaUninstall(payload, config.SALLA_APP_ID, new Date(), config.SALLA_LEGACY_WEBHOOK_UTC_OFFSET); }
+    catch { return NextResponse.json({ ok: false }, { status: 400 }); }
+    await applySallaUninstall({ ...uninstall, businessId: integration.businessId, integrationId: integration.id, merchantId, eventId });
+    return NextResponse.json({ ok: true });
+  }
   await db.sallaWebhookEvent.upsert({
     where: { eventId },
     update: {},

@@ -153,7 +153,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   if (context.run.event.triggerType === "salla_order_status") {
     const order = context.run.event.source === "salla.order-status" ? await database.commerceBookingEligibility.findFirst({
       where: { id: context.run.event.subjectId, businessId: job.businessId, provider: "salla", phoneE164: context.contact.phoneE164,
-        integration: { businessId: job.businessId, provider: "salla", status: "active" } },
+        integration: { businessId: job.businessId, provider: "salla", status: "active", connectedAt: { lte: context.run.event.occurredAt } } },
       select: { orderStatus: true },
     }) : null;
     if (context.template.category !== "utility" || !order || !sallaStatusEventMatches(context.run.event.subjectType, order.orderStatus)) {
@@ -169,7 +169,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
     const order = context.run.event.source === "salla.order-confirmation" && context.run.event.subjectType === "salla.order.confirmed"
       ? await database.commerceBookingEligibility.findFirst({
         where: { id: context.run.event.subjectId, businessId: job.businessId, provider: "salla", eligible: true,
-          phoneE164: context.contact.phoneE164, integration: { businessId: job.businessId, provider: "salla", status: "active" } },
+          phoneE164: context.contact.phoneE164, integration: { businessId: job.businessId, provider: "salla", status: "active", connectedAt: { lte: context.run.event.occurredAt } } },
         select: { id: true },
       }) : null;
     if (!order) {
@@ -249,7 +249,7 @@ export async function processNextWhatsAppAutomationDelivery(input: {
   if (context.run.event.triggerType === "abandoned_cart") {
     const sourceActive = context.run.event.source !== "salla.webhook" || Boolean(await database.whatsAppAutomationCartEvent.findFirst({
       where: { businessId: job.businessId, cartId: context.run.event.subjectId, source: "salla.webhook",
-        integration: { businessId: job.businessId, provider: "salla", status: "active" } }, select: { id: true },
+        integration: { businessId: job.businessId, provider: "salla", status: "active", connectedAt: { lte: context.run.event.occurredAt } } }, select: { id: true },
     }));
     const cart = context.run.event.subjectType === "cart.abandoned" ? await database.whatsAppAutomationCart.findUnique({
       where: { businessId_cartId: { businessId: job.businessId, cartId: context.run.event.subjectId } },

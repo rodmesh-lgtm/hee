@@ -6,6 +6,10 @@ const schema = z.object({
   SALLA_CLIENT_ID: z.string().trim().min(8).max(255),
   SALLA_CLIENT_SECRET: z.string().trim().min(16).max(512),
   SALLA_WEBHOOK_SECRET: z.string().trim().min(16).max(512),
+  // Public ID of the existing INFRO Partners app; distinct from its OAuth client UUID.
+  SALLA_APP_ID: z.string().trim().regex(/^[1-9]\d{0,31}$/).default("1849074620"),
+  // Legacy partner payloads may omit an offset. INFRO's Salla deployment uses Riyadh.
+  SALLA_LEGACY_WEBHOOK_UTC_OFFSET: z.coerce.number().int().min(-720).max(840).default(180),
   SALLA_OAUTH_SCOPES: z.string().trim().min(1).max(1000).default("offline_access"),
   WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY: z.string().trim().min(32),
   WHATSAPP_COMMERCE_CREDENTIAL_KEY_VERSION: z.string().trim().regex(/^[A-Za-z0-9._-]{1,32}$/),

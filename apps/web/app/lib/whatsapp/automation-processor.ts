@@ -113,7 +113,7 @@ export async function processWhatsAppAutomationEvent(input: {
       if (event.triggerType === "salla_order_status") {
         const order = event.source === "salla.order-status" ? await tx.commerceBookingEligibility.findFirst({
           where: { id: event.subjectId, businessId: event.businessId, provider: "salla", phoneE164: contact.phoneE164,
-            integration: { businessId: event.businessId, provider: "salla", status: "active" } },
+            integration: { businessId: event.businessId, provider: "salla", status: "active", connectedAt: { lte: event.occurredAt } } },
           select: { externalOrderId: true, orderStatus: true, business: { select: { name: true } } },
         }) : null;
         if (!order || !sallaStatusEventMatches(event.subjectType, order.orderStatus)) eventSkipReason = "salla_order_status_changed";
@@ -123,7 +123,7 @@ export async function processWhatsAppAutomationEvent(input: {
         const order = event.source === "salla.order-confirmation" && event.subjectType === "salla.order.confirmed"
           ? await tx.commerceBookingEligibility.findFirst({
             where: { id: event.subjectId, businessId: event.businessId, provider: "salla", eligible: true,
-              phoneE164: contact.phoneE164, integration: { businessId: event.businessId, provider: "salla", status: "active" } },
+              phoneE164: contact.phoneE164, integration: { businessId: event.businessId, provider: "salla", status: "active", connectedAt: { lte: event.occurredAt } } },
             select: { externalOrderId: true, business: { select: { name: true } } },
           }) : null;
         if (!order) eventSkipReason = "salla_order_no_longer_confirmed";
@@ -159,7 +159,7 @@ export async function processWhatsAppAutomationEvent(input: {
       if (event.triggerType === "abandoned_cart") {
         const sourceActive = event.source !== "salla.webhook" || Boolean(await tx.whatsAppAutomationCartEvent.findFirst({
           where: { businessId: event.businessId, cartId: event.subjectId, source: "salla.webhook",
-            integration: { businessId: event.businessId, provider: "salla", status: "active" } }, select: { id: true },
+            integration: { businessId: event.businessId, provider: "salla", status: "active", connectedAt: { lte: event.occurredAt } } }, select: { id: true },
         }));
         const cart = event.subjectType === "cart.abandoned" ? await tx.whatsAppAutomationCart.findUnique({
           where: { businessId_cartId: { businessId: event.businessId, cartId: event.subjectId } },

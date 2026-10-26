@@ -92,6 +92,6 @@ test("live ingress keeps consent, single route ownership and order-wide idempote
     const worker = readFileSync(new URL(`../app/lib/whatsapp/${file}`, import.meta.url), "utf8");
     assert.match(worker, /sallaStatusEventMatches/);
     assert.match(worker, /source === "salla.order-status"/);
-    assert.match(worker, /integration: \{ businessId: (?:event|job)\.businessId, provider: "salla", status: "active" \}/);
+    assert.match(worker, /integration: \{ businessId: (?:event|job)\.businessId, provider: "salla", status: "active", connectedAt: \{ lte: (?:event|context\.run\.event)\.occurredAt \}/);
   }
 });

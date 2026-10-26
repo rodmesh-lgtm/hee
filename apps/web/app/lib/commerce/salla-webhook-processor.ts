@@ -59,6 +59,16 @@ export async function processSallaWebhookEvent(input: {
         select: { id: true },
       });
       if (!leased) throw new Error("SALLA_WEBHOOK_LEASE_LOST");
+      const currentIntegration = await tx.whatsAppCommerceIntegration.findFirst({
+        where: { id: event.integrationId, businessId: event.businessId, provider: "salla", status: "active", connectedAt: { lte: event.receivedAt } },
+        select: { id: true },
+      });
+      if (!currentIntegration) {
+        await tx.sallaWebhookEvent.update({ where: { id: event.id }, data: {
+          status: "ignored", processedAt: now, leaseOwner: null, leaseExpiresAt: null, lastErrorCode: "SALLA_PREVIOUS_CONNECTION_EVENT",
+        } });
+        return { processed: true as const, ignored: true as const, reason: "previous_connection" };
+      }
       if ((SALLA_CART_EVENTS as readonly string[]).includes(event.eventType)) {
         const cart = mapSallaCartWebhook(event.payload, event.integration.externalStoreId, now);
         const result = cart.kind === "cart"
