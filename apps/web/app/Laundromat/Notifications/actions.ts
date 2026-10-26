@@ -5,6 +5,7 @@ import { getDashboardBusinessForUser } from "../../lib/active-business";
 import { db } from "../../lib/db";
 import {commercialAccess} from "../../lib/commercial-access";
 import {cashierNotice,cashierNoticeTemplateSupported,reviewUrl} from "../../lib/whatsapp/cashier-notice-domain";
+import {cashierNoticeStorageQuery} from "../../lib/whatsapp/cashier-notice-schema";
 import { LAUNDRY_READY_TEMPLATE_NAME,laundryReadyTemplateSupported } from "../../lib/whatsapp/laundry-ready-domain";
 export type NotificationState={error?:string;success?:string};
 export async function saveLaundryNotifications(_:NotificationState,form:FormData):Promise<NotificationState>{
@@ -17,6 +18,10 @@ export async function saveLaundryNotifications(_:NotificationState,form:FormData
  if(enabled&&!(await commercialAccess(business.id)).cashier)return {error:"يلزم اشتراك يتيح خدمة واتساب قبل التفعيل."};
  if(enabled&&triggerType==="cashier_review_request"&&!("reviewUrl" in config&&config.reviewUrl))return {error:"أدخل رابط تقييم كاملًا يبدأ بـ https:// دون بيانات دخول."};
  try{
+ if(enabled&&notice){
+  const [storage]=await db.$queryRaw<Array<{ready:boolean}>>(cashierNoticeStorageQuery(triggerType));
+  if(!storage?.ready)return {error:"يلزم إكمال تحديث قاعدة بيانات إشعارات الكاشير من إدارة INFRO قبل تفعيل هذا الإشعار."};
+ }
  await db.$transaction(async tx=>{
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry-notifications:${business.id}`}))`;
   const existing=await tx.whatsAppAutomation.findFirst({where:{businessId:business.id,triggerType}});

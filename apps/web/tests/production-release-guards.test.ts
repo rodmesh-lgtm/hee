@@ -208,9 +208,8 @@ test("production launch readiness proves content-qualified release, verified pub
   assert.match(ready, /PAID_CHECKOUT_PUBLIC_ENABLED/);
   assert.match(ready, /BILLING_REHEARSAL_USER_EMAIL/);
   assert.match(ready, /billingOperationsHeartbeat/);
-  assert.match(ready, /FREE/);
-  assert.match(ready, /BUSINESS/);
-  assert.match(ready, /PRO/);
+  assert.match(ready, /SELLABLE_PLANS\.map\(p=>p.code\)/);
+  assert.match(ready, /SELLABLE_PLANS\.some\(plan=>prices.get\(plan.code\)!==plan.monthlyPrice\)/);
   assert.match(ready, /status: ready \? 200 : 503/);
   assert.match(audit, /sslmode=verify-full/);
   assert.match(audit, /DATABASE_URL must use sslmode=verify-full/);

@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
 import { operationalErrorCategory, operationalErrorCode } from "../operational-error";
+import { webhookClaimQuery } from "./webhook-claim-query";
+import { UNMATCHED_RECEIPT } from "./webhook-batch";
 import { getInfroReminderWhatsAppConfig } from "../reminders/platform-whatsapp";
 import { whatsAppCareSlaDueAt } from "./care-domain";
 import { nextWhatsAppMessageStatus, type WhatsAppMessageStatus } from "./message-domain";
@@ -225,24 +227,16 @@ async function processStatuses(tx: Tx, event: ClaimedEvent) {
   }
 }
 
-async function claimNext(tx: Tx, eventId: string | null): Promise<ClaimedEvent | null> {
-  const rows = await tx.$queryRaw<ClaimedEvent[]>`
-    SELECT "id", "businessId", "provider", "phoneNumberId", "eventType", "payload"
-    FROM "WhatsAppWebhookEvent"
-    WHERE "processedAt" IS NULL
-      AND (${eventId}::text IS NULL OR "id" = ${eventId})
-    ORDER BY "receivedAt" ASC, "id" ASC
-    FOR UPDATE SKIP LOCKED
-    LIMIT 1
-  `;
+async function claimNext(tx: Tx, eventId: string | null, excludedIds: readonly string[]): Promise<ClaimedEvent | null> {
+  const rows = await tx.$queryRaw<ClaimedEvent[]>(webhookClaimQuery(eventId,excludedIds));
   return rows[0] ?? null;
 }
 
-export async function processNextWhatsAppWebhookEvent(database: ProcessorDb = db, eventId: string | null = null) {
+export async function processNextWhatsAppWebhookEvent(database: ProcessorDb = db, eventId: string | null = null, excludedIds: readonly string[] = []) {
   let claimedId: string | null = null;
   try {
     return await database.$transaction(async (tx) => {
-      const event = await claimNext(tx, eventId);
+      const event = await claimNext(tx, eventId, excludedIds);
       if (!event) return { processed: false as const };
       claimedId = event.id;
 
@@ -255,8 +249,10 @@ export async function processNextWhatsAppWebhookEvent(database: ProcessorDb = db
       return { processed: true as const, id: event.id, eventType: event.eventType };
     });
   } catch (error) {
-    console.error("[whatsapp-webhook] processing_failed", {
-      code: operationalErrorCode(error),
+    const code = operationalErrorCode(error);
+    const log = code === UNMATCHED_RECEIPT ? console.warn : console.error;
+    log("[whatsapp-webhook] processing_deferred_or_failed", {
+      code,
       category: operationalErrorCategory(error),
       claimed: claimedId !== null,
     });

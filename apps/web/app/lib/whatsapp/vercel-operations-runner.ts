@@ -23,6 +23,7 @@ import { detectNextAbandonedShopifyCart } from "./shopify-abandoned-cart-detecto
 import { processNextShopifyWebhookEvent } from "./shopify-webhook-processor";
 import { processNextShopifyWebhookSubscriptionSync } from "./shopify-webhook-subscriptions";
 import { processNextWhatsAppWebhookEvent } from "./webhook-processor";
+import { processWebhookBatch } from "./webhook-batch";
 import { runPeriodicTemplateSync } from "./periodic-template-sync";
 
 type StageName = (typeof WHATSAPP_OPERATION_STAGES)[number];
@@ -45,12 +46,9 @@ async function runContactImports(env: NodeJS.ProcessEnv) {
 
 async function runWebhooks(env: NodeJS.ProcessEnv) {
   const batchSize = boundedBatch(env, "WHATSAPP_WEBHOOK_BATCH_SIZE", 100, 500);
-  for (let index = 0; index < batchSize; index += 1) {
-    const result = await processNextWhatsAppWebhookEvent();
-    if (result.processed) continue;
-    if ("error" in result && result.error) throw new Error("WHATSAPP_WEBHOOK_FAILED");
-    break;
-  }
+  const result = await processWebhookBatch(batchSize, excluded => processNextWhatsAppWebhookEvent(db,null,excluded));
+  if (result.deferred) console.warn("[whatsapp-webhook] unmatched_receipts_pending", { count: result.deferred });
+  if (result.failed) throw new Error("WHATSAPP_WEBHOOK_FAILED");
 }
 
 async function runShopifySubscriptions(env: NodeJS.ProcessEnv) {
