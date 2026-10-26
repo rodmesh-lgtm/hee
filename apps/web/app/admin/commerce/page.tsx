@@ -4,6 +4,7 @@ import { db } from "../../lib/db";
 import { commerceIntegrationHealth } from "../../lib/commerce/integration-health";
 
 const providerNames: Record<string, string> = { salla: "سلة", shopify: "Shopify", woocommerce: "WooCommerce", zid: "زد" };
+const eventStatuses: Record<string, string> = { processed: "تمت المعالجة", ignored: "تم تجاهله", failed: "تعذرت المعالجة", pending: "بانتظار المعالجة", processing: "تجري معالجته", retry_scheduled: "إعادة محاولة مجدولة" };
 const time = (value: Date | null) => value?.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" }) ?? "لم يُسجّل بعد";
 function safeCode(value: string | null) { return value && /^[A-Z][A-Z0-9_]{0,79}$/.test(value) ? value : value ? "COMMERCE_OPERATION_FAILED" : "—"; }
 function age(value: Date | null, now: Date) {
@@ -32,12 +33,12 @@ export default async function AdminCommercePage({ searchParams }: { searchParams
   const ids = integrations.map(row => row.id);
   const eventSelect = { id: true, integrationId: true, status: true, attemptCount: true, receivedAt: true, processedAt: true, lastErrorCode: true } as const;
   const [sallaEvents, shopifyEvents, syncEvents] = await Promise.all([
-    db.sallaWebhookEvent.findMany({ where: { integrationId: { in: ids } }, orderBy: { receivedAt: "desc" }, take: 100, select: eventSelect }),
-    db.whatsAppShopifyWebhookEvent.findMany({ where: { integrationId: { in: ids } }, orderBy: { receivedAt: "desc" }, take: 100, select: eventSelect }),
+    db.sallaWebhookEvent.findMany({ where: { integrationId: { in: ids } }, orderBy: { receivedAt: "desc" }, take: 100, select: { ...eventSelect, eventType: true } }),
+    db.whatsAppShopifyWebhookEvent.findMany({ where: { integrationId: { in: ids } }, orderBy: { receivedAt: "desc" }, take: 100, select: { ...eventSelect, topic: true } }),
     db.analyticsEvent.findMany({ where: { businessId: { in: integrations.map(row => row.businessId) }, eventType: "commerce_periodic_sync_result" }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, businessId: true, createdAt: true, metadata: true } }),
   ]);
   const stores = new Map(integrations.map(row => [row.id, row]));
-  const webhookEvents = [...sallaEvents, ...shopifyEvents].sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime()).slice(0, 100);
+  const webhookEvents = [...sallaEvents.map(event => ({ ...event, eventName: event.eventType })), ...shopifyEvents.map(event => ({ ...event, eventName: event.topic }))].sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime()).slice(0, 100);
   const recentSyncs = syncEvents.flatMap(event => {
     const data = event.metadata;
     if (!data || typeof data !== "object" || Array.isArray(data) || typeof data.integrationId !== "string") return [];
@@ -72,7 +73,7 @@ export default async function AdminCommercePage({ searchParams }: { searchParams
     </section>
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
       <h2 className="text-lg font-black text-slate-950">إشعارات المتاجر ومحاولات المعالجة</h2><p className="mt-2 text-xs text-slate-500">أحدث 100 إشعار من سلة وShopify لمتاجر الصفحة.</p>
-      <ul className="mt-4 divide-y divide-slate-100">{webhookEvents.map(event => <li key={event.id} className="space-y-2 py-3 text-sm text-slate-700"><p>{stores.get(event.integrationId)?.business.name} · {time(event.receivedAt)}</p><p>المحاولات: {event.attemptCount} · {event.status === "processed" ? "تمت المعالجة" : event.status === "failed" ? "فشل" : "قيد المعالجة أو الانتظار"}</p><p className="break-all font-mono text-xs" dir="ltr">{safeCode(event.lastErrorCode)}</p></li>)}</ul>{!webhookEvents.length ? <p className="mt-4 text-sm text-slate-500">لا توجد إشعارات مسجلة.</p> : null}
+      <ul className="mt-4 divide-y divide-slate-100">{webhookEvents.map(event => <li key={event.id} className="space-y-2 py-3 text-sm text-slate-700"><p>{stores.get(event.integrationId)?.business.name} · {time(event.receivedAt)}</p><p className="break-all font-mono text-xs" dir="ltr">{/^[a-z0-9_.\/-]{1,100}$/i.test(event.eventName) ? event.eventName : "حدث غير معروف"}</p><p>المحاولات: {event.attemptCount} · {eventStatuses[event.status] ?? "حالة تحتاج مراجعة"}</p><p className="break-all font-mono text-xs" dir="ltr">{safeCode(event.lastErrorCode)}</p></li>)}</ul>{!webhookEvents.length ? <p className="mt-4 text-sm text-slate-500">لا توجد إشعارات مسجلة.</p> : null}
     </section>
   </div>;
 }

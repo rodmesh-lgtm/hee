@@ -3,6 +3,10 @@ import { db } from "../db";
 import { getSallaAccessToken } from "./salla-access-token";
 import { getSallaConfig } from "./salla-config";
 
+export class SallaSubscriptionReadError extends Error {
+  constructor(code: string, readonly providerStatus: number, readonly dataShape?: string) { super(code); }
+}
+
 /** Authoritative read only: this does not create an INFRO term or a payment. */
 export async function readSallaSubscription(input: { businessId: string; integrationId: string }) {
   const integration = await db.whatsAppCommerceIntegration.findFirst({
@@ -22,9 +26,12 @@ export async function readSallaSubscription(input: { businessId: string; integra
     token = await getSallaAccessToken({ ...input, rejectedAccessToken: token });
     response = await request();
   }
-  if (!response.ok) throw new Error(response.status === 403 ? "SALLA_SUBSCRIPTION_PERMISSION_REQUIRED" : "SALLA_SUBSCRIPTION_UNAVAILABLE");
+  if (!response.ok) throw new SallaSubscriptionReadError(`SALLA_SUBSCRIPTION_HTTP_${response.status}`, response.status);
   const result = await response.json().catch(() => null) as { success?: unknown; data?: unknown } | null;
-  if (result?.success !== true || !Array.isArray(result.data) || result.data.length > 100) throw new Error("SALLA_SUBSCRIPTION_RESPONSE_INVALID");
+  if (result?.success !== true || !Array.isArray(result.data) || result.data.length > 100) {
+    const shape = result?.data == null ? "missing" : Array.isArray(result.data) ? "array" : typeof result.data;
+    throw new SallaSubscriptionReadError("SALLA_SUBSCRIPTION_RESPONSE_INVALID", response.status, shape);
+  }
   return { integration, subscriptions: result.data as unknown[], fetchedAt: new Date() };
 }
 
