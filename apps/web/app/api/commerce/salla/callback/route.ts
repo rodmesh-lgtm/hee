@@ -9,7 +9,7 @@ import { syncSallaBookingOrders } from "../../../../lib/commerce/salla-order-syn
 export const maxDuration = 60;
 
 function back(request: Request, result: string) {
-  return NextResponse.redirect(new URL(`/dashboard/working-hours?salla=${encodeURIComponent(result)}`, sallaAppOrigin() || new URL(request.url).origin));
+  return NextResponse.redirect(new URL(`/dashboard/commerce/salla?salla=${encodeURIComponent(result)}`, sallaAppOrigin() || new URL(request.url).origin));
 }
 
 function single(params: URLSearchParams, key: string) {
@@ -25,10 +25,11 @@ export async function GET(request: Request) {
   if (state.length < 32 || state.length > 128 || code.length < 8 || code.length > 4096) return back(request, "invalid-callback");
   const business = await getOwnedBusinessForRead();
   if (!business) return back(request, "forbidden");
-  if (!await hasActiveBusinessSubscription({ businessId: business.id })) return back(request, "subscription-required");
   try {
     const connected = await completeSallaAuthorization({ businessId: business.id, userId: business.ownerId, state, code });
-    after(async () => {
+    // Connecting establishes store ownership; it does not grant paid features.
+    const subscriptionActive = await hasActiveBusinessSubscription({ businessId: business.id });
+    if (subscriptionActive) after(async () => {
       try { await syncSallaBookingOrders({ businessId: business.id, integrationId: connected.integrationId, actorUserId: business.ownerId }); }
       catch (error) { console.error("[salla-oauth] initial_order_sync_failed", error instanceof Error ? error.message : "unknown"); }
     });

@@ -185,3 +185,29 @@ delivery, uninstall/reinstall and subscription billing tests remain release gate
 - https://docs.salla.dev/comm-apps/examples
 - https://docs.salla.dev/partner-apis/app-events
 - https://docs.salla.dev/playbook/launch-grow/publish-app
+
+
+## Continued verification and merchant onboarding
+
+- Production PR442: scoped signed uninstall, reconnect guards and read-only
+  subscription diagnostics. PR443: safe upstream error classification and actual
+  lifecycle event names in admin commerce monitoring. Both deployments reached READY.
+- The demo event simulator delivered `app.trial.started` to the review tenant.
+  The inbox correctly exposes it as ignored/unsupported, not as an activated term.
+- The official `/apps/{app_id}/subscriptions` read currently returns HTTP404 for
+  the verified app ID while authenticated product reads succeed. The cause is
+  unresolved; do not interpret this as proof of nonpayment or activate rights.
+- A fresh Meta onboarding popup now displays a temporary account feature
+  restriction. No further retry, legal acceptance, sender connection or delivery
+  occurred. This supersedes the earlier terms-screen blocker.
+- Added `/dashboard/commerce/salla`, a dedicated Arabic/English owner onboarding
+  page. Store connection, INFRO subscription and Meta number status are shown
+  separately. Manual subscription checks use the authorized, rate-limited endpoint
+  and explain provider failures without displaying raw provider payloads.
+- Removed the active-subscription prerequisite only from Salla OAuth start and
+  reconnect/callback. Owner/state/store checks remain. Initial order import still
+  requires an active INFRO subscription; connection creates no subscription or
+  payment. Existing paid booking, campaign and delivery authorization stays intact.
+- The guide links directly to the dedicated connection page; booking settings
+  also expose it. Paid Salla entitlement mapping, delivery acceptance, a verified
+  tutorial and final submission remain incomplete.
