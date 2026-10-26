@@ -249,7 +249,6 @@ export async function syncBookingWhatsAppTemplatesAction(formData: FormData) {
 export async function connectSallaBookingStoreAction() {
   const business = await getOwnedBusinessForWrite();
   if (!business) redirect("/login");
-  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?salla=subscription-required");
   try {
     const integration = await prepareSallaIntegration({ businessId: business.id, userId: business.ownerId });
     if (integration.status === "active") redirect("/dashboard/working-hours?salla=connected");
@@ -265,7 +264,6 @@ export async function connectSallaBookingStoreAction() {
 export async function reconnectSallaBookingStoreAction(formData: FormData) {
   const business = await getOwnedBusinessForWrite();
   if (!business) redirect("/login");
-  if (!await hasActiveBusinessSubscription({ businessId: business.id })) redirect("/dashboard/working-hours?salla=subscription-required");
   const integrationId = value(formData, "integrationId");
   if (!/^[0-9a-f-]{36}$/i.test(integrationId)) redirect("/dashboard/working-hours?salla=invalid");
   try {
