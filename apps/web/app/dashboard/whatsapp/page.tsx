@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { whatsappHubCountsQuery, type WhatsAppHubCounts } from "../../lib/whatsapp/hub-counts-query";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -51,29 +51,12 @@ export default async function WhatsAppMarketingPage() {
     redirect("/dashboard/billing/manage?feature=whatsapp-marketing");
   }
 
-  const [connection, contacts, templates, campaigns, automations, conversations, integrations, eligibleAudienceRows, performanceRows, launchReadiness] = await Promise.all([
+  const [connection, hubCountsRows, performanceRows, launchReadiness] = await Promise.all([
     db.whatsAppConnection.findFirst({
       where: { businessId: context.businessId, provider: "meta", marketingEnabled: true },
       select: { status: true, disabledAt: true, displayPhoneNumber: true, verifiedName: true },
     }),
-    db.whatsAppContact.count({ where: { businessId: context.businessId, deletedAt: null } }),
-    db.whatsAppTemplate.count({ where: { businessId: context.businessId, provider: "meta", status: "approved", connection: { marketingEnabled: true } } }),
-    db.whatsAppCampaign.count({ where: { businessId: context.businessId } }),
-    db.whatsAppAutomation.count({ where: { businessId: context.businessId, triggerType: { not: "booking_confirmation" } } }),
-    db.whatsAppConversation.count({ where: { businessId: context.businessId } }),
-    db.whatsAppCommerceIntegration.count({ where: { businessId: context.businessId } }),
-    db.$queryRaw<Array<{ count: number }>>(Prisma.sql`
-      SELECT COUNT(*)::int AS "count"
-      FROM "WhatsAppContact" contact
-      INNER JOIN "WhatsAppConsent" consent
-        ON consent."businessId" = contact."businessId"
-        AND consent."phoneE164" = contact."phoneE164"
-      WHERE contact."businessId" = ${context.businessId}
-        AND contact."optedOutAt" IS NULL
-        AND consent."revokedAt" IS NULL
-        AND consent."source" <> 'booking'
-        AND consent."consentedAt" <= CURRENT_TIMESTAMP
-    `),
+    db.$queryRaw<WhatsAppHubCounts[]>(whatsappHubCountsQuery(context.businessId)),
     db.whatsAppCampaignRecipient.groupBy({
       by: ["status"],
       where: { businessId: context.businessId },
@@ -82,8 +65,9 @@ export default async function WhatsAppMarketingPage() {
     getWhatsAppCampaignLaunchReadiness(),
   ]);
 
+  const {contacts,templates,campaigns,automations,conversations,integrations}=hubCountsRows[0];
   const connected = connection?.status === "connected" && !connection.disabledAt;
-  const eligibleAudience = eligibleAudienceRows[0]?.count ?? 0;
+  const eligibleAudience = hubCountsRows[0].eligibleAudience;
   const recipientCount = (statuses: string[]) => performanceRows
     .filter((row) => statuses.includes(row.status))
     .reduce((sum, row) => sum + row._count._all, 0);

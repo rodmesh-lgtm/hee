@@ -1,3 +1,4 @@
+import { shortLinkStatsQuery, type ShortLinkStats } from "../../../lib/short-link-stats-query";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
@@ -23,18 +24,17 @@ export default async function ShortLinksPage({ searchParams }: { searchParams: P
   const params = await searchParams, { q, page, size } = shortLinkFilters(params);
   const scope = { businessId: actor.businessId, status: { not: "deleted" } };
   const where: Prisma.BusinessShortLinkWhereInput = { ...scope, ...(q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { destination: { contains: q, mode: "insensitive" } }, { code: { contains: q } }] } : {}) };
-  const [links, total, stats, active] = await Promise.all([
+  const [links, statsRows] = await Promise.all([
     db.businessShortLink.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: size, skip: (page - 1) * size }),
-    db.businessShortLink.count({ where }),
-    db.businessShortLink.aggregate({ where: scope, _count: { _all: true }, _sum: { clicks: true } }),
-    db.businessShortLink.count({ where: { businessId: actor.businessId, status: "active" } }),
+    db.$queryRaw<ShortLinkStats[]>(shortLinkStatsQuery(actor.businessId,q)),
   ]);
+  const stats=statsRows[0],total=Number(stats.matching),active=Number(stats.active);
   const href = (next = page) => `/dashboard/whatsapp/links?${new URLSearchParams({ q, page: String(next), size: String(size) })}`;
   const result = typeof params.result === "string" ? messages[params.result] : null;
   return <div dir="rtl" className="min-w-0 space-y-5 pb-6">
     <header className="rounded-[28px] bg-[#07181b] p-6 text-white sm:p-8"><Link2 className="h-8 w-8 text-teal-300" aria-hidden="true"/><h1 className="mt-4 text-2xl font-black sm:text-3xl">الروابط المختصرة</h1><p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200">رابط قصير لهوية أعمالك. اختصر روابط المنتجات والحجز وواتساب، وشاركها ثم تابع النقرات من مساحة عملك.</p><p className="mt-3 text-xs text-teal-200" dir="ltr">ir.sa/s/…</p></header>
     {result ? <p role="status" className={`${panel} text-sm text-slate-800`}>{result}</p> : null}
-    <section aria-label="إحصاءات الروابط" className="grid grid-cols-1 gap-3 sm:grid-cols-3">{[{ label: "إجمالي الروابط الحالية", value: stats._count._all, icon: Link2 }, { label: "روابط نشطة", value: active, icon: ExternalLink }, { label: "النقرات المسجلة", value: stats._sum.clicks ?? BigInt(0), icon: MousePointer2 }].map(item => <div key={item.label} className={panel}><item.icon className="mb-3 h-5 w-5 text-teal-700" aria-hidden="true"/><span className="block text-sm text-slate-600">{item.label}</span><b className="mt-2 block text-3xl text-slate-900">{item.value.toLocaleString("ar-SA")}</b></div>)}</section>
+    <section aria-label="إحصاءات الروابط" className="grid grid-cols-1 gap-3 sm:grid-cols-3">{[{ label: "إجمالي الروابط الحالية", value: Number(stats.total), icon: Link2 }, { label: "روابط نشطة", value: active, icon: ExternalLink }, { label: "النقرات المسجلة", value: stats.clicks, icon: MousePointer2 }].map(item => <div key={item.label} className={panel}><item.icon className="mb-3 h-5 w-5 text-teal-700" aria-hidden="true"/><span className="block text-sm text-slate-600">{item.label}</span><b className="mt-2 block text-3xl text-slate-900">{item.value.toLocaleString("ar-SA")}</b></div>)}</section>
     <section className={panel}><h2 className="text-lg font-black text-slate-900">إنشاء رابط جديد</h2><form aria-label="إنشاء رابط مختصر" action={createShortLinkAction} className="mt-4 grid gap-3 lg:grid-cols-[1fr_2fr_auto]"><label className="text-sm text-slate-700">اسم الرابط<input name="title" required maxLength={100} placeholder="مثل: حجز موعد الصيانة" className={`mt-2 ${control}`}/></label><label className="min-w-0 text-sm text-slate-700">الرابط الأصلي<input name="destination" type="url" required maxLength={2048} placeholder="https://ir.sa/sada" dir="ltr" className={`mt-2 ${control}`}/></label><button className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-xl bg-[#07181b] px-5 py-3 text-sm font-bold text-white focus-visible:ring-2 focus-visible:ring-teal-500"><Plus className="h-4 w-4" aria-hidden="true"/>إنشاء رابط</button></form><p className="mt-3 text-xs leading-6 text-slate-500">استخدم رابط HTTPS عامًا. يبقى الرابط المختصر نفسه عند تعديل الوجهة. يلزم اشتراك التسويق النشط لتشغيل الروابط.</p></section>
     <section className={panel}><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-black text-slate-900">كل الروابط المختصرة</h2><div className="flex flex-wrap gap-2"><CsvExportLink key={q} href={`/api/dashboard/short-links/export?${new URLSearchParams({ q })}`} filename="infro-short-links.csv" label="تصدير CSV" className={button}/><a href={href()} className={button}><RefreshCw className="h-4 w-4" aria-hidden="true"/>تحديث</a></div></div>
       <form className="my-5 grid gap-3 sm:grid-cols-[1fr_auto_auto]"><label className="sr-only" htmlFor="link-search">البحث في الروابط</label><input id="link-search" name="q" defaultValue={q} maxLength={100} placeholder="ابحث بالاسم أو الرابط…" className={control}/><label className="flex items-center gap-2 text-xs text-slate-600">عدد النتائج<select name="size" defaultValue={String(size)} className={control}>{[10, 25, 50].map(value => <option key={value} value={value}>{value}</option>)}</select></label><button className={button}><Search className="h-4 w-4" aria-hidden="true"/>بحث</button></form>

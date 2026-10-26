@@ -22,9 +22,10 @@ test("performance pulse is derived from durable recipient lifecycle states", () 
 });
 
 test("command center keeps launch safety and effective audience truth intact", () => {
-  assert.match(source, /contact\."optedOutAt" IS NULL/);
-  assert.match(source, /consent\."revokedAt" IS NULL/);
-  assert.match(source, /consent\."consentedAt" <= CURRENT_TIMESTAMP/);
+  const query = readFileSync(new URL("../app/lib/whatsapp/hub-counts-query.ts", import.meta.url), "utf8");
+  assert.match(query, /contact\."optedOutAt" IS NULL/);
+  assert.match(query, /consent\."revokedAt" IS NULL/);
+  assert.match(query, /consent\."consentedAt" <= CURRENT_TIMESTAMP/);
   assert.match(source, /getWhatsAppCampaignLaunchReadiness\(\)/);
   assert.match(source, /launchReadiness\.ready/);
 });
