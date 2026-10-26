@@ -5,6 +5,7 @@ import { after, NextResponse } from "next/server";
 import { db } from "../../../../lib/db";
 import { readBoundedText } from "../../../../lib/request-body";
 import { getSallaConfig } from "../../../../lib/commerce/salla-config";
+import { sallaWebhookStoragePayload } from "../../../../lib/commerce/salla-webhook-storage";
 import { processNextSallaWebhookEvent } from "../../../../lib/commerce/salla-webhook-processor";
 import { sallaEventType, sallaMerchantId, sallaWebhookEventId, verifySallaWebhookSignature } from "../../../../lib/commerce/salla-domain";
 
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
       eventId,
       eventType,
       merchantId,
-      payload: payload as object,
+      payload: sallaWebhookStoragePayload(payload, eventType, merchantId),
     },
   });
   await db.whatsAppCommerceIntegration.updateMany({
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
   });
   after(async () => {
     try { await processNextSallaWebhookEvent({ workerId: `salla-webhook-${randomUUID()}` }); }
-    catch (error) { console.error("[salla-webhook] deferred_processing_failed", error instanceof Error ? error.message : "unknown"); }
+    catch { console.error("[salla-webhook] deferred_processing_failed"); }
   });
   return NextResponse.json({ ok: true }, { status: 200 });
 }
