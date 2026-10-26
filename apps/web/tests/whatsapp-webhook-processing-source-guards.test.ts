@@ -15,10 +15,10 @@ test("Prisma client owns WhatsApp conversation and message models directly", () 
 });
 
 test("webhook worker serializes claims safely across concurrent workers", () => {
-  const processor = source("app/lib/whatsapp/webhook-processor.ts");
-  assert.match(processor, /FOR UPDATE SKIP LOCKED/);
-  assert.match(processor, /WHERE "processedAt" IS NULL/);
-  assert.match(processor, /ORDER BY "receivedAt" ASC, "id" ASC/);
+  const query = source("app/lib/whatsapp/webhook-claim-query.ts");
+  assert.match(query, /FOR UPDATE SKIP LOCKED/);
+  assert.match(query, /WHERE "processedAt" IS NULL/);
+  assert.match(query, /"receivedAt" ASC, "id" ASC/);
 });
 
 test("status updates and duplicate inbound provider ids remain tenant bound", () => {
@@ -39,11 +39,10 @@ test("partial webhook mutations roll back before an error is persisted", () => {
   assert.match(processor.slice(catchAt), /processingError:\s*message\.slice/);
 });
 
-test("webhook worker is bounded and stops on a poison event", () => {
+test("webhook worker is bounded and reports failures after retry-safe batch recovery", () => {
   const worker = source("scripts/whatsapp-webhook-worker.ts");
   assert.match(worker, /Math\.min\(requestedBatch, 500\)/);
-  assert.match(worker, /for \(let index = 0; index < batchSize; index \+= 1\)/);
-  assert.match(worker, /failed \+= 1/);
-  assert.match(worker, /break;/);
+  assert.match(worker, /processWebhookBatch\(batchSize/);
+  assert.match(worker, /processNextWhatsAppWebhookEvent\(db,null,excluded\)/);
   assert.match(worker, /process\.exitCode = 1/);
 });

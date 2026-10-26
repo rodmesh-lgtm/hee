@@ -16,7 +16,7 @@ test("each order scenario matches only its own event at every supported delay", 
 });
 
 test("database trigger allowlist includes every supported source without removing its constraint", () => {
-  const migration = readFileSync(new URL("../prisma/migrations/20261016150000_laundry_ready_notifications/migration.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../prisma/migrations/20261026050000_cashier_followup_trigger_types/migration.sql", import.meta.url), "utf8");
   const allowed = [...(migration.match(/CHECK \(.*\)/)?.[0] ?? "").matchAll(/'([a-z_]+)'/g)].map(match => match[1]);
   assert.deepEqual(allowed.sort(), [...WHATSAPP_AUTOMATION_TRIGGER_TYPES].sort());
   assert.match(migration, /ADD CONSTRAINT "WhatsAppAutomation_trigger_check" CHECK/);

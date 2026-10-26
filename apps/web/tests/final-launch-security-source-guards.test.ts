@@ -38,7 +38,7 @@ test("smart reminder actions always carry active business context and explicit W
 test("business memory AI organizer readiness is explicit rather than default-on",async()=>{
   const s=normalize(await readFile(notePage,"utf8"));
   assert.match(s,/import \{ businessMemoryAiReady \}/);
-  assert.match(s,/const memoryAiAvailable=businessMemoryAiReady\(\)/);
+  assert.match(s,/const memoryAiAvailable=Boolean\(aiTerm\?\.plan.aiEnabled\)&&businessMemoryAiReady\(\)/);
   assert.match(s,/memoryAiAvailable=\{memoryAiAvailable\}/);
   assert.match(s,/FROM "BusinessNote" n WHERE n\."businessId"=\$\{business\.id\}/);
 });

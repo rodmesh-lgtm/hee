@@ -1,7 +1,10 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 
 export function normalizeAccountPhone(raw: string) {
-  let value = raw.trim().replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit))).replace(/[\s()-]/g, "");
+  let value = raw.trim().replace(/[٠-٩۰-۹０-９]/g, digit => {
+    const point = digit.charCodeAt(0);
+    return String(point >= 0xff10 ? point - 0xff10 : point >= 0x06f0 ? point - 0x06f0 : point - 0x0660);
+  }).replace(/[\s()-]/g, "");
   if (!value) return null;
   if (/^05\d{8}$/.test(value)) value = `966${value.slice(1)}`;
   value = value.replace(/^00/, "").replace(/^\+/, "");

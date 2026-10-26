@@ -38,12 +38,14 @@ test("webhook inbox has provider deduplication before later processing", () => {
 test("webhook fast path processes only persisted events after signature verification and preserves locked recovery", () => {
   const route = source("app/api/whatsapp/meta/webhook/route.ts");
   const processor = source("app/lib/whatsapp/webhook-processor.ts");
+  const claim = source("app/lib/whatsapp/webhook-claim-query.ts");
   assert.ok(route.indexOf("verifyMetaWebhookSignature({") < route.indexOf("const persisted = await"));
   assert.match(route, /persistedIds\.length < 20/);
   assert.match(route, /after\(async \(\) =>/);
   assert.match(route, /processNextWhatsAppWebhookEvent\(db, id\)/);
   assert.match(route, /Date\.now\(\) >= deadline/);
-  assert.match(processor, /AND \(\$\{eventId\}::text IS NULL OR "id" = \$\{eventId\}\)/);
-  assert.match(processor, /FOR UPDATE SKIP LOCKED/);
-  assert.match(processor, /"processedAt" IS NULL/);
+  assert.match(processor, /webhookClaimQuery\(eventId,excludedIds\)/);
+  assert.match(claim, /AND \(\$\{eventId\}::text IS NULL OR "id" = \$\{eventId\}\)/);
+  assert.match(claim, /FOR UPDATE SKIP LOCKED/);
+  assert.match(claim, /"processedAt" IS NULL/);
 });

@@ -1,4 +1,5 @@
 "use server";
+import { shopifyConfigured } from "../lib/whatsapp/shopify-config";
 
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -58,6 +59,7 @@ export async function registerWhatsAppCommerceIntegrationAction(form: FormData) 
   const provider = field(form, "provider", 20), externalStoreId = field(form, "externalStoreId", 255);
   const displayName = field(form, "displayName", 120) ?? undefined;
   if (!provider || !externalStoreId) redirect("/dashboard/whatsapp/integrations?register=invalid");
+  if(provider!=="shopify"||!shopifyConfigured())redirect("/dashboard/whatsapp/integrations?register=unavailable");
   let destination: string;
   try {
     const result = await registerWhatsAppCommerceIntegration({ businessId: context.businessId, actorUserId: context.userId, provider, externalStoreId, displayName });
