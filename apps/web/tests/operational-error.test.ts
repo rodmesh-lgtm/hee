@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { operationalErrorCategory } from "../app/lib/operational-error";
+import { operationalErrorCategory, operationalErrorCode } from "../app/lib/operational-error";
 
 test("classifies the observed pg connection timeout through a Prisma cause", () => {
   assert.equal(operationalErrorCategory(new Error("adapter failed", { cause: new Error("Connection terminated due to connection timeout") })), "database_timeout");
   assert.equal(operationalErrorCategory(new Error("timeout exceeded when trying to connect")), "database_timeout");
   assert.equal(operationalErrorCategory({ code: "P2024" }), "database_timeout");
+});
+
+test("operational diagnostics expose bounded codes without SQL, credentials or customer payloads", () => {
+  assert.equal(operationalErrorCode({code:"P2010",meta:{code:"42883",message:"private SQL"}}),"SQLSTATE_42883");
+  assert.equal(operationalErrorCode(new Error("wrapper",{cause:{code:"P2028"}})),"P2028");
+  assert.equal(operationalErrorCode(new Error("INFRO_REMINDER_WEBHOOK_BINDING_INVALID")),"INFRO_REMINDER_WEBHOOK_BINDING_INVALID");
+  for(const error of [{code:"customer@example.com"},new Error("postgresql://user:secret@host/db"),{message:"phone +966500000000",meta:{code:"private SQL"}},null])assert.equal(operationalErrorCode(error),"UNCLASSIFIED");
+  const cycle:{cause?:unknown}={};cycle.cause=cycle;assert.equal(operationalErrorCode(cycle),"UNCLASSIFIED");
 });
 test("distinguishes a disconnected database from schema and unknown provider failures", () => {
   assert.equal(operationalErrorCategory({ cause: { code: "ECONNRESET" } }), "database_connection");

@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { db } from "../db";
+import { operationalErrorCategory, operationalErrorCode } from "../operational-error";
 import { getInfroReminderWhatsAppConfig } from "../reminders/platform-whatsapp";
 import { whatsAppCareSlaDueAt } from "./care-domain";
 import { nextWhatsAppMessageStatus, type WhatsAppMessageStatus } from "./message-domain";
@@ -254,6 +255,11 @@ export async function processNextWhatsAppWebhookEvent(database: ProcessorDb = db
       return { processed: true as const, id: event.id, eventType: event.eventType };
     });
   } catch (error) {
+    console.error("[whatsapp-webhook] processing_failed", {
+      code: operationalErrorCode(error),
+      category: operationalErrorCategory(error),
+      claimed: claimedId !== null,
+    });
     const message = error instanceof Error ? error.message : "WHATSAPP_WEBHOOK_PROCESSING_FAILED";
     if (claimedId) {
       await database.whatsAppWebhookEvent.updateMany({ where: { id: claimedId, processedAt: null }, data: { processingError: message.slice(0, 512) } });
