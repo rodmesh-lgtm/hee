@@ -250,8 +250,8 @@ export async function processNextWhatsAppWebhookEvent(database: ProcessorDb = db
     });
   } catch (error) {
     const code = operationalErrorCode(error);
-    const log = code === UNMATCHED_RECEIPT ? console.warn : console.error;
-    log("[whatsapp-webhook] processing_deferred_or_failed", {
+    // Expected unmatched receipts are summarized once by the batch runner.
+    if (code !== UNMATCHED_RECEIPT) console.error("[whatsapp-webhook] processing_failed", {
       code,
       category: operationalErrorCategory(error),
       claimed: claimedId !== null,
