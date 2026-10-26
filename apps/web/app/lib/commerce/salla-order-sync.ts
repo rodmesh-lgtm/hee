@@ -5,41 +5,18 @@ import { Prisma } from "@prisma/client";
 
 import { db } from "../db";
 import { writeWhatsAppAuditLog } from "../whatsapp/audit";
-import { decryptCommerceCredential, type CommerceCredentialEnvelope } from "../whatsapp/commerce-credential-envelope";
-import { getSallaConfig } from "./salla-config";
+import { getSallaAccessToken } from "./salla-access-token";
 import { mapSallaOrderWebhook } from "./salla-domain";
 
 const FETCH_TIMEOUT_MS = 15_000;
 
-function envelope(value: Prisma.JsonValue | null) {
-  const item = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
-  if (!item || item.v !== 1 || item.alg !== "aes-256-gcm" || typeof item.keyVersion !== "string" || typeof item.iv !== "string" || typeof item.ciphertext !== "string" || typeof item.tag !== "string") {
-    throw new Error("SALLA_CREDENTIAL_INVALID");
-  }
-  return item as CommerceCredentialEnvelope;
-}
-
-function accessToken(plaintext: string) {
-  const parsed = JSON.parse(plaintext) as { accessToken?: unknown };
-  if (typeof parsed.accessToken !== "string" || parsed.accessToken.length < 16) throw new Error("SALLA_TOKEN_MISSING");
-  return parsed.accessToken;
-}
-
 export async function syncSallaBookingOrders(input: { businessId: string; integrationId: string; actorUserId?: string; maxPages?: number }) {
-  const config = getSallaConfig();
   const integration = await db.whatsAppCommerceIntegration.findFirst({
     where: { id: input.integrationId, businessId: input.businessId, provider: "salla", status: "active" },
     select: { id: true, credentialEnvelope: true },
   });
   if (!integration?.credentialEnvelope) throw new Error("SALLA_INTEGRATION_UNAVAILABLE");
-  const plaintext = decryptCommerceCredential({
-    envelope: envelope(integration.credentialEnvelope),
-    encryptionKeyBase64: config.WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY,
-    businessId: input.businessId,
-    integrationId: integration.id,
-    provider: "salla",
-  });
-  const token = accessToken(plaintext);
+  let token = await getSallaAccessToken({ businessId: input.businessId, integrationId: integration.id });
   const maxPages = Math.max(1, Math.min(input.maxPages ?? 10, 20));
   let imported = 0;
   let page = 1;
@@ -49,11 +26,17 @@ export async function syncSallaBookingOrders(input: { businessId: string; integr
       const url = new URL("https://api.salla.dev/admin/v2/orders");
       url.searchParams.set("page", String(page));
       url.searchParams.set("per_page", "30");
-      const response = await fetch(url, {
+      const requestPage = () => fetch(url, {
         headers: { authorization: `Bearer ${token}`, accept: "application/json" },
         cache: "no-store",
+        redirect: "error",
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
+      let response = await requestPage();
+      if (response.status === 401) {
+        token = await getSallaAccessToken({ businessId: input.businessId, integrationId: integration.id, rejectedAccessToken: token });
+        response = await requestPage();
+      }
       const payload = await response.json().catch(() => null) as { data?: unknown[]; pagination?: { totalPages?: unknown; total_pages?: unknown } } | null;
       if (!response.ok || !payload || !Array.isArray(payload.data)) throw new Error(`SALLA_ORDERS_HTTP_${response.status}`);
       const mappings = payload.data.map((order) => mapSallaOrderWebhook({ event: "order.updated", data: order }));

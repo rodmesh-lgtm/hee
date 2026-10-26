@@ -23,7 +23,9 @@ export async function GET(request: Request) {
     if (!/^[a-zA-Z0-9-]{1,100}$/.test(integrationId) || !Number.isSafeInteger(page) || page < 1 || page > 100000 || keyword.length > 80) return json({ error: "INVALID_REQUEST" }, 400);
     return json(await listSallaCampaignProducts({ businessId: context.businessId, integrationId, keyword, page }));
   } catch (error) {
-    const code = error instanceof Error ? error.message : "";
+    const rawCode = error instanceof Error ? error.message : "";
+    const code = ["SALLA_CREDENTIAL_INVALID", "SALLA_RECONNECT_REQUIRED"].includes(rawCode) ? "RECONNECT_REQUIRED"
+      : rawCode === "SALLA_INTEGRATION_UNAVAILABLE" ? "STORE_UNAVAILABLE" : rawCode;
     const allowed = ["STORE_UNAVAILABLE", "RECONNECT_REQUIRED", "PRODUCT_PERMISSION_REQUIRED", "RATE_LIMITED"];
     return json({ error: allowed.includes(code) ? code : "PRODUCTS_UNAVAILABLE" }, code === "STORE_UNAVAILABLE" ? 404 : code === "RATE_LIMITED" ? 429 : 503);
   }

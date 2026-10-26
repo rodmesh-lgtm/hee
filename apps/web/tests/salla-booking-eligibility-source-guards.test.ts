@@ -45,7 +45,8 @@ test("Salla webhooks are signed, durable, leased and revocable", () => {
 
 test("Salla connection imports historical orders and supports an explicit refresh", () => {
   assert.match(orderSync, /api\.salla\.dev\/admin\/v2\/orders/);
-  assert.match(orderSync, /decryptCommerceCredential/);
+  assert.match(orderSync, /getSallaAccessToken/);
+  assert.match(read("app/lib/commerce/salla-access-token.ts"), /decryptCommerceCredential/);
   assert.match(orderSync, /page <= maxPages/);
   assert.match(orderSync, /current\.providerUpdatedAt > mapping\.order\.providerUpdatedAt/);
   assert.match(oauthCallback, /after\(async \(\) =>/);
