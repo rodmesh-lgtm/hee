@@ -52,7 +52,8 @@ Custom OAuth mode. The existing demo store is `iNFRO_platform`.
 This is a Custom OAuth integration. Receiving `app.store.authorize` does **not**
 activate Easy Mode or attach a tenant. Do not change modes without inspecting the
 existing application. Current app lifecycle events are ignored by the order/cart
-worker: uninstall teardown and Salla plan entitlements remain work to complete.
+  worker: Salla plan entitlements remain work to complete. Signed uninstall now
+  has a dedicated synchronous handler; its live demo cycle still needs validation.
 Do not label the existing order journeys a native Communication integration.
 
 ## Separate native Communication channel integration (not yet implemented)
@@ -141,14 +142,39 @@ these figures alone do not establish equivalent service or identical Meta charge
 - https://apps.salla.sa/ar/app/1068787254
 - https://apps.salla.sa/ar/app/996829016
 
-Existing Salla pricing draft is SAR99/month plus SAR50 setup, with an original
-price of SAR149 shown. It has not yet been reconciled with final INFRO pricing.
+Verified persisted Salla pricing drafts are SAR99/month (انفرو واتساب) and
+SAR149/month (انفرو بلس), both with zero setup fees; the old crossed-out discount
+was disabled. These are not published paid offers. They have not yet been
+reconciled with measured operating costs and Salla's commission.
 Do not claim a proven 35% margin without measured allocated operating/support
 costs and verified Salla commission. Meta pass-through charges are excluded.
 Salla paid plan/trial lifecycle → INFRO entitlements remains unimplemented;
 the administrative review grant does not test or replace that integration.
 The existing mandatory tutorial video URL is unverified. Actual sender setup,
 delivery, uninstall/reinstall and subscription billing tests remain release gates.
+
+## Follow-up: signed uninstall and authoritative subscription diagnostics
+
+- Added app-ID validation, provider timestamp validation and scoped synchronous
+  uninstall processing after raw HMAC verification. Erases the credential,
+  cancels pending OAuth sessions, invalidates booking eligibility and marks the
+  old pending inbox events ignored in one transaction. Replays are idempotent;
+  an uninstall older than the current connection cannot disconnect it.
+- Automation event and delivery workers now require a connection issued no later
+  than the triggering event. Queued work from a previous connection cannot become
+  eligible again merely because the store was reconnected.
+- `SALLA_APP_ID` defaults to the verified INFRO public app ID1849074620, distinct
+  from its OAuth client UUID. Explicitly configure it before using another app.
+- Offset-free legacy partner timestamps use a configured
+  `SALLA_LEGACY_WEBHOOK_UTC_OFFSET` (minutes, default180/Riyadh). Offset-qualified
+  timestamps retain their own offset. Verify this deployment assumption against
+  the real demo uninstall payload before declaring the lifecycle test passed.
+- Added a tenant-scoped, rate-limited read-only diagnostic using the official
+  `GET /apps/{app_id}/subscriptions` endpoint. Only selected plan fields are
+  returned. This diagnostic does not create a term, grant access or record a payment.
+- Validation: 1,277 unit tests, four injected uninstall/diagnostic checks, scoped
+  ESLint and full TypeScript passed. Live provider lifecycle remains unverified.
+- Official subscription contract: https://docs.salla.dev/partner-apis/subscription-details
 
 ## Official references consulted
 

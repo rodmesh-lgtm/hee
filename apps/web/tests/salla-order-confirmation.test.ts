@@ -35,6 +35,6 @@ test("signed live webhook alone enqueues after consent and activation, with orde
   for (const worker of [processing, delivery]) {
     assert.match(worker, /provider: "salla", eligible: true/);
     assert.match(worker, /phoneE164: (?:contact|context\.contact)\.phoneE164/);
-    assert.match(worker, /integration: \{ businessId: (?:event|job)\.businessId, provider: "salla", status: "active" \}/);
+    assert.match(worker, /integration: \{ businessId: (?:event|job)\.businessId, provider: "salla", status: "active", connectedAt: \{ lte: (?:event|context\.run\.event)\.occurredAt \}/);
   }
 });
