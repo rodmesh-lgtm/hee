@@ -1,6 +1,6 @@
 import { getWhatsAppReadContext } from "../../../../lib/whatsapp/rbac";
 import { consumePublicWriteLimit } from "../../../../lib/rate-limit";
-import { readSallaSubscription, sallaSubscriptionSummary } from "../../../../lib/commerce/salla-subscription-read";
+import { readSallaSubscription, sallaSubscriptionSummary, SallaSubscriptionReadError } from "../../../../lib/commerce/salla-subscription-read";
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "private, no-store", Vary: "Cookie" } });
 
@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     return json({ subscriptions: sallaSubscriptionSummary(result.subscriptions), fetchedAt: result.fetchedAt.toISOString(),
       entitlementSync: "not_enabled", source: "salla" });
   } catch (error) {
+    if (error instanceof SallaSubscriptionReadError) return json({ error: error.message, providerStatus: error.providerStatus, dataShape: error.dataShape }, 503);
     const code = error instanceof Error ? error.message : "";
     const exposed = ["SALLA_INTEGRATION_UNAVAILABLE", "SALLA_SUBSCRIPTION_PERMISSION_REQUIRED", "SALLA_RECONNECT_REQUIRED"].includes(code);
     return json({ error: exposed ? code : "SALLA_SUBSCRIPTION_UNAVAILABLE" }, code === "SALLA_INTEGRATION_UNAVAILABLE" ? 404 : 503);
