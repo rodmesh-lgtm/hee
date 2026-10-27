@@ -1,0 +1,25 @@
+name: INFRO Windows Connector
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/connector-windows/**'
+      - 'apps/web/public/connectors/**'
+      - '.github/workflows/infro-connector-windows.yml'
+permissions:
+  contents: read
+jobs:
+  build-internal:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile, security checks and package internal installer
+        shell: powershell
+        run: ./apps/connector-windows/build.ps1
+      - name: Upload internal test installer (not a signed customer release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: INFRO-Connector-Windows-internal-${{ github.sha }}
+          path: apps/connector-windows/dist/
+          retention-days: 14
