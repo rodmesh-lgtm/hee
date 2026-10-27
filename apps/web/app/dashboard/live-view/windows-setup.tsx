@@ -2,9 +2,9 @@ export function WindowsConnectorSetup(){
   return <section className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900" dir="rtl">
     <h2 className="font-black">ربط كاميرات الفرع من Windows</h2>
     <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-4">
-      <p className="text-sm font-bold">برنامج INFRO للويندوز — نسخة تجربة ميدانية 0.2.0</p>
-      <p className="mt-2 text-sm leading-8">نزّل الملف وفك الضغط، ثم افتح INFRO-Connector-Setup-internal.exe. افتح البرنامج المثبت، وجهّز أدوات البث من داخله، ثم أدخل رمز اقتران الفرع من هذه الصفحة. تبقى إضافة الكاميرات وروابط العملاء داخل حسابك.</p>
-      <a href="/downloads/infro-connector-windows-pilot-0.2.0.zip" download className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-[#087e78] px-5 text-sm font-bold text-white">تنزيل برنامج INFRO للويندوز — تجريبي</a>
+      <p className="text-sm font-bold">برنامج INFRO للويندوز — نسخة تجربة ميدانية 0.2.1</p>
+      <p className="mt-2 text-sm leading-8">نزّل الملف وفك الضغط، ثم افتح INFRO-Connector-Setup-internal.exe. للتثبيت الأول افتح البرنامج وجهّز أدوات البث ثم أدخل رمز اقتران الفرع. عند التحديث يبقى الاقتران المحفوظ؛ اضغط تشغيل الخدمة بعد اكتمال الاقتران. تبقى إضافة الكاميرات وروابط العملاء داخل حسابك.</p>
+      <a href="/downloads/infro-connector-windows-pilot-0.2.1.zip" download className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-[#087e78] px-5 text-sm font-bold text-white">تنزيل برنامج INFRO للويندوز — تجريبي</a>
       <p className="mt-3 text-xs leading-7">Windows ‏64 بت، مع صلاحية تثبيت البرامج واتصال بالإنترنت. الخدمة مهيأة للبدء مع Windows؛ تحقق من وصول الصورة فعليًا بعد إعادة تشغيل جهاز الفرع.</p>
       <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-7 text-amber-950">هذه النسخة غير موقّعة رقميًا ومخصصة للاختبار تحت إشراف الدعم. إذا منع Windows تشغيلها، توقف وشارك صورة التحذير مع الدعم دون تجاوزه. نجاح التثبيت أو الاقتران لا يعني أن بث الكاميرا جاهز.</p>
     </div>
