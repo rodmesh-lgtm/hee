@@ -16,14 +16,18 @@ export function connectorPlatformConfig() {
     return { ...gateway, key, relaySecret, publishOrigin:publish.toString().replace(/\/$/,"") };
   } catch { return null; }
 }
+export class ConnectorRequestError extends Error {
+  constructor(public readonly status: 403 | 429) { super(status === 403 ? "access_required" : "try_later"); }
+}
 export async function connectorForRequest(request: Request) {
   const token=request.headers.get("authorization")?.replace(/^Bearer /,"") || "";
   if(!validLiveToken(token)) return null;
   const connector=await db.liveViewConnector.findUnique({ where:{tokenHash:liveTokenHash(token)},include:{business:{select:{deletedAt:true}}} });
   if(!connector || connector.revokedAt || !connector.enrolledAt || connector.business.deletedAt) return null;
-  if(!(await commercialAccess(connector.businessId)).liveView)return null;
+  if(!(await commercialAccess(connector.businessId)).liveView)throw new ConnectorRequestError(403);
   const rate=await consumePublicWriteLimit({businessId:connector.businessId,scope:"live-connector-api",identity:connector.id,limit:100,windowSeconds:60});
-  return rate.allowed ? connector : null;
+  if(!rate.allowed)throw new ConnectorRequestError(429);
+  return connector;
 }
 export async function boundedJson(request: Request, max=16_384) {
   if(!request.body || Number(request.headers.get("content-length") || 0)>max) throw new Error("INVALID_BODY");
