@@ -17,7 +17,7 @@ export async function POST(request:Request) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`live-connector:${found.id}`}))`;
       if(!await tx.business.findFirst({where:{id:found.businessId,deletedAt:null}}))return false;
       const changed=await tx.liveViewConnector.updateMany({where:{id:found.id,pairingHash:digest,pairingExpiresAt:{gt:new Date()},revokedAt:null,tokenHash:null},data:{tokenHash:token.hash,pairingHash:null,pairingExpiresAt:null,enrolledAt:new Date(),lastSeenAt:new Date(),agentVersion:"1"}});
-      if(changed.count)await tx.whatsAppAuditLog.create({data:{businessId:found.businessId,actorType:"connector",action:"live-view.connector.enrolled",targetType:"live-view-connector",targetId:found.id,outcome:"success"}});
+      if(changed.count)await tx.whatsAppAuditLog.create({data:{businessId:found.businessId,actorType:"system",action:"live-view.connector.enrolled",targetType:"live-view-connector",targetId:found.id,outcome:"success"}});
       return Boolean(changed.count);
     });
     return paired?reply(200,{token:token.token}):reply(410,{error:"invalid_or_expired_code"});
