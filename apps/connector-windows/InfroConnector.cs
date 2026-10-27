@@ -10,6 +10,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using System.ServiceProcess;
 using System.Text;
@@ -67,11 +68,58 @@ namespace Infro.Live {
         return actual;
       }
     }
+    internal static string NormalizePairingCode(string value) {
+      return Regex.Replace(value??"", @"[\s\u200e\u200f\u202a-\u202e\u2066-\u2069]", "");
+    }
+    internal static void SavePairing(string token,string directory) {
+      if(!Regex.IsMatch(token??"","^[A-Za-z0-9_-]{43}$"))throw new InvalidOperationException("INVALID_ENROLLMENT");
+      string pending=Path.Combine(directory,"connector.pending"),saved=Path.Combine(directory,"connector.json");
+      File.WriteAllText(pending,Json.Serialize(new {origin="https://ir.sa",token=token}),new UTF8Encoding(false));
+      if(File.Exists(saved))File.Replace(pending,saved,null);else File.Move(pending,saved);
+      string status=Path.Combine(directory,"status.json");if(File.Exists(status))File.Delete(status);
+    }
+    internal static string StatusValue() {
+      try { var data=Json.Deserialize<Dictionary<string,object>>(File.ReadAllText(Path.Combine(State,"status.json")));return Convert.ToString(data["state"]); }catch{return "";}
+    }
+    internal static string StageBinary(string source,string name,string target) {
+      string destination=Path.Combine(target,name+".exe");
+      if(File.Exists(destination)&&(File.GetAttributes(destination)&FileAttributes.ReparsePoint)!=0)throw new InvalidOperationException("UNSAFE_RUNTIME_FILE");
+      if(!String.Equals(source,destination,StringComparison.OrdinalIgnoreCase)) {
+        string pending=destination+".pending";
+        if(File.Exists(pending))File.Delete(pending);
+        try {
+          File.Copy(source,pending,false);
+          using(var hash=SHA256.Create())using(var input=File.OpenRead(source))using(var output=File.OpenRead(pending)) {
+            if(!hash.ComputeHash(input).SequenceEqual(hash.ComputeHash(output)))throw new InvalidOperationException("RUNTIME_COPY_FAILED");
+          }
+          if(File.Exists(destination))File.Replace(pending,destination,null);else File.Move(pending,destination);
+        }finally{if(File.Exists(pending))File.Delete(pending);}
+      }
+      var acl=new FileSecurity();acl.SetOwner(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid,null));acl.SetAccessRuleProtection(true,false);
+      foreach(var sid in new[]{WellKnownSidType.BuiltinAdministratorsSid,WellKnownSidType.LocalSystemSid})acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(sid,null),FileSystemRights.FullControl,AccessControlType.Allow));
+      acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.LocalServiceSid,null),FileSystemRights.ReadAndExecute,AccessControlType.Allow));
+      File.SetAccessControl(destination,acl);
+      return destination;
+    }
     internal static void PrepareRuntime() {
-      Protect();string node=Binary("node"),ffmpeg=Binary("ffmpeg"),ffprobe=Binary("ffprobe");
+      Protect();StopService();string node=Binary("node"),ffmpeg=Binary("ffmpeg"),ffprobe=Binary("ffprobe");
       if(Path.GetDirectoryName(ffmpeg)!=Path.GetDirectoryName(ffprobe))throw new InvalidOperationException("MEDIA_RUNTIME_DIRECTORY_MISMATCH");
-      string path=Path.Combine(State,"runtime.json");
-      File.WriteAllText(path,Json.Serialize(new {node=node,ffmpeg=ffmpeg,ffprobe=ffprobe}),new UTF8Encoding(false));
+      // Vendor WinGet package folders can deny LocalService access. Stage verified copies
+      // in our fixed Program Files directory; the service receives read/execute only.
+      string target=Path.Combine(App,"Runtime"),pf=Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+      if(!Path.GetFullPath(App).StartsWith(pf+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("INSTALL_IN_PROGRAM_FILES");
+      Directory.CreateDirectory(target);
+      if((File.GetAttributes(target)&FileAttributes.ReparsePoint)!=0)throw new InvalidOperationException("UNSAFE_RUNTIME_DIRECTORY");
+      var acl=new DirectorySecurity();acl.SetOwner(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid,null));acl.SetAccessRuleProtection(true,false);
+      foreach(var sid in new[]{WellKnownSidType.BuiltinAdministratorsSid,WellKnownSidType.LocalSystemSid})
+        acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(sid,null),FileSystemRights.FullControl,InheritanceFlags.ContainerInherit|InheritanceFlags.ObjectInherit,PropagationFlags.None,AccessControlType.Allow));
+      acl.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.LocalServiceSid,null),FileSystemRights.ReadAndExecute,InheritanceFlags.ContainerInherit|InheritanceFlags.ObjectInherit,PropagationFlags.None,AccessControlType.Allow));
+      Directory.SetAccessControl(target,acl);
+      node=StageBinary(node,"node",target);ffmpeg=StageBinary(ffmpeg,"ffmpeg",target);ffprobe=StageBinary(ffprobe,"ffprobe",target);
+      if(Run(node,"--version")!=0||Run(ffmpeg,"-version")!=0||Run(ffprobe,"-version")!=0)throw new InvalidOperationException("RUNTIME_VALIDATION_FAILED");
+      string path=Path.Combine(State,"runtime.json"),pending=path+".pending";
+      File.WriteAllText(pending,Json.Serialize(new {node=node,ffmpeg=ffmpeg,ffprobe=ffprobe}),new UTF8Encoding(false));
+      if(File.Exists(path))File.Replace(pending,path,null);else File.Move(pending,path);
     }
     internal static string ServiceBinary(string name) {
       var data=Json.Deserialize<Dictionary<string,string>>(File.ReadAllText(Path.Combine(State,"runtime.json")));
@@ -83,7 +131,7 @@ namespace Infro.Live {
     // Service executes only machine-wide installations, never a user's PATH/current directory.
     internal static string Binary(string name) {
       string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-      var dirs = new List<string> { Path.Combine(pf,"nodejs"), Path.Combine(pf,"WinGet","Links") };
+      var dirs = new List<string> { Path.Combine(pf,"nodejs"), Path.Combine(pf,"WinGet","Links"), Path.Combine(App,"Runtime") };
       string machine = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
       dirs.AddRange(machine.Split(';'));
       foreach(string raw in dirs) {
@@ -210,17 +258,18 @@ namespace Infro.Live {
     readonly Label state=new Label(); readonly TextBox code=new TextBox(); readonly ListBox devices=new ListBox(); readonly Button pair=new Button();
     readonly System.Windows.Forms.Timer refresh=new System.Windows.Forms.Timer(); bool busy; DateTime holdUntil=DateTime.MinValue;
     internal SetupForm() {
-      Text="INFRO 0.2.2 — ربط كاميرات الفرع"; Size=new Size(780,720); MinimumSize=Size; Font=new Font("Segoe UI",11); RightToLeft=RightToLeft.Yes; RightToLeftLayout=true; BackColor=Color.FromArgb(246,249,249);
+      Text="INFRO 0.2.3 — ربط كاميرات الفرع"; Size=new Size(780,720); MinimumSize=Size; Font=new Font("Segoe UI",11); RightToLeft=RightToLeft.Yes; RightToLeftLayout=true; BackColor=Color.FromArgb(246,249,249);
       var layout=new FlowLayoutPanel { Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(24) }; Controls.Add(layout);
       AddLabel(layout,"INFRO | موصل الكاميرات",18);
       AddLabel(layout,"اربط هذا الكمبيوتر بفرعك مرة واحدة. إدارة الكاميرات وروابط العملاء تبقى داخل حسابك.",11);
       AddButton(layout,"١. تجهيز أدوات البث تلقائيًا",async()=> { await InstallTools(); });
       AddButton(layout,"٢. فتح حساب INFRO وإنشاء رمز ربط للفرع",()=>{ OpenAccount();return Task.CompletedTask; });
       AddLabel(layout,"٣. الصق رمز الاقتران المؤقت هنا (لا تدخل كلمة مرور الكاميرا)",11);
-      code.Width=650;code.MaxLength=43;code.RightToLeft=RightToLeft.No;code.UseSystemPasswordChar=true;layout.Controls.Add(code);
+      code.Width=650;code.MaxLength=256;code.RightToLeft=RightToLeft.No;code.UseSystemPasswordChar=true;layout.Controls.Add(code);
+      AddButton(layout,"لصق رمز الاقتران من الحافظة",()=>{code.Text=Paths.NormalizePairingCode(Clipboard.ContainsText()?Clipboard.GetText():"");state.Text=Regex.IsMatch(code.Text,"^[A-Za-z0-9_-]{43}$")?"الرمز مكتمل. اضغط ربط هذا الكمبيوتر وتشغيل الخدمة.":"الرمز غير مكتمل. انسخ رمز ربط الفرع من حساب INFRO، ثم اضغط لصق الرمز.";return Task.CompletedTask;});
       pair.Text="ربط هذا الكمبيوتر وتشغيل الخدمة";pair.Width=650;pair.Height=44;pair.Click+=async(s,e)=>await Work(async()=>await Pair());layout.Controls.Add(pair);
       state.Width=650;state.Height=80;layout.Controls.Add(state);
-      AddButton(layout,"تشغيل الخدمة بعد اكتمال الاقتران",async()=>{if(!File.Exists(Path.Combine(Paths.State,"connector.json")))throw new InvalidOperationException("PAIRING_REQUIRED");state.Text="جارٍ تشغيل خدمة INFRO. قد يستغرق بدء الخدمة نصف دقيقة؛ يمكنك إبقاء النافذة مفتوحة.";await Task.Run(()=>{Paths.PrepareRuntime();Paths.StopService();Paths.InstallService();});RefreshStatus();});
+      AddButton(layout,"تشغيل الخدمة بعد اكتمال الاقتران",async()=>{if(!File.Exists(Path.Combine(Paths.State,"connector.json")))throw new InvalidOperationException("PAIRING_REQUIRED");state.Text="جارٍ تشغيل خدمة INFRO. قد يستغرق بدء الخدمة نصف دقيقة؛ يمكنك إبقاء النافذة مفتوحة.";await Task.Run(()=>{Paths.PrepareRuntime();Paths.InstallService();});await WaitForConnection();});
       AddButton(layout,"البحث عن أجهزة الكاميرات في شبكة الفرع",async()=> { devices.Items.Clear(); var hosts=await Task.Run(()=>Discovery.Search()); foreach(string host in hosts)devices.Items.Add(host); state.Text=hosts.Length==0?"لم تظهر أجهزة. يمكنك إضافة عنوان الجهاز يدويًا في INFRO؛ بعض الأجهزة لا تدعم الاكتشاف.":"حدد عنوان الجهاز ثم انسخه لإضافته في لوحة INFRO. الاكتشاف لا يعني تأكيد صلاحية البث."; });
       devices.Width=650;devices.Height=90;devices.RightToLeft=RightToLeft.No;layout.Controls.Add(devices);
       AddButton(layout,"نسخ عنوان الجهاز المحدد",()=>{if(devices.SelectedItem!=null)Clipboard.SetText(devices.SelectedItem.ToString());return Task.CompletedTask;});
@@ -250,13 +299,15 @@ namespace Infro.Live {
       state.Text="تم العثور على أدوات البث. افتح حسابك وأنشئ رمز اقتران ثم الصقه أعلاه.";
     }
     async Task Pair() {
-      string value=code.Text.Trim();if(!Regex.IsMatch(value,"^[A-Za-z0-9_-]{43}$")) {state.Text="الصق رمز الاقتران كاملًا من حساب INFRO. الرمز صالح لعشر دقائق ويستخدم مرة واحدة.";return;}
+      string value=Paths.NormalizePairingCode(code.Text);if(!Regex.IsMatch(value,"^[A-Za-z0-9_-]{43}$")) {state.Text="الصق رمز الاقتران كاملًا من حساب INFRO. الرمز صالح لعشر دقائق ويستخدم مرة واحدة.";return;}
       string node=Paths.Binary("node"),ffmpeg=Paths.Binary("ffmpeg"),ffprobe=Paths.Binary("ffprobe");
       if(Path.GetDirectoryName(ffmpeg)!=Path.GetDirectoryName(ffprobe)||Paths.Run(node,"--version")!=0||Paths.Run(ffmpeg,"-version")!=0||Paths.Run(ffprobe,"-version")!=0)throw new InvalidOperationException();
       // Do not silently migrate/revoke a previous manual connector or site.
       string legacy=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),".infro-live","connector.json");
       if(File.Exists(legacy)) {state.Text="يوجد موصل يدوي سابق لهذا المستخدم. افصل موقعه من حساب INFRO وأوقف مهمة INFRO Live Connector قبل نقل الفرع إلى الخدمة الجديدة.";return;}
-      if(File.Exists(Path.Combine(Paths.State,"connector.json"))) {state.Text="هذا الكمبيوتر مقترن بالفعل. لإعادة تشغيله استخدم زر تشغيل الخدمة؛ لنقل الفرع تواصل مع الدعم لإلغاء الاقتران السابق بأمان.";return;}
+      if(File.Exists(Path.Combine(Paths.State,"connector.json"))) {
+        if(MessageBox.Show(this,"سيُستبدل اقتران هذا الكمبيوتر بالفرع الذي أنشأت له الرمز الجديد. ستبقى إعدادات الكاميرات في حسابك. هل تريد المتابعة؟","تجديد اقتران INFRO",MessageBoxButtons.YesNo,MessageBoxIcon.Question)!=DialogResult.Yes)return;
+      }
       await Task.Run(()=>{Paths.PrepareRuntime();Paths.StopService();});
       ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;
       var handler=new HttpClientHandler {AllowAutoRedirect=false};
@@ -266,15 +317,23 @@ namespace Infro.Live {
         string body=await response.Content.ReadAsStringAsync();if(body.Length>8192)throw new InvalidOperationException();
         var data=Paths.Json.Deserialize<Dictionary<string,object>>(body);object raw;
         if(!data.TryGetValue("token",out raw)||!(raw is string)||!Regex.IsMatch((string)raw,"^[A-Za-z0-9_-]{43}$"))throw new InvalidOperationException();
-        string temporary=Path.Combine(Paths.State,"connector.pending");
-        File.WriteAllText(temporary,Paths.Json.Serialize(new {origin="https://ir.sa",token=(string)raw}),new UTF8Encoding(false));
-        string path=Path.Combine(Paths.State,"connector.json");if(File.Exists(path))File.Replace(temporary,path,null);else File.Move(temporary,path);
+        Paths.SavePairing((string)raw,Paths.State);
       }
-      code.Clear();state.Text="حُفظ الاقتران. جارٍ بدء خدمة INFRO…";await Task.Run(()=>Paths.InstallService());RefreshStatus();
+      code.Clear();
+      state.Text="حُفظ الاقتران. جارٍ التحقق من اتصال الخدمة بالمنصة…";await Task.Run(()=>Paths.InstallService());await WaitForConnection();
+    }
+    async Task WaitForConnection() {
+      for(int i=0;i<20;i++) {
+        await Task.Delay(1000);
+        string value=Paths.StatusValue();if(value=="connected"||value=="revoked"||value=="access_required")break;
+        using(var service=new ServiceController(Paths.ServiceName)){if(service.Status!=ServiceControllerStatus.Running)break;}
+      }
+      RefreshStatus();
     }
     void RefreshStatus() {
       try {
         string file=Path.Combine(Paths.State,"status.json");
+        if(Paths.StatusValue()=="revoked") {state.Text="رفضت المنصة الاقتران المحفوظ. أنشئ رمزًا جديدًا للفرع، واضغط لصق رمز الاقتران ثم ربط هذا الكمبيوتر لتجديده.";return;}
         if(!File.Exists(file)) {
           if(!File.Exists(Path.Combine(Paths.State,"connector.json"))) {state.Text="بانتظار الاقتران. جهز أدوات البث ثم أدخل رمز الفرع.";return;}
           string details="";try {var diagnostic=Paths.Json.Deserialize<Dictionary<string,object>>(File.ReadAllText(Path.Combine(Paths.State,"service-status.json")));string codeValue=Convert.ToString(diagnostic["code"]);if(Regex.IsMatch(codeValue,"^[A-Z0-9_]{1,80}$"))details=" التشخيص: "+codeValue;}catch{}
@@ -284,7 +343,8 @@ namespace Infro.Live {
         var data=Paths.Json.Deserialize<Dictionary<string,object>>(File.ReadAllText(file)); DateTime updated;
         if(!DateTime.TryParse(Convert.ToString(data["updatedAt"]),null,System.Globalization.DateTimeStyles.RoundtripKind,out updated)||DateTime.UtcNow-updated.ToUniversalTime()>TimeSpan.FromSeconds(60)) {state.Text="لا توجد حالة اتصال حديثة. تحقق أن الكمبيوتر مستيقظ وأن خدمة INFRO تعمل.";return;}
         string value=Convert.ToString(data["state"]);
-        state.Text=value=="connected"?"الموصل متصل بـ INFRO. راجع حالة كل كاميرا ومعاينتها داخل حسابك؛ الاتصال وحده لا يثبت وصول الصورة.":value=="revoked"?"الربط غير مصرح أو خدمة البث غير مفعلة للحساب. راجع حالة الفرع في INFRO.":"انقطع الاتصال بـ INFRO. الموصل يعيد المحاولة تلقائيًا.";
+        using(var service=new ServiceController(Paths.ServiceName)) {if(service.Status!=ServiceControllerStatus.Running){state.Text="الخدمة متوقفة. اضغط تشغيل الخدمة لإصلاح أدوات التشغيل وبدء الاتصال.";return;}}
+        state.Text=value=="rate_limited"?"توقف البث مؤقتًا بسبب حد الطلبات. الموصل سيعيد الاتصال تلقائيًا؛ لا تحتاج إلى رمز جديد.":value=="access_required"?"الموصل مقترن، لكن خدمة البث تحتاج تفعيلًا في حساب المنشأة. فعّلها من INFRO؛ الموصل سيعيد الاتصال تلقائيًا.":value=="connected"?"الموصل متصل بـ INFRO. راجع حالة كل كاميرا ومعاينتها داخل حسابك؛ الاتصال وحده لا يثبت وصول الصورة.":value=="revoked"?"الربط غير مصرح أو خدمة البث غير مفعلة للحساب. راجع حالة الفرع في INFRO.":"انقطع الاتصال بـ INFRO. الموصل يعيد المحاولة تلقائيًا.";
       }catch {state.Text="تعذر قراءة الحالة. راجع إعدادات الربط في حساب INFRO.";}
     }
   }
@@ -292,10 +352,20 @@ namespace Infro.Live {
     [STAThread] static void Main(string[] args) {
       if(args.Contains("--self-test")) {
         if(!Paths.PairingError(410).Contains("HTTP410")||!Paths.PairingError(503).Contains("HTTP503")||Paths.FailureCode(new InvalidOperationException("rtsp://private:secret@host"))!="SERVICE_ERROR")Environment.Exit(7);
+        if(Paths.NormalizePairingCode(" \u200fAAAAAAAAAAAAAAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAA ")!="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")Environment.Exit(9);
         if(!Discovery.Private("192.168.8.44")||Discovery.Private("127.0.0.1")||Discovery.Private("8.8.8.8"))Environment.Exit(2);
         byte[] packet=Encoding.UTF8.GetBytes("<Envelope xmlns:d='urn:test'><d:XAddrs>http://192.168.8.44/onvif/device_service http://8.8.8.8/ http://user:secret@192.168.1.1/</d:XAddrs></Envelope>");
         if(!Discovery.Parse(packet).SequenceEqual(new[]{"192.168.8.44"}))Environment.Exit(3);
         try {Discovery.Parse(Encoding.UTF8.GetBytes("<!DOCTYPE x [<!ENTITY e SYSTEM 'file:///C:/Windows/win.ini'>]><x>&e;</x>"));Environment.Exit(4);}catch(XmlException){}
+        string temporary=Path.Combine(Path.GetTempPath(),"infro-pair-test-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);
+        try {
+          Paths.SavePairing(new string('A',43),temporary);File.WriteAllText(Path.Combine(temporary,"status.json"),"{\"state\":\"revoked\"}");
+          Paths.SavePairing(new string('B',43),temporary);
+          var saved=Paths.Json.Deserialize<Dictionary<string,string>>(File.ReadAllText(Path.Combine(temporary,"connector.json")));
+          if(saved["token"]!=new string('B',43)||File.Exists(Path.Combine(temporary,"status.json")))Environment.Exit(10);
+          try{Paths.SavePairing("invalid",temporary);Environment.Exit(11);}catch(InvalidOperationException){}
+          if(File.ReadAllText(Path.Combine(temporary,"connector.json")).Contains("invalid"))Environment.Exit(12);
+        }finally{Directory.Delete(temporary,true);}
         Environment.Exit(0);return;
       }
       if(args.Contains("--prepare-runtime")) {try{Paths.PrepareRuntime();}catch{Environment.ExitCode=8;}return;}

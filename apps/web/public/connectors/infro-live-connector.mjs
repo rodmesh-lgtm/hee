@@ -111,7 +111,11 @@ export async function main() {
   while(!stopping){
     try{
       const response=await api("sync");
-      if(response.status===401){finish();await status("revoked");console.error("Connection revoked. Generate a new code in INFRO and restart with --pair.");break;}
+      if(response.status===401){finish();await status("revoked");console.error("INFRO_STARTUP_CONNECTION_NOT_AUTHORIZED");break;}
+      if(response.status===403||response.status===429){
+        stopAll();await status(response.status===403?"access_required":"rate_limited");
+        await new Promise(resolve=>setTimeout(resolve,response.status===429?30_000:10_000));continue;
+      }
       if(!response.ok)throw new Error("SYNC_FAILED");
       const data=await response.json();if(!Array.isArray(data.cameras)||data.cameras.length>16)throw new Error("INVALID_CONFIG");
       if(data.cameras.some(camera=>!validAgentCamera(camera)))throw new Error("INVALID_CONFIG");

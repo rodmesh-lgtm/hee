@@ -14,6 +14,16 @@ if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne 'B8CDEFAB5F50590A076C27C2
 Expand-Archive $archive (Join-Path $env:RUNNER_TEMP 'infro-ffmpeg-runtime')
 Copy-Item (Join-Path $env:RUNNER_TEMP 'infro-ffmpeg-runtime\ffmpeg-8.1.2-full_build\bin\ffmpeg.exe') $runtime
 Copy-Item (Join-Path $env:RUNNER_TEMP 'infro-ffmpeg-runtime\ffmpeg-8.1.2-full_build\bin\ffprobe.exe') $runtime
+# Reproduce customer WinGet ACLs: admin can stage files, LocalService cannot
+# read the vendor directory. The installed connector must repair this itself.
+$vendorAcl = New-Object Security.AccessControl.DirectorySecurity
+$vendorAcl.SetAccessRuleProtection($true, $false)
+foreach ($sidValue in @('S-1-5-32-544','S-1-5-18')) {
+ $sid = New-Object Security.Principal.SecurityIdentifier($sidValue)
+ $rule = New-Object Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+ $vendorAcl.AddAccessRule($rule)
+}
+Set-Acl -LiteralPath $runtime -AclObject $vendorAcl
 $tokenFile = Join-Path $state 'connector.json'
 if (Test-Path $tokenFile) { throw 'Runtime test refuses existing pairing state' }
 [IO.File]::WriteAllText($tokenFile, '{"origin":"https://ir.sa","token":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}', (New-Object Text.UTF8Encoding($false)))
@@ -23,6 +33,13 @@ try {
  [Environment]::SetEnvironmentVariable('PATH', "$runtime;$originalPath", 'Machine')
  $prepare = Start-Process (Join-Path $location 'INFROConnectorService.exe') -ArgumentList '--prepare-runtime' -Wait -PassThru
  if ($prepare.ExitCode -ne 0) { throw 'Preparing real runtime paths failed' }
+ $saved = Get-Content (Join-Path $state 'runtime.json') -Raw | ConvertFrom-Json
+ foreach ($name in @('node','ffmpeg','ffprobe')) {
+  if ($saved.$name -ne (Join-Path $location "Runtime\$name.exe")) { throw "Runtime not staged: $name" }
+ }
+ # Starting again must preserve usable staged paths rather than reverting to WinGet.
+ $prepare = Start-Process (Join-Path $location 'INFROConnectorService.exe') -ArgumentList '--prepare-runtime' -Wait -PassThru
+ if ($prepare.ExitCode -ne 0) { throw 'Second runtime preparation failed' }
  $arguments = 'create InfroLiveConnector binPath= "\"' + (Join-Path $location 'INFROConnectorService.exe') + '\" --service-runtime-check" start= demand obj= "NT AUTHORITY\LocalService"'
  $registration = New-Object Diagnostics.Process
  $registration.StartInfo.FileName = Join-Path $env:WINDIR 'System32\sc.exe'
@@ -41,7 +58,7 @@ try {
   Start-Sleep -Milliseconds 200
  }
  if ($code -ne 'OK') { throw "Actual LocalService Node startup failed: $code" }
- Write-Output 'PASS: real Node/FFmpeg/FFprobe validated dependencies and saved pairing under LocalService; no external request made.'
+ Write-Output 'PASS: restricted vendor runtime staged automatically; real Node/FFmpeg/FFprobe validated under LocalService after repeat preparation; no external request made.'
 } finally {
  & sc.exe stop InfroLiveConnector
  & sc.exe delete InfroLiveConnector

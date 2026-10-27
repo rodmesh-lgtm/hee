@@ -1,4 +1,4 @@
-#define AppVersion "0.2.2"
+#define AppVersion "0.2.3"
 [Setup]
 AppId={{C26DC1A6-72F0-42EF-94F2-D029952C637A}
 AppName=INFRO Live Connector
