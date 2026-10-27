@@ -7,6 +7,7 @@ AppPublisher=INFRO
 AppPublisherURL=https://ir.sa
 DefaultDirName={autopf}\INFRO\Live Connector
 DefaultGroupName=INFRO
+DisableDirPage=yes
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -24,6 +25,9 @@ SignTool=infro
 SignedUninstaller=yes
 OutputBaseFilename=INFRO-Connector-Setup
 #endif
+[Languages]
+Name: "arabic"; MessagesFile: "compiler:Languages\Arabic.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "build\INFROConnector.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "build\INFROConnectorService.exe"; DestDir: "{app}"; Flags: ignoreversion

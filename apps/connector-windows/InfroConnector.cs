@@ -225,7 +225,7 @@ namespace Infro.Live {
         var data=Paths.Json.Deserialize<Dictionary<string,object>>(File.ReadAllText(file)); DateTime updated;
         if(!DateTime.TryParse(Convert.ToString(data["updatedAt"]),null,System.Globalization.DateTimeStyles.RoundtripKind,out updated)||DateTime.UtcNow-updated.ToUniversalTime()>TimeSpan.FromSeconds(60)) {state.Text="لا توجد حالة اتصال حديثة. تحقق أن الكمبيوتر مستيقظ وأن خدمة INFRO تعمل.";return;}
         string value=Convert.ToString(data["state"]);
-        state.Text=value=="connected"?"الموصل متصل بـ INFRO. راجع حالة كل كاميرا ومعاينتها داخل حسابك؛ الاتصال وحده لا يثبت وصول الصورة.":value=="revoked"?"تم إلغاء الربط. أنشئ رمز اقتران جديدًا من حسابك.":"انقطع الاتصال بـ INFRO. الموصل يعيد المحاولة تلقائيًا.";
+        state.Text=value=="connected"?"الموصل متصل بـ INFRO. راجع حالة كل كاميرا ومعاينتها داخل حسابك؛ الاتصال وحده لا يثبت وصول الصورة.":value=="revoked"?"الربط غير مصرح أو خدمة البث غير مفعلة للحساب. راجع حالة الفرع في INFRO.":"انقطع الاتصال بـ INFRO. الموصل يعيد المحاولة تلقائيًا.";
       }catch {state.Text="تعذر قراءة الحالة. راجع إعدادات الربط في حساب INFRO.";}
     }
   }

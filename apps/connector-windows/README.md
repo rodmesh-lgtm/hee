@@ -55,3 +55,13 @@ may be deployed to static public downloads after real acceptance below.
   removes old local token, then owner pairs new service. Never run both.
 
 Compilation and Linux tests do not prove these Windows hardware behaviors.
+
+Build evidence (2026-10-27): Windows workflow 40476032012 passed compilation,
+ONVIF XML/private-host checks, silent installer execution, real SCM startup under
+LocalService (with a local smoke worker), job shutdown and uninstall. This worker
+uses no camera, production credential or remote API. Actual Node/FFmpeg RTMPS,
+cold boot and customer playback remain pending, as does signing.
+
+The platform dependency audit also identified GHSA-mrhx-c7xc-m3w5 in existing Zod
+versions. The associated change pins patched 4.6.6 and overrides transitive copies;
+it does not downgrade @vercel/functions or disable the audit gate.
