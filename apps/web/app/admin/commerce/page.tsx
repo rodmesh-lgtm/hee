@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireAdmin } from "../../lib/admin";
 import { db } from "../../lib/db";
 import { commerceIntegrationHealth } from "../../lib/commerce/integration-health";
+import { SallaAdminSubscriptionCheck } from "./salla-check";
+import { sallaConfigured } from "../../lib/commerce/salla-config";
 
 const providerNames: Record<string, string> = { salla: "سلة", shopify: "Shopify", woocommerce: "WooCommerce", zid: "زد" };
 const eventStatuses: Record<string, string> = { processed: "تمت المعالجة", ignored: "تم تجاهله", failed: "تعذرت المعالجة", pending: "بانتظار المعالجة", processing: "تجري معالجته", retry_scheduled: "إعادة محاولة مجدولة" };
@@ -15,6 +17,12 @@ function age(value: Date | null, now: Date) {
 
 export default async function AdminCommercePage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   await requireAdmin();
+  // OAuth client IDs are public identifiers. Never render secrets or malformed
+  // configuration values in diagnostics, even if a secret was put in this field.
+  const clientId = String(process.env.SALLA_CLIENT_ID ?? "").trim();
+  const publicClientId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId) ? clientId : null;
+  const appId = String(process.env.SALLA_APP_ID ?? "1849074620").trim();
+  const publicAppId = /^[1-9]\d{0,31}$/.test(appId) ? appId : null;
   const requestedPage = Number((await searchParams).page ?? 1);
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? Math.min(requestedPage, 10_000) : 1;
   const [integrations, total, clock] = await Promise.all([
@@ -55,6 +63,11 @@ export default async function AdminCommercePage({ searchParams }: { searchParams
       <p className="mt-3 text-sm leading-7 text-slate-600">حالة الربط وآخر تحديث ناجح، ومحاولات المزامنة والإشعارات المسجلة. الأوقات بتوقيت الرياض.</p>
       <Link href="/admin/whatsapp" className="mt-4 inline-flex min-h-11 items-center text-sm font-bold text-emerald-700">متابعة عامل التشغيل</Link>
     </header>
+    <section aria-label="إعداد تطبيق سلة" className="rounded-2xl border border-slate-200 bg-white p-5">
+      <h2 className="text-lg font-black text-slate-950">إعداد تطبيق سلة</h2>
+      <p className="mt-2 text-sm leading-7 text-slate-600">طابق المعرّفات العامة مع التطبيق في بوابة شركاء سلة عند تشخيص الربط. فحص الاشتراك لا يغيّر الباقة ولا ينشئ دفعة.</p>
+      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3"><div><dt className="text-slate-500">معرّف التطبيق</dt><dd dir="ltr" className="mt-1 break-all font-mono">{publicAppId ?? "صيغة غير صالحة"}</dd></div><div><dt className="text-slate-500">معرّف عميل OAuth العام</dt><dd dir="ltr" className="mt-1 break-all font-mono">{publicClientId ?? "غير متاح بصيغة UUID"}</dd></div><div><dt className="text-slate-500">إعداد الخدمة</dt><dd className="mt-1">{sallaConfigured() ? "الإعدادات المطلوبة موجودة" : "الإعدادات غير مكتملة"}</dd></div></dl>
+    </section>
     <section aria-label="ملخص الصفحة الحالية" className="grid gap-3 sm:grid-cols-3">
       {[ ["إجمالي التكاملات", total], ["متأخرة في هذه الصفحة", delayed], ["تحتاج تدخلًا في هذه الصفحة", needsAction] ].map(([label, value]) => <article key={label} className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-xs text-slate-500">{label}</p><p className="mt-2 text-2xl font-black text-slate-950">{value.toLocaleString("ar-SA")}</p></article>)}
     </section>
@@ -63,6 +76,7 @@ export default async function AdminCommercePage({ searchParams }: { searchParams
         <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-words text-base font-black text-slate-950">{row.business.name}</h2><p className="mt-1 break-words text-sm text-slate-600">{providerNames[row.provider] ?? "مزود غير معروف"} · {row.displayName || "متجر المنشأة"}</p></div><span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700">{health.label}</span></div>
         <p className="mt-3 text-sm leading-7 text-slate-600">{row.provider === "zid" ? "الربط الحي بزد غير مفعل؛ يلزم التطبيق الرسمي وصلاحياته." : health.detail}</p>
         <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-2"><div><dt className="text-slate-500">آخر تحديث ناجح</dt><dd className="mt-1 font-bold text-slate-900">{time(row.lastWebhookAt)}</dd></div><div><dt className="text-slate-500">عمر آخر نجاح</dt><dd className="mt-1 font-bold text-slate-900">{age(row.lastWebhookAt, now)}</dd></div><div><dt className="text-slate-500">رمز الخطأ</dt><dd className="mt-1 break-all font-mono text-slate-700" dir="ltr">{safeCode(row.lastErrorCode)}</dd></div>{row.shopifyWebhookSync ? <div><dt className="text-slate-500">محاولات تسجيل إشعارات Shopify</dt><dd className="mt-1 font-bold text-slate-900">{row.shopifyWebhookSync.attemptCount} · {safeCode(row.shopifyWebhookSync.lastErrorCode)}</dd></div> : null}</dl>
+        {row.provider === "salla" && row.status === "active" ? <SallaAdminSubscriptionCheck integrationId={row.id} /> : null}
       </article>; })}
       {!integrations.length ? <p className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">لا توجد تكاملات في هذه الصفحة.</p> : null}
     </section>
