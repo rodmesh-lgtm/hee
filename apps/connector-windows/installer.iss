@@ -26,6 +26,7 @@ OutputBaseFilename=INFRO-Connector-Setup
 #endif
 [Files]
 Source: "build\INFROConnector.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "build\INFROConnectorService.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "build\infro-live-connector.mjs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]

@@ -55,7 +55,7 @@ namespace Infro.Live {
     }
     internal static int Run(string exe, string args) {
       using(var process = Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute=false, CreateNoWindow=true })) {
-        if(!process.WaitForExit(30000)) { process.Kill(); throw new TimeoutException(); }
+        if(!process.WaitForExit(30000)) { process.Kill(); throw new System.TimeoutException(); }
         return process.ExitCode;
       }
     }
@@ -65,7 +65,7 @@ namespace Infro.Live {
         catch(InvalidOperationException) { /* Not installed yet. */ }
       }
     }
-    internal static void InstallService() {
+    internal static void InstallService(bool smoke=false) {
       string pf=Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
       if(!Path.GetFullPath(App).StartsWith(pf+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("INSTALL_IN_PROGRAM_FILES");
       string sc = Path.Combine(Environment.SystemDirectory,"sc.exe");
@@ -73,7 +73,7 @@ namespace Infro.Live {
       using(var service = new ServiceController(ServiceName)) {
         bool exists; try { var status=service.Status; exists=true; } catch(InvalidOperationException) { exists=false; }
         // sc.exe receives a quoted executable path; all arguments are platform constants.
-        string arguments = (exists ? "config " : "create ") + ServiceName + " binPath= \"\\\"" + Path.Combine(App,"INFROConnector.exe") + "\\\" --service\" start= delayed-auto obj= \"NT AUTHORITY\\LocalService\" DisplayName= \"INFRO Live Connector\"";
+        string arguments = (exists ? "config " : "create ") + ServiceName + " binPath= \"\\\"" + Path.Combine(App,"INFROConnectorService.exe") + "\\\" " + (smoke?"--service-smoke":"--service") + "\" start= delayed-auto obj= \"NT AUTHORITY\\LocalService\" DisplayName= \"INFRO Live Connector\"";
         if(Run(sc,arguments)!=0) throw new InvalidOperationException("SERVICE_INSTALL_FAILED");
       }
       if(Run(sc,"failure " + ServiceName + " reset= 86400 actions= restart/15000/restart/30000/restart/60000")!=0) throw new InvalidOperationException("SERVICE_RECOVERY_FAILED");
@@ -115,6 +115,16 @@ namespace Infro.Live {
       child.Start(); job.Add(child); child.BeginOutputReadLine(); child.BeginErrorReadLine();
     }
     protected override void OnStop() { var current=child; child=null; if(job!=null)job.Dispose(); if(current!=null)current.Dispose(); }
+  }
+
+  sealed class SmokeService : ServiceBase {
+    ChildJob job; Process process;
+    internal SmokeService() {ServiceName=Paths.ServiceName;AutoLog=false;}
+    protected override void OnStart(string[] args) {
+      job=new ChildJob();process=Process.Start(new ProcessStartInfo(Path.Combine(Environment.SystemDirectory,"cmd.exe"),"/c ping -t 127.0.0.1 >NUL") {UseShellExecute=false,CreateNoWindow=true});job.Add(process);
+      File.WriteAllText(Path.Combine(Paths.Root,"smoke.pid"),process.Id.ToString());
+    }
+    protected override void OnStop() {if(job!=null)job.Dispose();if(process!=null)process.Dispose();}
   }
 
   static class Discovery {
@@ -227,6 +237,18 @@ namespace Infro.Live {
         if(!Discovery.Parse(packet).SequenceEqual(new[]{"192.168.8.44"}))Environment.Exit(3);
         try {Discovery.Parse(Encoding.UTF8.GetBytes("<!DOCTYPE x [<!ENTITY e SYSTEM 'file:///C:/Windows/win.ini'>]><x>&e;</x>"));Environment.Exit(4);}catch(XmlException){}
         Environment.Exit(0);return;
+      }
+      if(args.Contains("--service-smoke")) {ServiceBase.Run(new SmokeService());return;}
+      if(args.Contains("--service-control-test")) {
+        Paths.Protect();string marker=Path.Combine(Paths.Root,"smoke.pid");if(File.Exists(marker))File.Delete(marker);
+        try {
+          Paths.InstallService(true);
+          for(int i=0;i<50&&!File.Exists(marker);i++)Thread.Sleep(100);
+          int pid=Int32.Parse(File.ReadAllText(marker));
+          using(var process=Process.GetProcessById(pid)) {Paths.StopService();if(!process.WaitForExit(5000))Environment.Exit(5);}
+          return;
+        }catch {Environment.ExitCode=6;}finally{Paths.StopService();Paths.Run(Path.Combine(Environment.SystemDirectory,"sc.exe"),"delete "+Paths.ServiceName);}
+        return;
       }
       if(args.Contains("--service")) {ServiceBase.Run(new ConnectorService());return;}
       if(args.Contains("--stop-service")) {Paths.StopService();return;}

@@ -17,6 +17,9 @@ jobs:
       - name: Compile, security checks and package internal installer
         shell: powershell
         run: ./apps/connector-windows/build.ps1
+      - name: Install, exercise LocalService and uninstall on Windows
+        shell: powershell
+        run: ./apps/connector-windows/smoke.ps1
       - name: Upload internal test installer (not a signed customer release)
         uses: actions/upload-artifact@v4
         with:
