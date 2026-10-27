@@ -59,7 +59,11 @@ export async function checkLiveStationAction(_: LiveViewState, form: FormData): 
   } catch { /* Never return gateway URLs, network details or credentials. */ }
   await db.liveViewStation.updateMany({ where: { id, businessId: who.business.id, configVersion: station.configVersion, streamKey: station.streamKey }, data: { lastCheckedAt: new Date(), lastOnline: online } });
   revalidatePath("/dashboard/live-view");
-  return online ? { success: "نجح فحص قائمة البث. اختبر الصورة والصوت من جلسة تجريبية قبل مشاركة الرابط." } : { error: "لم يصل بث صالح من الكاميرا. تحقق من إعداد البوابة والاتصال." };
+  if(online)return {success:"وصلت قائمة البث إلى المنصة. افتح جلسة تجريبية للتحقق من الصورة قبل مشاركة الرابط."};
+  if(!station.connectorId)return {error:"المحطة غير مرتبطة بموصل كاميرات. افتح إعداد الكاميرات، ثم إعدادات هذه المحطة، وحدد الموقع المتصل وعنوان جهاز التسجيل والقناة وبيانات دخوله."};
+  if(!station.cameraHost||!station.credentialEnvelope)return {error:"الموصل مقترن لكن مصدر الكاميرا غير مكتمل. أكمل عنوان الجهاز والقناة وبيانات الدخول من إعدادات الكاميرا."};
+  const recent=station.inputCheckedAt&&Date.now()-station.inputCheckedAt.getTime()<60_000;
+  return {error:recent&&station.inputStatus==="unsupported_codec"?"وصل الموصل إلى الكاميرا لكن ترميز الفيديو غير مدعوم. اضبط البث الفرعي للقناة المختارة على H.264 ثم أعد الفحص.":recent&&station.inputStatus==="unreachable"?"الموصل متصل بالمنصة لكنه لم يتمكن من قراءة الكاميرا. تحقق من عنوان الجهاز والقناة وبيانات الدخول؛ اختبر قراءة القناة محليًا وتحقق من إعداد RTSP.":recent&&station.inputStatus==="publishing"?"الموصل يحاول رفع الفيديو لكن خادم البث لم يؤكد استقباله بعد. يحتاج دعم INFRO فحص بوابة البث؛ لا تُعد الاقتران.":"لم يصل الفيديو بعد. افتح إعداد الكاميرات وراجع حالة المصدر، ثم اضغط فحص الكاميرا من الموقع."};
 }
 export async function createLiveSessionAction(_: LiveViewState, form: FormData): Promise<LiveViewState> {
   const who = await actor(); if (!who) return { error: "غير مصرح أو محاولات كثيرة." };
