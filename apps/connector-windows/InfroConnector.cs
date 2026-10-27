@@ -183,7 +183,14 @@ namespace Infro.Live {
     }
     void AddLabel(Control parent,string text,int size) { parent.Controls.Add(new Label { Text=text,Width=650,AutoSize=true,MaximumSize=new Size(650,0),Font=new Font("Segoe UI",size),Margin=new Padding(0,0,0,14) }); }
     void AddButton(Control parent,string text,Func<Task> action) { var button=new Button { Text=text,Width=650,Height=42,Margin=new Padding(0,0,0,12) };button.Click+=async(s,e)=>await Work(action);parent.Controls.Add(button); }
-    async Task Work(Func<Task> action) { if(busy)return;busy=true;pair.Enabled=false;try {await action();}catch {state.Text="تعذر إكمال الخطوة. تحقق من اتصال الإنترنت والمتطلبات ورمز الاقتران، ثم أعد المحاولة. لم تُحفظ كلمات مرور في سجل التشخيص.";}finally{busy=false;pair.Enabled=true;} }
+    async Task Work(Func<Task> action) { if(busy)return;busy=true;pair.Enabled=false;try {await action();}catch(Exception error) {
+      switch(error.Message) {
+        case "MISSING_NODE": state.Text="لم يُعثر على Node.js على مستوى الجهاز. اضغط تجهيز أدوات البث، وأكمل نافذة التثبيت.";break;
+        case "MISSING_FFMPEG": case "MISSING_FFPROBE": state.Text="أدوات الفيديو غير مكتملة على مستوى الجهاز. اضغط تجهيز أدوات البث أو اطلب مساعدة الدعم.";break;
+        case "INSTALL_IN_PROGRAM_FILES": state.Text="شغّل البرنامج المثبت من قائمة ابدأ. الخدمة تحتاج تثبيت البرنامج داخل Program Files.";break;
+        default: state.Text="تعذر إكمال الخطوة. تحقق من الإنترنت والمتطلبات ورمز الاقتران. إذا لم تفتح نافذة تثبيت الأدوات، تأكد من توفر App Installer من Microsoft.";break;
+      }
+    }finally{busy=false;pair.Enabled=true;} }
     static void OpenAccount() { Process.Start(new ProcessStartInfo("https://hub.ir.sa/dashboard/live-view/setup") { UseShellExecute=true }); }
     async Task InstallTools() {
       state.Text="سيُفتح مدير حزم Windows لتثبيت Node.js وFFmpeg على مستوى الجهاز. راجع أي شروط أو موافقات تظهر في نوافذ التثبيت.";
