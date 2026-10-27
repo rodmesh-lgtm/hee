@@ -20,6 +20,8 @@ $diagnostic = Join-Path $state 'service-status.json'
 Remove-Item $diagnostic -Force -ErrorAction SilentlyContinue
 try {
  [Environment]::SetEnvironmentVariable('PATH', "$runtime;$originalPath", 'Machine')
+ $prepare = Start-Process (Join-Path $location 'INFROConnectorService.exe') -ArgumentList '--prepare-runtime' -Wait -PassThru
+ if ($prepare.ExitCode -ne 0) { throw 'Preparing real runtime paths failed' }
  $arguments = 'create InfroLiveConnector binPath= "\"' + (Join-Path $location 'INFROConnectorService.exe') + '\" --service-runtime-check" start= demand obj= "NT AUTHORITY\LocalService"'
  $registration = New-Object Diagnostics.Process
  $registration.StartInfo.FileName = Join-Path $env:WINDIR 'System32\sc.exe'
@@ -44,5 +46,6 @@ try {
  & sc.exe delete InfroLiveConnector
  [Environment]::SetEnvironmentVariable('PATH', $originalPath, 'Machine')
  Remove-Item $tokenFile -Force -ErrorAction SilentlyContinue
+ Remove-Item (Join-Path $state "runtime.json") -Force -ErrorAction SilentlyContinue
  Remove-Item $runtime -Recurse -Force -ErrorAction SilentlyContinue
 }

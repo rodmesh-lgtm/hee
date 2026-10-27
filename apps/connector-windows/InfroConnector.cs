@@ -55,6 +55,31 @@ namespace Infro.Live {
         Directory.SetAccessControl(path, acl);
       }
     }
+    [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]
+    static extern uint GetFinalPathNameByHandle(Microsoft.Win32.SafeHandles.SafeFileHandle handle,StringBuilder path,uint length,uint flags);
+    internal static string ResolveMachineBinary(string path) {
+      using(var file=File.Open(path,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete)) {
+        var buffer=new StringBuilder(32768);uint length=GetFinalPathNameByHandle(file.SafeFileHandle,buffer,(uint)buffer.Capacity,0);
+        if(length==0||length>=buffer.Capacity)throw new InvalidOperationException("RUNTIME_PATH_RESOLUTION_FAILED");
+        string actual=buffer.ToString();if(actual.StartsWith("\\\\?\\",StringComparison.Ordinal))actual=actual.Substring(4);
+        string pf=Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        if(!actual.StartsWith(pf+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("UNSAFE_MACHINE_RUNTIME");
+        return actual;
+      }
+    }
+    internal static void PrepareRuntime() {
+      Protect();string node=Binary("node"),ffmpeg=Binary("ffmpeg"),ffprobe=Binary("ffprobe");
+      if(Path.GetDirectoryName(ffmpeg)!=Path.GetDirectoryName(ffprobe))throw new InvalidOperationException("MEDIA_RUNTIME_DIRECTORY_MISMATCH");
+      string path=Path.Combine(State,"runtime.json");
+      File.WriteAllText(path,Json.Serialize(new {node=node,ffmpeg=ffmpeg,ffprobe=ffprobe}),new UTF8Encoding(false));
+    }
+    internal static string ServiceBinary(string name) {
+      var data=Json.Deserialize<Dictionary<string,string>>(File.ReadAllText(Path.Combine(State,"runtime.json")));
+      string value=data[name],pf=Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+      if(!Path.IsPathRooted(value)||!Path.GetFullPath(value).StartsWith(pf+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)||!String.Equals(Path.GetFileName(value),name+".exe",StringComparison.OrdinalIgnoreCase)||!File.Exists(value))throw new InvalidOperationException("INVALID_SAVED_RUNTIME");
+      return value;
+    }
+    // Resolve portable aliases once as the installer, then persist actual machine paths.
     // Service executes only machine-wide installations, never a user's PATH/current directory.
     internal static string Binary(string name) {
       string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
@@ -66,7 +91,7 @@ namespace Infro.Live {
         string directory = Path.GetFullPath(Environment.ExpandEnvironmentVariables(raw.Trim().Trim('"')));
         if(!directory.StartsWith(pf + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) continue;
         string file = Path.Combine(directory, name + ".exe");
-        if(File.Exists(file)) return file;
+        if(File.Exists(file)) return ResolveMachineBinary(file);
       }
       throw new InvalidOperationException("MISSING_" + name.ToUpperInvariant());
     }
@@ -124,7 +149,7 @@ namespace Infro.Live {
     protected override void OnStart(string[] args) {
       try {
       Paths.ServiceStatus("starting","STARTING");
-      string node=Paths.Binary("node"),media=Path.GetDirectoryName(Paths.Binary("ffmpeg"));
+      string node=Paths.ServiceBinary("node"),media=Path.GetDirectoryName(Paths.ServiceBinary("ffmpeg"));
       if(!File.Exists(Path.Combine(media,"ffprobe.exe")) || !File.Exists(Path.Combine(Paths.State,"connector.json"))) throw new InvalidOperationException("SETUP_REQUIRED");
       job=new ChildJob();
       child=new Process { StartInfo=new ProcessStartInfo(node, Paths.Quote(Path.Combine(Paths.App,"infro-live-connector.mjs")) + " --run --state-directory " + Paths.Quote(Paths.State) + " --ffmpeg-directory " + Paths.Quote(media)+(startupCheck?" --startup-check":"")) { UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=Paths.App,RedirectStandardOutput=true,RedirectStandardError=true }, EnableRaisingEvents=false };
@@ -195,7 +220,7 @@ namespace Infro.Live {
       code.Width=650;code.MaxLength=43;code.RightToLeft=RightToLeft.No;code.UseSystemPasswordChar=true;layout.Controls.Add(code);
       pair.Text="ربط هذا الكمبيوتر وتشغيل الخدمة";pair.Width=650;pair.Height=44;pair.Click+=async(s,e)=>await Work(async()=>await Pair());layout.Controls.Add(pair);
       state.Width=650;state.Height=80;layout.Controls.Add(state);
-      AddButton(layout,"تشغيل الخدمة بعد اكتمال الاقتران",async()=>{if(!File.Exists(Path.Combine(Paths.State,"connector.json")))throw new InvalidOperationException("PAIRING_REQUIRED");state.Text="جارٍ تشغيل خدمة INFRO. قد يستغرق بدء الخدمة نصف دقيقة؛ يمكنك إبقاء النافذة مفتوحة.";await Task.Run(()=>{Paths.StopService();Paths.InstallService();});RefreshStatus();});
+      AddButton(layout,"تشغيل الخدمة بعد اكتمال الاقتران",async()=>{if(!File.Exists(Path.Combine(Paths.State,"connector.json")))throw new InvalidOperationException("PAIRING_REQUIRED");state.Text="جارٍ تشغيل خدمة INFRO. قد يستغرق بدء الخدمة نصف دقيقة؛ يمكنك إبقاء النافذة مفتوحة.";await Task.Run(()=>{Paths.PrepareRuntime();Paths.StopService();Paths.InstallService();});RefreshStatus();});
       AddButton(layout,"البحث عن أجهزة الكاميرات في شبكة الفرع",async()=> { devices.Items.Clear(); var hosts=await Task.Run(()=>Discovery.Search()); foreach(string host in hosts)devices.Items.Add(host); state.Text=hosts.Length==0?"لم تظهر أجهزة. يمكنك إضافة عنوان الجهاز يدويًا في INFRO؛ بعض الأجهزة لا تدعم الاكتشاف.":"حدد عنوان الجهاز ثم انسخه لإضافته في لوحة INFRO. الاكتشاف لا يعني تأكيد صلاحية البث."; });
       devices.Width=650;devices.Height=90;devices.RightToLeft=RightToLeft.No;layout.Controls.Add(devices);
       AddButton(layout,"نسخ عنوان الجهاز المحدد",()=>{if(devices.SelectedItem!=null)Clipboard.SetText(devices.SelectedItem.ToString());return Task.CompletedTask;});
@@ -232,7 +257,7 @@ namespace Infro.Live {
       string legacy=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),".infro-live","connector.json");
       if(File.Exists(legacy)) {state.Text="يوجد موصل يدوي سابق لهذا المستخدم. افصل موقعه من حساب INFRO وأوقف مهمة INFRO Live Connector قبل نقل الفرع إلى الخدمة الجديدة.";return;}
       if(File.Exists(Path.Combine(Paths.State,"connector.json"))) {state.Text="هذا الكمبيوتر مقترن بالفعل. لإعادة تشغيله استخدم زر تشغيل الخدمة؛ لنقل الفرع تواصل مع الدعم لإلغاء الاقتران السابق بأمان.";return;}
-      Paths.Protect();await Task.Run(()=>Paths.StopService());
+      await Task.Run(()=>{Paths.PrepareRuntime();Paths.StopService();});
       ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;
       var handler=new HttpClientHandler {AllowAutoRedirect=false};
       using(var client=new HttpClient(handler) {Timeout=TimeSpan.FromSeconds(20)}) {
@@ -273,6 +298,7 @@ namespace Infro.Live {
         try {Discovery.Parse(Encoding.UTF8.GetBytes("<!DOCTYPE x [<!ENTITY e SYSTEM 'file:///C:/Windows/win.ini'>]><x>&e;</x>"));Environment.Exit(4);}catch(XmlException){}
         Environment.Exit(0);return;
       }
+      if(args.Contains("--prepare-runtime")) {try{Paths.PrepareRuntime();}catch{Environment.ExitCode=8;}return;}
       if(args.Contains("--service-runtime-check")) {ServiceBase.Run(new ConnectorService(true));return;}
       if(args.Contains("--service-smoke")) {ServiceBase.Run(new SmokeService());return;}
       if(args.Contains("--service-control-test")) {
