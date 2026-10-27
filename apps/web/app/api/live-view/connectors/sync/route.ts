@@ -1,6 +1,6 @@
 import { db } from "../../../../lib/db";
 import { livePrivateHeaders } from "../../../../lib/live-view/access";
-import { connectorForRequest, connectorPlatformConfig } from "../../../../lib/live-view/connector-server";
+import { ConnectorRequestError, connectorForRequest, connectorPlatformConfig } from "../../../../lib/live-view/connector-server";
 import { openCameraCredentials } from "../../../../lib/live-view/credentials";
 import { cameraRtspUrl } from "../../../../lib/live-view/camera-profiles";
 import { publisherPassword } from "../../../../lib/live-view/connector-policy";
@@ -27,5 +27,5 @@ export async function GET(request:Request) {
       return Boolean(result.count);
     });
     return permitted?reply(200,{pollSeconds:10,cameras}):reply(401,{error:"unauthorized"});
-  }catch{return reply(503,{error:"configuration_unavailable"});}
+  }catch(error){if(error instanceof ConnectorRequestError)return reply(error.status,{error:error.message});return reply(503,{error:"configuration_unavailable"});}
 }

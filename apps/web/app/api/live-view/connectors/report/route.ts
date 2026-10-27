@@ -1,6 +1,6 @@
 import { db } from "../../../../lib/db";
 import { livePrivateHeaders } from "../../../../lib/live-view/access";
-import { boundedJson, connectorForRequest } from "../../../../lib/live-view/connector-server";
+import { boundedJson, ConnectorRequestError, connectorForRequest } from "../../../../lib/live-view/connector-server";
 import { fetchLiveMedia, readBoundedMedia } from "../../../../lib/live-view/gateway";
 import { rewriteLivePlaylist } from "../../../../lib/live-view/policy";
 export const runtime="nodejs";
@@ -19,5 +19,5 @@ export async function POST(request:Request) {
     // from a source that was edited or detached can never certify a new camera.
     await db.liveViewStation.updateMany({where:{id:station.id,businessId:connector.businessId,connectorId:connector.id,configVersion:body.version,probeNonce:body.nonce,enabled:true,connector:{tokenHash:connector.tokenHash,revokedAt:null}},data:{inputStatus:body.status,inputCheckedAt:new Date(),lastOnline:live,...(live?{lastCheckedAt:new Date()}:{})}});
     return reply(204);
-  }catch{return reply(503);}
+  }catch(error){return reply(error instanceof ConnectorRequestError?error.status:503);}
 }
