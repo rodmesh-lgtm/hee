@@ -233,3 +233,22 @@ delivery, uninstall/reinstall and subscription billing tests remain release gate
   not a completed live demo uninstall or message-delivery acceptance test.
 - Google sign-in is still awaiting user passkey verification; no repeated
   authentication attempts or Meta restriction retries were made.
+
+
+## 2026-10-27: isolated administrative verification
+
+- Google sign-in completed, but the active customer business is Khuzama, not
+  the Salla review tenant. No test store was linked to that production business.
+- Separate Salla Partners and INFRO admin sign-ins completed securely, including
+  Salla email OTP. No credentials or verification codes were read in chat.
+- Added an admin-only, rate-limited per-store subscription check to commerce
+  health. It resolves the business from the selected integration, invokes the
+  existing encrypted token reader and returns only the subscription allowlist
+  or safe provider status. It never grants access or creates a payment.
+- Admin commerce displays only validated public Salla app/client identifiers
+  for comparison with Partners. Client secrets, webhook secrets, token material
+  and arbitrary malformed configuration values remain excluded.
+- Arabic app-name shortening was attempted in the Partners draft but did not
+  persist after reload. Do not claim the listing name was corrected. Existing
+  brief/detail text and Meta fee disclosure remain visible.
+- Validation: scoped ESLint, TypeScript and 13 injected integration checks passed.
