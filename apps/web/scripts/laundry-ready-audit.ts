@@ -15,7 +15,7 @@ async function main(){
  await db.subscription.create({data:{businessId:business.id,planId:plan.id,provider:"internal",status:"active",startsAt:new Date(Date.now()-60000),endsAt:new Date(Date.now()+86400000)}});
  const connection=await db.whatsAppConnection.create({data:{businessId:business.id,provider:"meta",status:"connected",marketingEnabled:true,wabaId:randomUUID(),phoneNumberId:randomUUID(),credentialEnvelope:{}}});
  const template=await db.whatsAppTemplate.create({data:{businessId:business.id,connectionId:connection.id,providerTemplateId:randomUUID(),name:"infro_laundry_ready",language:"ar",category:"utility",status:"approved",providerStatus:"APPROVED",components:[{type:"BODY",text:LAUNDRY_READY_TEMPLATE_EXAMPLE}],rawPayload:{},lastSyncedAt:new Date()}});
- await db.whatsAppAutomation.create({data:{businessId:business.id,connectionId:connection.id,name:"Ready",status:"active",triggerType:"laundry_ready",triggerConfig:{version:1},actionConfig:{templateId:template.id},cooldownMinutes:0,createdByUserId:user.id}});
+ await db.whatsAppAutomation.create({data:{businessId:business.id,connectionId:connection.id,name:"Ready",status:"active",activatedAt:new Date(Date.now()-60000),triggerType:"laundry_ready",triggerConfig:{version:1},actionConfig:{templateId:template.id},cooldownMinutes:0,createdByUserId:user.id}});
  let sequence=0;
  async function ticket(consent:boolean,status="ready"){
   const id=randomUUID();const number=++sequence;
