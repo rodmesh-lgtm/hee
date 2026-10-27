@@ -1,5 +1,5 @@
 # Ephemeral CI host only: executes the REAL Node startup under LocalService.
-# Media tools here are version-only fixtures; no camera/video/network test is claimed.
+# Uses hash-verified real FFmpeg/FFprobe. No camera or remote API is contacted.
 $ErrorActionPreference = 'Stop'
 $runtime = Join-Path $env:ProgramFiles 'INFRO\RuntimeTest'
 $state = Join-Path $env:ProgramData 'INFRO\Live\State'
@@ -7,12 +7,13 @@ $location = Join-Path $env:ProgramFiles 'INFRO\Live Connector'
 $originalPath = [Environment]::GetEnvironmentVariable('PATH', 'Machine')
 New-Item -ItemType Directory -Force $runtime | Out-Null
 Copy-Item (Get-Command node.exe).Source (Join-Path $runtime 'node.exe')
-$fixture = Join-Path $runtime 'VersionFixture.cs'
-'class VersionFixture { static void Main() { System.Console.WriteLine("version-only CI media fixture"); } }' | Set-Content $fixture -Encoding UTF8
-$csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-& $csc /nologo /target:exe "/out:$runtime\ffmpeg.exe" $fixture
-if ($LASTEXITCODE -ne 0) { throw 'Media fixture compile failed' }
-Copy-Item (Join-Path $runtime 'ffmpeg.exe') (Join-Path $runtime 'ffprobe.exe')
+# Exact archive/hash from Microsoft's Gyan.FFmpeg 8.1.2 WinGet manifest.
+$archive = Join-Path $env:RUNNER_TEMP 'infro-ffmpeg-runtime.zip'
+Invoke-WebRequest 'https://github.com/GyanD/codexffmpeg/releases/download/8.1.2/ffmpeg-8.1.2-full_build.zip' -OutFile $archive -UseBasicParsing
+if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne 'B8CDEFAB5F50590A076C27C2B56B0294A0E6154FADED28BA1BA05EBC4F801F57') { throw 'FFmpeg archive hash mismatch' }
+Expand-Archive $archive (Join-Path $env:RUNNER_TEMP 'infro-ffmpeg-runtime')
+Copy-Item (Join-Path $env:RUNNER_TEMP 'infro-ffmpeg-runtime\ffmpeg-8.1.2-full_build\bin\ffmpeg.exe') $runtime
+Copy-Item (Join-Path $env:RUNNER_TEMP 'infro-ffmpeg-runtime\ffmpeg-8.1.2-full_build\bin\ffprobe.exe') $runtime
 $tokenFile = Join-Path $state 'connector.json'
 if (Test-Path $tokenFile) { throw 'Runtime test refuses existing pairing state' }
 [IO.File]::WriteAllText($tokenFile, '{"origin":"https://ir.sa","token":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}', (New-Object Text.UTF8Encoding($false)))
@@ -40,7 +41,7 @@ try {
   Start-Sleep -Milliseconds 200
  }
  if ($code -ne 'OK') { throw "Actual LocalService Node startup failed: $code" }
- Write-Output 'PASS: real Node validated dependencies and saved pairing under LocalService; no external request made.'
+ Write-Output 'PASS: real Node/FFmpeg/FFprobe validated dependencies and saved pairing under LocalService; no external request made.'
 } finally {
  & sc.exe stop InfroLiveConnector
  & sc.exe delete InfroLiveConnector
