@@ -30,6 +30,17 @@ export function trustedPlatformOrigin(raw) {
 }
 export function publisherNeedsRestart(startedAt,now=Date.now()) {return now-startedAt>=240_000;}
 let ffmpegBinary="ffmpeg",ffprobeBinary="ffprobe";
+export function connectorStateDirectory(args, fallback=join(homedir(),".infro-live")) {
+  const index=args.indexOf("--state-directory");
+  if(index===-1)return fallback;
+  const directory=args[index+1];
+  if(!directory||!isAbsolute(directory)||/[\r\n\0]/.test(directory))throw new Error("INVALID_STATE_DIRECTORY");
+  return directory;
+}
+export function connectorStatus(state,cameras=[],now=new Date()) {
+  const allowed=new Set(["probing","publishing","unreachable","unavailable","unsupported_codec"]);
+  return {version:1,state,updatedAt:now.toISOString(),cameras:cameras.slice(0,16).map(c=>({status:allowed.has(c.status)?c.status:"unavailable"}))};
+}
 async function dependency(binary) {
   return new Promise(resolve=>{const p=spawn(binary,["-version"],{stdio:"ignore",shell:false});p.on("error",()=>resolve(false));p.on("close",code=>resolve(code===0));});
 }
@@ -59,19 +70,28 @@ async function enroll(statePath) {
     return state;
   }finally{prompt.close();}
 }
+export function startupFailureCode(error) {
+  const allowed=new Set(["NODE_20_REQUIRED","INVALID_MEDIA_DIRECTORY","INSTALL_FFMPEG_AND_FFPROBE_FIRST","INVALID_STATE_DIRECTORY","INVALID_STATE_USE_PAIR","PAIR_INTERACTIVELY_FIRST"]);
+  if(allowed.has(error?.message))return error.message;
+  if(error?.code==="EACCES"||error?.code==="EPERM")return "STATE_ACCESS_DENIED";
+  return "STARTUP_FAILED";
+}
 export async function main() {
   if(Number(process.versions.node.split(".")[0])<20)throw new Error("NODE_20_REQUIRED");
   const mediaDirIndex=process.argv.indexOf("--ffmpeg-directory");
   if(mediaDirIndex!==-1){const dir=process.argv[mediaDirIndex+1];if(platform()!=="win32"||!dir||!isAbsolute(dir))throw new Error("INVALID_MEDIA_DIRECTORY");ffmpegBinary=join(dir,"ffmpeg.exe");ffprobeBinary=join(dir,"ffprobe.exe");}
   if(!(await dependency(ffmpegBinary))||!(await dependency(ffprobeBinary)))throw new Error("INSTALL_FFMPEG_AND_FFPROBE_FIRST");
-  const dir=join(homedir(),".infro-live");await mkdir(dir,{recursive:true,mode:0o700});await chmod(dir,0o700);
+  const dir=connectorStateDirectory(process.argv);await mkdir(dir,{recursive:true,mode:0o700});await chmod(dir,0o700);
   const statePath=join(dir,"connector.json");let state;
   if(!process.argv.includes("--pair")){try{state=JSON.parse(await readFile(statePath,"utf8"));state.origin=trustedPlatformOrigin(state.origin);if(!/^[A-Za-z0-9_-]{43}$/.test(state.token))throw new Error("INVALID_STATE");}catch(error){if(error.code!=="ENOENT")throw new Error("INVALID_STATE_USE_PAIR");}}
   // Scheduled execution must never wait for an invisible interactive prompt.
   if(!state&&process.argv.includes("--run"))throw new Error("PAIR_INTERACTIVELY_FIRST");
   if(!state)state=await enroll(statePath);
   if(process.argv.includes("--pair-only")){console.log("INFRO pairing saved. You can now enable automatic startup.");return;}
+  if(process.argv.includes("--startup-check")){console.error("INFRO_STARTUP_OK");return;}
   const workers=new Map();let stopping=false;
+  // Fixed statuses only: never persist URLs, tokens, camera names or raw process output.
+  const status=async value=>{try{const path=join(dir,"status.json"),temp=`${path}.tmp`;await writeFile(temp,JSON.stringify(connectorStatus(value,[...workers.values()])),{mode:0o600});await rename(temp,path);}catch{/* Status is observational; never affects access decisions. */}};
   const api=(path,options={})=>fetch(`${state.origin}/api/live-view/connectors/${path}`,{...options,headers:{Authorization:`Bearer ${state.token}`,"Content-Type":"application/json"},redirect:"error",signal:AbortSignal.timeout(12_000)});
   const report=async worker=>{try{await api("report",{method:"POST",body:JSON.stringify({id:worker.camera.id,version:worker.camera.version,nonce:worker.camera.nonce,status:worker.status})});}catch{/* Report only fixed status values, never raw FFmpeg output. */}};
   function stop(worker){worker.cancelled=true;worker.proc?.kill("SIGTERM");if(worker.proc){const proc=worker.proc;setTimeout(()=>{if(proc.exitCode===null)proc.kill("SIGKILL");},2000).unref();}}
@@ -91,7 +111,11 @@ export async function main() {
   while(!stopping){
     try{
       const response=await api("sync");
-      if(response.status===401){finish();console.error("Connection revoked. Generate a new code in INFRO and restart with --pair.");break;}
+      if(response.status===401){finish();await status("revoked");console.error("INFRO_STARTUP_CONNECTION_NOT_AUTHORIZED");break;}
+      if(response.status===403||response.status===429){
+        stopAll();await status(response.status===403?"access_required":"rate_limited");
+        await new Promise(resolve=>setTimeout(resolve,response.status===429?30_000:10_000));continue;
+      }
       if(!response.ok)throw new Error("SYNC_FAILED");
       const data=await response.json();if(!Array.isArray(data.cameras)||data.cameras.length>16)throw new Error("INVALID_CONFIG");
       if(data.cameras.some(camera=>!validAgentCamera(camera)))throw new Error("INVALID_CONFIG");
@@ -104,9 +128,10 @@ export async function main() {
       }
       // Parallel, bounded reports (max 16) cannot block the sync heartbeat.
       await Promise.allSettled([...workers.values()].map(report));
+      await status("connected");
       if(offline){console.log("INFRO connection restored.");offline=false;}
-    }catch{stopAll();if(!offline){console.error("INFRO unreachable. Video upload paused until a secure connection returns.");offline=true;}}
+    }catch{stopAll();await status("offline");if(!offline){console.error("INFRO unreachable. Video upload paused until a secure connection returns.");offline=true;}}
     if(!stopping)await new Promise(resolve=>setTimeout(resolve,10_000));
   }
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){main().catch(()=>{console.error("Connector could not start. Check Node/FFmpeg, pairing and network access. No camera credentials were logged.");process.exitCode=1;});}
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){main().catch(error=>{console.error(`INFRO_STARTUP_${startupFailureCode(error)}`);process.exitCode=1;});}

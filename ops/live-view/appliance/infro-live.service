@@ -1,0 +1,31 @@
+[Unit]
+Description=INFRO Live camera connector
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=infro-live
+Group=infro-live
+StateDirectory=infro-live
+StateDirectoryMode=0700
+WorkingDirectory=/opt/infro-live
+ExecStart=/usr/bin/node /opt/infro-live/infro-live-connector.mjs --run --state-directory /var/lib/infro-live
+Restart=always
+RestartSec=15
+TimeoutStopSec=15
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/infro-live
+
+[Install]
+WantedBy=multi-user.target
