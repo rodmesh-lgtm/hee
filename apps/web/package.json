@@ -54,7 +54,8 @@
     "seed": "tsx prisma/seed.ts"
   },
   "overrides": {
-    "nanoid": "3.3.18"
+    "nanoid": "3.3.18",
+    "zod": "$zod"
   },
   "allowScripts": {
     "@prisma/client@5.22.0": true,
@@ -84,7 +85,7 @@
     "read-excel-file": "9.3.10",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.11",
