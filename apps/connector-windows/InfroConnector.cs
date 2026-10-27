@@ -119,20 +119,20 @@ namespace Infro.Live {
   }
 
   sealed class ConnectorService : ServiceBase {
-    Process child; ChildJob job;
-    internal ConnectorService() { ServiceName=Paths.ServiceName; CanStop=true; AutoLog=false; }
+    Process child; ChildJob job; string startupCode; readonly bool startupCheck;
+    internal ConnectorService(bool check=false) { startupCheck=check;ServiceName=Paths.ServiceName; CanStop=true; AutoLog=false; }
     protected override void OnStart(string[] args) {
       try {
       Paths.ServiceStatus("starting","STARTING");
       string node=Paths.Binary("node"),media=Path.GetDirectoryName(Paths.Binary("ffmpeg"));
       if(!File.Exists(Path.Combine(media,"ffprobe.exe")) || !File.Exists(Path.Combine(Paths.State,"connector.json"))) throw new InvalidOperationException("SETUP_REQUIRED");
       job=new ChildJob();
-      child=new Process { StartInfo=new ProcessStartInfo(node, Paths.Quote(Path.Combine(Paths.App,"infro-live-connector.mjs")) + " --run --state-directory " + Paths.Quote(Paths.State) + " --ffmpeg-directory " + Paths.Quote(media)) { UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=Paths.App,RedirectStandardOutput=true,RedirectStandardError=true }, EnableRaisingEvents=true };
+      child=new Process { StartInfo=new ProcessStartInfo(node, Paths.Quote(Path.Combine(Paths.App,"infro-live-connector.mjs")) + " --run --state-directory " + Paths.Quote(Paths.State) + " --ffmpeg-directory " + Paths.Quote(media)+(startupCheck?" --startup-check":"")) { UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=Paths.App,RedirectStandardOutput=true,RedirectStandardError=true }, EnableRaisingEvents=false };
       // Drain output without persisting credentials or raw FFmpeg errors.
-      child.OutputDataReceived+=(s,e)=>{}; child.ErrorDataReceived+=(s,e)=>{};
-      child.Exited+=(s,e)=> { if(child!=null) {Paths.ServiceStatus("runtime_exited","NODE_EXIT_"+child.ExitCode);Environment.Exit(1);} };
+      child.OutputDataReceived+=(s,e)=>{}; child.ErrorDataReceived+=(s,e)=>{if(e.Data!=null&&Regex.IsMatch(e.Data,"^INFRO_STARTUP_[A-Z0-9_]{1,70}$"))startupCode=e.Data.Substring(14);};
+      child.Exited+=(s,e)=> {var exited=child;if(exited!=null){try{exited.WaitForExit();Paths.ServiceStatus("runtime_exited",startupCode??("NODE_EXIT_"+exited.ExitCode));}catch{}Environment.Exit(1);} };
       child.Start(); job.Add(child); child.BeginOutputReadLine(); child.BeginErrorReadLine();
-      Paths.ServiceStatus("running","NODE_STARTED");
+      Paths.ServiceStatus("running","NODE_STARTED");child.EnableRaisingEvents=true;
       }catch(Exception error){Paths.ServiceStatus("startup_failed",Paths.FailureCode(error));if(job!=null)job.Dispose();throw;}
     }
     protected override void OnStop() { var current=child; child=null; if(job!=null)job.Dispose(); if(current!=null)current.Dispose(); }
@@ -185,7 +185,7 @@ namespace Infro.Live {
     readonly Label state=new Label(); readonly TextBox code=new TextBox(); readonly ListBox devices=new ListBox(); readonly Button pair=new Button();
     readonly System.Windows.Forms.Timer refresh=new System.Windows.Forms.Timer(); bool busy; DateTime holdUntil=DateTime.MinValue;
     internal SetupForm() {
-      Text="INFRO 0.2.1 — ربط كاميرات الفرع"; Size=new Size(780,720); MinimumSize=Size; Font=new Font("Segoe UI",11); RightToLeft=RightToLeft.Yes; RightToLeftLayout=true; BackColor=Color.FromArgb(246,249,249);
+      Text="INFRO 0.2.2 — ربط كاميرات الفرع"; Size=new Size(780,720); MinimumSize=Size; Font=new Font("Segoe UI",11); RightToLeft=RightToLeft.Yes; RightToLeftLayout=true; BackColor=Color.FromArgb(246,249,249);
       var layout=new FlowLayoutPanel { Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(24) }; Controls.Add(layout);
       AddLabel(layout,"INFRO | موصل الكاميرات",18);
       AddLabel(layout,"اربط هذا الكمبيوتر بفرعك مرة واحدة. إدارة الكاميرات وروابط العملاء تبقى داخل حسابك.",11);
@@ -273,6 +273,7 @@ namespace Infro.Live {
         try {Discovery.Parse(Encoding.UTF8.GetBytes("<!DOCTYPE x [<!ENTITY e SYSTEM 'file:///C:/Windows/win.ini'>]><x>&e;</x>"));Environment.Exit(4);}catch(XmlException){}
         Environment.Exit(0);return;
       }
+      if(args.Contains("--service-runtime-check")) {ServiceBase.Run(new ConnectorService(true));return;}
       if(args.Contains("--service-smoke")) {ServiceBase.Run(new SmokeService());return;}
       if(args.Contains("--service-control-test")) {
         Paths.Protect();string marker=Path.Combine(Paths.Root,"smoke.pid");if(File.Exists(marker))File.Delete(marker);

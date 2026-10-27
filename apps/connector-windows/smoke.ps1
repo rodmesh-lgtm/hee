@@ -7,6 +7,7 @@ $location = Join-Path $env:ProgramFiles 'INFRO\Live Connector'
 try {
   $process = Start-Process (Join-Path $location 'INFROConnectorService.exe') -ArgumentList '--service-control-test' -PassThru -Wait
   if ($process.ExitCode -ne 0) { throw "LocalService/SCM/job smoke failed: $($process.ExitCode)" }
+  & (Join-Path $PSScriptRoot "runtime-smoke.ps1")
 } finally {
   $uninstaller = Join-Path $location 'unins000.exe'
   if (Test-Path $uninstaller) {

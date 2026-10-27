@@ -7,7 +7,7 @@ import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const CONNECTOR_SHA256="c87ee9992e96bc8a53f621e0881ec25c4524f7524c250af5caf52be240022f5a";
+export const CONNECTOR_SHA256="b437957c922c2b1539f6fefab37cf7a85dc18c0efefba23364d9b1ab5fdf1bb1";
 export const TASK_NAME="INFRO Live Connector";
 export function xmlEscape(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]));}
 export function taskXml({sid,node,connector,ffmpegDirectory}){

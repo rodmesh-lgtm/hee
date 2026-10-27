@@ -70,6 +70,12 @@ async function enroll(statePath) {
     return state;
   }finally{prompt.close();}
 }
+export function startupFailureCode(error) {
+  const allowed=new Set(["NODE_20_REQUIRED","INVALID_MEDIA_DIRECTORY","INSTALL_FFMPEG_AND_FFPROBE_FIRST","INVALID_STATE_DIRECTORY","INVALID_STATE_USE_PAIR","PAIR_INTERACTIVELY_FIRST"]);
+  if(allowed.has(error?.message))return error.message;
+  if(error?.code==="EACCES"||error?.code==="EPERM")return "STATE_ACCESS_DENIED";
+  return "STARTUP_FAILED";
+}
 export async function main() {
   if(Number(process.versions.node.split(".")[0])<20)throw new Error("NODE_20_REQUIRED");
   const mediaDirIndex=process.argv.indexOf("--ffmpeg-directory");
@@ -82,6 +88,7 @@ export async function main() {
   if(!state&&process.argv.includes("--run"))throw new Error("PAIR_INTERACTIVELY_FIRST");
   if(!state)state=await enroll(statePath);
   if(process.argv.includes("--pair-only")){console.log("INFRO pairing saved. You can now enable automatic startup.");return;}
+  if(process.argv.includes("--startup-check")){console.error("INFRO_STARTUP_OK");return;}
   const workers=new Map();let stopping=false;
   // Fixed statuses only: never persist URLs, tokens, camera names or raw process output.
   const status=async value=>{try{const path=join(dir,"status.json"),temp=`${path}.tmp`;await writeFile(temp,JSON.stringify(connectorStatus(value,[...workers.values()])),{mode:0o600});await rename(temp,path);}catch{/* Status is observational; never affects access decisions. */}};
@@ -123,4 +130,4 @@ export async function main() {
     if(!stopping)await new Promise(resolve=>setTimeout(resolve,10_000));
   }
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){main().catch(()=>{console.error("Connector could not start. Check Node/FFmpeg, pairing and network access. No camera credentials were logged.");process.exitCode=1;});}
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){main().catch(error=>{console.error(`INFRO_STARTUP_${startupFailureCode(error)}`);process.exitCode=1;});}
