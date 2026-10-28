@@ -17,7 +17,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
  const shop=await db.business.create({data:{ownerId:a.id,planId:plan.id,name:"ورشة الاختبار المعزولة",slug:`shop-${suffix}`,businessType:"WORKSHOP",businessCategory:"ورشة / صيانة سيارات",onboardingCompleted:true}});
  const laundry=await db.business.create({data:{ownerId:b.id,planId:plan.id,name:"مغسلة الاختبار المعزولة",slug:`laundry-${suffix}`,businessType:"خدمات",businessCategory:"مغاسل الملابس",onboardingCompleted:true}});
  for(const business of [shop,laundry])await db.subscription.create({data:{businessId:business.id,planId:plan.id,provider:"mock",status:"active",autoRenew:false,startsAt:new Date(Date.now()-60000),endsAt:new Date(Date.now()+86400000)}});
- await db.businessMember.create({data:{businessId:shop.id,userId:staff.id,role:"member",permissions:[],status:"active"}});
+ await db.businessMember.create({data:{businessId:shop.id,userId:staff.id,role:"viewer",permissions:[],status:"active"}});
  const sa=randomUUID(),sb=randomUUID(),ca=randomUUID(),cb=randomUUID(),ta=randomUUID(),tb=randomUUID();
  const nameA="عميل الورشة الخاص",nameB="عميل المغسلة الخاص",phoneA="+966500000111",phoneB="+966500000222";
  await db.$executeRaw`INSERT INTO "LaundryService"(id,"businessId",name,category,price) VALUES (${sa},${shop.id},'تغيير زيت خاص بالورشة','صيانة دورية',2500),(${sb},${laundry.id},'ثوب — غسيل وكوي','ملابس رجالية',1500),(${'urgent:'+sb},${laundry.id},'ثوب — مستعجل','ملابس رجالية',2000)`;
