@@ -1,5 +1,18 @@
 import test from "node:test";
-import {cashierNoticeTicketsQuery} from "../app/lib/whatsapp/cashier-notice-query";
+import {readFile} from "node:fs/promises";
+import {runInNewContext} from "node:vm";
+import ts from "typescript";
+import {Prisma} from "@prisma/client";
+import * as noticeDomain from "../app/lib/whatsapp/cashier-notice-domain";
+// Domain query tests exercise the post-containment behavior in an isolated VM.
+// No application argument/environment flag can bypass the live security hold.
+async function queryModule(file:string){
+ const source=await readFile(new URL(file,import.meta.url),"utf8");
+ const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ const exports:Record<string,unknown>={};
+ runInNewContext(code,{exports,Math,Error,Date,require:(id:string)=>id==="@prisma/client"?{Prisma}:id==="../accounting-security"?{ACCOUNTING_SECURITY_HOLD:false}:noticeDomain});
+ return exports;
+}
 import assert from "node:assert/strict";
 import {PGlite} from "@electric-sql/pglite";
 import {CASHIER_NOTICES,cashierNoticeEvent,cashierNoticeParameters,cashierNoticeTemplateSupported,reviewUrl} from "../app/lib/whatsapp/cashier-notice-domain";
@@ -22,6 +35,7 @@ test("cashier followups use internal order events, exact approved variables and 
  assert.equal(cashierNoticeParameters("cashier_review_request",ticket),null);
 });
 test("real followup query isolates tenants and rechecks consent, status, balance, activation, opt-outs, and duplicate events",async()=>{
+ const {cashierNoticeTicketsQuery}=await queryModule("../app/lib/whatsapp/cashier-notice-query.ts") as typeof import("../app/lib/whatsapp/cashier-notice-query");
  const d=new PGlite();try{
  await d.exec(`CREATE TABLE "Business"(id text PRIMARY KEY,name text,"deletedAt" timestamptz);
  CREATE TABLE "LaundryTicket"(id text,"businessId" text,number int,phone text,"customerName" text,total int,paid int,status text,"createdAt" timestamptz);
@@ -49,7 +63,7 @@ test("real followup query isolates tenants and rechecks consent, status, balance
 });
 
 test("ready notices exclude pre-activation orders and require the current tenant, phone, status and explicit order consent",async()=>{
- const {readyNoticeQuery}=await import("../app/lib/whatsapp/ready-notice-query");const d=new PGlite();try{
+ const {readyNoticeQuery}=await queryModule("../app/lib/whatsapp/ready-notice-query.ts") as typeof import("../app/lib/whatsapp/ready-notice-query");const d=new PGlite();try{
  await d.exec(`CREATE TABLE "Business"(id text PRIMARY KEY,name text,"deletedAt" timestamptz);CREATE TABLE "LaundryTicket"(id text,"businessId" text,number int,phone text,"customerName" text,status text,"readyNotifyConsentAt" timestamptz,"createdAt" timestamptz);INSERT INTO "Business" VALUES('a','A',NULL),('b','B',NULL);INSERT INTO "LaundryTicket" VALUES('t','a',1,'+966500000000','عميل','ready','2026-10-25T00:00Z','2026-10-25T00:00Z');`);
  const rows=async(businessId='a',phone='+966500000000',activatedAt=new Date('2026-10-24T00:00Z'))=>{const q=readyNoticeQuery(businessId,'t',phone,activatedAt);return (await d.query(q.text,q.values)).rows;};
  assert.equal((await rows()).length,1);assert.equal((await rows('b')).length,0);assert.equal((await rows('a','+966511111111')).length,0);assert.equal((await rows('a','+966500000000',new Date('2026-10-26T00:00Z'))).length,0);

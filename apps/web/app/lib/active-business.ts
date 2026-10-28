@@ -1,4 +1,5 @@
 import "server-only";
+import { ACCOUNTING_SECURITY_HOLD } from "./accounting-security";
 import { commercialAccess } from "./commercial-access";
 
 import { cookies, headers } from "next/headers";
@@ -28,7 +29,9 @@ async function requestedBusinessId() {
 
 export async function getActiveBusinessForUser(userId: string, section?: StaffSection) {
   if (section) {
-    const business = await getDashboardBusinessForUser(userId, section.startsWith("laundry"));
+    // Reject reads and writes before resolving or loading any financial data.
+    if (section.startsWith("laundry") && ACCOUNTING_SECURITY_HOLD) return null;
+    const business = await getDashboardBusinessForUser(userId, true);
     if(!business || !(business.ownerId===userId || memberCanAccess(business.members[0]?.permissions,section)))return null;
     if(section==="liveView"||section.startsWith("laundry")){
       const plan=await commercialAccess(business.id);
@@ -41,7 +44,7 @@ export async function getActiveBusinessForUser(userId: string, section?: StaffSe
     const requested = await db.business.findFirst({
       where: { id: requestedId, ownerId: userId, deletedAt: null },
     });
-    if (requested) return requested;
+    return requested;
   }
 
   return db.business.findFirst({
@@ -75,7 +78,7 @@ export async function getActiveBusinessWithPlanForUser(userId: string, section?:
       where: { id: requestedId, ownerId: userId, deletedAt: null },
       include: { plan: true },
     });
-    if (requested) return withEffectivePlan(requested);
+    return withEffectivePlan(requested);
   }
 
   const first = await db.business.findFirst({
@@ -95,7 +98,7 @@ export async function getOwnedBusinessSummaries(userId: string) {
 }
 
 /** Navigation context only. Mutations and section reads must check an explicit section. */
-export async function getDashboardBusinessForUser(userId: string, requireRequestedBusiness = false) {
+export async function getDashboardBusinessForUser(userId: string, requireRequestedBusiness = true) {
   const requestedId = await requestedBusinessId();
   const include = { members: { where: { userId, status: "active" }, select: { id: true, role: true, permissions: true }, take: 1 } } as const;
   const access = { OR: [{ ownerId: userId }, { members: { some: { userId, status: "active" } } }] };

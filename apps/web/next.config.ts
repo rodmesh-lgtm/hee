@@ -62,6 +62,10 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      ...["/Accounting/:path*", "/Laundromat/:path*", "/admin/accounting-security/:path*"].map(source => ({
+        source,
+        headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate" }],
+      })),
       {
         source: "/(.*)",
         headers: [...baseSecurityHeaders, { key: "Permissions-Policy", value: defaultPermissionsPolicy }],

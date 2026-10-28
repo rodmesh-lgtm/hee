@@ -1,3 +1,4 @@
+import { ACCOUNTING_SECURITY_HOLD } from "../accounting-security";
 import {Prisma} from "@prisma/client";
 import {cashierNotice} from "./cashier-notice-domain";
 /** Same query is used when scheduling and immediately before sending: no stale balances or status. */
@@ -6,7 +7,7 @@ export function cashierNoticeTicketsQuery(input:{businessId:string;trigger:strin
  const status=input.trigger==="cashier_review_request"?"delivered":"ready",cutoff=new Date(input.now.getTime()-n.hours*3600000);
  return Prisma.sql`SELECT t.id,t.number,t.phone,t."customerName",b.name AS "businessName",(t.total-t.paid)::int AS remaining
  FROM "LaundryTicket" t JOIN "Business" b ON b.id=t."businessId"
- WHERE t."businessId"=${input.businessId} AND b."deletedAt" IS NULL AND t.status=${status}
+ WHERE ${!ACCOUNTING_SECURITY_HOLD} AND t."businessId"=${input.businessId} AND b."deletedAt" IS NULL AND t.status=${status}
  AND t."createdAt">=${input.activatedAt} AND t."createdAt"<=${input.now}
  AND EXISTS(SELECT 1 FROM "LaundryAudit" c WHERE c."businessId"=t."businessId" AND c."targetId"=t.id AND c.action=${n.consent} AND c."createdAt"<=${input.now})
  AND (SELECT MAX(s."createdAt") FROM "LaundryAudit" s WHERE s."businessId"=t."businessId" AND s."targetId"=t.id AND s.action='status')<=${cutoff}
