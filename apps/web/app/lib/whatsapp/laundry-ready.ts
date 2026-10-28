@@ -1,3 +1,4 @@
+import { ACCOUNTING_SECURITY_HOLD } from "../accounting-security";
 import "server-only";
 import {readyNoticeQuery} from "./ready-notice-query";
 import type { Prisma } from "@prisma/client";
@@ -9,6 +10,7 @@ export async function laundryReadyContext(db:ReadDb,businessId:string,ticketId:s
  const t=rows[0];return t?laundryReadyParameters(t.customerName,t.businessName,String(t.number)):null;
 }
 export async function enqueueLaundryReady(tx:Prisma.TransactionClient,businessId:string,ticketId:string){
+ if(ACCOUNTING_SECURITY_HOLD)return;
  const tickets=await tx.$queryRaw<Array<{phone:string;customerName:string;createdAt:Date}>>`SELECT phone,"customerName","createdAt" FROM "LaundryTicket" WHERE id=${ticketId} AND "businessId"=${businessId} AND status='ready' AND "readyNotifyConsentAt" IS NOT NULL`;
  const t=tickets[0];if(!t)return;
  const a=await tx.whatsAppAutomation.findFirst({where:{businessId,triggerType:"laundry_ready",status:"active"},select:{id:true,activatedAt:true}});if(!a?.activatedAt||t.createdAt<a.activatedAt)return;

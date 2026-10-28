@@ -1,3 +1,5 @@
+import { ACCOUNTING_SECURITY_HOLD } from "../lib/accounting-security";
+import { AccountingSecurityNotice } from "../Laundromat/security-notice";
 import { getRequestLocale } from "../lib/i18n-server";
 import { uiText } from "../lib/ui-i18n";
 import { UiText, UiAttributes } from "../../components/i18n/locale-provider";
@@ -20,6 +22,7 @@ export default async function AccountingProgram({ searchParams }: { searchParams
   const user = await getCurrentUser();
   const business = user ? await getDashboardBusinessForUser(user.id, true) : null;
   if (!user || !business) return <UiAttributes direction><main className="laundry-gate" dir="rtl"><h1><UiText>{"البرنامج المحاسبي"}</UiText></h1><p><UiText>{"سجّل الدخول واختر منشأتك للوصول إلى حساباتها."}</UiText></p><Link href={user ? "/dashboard" : "/login"}><UiText>{user ? "اختيار المنشأة" : "تسجيل الدخول"}</UiText></Link></main></UiAttributes>;
+  if (ACCOUNTING_SECURITY_HOLD) return <AccountingSecurityNotice />;
   if(!(await commercialAccess(business.id)).cashier)return <UiAttributes direction><main className="laundry-gate" dir="rtl"><h1><UiText>{"الكاشير والبرنامج المحاسبي"}</UiText></h1><p><UiText>{"هذه الخدمات ضمن باقات التشغيل والنمو والشاملة. الهوية مجانية دون مواعيد أو كاشير."}</UiText></p><Link href="/dashboard/plans"><UiText>{"مقارنة الباقات والترقية"}</UiText></Link></main></UiAttributes>;
   const owner = business.ownerId === user.id;
   const views = allowedAccountingViews(owner, business.members[0]?.permissions);

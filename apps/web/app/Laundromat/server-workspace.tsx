@@ -1,3 +1,5 @@
+import { ACCOUNTING_SECURITY_HOLD } from "../lib/accounting-security";
+import { AccountingSecurityNotice } from "./security-notice";
 import { UiText, UiAttributes } from "../../components/i18n/locale-provider";
 import { cashierUrgentEnabled } from "../lib/cashier-settings";
 import { cashierActivityProfile, cashierServiceAllowed, isClothingPresetService } from "../lib/cashier-activity";
@@ -13,6 +15,7 @@ import { laundryCustomerPhone } from "../lib/laundry-customer";
 import { LaundryWorkspace } from "./workspace";
 import "./laundry.css";
 export async function AccountingWorkspacePage({searchParams,expectedBusinessId,basePath="/Laundromat"}:{searchParams:Promise<{q?:string;filter?:string}>;activity?:"laundry"|"general";expectedBusinessId?:string;basePath?:string}) {
+  if (ACCOUNTING_SECURITY_HOLD) return <AccountingSecurityNotice />;
   const user=await getCurrentUser();
   if(!user)return <UiAttributes direction><main className="laundry-gate" dir="rtl"><p>INFRO / ACCOUNTING</p><h1><UiText>{"مساحة عمل منشأتك"}</UiText></h1><p><UiText>{"الطلبات والفواتير وبيانات العملاء محمية بحساب المنشأة."}</UiText></p><Link href="/login"><UiText>{"تسجيل الدخول"}</UiText></Link><p><UiText>{"بعد الدخول افتح"}</UiText><Link href="/Laundromat"><UiText>{"كاشير المنشأة"}</UiText></Link>.</p></main></UiAttributes>;
   const business=await getActiveBusinessForUser(user.id,"laundry");
