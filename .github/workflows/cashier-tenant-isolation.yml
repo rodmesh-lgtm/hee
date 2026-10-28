@@ -55,3 +55,7 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test tests/cashier-tenant-workflow.spec.ts
+      - name: Verify navigation, public lists, booking sender and staff isolation
+        run: >-
+          npx playwright test tests/dashboard-functional-workflow.spec.ts tests/rc-owner-workflow.spec.ts tests/staff-permissions-workflow.spec.ts
+          --grep 'customer navigation order persists|public identity expands|booking sender selection|owner invites a verified employee'

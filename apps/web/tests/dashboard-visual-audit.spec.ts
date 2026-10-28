@@ -183,7 +183,7 @@ async function auditPublicRoute(browser:Browser,input:{path:string;name:"homepag
     expect(reading.size).toBeGreaterThanOrEqual(16);
     expect(reading.smallFields).toBe(0);
     if(input.name==="homepage"){
-      await expect(page.getByRole("heading",{name:/هويتك الرقمية والتسويقية/})).toBeVisible();
+      await expect(page.getByRole("heading",{name:/شغّل أعمالك، وتواصل مع عملائك/})).toBeVisible();
       await expect(page.getByRole("link",{name:"عن INFRO"}).first()).toBeVisible();
       expect(metrics.title).toContain("INFRO");
       expect(metrics.legacyAbout).toBe(false);

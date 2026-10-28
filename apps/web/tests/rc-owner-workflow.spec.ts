@@ -98,11 +98,11 @@ test.describe.serial("RC owner workflow",()=>{
     await page.goto(`${baseUrl}/${seeded.slug}`,{waitUntil:'networkidle'});
     for(const [label,selector] of [['الخدمات','#services > article'],['الفروع','#branch-list > a'],['الأعمال','#gallery-list > a']] as const){
       await expect(page.locator(selector)).toHaveCount(6);
-      const expand=page.getByRole('button',{name:`عرض كل ${label} (٧)`,exact:true});
+      const expand=page.getByRole('button',{name:`عرض الكل · ${label} (٧)`,exact:true});
       await expect(expand).toHaveAttribute('aria-expanded','false');
       await expand.click();
       await expect(page.locator(selector)).toHaveCount(7);
-      const collapse=page.getByRole('button',{name:`عرض أقل من ${label}`,exact:true});
+      const collapse=page.getByRole('button',{name:`عرض أقل · ${label}`,exact:true});
       await expect(collapse).toHaveAttribute('aria-expanded','true');
       await collapse.click();
       await expect(page.locator(selector)).toHaveCount(6);

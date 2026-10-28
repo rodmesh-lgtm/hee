@@ -91,9 +91,9 @@ test.describe.serial("customer dashboard functional surface", () => {
       const rows=nav.locator(".infro-nav-editor li");
       await rows.filter({hasText:"تسويق واتساب"}).dragTo(rows.filter({hasText:"مركز العمل"}));
       await expect(rows.first()).toContainText("تسويق واتساب");
-      await nav.getByRole("button", { name: "خفض تسويق واتساب", exact: true }).click();
+      await nav.getByRole("button", { name: "خفض: تسويق واتساب", exact: true }).click();
       // Real touch input exercises pointer capture and the mobile drag handle.
-      const handle = await nav.getByRole("button", { name: "سحب تسويق واتساب", exact: true }).boundingBox();
+      const handle = await nav.getByRole("button", { name: "سحب: تسويق واتساب", exact: true }).boundingBox();
       const target = await rows.filter({ hasText: "مركز العمل" }).boundingBox();
       if (!handle || !target) throw new Error("Navigation drag targets are missing");
       const touch = await page.context().newCDPSession(page);
