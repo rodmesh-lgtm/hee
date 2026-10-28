@@ -1,4 +1,3 @@
-import {ACCOUNTING_SECURITY_HOLD} from "../app/lib/accounting-security";
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
 import {db} from "../app/lib/db";
@@ -15,27 +14,25 @@ async function main(){
  const plan=await db.businessPlan.upsert({where:{code:"BUSINESS"},update:{},create:{code:"BUSINESS",name:"Business",monthlyPrice:100,productLimit:10}});
  await db.subscription.create({data:{businessId:business.id,planId:plan.id,provider:"internal",status:"active",startsAt:new Date(Date.now()-60000),endsAt:new Date(Date.now()+86400000)}});
  const connection=await db.whatsAppConnection.create({data:{businessId:business.id,provider:"meta",status:"connected",marketingEnabled:true,wabaId:randomUUID(),phoneNumberId:randomUUID(),credentialEnvelope:{}}});
+ const clock=(await db.$queryRaw<Array<{now:Date}>>`SELECT now() AS now`)[0].now;
+ const activatedAt=new Date(clock.getTime()-60000);
  const template=await db.whatsAppTemplate.create({data:{businessId:business.id,connectionId:connection.id,providerTemplateId:randomUUID(),name:"infro_laundry_ready",language:"ar",category:"utility",status:"approved",providerStatus:"APPROVED",components:[{type:"BODY",text:LAUNDRY_READY_TEMPLATE_EXAMPLE}],rawPayload:{},lastSyncedAt:new Date()}});
- await db.whatsAppAutomation.create({data:{businessId:business.id,connectionId:connection.id,name:"Ready",status:"active",activatedAt:new Date(Date.now()-60000),triggerType:"laundry_ready",triggerConfig:{version:1},actionConfig:{templateId:template.id},cooldownMinutes:0,createdByUserId:user.id}});
+ await db.whatsAppAutomation.create({data:{businessId:business.id,connectionId:connection.id,name:"Ready",status:"active",activatedAt,triggerType:"laundry_ready",triggerConfig:{version:1},actionConfig:{templateId:template.id},cooldownMinutes:0,createdByUserId:user.id}});
  let sequence=0;
- async function ticket(consent:boolean,status="ready"){
+ async function ticket(consent:boolean,status="ready",createdAt=clock){
   const id=randomUUID();const number=++sequence;
-  await db.$executeRaw`INSERT INTO "LaundryTicket" (id,"businessId",number,"requestId","customerName",phone,items,total,paid,status,"dueAt","createdBy","readyNotifyConsentAt") VALUES (${id},${business.id},${number},${randomUUID()},'Audit customer','+966500009940','[]'::jsonb,100,100,${status},now(),${user.id},${consent?new Date():null})`;
+  await db.$executeRaw`INSERT INTO "LaundryTicket" (id,"businessId",number,"requestId","customerName",phone,items,total,paid,status,"dueAt","createdBy","readyNotifyConsentAt","createdAt") VALUES (${id},${business.id},${number},${randomUUID()},'Audit customer','+966500009940','[]'::jsonb,100,100,${status},now(),${user.id},${consent?clock:null},${createdAt})`;
   return id;
  }
+ const old=await ticket(true,"ready",new Date(activatedAt.getTime()-1000));await db.$transaction(tx=>enqueueLaundryReady(tx,business.id,old));
  const denied=await ticket(false);await db.$transaction(tx=>enqueueLaundryReady(tx,business.id,denied));
  const pending=await ticket(true,"processing");await db.$transaction(tx=>enqueueLaundryReady(tx,business.id,pending));
  assert.equal(await db.whatsAppAutomationEvent.count({where:{businessId:business.id}}),0);
  const ready=await ticket(true);
- const observed=await db.$queryRaw<Array<{createdAt:Date;consented:boolean}>>`SELECT "createdAt",("readyNotifyConsentAt" IS NOT NULL) AS consented FROM "LaundryTicket" WHERE id=${ready} AND "businessId"=${business.id}`;
- const observedAutomation=await db.whatsAppAutomation.findFirstOrThrow({where:{businessId:business.id},select:{activatedAt:true,status:true}});
- console.log("laundry-ready fixture preflight",{hold:ACCOUNTING_SECURITY_HOLD,createdAt:observed[0]?.createdAt,activatedAt:observedAutomation.activatedAt,status:observedAutomation.status,consented:observed[0]?.consented});
- assert.ok(await laundryReadyContext(db,business.id,ready,"+966500009940",observedAutomation.activatedAt),"ready fixture must satisfy the final consent/activation query");
-
- assert.equal(await laundryReadyContext(db,randomUUID(),ready,"+966500009940"),null);
- assert.equal(await laundryReadyContext(db,business.id,ready,"+966500000000"),null);
+ assert.ok(await laundryReadyContext(db,business.id,ready,"+966500009940",activatedAt),"ready fixture must satisfy the final consent/activation query");
+ assert.equal(await laundryReadyContext(db,randomUUID(),ready,"+966500009940",activatedAt),null);
+ assert.equal(await laundryReadyContext(db,business.id,ready,"+966500000000",activatedAt),null);
  await db.$transaction(tx=>enqueueLaundryReady(tx,business.id,ready));await db.$transaction(tx=>enqueueLaundryReady(tx,business.id,ready));
- console.log("laundry-ready fixture scheduled",{events:await db.whatsAppAutomationEvent.count({where:{businessId:business.id}}),contacts:await db.whatsAppContact.count({where:{businessId:business.id}})});
  const event=await db.whatsAppAutomationEvent.findFirstOrThrow({where:{businessId:business.id}});
  assert.equal(await db.whatsAppAutomationEvent.count({where:{businessId:business.id}}),1);
  assert.equal(await db.whatsAppConsent.count({where:{businessId:business.id}}),0);

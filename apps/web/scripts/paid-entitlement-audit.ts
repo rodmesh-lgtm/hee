@@ -1,3 +1,4 @@
+import {COMMERCIAL_PLANS} from "../app/lib/commercial-plans";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { db } from "../app/lib/db";
@@ -16,16 +17,19 @@ if (process.env.APP_ENV !== "test" || process.env.ALLOW_PAID_ENTITLEMENT_AUDIT !
 async function main() {
   const suffix = randomUUID();
   const free = await db.businessPlan.upsert({ where: { code: "FREE" }, update: {}, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3 } });
-  const paid = await db.businessPlan.upsert({ where: { code: "BUSINESS" }, update: {}, create: { code: "BUSINESS", name: "Business", monthlyPrice: 199, productLimit: 10 } });
+  const paidCode="GROWTH_35";
+  const catalog=COMMERCIAL_PLANS.find(p=>p.code===paidCode)!;
+  const paid = await db.businessPlan.upsert({ where: { code: paidCode }, update: {monthlyPrice:catalog.monthlyPrice}, create: { code: paidCode, name: catalog.name, monthlyPrice: catalog.monthlyPrice, productLimit: catalog.productLimit } });
   const owner = await db.user.create({ data: { name: "Payment proof", email: `paid-proof-${suffix}@example.test`, emailVerifiedAt: new Date() } });
   const business = await db.business.create({ data: { ownerId: owner.id, planId: free.id, name: "Payment proof", slug: `paid-proof-${suffix}`, businessType: "test" } });
   try {
     assert.equal(await getEffectiveSubscription({ businessId: business.id }), null);
     const internal = await db.subscription.create({ data: { businessId: business.id, planId: free.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 1000), endsAt: new Date(Date.now() + 60_000), autoRenew: false } });
-    assert.equal(await hasActiveBusinessSubscription({ businessId: business.id }), true);
+    assert.equal(await hasActiveBusinessSubscription({ businessId: business.id }), false);
+    assert.equal((await getEffectiveSubscription({businessId:business.id,paidPlansOnly:false}))?.id,internal.id);
     assert.equal(await getEffectiveSubscription({ businessId: business.id }), null);
     await db.subscription.delete({ where: { id: internal.id } });
-    const intent = await createBillingIntent(owner.id, business.id, "BUSINESS");
+    const intent = await createBillingIntent(owner.id, business.id, paidCode);
     const payment = { id: randomUUID(), status: "paid", amount: intent.payment.amount, currency: "SAR", metadata: { hee_billing_id: intent.payment.id, hee_business_id: business.id } };
     assert.equal(await activateVerifiedMoyasarPayment(intent.payment.id, { ...payment, status: "authorized" }), "mismatch");
     assert.equal(await activateVerifiedMoyasarPayment(intent.payment.id, { ...payment, amount: 100 }), "mismatch");
@@ -36,13 +40,13 @@ async function main() {
     assert.equal(await db.subscription.count({ where: { businessId: business.id, status: "active" } }), 1);
     const active = await getEffectiveSubscription({ businessId: business.id });
     assert.ok(active);
-    assert.equal(getPlanEntitlements(active.plan.code).branchLimit, 5);
+    assert.equal(getPlanEntitlements(active.plan.code).branchLimit, 2);
     assert.equal(getPlanEntitlements(active.plan.code).contactLimit, 8);
     assert.equal(await hasActiveWhatsAppMarketingEntitlement({ businessId: business.id }), true);
     // A stale cached plan must not remove a confirmed paid entitlement.
     await db.business.update({ where: { id: business.id }, data: { planId: free.id } });
-    assert.equal((await getEffectiveSubscription({ businessId: business.id }))?.plan.code, "BUSINESS");
-    await assert.rejects(createBillingIntent(owner.id, business.id, "BUSINESS"), /PLAN_NOT_AN_UPGRADE/);
+    assert.equal((await getEffectiveSubscription({ businessId: business.id }))?.plan.code, paidCode);
+    await assert.rejects(createBillingIntent(owner.id, business.id, paidCode), /PLAN_NOT_AN_UPGRADE/);
     // Future terms do not unlock features early.
     await db.subscription.update({ where: { id: active.id }, data: { startsAt: new Date(Date.now() + 60_000) } });
     assert.equal(await getEffectiveSubscription({ businessId: business.id }), null);
@@ -50,7 +54,7 @@ async function main() {
     await db.subscription.update({ where: { id: active.id }, data: { startsAt: new Date(Date.now() - 86_400_000), endsAt: new Date(Date.now() - 1000) } });
     await db.business.update({ where: { id: business.id }, data: { planId: paid.id } });
     assert.equal(await getEffectiveSubscription({ businessId: business.id }), null);
-    const repurchase = await createBillingIntent(owner.id, business.id, "BUSINESS");
+    const repurchase = await createBillingIntent(owner.id, business.id, paidCode);
     assert.equal(repurchase.payment.kind, "initial");
     assert.equal(repurchase.payment.amount, paid.monthlyPrice * 100);
     const secondPayment = { ...payment, id: randomUUID(), amount: repurchase.payment.amount, metadata: { ...payment.metadata, hee_billing_id: repurchase.payment.id } };
@@ -62,7 +66,7 @@ async function main() {
     const grantSubscription = await db.subscription.create({ data: { businessId: business.id, planId: paid.id, status: "active", provider: "access_code", providerReference: code.id, autoRenew: false } });
     await db.subscriptionAccessGrant.create({ data: { codeId: code.id, businessId: business.id, planId: paid.id, subscriptionId: grantSubscription.id, redeemedByUserId: owner.id } });
     assert.equal((await getEffectiveSubscription({ businessId: business.id }))?.id, grantSubscription.id);
-    await assert.rejects(createBillingIntent(owner.id, business.id, "PRO"), /ACCESS_GRANT_ACTIVE|PLAN_UNAVAILABLE/);
+    await assert.rejects(createBillingIntent(owner.id, business.id, "SCALE_35"), /ACCESS_GRANT_ACTIVE/);
     await db.subscriptionAccessCode.update({ where: { id: code.id }, data: { isActive: false, revokedAt: new Date() } });
     assert.equal(await getEffectiveSubscription({ businessId: business.id }), null);
     console.log("paid-entitlement-audit: PASS (verified settlement, replay, limits, stale pointer, future term, expiry, repurchase, refund, grant expiry/revocation)");
