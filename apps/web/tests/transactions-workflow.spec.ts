@@ -499,7 +499,7 @@ test.describe("public transactions workflow", () => {
       await expect(page.locator(".ld-report-summary")).toContainText("٧٫٥٠");
       await expect(page.locator(".ld-report-summary article").filter({hasText:"ذمم نهاية الفترة"})).toContainText("٠٫٠٠");
       await expect(page.locator(".ld-report tbody tr")).toHaveCount(2);
-      await openLaundrySection(page,"شعار المنشأة");
+      await openLaundrySection(page,"الشعار وبيانات الفواتير");
       await page.getByLabel("رفع شعار المنشأة",{exact:true}).setInputFiles({name:"logo.png",mimeType:"image/png",buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD0cAAAAASUVORK5CYII=","base64")});
       await page.getByRole("button",{name:"حفظ الشعار",exact:true}).click();
       await expect(page.getByText("تم حفظ شعار المنشأة",{exact:true})).toBeVisible();
@@ -835,7 +835,7 @@ test.describe("public transactions workflow", () => {
       await driverPage.goto(`${baseUrl}/Laundromat/Accounting`);await expect(driverPage.getByRole("heading",{name:"ميزان المراجعة ودليل الحسابات",exact:true})).toBeVisible();
       await driverPage.getByRole("button",{name:"قيد جديد",exact:true}).click();await driverPage.getByLabel("بيان القيد",{exact:true}).fill("قيد موظف الحسابات التجريبي");await driverPage.getByLabel("الحساب — سطر 1",{exact:true}).selectOption("1100");await driverPage.getByLabel("الحساب — سطر 2",{exact:true}).selectOption("3000");await driverPage.getByLabel("المبلغ — سطر 1",{exact:true}).fill("1");await driverPage.getByLabel("المبلغ — سطر 2",{exact:true}).fill("1");
       const accountingSent=driverPage.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));await driverPage.getByRole("button",{name:"ترحيل القيد المتوازن",exact:true}).click();const accountingRequest=await accountingSent;await expect(driverPage.getByRole("button",{name:"عكس القيد",exact:true})).toBeVisible();
-      await driverPage.goto(`${baseUrl}/Laundromat/Operations`);await expect(driverPage.getByRole("heading",{name:"تحتاج صلاحية إشراف المغسلة",exact:true})).toBeVisible();
+      await driverPage.goto(`${baseUrl}/Laundromat/Operations`);await expect(driverPage.getByRole("heading",{name:"تحتاج صلاحية إشراف المنشأة",exact:true})).toBeVisible();
       await db.businessMember.updateMany({where:{businessId:fixture.businessId,userId:other.userId},data:{permissions:["laundryOperations"]}});
       await driverPage.reload();await expect(driverPage.getByRole("heading",{name:"إشراف المغسلة",exact:true})).toBeVisible();
       await driverPage.getByLabel("اسم صاحب الملف",{exact:true}).fill("عميل أنشأه المشرف");await driverPage.getByLabel("جوال صاحب الملف",{exact:true}).fill("0500009943");await driverPage.getByRole("button",{name:"حفظ ملف العميل",exact:true}).click();await expect(driverPage.getByText("تم حفظ ملف العميل",{exact:true})).toBeVisible();
