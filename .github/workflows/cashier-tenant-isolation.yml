@@ -67,3 +67,7 @@ jobs:
         run: npx playwright test tests/dashboard-visual-audit.spec.ts --grep 'seven activity layouts'
       - name: Verify device repair cashier without vehicle or laundry fields
         run: npx playwright test tests/transactions-workflow.spec.ts --grep 'unified accounting adapts'
+      - name: Verify contracts, readiness consent, receipts, prepaid balances and driver access
+        run: >-
+          npx playwright test tests/transactions-workflow.spec.ts
+          --grep 'laundry contracts preserve|laundry owner manages staff|laundry cashier persists|laundry prepaid purchases|laundry delivery restricts'

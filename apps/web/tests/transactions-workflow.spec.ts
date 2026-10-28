@@ -251,7 +251,7 @@ test.describe("public transactions workflow", () => {
       await page.getByLabel("شروط العقد والخدمات المتفق عليها",{exact:true}).fill("شروط اختبار فقط: خدمات غسيل وكوي وفق الاتفاق المسجل بين الطرفين.");
       await page.getByRole("button",{name:"إنشاء نسخة العقد",exact:true}).click();
       await page.getByRole("button",{name:"فتح العقد CONTRACT-001",exact:true}).click();
-      const dialog=page.getByRole("dialog",{name:"عقد خدمات المغسلة"});await expect(dialog).toBeVisible();
+      const dialog=page.getByRole("dialog",{name:"عقد خدمات المنشأة"});await expect(dialog).toBeVisible();
       const box=await page.getByRole("img",{name:"مساحة توقيع العميل",exact:true}).boundingBox();expect(box).not.toBeNull();
       await page.mouse.move(box!.x+20,box!.y+40);await page.mouse.down();
       for(let i=1;i<12;i++)await page.mouse.move(box!.x+20+i*12,box!.y+40+(i%2)*30);
@@ -348,12 +348,13 @@ test.describe("public transactions workflow", () => {
       const connection=await db.whatsAppConnection.create({data:{businessId:fixture.businessId,provider:"meta",status:"connected",marketingEnabled:true,wabaId:crypto.randomUUID(),phoneNumberId:crypto.randomUUID(),credentialEnvelope:{}}});
       const template=await db.whatsAppTemplate.create({data:{businessId:fixture.businessId,connectionId:connection.id,providerTemplateId:crypto.randomUUID(),name:"infro_laundry_ready",language:"ar",category:"utility",status:"approved",providerStatus:"APPROVED",components:[{type:"BODY",text:"مرحبًا {{1}} طلب {{3}} جاهز لدى {{2}}"}],rawPayload:{},lastSyncedAt:new Date()}});
       await page.goto(`${baseUrl}/Laundromat/Notifications`);
-      await expect(page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true})).not.toBeChecked();
-      await page.getByLabel("قالب واتساب المعتمد",{exact:true}).selectOption(template.id);await page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true}).check();
-      await page.getByRole("button",{name:"حفظ إعدادات الإشعار",exact:true}).click();
-      await expect(page.getByRole("status")).toContainText("تم تفعيل");
-      await expect(page.getByLabel("قالب واتساب المعتمد",{exact:true})).toHaveValue(template.id);
-      await expect(page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true})).toBeChecked();
+      const readyForm=page.locator("form").filter({has:page.getByRole("heading",{name:"إشعار جاهزية الطلب",exact:true})});
+      await expect(readyForm.getByLabel("تفعيل إشعار جاهزية الطلب تلقائيًا",{exact:true})).not.toBeChecked();
+      await readyForm.getByLabel("قالب واتساب المعتمد",{exact:true}).selectOption(template.id);await readyForm.getByLabel("تفعيل إشعار جاهزية الطلب تلقائيًا",{exact:true}).check();
+      await readyForm.getByRole("button",{name:"حفظ إعدادات الإشعار",exact:true}).click();
+      await expect(readyForm.getByRole("status").filter({hasText:"تم تفعيل"})).toBeVisible();
+      await expect(readyForm.getByLabel("قالب واتساب المعتمد",{exact:true})).toHaveValue(template.id);
+      await expect(readyForm.getByLabel("تفعيل إشعار جاهزية الطلب تلقائيًا",{exact:true})).toBeChecked();
       expect((await db.whatsAppAutomation.findFirstOrThrow({where:{businessId:fixture.businessId,triggerType:"laundry_ready"}})).status).toBe("active");
       expect(await db.whatsAppAutomationEvent.count({where:{businessId:fixture.businessId}})).toBe(0);
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);await page.screenshot({path:testInfo.outputPath("laundry-notifications-mobile.png"),fullPage:true});
@@ -371,7 +372,7 @@ test.describe("public transactions workflow", () => {
         expect(await db.whatsAppAutomationEvent.count({where:{businessId:fixture.businessId}})).toBe(1);
       }
       await page.goto(`${baseUrl}/Laundromat/Notifications`);
-      await page.getByLabel("إرسال إشعار تلقائي عند جاهزية الطلب",{exact:true}).uncheck();await page.getByRole("button",{name:"حفظ إعدادات الإشعار",exact:true}).click();await expect(page.getByRole("status")).toContainText("تم إيقاف");
+      await readyForm.getByLabel("تفعيل إشعار جاهزية الطلب تلقائيًا",{exact:true}).uncheck();await readyForm.getByRole("button",{name:"حفظ إعدادات الإشعار",exact:true}).click();await expect(readyForm.getByRole("status").filter({hasText:"تم إيقاف"})).toBeVisible();
     }finally{await page.close();await staff.close();await db.businessMember.deleteMany({where:{businessId:fixture.businessId}});await cleanup(fixture);await cleanup(employee);}
   });
 
@@ -450,7 +451,7 @@ test.describe("public transactions workflow", () => {
       await page.screenshot({path:testInfo.outputPath("laundry-cashier-desktop.png"),fullPage:true});
       const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
       await page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true}).click();const request=await sent;
-      await expect(page.getByRole("heading",{name:"فاتورة غير ضريبية / إيصال استلام",exact:true})).toBeVisible();
+      await expect(page.getByRole("heading",{name:"فاتورة",exact:true})).toBeVisible();
       await page.getByRole("button",{name:"إغلاق",exact:true}).click();
       await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toBeVisible();
       const replay=()=>page.request.post(request.url(),{headers:{"next-action":request.headers()["next-action"],"content-type":request.headers()["content-type"],origin:new URL(baseUrl).origin},data:request.postData()??""});
@@ -468,7 +469,7 @@ test.describe("public transactions workflow", () => {
       await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toHaveCount(1);
       await page.getByRole("link",{name:"جميع الطلبات",exact:true}).click();
       await page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true}).click();
-      await expect(page.getByRole("heading",{name:"فاتورة غير ضريبية / إيصال استلام",exact:true})).toBeVisible();
+      await expect(page.getByRole("heading",{name:"فاتورة",exact:true})).toBeVisible();
       await expect(page.locator(".ld-receipt tbody tr")).toHaveCount(2);
       await expect(page.locator(".ld-receipt")).toContainText("ثوب — كوي");
       await page.getByLabel("دفعة إضافية",{exact:true}).fill("2.25");await page.getByRole("button",{name:"تسجيل الدفعة",exact:true}).click();
@@ -477,7 +478,7 @@ test.describe("public transactions workflow", () => {
       await page.setViewportSize({width:390,height:844});await page.screenshot({path:testInfo.outputPath("laundry-invoice-mobile.png"),fullPage:true});
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
       await page.getByLabel("مقاس الطباعة",{exact:true}).selectOption("thermal");
-      await expect(page.locator(".ld-receipt")).toContainText("لا تُحتسب ضريبة على هذه الفاتورة");
+      await expect(page.locator(".ld-receipt")).not.toContainText("لا تُحتسب ضريبة على هذه الفاتورة");
       await page.emulateMedia({media:"print"});
       await expect(page.locator(".ld-dialog-tools").first()).toBeHidden();
       await expect(page.locator(".ld-print-help")).toBeHidden();
@@ -498,7 +499,7 @@ test.describe("public transactions workflow", () => {
       await expect(page.locator(".ld-report-summary")).toContainText("٧٫٥٠");
       await expect(page.locator(".ld-report-summary article").filter({hasText:"ذمم نهاية الفترة"})).toContainText("٠٫٠٠");
       await expect(page.locator(".ld-report tbody tr")).toHaveCount(2);
-      await openLaundrySection(page,"شعار المنشأة");
+      await openLaundrySection(page,"الشعار وبيانات الفواتير");
       await page.getByLabel("رفع شعار المنشأة",{exact:true}).setInputFiles({name:"logo.png",mimeType:"image/png",buffer:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD0cAAAAASUVORK5CYII=","base64")});
       await page.getByRole("button",{name:"حفظ الشعار",exact:true}).click();
       await expect(page.getByText("تم حفظ شعار المنشأة",{exact:true})).toBeVisible();
@@ -664,7 +665,7 @@ test.describe("public transactions workflow", () => {
       await page.getByRole("button",{name:"حفظ الباقة",exact:true}).click();
       await page.getByRole("button",{name:"تسجيل مشترك في باقة الخدمة الشهرية",exact:true}).click();
       await page.getByLabel("جوال عميل مسجل",{exact:true}).fill("0500009941");
-      await page.getByLabel("تاريخ بداية الباقة",{exact:true}).fill(riyadhDateKey(0));
+      await page.getByLabel("تاريخ بداية الاشتراك",{exact:true}).fill(riyadhDateKey(0));
       await page.getByRole("button",{name:"حفظ الاشتراك والتحصيل",exact:true}).click();
       await expect.poll(async()=>(await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int n FROM "LaundryPrepaid" WHERE "businessId"=${fixture.businessId} AND "packageId" IS NOT NULL`)[0].n).toBe(1);
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
@@ -701,7 +702,7 @@ test.describe("public transactions workflow", () => {
       await page.getByRole("button",{name:"حفظ الباقة",exact:true}).click();
       await page.getByRole("button",{name:"تسجيل مشترك في ثلاث قطع",exact:true}).click();
       await page.getByLabel("جوال عميل مسجل",{exact:true}).fill("0500009941");
-      await page.getByLabel("تاريخ بداية الباقة",{exact:true}).fill(riyadhDateKey(0));
+      await page.getByLabel("تاريخ بداية الاشتراك",{exact:true}).fill(riyadhDateKey(0));
       await page.getByRole("button",{name:"حفظ الاشتراك والتحصيل",exact:true}).click();
       await expect.poll(async()=>(await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int n FROM "LaundryPrepaid" WHERE "businessId"=${fixture.businessId} AND kind='pieces'`)[0].n).toBe(1);
       const counted=(await db.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryPrepaid" WHERE "businessId"=${fixture.businessId} AND kind='pieces'`)[0];
@@ -824,7 +825,7 @@ test.describe("public transactions workflow", () => {
       expect((await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryJournal" WHERE "businessId"=${fixture.businessId} AND "sourceKey"=${`delivery:${ticketId}`}`)[0].n).toBe(1);
       expect((await db.$queryRaw<Array<{status:string}>>`SELECT status FROM "LaundryTicket" WHERE id=${ticketId}`)[0].status).toBe("delivered");
       expect(await horizontalOverflow(driverPage)).toBeLessThanOrEqual(1);await driverPage.screenshot({path:testInfo.outputPath("laundry-delivery-mobile.png"),fullPage:true});
-      await driverPage.goto(`${baseUrl}/Laundromat`);await expect(driverPage.getByRole("heading",{name:"تحتاج صلاحية كاشير المغسلة",exact:true})).toBeVisible();
+      await driverPage.goto(`${baseUrl}/Laundromat`);await expect(driverPage.getByRole("heading",{name:"تحتاج صلاحية كاشير المنشأة",exact:true})).toBeVisible();
       await driverPage.goto(`${baseUrl}/Accounting`);await expect(driverPage.getByRole("heading",{name:"مهام التوصيل المسندة إليّ",exact:true})).toBeVisible();
       await driverPage.goto(`${baseUrl}/Accounting?view=cashier`);await expect(driverPage.getByRole("heading",{name:"هذه المهمة غير متاحة لحسابك",exact:true})).toBeVisible();
       await driverPage.context().clearCookies();await setSession(driverPage,other.sessionToken);await driverPage.context().addCookies([{name:"hee_active_business",value:fixture.businessId,url:baseUrl}]);await driverPage.goto(`${baseUrl}/Laundromat/Delivery`);await expect(driverPage.getByText("لا توجد مهام توصيل مسندة.",{exact:true})).toBeVisible();
@@ -834,7 +835,7 @@ test.describe("public transactions workflow", () => {
       await driverPage.goto(`${baseUrl}/Laundromat/Accounting`);await expect(driverPage.getByRole("heading",{name:"ميزان المراجعة ودليل الحسابات",exact:true})).toBeVisible();
       await driverPage.getByRole("button",{name:"قيد جديد",exact:true}).click();await driverPage.getByLabel("بيان القيد",{exact:true}).fill("قيد موظف الحسابات التجريبي");await driverPage.getByLabel("الحساب — سطر 1",{exact:true}).selectOption("1100");await driverPage.getByLabel("الحساب — سطر 2",{exact:true}).selectOption("3000");await driverPage.getByLabel("المبلغ — سطر 1",{exact:true}).fill("1");await driverPage.getByLabel("المبلغ — سطر 2",{exact:true}).fill("1");
       const accountingSent=driverPage.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));await driverPage.getByRole("button",{name:"ترحيل القيد المتوازن",exact:true}).click();const accountingRequest=await accountingSent;await expect(driverPage.getByRole("button",{name:"عكس القيد",exact:true})).toBeVisible();
-      await driverPage.goto(`${baseUrl}/Laundromat/Operations`);await expect(driverPage.getByRole("heading",{name:"تحتاج صلاحية إشراف المغسلة",exact:true})).toBeVisible();
+      await driverPage.goto(`${baseUrl}/Laundromat/Operations`);await expect(driverPage.getByRole("heading",{name:"تحتاج صلاحية إشراف المنشأة",exact:true})).toBeVisible();
       await db.businessMember.updateMany({where:{businessId:fixture.businessId,userId:other.userId},data:{permissions:["laundryOperations"]}});
       await driverPage.reload();await expect(driverPage.getByRole("heading",{name:"إشراف المغسلة",exact:true})).toBeVisible();
       await driverPage.getByLabel("اسم صاحب الملف",{exact:true}).fill("عميل أنشأه المشرف");await driverPage.getByLabel("جوال صاحب الملف",{exact:true}).fill("0500009943");await driverPage.getByRole("button",{name:"حفظ ملف العميل",exact:true}).click();await expect(driverPage.getByText("تم حفظ ملف العميل",{exact:true})).toBeVisible();
