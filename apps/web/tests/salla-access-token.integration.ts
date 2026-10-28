@@ -73,6 +73,22 @@ test("revocation before refresh lock prevents any credential transmission", asyn
   assert.equal(f.envelope(), f.original);
 });
 
+test("an unowned store is rejected even when provider configuration is unavailable", async () => {
+  const f = fixture();
+  const previous = process.env.SALLA_CLIENT_SECRET;
+  delete process.env.SALLA_CLIENT_SECRET;
+  try {
+    await assert.rejects(getSallaAccessToken({ ...context, businessId: "other-business", database: f.database, fetcher: f.fetcher, now }), /^Error: SALLA_INTEGRATION_UNAVAILABLE$/);
+    assert.equal(f.calls(), 0);
+    assert.equal(f.envelope(), f.original);
+    await assert.rejects(getSallaAccessToken({ ...context, database: f.database, fetcher: f.fetcher, now }), /SALLA_CONFIG_INVALID/);
+    assert.equal(f.calls(), 0);
+  } finally {
+    if (previous === undefined) delete process.env.SALLA_CLIENT_SECRET;
+    else process.env.SALLA_CLIENT_SECRET = previous;
+  }
+});
+
 test("network and malformed-token failures preserve previous ciphertext without exposing provider errors", async () => {
   for (const options of [{ networkError: true }, { response: { access_token: "short", error: "PRIVATE_PROVIDER_RESPONSE" } }]) {
     const f = fixture(options);

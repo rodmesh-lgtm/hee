@@ -11,7 +11,6 @@ export async function getSallaAccessToken(input: {
   fetcher?: typeof fetch; now?: Date;
 }) {
   const database = input.database ?? db;
-  const config = getSallaConfig();
   const now = input.now ?? new Date();
   const read = (value: Prisma.JsonValue | null) => {
     const item = value as Partial<CommerceCredentialEnvelope> | null;
@@ -26,6 +25,8 @@ export async function getSallaAccessToken(input: {
   const where = { id: input.integrationId, businessId: input.businessId, provider: "salla", status: "active" };
   const integration = await database.whatsAppCommerceIntegration.findFirst({ where, select: { credentialEnvelope: true } });
   if (!integration) throw new Error("SALLA_INTEGRATION_UNAVAILABLE");
+  // Reject an unowned store before consulting provider secrets or decrypting credentials.
+  const config = getSallaConfig();
   const initial = read(integration.credentialEnvelope);
   if (!sallaTokenNeedsRefresh(initial, now, input.rejectedAccessToken)) return initial.accessToken;
 
