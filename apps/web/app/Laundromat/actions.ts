@@ -1,4 +1,6 @@
 "use server";
+import { accountingActivity } from "../lib/accounting-program";
+import { cashierServiceAllowed } from "../lib/cashier-activity";
 import {endOrderLiveSessions} from "../lib/live-view/order-link";
 import { assertInvoiceCapacity,CommercialLimitError } from "../lib/commercial-usage";
 import { cashierUrgentEnabled,hasClothingCatalogue } from "../lib/cashier-settings";
@@ -40,6 +42,8 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
   const scope=z.object({businessId:key}).safeParse(value);
   if(!scope.success || scope.data.businessId!==business.id) return {ok:false,error:"تغيرت المنشأة النشطة. حدّث الصفحة قبل حفظ العملية."};
   const data = parsed.data;
+  if((data.type==="catalog"||data.type==="product")&&accountingActivity(business)!=="laundry")return {ok:false,error:"دليل الملابس والغسيل والكوي مخصص لنشاط مغاسل الملابس. أضف خدمات نشاط منشأتك من الخدمات والأسعار."};
+  if(data.type==="service"&&!cashierServiceAllowed(business,data))return {ok:false,error:"هذا الصنف من دليل مغاسل الملابس ولا يتوافق مع نشاط المنشأة."};
   if (["service","catalog","product","archive","expense","urgent-price"].includes(data.type) && business.ownerId !== user.id) return {ok:false,error:"هذه العملية متاحة لمالك المنشأة فقط"};
   if(data.type==="urgent-settings"&&business.ownerId!==user.id)return {ok:false,error:"إعداد خيارات الخدمة متاح للمالك فقط"};
   try {
@@ -60,6 +64,8 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         id=data.requestId;
         const replay=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "LaundryAudit" WHERE "businessId"=${business.id} AND "id"=${id} AND "action"=${data.type}`;
         if(replay.length)return {id};
+        const currentActivity=await tx.business.findFirst({where:{id:business.id,ownerId:user.id,deletedAt:null},select:{businessType:true,businessCategory:true}});
+        if(!currentActivity||accountingActivity(currentActivity)!=="laundry")throw new LaundryInputError("تغير نشاط المنشأة. حدّث الكاشير واختر دليل النشاط الحالي.");
         const items=data.type==="catalog"?data.items.map(item=>({...item,operation:item.operation??data.operation})):(["wash_iron","iron"] as const).filter(operation=>data[operation].trim()!=="").map(operation=>({presetId:"custom",operation,price:data[operation]}));
         if(!items.length)throw new LaundryInputError("أدخل سعر غسيل وكوي أو كوي فقط");
         if(new Set(items.map(x=>`${x.presetId}:${x.operation}`)).size!==items.length)throw new LaundryInputError("توجد أصناف مكررة");
@@ -105,6 +111,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         const catalog=await tx.$queryRaw<LaundryService[]>`SELECT s.*,u.price AS "urgentPrice" FROM "LaundryService" s LEFT JOIN "LaundryService" u ON u.id='urgent:'||s.id AND u."businessId"=s."businessId" AND u.active=TRUE WHERE s."businessId"=${business.id} AND s.active=TRUE AND s.id NOT LIKE 'urgent:%'`;
         const current=await tx.business.findFirst({where:{id:business.id,deletedAt:null},select:{pageModules:true,businessType:true,businessCategory:true}});
         if(!current)throw new LaundryInputError("المنشأة غير متاحة");
+        if(data.items.some(line=>{const service=catalog.find(s=>s.id===line.serviceId);return service&&!cashierServiceAllowed(current,service);}))throw new LaundryInputError("تغير نشاط المنشأة أو قائمة الخدمات. حدّث الكاشير واختر خدمات النشاط الحالي.");
         const supportsUrgent=cashierUrgentEnabled(current.pageModules,current,hasClothingCatalogue(catalog));
         if(data.serviceSpeed==="urgent"&&!supportsUrgent)throw new LaundryInputError("خيار المستعجل غير مفعّل لهذا النشاط؛ حدّث الصفحة وراجع الطلب");
         let lines=laundryPricedLines(data.items,catalog,data.serviceSpeed);const paid=moneyToHalalas(data.paid);

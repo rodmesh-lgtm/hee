@@ -28,7 +28,7 @@ async function requestedBusinessId() {
 
 export async function getActiveBusinessForUser(userId: string, section?: StaffSection) {
   if (section) {
-    const business = await getDashboardBusinessForUser(userId);
+    const business = await getDashboardBusinessForUser(userId, section.startsWith("laundry"));
     if(!business || !(business.ownerId===userId || memberCanAccess(business.members[0]?.permissions,section)))return null;
     if(section==="liveView"||section.startsWith("laundry")){
       const plan=await commercialAccess(business.id);
@@ -95,13 +95,13 @@ export async function getOwnedBusinessSummaries(userId: string) {
 }
 
 /** Navigation context only. Mutations and section reads must check an explicit section. */
-export async function getDashboardBusinessForUser(userId: string) {
+export async function getDashboardBusinessForUser(userId: string, requireRequestedBusiness = false) {
   const requestedId = await requestedBusinessId();
   const include = { members: { where: { userId, status: "active" }, select: { id: true, role: true, permissions: true }, take: 1 } } as const;
   const access = { OR: [{ ownerId: userId }, { members: { some: { userId, status: "active" } } }] };
   if (requestedId) {
     const selected = await db.business.findFirst({ where: { id: requestedId, deletedAt: null, ...access }, include });
-    if (selected) return selected;
+    if (selected || requireRequestedBusiness) return selected;
   }
   const owned = await db.business.findFirst({ where: { ownerId: userId, deletedAt: null }, include, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
   return owned ?? db.business.findFirst({ where: { deletedAt: null, members: { some: { userId, status: "active" } } }, include, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });

@@ -1,3 +1,4 @@
+import { cashierActivityProfile } from "./cashier-activity";
 import { memberCanAccess } from "./staff-permissions";
 
 export type AccountingActivity = "laundry" | "general";
@@ -13,10 +14,8 @@ export function allowedAccountingViews(owner: boolean, permissions: unknown) {
   return accountingViews.filter(view => owner || memberCanAccess(permissions, view.permission));
 }
 
-/** Resolve explicit laundry metadata or a previously configured laundry catalogue. */
+/** Resolve from tenant metadata. The legacy catalogue argument cannot change activity. */
 export function accountingActivity(business: { businessType: string; businessCategory?: string | null }, hasLaundryCatalogue = false): AccountingActivity {
-  const activity = `${business.businessCategory ?? ""} ${business.businessType}`.normalize("NFKC").toLowerCase();
-  // Car washes must never inherit clothing-specific catalogue operations.
-  if (/سيارات|سيارة|car\s*wash|auto\s*wash/.test(activity)) return "general";
-  return /مغسل|مغاسل|laundry|laundromat/.test(activity) || hasLaundryCatalogue ? "laundry" : "general";
+  void hasLaundryCatalogue;
+  return cashierActivityProfile(business).id === "laundry" ? "laundry" : "general";
 }
