@@ -1,4 +1,5 @@
 "use server";
+import { cashierProfileForBusiness } from "../lib/cashier-profile-server";
 import { cashierServiceAllowed } from "../lib/cashier-activity";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -20,8 +21,9 @@ export async function saveAccountingPackage(value:unknown):Promise<{ok:boolean;e
  await db.$transaction(async tx=>{
  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${b.id}`}))`;
  const old=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "AccountingPackage" WHERE "businessId"=${b.id} AND id=${d.requestId}`;if(old.length)return;
+ const profile=await cashierProfileForBusiness(b,tx);
  const services=await tx.$queryRaw<Array<{id:string;name:string;category:string}>>`SELECT id,name,category FROM "LaundryService" WHERE "businessId"=${b.id} AND active=TRUE AND id NOT LIKE 'urgent:%'`;
- if(d.serviceIds.some(id=>!services.some(s=>s.id===id&&cashierServiceAllowed(b,s))))throw new LaundryInputError("اختر خدمات فعالة من كتالوج المنشأة نفسها");
+ if(d.serviceIds.some(id=>!services.some(s=>s.id===id&&cashierServiceAllowed(b,s,profile.id==="laundry"))))throw new LaundryInputError("اختر خدمات فعالة من كتالوج المنشأة نفسها");
  await tx.$executeRaw`INSERT INTO "AccountingPackage" (id,"businessId",name,description,amount,"durationDays","serviceIds",kind,"unitsIncluded","createdBy") VALUES (${d.requestId},${b.id},${d.name},${d.description},${amount},${d.durationDays},${JSON.stringify([...new Set(d.serviceIds)])}::jsonb,${d.kind},${d.kind==="credit"?null:d.unitsIncluded},${user.id})`;
  await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${randomUUID()},${b.id},${user.id},'package-create',${d.requestId})`;
  });revalidatePath("/Accounting");revalidatePath("/Laundromat");return {ok:true};
@@ -41,8 +43,9 @@ export async function getAccountingPackages(value:unknown):Promise<{ok:true;pack
  const user=await getCurrentUser();if(!user)return {ok:false,error:"يلزم تسجيل الدخول"};
  const b=await getActiveBusinessForUser(user.id,"laundryAccounting");if(!b||b.id!==p.data.businessId)return {ok:false,error:"يلزم صلاحية المحاسبة"};
  try{const packages=await db.$queryRaw<AccountingPackage[]>`SELECT id,name,description,amount,"durationDays","serviceIds",active,kind,"unitsIncluded" FROM "AccountingPackage" WHERE "businessId"=${b.id} ORDER BY active DESC,"createdAt" DESC LIMIT 200`;
+ const profile=await cashierProfileForBusiness(b);
  const services=await db.$queryRaw<Array<{id:string;name:string;category:string}>>`SELECT id,name,category FROM "LaundryService" WHERE "businessId"=${b.id} AND active=TRUE AND id NOT LIKE 'urgent:%' ORDER BY category,name`;
- return {ok:true,packages,services:services.filter(s=>cashierServiceAllowed(b,s)),canManage:b.ownerId===user.id};}catch{return {ok:false,error:"تعذر تحميل الباقات"};}
+ return {ok:true,packages,services:services.filter(s=>cashierServiceAllowed(b,s,profile.id==="laundry")),canManage:b.ownerId===user.id};}catch{return {ok:false,error:"تعذر تحميل الباقات"};}
 }
 export async function getCashierSubscriptions(value:unknown):Promise<{ok:true;subscriptions:SubscriberBalance[]}|{ok:false;error:string}>{
  const p=z.object({businessId:key,phone:z.string().max(40)}).safeParse(value);if(!p.success)return {ok:false,error:"راجع الجوال"};

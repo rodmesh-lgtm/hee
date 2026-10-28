@@ -7,8 +7,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getCurrentUser } from "../lib/auth";
 import { getDashboardBusinessForUser } from "../lib/active-business";
-import { cashierActivityProfile } from "../lib/cashier-activity";
-import { accountingActivity, allowedAccountingViews } from "../lib/accounting-program";
+import { cashierProfileForBusiness } from "../lib/cashier-profile-server";
+import { allowedAccountingViews } from "../lib/accounting-program";
 import { AccountingWorkspacePage } from "../Laundromat/server-workspace";
 import { LaundryProfessionalWorkspace } from "../Laundromat/professional-workspace";
 import { LaundryDeliveryWorkspace } from "../Laundromat/Delivery/workspace";
@@ -27,8 +27,8 @@ export default async function AccountingProgram({ searchParams }: { searchParams
   const params = await searchParams;
   const view = params.view ? views.find(item => item.id === params.view) : views[0];
   if (!view) return <UiAttributes direction><main className="laundry-gate" dir="rtl"><h1><UiText>{"هذه المهمة غير متاحة لحسابك"}</UiText></h1><Link href="/Accounting"><UiText>{"العودة إلى البرنامج المحاسبي"}</UiText></Link></main></UiAttributes>;
-  const activity = accountingActivity(business);
-  const profile = cashierActivityProfile(business);
+  const profile = await cashierProfileForBusiness(business);
+  const activity = profile.id==="laundry"?"laundry":"general";
   const activityLabel = profile.label;
   const navigation = owner ? views.filter(item => item.id === "cashier" || item.id === "delivery" || item.id === view.id) : views;
   return <>

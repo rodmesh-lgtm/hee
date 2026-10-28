@@ -1,6 +1,6 @@
 import { UiText, UiAttributes } from "../../components/i18n/locale-provider";
 import { cashierUrgentEnabled } from "../lib/cashier-settings";
-import { cashierActivityProfile, cashierServiceAllowed } from "../lib/cashier-activity";
+import { cashierActivityProfile, cashierServiceAllowed, isClothingPresetService } from "../lib/cashier-activity";
 import { accountingActivity } from "../lib/accounting-program";
 import { invoiceContactPhone } from "../lib/invoice-contact";
 import Link from "next/link";
@@ -36,8 +36,9 @@ export async function AccountingWorkspacePage({searchParams,expectedBusinessId,b
     db.$queryRaw<Array<{active:number;ready:number;outstanding:number;collected:number;expenses:number}>>`SELECT (SELECT COUNT(*)::int FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "status"!='delivered') AS active,(SELECT COUNT(*)::int FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "status"='ready') AS ready,(SELECT COALESCE(SUM("total"-"paid"),0)::float8 FROM "LaundryTicket" WHERE "businessId"=${business.id}) AS outstanding,(SELECT COALESCE(SUM("amount"),0)::float8 FROM "LaundryPayment" WHERE "businessId"=${business.id} AND method<>'prepaid') AS collected,(SELECT COALESCE(SUM("amount"),0)::float8 FROM "LaundryExpense" WHERE "businessId"=${business.id}) AS expenses`,
     owner?db.$queryRaw<Array<{id:string;description:string;amount:number;createdAt:Date}>>`SELECT * FROM "LaundryExpense" WHERE "businessId"=${business.id} ORDER BY "createdAt" DESC LIMIT 50`:Promise.resolve([]),
   ]);
-  const activity=accountingActivity(business);
-  const profile=cashierActivityProfile(business);
-  const activityServices=services.filter(service=>cashierServiceAllowed(business,service));
-  return <LaundryWorkspace key={`${business.id}:${profile.id}`} profile={profile} urgentEnabled={cashierUrgentEnabled(business.pageModules,business)} activity={activity} basePath={basePath} business={{id:business.id,name:business.name,phone:invoiceContactPhone(business.pageModules,business.businessType),address:business.address??"",logoUrl:business.logoUrl}} owner={owner} services={activityServices} tickets={tickets.map(x=>({...x,dueAt:x.dueAt.toISOString(),createdAt:x.createdAt.toISOString()}))} totals={owner?totals[0]:{active:totals[0].active,ready:totals[0].ready,outstanding:0,collected:0,expenses:0}} expenses={expenses.map(x=>({...x,createdAt:x.createdAt.toISOString()}))} query={q} filter={filter}/>;
+  const legacy=services.some(isClothingPresetService);
+  const activity=accountingActivity(business,legacy);
+  const profile=cashierActivityProfile(business,legacy);
+  const activityServices=services.filter(service=>cashierServiceAllowed(business,service,legacy));
+  return <LaundryWorkspace key={`${business.id}:${profile.id}`} profile={profile} urgentEnabled={cashierUrgentEnabled(business.pageModules,business,legacy)} activity={activity} basePath={basePath} business={{id:business.id,name:business.name,phone:invoiceContactPhone(business.pageModules,business.businessType),address:business.address??"",logoUrl:business.logoUrl}} owner={owner} services={activityServices} tickets={tickets.map(x=>({...x,dueAt:x.dueAt.toISOString(),createdAt:x.createdAt.toISOString()}))} totals={owner?totals[0]:{active:totals[0].active,ready:totals[0].ready,outstanding:0,collected:0,expenses:0}} expenses={expenses.map(x=>({...x,createdAt:x.createdAt.toISOString()}))} query={q} filter={filter}/>;
 }

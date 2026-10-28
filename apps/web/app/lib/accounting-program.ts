@@ -14,8 +14,7 @@ export function allowedAccountingViews(owner: boolean, permissions: unknown) {
   return accountingViews.filter(view => owner || memberCanAccess(permissions, view.permission));
 }
 
-/** Resolve from tenant metadata. The legacy catalogue argument cannot change activity. */
+/** Legacy evidence is accepted only for generic metadata, never over a specific declared activity. */
 export function accountingActivity(business: { businessType: string; businessCategory?: string | null }, hasLaundryCatalogue = false): AccountingActivity {
-  void hasLaundryCatalogue;
-  return cashierActivityProfile(business).id === "laundry" ? "laundry" : "general";
+  return cashierActivityProfile(business,hasLaundryCatalogue).id === "laundry" ? "laundry" : "general";
 }

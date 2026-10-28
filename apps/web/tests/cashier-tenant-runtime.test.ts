@@ -5,6 +5,8 @@ import {runInNewContext} from "node:vm";
 import {randomUUID} from "node:crypto";
 import ts from "typescript";
 import {z} from "zod";
+import * as jsxRuntime from "react/jsx-runtime";
+import * as settings from "../app/lib/cashier-settings";
 import {PGlite} from "@electric-sql/pglite";
 import * as activity from "../app/lib/accounting-program";
 import * as cashier from "../app/lib/cashier-activity";
@@ -13,7 +15,7 @@ import * as staff from "../app/lib/staff-permissions";
 
 async function moduleExports(file:string,dependencies:Record<string,unknown>) {
  const source=await readFile(new URL(file,import.meta.url),"utf8");
- const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ const code=ts.transpileModule(source,{fileName:file,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  const exports:Record<string,unknown>={};
  runInNewContext(code,{exports,require:(id:string)=>dependencies[id]??{},Date,Set,Map,Error});return exports;
 }
@@ -33,11 +35,12 @@ test("cashier fails closed on an unauthorized selected business instead of falli
 
 test("forged cashier writes and clothing preset activation are rejected before any database transaction",async()=>{
  let transactions=0;
+ const profileExports=await moduleExports("../app/lib/cashier-profile-server.ts",{"./cashier-activity":cashier});
  const dependencies={
   "zod":{z},"../lib/auth":{getCurrentUserForApiWrite:async()=>({id:"owner"})},
   "../lib/active-business":{getActiveBusinessForUser:async()=>({id:businessA,ownerId:"owner",businessType:"WORKSHOP"})},
   "../lib/db":{db:{$transaction:async()=>{transactions++;throw Error("must reject before writes");}}},
-  "../lib/accounting-program":activity,"../lib/cashier-activity":cashier,"../lib/laundry-domain":domain
+  "../lib/cashier-profile-server":profileExports,"../lib/accounting-program":activity,"../lib/cashier-activity":cashier,"../lib/laundry-domain":domain
  };
  const exports=await moduleExports("../app/Laundromat/actions.ts",dependencies);
  const command=exports.laundryCommand as (input:unknown)=>Promise<{ok:boolean;error?:string}>;
@@ -53,17 +56,24 @@ test("actual customer order queries cannot disclose another tenant's invoices th
   await pg.exec('CREATE TABLE "LaundryTicket" (id text,number int,"businessId" text,"customerId" text,"createdAt" timestamptz,status text,total int,paid int)');
   await pg.query('INSERT INTO "LaundryTicket" VALUES ($1,1,$2,$3,now(),\'received\',100,0),($4,2,$5,$6,now(),\'received\',900,0)',[randomUUID(),businessA,customerA,randomUUID(),businessB,customerB]);
   await pg.exec('CREATE TABLE "LaundryService" (id text,"businessId" text,name text,category text,active boolean); CREATE TABLE "AccountingPackage" (id text,"businessId" text,name text,description text,amount int,"durationDays" int,"serviceIds" jsonb,active boolean,kind text,"unitsIncluded" int,"createdAt" timestamptz)');
-  await pg.query(`INSERT INTO "LaundryService" VALUES ($1,$2,'تغيير زيت المحرك','صيانة دورية',true),($3,$2,'ثوب — غسيل وكوي','ملابس رجالية',true),($4,$5,'ثوب — غسيل وكوي','ملابس رجالية',true)`,[randomUUID(),businessA,randomUUID(),randomUUID(),businessB]);
+  await pg.query(`INSERT INTO "LaundryService" VALUES ($1,$2,'تغيير زيت المحرك','صيانة دورية',true),($3,$2,'إزالة البقع','غسيل وكوي',true),($4,$5,'ثوب — غسيل وكوي','ملابس رجالية',true)`,[randomUUID(),businessA,randomUUID(),randomUUID(),businessB]);
   await pg.query(`INSERT INTO "AccountingPackage" VALUES ($1,$2,'ورشة A','',100,30,'[]',true,'credit',null,now()),($3,$4,'مغسلة B','',900,30,'[]',true,'credit',null,now())`,[randomUUID(),businessA,randomUUID(),businessB]);
+  await pg.exec('ALTER TABLE "LaundryService" ADD COLUMN price integer DEFAULT 900');
+  await pg.query('UPDATE "LaundryService" SET price=1200 WHERE "businessId"=$1',[businessB]);
+  const pricesBefore=(await pg.query('SELECT id,price FROM "LaundryService" ORDER BY id')).rows;
   const raw=async(strings:TemplateStringsArray,...values:unknown[])=>{queries++;return (await pg.query(strings.reduce((sql,part,i)=>sql+(i?`$${i}`:"")+part,""),values)).rows;};
   const exports=await moduleExports("../app/Laundromat/customer-actions.ts",{
    "zod":{z},"../lib/auth":{getCurrentUser:async()=>({id:"owner"})},
    "../lib/active-business":{getActiveBusinessForUser:async()=>({id:active})},
    "../lib/db":{db:{$queryRaw:async(strings:TemplateStringsArray,...values:unknown[])=>{queries++;return (await pg.query(strings.reduce((sql,part,i)=>sql+(i?`$${i}`:"")+part,""),values)).rows;}}}
   });
+  const profileExports=await moduleExports("../app/lib/cashier-profile-server.ts",{"../lib/cashier-activity":cashier,"./cashier-activity":cashier,"./db":{db:{$queryRaw:raw}}});
+  const resolveProfile=profileExports.cashierProfileForBusiness as (b:{id:string;businessType:string})=>Promise<{id:string}>;
+  assert.equal((await resolveProfile({id:"33333333-3333-4333-8333-333333333333",businessType:"خدمات"})).id,"services");
+  assert.equal((await resolveProfile({id:businessB,businessType:"خدمات"})).id,"laundry");
   const packageExports=await moduleExports("../app/Laundromat/package-actions.ts",{
-   "zod":{z},"../lib/auth":{getCurrentUser:async()=>({id:"owner"})},"../lib/cashier-activity":cashier,
-   "../lib/active-business":{getActiveBusinessForUser:async()=>({id:active,ownerId:"owner",businessType:active===businessA?"WORKSHOP":"laundry"})},"../lib/db":{db:{$queryRaw:raw}}
+   "zod":{z},"../lib/auth":{getCurrentUser:async()=>({id:"owner"})},"../lib/cashier-activity":cashier,"../lib/cashier-profile-server":profileExports,
+   "../lib/active-business":{getActiveBusinessForUser:async()=>({id:active,ownerId:"owner",businessType:active===businessA?"WORKSHOP":"خدمات"})},"../lib/db":{db:{$queryRaw:raw}}
   });
   const packages=packageExports.getAccountingPackages as (input:unknown)=>Promise<{ok:boolean;packages?:Array<{name:string}>;services?:Array<{name:string}>}>;
   const workshop=await packages({businessId:businessA});assert.equal(workshop.packages?.[0].name,"ورشة A");assert.equal(workshop.services?.length,1);assert.equal(workshop.services?.[0].name,"تغيير زيت المحرك");
@@ -74,5 +84,31 @@ test("actual customer order queries cannot disclose another tenant's invoices th
   const before=queries;assert.equal((await orders({businessId:businessB,customerId:customerB})).ok,false);assert.equal(queries,before);
   active=businessB;assert.equal((await packages({businessId:businessB})).services?.[0].name,"ثوب — غسيل وكوي");assert.equal((await packages({businessId:businessA})).ok,false);assert.equal((await orders({businessId:businessB,customerId:customerB})).orders?.[0].total,900);
   assert.equal((await orders({businessId:businessA,customerId:customerA})).ok,false);
+  assert.deepEqual((await pg.query('SELECT id,price FROM "LaundryService" ORDER BY id')).rows,pricesBefore);
  }finally{await pg.close();}
+});
+
+
+test("actual cashier render preserves generic legacy laundry prices and hides custom ironing categories in a workshop",async()=>{
+ let business={id:businessA,ownerId:"owner",name:"Legacy tenant",businessType:"خدمات",businessCategory:null as string|null,pageModules:null,address:null,logoUrl:null};
+ const saved=[{id:"saved-service",name:"ثوب — كوي",category:"ملابس رجالية",price:1200,active:true},{id:"custom-stain",name:"إزالة البقع",category:"غسيل وكوي",price:900,active:true}];
+ let rows=saved;
+ const exports=await moduleExports("../app/Laundromat/server-workspace.tsx",{
+  "react/jsx-runtime":jsxRuntime,"../lib/auth":{getCurrentUser:async()=>({id:"owner"})},
+  "../lib/active-business":{getActiveBusinessForUser:async()=>business},"../lib/accounting-program":activity,"../lib/cashier-activity":cashier,"../lib/cashier-settings":settings,
+  "../lib/invoice-contact":{invoiceContactPhone:()=>""},"../lib/laundry-domain":domain,"./workspace":{LaundryWorkspace:()=>null},
+  "../lib/db":{db:{$queryRaw:async(strings:TemplateStringsArray,...values:unknown[])=>{
+   assert.ok(values.includes(business.id));const sql=strings.join("?");
+   if(sql.includes('FROM "LaundryService" s'))return rows;
+   if(sql.includes('AS outstanding'))return [{active:0,ready:0,outstanding:0,collected:0,expenses:0}];
+   return [];
+  }}}
+ });
+ const render=exports.AccountingWorkspacePage as (input:unknown)=>Promise<{props:{services:typeof saved;profile:{id:string};activity:string}}>;
+ const laundry=await render({searchParams:Promise.resolve({}),expectedBusinessId:business.id});
+ assert.equal(laundry.props.profile.id,"laundry");assert.equal(laundry.props.activity,"laundry");assert.deepEqual(laundry.props.services,saved);assert.equal(laundry.props.services[0].price,1200);
+ business={...business,id:businessB,name:"Workshop tenant",businessType:"WORKSHOP",businessCategory:"ورشة / صيانة سيارات"};
+ rows=[...saved,{id:"oil",name:"تغيير زيت المحرك",category:"صيانة دورية",price:5000,active:true}];
+ const workshop=await render({searchParams:Promise.resolve({}),expectedBusinessId:business.id});
+ assert.equal(workshop.props.profile.id,"workshop");assert.deepEqual(workshop.props.services.map(s=>s.name),["تغيير زيت المحرك"]);
 });
