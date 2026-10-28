@@ -4,6 +4,210 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "بعد 15 دقيقة": {
+    "en": "In 15 minutes",
+    "zh-CN": "15分钟后",
+    "es": "En 15 minutos",
+    "ur": "15 منٹ بعد"
+  },
+  "بعد نصف ساعة": {
+    "en": "In half an hour",
+    "zh-CN": "半小时后",
+    "es": "En media hora",
+    "ur": "آدھے گھنٹے بعد"
+  },
+  "بعد ساعة": {
+    "en": "In one hour",
+    "zh-CN": "一小时后",
+    "es": "En una hora",
+    "ur": "ایک گھنٹے بعد"
+  },
+  "بعد 3 أيام": {
+    "en": "In 3 days",
+    "zh-CN": "3天后",
+    "es": "En 3 días",
+    "ur": "3 دن بعد"
+  },
+  "موعد استلام الملابس": {
+    "en": "Clothing collection time",
+    "zh-CN": "衣物领取时间",
+    "es": "Recogida de prendas",
+    "ur": "کپڑوں کی وصولی کا وقت"
+  },
+  "موعد جاهزية المركبة المتوقع": {
+    "en": "Expected vehicle readiness",
+    "zh-CN": "预计车辆完工时间",
+    "es": "Fecha prevista de entrega del vehículo",
+    "ur": "گاڑی تیار ہونے کا متوقع وقت"
+  },
+  "يوم جاهزية المركبة": {
+    "en": "Vehicle ready date",
+    "zh-CN": "车辆完工日期",
+    "es": "Día de entrega del vehículo",
+    "ur": "گاڑی تیار ہونے کی تاریخ"
+  },
+  "ساعة جاهزية المركبة": {
+    "en": "Vehicle ready time",
+    "zh-CN": "车辆完工时刻",
+    "es": "Hora de entrega del vehículo",
+    "ur": "گاڑی تیار ہونے کا وقت"
+  },
+  "موعد جاهزية المركبة:": {
+    "en": "Vehicle ready:",
+    "zh-CN": "车辆完工时间：",
+    "es": "Vehículo listo:",
+    "ur": "گاڑی تیار:"
+  },
+  "موعد انتهاء العناية بالمركبة": {
+    "en": "Vehicle care completion",
+    "zh-CN": "车辆护理完成时间",
+    "es": "Finalización del cuidado del vehículo",
+    "ur": "گاڑی کی دیکھ بھال مکمل ہونے کا وقت"
+  },
+  "موعد تجهيز الطلب": {
+    "en": "Order preparation time",
+    "zh-CN": "订单备妥时间",
+    "es": "Preparación del pedido",
+    "ur": "آرڈر تیار ہونے کا وقت"
+  },
+  "يوم تجهيز الطلب": {
+    "en": "Preparation date",
+    "zh-CN": "订单备妥日期",
+    "es": "Día de preparación",
+    "ur": "تیاری کی تاریخ"
+  },
+  "ساعة تجهيز الطلب": {
+    "en": "Preparation time",
+    "zh-CN": "订单备妥时刻",
+    "es": "Hora de preparación",
+    "ur": "تیاری کا وقت"
+  },
+  "موعد تجهيز الطلب:": {
+    "en": "Order ready:",
+    "zh-CN": "订单备妥：",
+    "es": "Pedido listo:",
+    "ur": "آرڈر تیار:"
+  },
+  "موعد استلام المنتجات": {
+    "en": "Product collection time",
+    "zh-CN": "商品领取时间",
+    "es": "Recogida de productos",
+    "ur": "مصنوعات کی وصولی کا وقت"
+  },
+  "موعد تقديم الخدمة": {
+    "en": "Service time",
+    "zh-CN": "服务时间",
+    "es": "Hora del servicio",
+    "ur": "خدمت کا وقت"
+  },
+  "يوم تقديم الخدمة": {
+    "en": "Service date",
+    "zh-CN": "服务日期",
+    "es": "Fecha del servicio",
+    "ur": "خدمت کی تاریخ"
+  },
+  "ساعة تقديم الخدمة": {
+    "en": "Service time",
+    "zh-CN": "服务时刻",
+    "es": "Hora del servicio",
+    "ur": "خدمت کا وقت"
+  },
+  "موعد تقديم الخدمة:": {
+    "en": "Service scheduled:",
+    "zh-CN": "服务预约：",
+    "es": "Servicio programado:",
+    "ur": "خدمت کا مقررہ وقت:"
+  },
+  "العطل، أعمال الصيانة المطلوبة، ملاحظات الفحص…": {
+    "en": "Fault, required repairs, inspection notes…",
+    "zh-CN": "故障、维修要求、检查备注…",
+    "es": "Avería, reparaciones y notas de inspección…",
+    "ur": "خرابی، مطلوبہ مرمت، معائنے کے نوٹس…"
+  },
+  "نوع المركبة وتعليمات التنظيف والعناية…": {
+    "en": "Vehicle type and care instructions…",
+    "zh-CN": "车型与清洁护理说明…",
+    "es": "Tipo de vehículo e instrucciones de cuidado…",
+    "ur": "گاڑی کی قسم اور صفائی کی ہدایات…"
+  },
+  "تعليمات التحضير والإضافات…": {
+    "en": "Preparation instructions and extras…",
+    "zh-CN": "制作说明与加料…",
+    "es": "Instrucciones de preparación y extras…",
+    "ur": "تیاری کی ہدایات اور اضافی اشیا…"
+  },
+  "تعليمات تجهيز المنتجات أو الاستلام…": {
+    "en": "Product preparation or collection instructions…",
+    "zh-CN": "商品备货或领取说明…",
+    "es": "Instrucciones de preparación o recogida…",
+    "ur": "مصنوعات کی تیاری یا وصولی کی ہدایات…"
+  },
+  "تعليمات الخدمة وملاحظات العميل…": {
+    "en": "Service instructions and customer notes…",
+    "zh-CN": "服务说明与客户备注…",
+    "es": "Instrucciones del servicio y notas del cliente…",
+    "ur": "خدمت کی ہدایات اور صارف کے نوٹس…"
+  },
+  "بيانات المركبة": {
+    "en": "Vehicle details",
+    "zh-CN": "车辆信息",
+    "es": "Datos del vehículo",
+    "ur": "گاڑی کی معلومات"
+  },
+  "نوع المركبة والموديل": {
+    "en": "Vehicle make and model",
+    "zh-CN": "车辆品牌和型号",
+    "es": "Marca y modelo del vehículo",
+    "ur": "گاڑی کی قسم اور ماڈل"
+  },
+  "مثال: تويوتا كامري 2024": {
+    "en": "Example: Toyota Camry 2024",
+    "zh-CN": "示例：2024款丰田凯美瑞",
+    "es": "Ejemplo: Toyota Camry 2024",
+    "ur": "مثال: ٹویوٹا کیمری 2024"
+  },
+  "رقم اللوحة": {
+    "en": "License plate",
+    "zh-CN": "车牌号",
+    "es": "Matrícula",
+    "ur": "نمبر پلیٹ"
+  },
+  "قراءة العداد — كم": {
+    "en": "Odometer — km",
+    "zh-CN": "里程数 — 公里",
+    "es": "Kilometraje — km",
+    "ur": "میٹر ریڈنگ — کلومیٹر"
+  },
+  "تُحفظ بيانات المركبة مع طلب هذه المنشأة وتظهر في مستنده.": {
+    "en": "Vehicle details are saved with this business’s order and shown on its document.",
+    "zh-CN": "车辆信息随本商户订单保存并显示在单据上。",
+    "es": "Los datos del vehículo se guardan en el pedido de este negocio y aparecen en su documento.",
+    "ur": "گاڑی کی معلومات اسی کاروبار کے آرڈر کے ساتھ محفوظ ہوتی ہیں اور اس کی دستاویز پر دکھائی دیتی ہیں۔"
+  },
+  "عقد خدمات المنشأة": {
+    "en": "Business service agreement",
+    "zh-CN": "商户服务协议",
+    "es": "Contrato de servicios del negocio",
+    "ur": "کاروبار کی خدمات کا معاہدہ"
+  },
+  "تقرير المنشأة": {
+    "en": "Business report",
+    "zh-CN": "商户报表",
+    "es": "Informe del negocio",
+    "ur": "کاروبار کی رپورٹ"
+  },
+  "مصروفات تشغيل المنشأة": {
+    "en": "Business operating expenses",
+    "zh-CN": "商户运营费用",
+    "es": "Gastos operativos del negocio",
+    "ur": "کاروبار کے عملی اخراجات"
+  },
+  "استهلاك مواد المنشأة": {
+    "en": "Business material consumption",
+    "zh-CN": "商户材料消耗",
+    "es": "Consumo de materiales del negocio",
+    "ur": "کاروبار کے مواد کا استعمال"
+  },
   "فريق التواصل": {
     "en": "Contact team",
     "zh-CN": "联系团队",

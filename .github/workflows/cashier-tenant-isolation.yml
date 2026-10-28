@@ -1,0 +1,57 @@
+name: Cashier Tenant Isolation
+on:
+  pull_request:
+    paths: ['apps/web/**', '.github/workflows/cashier-tenant-isolation.yml']
+  push:
+    branches: [hee-v6-rc]
+    paths: ['apps/web/**', '.github/workflows/cashier-tenant-isolation.yml']
+permissions:
+  contents: read
+concurrency:
+  group: cashier-isolation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  isolated-accounting:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: infro_cashier_isolation
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U postgres -d infro_cashier_isolation"
+          --health-interval=5s --health-timeout=5s --health-retries=12
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/infro_cashier_isolation
+      APP_ENV: test
+      APP_URL: http://127.0.0.1:3000
+      API_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      SESSION_SECRET: isolated-ci-only-no-production-credentials
+      PAYMENT_PROVIDER: mock
+      STORAGE_DRIVER: database
+      RC_CANDIDATE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.RC_CANDIDATE_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: node --import tsx --test tests/*.test.ts
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test tests/cashier-tenant-workflow.spec.ts

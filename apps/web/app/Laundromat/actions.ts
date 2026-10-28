@@ -1,6 +1,7 @@
 "use server";
+import { cashierOrderNotes } from "../lib/cashier-workflow";
 import { cashierProfileForBusiness } from "../lib/cashier-profile-server";
-import { cashierServiceAllowed, isClothingPresetService } from "../lib/cashier-activity";
+import { cashierActivityProfile, cashierServiceAllowed, isClothingPresetService } from "../lib/cashier-activity";
 import {endOrderLiveSessions} from "../lib/live-view/order-link";
 import { assertInvoiceCapacity,CommercialLimitError } from "../lib/commercial-usage";
 import { cashierUrgentEnabled } from "../lib/cashier-settings";
@@ -27,7 +28,7 @@ const command = z.discriminatedUnion("type", [
   z.object({type:z.literal("urgent-settings"),enabled:z.boolean(),requestId:key}),
   z.object({ type:z.literal("urgent-price"),id:key,price:z.string(),requestId:key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
-  z.object({ type: z.literal("order"), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
+  z.object({ type: z.literal("order"), vehicleModel:z.string().trim().max(80).optional(),vehiclePlate:z.string().trim().max(30).optional(),vehicleMileage:z.string().trim().max(7).optional(), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
   z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0") }),
   z.object({ type: z.literal("status"), requestId: key, id: key, status: z.enum(["received","processing","ready","delivered"]) }),
   z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string(), method:z.enum(["cash","transfer","unspecified"]).default("unspecified") }),
@@ -112,6 +113,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         const current=await tx.business.findFirst({where:{id:business.id,deletedAt:null},select:{pageModules:true,businessType:true,businessCategory:true}});
         if(!current)throw new LaundryInputError("المنشأة غير متاحة");
         if(data.items.some(line=>{const service=catalog.find(s=>s.id===line.serviceId);return service&&!cashierServiceAllowed(current,service,catalog.some(isClothingPresetService));}))throw new LaundryInputError("تغير نشاط المنشأة أو قائمة الخدمات. حدّث الكاشير واختر خدمات النشاط الحالي.");
+        const notes=cashierOrderNotes(cashierActivityProfile(current,catalog.some(isClothingPresetService)).id,data);
         const supportsUrgent=cashierUrgentEnabled(current.pageModules,current,catalog.some(isClothingPresetService));
         if(data.serviceSpeed==="urgent"&&!supportsUrgent)throw new LaundryInputError("خيار المستعجل غير مفعّل لهذا النشاط؛ حدّث الصفحة وراجع الطلب");
         let lines=laundryPricedLines(data.items,catalog,data.serviceSpeed);const paid=moneyToHalalas(data.paid);
@@ -129,7 +131,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           if(data.subscriptionCovered!==quote.covered||(data.subscriptionToken!==undefined&&data.subscriptionToken!==quote.token)||(quote.allocations.some(a=>a.units>0)&&data.subscriptionToken===undefined))throw new LaundryInputError("تغير رصيد الاشتراك أو تفاصيل الباقة. أعد قراءة الرصيد قبل حفظ الطلب");
           lines=quote.lines;total=quote.total;
         }
-        await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${customer.phone},${customer.id},${JSON.stringify(supportsUrgent?withLaundryServiceSpeed(lines,data.serviceSpeed):lines)}::jsonb,${total},${paid},${dueAt},${data.notes},${user.id})`;
+        await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${customer.phone},${customer.id},${JSON.stringify(supportsUrgent?withLaundryServiceSpeed(lines,data.serviceSpeed):lines)}::jsonb,${total},${paid},${dueAt},${notes},${user.id})`;
         await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"order",amount:total,at:new Date(),description:`استلام طلب #${rows[0].number}`});
         if(quote){
           for(const allocation of quote.allocations){

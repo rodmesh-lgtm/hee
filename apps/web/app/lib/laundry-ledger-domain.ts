@@ -11,8 +11,8 @@ export const LAUNDRY_ACCOUNTS=[
  {code:"2900",name:"مصروفات لم يُحدد مصدر دفعها",kind:"liability"},
  {code:"3000",name:"الأرصدة الافتتاحية وحقوق الملكية",kind:"equity"},
  {code:"4000",name:"إيراد الخدمات المسلّمة",kind:"income"},
- {code:"5000",name:"مصروفات تشغيل المغسلة",kind:"expense"},
- {code:"5100",name:"استهلاك مواد المغسلة",kind:"expense"},
+ {code:"5000",name:"مصروفات تشغيل المنشأة",kind:"expense"},
+ {code:"5100",name:"استهلاك مواد المنشأة",kind:"expense"},
 ] as const;
 export type LedgerLine={accountCode:string;debit:number;credit:number};
 export function balancedLaundryLines(lines:LedgerLine[]){
@@ -31,4 +31,9 @@ export function laundrySourceLines(kind:"order"|"payment"|"delivery"|"expense",a
  if(kind==="payment"&&!account)throw new LaundryInputError("طريقة التحصيل غير مدعومة في الدفتر");
  const [dr,cr]=kind==="order"?["1200","2200"]:kind==="payment"?[account!,"1200"]:kind==="delivery"?["2200","4000"]:["5000",account??"2900"];
  return [{accountCode:dr,debit:amount,credit:0},{accountCode:cr,debit:0,credit:amount}];
+}
+
+/** Normalize only shipped legacy labels; never replace a business's custom account names. */
+export function accountingAccountName(name:string):string {
+ return name==="مصروفات تشغيل المغسلة"?"مصروفات تشغيل المنشأة":name==="استهلاك مواد المغسلة"?"استهلاك مواد المنشأة":name;
 }

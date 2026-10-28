@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 export function accountingCorrectionPreflightQuery(sourceId:string,targetId:string){
  return Prisma.sql`SELECT
+ (SELECT count(*)::int FROM (SELECT "accountCode" FROM "LaundryJournalLine" WHERE "businessId"=${sourceId} GROUP BY "accountCode" HAVING SUM(debit-credit)<>0) balances) AS "sourceNonzeroAccounts",
  (SELECT count(*)::int FROM "LaundryTicket" WHERE "businessId"=${sourceId}) AS tickets,
  (SELECT count(*)::int FROM "LaundryCustomer" WHERE "businessId"=${sourceId}) AS customers,
  (SELECT count(*)::int FROM "LaundryPayment" WHERE "businessId"=${sourceId}) AS payments,
@@ -18,4 +19,4 @@ export function accountingCorrectionPreflightQuery(sourceId:string,targetId:stri
  (SELECT count(*)::int FROM "WhatsAppAuditLog" WHERE "businessId"=${sourceId} AND action='live-view.order.linked') AS "liveOrderLinks",
  (SELECT count(*)::int FROM "WhatsAppAutomationEvent" WHERE "businessId"=${sourceId} AND source IN ('laundry.ready','cashier.followup')) AS "noticeEvents"`;
 }
-export type AccountingCorrectionPreflight={tickets:number;customers:number;payments:number;prepaid:number;prepaidMovements:number;deliveries:number;journals:number;reconciliations:number;contracts:number;targetTickets:number;targetPayments:number;targetJournals:number;targetInitializedBooks:number;targetLockedBefore:Date|null;liveOrderLinks:number;noticeEvents:number};
+export type AccountingCorrectionPreflight={sourceNonzeroAccounts:number;tickets:number;customers:number;payments:number;prepaid:number;prepaidMovements:number;deliveries:number;journals:number;reconciliations:number;contracts:number;targetTickets:number;targetPayments:number;targetJournals:number;targetInitializedBooks:number;targetLockedBefore:Date|null;liveOrderLinks:number;noticeEvents:number};
