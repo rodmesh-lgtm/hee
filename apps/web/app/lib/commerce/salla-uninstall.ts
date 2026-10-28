@@ -30,7 +30,10 @@ export async function applySallaUninstall(input: {
       await tx.whatsAppCommerceIntegration.updateMany({ where: { id: input.integrationId, businessId: input.businessId, provider: "salla", status: "active" },
         data: { status: "disconnected", credentialEnvelope: Prisma.DbNull, disconnectedAt: now, lastWebhookAt: now, lastErrorCode: null } });
       await tx.commerceBookingEligibility.updateMany({ where: { businessId: input.businessId, integrationId: input.integrationId, provider: "salla" }, data: { eligible: false } });
-      await tx.sallaWebhookEvent.updateMany({ where: { businessId: input.businessId, integrationId: input.integrationId, eventId: { not: input.eventId }, status: { in: ["pending", "retry_scheduled", "processing"] } },
+      await tx.sallaWebhookEvent.updateMany({ where: { businessId: input.businessId, integrationId: input.integrationId, eventId: { not: input.eventId }, OR: [
+        { status: { in: ["pending", "retry_scheduled", "processing"] } },
+        { status: "ignored", lastErrorCode: "SALLA_SUBSCRIPTION_VERIFICATION_REQUIRED" },
+      ] },
         data: { status: "ignored", processedAt: now, leaseOwner: null, leaseExpiresAt: null, lastErrorCode: "SALLA_APP_UNINSTALLED" } });
     }
     const data = { status: stale ? "ignored" : "processed", processedAt: now, leaseOwner: null, leaseExpiresAt: null,

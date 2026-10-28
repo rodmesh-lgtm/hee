@@ -8,6 +8,8 @@ import { getSallaConfig } from "../../../../lib/commerce/salla-config";
 import { sallaWebhookStoragePayload } from "../../../../lib/commerce/salla-webhook-storage";
 import { parseSallaUninstall } from "../../../../lib/commerce/salla-lifecycle-domain";
 import { applySallaUninstall } from "../../../../lib/commerce/salla-uninstall";
+import { isSallaSubscriptionEvent, sallaSubscriptionReceipt } from "../../../../lib/commerce/salla-subscription-receipt";
+import { captureSallaSubscriptionReceipt } from "../../../../lib/commerce/salla-subscription-inbox";
 import { processNextSallaWebhookEvent } from "../../../../lib/commerce/salla-webhook-processor";
 import { sallaEventType, sallaMerchantId, sallaWebhookEventId, verifySallaWebhookSignature } from "../../../../lib/commerce/salla-domain";
 
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
   const integration = await db.whatsAppCommerceIntegration.findFirst({
     where: { provider: "salla", externalStoreId: merchantId, status: eventType === "app.uninstalled" ? { in: ["active", "disconnected"] } : "active" },
     orderBy: [{ status: "asc" }, { connectedAt: "desc" }, { createdAt: "desc" }],
-    select: { id: true, businessId: true },
+    select: { id: true, businessId: true, connectedAt: true },
   });
   if (!integration) return NextResponse.json({ ok: false }, { status: 404 });
   const eventId = sallaWebhookEventId(rawBody, merchantId, request.headers.get("x-salla-event-id"));
@@ -43,6 +45,23 @@ export async function POST(request: Request) {
     catch { return NextResponse.json({ ok: false }, { status: 400 }); }
     await applySallaUninstall({ ...uninstall, businessId: integration.businessId, integrationId: integration.id, merchantId, eventId });
     return NextResponse.json({ ok: true });
+  }
+  if (isSallaSubscriptionEvent(eventType)) {
+    let receipt;
+    try { receipt = sallaSubscriptionReceipt(payload, config.SALLA_APP_ID, merchantId, config.SALLA_LEGACY_WEBHOOK_UTC_OFFSET); }
+    catch { return NextResponse.json({ ok: false }, { status: 400 }); }
+    try {
+      const result = await captureSallaSubscriptionReceipt({ businessId: integration.businessId,
+        integrationId: integration.id, connectedAt: integration.connectedAt, merchantId,
+        appId: config.SALLA_APP_ID, eventId, receipt });
+      if (result.kind === "conflict") return NextResponse.json({ ok: false }, { status: 409 });
+      if (result.kind === "replaced") return NextResponse.json({ ok: false }, { status: 503 });
+      // Billing receipts neither run order workers nor change synchronization health.
+      return NextResponse.json({ ok: true, ignored: result.kind === "disconnected" });
+    } catch {
+      console.error("[salla-webhook] subscription_receipt_failed");
+      return NextResponse.json({ ok: false }, { status: 503 });
+    }
   }
   await db.sallaWebhookEvent.upsert({
     where: { eventId },
@@ -57,7 +76,7 @@ export async function POST(request: Request) {
       payload: sallaWebhookStoragePayload(payload, eventType, merchantId),
     },
   });
-  await db.whatsAppCommerceIntegration.updateMany({
+  if (!eventType.startsWith("app.")) await db.whatsAppCommerceIntegration.updateMany({
     where: { id: integration.id, businessId: integration.businessId, status: "active" },
     data: { lastWebhookAt: new Date(), lastErrorCode: null },
   });
