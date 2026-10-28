@@ -4,7 +4,7 @@ import { getDashboardBusinessForUser } from "../../lib/active-business";
 import StaffPage from "../../dashboard/staff/page";
 import "../laundry.css";
 export const dynamic="force-dynamic";
-export const metadata={title:"INFRO · موظفو المغسلة",robots:{index:false,follow:false}};
+export const metadata={title:"INFRO · موظفو المنشأة",robots:{index:false,follow:false}};
 export default async function LaundryStaffPage(){
  const user=await getCurrentUser();const b=user?await getDashboardBusinessForUser(user.id):null;
  if(!b||b.ownerId!==user?.id)return <main className="laundry-gate" dir="rtl"><h1>إدارة الموظفين متاحة لمالك المنشأة فقط</h1><Link href="/Laundromat">الكاشير</Link></main>;

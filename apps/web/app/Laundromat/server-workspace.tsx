@@ -1,5 +1,6 @@
 import { UiText, UiAttributes } from "../../components/i18n/locale-provider";
-import { cashierUrgentEnabled, hasClothingCatalogue } from "../lib/cashier-settings";
+import { cashierUrgentEnabled } from "../lib/cashier-settings";
+import { cashierActivityProfile, cashierServiceAllowed } from "../lib/cashier-activity";
 import { accountingActivity } from "../lib/accounting-program";
 import { invoiceContactPhone } from "../lib/invoice-contact";
 import Link from "next/link";
@@ -11,11 +12,11 @@ import { laundryFilter } from "../lib/laundry-domain";
 import { laundryCustomerPhone } from "../lib/laundry-customer";
 import { LaundryWorkspace } from "./workspace";
 import "./laundry.css";
-export async function AccountingWorkspacePage({searchParams,basePath="/Laundromat"}:{searchParams:Promise<{q?:string;filter?:string}>;activity?:"laundry"|"general";basePath?:string}) {
+export async function AccountingWorkspacePage({searchParams,expectedBusinessId,basePath="/Laundromat"}:{searchParams:Promise<{q?:string;filter?:string}>;activity?:"laundry"|"general";expectedBusinessId?:string;basePath?:string}) {
   const user=await getCurrentUser();
   if(!user)return <UiAttributes direction><main className="laundry-gate" dir="rtl"><p>INFRO / ACCOUNTING</p><h1><UiText>{"مساحة عمل منشأتك"}</UiText></h1><p><UiText>{"الطلبات والفواتير وبيانات العملاء محمية بحساب المنشأة."}</UiText></p><Link href="/login"><UiText>{"تسجيل الدخول"}</UiText></Link><p><UiText>{"بعد الدخول افتح"}</UiText><Link href="/Laundromat"><UiText>{"كاشير المنشأة"}</UiText></Link>.</p></main></UiAttributes>;
   const business=await getActiveBusinessForUser(user.id,"laundry");
-  if(!business)return <UiAttributes direction><main className="laundry-gate" dir="rtl"><h1><UiText>{"تحتاج صلاحية كاشير المنشأة"}</UiText></h1><p><UiText>{"اختر المنشأة من لوحة التحكم، أو اطلب من مالكها إتاحة قسم كاشير المنشأة لحسابك."}</UiText></p><Link href="/dashboard"><UiText>{"العودة إلى لوحة التحكم"}</UiText></Link></main></UiAttributes>;
+  if(!business||(expectedBusinessId&&business.id!==expectedBusinessId))return <UiAttributes direction><main className="laundry-gate" dir="rtl"><h1><UiText>{"تحتاج صلاحية كاشير المنشأة"}</UiText></h1><p><UiText>{"اختر المنشأة من لوحة التحكم، أو اطلب من مالكها إتاحة قسم كاشير المنشأة لحسابك."}</UiText></p><Link href="/dashboard"><UiText>{"العودة إلى لوحة التحكم"}</UiText></Link></main></UiAttributes>;
   const owner=business.ownerId===user.id;
   const params=await searchParams;
   const q=String(params.q??"").trim().slice(0,100);
@@ -35,6 +36,8 @@ export async function AccountingWorkspacePage({searchParams,basePath="/Laundroma
     db.$queryRaw<Array<{active:number;ready:number;outstanding:number;collected:number;expenses:number}>>`SELECT (SELECT COUNT(*)::int FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "status"!='delivered') AS active,(SELECT COUNT(*)::int FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "status"='ready') AS ready,(SELECT COALESCE(SUM("total"-"paid"),0)::float8 FROM "LaundryTicket" WHERE "businessId"=${business.id}) AS outstanding,(SELECT COALESCE(SUM("amount"),0)::float8 FROM "LaundryPayment" WHERE "businessId"=${business.id} AND method<>'prepaid') AS collected,(SELECT COALESCE(SUM("amount"),0)::float8 FROM "LaundryExpense" WHERE "businessId"=${business.id}) AS expenses`,
     owner?db.$queryRaw<Array<{id:string;description:string;amount:number;createdAt:Date}>>`SELECT * FROM "LaundryExpense" WHERE "businessId"=${business.id} ORDER BY "createdAt" DESC LIMIT 50`:Promise.resolve([]),
   ]);
-  const activity=accountingActivity(business,hasClothingCatalogue(services));
-  return <LaundryWorkspace key={business.id} urgentEnabled={cashierUrgentEnabled(business.pageModules,business,hasClothingCatalogue(services))} activity={activity} basePath={basePath} business={{id:business.id,name:business.name,phone:invoiceContactPhone(business.pageModules,business.businessType),address:business.address??"",logoUrl:business.logoUrl}} owner={owner} services={services} tickets={tickets.map(x=>({...x,dueAt:x.dueAt.toISOString(),createdAt:x.createdAt.toISOString()}))} totals={owner?totals[0]:{active:totals[0].active,ready:totals[0].ready,outstanding:0,collected:0,expenses:0}} expenses={expenses.map(x=>({...x,createdAt:x.createdAt.toISOString()}))} query={q} filter={filter}/>;
+  const activity=accountingActivity(business);
+  const profile=cashierActivityProfile(business);
+  const activityServices=services.filter(service=>cashierServiceAllowed(business,service));
+  return <LaundryWorkspace key={`${business.id}:${profile.id}`} profile={profile} urgentEnabled={cashierUrgentEnabled(business.pageModules,business)} activity={activity} basePath={basePath} business={{id:business.id,name:business.name,phone:invoiceContactPhone(business.pageModules,business.businessType),address:business.address??"",logoUrl:business.logoUrl}} owner={owner} services={activityServices} tickets={tickets.map(x=>({...x,dueAt:x.dueAt.toISOString(),createdAt:x.createdAt.toISOString()}))} totals={owner?totals[0]:{active:totals[0].active,ready:totals[0].ready,outstanding:0,collected:0,expenses:0}} expenses={expenses.map(x=>({...x,createdAt:x.createdAt.toISOString()}))} query={q} filter={filter}/>;
 }

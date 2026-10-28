@@ -7,7 +7,7 @@ import { ArrowRight, PanelsTopLeft } from "lucide-react";
 import { DashboardThemeToggle } from "./dashboard-theme-toggle";
 
 const titles: Record<string, string> = {
-  "/Laundromat": "نقطة البيع وإدارة المغسلة",
+  "/Laundromat": "نقطة البيع وإدارة المنشأة",
   "/Laundromat/Staff": "الفريق والصلاحيات",
   "/Laundromat/Notifications": "إشعارات الكاشير والعملاء",
   "/Laundromat/Accounting": "حسابات المنشأة",
