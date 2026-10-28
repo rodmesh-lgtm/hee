@@ -3,6 +3,18 @@ import test from "node:test";
 import {cashierActivityProfile,cashierServiceAllowed} from "../app/lib/cashier-activity";
 import {accountingActivity} from "../app/lib/accounting-program";
 import {resolveLaundryPreset} from "../app/lib/laundry-catalog";
+import {cashierWorkflow} from "../app/lib/cashier-workflow";
+
+test("device and electronics repair do not inherit vehicle fields or laundry presets",()=>{
+ for(const businessCategory of ["صيانة الأجهزة","إصلاح الجوالات","Computer repair","صيانة التكييف"]){
+  const business={businessType:"خدمات",businessCategory};
+  const profile=cashierActivityProfile(business,true);
+  assert.equal(profile.id,"repair");
+  assert.equal(cashierWorkflow(profile.id).vehicleFields,false);
+  assert.equal(cashierServiceAllowed(business,resolveLaundryPreset("thobe","wash_iron")!,true),false);
+ }
+ assert.equal(cashierActivityProfile({businessType:"WORKSHOP",businessCategory:"صيانة كمبيوتر السيارات"}).id,"workshop");
+});
 
 test("workshops cannot become clothing laundries through stale presets or generic type metadata",()=>{
  for(const business of [{businessType:"WORKSHOP"},{businessType:"WORKSHOP",businessCategory:"خدمات"},{businessType:"خدمات",businessCategory:"ورشة / صيانة"},{businessType:"خدمات",businessCategory:"صيانة السيارات"}]) {

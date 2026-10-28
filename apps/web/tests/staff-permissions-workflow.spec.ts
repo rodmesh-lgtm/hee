@@ -10,7 +10,8 @@ test("booking sender selection distinguishes identical phone labels and rejects 
   const db = new PrismaClient({ adapter: new PrismaPg(pool) });
   const suffix = randomUUID();
   const owner = await db.user.create({ data: { name: "Booking owner", email: `booking-owner-${suffix}@example.invalid`, emailVerifiedAt: new Date() } });
-  const plan = await db.businessPlan.upsert({ where: { code: "FREE" }, update: {}, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3 } });
+  // Booking and additional staff seats require an active paid operational plan.
+  const plan = await db.businessPlan.upsert({ where: { code: "OPERATE_35" }, update: {}, create: { code: "OPERATE_35", name: "Operate", monthlyPrice: 117, productLimit: 10 } });
   const business = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "Booking sender test", slug: `booking-sender-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
   const foreign = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "Other business", slug: `other-sender-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
   await db.subscription.create({ data: { businessId: business.id, planId: plan.id, provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86400_000) } });
@@ -78,8 +79,10 @@ test("owner invites a verified employee and section permissions are enforced on 
   const owner = await db.user.create({ data: { name: "Staff Test Owner", email: `staff-owner-${suffix}@example.invalid`, emailVerifiedAt: new Date() } });
   const employee = await db.user.create({ data: { name: "موظف الاختبار", email: `staff-member-${suffix}@example.invalid`, emailVerifiedAt: new Date() } });
   const stranger = await db.user.create({ data: { name: "Stranger", email: `staff-stranger-${suffix}@example.invalid`, emailVerifiedAt: new Date() } });
-  const plan = await db.businessPlan.upsert({ where: { code: "FREE" }, update: {}, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3 } });
+  // Booking and additional staff seats require an active paid operational plan.
+  const plan = await db.businessPlan.upsert({ where: { code: "OPERATE_35" }, update: {}, create: { code: "OPERATE_35", name: "Operate", monthlyPrice: 117, productLimit: 10 } });
   const business = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "فريق اختبار الصلاحيات", slug: `staff-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
+  await db.subscription.create({ data: { businessId: business.id, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86400_000), autoRenew: false } });
   const contexts = await Promise.all([owner, employee, stranger].map(async user => {
     const token = randomUUID();
     await db.session.create({ data: { token, userId: user.id, expiresAt: new Date(Date.now() + 3600_000) } });
@@ -149,7 +152,6 @@ test("owner invites a verified employee and section permissions are enforced on 
     const suspended = await contexts[1].request.post(`${baseUrl}/api/dashboard/business/autosave`, { headers: { Origin: baseUrl }, data: { fields: { name: "موقوف" } } });
     expect([401, 403]).toContain(suspended.status());
     expect((await db.business.findUniqueOrThrow({ where: { id: business.id } })).name).toBe("تعديل الموظف المسموح");
-    await db.subscription.create({ data: { businessId: business.id, planId: plan.id, status: "active", provider: "internal", startsAt: new Date(Date.now() - 60_000), endsAt: new Date(Date.now() + 86400_000), autoRenew: false } });
     const connection = await db.whatsAppConnection.create({ data: { businessId: business.id, wabaId: randomUUID(), phoneNumberId: randomUUID(), credentialEnvelope: {}, status: "connected", bookingEnabled: true, displayPhoneNumber: "TEST ONLY" } });
     const templateData = { businessId: business.id, connectionId: connection.id, language: "ar", category: "utility", status: "approved", providerStatus: "APPROVED", parameterFormat: "POSITIONAL", components: [{ type: "BODY", text: "{{1}} {{2}} {{3}} {{4}} {{5}} {{6}} {{7}}" }], rawPayload: {}, lastSyncedAt: new Date() };
     const firstTemplate = await db.whatsAppTemplate.create({ data: { ...templateData, name: "booking_first", providerTemplateId: randomUUID() } });

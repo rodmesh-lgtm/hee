@@ -4,6 +4,10 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "صيانة الأجهزة": { "en": "Appliance repair", "zh-CN": "设备维修", "es": "Reparación de aparatos", "ur": "آلات کی مرمت" },
+  "خدمات الصيانة والإصلاح": { "en": "Repair and maintenance services", "zh-CN": "维护与维修服务", "es": "Servicios de mantenimiento y reparación", "ur": "دیکھ بھال اور مرمت کی خدمات" },
+  "اسم الخدمة أو المنتج": { "en": "Service or product name", "zh-CN": "服务或商品名称", "es": "Nombre del servicio o producto", "ur": "خدمت یا مصنوعات کا نام" },
+  "تصنيف الخدمة": { "en": "Service category", "zh-CN": "服务分类", "es": "Categoría del servicio", "ur": "خدمت کا زمرہ" },
   "بعد 15 دقيقة": {
     "en": "In 15 minutes",
     "zh-CN": "15分钟后",

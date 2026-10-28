@@ -27,10 +27,10 @@ async function seed(): Promise<Fixture> {
     update: { isActive: true },
     create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true },
   });
-  const paidPlanCode = "BUSINESS";
+  const paidPlanCode = "GROWTH_35";
   const paid = await db.businessPlan.upsert({
     where: { code: paidPlanCode }, update: { isActive: true },
-    create: { code: paidPlanCode, name: "Business", monthlyPrice: 199, productLimit: 10, isActive: true },
+    create: { code: paidPlanCode, name: "Growth", monthlyPrice: 214, productLimit: 30, isActive: true },
   });
 
   const admin = await db.user.create({
@@ -222,7 +222,7 @@ test.describe.serial("subscription access-code lifecycle", () => {
       await page.goto(`${baseUrl}/admin/access-codes`);
       await expect(page.locator('select[name="plan"]').first().locator(`option[value="${legacy.code}"]`)).toHaveCount(0);
       const form = page.getByRole("form", { name: `تصحيح ${fixture.label}`, exact: true });
-      await form.getByRole("combobox", { name: "الباقة البديلة" }).selectOption("BUSINESS");
+      await form.getByRole("combobox", { name: "الباقة البديلة" }).selectOption(fixture.paidPlanCode);
       await form.getByRole("button", { name: "تصحيح الكود والمنح النشطة" }).click();
       await expect(page).toHaveURL(/access=repair-saved/);
       const [fixedCode, fixedGrant, fixedSubscription, fixedBusiness, untouched] = await Promise.all([

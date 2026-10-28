@@ -55,3 +55,15 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test tests/cashier-tenant-workflow.spec.ts
+      - name: Verify navigation, public lists, booking sender and staff isolation
+        run: >-
+          npx playwright test tests/dashboard-functional-workflow.spec.ts tests/rc-owner-workflow.spec.ts tests/staff-permissions-workflow.spec.ts
+          --grep 'customer navigation order persists|public identity expands|booking sender selection|owner invites a verified employee'
+      - name: Verify current administrative access grants and revocation
+        env:
+          HEE_ADMIN_EMAILS: rc-platform-admin@hee.test
+        run: npx playwright test tests/admin-access-code-workflow.spec.ts
+      - name: Verify optional booking across seven activity layouts
+        run: npx playwright test tests/dashboard-visual-audit.spec.ts --grep 'seven activity layouts'
+      - name: Verify device repair cashier without vehicle or laundry fields
+        run: npx playwright test tests/transactions-workflow.spec.ts --grep 'unified accounting adapts'

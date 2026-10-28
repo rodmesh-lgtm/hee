@@ -27,6 +27,13 @@ async function openLaundrySection(page:Page,name:string){
  await button.click();
 }
 
+async function setCashierDelivery(page:Page,days:number,hour:number){
+  await page.getByLabel("يوم التسليم",{exact:true}).fill(riyadhDateKey(days));
+  await page.getByLabel("ساعة التسليم",{exact:true}).selectOption(String(hour%12||12));
+  await page.getByLabel("دقيقة التسليم",{exact:true}).selectOption("00");
+  await page.getByLabel("فترة التسليم",{exact:true}).selectOption(hour>=12?"pm":"am");
+}
+
 function dayIndexForRiyadhDate(date: string) {
   const localNoon = new Date(`${date}T12:00:00+03:00`);
   return (localNoon.getUTCDay() + 6) % 7;
@@ -34,7 +41,7 @@ function dayIndexForRiyadhDate(date: string) {
 
 async function seed(): Promise<Seeded> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const plan = await db.businessPlan.upsert({ where: { code: "FREE" }, update: { isActive: true }, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3, isActive: true } });
+  const plan = await db.businessPlan.upsert({ where: { code: "GROWTH_35" }, update: { isActive: true }, create: { code: "GROWTH_35", name: "Growth", monthlyPrice: 214, productLimit: 30, isActive: true } });
   const user = await db.user.create({ data: { name: "Transaction Owner", email: `tx-owner-${suffix}@hee.test`, passwordHash: "rc-only", emailVerifiedAt: new Date() } });
   const slug = `tx-${suffix}`;
   const business = await db.business.create({
@@ -44,6 +51,7 @@ async function seed(): Promise<Seeded> {
       name: "منشأة حجوزات HEE",
       slug,
       businessType: "خدمات",
+      businessCategory: "مغاسل الملابس",
       shortDescription: "اختبار المعاملة من العميل إلى المالك",
       phone: "0555000022",
       whatsapp: "966555000022",
@@ -63,6 +71,8 @@ async function seed(): Promise<Seeded> {
 }
 
 async function setSession(page: Page, token: string) {
+  // Injected fixture logins must clear the previous account's selected business.
+  await page.context().clearCookies();
   await page.context().addCookies([{ name: "hee_session", value: token, url: baseUrl }]);
 }
 
@@ -89,7 +99,9 @@ async function cleanup(seed: Seeded) {
   await db.user.delete({ where: { id: seed.userId } });
 }
 
-test.describe.serial("public transactions workflow", () => {
+// Each case creates its own tenants. Keep the configured single-worker order,
+// but report every independent failure instead of skipping the remaining audit.
+test.describe("public transactions workflow", () => {
   test("unified accounting adapts catalogues and records a general service order", async ({browser},testInfo)=>{
     test.setTimeout(120000);
     const fixture=await seed(),laundry=await seed();const page=await browser.newPage({viewport:{width:1440,height:1000}});
@@ -113,13 +125,13 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByRole("button",{name:"إضافة فحص جهاز",exact:true}).click();
       await page.getByLabel("اسم العميل",{exact:true}).fill("عميل صيانة تجريبي");
       await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009955");
-      await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(2)}T16:00`);
+      await setCashierDelivery(page,2,16);
       await page.getByLabel("الدفعة المستلمة",{exact:true}).fill("10");
       await page.getByLabel("طريقة التحصيل",{exact:true}).selectOption("mixed");
       await page.getByLabel("الجزء النقدي من الدفعة",{exact:true}).fill("3");
       await page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true}).click();
       const receipt=page.getByRole("dialog",{name:"تفاصيل طلب العميل",exact:true});
-      await expect(receipt).toBeVisible();await expect(receipt).toContainText("مستند طلب / إيصال تحصيل");
+      await expect(receipt).toBeVisible();await expect(receipt.getByRole("heading",{name:"فاتورة",exact:true})).toBeVisible();
       await expect(receipt).toContainText("فحص جهاز");await expect(receipt).not.toContainText("المنشأة غير مسجلة");
       const rows=await db.$queryRaw<Array<{total:number;paid:number;items:Array<{name:string}>}>>`SELECT total,paid,items FROM "LaundryTicket" WHERE "businessId"=${fixture.businessId}`;
       expect(rows).toHaveLength(1);expect(rows[0].total).toBe(2500);expect(rows[0].paid).toBe(1000);expect(rows[0].items[0].name).toBe("فحص جهاز");
@@ -433,7 +445,7 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByRole("button",{name:"استدعاء العميل بالجوال",exact:true}).click();
       await expect(page.getByText("تم استدعاء العميل المحفوظ",{exact:true})).toBeVisible();
       await expect(page.getByLabel("اسم العميل",{exact:true})).toHaveValue("عميل اختبار المغسلة");
-      await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(2)}T16:00`);
+      await setCashierDelivery(page,2,16);
       await page.getByLabel("الدفعة المستلمة",{exact:true}).fill("5.25");
       await page.screenshot({path:testInfo.outputPath("laundry-cashier-desktop.png"),fullPage:true});
       const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
@@ -609,6 +621,7 @@ test.describe.serial("public transactions workflow", () => {
       await page.getByLabel("جوال عميل مسجل",{exact:true}).fill("0500009941");
       await page.getByLabel("اسم الاشتراك",{exact:true}).fill("رصيد الغسيل الشهري");
       await page.getByLabel("قيمة الاشتراك المستلمة",{exact:true}).fill("100");
+      await page.getByLabel("مدة الاشتراك",{exact:true}).selectOption("custom");
       await page.getByLabel("آخر يوم للاستخدام",{exact:true}).fill(riyadhDateKey(30));
       const sent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
       await page.getByRole("button",{name:"حفظ الاشتراك والتحصيل",exact:true}).click();const purchase=await sent;
@@ -664,7 +677,7 @@ test.describe.serial("public transactions workflow", () => {
       const review=page.getByRole("button",{name:/مراجعة الطلب/});if(await review.isVisible())await review.click();
       await page.getByLabel("اسم العميل",{exact:true}).fill("عميل الاشتراك");
       await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009941");
-      await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(1)}T12:00`);
+      await setCashierDelivery(page,1,12);
       await page.getByLabel("الدفعة المستلمة",{exact:true}).fill("5");
       await expect(page.getByRole("region",{name:"اشتراكات العميل في الكاشير"})).toContainText("باقة الخدمة الشهرية");
       await expect(page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true})).toBeEnabled();
@@ -697,7 +710,7 @@ test.describe.serial("public transactions workflow", () => {
       if(await review.isVisible())await review.click();
       await page.getByLabel("اسم العميل",{exact:true}).fill("عميل الاشتراك");
       await page.getByLabel("رقم الجوال",{exact:true}).fill("0500009941");
-      await page.getByLabel("التسليم المتوقع · توقيت الرياض",{exact:true}).fill(`${riyadhDateKey(1)}T12:00`);
+      await setCashierDelivery(page,1,12);
       await expect(page.getByRole("region",{name:"اشتراكات العميل في الكاشير"})).toContainText("سيبقى 2 قطعة");
       const countedSent=page.waitForRequest(r=>r.method()==="POST"&&Boolean(r.headers()["next-action"]));
       await page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true}).click();const countedOrder=await countedSent;
