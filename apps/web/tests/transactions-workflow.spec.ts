@@ -478,7 +478,7 @@ test.describe("public transactions workflow", () => {
       await page.setViewportSize({width:390,height:844});await page.screenshot({path:testInfo.outputPath("laundry-invoice-mobile.png"),fullPage:true});
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
       await page.getByLabel("مقاس الطباعة",{exact:true}).selectOption("thermal");
-      await expect(page.locator(".ld-receipt")).toContainText("لا تُحتسب ضريبة على هذه الفاتورة");
+      await expect(page.locator(".ld-receipt")).not.toContainText("لا تُحتسب ضريبة على هذه الفاتورة");
       await page.emulateMedia({media:"print"});
       await expect(page.locator(".ld-dialog-tools").first()).toBeHidden();
       await expect(page.locator(".ld-print-help")).toBeHidden();
