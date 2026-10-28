@@ -71,6 +71,8 @@ async function seed(): Promise<Seeded> {
 }
 
 async function setSession(page: Page, token: string) {
+  // Injected fixture logins must clear the previous account's selected business.
+  await page.context().clearCookies();
   await page.context().addCookies([{ name: "hee_session", value: token, url: baseUrl }]);
 }
 
