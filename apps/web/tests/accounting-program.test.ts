@@ -25,10 +25,10 @@ test("each accounting role retains its existing permission boundary", () => {
   assert.equal(allowedAccountingViews(true, []).length, 4);
 });
 
-test("activity comes from tenant metadata and never from catalogue contents", () => {
+test("specific activity wins while generic legacy laundry is preserved", () => {
   assert.equal(accountingActivity({ businessType: "خدمات", businessCategory: "مغاسل الملابس" }), "laundry");
   assert.equal(accountingActivity({ businessType: "Laundry" }), "laundry");
-  assert.equal(accountingActivity({ businessType: "خدمات" }, true), "general");
+  assert.equal(accountingActivity({ businessType: "خدمات" }, true), "laundry");
   assert.equal(accountingActivity({ businessType: "خدمات", businessCategory: "صيانة السيارات" }), "general");
   assert.equal(accountingActivity({ businessType: "تجارة" }), "general");
 });

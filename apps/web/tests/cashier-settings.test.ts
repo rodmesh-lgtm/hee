@@ -16,9 +16,9 @@ test("owner opt-in and opt-out override defaults without changing business activ
  assert.equal(cashierUrgentEnabled(configured(false),{businessType:"laundry"},true),false);
  assert.equal(cashierUrgentEnabled(configured("true"),{businessType:"متجر"}),false);
 });
-test("catalogue contents cannot enable laundry options for a different activity",()=>{
+test("legacy generic laundry keeps its options while explicit car washes remain general",()=>{
  const legacy=hasClothingCatalogue([{name:"ثوب — غسيل وكوي"}]);assert.equal(legacy,true);
- assert.equal(cashierUrgentEnabled(null,{businessType:"خدمات"},legacy),false);
+ assert.equal(cashierUrgentEnabled(null,{businessType:"خدمات"},legacy),true);
  assert.equal(accountingActivity({businessType:"مغسلة سيارات"},legacy),"general");
  assert.equal(hasClothingCatalogue([{name:"غسيل سيارة"}]),false);
 });

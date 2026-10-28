@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { accountingActivity } from "../../lib/accounting-program";
+import { cashierProfileForBusiness } from "../../lib/cashier-profile-server";
 import { invoiceContactPhone } from "../../lib/invoice-contact";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -9,4 +9,4 @@ import { LaundryProfessionalWorkspace } from "../professional-workspace";
 import "../laundry.css";
 export const dynamic="force-dynamic";
 export const metadata:Metadata={title:"INFRO · محاسبة المنشأة",robots:{index:false,follow:false,noarchive:true}};
-export default async function AccountingPage(){const user=await getCurrentUser();const b=user?await getActiveBusinessForUser(user.id,"laundryAccounting"):null;if(!b)return <main className="laundry-gate" dir="rtl"><h1>تحتاج صلاحية محاسبة المنشأة</h1><Link href={user?"/dashboard":"/login"}>{user?"لوحة التحكم":"تسجيل الدخول"}</Link></main>;if(accountingActivity(b)!=="laundry")redirect("/Accounting?view=accounting");return <LaundryProfessionalWorkspace key={b.id} mode="accounting" owner={b.ownerId===user?.id} business={{id:b.id,name:b.name,logoUrl:b.logoUrl,phone:invoiceContactPhone(b.pageModules,b.businessType),address:b.address??""}}/>;}
+export default async function AccountingPage(){const user=await getCurrentUser();const b=user?await getActiveBusinessForUser(user.id,"laundryAccounting"):null;if(!b)return <main className="laundry-gate" dir="rtl"><h1>تحتاج صلاحية محاسبة المنشأة</h1><Link href={user?"/dashboard":"/login"}>{user?"لوحة التحكم":"تسجيل الدخول"}</Link></main>;if((await cashierProfileForBusiness(b)).id!=="laundry")redirect("/Accounting?view=accounting");return <LaundryProfessionalWorkspace key={b.id} mode="accounting" owner={b.ownerId===user?.id} business={{id:b.id,name:b.name,logoUrl:b.logoUrl,phone:invoiceContactPhone(b.pageModules,b.businessType),address:b.address??""}}/>;}
