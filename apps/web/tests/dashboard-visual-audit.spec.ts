@@ -506,7 +506,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         const search=page.getByLabel(viewport.width<1024?"البحث في قائمة الجوال":"البحث في أقسام اللوحة",{exact:true});
         const reorderNav=page.getByRole("navigation",{name:viewport.width<1024?"كل أدوات لوحة العميل":"التنقل الرئيسي",exact:true});
         await reorderNav.getByRole("button",{name:"ترتيب القائمة",exact:true}).click();
-        await expect(reorderNav.getByRole("button",{name:"رفع تسويق واتساب",exact:true})).toBeVisible();
+        await expect(reorderNav.getByRole("button",{name:"رفع: تسويق واتساب",exact:true})).toBeVisible();
         await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-ordering-customer-workspace.png`,fullPage:false,timeout:15_000});
         await reorderNav.getByRole("button",{name:"إغلاق الترتيب",exact:true}).click();
         await search.fill("الأداء");
