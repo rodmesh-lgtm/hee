@@ -9,6 +9,8 @@ export function accountingProvenanceQuery(businessId: string) {
       AND a."targetId"=t.id AND a."actorId"=t."createdBy" AND a.action='order') AS "creationAuditPresent",
     EXISTS (SELECT 1 FROM "LaundryAudit" a WHERE a."targetId"=t.id
       AND a."businessId"<>t."businessId") AS "foreignAuditPresent",
+    EXISTS (SELECT 1 FROM "LaundryAudit" a WHERE a."businessId"=t."businessId"
+      AND a."targetId"=t.id AND a.action='ownership-confirmed') AS "ownershipConfirmed",
     (t."createdBy"=b."ownerId" OR EXISTS (SELECT 1 FROM "BusinessMember" m
       WHERE m."businessId"=t."businessId" AND m."userId"=t."createdBy"
       AND m.status='active')) AS "creatorCurrentlyAuthorized",
@@ -27,14 +29,14 @@ export function accountingProvenanceQuery(businessId: string) {
 export type AccountingProvenance = {
   id: string; number: number; businessId: string; createdBy: string; createdAt: Date;
   creationAuditPresent: boolean; foreignAuditPresent: boolean;
-  creatorCurrentlyAuthorized: boolean; customerScoped: boolean;
+  creatorCurrentlyAuthorized: boolean; ownershipConfirmed?: boolean; customerScoped: boolean;
   foreignServicePresent: boolean; foreignPaymentPresent: boolean;
 };
 export function accountingProvenanceFindings(row: AccountingProvenance): string[] {
   const findings: string[] = [];
   if (!row.creationAuditPresent) findings.push("سجل إنشاء مطابق غير موجود");
   if (row.foreignAuditPresent) findings.push("حركة تدقيق تحمل منشأة مختلفة");
-  if (!row.creatorCurrentlyAuthorized) findings.push("يلزم التحقق من صلاحية المنفذ وقت الإنشاء");
+  if (!row.creatorCurrentlyAuthorized && !row.ownershipConfirmed) findings.push("يلزم التحقق من صلاحية المنفذ وقت الإنشاء");
   if (!row.customerScoped) findings.push("ملف العميل غير مطابق للمنشأة");
   if (row.foreignServicePresent) findings.push("مرجع خدمة تابع لمنشأة مختلفة");
   if (row.foreignPaymentPresent) findings.push("تحصيل يحمل منشأة مختلفة");
