@@ -99,7 +99,9 @@ async function cleanup(seed: Seeded) {
   await db.user.delete({ where: { id: seed.userId } });
 }
 
-test.describe.serial("public transactions workflow", () => {
+// Each case creates its own tenants. Keep the configured single-worker order,
+// but report every independent failure instead of skipping the remaining audit.
+test.describe("public transactions workflow", () => {
   test("unified accounting adapts catalogues and records a general service order", async ({browser},testInfo)=>{
     test.setTimeout(120000);
     const fixture=await seed(),laundry=await seed();const page=await browser.newPage({viewport:{width:1440,height:1000}});
