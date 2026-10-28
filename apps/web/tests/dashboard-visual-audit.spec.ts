@@ -1437,7 +1437,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     test.setTimeout(600_000);
     if(!seeded)throw new Error("visual fixture missing");
     const business=await db.business.findUniqueOrThrow({where:{id:seeded.businessId}});
-    await db.subscription.create({data:{businessId:business.id,planId:business.planId!,status:"active",provider:"internal",startsAt:new Date(Date.now()-60_000),endsAt:new Date(Date.now()+86_400_000),autoRenew:false}});
+    const bookingPlan=await db.businessPlan.upsert({where:{code:"OPERATE_35"},update:{},create:{code:"OPERATE_35",name:"Operate",monthlyPrice:117,productLimit:10}});
+    await db.subscription.create({data:{businessId:business.id,planId:bookingPlan.id,status:"active",provider:"internal",startsAt:new Date(Date.now()-60_000),endsAt:new Date(Date.now()+86_400_000),autoRenew:false}});
     await db.workingHours.createMany({data:Array.from({length:7},(_,dayOfWeek)=>({businessId:business.id,dayOfWeek,opensAt:"08:00",closesAt:"23:00",isClosed:false}))});
     await db.service.updateMany({where:{businessId:business.id},data:{sortOrder:2,bookingEnabled:true,durationMinutes:60}});
     await db.service.create({data:{businessId:business.id,name:"الخدمة المقدمة أولاً",price:100,sortOrder:3,isActive:true,bookingEnabled:true,durationMinutes:60}});
