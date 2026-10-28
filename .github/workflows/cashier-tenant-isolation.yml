@@ -59,3 +59,7 @@ jobs:
         run: >-
           npx playwright test tests/dashboard-functional-workflow.spec.ts tests/rc-owner-workflow.spec.ts tests/staff-permissions-workflow.spec.ts
           --grep 'customer navigation order persists|public identity expands|booking sender selection|owner invites a verified employee'
+      - name: Verify current administrative access grants and revocation
+        env:
+          HEE_ADMIN_EMAILS: rc-platform-admin@hee.test
+        run: npx playwright test tests/admin-access-code-workflow.spec.ts
