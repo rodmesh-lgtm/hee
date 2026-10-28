@@ -4,9 +4,11 @@ import { db } from "../../lib/db";
 import { commerceIntegrationHealth } from "../../lib/commerce/integration-health";
 import { SallaAdminSubscriptionCheck } from "./salla-check";
 import { sallaConfigured } from "../../lib/commerce/salla-config";
+import { readSallaSubscriptionReceipt, SALLA_SUBSCRIPTION_EVENTS } from "../../lib/commerce/salla-subscription-receipt";
 
 const providerNames: Record<string, string> = { salla: "سلة", shopify: "Shopify", woocommerce: "WooCommerce", zid: "زد" };
 const eventStatuses: Record<string, string> = { processed: "تمت المعالجة", ignored: "تم تجاهله", failed: "تعذرت المعالجة", pending: "بانتظار المعالجة", processing: "تجري معالجته", retry_scheduled: "إعادة محاولة مجدولة" };
+const eventStatus = (status: string, code: string | null) => status === "ignored" && code === "SALLA_SUBSCRIPTION_VERIFICATION_REQUIRED" ? "بانتظار التحقق من اشتراك سلة" : eventStatuses[status] ?? "حالة تحتاج مراجعة";
 const time = (value: Date | null) => value?.toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" }) ?? "لم يُسجّل بعد";
 function safeCode(value: string | null) { return value && /^[A-Z][A-Z0-9_]{0,79}$/.test(value) ? value : value ? "COMMERCE_OPERATION_FAILED" : "—"; }
 function age(value: Date | null, now: Date) {
@@ -40,11 +42,20 @@ export default async function AdminCommercePage({ searchParams }: { searchParams
   const now = clock[0].now;
   const ids = integrations.map(row => row.id);
   const eventSelect = { id: true, integrationId: true, status: true, attemptCount: true, receivedAt: true, processedAt: true, lastErrorCode: true } as const;
-  const [sallaEvents, shopifyEvents, syncEvents] = await Promise.all([
+  const [sallaEvents, shopifyEvents, syncEvents, billingEvents] = await Promise.all([
     db.sallaWebhookEvent.findMany({ where: { integrationId: { in: ids } }, orderBy: { receivedAt: "desc" }, take: 100, select: { ...eventSelect, eventType: true } }),
     db.whatsAppShopifyWebhookEvent.findMany({ where: { integrationId: { in: ids } }, orderBy: { receivedAt: "desc" }, take: 100, select: { ...eventSelect, topic: true } }),
     db.analyticsEvent.findMany({ where: { businessId: { in: integrations.map(row => row.businessId) }, eventType: "commerce_periodic_sync_result" }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, businessId: true, createdAt: true, metadata: true } }),
+    db.sallaWebhookEvent.findMany({
+    where: { integrationId: { in: ids }, eventType: { in: [...SALLA_SUBSCRIPTION_EVENTS] } },
+    orderBy: { receivedAt: "desc" }, take: 50,
+    select: { id: true, integrationId: true, status: true, receivedAt: true, payload: true, lastErrorCode: true },
+  }),
   ]);
+  const billingReceipts = billingEvents.flatMap(event => {
+    const receipt = readSallaSubscriptionReceipt(event.payload);
+    return receipt ? [{ ...event, receipt }] : [];
+  });
   const stores = new Map(integrations.map(row => [row.id, row]));
   const webhookEvents = [...sallaEvents.map(event => ({ ...event, eventName: event.eventType })), ...shopifyEvents.map(event => ({ ...event, eventName: event.topic }))].sort((a, b) => b.receivedAt.getTime() - a.receivedAt.getTime()).slice(0, 100);
   const recentSyncs = syncEvents.flatMap(event => {
@@ -82,12 +93,24 @@ export default async function AdminCommercePage({ searchParams }: { searchParams
     </section>
     <nav aria-label="صفحات التكاملات" className="flex flex-wrap items-center gap-4 text-sm font-bold text-slate-700">{page > 1 ? <Link className="min-h-11 p-3" href={`/admin/commerce?page=${page - 1}`}>السابق</Link> : null}<span>الصفحة {page.toLocaleString("ar-SA")}</span>{page * 100 < total ? <Link className="min-h-11 p-3" href={`/admin/commerce?page=${page + 1}`}>التالي</Link> : null}</nav>
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
+      <h2 className="text-lg font-black text-slate-950">إشعارات اشتراكات سلة</h2>
+      <p className="mt-2 text-sm leading-7 text-slate-600">بيانات الباقة من الإشعارات الموقّعة، دون مفاتيح الربط أو بيانات العملاء. الاستلام لا يثبت تفعيل الحقوق أو تحصيل دفعة. أحداث الإضافات منفصلة عن الخطة الأساسية.</p>
+      <ul className="mt-4 divide-y divide-slate-100">{billingReceipts.map(({ id, integrationId, receivedAt, status, receipt, lastErrorCode }) => <li key={id} className="space-y-2 py-4 text-sm text-slate-700">
+        <p className="font-bold">{stores.get(integrationId)?.business.name} · {receipt.event}</p>
+        <p>{eventStatus(status, lastErrorCode)} · استُلم: {time(receivedAt)}</p>
+        <p>البيئة: {receipt.storeType} · نوع العنصر: {receipt.itemType} · الخطة: {receipt.planName ?? "لم ترسل سلة اسمًا"} · معرّف الاشتراك: {receipt.subscriptionId ?? "غير متاح"}</p>
+        <p>الفترة: {receipt.startsAt ?? "غير متاح"} — {receipt.endsAt ?? "غير متاح"}</p>
+        <p className="break-all" dir="ltr">{receipt.features.length ? receipt.features.map(feature => `${feature.key}: ${feature.quantity}`).join(" · ") : "لم تُرسل خصائص كمية صالحة"}</p>
+      </li>)}</ul>
+      {!billingReceipts.length ? <p className="mt-4 text-sm text-slate-500">لم يصل إشعار اشتراك بالصيغة الجديدة بعد. البيانات القديمة المحذوفة لحماية المفاتيح لا يمكن استعادتها من هذا السجل.</p> : null}
+    </section>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5">
       <h2 className="text-lg font-black text-slate-950">محاولات المزامنة الدورية</h2><p className="mt-2 text-xs leading-6 text-slate-500">آخر 100 سجل متاح لمتاجر الصفحة. يبدأ السجل من تفعيل هذه الميزة؛ لا يمثل سجلًا تاريخيًا كاملًا.</p>
       <ul className="mt-4 divide-y divide-slate-100">{recentSyncs.map(event => <li key={event.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm text-slate-700"><span>{event.store.business.name} · {providerNames[event.store.provider] ?? "متجر"}</span><span>{event.succeeded ? "نجحت المزامنة" : "تعذرت المزامنة"} · {time(event.createdAt)}</span></li>)}</ul>{!recentSyncs.length ? <p className="mt-4 text-sm text-slate-500">لا توجد محاولات مسجلة بعد.</p> : null}
     </section>
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
       <h2 className="text-lg font-black text-slate-950">إشعارات المتاجر ومحاولات المعالجة</h2><p className="mt-2 text-xs text-slate-500">أحدث 100 إشعار من سلة وShopify لمتاجر الصفحة.</p>
-      <ul className="mt-4 divide-y divide-slate-100">{webhookEvents.map(event => <li key={event.id} className="space-y-2 py-3 text-sm text-slate-700"><p>{stores.get(event.integrationId)?.business.name} · {time(event.receivedAt)}</p><p className="break-all font-mono text-xs" dir="ltr">{/^[a-z0-9_.\/-]{1,100}$/i.test(event.eventName) ? event.eventName : "حدث غير معروف"}</p><p>المحاولات: {event.attemptCount} · {eventStatuses[event.status] ?? "حالة تحتاج مراجعة"}</p><p className="break-all font-mono text-xs" dir="ltr">{safeCode(event.lastErrorCode)}</p></li>)}</ul>{!webhookEvents.length ? <p className="mt-4 text-sm text-slate-500">لا توجد إشعارات مسجلة.</p> : null}
+      <ul className="mt-4 divide-y divide-slate-100">{webhookEvents.map(event => <li key={event.id} className="space-y-2 py-3 text-sm text-slate-700"><p>{stores.get(event.integrationId)?.business.name} · {time(event.receivedAt)}</p><p className="break-all font-mono text-xs" dir="ltr">{/^[a-z0-9_.\/-]{1,100}$/i.test(event.eventName) ? event.eventName : "حدث غير معروف"}</p><p>المحاولات: {event.attemptCount} · {eventStatus(event.status, event.lastErrorCode)}</p><p className="break-all font-mono text-xs" dir="ltr">{safeCode(event.lastErrorCode)}</p></li>)}</ul>{!webhookEvents.length ? <p className="mt-4 text-sm text-slate-500">لا توجد إشعارات مسجلة.</p> : null}
     </section>
   </div>;
 }
