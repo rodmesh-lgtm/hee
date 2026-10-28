@@ -1,0 +1,51 @@
+import {createHash,randomBytes,randomUUID} from "node:crypto";
+import {test,expect,type BrowserContext} from "@playwright/test";
+import {PrismaClient} from "@prisma/client";
+import {PrismaPg} from "@prisma/adapter-pg";
+import {Pool} from "pg";
+const baseUrl=process.env.PLAYWRIGHT_BASE_URL||"http://127.0.0.1:3000";
+
+test("independent cashier accounts reject cross-tenant invoice/customer access and keep activity workflows separate",async({browser})=>{
+ test.setTimeout(240000);
+ const url=new URL(String(process.env.DATABASE_URL||""));
+ if(process.env.APP_ENV!=="test"||!["localhost","127.0.0.1"].includes(url.hostname)||url.pathname!=="/infro_cashier_isolation")throw Error("Isolated local cashier CI database required");
+ const pool=new Pool({connectionString:url.toString(),max:4}),db=new PrismaClient({adapter:new PrismaPg(pool)}),suffix=randomUUID();
+ const plan=await db.businessPlan.upsert({where:{code:"BUSINESS"},update:{},create:{code:"BUSINESS",name:"Isolated paid test",monthlyPrice:1,productLimit:100}});
+ await db.businessPlan.upsert({where:{code:"FREE"},update:{},create:{code:"FREE",name:"Free",monthlyPrice:0,productLimit:3}});
+ const users=await Promise.all(['workshop','laundry','restricted'].map(name=>db.user.create({data:{name,email:`${name}-${suffix}@example.invalid`,emailVerifiedAt:new Date()}})));
+ const [a,b,staff]=users;
+ const shop=await db.business.create({data:{ownerId:a.id,planId:plan.id,name:"ورشة الاختبار المعزولة",slug:`shop-${suffix}`,businessType:"WORKSHOP",businessCategory:"ورشة / صيانة سيارات",onboardingCompleted:true}});
+ const laundry=await db.business.create({data:{ownerId:b.id,planId:plan.id,name:"مغسلة الاختبار المعزولة",slug:`laundry-${suffix}`,businessType:"خدمات",businessCategory:"مغاسل الملابس",onboardingCompleted:true}});
+ for(const business of [shop,laundry])await db.subscription.create({data:{businessId:business.id,planId:plan.id,provider:"mock",status:"active",autoRenew:false,startsAt:new Date(Date.now()-60000),endsAt:new Date(Date.now()+86400000)}});
+ await db.businessMember.create({data:{businessId:shop.id,userId:staff.id,role:"viewer",permissions:[],status:"active"}});
+ const sa=randomUUID(),sb=randomUUID(),ca=randomUUID(),cb=randomUUID(),ta=randomUUID(),tb=randomUUID();
+ const nameA="عميل الورشة الخاص",nameB="عميل المغسلة الخاص",phoneA="+966500000111",phoneB="+966500000222";
+ await db.$executeRaw`INSERT INTO "LaundryService"(id,"businessId",name,category,price) VALUES (${sa},${shop.id},'تغيير زيت خاص بالورشة','صيانة دورية',2500),(${sb},${laundry.id},'ثوب — غسيل وكوي','ملابس رجالية',1500),(${'urgent:'+sb},${laundry.id},'ثوب — مستعجل','ملابس رجالية',2000)`;
+ await db.$executeRaw`INSERT INTO "LaundryCustomer"(id,"businessId",name,phone) VALUES (${ca},${shop.id},${nameA},${phoneA}),(${cb},${laundry.id},${nameB},${phoneB})`;
+ for(const t of [{id:ta,bid:shop.id,uid:a.id,cid:ca,name:nameA,phone:phoneA,sid:sa,service:'تغيير زيت خاص بالورشة',total:2500},{id:tb,bid:laundry.id,uid:b.id,cid:cb,name:nameB,phone:phoneB,sid:sb,service:'ثوب — غسيل وكوي',total:1500}])await db.$executeRaw`INSERT INTO "LaundryTicket"(id,"businessId",number,"requestId","customerName",phone,"customerId",items,total,paid,status,"dueAt","createdBy") VALUES (${t.id},${t.bid},1,${randomUUID()},${t.name},${t.phone},${t.cid},${JSON.stringify([{serviceId:t.sid,name:t.service,quantity:1,unitPrice:t.total,total:t.total}])}::jsonb,${t.total},0,'ready',${new Date(Date.now()+86400000)},${t.uid})`;
+ const contexts:BrowserContext[]=[];
+ async function login(userId:string,businessId:string){
+  const token=randomBytes(32).toString('base64url');await db.session.create({data:{userId,token:`hee_session_sha256:${createHash('sha256').update(token).digest('hex')}`,expiresAt:new Date(Date.now()+3600000)}});
+  const context=await browser.newContext({locale:'ar-SA'});contexts.push(context);await context.addCookies([{name:'hee_session',value:token,url:baseUrl},{name:'hee_active_business',value:businessId,url:baseUrl},{name:'infro_locale',value:'ar',url:baseUrl}]);return {context,page:await context.newPage()};
+ }
+ try{
+  const wa=await login(a.id,shop.id),lb=await login(b.id,laundry.id);
+  await wa.page.goto('/Accounting');await expect(wa.page.getByRole('heading',{name:'خدمات الصيانة وقطع الغيار',exact:true})).toBeVisible();await expect(wa.page.getByRole('button',{name:'مستعجل',exact:true})).toHaveCount(0);await expect(wa.page.getByText('موعد جاهزية المركبة المتوقع',{exact:true})).toBeVisible();
+  expect(await wa.page.content()).not.toContain(nameB);expect(await wa.page.content()).not.toContain(phoneB);expect(await wa.page.content()).not.toContain('ثوب — غسيل وكوي');
+  await wa.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneB);await wa.page.getByRole('button',{name:'استدعاء العميل بالجوال',exact:true}).click();await expect(wa.page.getByText('عميل جديد؛ سيُحفظ ملفه عند حفظ الطلب',{exact:true})).toBeVisible();
+  let forgedScope=false;await wa.page.route('**/Accounting*',async route=>{const req=route.request(),body=req.postData();if(req.method()!=='POST'||!body?.includes(shop.id))return route.continue();forgedScope=true;return route.continue({postData:body.replaceAll(shop.id,laundry.id)});});
+  await wa.page.getByRole('button',{name:'استدعاء العميل بالجوال',exact:true}).click();await expect(wa.page.getByText('ليست لديك صلاحية هذه المنشأة',{exact:true})).toBeVisible();expect(forgedScope).toBe(true);expect(await wa.page.content()).not.toContain(nameB);await wa.page.unroute('**/Accounting*');
+  await wa.page.goto(`/Accounting?q=${encodeURIComponent(nameA)}`);await expect(wa.page.getByText(nameA,{exact:false}).first()).toBeVisible();expect(await wa.page.content()).not.toContain(nameB);await wa.page.getByRole('button',{name:'التفاصيل والفاتورة',exact:true}).click();
+  const dialog=wa.page.getByRole('dialog');await expect(dialog).toBeVisible();await expect(dialog).toContainText(nameA);await expect(dialog).not.toContainText(nameB);
+  let forgedTicket=false;await wa.page.route('**/Accounting*',async route=>{const req=route.request(),body=req.postData();if(req.method()!=='POST'||!body?.includes(ta))return route.continue();forgedTicket=true;return route.continue({postData:body.replaceAll(ta,tb)});});
+  await dialog.getByLabel('دفعة إضافية',{exact:true}).fill('1');await dialog.getByRole('button',{name:'تسجيل الدفعة',exact:true}).click();await expect(dialog.getByRole('alert')).toBeVisible();expect(forgedTicket).toBe(true);const paid=await db.$queryRaw<Array<{paid:number}>>`SELECT paid FROM "LaundryTicket" WHERE id IN (${ta},${tb})`;expect(paid.every(t=>t.paid===0)).toBe(true);await wa.page.unroute('**/Accounting*');
+  // Positive workflow stores validated vehicle details in only the workshop invoice.
+  await wa.page.goto('/Accounting');await wa.page.getByRole('button',{name:'إضافة تغيير زيت خاص بالورشة',exact:true}).click();await wa.page.getByLabel('اسم العميل',{exact:true}).fill('عميل ورشة جديد');await wa.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneA);await wa.page.getByLabel('نوع المركبة والموديل',{exact:true}).fill('سيارة اختبار');await wa.page.getByLabel('رقم اللوحة',{exact:true}).fill('اختبار 123');await wa.page.getByLabel('قراءة العداد — كم',{exact:true}).fill('45000');await wa.page.getByRole('button',{name:'غدًا في هذا الوقت',exact:true}).click();
+  const saveA=wa.page.getByRole('button',{name:'حفظ الطلب وإصدار المستند',exact:true});await expect(saveA).toBeEnabled();await saveA.click();await expect(wa.page.getByRole('dialog')).toContainText('اللوحة: اختبار 123');const savedA=await db.$queryRaw<Array<{notes:string}>>`SELECT notes FROM "LaundryTicket" WHERE "businessId"=${shop.id} AND number=2`;expect(savedA[0].notes).toContain('قراءة العداد: 45000');
+  await lb.page.goto('/Accounting');await expect(lb.page.getByRole('heading',{name:'قطع الملابس وخدمات المغسلة',exact:true})).toBeVisible();expect(await lb.page.content()).not.toContain(nameA);expect(await lb.page.content()).not.toContain(phoneA);await expect(lb.page.getByLabel('رقم اللوحة',{exact:true})).toHaveCount(0);await lb.page.getByRole('button',{name:'مستعجل',exact:true}).click();await expect(lb.page.getByRole('button',{name:'بعد ساعة',exact:true})).toBeVisible();await expect(lb.page.getByRole('button',{name:'بعد ساعتين',exact:true})).toBeVisible();
+  await lb.page.getByRole('button',{name:'إضافة ثوب — غسيل وكوي',exact:true}).click();await lb.page.getByLabel('اسم العميل',{exact:true}).fill('عميل مغسلة جديد');await lb.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneB);await lb.page.getByRole('button',{name:'بعد ساعة',exact:true}).click();const saveB=lb.page.getByRole('button',{name:'حفظ الطلب وإصدار المستند',exact:true});await expect(saveB).toBeEnabled();await saveB.click();await expect(lb.page.getByRole('dialog')).toContainText('عميل مغسلة جديد');
+  const savedB=await db.$queryRaw<Array<{total:number;dueAt:Date}>>`SELECT total,"dueAt" FROM "LaundryTicket" WHERE "businessId"=${laundry.id} AND number=2`;expect(savedB[0].total).toBe(2000);expect(savedB[0].dueAt.getTime()-Date.now()).toBeGreaterThan(3500000);expect(savedB[0].dueAt.getTime()-Date.now()).toBeLessThan(4600000);
+  await wa.context.addCookies([{name:'hee_active_business',value:laundry.id,url:baseUrl}]);await wa.page.goto('/Accounting');expect(await wa.page.content()).not.toContain(nameA);expect(await wa.page.content()).not.toContain(nameB);await expect(wa.page.getByText('سجّل الدخول واختر منشأتك للوصول إلى حساباتها.',{exact:true})).toBeVisible();
+  const restricted=await login(staff.id,shop.id);await restricted.page.goto('/Accounting');await expect(restricted.page.getByText('تحتاج صلاحية البرنامج المحاسبي',{exact:true})).toBeVisible();expect(await restricted.page.content()).not.toContain(nameA);await lb.context.clearCookies();await lb.page.reload();expect(await lb.page.content()).not.toContain(nameB);expect(await lb.page.content()).not.toContain(phoneB);
+ }finally{for(const context of contexts)await context.close();await db.session.deleteMany({where:{userId:{in:users.map(u=>u.id)}}});await db.business.updateMany({where:{id:{in:[shop.id,laundry.id]}},data:{deletedAt:new Date()}});await db.user.updateMany({where:{id:{in:users.map(u=>u.id)}},data:{deletedAt:new Date()}});await db.$disconnect();await pool.end();}
+});

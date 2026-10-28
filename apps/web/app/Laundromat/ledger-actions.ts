@@ -6,7 +6,7 @@ import { db } from "../lib/db";
 import { getCurrentUser, getCurrentUserForApiWrite } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
 import { LaundryInputError, moneyToHalalas } from "../lib/laundry-domain";
-import { LAUNDRY_ACCOUNTS, type LedgerLine } from "../lib/laundry-ledger-domain";
+import { accountingAccountName, LAUNDRY_ACCOUNTS, type LedgerLine } from "../lib/laundry-ledger-domain";
 import { postLaundryJournal, postLaundrySource } from "../lib/laundry-ledger";
 import { laundryReportRange } from "../lib/laundry-report";
 const commands=z.discriminatedUnion("type",[
@@ -93,7 +93,7 @@ export async function getLaundryLedger(value:unknown):Promise<{ok:true;view:Laun
  tx.$queryRaw<Array<{id:string;number:number;sourceKey:string;description:string;effectiveAt:Date;total:number;reversed:boolean}>>`SELECT j.id,j.number,j."sourceKey",j.description,j."effectiveAt",SUM(l.debit)::float8 AS total,EXISTS(SELECT 1 FROM "LaundryJournal" r WHERE r."businessId"=j."businessId" AND r."reversalOf"=j.id) AS reversed FROM "LaundryJournal" j JOIN "LaundryJournalLine" l ON l."businessId"=j."businessId" AND l."journalId"=j.id WHERE j."businessId"=${business.id} AND j."effectiveAt">=${start} AND j."effectiveAt"<${end} GROUP BY j.id ORDER BY j."effectiveAt" DESC,j.number DESC LIMIT 100 OFFSET ${p.data.page*100}`,
  tx.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryJournal" WHERE "businessId"=${business.id} AND "effectiveAt">=${start} AND "effectiveAt"<${end}`,
  ]);
- return {exists:books.length>0,initialized:!!books[0]?.initializedAt,lockedBefore:books[0]?.lockedBefore?.toISOString()??null,accounts,journals:journals.map(j=>({...j,effectiveAt:j.effectiveAt.toISOString()})),journalCount:counts[0].n,page:p.data.page};
+ return {exists:books.length>0,initialized:!!books[0]?.initializedAt,lockedBefore:books[0]?.lockedBefore?.toISOString()??null,accounts:accounts.map(a=>({...a,name:accountingAccountName(a.name)})),journals:journals.map(j=>({...j,effectiveAt:j.effectiveAt.toISOString()})),journalCount:counts[0].n,page:p.data.page};
  },{isolationLevel:"RepeatableRead",timeout:15000});return {ok:true,view};
  }catch{return {ok:false,error:"تعذر قراءة دفتر الحسابات"};}
 }
@@ -111,7 +111,7 @@ export async function getLaundryLedgerDetails(value:unknown):Promise<{ok:true;li
  ]);
  const opening=openingRows[0].amount;
  const lines=await tx.$queryRaw<Array<Omit<LedgerDetailLine,"effectiveAt">&{effectiveAt:Date}>>`SELECT l.id,j.number,j.description,j."effectiveAt",l."accountCode",a.name,l.debit::float8,l.credit::float8,(${opening}::numeric+SUM(l.debit-l.credit) OVER(ORDER BY j."effectiveAt",j.number,l.id ROWS UNBOUNDED PRECEDING))::float8 AS "runningBalance" FROM "LaundryJournalLine" l JOIN "LaundryJournal" j ON j."businessId"=l."businessId" AND j.id=l."journalId" JOIN "LaundryAccount" a ON a."businessId"=l."businessId" AND a.code=l."accountCode" WHERE l."businessId"=${b.id} AND (${id}='' OR j.id=${id}) AND (${account}='' OR l."accountCode"=${account}) AND j."effectiveAt">=${start} AND j."effectiveAt"<${end} ORDER BY j."effectiveAt",j.number,l.id LIMIT 200 OFFSET ${p.data.page*200}`;
- return {lines:lines.map(l=>({...l,effectiveAt:l.effectiveAt.toISOString()})),totalCount:counts[0].n,opening,page:p.data.page};
+ return {lines:lines.map(l=>({...l,name:accountingAccountName(l.name),effectiveAt:l.effectiveAt.toISOString()})),totalCount:counts[0].n,opening,page:p.data.page};
  },{isolationLevel:"RepeatableRead",timeout:15000});
  return {ok:true,...result};
  }catch{return {ok:false,error:"تعذر قراءة تفاصيل القيد أو الحساب"};}

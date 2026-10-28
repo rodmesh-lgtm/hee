@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { compare, hash } from "bcryptjs";
 import { db } from "./db";
 import { clearQaAuditSession, getQaAuditSessionUser, isQaAuditModeUser } from "./qa-audit";
@@ -22,6 +22,15 @@ function allowLegacyPlaintextSessions() { return isExplicitTestRuntime(); }
 export async function hashPassword(password: string) { return hash(password, 10); }
 export async function verifyPassword(password: string, passwordHash: string) { return compare(password, passwordHash); }
 
+// Business selection belongs to the authenticated session, not the browser's
+// previous account. Clear host and shared-domain preferences on login/logout.
+async function clearSessionBusinessContext(store:Awaited<ReturnType<typeof cookies>>) {
+  store.delete("hee_active_business");
+  store.delete("infro_workspace_business");
+  const host=(await headers()).get("host")?.split(":")[0];
+  if(host==="ir.sa"||host==="www.ir.sa"||host==="hub.ir.sa")store.set("infro_workspace_business","",{domain:"ir.sa",path:"/",secure:true,httpOnly:true,sameSite:"lax",maxAge:0});
+}
+
 export async function createSession(userId: string) {
   const cookieStore = await cookies();
   const previousToken = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
@@ -40,6 +49,7 @@ export async function createSession(userId: string) {
     await tx.session.create({ data: { token: storedToken, userId, expiresAt } });
   });
 
+  await clearSessionBusinessContext(cookieStore);
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -107,6 +117,7 @@ export async function logoutSession() {
     const candidates = looksLikeStoredSessionToken(token) ? [token] : [token, sessionStorageToken(token)];
     await db.session.deleteMany({ where: { token: { in: candidates } } });
   }
+  await clearSessionBusinessContext(cookieStore);
   cookieStore.delete(SESSION_COOKIE);
   cookieStore.delete(LEGACY_SESSION_COOKIE);
   await clearQaAuditSession();

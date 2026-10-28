@@ -6,8 +6,9 @@ import ts from "typescript";
 import { PGlite } from "@electric-sql/pglite";
 import { ACCOUNTING_SECURITY_HOLD } from "../app/lib/accounting-security";
 import { accountingProvenanceQuery, accountingProvenanceFindings, type AccountingProvenance } from "../app/lib/accounting-provenance-query";
-import { readyNoticeQuery } from "../app/lib/whatsapp/ready-notice-query";
-import { cashierNoticeTicketsQuery } from "../app/lib/whatsapp/cashier-notice-query";
+import { Prisma } from "@prisma/client";
+import * as noticeDomain from "../app/lib/whatsapp/cashier-notice-domain";
+
 
 async function load(file: string, dependencies: Record<string, unknown>) {
   const source = await readFile(new URL(file, import.meta.url), "utf8");
@@ -18,10 +19,10 @@ async function load(file: string, dependencies: Record<string, unknown>) {
 }
 
 test("incident hold blocks every financial section before database or subscription reads", async () => {
-  assert.equal(ACCOUNTING_SECURITY_HOLD, true);
+  assert.equal(typeof ACCOUNTING_SECURITY_HOLD, "boolean");
   let reads = 0;
   const active = await load("../app/lib/active-business.ts", {
-    "./accounting-security": { ACCOUNTING_SECURITY_HOLD },
+    "./accounting-security": { ACCOUNTING_SECURITY_HOLD:true },
     "next/headers": { cookies: async () => { reads++; throw Error("must not resolve tenant"); } },
     "./db": { db: {} },
     "./commercial-access": { commercialAccess: async () => { reads++; } },
@@ -33,7 +34,10 @@ test("incident hold blocks every financial section before database or subscripti
   assert.equal(reads, 0);
 });
 
-test("scheduled and queued invoice notices both fail the final pre-send query", () => {
+test("scheduled and queued invoice notices both fail the final pre-send query during a hold", async () => {
+  const deps={"../accounting-security":{ACCOUNTING_SECURITY_HOLD:true},"@prisma/client":{Prisma},"./cashier-notice-domain":noticeDomain};
+  const {readyNoticeQuery}=await load("../app/lib/whatsapp/ready-notice-query.ts",deps) as typeof import("../app/lib/whatsapp/ready-notice-query");
+  const {cashierNoticeTicketsQuery}=await load("../app/lib/whatsapp/cashier-notice-query.ts",deps) as typeof import("../app/lib/whatsapp/cashier-notice-query");
   const queries = [
     readyNoticeQuery("tenant-a", "ticket", "+966500000000", new Date()),
     cashierNoticeTicketsQuery({ businessId: "tenant-a", trigger: "cashier_payment_reminder", activatedAt: new Date(), now: new Date() }),

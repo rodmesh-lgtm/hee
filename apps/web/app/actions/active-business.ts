@@ -37,5 +37,7 @@ export async function switchActiveBusinessAction(formData: FormData) {
   await syncWorkspaceBusinessPreference(owned.id);
   revalidatePath("/dashboard", "layout");
   revalidatePath("/preview");
+  revalidatePath("/Accounting", "layout");
+  revalidatePath("/Laundromat", "layout");
   redirect("/dashboard?business=switched");
 }

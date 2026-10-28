@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {readFile} from "node:fs/promises";
+import {runInNewContext} from "node:vm";
+import * as crypto from "node:crypto";
+import ts from "typescript";
+test("login and logout clear previous-account business selection without sharing session credentials across domains",async()=>{
+ const deletions:string[]=[],writes:Array<{name:string;options:Record<string,unknown>}> = [];
+ const store={get:()=>undefined,delete:(name:string)=>deletions.push(name),set:(name:string,_value:string,options:Record<string,unknown>)=>writes.push({name,options})};
+ const session={deleteMany:async()=>({count:0}),create:async()=>({})};
+ const deps:Record<string,unknown>={"node:crypto":crypto,"next/headers":{cookies:async()=>store,headers:async()=>new Headers({host:'hub.ir.sa'})},"./db":{db:{session,$transaction:async(fn:(tx:unknown)=>Promise<unknown>)=>fn({session})}},"./qa-audit":{clearQaAuditSession:async()=>{}},"./runtime-environment":{isExplicitTestRuntime:()=>false}};
+ const source=await readFile(new URL('../app/lib/auth.ts',import.meta.url),'utf8'),exports:Record<string,unknown>={};
+ const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ runInNewContext(code,{exports,Date,Buffer,require:(id:string)=>deps[id]??{}});
+ await (exports.createSession as (id:string)=>Promise<unknown>)('fixture-user');
+ assert.ok(deletions.includes('hee_active_business'));assert.ok(deletions.includes('infro_workspace_business'));
+ assert.ok(writes.some(w=>w.name==='infro_workspace_business'&&w.options.domain==='ir.sa'&&w.options.maxAge===0));
+ assert.ok(writes.some(w=>w.name==='__Host-hee_session'&&!('domain' in w.options)&&w.options.httpOnly===true&&w.options.secure===true));
+ deletions.length=0;await (exports.logoutSession as ()=>Promise<void>)();
+ assert.ok(deletions.includes('hee_active_business'));assert.ok(deletions.includes('infro_workspace_business'));assert.ok(deletions.includes('__Host-hee_session'));
+});

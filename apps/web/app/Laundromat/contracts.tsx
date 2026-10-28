@@ -30,7 +30,7 @@ function ContractDocument({ contract, logoUrl, busy, error, onClose, onSign, onC
   const dialog = useRef<HTMLDialogElement>(null);
   const [signature, setSignature] = useState<LaundrySignature>([]);
   useEffect(() => { const el = dialog.current; el?.showModal(); return () => el?.close(); }, []);
-  return <div className="ld-overlay"><dialog className="ld-dialog" ref={dialog} aria-label="عقد خدمات المغسلة" onCancel={e => { if (busy) e.preventDefault(); }} onClose={onClose}>
+  return <div className="ld-overlay"><dialog className="ld-dialog" ref={dialog} aria-label="عقد خدمات المنشأة" onCancel={e => { if (busy) e.preventDefault(); }} onClose={onClose}>
     <div className="ld-dialog-tools"><button autoFocus className="ld-outline" disabled={busy} onClick={onClose}>إغلاق العقد</button><button className="ld-primary" onClick={() => window.print()}>طباعة العقد A4</button></div>
     <div className="ld-receipt a4 ld-contract-document">
       <p className="ld-eyebrow">INFRO / LAUNDRY</p>{logoUrl ? <Image unoptimized src={logoUrl} alt="شعار المنشأة" width={80} height={80} className="ld-receipt-logo"/> : null}
