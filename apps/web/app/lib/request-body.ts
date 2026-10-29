@@ -5,7 +5,7 @@ export class RequestBodyTooLargeError extends Error {
   }
 }
 
-async function readBoundedBytes(request: Request, maxBytes: number) {
+async function readBoundedBytes(request: Request | Response, maxBytes: number) {
   const limit = Math.max(1024, Math.min(1024 * 1024, Math.floor(maxBytes)));
   const declaredLength = Number(request.headers.get("content-length") ?? "");
   if (Number.isFinite(declaredLength) && declaredLength > limit) throw new RequestBodyTooLargeError();
@@ -39,11 +39,11 @@ async function readBoundedBytes(request: Request, maxBytes: number) {
   return bytes;
 }
 
-export async function readBoundedText(request: Request, maxBytes: number) {
+export async function readBoundedText(request: Request | Response, maxBytes: number) {
   const bytes = await readBoundedBytes(request, maxBytes);
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
 
-export async function readBoundedJson(request: Request, maxBytes: number): Promise<unknown> {
+export async function readBoundedJson(request: Request | Response, maxBytes: number): Promise<unknown> {
   return JSON.parse(await readBoundedText(request, maxBytes));
 }

@@ -4,6 +4,7 @@ import { requireAdmin } from "../../lib/admin";
 import { db } from "../../lib/db";
 import { consumePublicWriteLimit } from "../../lib/rate-limit";
 import { readSallaSubscription, sallaSubscriptionSummary, SallaSubscriptionReadError } from "../../lib/commerce/salla-subscription-read";
+import { SALLA_SUBSCRIPTION_FAILURE_GUIDANCE } from "../../lib/commerce/salla-subscription-diagnostics";
 
 export type SallaAdminCheckState = {
   status: "idle" | "success" | "error";
@@ -36,8 +37,10 @@ export async function checkAdminSallaSubscription(_previous: SallaAdminCheckStat
         : error.providerStatus === 401 || error.providerStatus === 403
           ? "رفضت سلة الوصول إلى سجل الاشتراك. راجع التفويض والصلاحيات ثم أعد ربط المتجر عند الحاجة."
           : "تعذر استلام سجل اشتراك صالح من سلة. لم تتغير صلاحيات الحساب.";
-      return { status: "error", checkedAt, providerStatus: error.providerStatus, message };
+      return { status: "error", checkedAt, providerStatus: error.providerStatus, message: `${message} ${SALLA_SUBSCRIPTION_FAILURE_GUIDANCE[error.failureReason]}` };
     }
-    return { status: "error", checkedAt, message: "تعذر فحص اشتراك سلة. راجع إعدادات الخدمة وحالة الربط؛ لم تتغير صلاحيات الحساب." };
+    return { status: "error", checkedAt, message: error instanceof Error && error.message === "SALLA_SUBSCRIPTION_CONNECTION_CHANGED"
+      ? "تغيّر ربط المتجر أثناء الفحص. تجاهلنا الاستجابة القديمة؛ أعد الفحص للربط الحالي."
+      : "تعذر فحص اشتراك سلة. راجع إعدادات الخدمة وحالة الربط؛ لم تتغير صلاحيات الحساب." };
   }
 }
