@@ -2,9 +2,11 @@ import "server-only";
 import { db } from "../db";
 import { getSallaAccessToken } from "./salla-access-token";
 import { getSallaConfig } from "./salla-config";
+import { readBoundedJson } from "../request-body";
+import { sallaSubscriptionFailureReason, type SallaSubscriptionFailureReason } from "./salla-subscription-diagnostics";
 
 export class SallaSubscriptionReadError extends Error {
-  constructor(code: string, readonly providerStatus: number, readonly dataShape?: string) { super(code); }
+  constructor(code: string, readonly providerStatus: number, readonly dataShape?: string, readonly failureReason: SallaSubscriptionFailureReason = "unclassified") { super(code); }
 }
 
 /** Authoritative read only: this does not create an INFRO term or a payment. */
@@ -26,8 +28,20 @@ export async function readSallaSubscription(input: { businessId: string; integra
     token = await getSallaAccessToken({ ...input, rejectedAccessToken: token });
     response = await request();
   }
-  if (!response.ok) throw new SallaSubscriptionReadError(`SALLA_SUBSCRIPTION_HTTP_${response.status}`, response.status);
-  const result = await response.json().catch(() => null) as { success?: unknown; data?: unknown } | null;
+  const payload = await readBoundedJson(response, 64 * 1024).catch(async () => {
+    await response.body?.cancel().catch(() => undefined);
+    return null;
+  });
+  // A request made before disconnect/reinstall must never become evidence for
+  // the replacement connection, even if the old token receives a valid result.
+  const current = await db.whatsAppCommerceIntegration.findFirst({
+    where: { id: integration.id, businessId: input.businessId, provider: "salla", status: "active",
+      externalStoreId: integration.externalStoreId, connectedAt: integration.connectedAt },
+    select: { id: true },
+  });
+  if (!current) throw new Error("SALLA_SUBSCRIPTION_CONNECTION_CHANGED");
+  if (!response.ok) throw new SallaSubscriptionReadError(`SALLA_SUBSCRIPTION_HTTP_${response.status}`, response.status, undefined, sallaSubscriptionFailureReason(response.status, payload));
+  const result = payload as { success?: unknown; data?: unknown } | null;
   if (result?.success !== true || !Array.isArray(result.data) || result.data.length > 100) {
     const shape = result?.data == null ? "missing" : Array.isArray(result.data) ? "array" : typeof result.data;
     throw new SallaSubscriptionReadError("SALLA_SUBSCRIPTION_RESPONSE_INVALID", response.status, shape);
