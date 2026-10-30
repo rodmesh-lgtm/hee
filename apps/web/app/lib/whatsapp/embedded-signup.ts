@@ -78,10 +78,11 @@ async function verifiedPhoneAsset(accessToken: string, wabaId: string, phoneNumb
 
 async function subscribeApp(accessToken: string, wabaId: string) {
   const config = getMetaWhatsAppConfig();
-  await graphRequest(metaWhatsAppGraphUrl(config, `${wabaId}/subscribed_apps`), {
+  const result = await graphRequest(metaWhatsAppGraphUrl(config, `${wabaId}/subscribed_apps`), {
     method: "POST",
     headers: { authorization: `Bearer ${accessToken}` },
   });
+  if (result.success !== true) throw new Error("META_APP_SUBSCRIPTION_FAILED");
 }
 
 export async function createEmbeddedSignupSession(input: { businessId: string; userId: string; purpose: WhatsAppConnectionPurpose }) {
@@ -147,11 +148,11 @@ export async function completeEmbeddedSignup(input: {
   if (session.wabaId && session.wabaId !== input.wabaId || session.phoneNumberId && session.phoneNumberId !== input.phoneNumberId) throw new Error("WHATSAPP_SIGNUP_ASSET_MISMATCH");
   try {
     const phone = await verifiedPhoneAsset(accessToken, input.wabaId, input.phoneNumberId);
-    await subscribeApp(accessToken, input.wabaId);
     await db.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`whatsapp-connection:${input.businessId}`}))`;
-      const currentSession = await tx.whatsAppEmbeddedSignupSession.findFirst({ where: { id: session.id, businessId: input.businessId, initiatedByUserId: input.userId, expiresAt: { gt: new Date() }, status: "token_exchanged" } });
-      if (!currentSession) throw new Error("WHATSAPP_SIGNUP_SESSION_INVALID");
+      // Lock the session row so cancellation cannot race the provider side effect.
+      const currentSession = await tx.whatsAppEmbeddedSignupSession.updateMany({ where: { id: session.id, businessId: input.businessId, initiatedByUserId: input.userId, expiresAt: { gt: new Date() }, status: "token_exchanged" }, data: { lastErrorCode: null } });
+      if (!currentSession.count) throw new Error("WHATSAPP_SIGNUP_SESSION_INVALID");
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`whatsapp-waba:meta:${input.wabaId}`}))`;
       const collision = await tx.whatsAppConnection.findFirst({
         where: { provider: "meta", OR: [{ wabaId: input.wabaId }, { phoneNumberId: input.phoneNumberId }], businessId: { not: input.businessId } },
@@ -163,6 +164,9 @@ export async function completeEmbeddedSignup(input: {
         select: { id: true, businessId: true, marketingEnabled: true, bookingEnabled: true },
       });
       if (existing && existing.businessId !== input.businessId) throw new Error("WHATSAPP_ASSET_ALREADY_ASSIGNED");
+      // Check ownership under the asset lock before changing the Meta subscription.
+      await subscribeApp(accessToken, input.wabaId);
+      if (session.expiresAt <= new Date()) throw new Error("WHATSAPP_SIGNUP_SESSION_INVALID");
       await tx.whatsAppConnection.updateMany({
         where: {
           businessId: input.businessId,
@@ -193,7 +197,7 @@ export async function completeEmbeddedSignup(input: {
         });
       await tx.whatsAppEmbeddedSignupSession.update({ where: { id: session.id }, data: { status: "connected", consumedAt: new Date(), lastErrorCode: null, credentialEnvelope: Prisma.JsonNull } });
       await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.userId, action: "connection.signup.complete", targetType: "connection", targetId: connection.id, outcome: "success", metadata: { provider: "meta", purpose }, database: tx });
-    });
+    }, { maxWait: 5_000, timeout: 25_000 });
   } catch (error) {
     const code = error instanceof Error && /^(META_|WHATSAPP_)[A-Z0-9_]+$/.test(error.message) ? error.message : "META_ASSET_VERIFICATION_FAILED";
     await db.whatsAppEmbeddedSignupSession.updateMany({ where: { id: session.id, status: "token_exchanged", expiresAt: { gt: new Date() } }, data: { lastErrorCode: code } }).catch(() => undefined);
