@@ -57,6 +57,35 @@ function normalizedStatus(value: unknown, depth = 0): string | null {
   return normalizedStatus(nested.slug ?? nested.status ?? nested.code ?? nested.name, depth + 1);
 }
 
+// Salla's current light order response reports settlement under payment_actions,
+// rather than payment_status. Never infer payment from an order status or method.
+function settledPaymentStatus(order: UnknownRecord): string | null {
+  const actions = record(order.payment_actions);
+  const remaining = record(actions?.remaining_action);
+  const refund = record(actions?.refund_action);
+  const total = record(order.total ?? record(order.amounts)?.total);
+  const paid = record(remaining?.paid_amount);
+  const balance = record(remaining?.remaining_amount);
+  const refunded = record(refund?.refund_amount);
+  const amount = (value: unknown): number | null => {
+    if (typeof value !== "string" && typeof value !== "number") return null;
+    const text = String(value);
+    if (!/^\d+(?:\.\d{1,4})?$/.test(text)) return null;
+    const units = Math.round(Number(text) * 10_000);
+    return Number.isSafeInteger(units) ? units : null;
+  };
+  const currency = scalar(total?.currency);
+  const gross = amount(total?.amount);
+  const received = amount(paid?.amount);
+  if (!currency || ![paid, balance, refunded].every(v => scalar(v?.currency) === currency)) return null;
+  if (gross === null || gross <= 0 || received === null || received < gross) return null;
+  if (remaining?.has_remaining_amount !== false || amount(balance?.amount) !== 0 || amount(refunded?.amount) !== 0) return null;
+  if (refund?.pending_refund_amount != null && amount(record(refund.pending_refund_amount)?.amount ?? refund.pending_refund_amount) !== 0) return null;
+  if (Array.isArray(refund?.refunded_transactions) && refund.refunded_transactions.length > 0) return null;
+  if (order.draft === true || order.is_pending_payment === true) return null;
+  return "paid";
+}
+
 function payloadDate(values: unknown[]) {
   for (const value of values) {
     const object = record(value);
@@ -142,7 +171,7 @@ export function mapSallaOrderWebhook(payload: unknown): SallaWebhookMapping {
   if (!externalOrderId) return { kind: "ignored", reason: "order_id_missing" };
 
   const payment = record(order.payment);
-  const paymentStatus = normalizedStatus(order.payment_status ?? payment?.status ?? order.payment_state);
+  const paymentStatus = normalizedStatus(order.payment_status ?? payment?.status ?? order.payment_state) ?? settledPaymentStatus(order);
   const terminalEventStatus: Record<string, string> = { "order.cancelled": "cancelled", "order.canceled": "cancelled", "order.refunded": "refunded", "order.deleted": "deleted" };
   const orderStatus = terminalEventStatus[eventType] ?? normalizedStatus(order.status ?? order.order_status);
   const revokedByEvent = ["order.cancelled", "order.canceled", "order.refunded", "order.deleted"].includes(eventType);
