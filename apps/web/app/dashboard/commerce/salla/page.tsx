@@ -82,6 +82,7 @@ export default async function SallaConnectionPage({ searchParams }: { searchPara
       </div>
       <div className="mt-4 flex flex-wrap gap-4"><Link className="inline-flex min-h-11 items-center font-bold underline" href="/dashboard/whatsapp/messages">{t("متابعة نتائج الرسائل", "Message results")}</Link><Link className="inline-flex min-h-11 items-center font-bold underline" href="/dashboard/appointments">{t("متابعة الحجوزات", "View bookings")}</Link></div>
     </section>
+    <Link href="/dashboard/commerce/orders" className={buttonClass}>{t("استعراض طلبات المتجر والبحث بالجوال", "Browse store orders and search by phone")}</Link>
     <SallaBookingCheck english={english} />
     <footer className="flex flex-wrap gap-4 text-sm"><Link className="min-h-11 underline" href="/integrations/salla">{t("دليل سلة", "Salla guide")}</Link><Link className="min-h-11 underline" href="/dashboard/support">{t("الحصول على مساعدة", "Get help")}</Link></footer>
   </main>;
