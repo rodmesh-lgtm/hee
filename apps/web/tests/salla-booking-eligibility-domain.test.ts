@@ -55,3 +55,33 @@ test("Salla webhook signature accepts exact hex or base64 HMAC and rejects tampe
   assert.equal(verifySallaWebhookSignature(raw, base64, secret), true);
   assert.equal(verifySallaWebhookSignature(`${raw} `, hex, secret), false);
 });
+
+const lightOrder = {
+  id: 123, status: { slug: "in_progress" }, customer: { mobile: "0501234567" },
+  total: { amount: 16.39, currency: "SAR" },
+  payment_actions: {
+    remaining_action: { has_remaining_amount: false, paid_amount: { amount: "16.39", currency: "SAR" }, remaining_amount: { amount: 0, currency: "SAR" } },
+    refund_action: { refunded_transactions: [], pending_refund_amount: null, refund_amount: { amount: 0, currency: "SAR" } },
+  },
+};
+function eligibleLight(data: object) { const result = mapSallaOrderWebhook({ event: "order.updated", data }); assert.equal(result.kind, "order"); return result.kind === "order" && result.order.eligible; }
+test("current Salla light response uses explicit paid and remaining amounts", () => {
+  assert.equal(eligibleLight(lightOrder), true);
+  const { total, ...rest } = lightOrder;
+  assert.equal(eligibleLight({ ...rest, amounts: { total } }), true);
+});
+test("light payment evidence rejects COD, partial payments, refunds, currency mismatch and missing amounts", () => {
+  for (const mutate of [
+    (o: typeof lightOrder) => { o.payment_actions.remaining_action.paid_amount.amount = "0"; },
+    (o: typeof lightOrder) => { o.payment_actions.remaining_action.paid_amount.amount = "10"; },
+    (o: typeof lightOrder) => { o.payment_actions.remaining_action.remaining_amount.amount = 1; },
+    (o: typeof lightOrder) => { o.payment_actions.refund_action.refund_amount.amount = 1; },
+    (o: typeof lightOrder) => { o.payment_actions.remaining_action.paid_amount.currency = "USD"; },
+    (o: typeof lightOrder) => { o.payment_actions.remaining_action.has_remaining_amount = true; },
+    (o: typeof lightOrder) => { o.total.amount = 0; },
+  ]) { const order = structuredClone(lightOrder); mutate(order); assert.equal(eligibleLight(order), false); }
+  assert.equal(eligibleLight({ ...lightOrder, payment_actions: {} }), false);
+  assert.equal(eligibleLight({ ...lightOrder, payment_status: "pending" }), false);
+  assert.equal(eligibleLight({ ...lightOrder, status: { slug: "cancelled" } }), false);
+  assert.equal(eligibleLight({ ...lightOrder, is_pending_payment: true }), false);
+});

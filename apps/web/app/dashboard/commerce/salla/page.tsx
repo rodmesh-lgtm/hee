@@ -51,6 +51,7 @@ export default async function SallaConnectionPage({ searchParams }: { searchPara
       <h1 className="mt-3 text-2xl font-black">{t("ابدأ تشغيل متجرك مع INFRO", "Get your store running with INFRO")}</h1>
       <p className="mt-3 text-sm leading-7 text-slate-300">{t("اربط متجر المنشأة ثم جهّز رقم واتساب والقوالب والأتمتة من حسابك في INFRO. ربط المتجر متاح قبل الاشتراك؛ تشغيل الخدمات يخضع لصلاحيات باقتك.", "Connect your business store, then configure WhatsApp, templates and automations in INFRO. You can connect before subscribing; service access depends on your plan.")}</p>
       <p className="mt-3 font-bold">{business.name}</p>
+      <div className="mt-4"><Link href="/dashboard/commerce/orders" className={buttonClass}>{t("استعراض طلبات المتجر والبحث بالجوال", "Browse store orders and search by phone")}</Link></div>
     </header>
     {notice ? <p role="status" className={`rounded-2xl border p-4 text-sm leading-7 ${result === "connected" ? "border-teal-200 bg-teal-50 text-teal-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>{english ? notice[1] : notice[0]}</p> : null}
     <section className="rounded-2xl border border-teal-600/40 p-6">
