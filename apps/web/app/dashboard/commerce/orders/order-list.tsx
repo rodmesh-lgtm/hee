@@ -14,9 +14,9 @@ export function StoreOrderList({ initial, english }: { initial: OrderListState; 
   const t = (ar: string, en: string) => english ? en : ar;
   const label = (value: string | null) => value ? statusLabels[value]?.[english ? 1 : 0] ?? value : t("غير متوفر", "Unavailable");
   const date = (value: string | null) => value ? new Date(value).toLocaleString(english ? "en-GB" : "ar-SA", { timeZone: "Asia/Riyadh" }) : t("غير متوفر", "Unavailable");
-  const field = "min-h-11 rounded-xl border border-slate-400/50 bg-transparent px-3 py-2";
+  const field = "min-w-0 w-full min-h-11 rounded-xl border border-slate-400/50 bg-transparent px-3 py-2";
   return <div>
-    <form action={action} className="space-y-4">
+    <form action={action} onReset={event => event.preventDefault()} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="grid gap-2 text-sm">{t("معرّف الطلب أو جوال العميل", "Order ID or customer phone")}<input value={query} disabled={pending} onChange={e => { setQuery(e.target.value); setFiltersChanged(true); }} name="query" maxLength={160} autoComplete="off" className={field} placeholder={t("جوال محلي أو دولي، أو معرّف الطلب", "Phone or order ID")} /></label>
         <label className="grid gap-2 text-sm">{t("المنصة", "Platform")}<select value={provider} disabled={pending} onChange={e => { setProvider(e.target.value); setFiltersChanged(true); }} name="provider" className={field}><option value="">{t("جميع المتاجر المرتبطة", "All connected stores")}</option><option value="salla">Salla</option><option value="shopify">Shopify</option><option value="woocommerce">WooCommerce</option></select></label>

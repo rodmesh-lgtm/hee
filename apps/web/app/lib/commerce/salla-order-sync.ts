@@ -52,6 +52,7 @@ export async function syncSallaBookingOrders(input: { businessId: string; integr
           signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         });
       };
+      const requestStartedAt = new Date();
       let response = await requestPage();
       if (response.status === 401) {
         await response.body?.cancel();
@@ -60,7 +61,12 @@ export async function syncSallaBookingOrders(input: { businessId: string; integr
       }
       const payload = await response.json().catch(() => null) as { data?: unknown[]; pagination?: { totalPages?: unknown; total_pages?: unknown } } | null;
       if (!response.ok || !payload || !Array.isArray(payload.data)) throw new Error(`SALLA_ORDERS_HTTP_${response.status}`);
-      const mappings = payload.data.map((order) => mapSallaOrderWebhook({ event: "order.updated", data: order }));
+      // List responses may contain only the order creation date. It is not a
+      // revision timestamp and must not make a fresh API snapshot look stale.
+      const mappings = payload.data.map((order) => {
+        if (!order || typeof order !== "object" || Array.isArray(order)) return mapSallaOrderWebhook(null);
+        return mapSallaOrderWebhook({ event: "order.updated", data: { ...order, date: undefined, created_at: undefined } });
+      });
       await database.$transaction(async (tx) => {
         await lockGeneration(tx);
         for (const mapping of mappings) {
@@ -68,13 +74,17 @@ export async function syncSallaBookingOrders(input: { businessId: string; integr
           const sourceEventId = `salla:sync:${createHash("sha256").update(`${integration.id}:${mapping.order.externalOrderId}:${mapping.order.providerUpdatedAt?.toISOString() ?? "unknown"}`).digest("hex")}`;
           const current = await tx.commerceBookingEligibility.findUnique({
             where: { integrationId_externalOrderId: { integrationId: integration.id, externalOrderId: mapping.order.externalOrderId } },
-            select: { providerUpdatedAt: true },
+            select: { providerUpdatedAt: true, updatedAt: true },
           });
+          // A webhook or another sync committed during the request wins.
+          if (current?.updatedAt && current.updatedAt >= requestStartedAt) continue;
           if (current?.providerUpdatedAt && mapping.order.providerUpdatedAt && current.providerUpdatedAt > mapping.order.providerUpdatedAt) continue;
+          const providerUpdatedAt = mapping.order.providerUpdatedAt ??
+            (current?.providerUpdatedAt && current.providerUpdatedAt > requestStartedAt ? current.providerUpdatedAt : requestStartedAt);
           await tx.commerceBookingEligibility.upsert({
             where: { integrationId_externalOrderId: { integrationId: integration.id, externalOrderId: mapping.order.externalOrderId } },
-            create: { businessId: input.businessId, integrationId: integration.id, provider: "salla", ...mapping.order, sourceEventId },
-            update: { phoneE164: mapping.order.phoneE164, paymentStatus: mapping.order.paymentStatus, orderStatus: mapping.order.orderStatus, eligible: mapping.order.eligible, providerUpdatedAt: mapping.order.providerUpdatedAt, sourceEventId },
+            create: { businessId: input.businessId, integrationId: integration.id, provider: "salla", ...mapping.order, providerUpdatedAt, sourceEventId },
+            update: { phoneE164: mapping.order.phoneE164, paymentStatus: mapping.order.paymentStatus, orderStatus: mapping.order.orderStatus, eligible: mapping.order.eligible, providerUpdatedAt, sourceEventId },
           });
           imported += 1;
         }
