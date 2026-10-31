@@ -10,7 +10,7 @@ const input = { businessId: "review-business", integrationId: "2cae72ce-7615-4e7
 const connectedAt = new Date("2026-10-26T08:00:00Z");
 const order = { id: 123, payment_status: "paid", status: { slug: "under_review" }, customer: { mobile: "0500000001" }, updated_at: "2026-10-26T08:10:00Z" };
 
-function fixture(change?: "disconnect" | "reconnect" | "before_request" | "network_after_reconnect") {
+function fixture(change?: "disconnect" | "reconnect" | "before_request" | "network_after_reconnect", options: { order?: object; current?: { providerUpdatedAt: Date; updatedAt: Date } } = {}) {
   let status = "active";
   let currentDate = connectedAt;
   let writes = 0;
@@ -36,7 +36,7 @@ function fixture(change?: "disconnect" | "reconnect" | "before_request" | "netwo
         },
         whatsAppCommerceIntegration: integration,
         commerceBookingEligibility: {
-          findUnique: async () => null,
+          findUnique: async () => options.current ?? null,
           upsert: async ({ create }: { create: { businessId: string; integrationId: string; eligible: boolean } }) => {
             assert.ok(locked); assert.equal(create.businessId, input.businessId); assert.equal(create.integrationId, input.integrationId);
             assert.equal(create.eligible, true); writes++; return {};
@@ -52,7 +52,7 @@ function fixture(change?: "disconnect" | "reconnect" | "before_request" | "netwo
     if (change === "disconnect") status = "disconnected";
     if (change === "reconnect" || change === "network_after_reconnect") currentDate = new Date("2026-10-26T08:30:00Z");
     if (change === "network_after_reconnect") throw new Error("NETWORK_FAILURE");
-    return Response.json({ data: [order], pagination: { totalPages: 1 } });
+    return Response.json({ data: [options.order ?? order], pagination: { totalPages: 1 } });
   }) as typeof fetch;
   return { run: () => syncSallaBookingOrders(input, { database, fetcher, loadToken }), counts: () => ({ writes, audits, requests, healthWrites }) };
 }
@@ -134,5 +134,24 @@ test("an old webhook checks the locked connection before it can update order eli
     const result = await processSallaWebhookEvent({ eventId: event.id, workerId: "worker", database });
     assert.equal(status, "ignored");
     assert.equal(result.processed, !uninstallCompleted);
+  }
+});
+
+
+test("fresh API snapshot without updated_at is not discarded because its creation date precedes a webhook", async () => {
+  const f = fixture(undefined, { order: { ...order, updated_at: undefined, date: "2026-10-25T08:00:00Z" },
+    current: { providerUpdatedAt: new Date("2026-10-26T08:10:00Z"), updatedAt: new Date("2026-10-26T08:11:00Z") } });
+  assert.deepEqual(await f.run(), { imported: 1, pages: 1 });
+  assert.equal(f.counts().writes, 1);
+});
+
+test("sync preserves genuinely newer provider revisions and concurrent local commits", async () => {
+  for (const current of [
+    { providerUpdatedAt: new Date("2026-10-26T09:00:00Z"), updatedAt: new Date("2026-10-26T09:01:00Z") },
+    { providerUpdatedAt: new Date("2026-10-26T08:00:00Z"), updatedAt: new Date("2099-01-01T00:00:00Z") },
+  ]) {
+    const f = fixture(undefined, { current });
+    assert.deepEqual(await f.run(), { imported: 0, pages: 1 });
+    assert.equal(f.counts().writes, 0);
   }
 });
