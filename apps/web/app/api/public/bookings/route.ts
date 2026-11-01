@@ -16,6 +16,7 @@ import { processNextWhatsAppAutomationDelivery } from "../../../lib/whatsapp/aut
 import { normalizeE164 } from "../../../lib/whatsapp/contact-domain";
 import { hasActiveBookingEntitlement } from "../../../lib/subscription-entitlement";
 import { commerceBookingGate } from "../../../lib/commerce/booking-eligibility";
+import { bookingAudienceSql } from "../../../lib/commerce/booking-audience-sql";
 import { bookingCandidateMinutes } from "../../../lib/booking-time";
 import { readPublishedBookingForm } from "../../../lib/booking-form-settings";
 import { bookingFormNotes } from "../../../lib/booking-form-domain";
@@ -548,7 +549,7 @@ export async function POST(request: Request) {
     if (eligibility.required && !eligibility.eligible) {
       return NextResponse.json({
         ok: false,
-        error: "استخدم رقم الجوال المسجل في طلب مدفوع ومؤكد من متجر هذه المنشأة.",
+        error: "استخدم رقم الجوال المسجل في طلب مؤهل للحجز من متجر هذه المنشأة.",
       }, { status: 403 });
     }
   } catch (error) {
@@ -621,12 +622,13 @@ export async function POST(request: Request) {
               )
           )
           AND (
-            NOT EXISTS (
+            ${bookingAudienceSql} = 'everyone'
+            OR (${bookingAudienceSql} <> 'store_orders' AND NOT EXISTS (
               SELECT 1 FROM "WhatsAppCommerceIntegration" commerce_integration
               WHERE commerce_integration."businessId" = b."id"
                 AND commerce_integration."provider" IN ('salla','zid','shopify','woocommerce')
                 AND commerce_integration."status" = 'active'
-            )
+            ))
             OR EXISTS (
               SELECT 1
               FROM "CommerceBookingEligibility" booking_eligibility
@@ -892,7 +894,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "الحجز أو الخدمة لم يعودا متاحين لهذا النشاط" }, { status: 409 });
     }
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_CUSTOMER_INELIGIBLE") {
-      return NextResponse.json({ ok: false, error: "استخدم رقم الجوال المسجل في طلب مدفوع ومؤكد من متجر هذه المنشأة." }, { status: 403 });
+      return NextResponse.json({ ok: false, error: "استخدم رقم الجوال المسجل في طلب مؤهل للحجز من متجر هذه المنشأة." }, { status: 403 });
     }
     if (error instanceof Error && error.message === "PUBLIC_BOOKING_SCHEDULE_CHANGED") {
       return NextResponse.json({ ok: false, error: "تغيرت ساعات العمل أو مدة الخدمة. اختر موعدًا متاحًا من جديد." }, { status: 409 });
