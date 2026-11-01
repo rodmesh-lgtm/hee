@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { createBookingAlertTracker, type BookingSignal } from "../../app/lib/booking-alert-tracker";
 
+import { bookingPollDelay } from "../../app/lib/booking-poll-delay";
+
 function chime(context: AudioContext) {
   const start = context.currentTime;
   for (const [delay, frequency] of [[0, 880], [0.2, 1174.66]]) {
@@ -32,9 +34,12 @@ export function BookingBell({ businessId }: { businessId: string }) {
   useEffect(() => {
     const track = createBookingAlertTracker();
     let stopped = false;
+    let failures = 0;
+    let retryAfter: string | null = null;
     let timer: ReturnType<typeof setTimeout>;
     const controller = new AbortController();
     async function poll() {
+      retryAfter = null;
       try {
         const response = await fetch(`/api/dashboard/bookings/updates?businessId=${encodeURIComponent(businessId)}`, { cache: "no-store", signal: controller.signal });
         if (stopped) return;
@@ -43,9 +48,11 @@ export function BookingBell({ businessId }: { businessId: string }) {
           setNewCount(0); setNotice("توقفت المتابعة. حدّث الصفحة للتحقق من المنشأة والصلاحيات.");
           return;
         }
+        retryAfter = response.headers.get("Retry-After");
         if (!response.ok) throw new Error("unavailable");
         const data = await response.json() as { businessId: string; bookings: BookingSignal[] };
         if (stopped || data.businessId !== businessId || !Array.isArray(data.bookings)) return;
+        failures = 0;
         const count = track(data.bookings);
         setNotice("");
         if (count > 0) {
@@ -54,9 +61,10 @@ export function BookingBell({ businessId }: { businessId: string }) {
           else if (enabled.current) { enabled.current = false; setSound(false); setNotice("أوقف المتصفح الصوت. اضغط تفعيل الجرس مجددًا."); }
         }
       } catch {
+        failures += 1;
         if (!stopped) setNotice("تعذر تحديث الحجوزات مؤقتًا؛ نحاول مجددًا.");
       }
-      if (!stopped) timer = setTimeout(poll, 10_000);
+      if (!stopped) timer = setTimeout(poll, bookingPollDelay(failures, retryAfter));
     }
     void poll();
     return () => { stopped = true; controller.abort(); clearTimeout(timer); enabled.current = false; void audio.current?.close(); audio.current = null; };
