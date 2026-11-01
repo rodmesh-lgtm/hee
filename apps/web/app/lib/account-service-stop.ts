@@ -28,6 +28,7 @@ export async function stopAccountBusinessServices(tx: Prisma.TransactionClient, 
   await tx.whatsAppCampaignRecipient.updateMany({ where: { ...where, status: { in: ["snapshotted", "queued"] } }, data: { status: "cancelled" } });
   await tx.$executeRaw`UPDATE "SmartReminder" SET "status"='paused', "pausedAt"=${now}, "updatedAt"=${now} WHERE "businessId"=${businessId} AND "status"='scheduled'`;
   await tx.$executeRaw`UPDATE "SmartReminderDelivery" SET "status"='cancelled', "lastErrorCode"='ACCOUNT_INACTIVE', "updatedAt"=${now} WHERE "businessId"=${businessId} AND "status" IN ('queued','retry_scheduled')`;
+  await tx.$executeRaw`UPDATE "WhatsAppServiceBot" SET "enabled"=false, "enabledAt"=NULL, "revision"="revision"+1, "updatedAt"=${now} WHERE "businessId"=${businessId} AND "enabled"=true`;
   await tx.liveViewSession.updateMany({ where: { ...where, endedAt: null }, data: { endedAt: now } });
   await tx.liveViewConnector.updateMany({ where, data: { revokedAt: now, tokenHash: null, pairingHash: null, pairingExpiresAt: null } });
   await tx.liveViewStation.updateMany({ where, data: { enabled: false } });
