@@ -23,3 +23,16 @@ export async function connectRetailAccount(form: FormData) {
   }
   redirect(authorization!);
 }
+
+export async function disconnectRetailAccountAction(form: FormData) {
+  const business = await getOwnedBusinessForWrite();
+  if (!business || form.get('businessId') !== business.id || form.get('confirm') !== 'yes') redirect('/dashboard/retail-analytics?connection=forbidden');
+  let result = 'failed';
+  try {
+    const limit = await consumePublicWriteLimit({ scope: 'retail.oauth.disconnect', businessId: business.id, identity: business.ownerId, limit: 5, windowSeconds: 600 });
+    if (!limit.allowed) throw new Error('RATE_LIMITED');
+    const { disconnectRetailAccount } = await import('../../lib/retail-analytics/disconnect');
+    result = await disconnectRetailAccount({ businessId: business.id, userId: business.ownerId, integrationId: String(form.get('integrationId') ?? '') });
+  } catch { result = 'failed'; }
+  redirect(`/dashboard/retail-analytics?connection=${result}`);
+}

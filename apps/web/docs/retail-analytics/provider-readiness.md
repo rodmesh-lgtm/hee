@@ -59,6 +59,12 @@ Waiting for vendor response, as requested by the owner. Do not reverse-engineer 
 
 Shopify app INFRO Retail Analytics created with user approval in organization 244458494, app 442461683713. Version retail-oauth-v1 is Active, read_orders only, non-embedded, legacy authorization-code install flow. This is an app configuration release, not a deployed INFRO feature or merchant authorization. SHOPIFY_CLIENT_ID and SHOPIFY_ADMIN_API_VERSION=2026-10 added to Vercel Production. SHOPIFY_CLIENT_SECRET remains unset: automatic secure transfer was unavailable; do not expose it in chat.
 
-Foodics registration email prepared as an unsent Gmail draft to support@foodics.com, requesting sandbox/client credentials and orders.list/general.read/tokens.limited.revoke. No email sent and no credentials issued.
+Foodics registration email sent with explicit owner approval on 2026-11-01 (message 1a19855e3308fffe), originally prepared as a draft to support@foodics.com, requesting sandbox/client credentials and orders.list/general.read/tokens.limited.revoke. Delivery accepted by Gmail; Foodics response and credentials are still pending.
 
 GitHub unit-tests job failed ESLint on explicit any types in the new OAuth test fixture. Replaced these with concrete fixture types; scoped ESLint and all four OAuth session tests pass. Re-run CI before merge.
+
+## Disconnect lifecycle implementation
+
+Owner-only confirmed disconnect cancels pending OAuth sessions and webhook sync jobs, marks the account unavailable before making provider calls, and retains encrypted credentials while revocation is uncertain. Shopify uses the official appUninstall GraphQL mutation (removes the calling app; UI explicitly warns about shared integrations); Foodics uses DELETE /v5/tokens/client in the credential's verified environment. 401 means the credential is already inactive; timeouts/403/429/5xx remain pending. Credentials are cleared only after confirmed revocation. Reconnect is blocked while revocation is pending. No actual customer app was disconnected in development.
+
+Tests include tenant rejection, cancellation before provider request, failed-revocation credential retention, fixed provider origins, sandbox isolation and Shopify payload errors. This does not yet implement cleanup of a newly issued token when initial OAuth verification or persistence fails, nor Shopify uninstall webhooks; those remain release blockers.

@@ -41,6 +41,7 @@ export async function startRetailOAuth(input: { businessId: string; userId: stri
     if (input.integrationId && !existing) throw new Error('FORBIDDEN');
     if (existing && input.provider === 'shopify' && existing.externalStoreId !== externalStoreId) throw new Error('ACCOUNT_MISMATCH');
     if (existing?.status === 'active') throw new Error('ALREADY_CONNECTED');
+    if (existing && !['draft', 'disconnected'].includes(existing.status)) throw new Error('REVOCATION_PENDING');
     const integration = existing ?? await tx.whatsAppCommerceIntegration.create({ data: { businessId: input.businessId, provider: input.provider, externalStoreId } });
     await tx.whatsAppCommerceOAuthSession.updateMany({ where: { businessId: input.businessId, integrationId: integration.id, status: { in: [created(input.provider), exchanging(input.provider)] } }, data: { status: 'cancelled', consumedAt: now } });
     await tx.whatsAppCommerceOAuthSession.create({ data: { businessId: input.businessId, integrationId: integration.id, initiatedByUserId: input.userId, stateDigest: digest(state), status: created(input.provider), expiresAt: new Date(now.getTime() + 600000) } });
