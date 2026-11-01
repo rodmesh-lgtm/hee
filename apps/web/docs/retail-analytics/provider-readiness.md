@@ -74,3 +74,9 @@ Tests include tenant rejection, cancellation before provider request, failed-rev
 Added POST /api/retail-analytics/shopify/uninstalled with bounded request body, Shopify HMAC verification and signed-payload shop identity matching. It verifies the currently saved token against Shopify before clearing it: a valid token survives an old uninstall delivery, only HTTP 401 clears credentials, and uncertain responses return 503 for retry. The database update compares the exact saved revision and cancels pending OAuth/sync jobs atomically, with tenant-bound audit. Payloads and tokens are not logged. Five runtime tests cover forged/mismatched events, stale deliveries, confirmed revocation, throttling/provider failure and concurrent reconnection.
 
 This receiver is still draft and must be registered as an app/uninstalled subscription and tested with a real uninstall/reinstall before release. OAuth token-issuance cleanup remains outstanding. All checks at prior head 8e4bdb1 passed; new-head CI must be checked.
+
+## Automatic lifecycle registration
+
+OAuth now confirms the exact APP_UNINSTALLED subscription at the canonical INFRO receiver before marking a Shopify account active. Existing matching subscriptions are reused; truncated listings, provider errors and mismatched creation results fail closed. No customer/order webhook topics are requested. Owner and cross-business Shopify assignment checks run before token exchange. OAuth JSON responses are bounded to 256 KiB.
+
+41 retail tests, scoped ESLint and full TypeScript pass locally. This is implementation validation, not evidence of an installed merchant or delivered webhook. Failure after token issuance still needs durable encrypted recovery and guarded provider revocation before production release; preflight checks reduce avoidable exchanges but do not replace recovery.

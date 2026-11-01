@@ -5,13 +5,14 @@ import { runInNewContext } from 'node:vm';
 import * as crypto from 'node:crypto';
 import ts from 'typescript';
 import * as domain from '../app/lib/retail-analytics/oauth-domain';
+import { readBoundedJson } from '../app/lib/request-body';
 import { normalizeShopifyDomain } from '../app/lib/whatsapp/shopify-domain';
 const env = { SHOPIFY_CLIENT_ID: 'test-client', SHOPIFY_CLIENT_SECRET: 'test-secret', SHOPIFY_ADMIN_API_VERSION: '2026-10', WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'), WHATSAPP_COMMERCE_CREDENTIAL_KEY_VERSION: 'v1' };
-async function fixture(options: { foreign?: boolean; expired?: boolean; collision?: boolean; revoked?: boolean } = {}) {
+async function fixture(options: { foreign?: boolean; expired?: boolean; collision?: boolean; revoked?: boolean; ownerGone?: boolean; webhookFailure?: boolean } = {}) {
   let status = 'retail_shopify_created', calls = 0, saved = 0;
   const record = { id: 'session', businessId: 'tenant-a', initiatedByUserId: 'owner-a', integrationId: 'account-a', integration: { externalStoreId: 'example.myshopify.com' } };
   const tx = {
-    business: { count: async () => 1 },
+    business: { count: async () => options.ownerGone ? 0 : 1 },
     whatsAppCommerceOAuthSession: {
       findFirst: async ({ where }: { where: { businessId: string; initiatedByUserId: string; integration: { provider: string }; expiresAt: { gt: Date }; status: string } }) => {
         assert.equal(where.businessId, 'tenant-a'); assert.equal(where.initiatedByUserId, 'owner-a');
@@ -29,11 +30,13 @@ async function fixture(options: { foreign?: boolean; expired?: boolean; collisio
   };
   const dependencies: Record<string, unknown> = {
     'server-only': {}, 'node:crypto': crypto, '@prisma/client': { Prisma: { TransactionIsolationLevel: { Serializable: 'Serializable' } } },
+    '../request-body': { readBoundedJson },
     '../db': { db: { ...tx, $transaction: async (fn: (database: typeof tx) => Promise<unknown>) => fn(tx) } },
     '../whatsapp/shopify-config': { shopifyAppOrigin: () => 'https://ir.sa' },
     '../whatsapp/shopify-domain': { normalizeShopifyDomain },
     '../whatsapp/commerce-credential-envelope': { encryptCommerceCredential: (input: { businessId: string; integrationId: string; provider: string }) => { assert.equal(input.businessId, 'tenant-a'); assert.equal(input.integrationId, 'account-a'); assert.equal(input.provider, 'shopify'); return { encrypted: true }; } },
     '../whatsapp/audit': { writeWhatsAppAuditLog: async () => {} }, './oauth-domain': domain,
+    './shopify-subscription': { ensureRetailShopifySubscription: async () => { if (options.webhookFailure) throw new Error('WEBHOOK_REGISTRATION_FAILED'); } },
   };
   const source = await readFile(new URL('../app/lib/retail-analytics/oauth.ts', import.meta.url), 'utf8');
   const exports = {};
@@ -61,7 +64,14 @@ test('successful authorization binds encrypted token and cannot be replayed', as
   await assert.rejects(f.module.finishRetailOAuth(input), /SESSION_EXPIRED/); assert.equal(f.calls(), 2);
 });
 test('account collision or cancellation during exchange prevents saving credentials', async () => {
-  for (const options of [{ collision: true }, { revoked: true }]) {
+  for (const options of [{ revoked: true }, { webhookFailure: true }]) {
     const f = await fixture(options); await assert.rejects(f.module.finishRetailOAuth(input), /RETAIL_AUTHORIZATION_FAILED/); assert.equal(f.saved(), 0);
+  }
+});
+
+test('foreign store assignment and removed owner are rejected before exchanging provider code', async () => {
+  for (const options of [{ collision: true }, { ownerGone: true }]) {
+    const f = await fixture(options); await assert.rejects(f.module.finishRetailOAuth(input), /ACCOUNT_ALREADY_ASSIGNED|FORBIDDEN/);
+    assert.equal(f.calls(), 0); assert.equal(f.saved(), 0);
   }
 });

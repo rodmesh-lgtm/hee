@@ -2,6 +2,8 @@ import 'server-only';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { db } from '../db';
+import { readBoundedJson } from '../request-body';
+import { ensureRetailShopifySubscription } from './shopify-subscription';
 import { shopifyAppOrigin } from '../whatsapp/shopify-config';
 import { normalizeShopifyDomain } from '../whatsapp/shopify-domain';
 import { encryptCommerceCredential } from '../whatsapp/commerce-credential-envelope';
@@ -52,7 +54,7 @@ export async function startRetailOAuth(input: { businessId: string; userId: stri
 async function jsonRequest(url: string, init: RequestInit) {
   const response = await fetch(url, { ...init, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error('PROVIDER_AUTHORIZATION_FAILED');
-  return response.json();
+  return readBoundedJson(response, 256 * 1024);
 }
 export async function finishRetailOAuth(input: { businessId: string; userId: string; provider: RetailProvider; state: string; code: string; shop?: string }) {
   if (!/^[A-Za-z0-9_-]{43}$/.test(input.state) || input.code.length < 8 || input.code.length > 8192) throw new Error('INVALID_CALLBACK');
@@ -62,6 +64,12 @@ export async function finishRetailOAuth(input: { businessId: string; userId: str
     const record = await tx.whatsAppCommerceOAuthSession.findFirst({ where: { stateDigest: digest(input.state), businessId: input.businessId, initiatedByUserId: input.userId, status: created(input.provider), expiresAt: { gt: now }, integration: { provider: input.provider, status: { in: ['draft', 'disconnected'] } } }, include: { integration: { select: { externalStoreId: true } } } });
     if (!record) throw new Error('OAUTH_SESSION_EXPIRED');
     if (input.provider === 'shopify' && record.integration.externalStoreId !== normalizeShopifyDomain(input.shop ?? '')) throw new Error('ACCOUNT_MISMATCH');
+    const owner = await tx.business.count({ where: { id: input.businessId, ownerId: input.userId, deletedAt: null, owner: { deletedAt: null, deactivatedAt: null } } });
+    if (owner !== 1) throw new Error('FORBIDDEN');
+    if (input.provider === 'shopify') {
+      const collision = await tx.whatsAppCommerceIntegration.count({ where: { provider: 'shopify', externalStoreId: record.integration.externalStoreId, id: { not: record.integrationId } } });
+      if (collision) throw new Error('ACCOUNT_ALREADY_ASSIGNED');
+    }
     const claimed = await tx.whatsAppCommerceOAuthSession.updateMany({ where: { id: record.id, status: created(input.provider) }, data: { status: exchanging(input.provider) } });
     if (claimed.count !== 1) throw new Error('OAUTH_SESSION_EXPIRED');
     return record;
@@ -72,20 +80,27 @@ export async function finishRetailOAuth(input: { businessId: string; userId: str
       method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
       body: JSON.stringify({ grant_type: 'authorization_code', client_id: config.clientId, client_secret: config.clientSecret, redirect_uri: config.callback, code: input.code }),
     });
-    if (typeof token.access_token !== 'string' || token.access_token.length < 16) throw new Error('PROVIDER_TOKEN_INVALID');
+    if (!token || typeof token !== 'object' || Array.isArray(token)) throw new Error('PROVIDER_TOKEN_INVALID');
+    const tokenRecord = token as Record<string, unknown>;
+    if (typeof tokenRecord.access_token !== 'string' || tokenRecord.access_token.length < 16) throw new Error('PROVIDER_TOKEN_INVALID');
     let identity: { externalId: string; name: string; scopes: string[] };
     if (input.provider === 'foodics') {
-      if (token.token_type !== 'Bearer') throw new Error('PROVIDER_TOKEN_INVALID');
-      identity = verifyFoodicsIdentity(await jsonRequest(`${foodicsOrigins(config.environment).api}/v5/whoami`, { headers: { Authorization: `Bearer ${token.access_token}`, Accept: 'application/json' } }));
+      if (tokenRecord.token_type !== 'Bearer') throw new Error('PROVIDER_TOKEN_INVALID');
+      identity = verifyFoodicsIdentity(await jsonRequest(`${foodicsOrigins(config.environment).api}/v5/whoami`, { headers: { Authorization: `Bearer ${tokenRecord.access_token}`, Accept: 'application/json' } }));
       identity.externalId = `${config.environment}:${identity.externalId}`;
       if (!session.integration.externalStoreId.startsWith('pending:') && session.integration.externalStoreId !== identity.externalId) throw new Error('ACCOUNT_MISMATCH');
     } else {
-      if (typeof token.scope !== 'string' || !token.scope.split(',').map((s: string) => s.trim()).includes('read_orders')) throw new Error('PROVIDER_SCOPES_MISSING');
-      const response = await jsonRequest(`${origin}/api/${config.apiVersion}/graphql.json`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-shopify-access-token': token.access_token }, body: JSON.stringify({ query: '{ shop { myshopifyDomain name } }' }) });
-      if (response.errors?.length || response.data?.shop?.myshopifyDomain !== session.integration.externalStoreId || typeof response.data?.shop?.name !== 'string') throw new Error('ACCOUNT_MISMATCH');
-      identity = { externalId: session.integration.externalStoreId, name: response.data.shop.name.slice(0, 160), scopes: token.scope.split(',') };
+      if (typeof tokenRecord.scope !== 'string' || !tokenRecord.scope.split(',').map((s: string) => s.trim()).includes('read_orders')) throw new Error('PROVIDER_SCOPES_MISSING');
+      const response = await jsonRequest(`${origin}/api/${config.apiVersion}/graphql.json`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-shopify-access-token': tokenRecord.access_token }, body: JSON.stringify({ query: '{ shop { myshopifyDomain name } }' }) });
+      const shopResponse = response as { errors?: unknown[]; data?: { shop?: { myshopifyDomain?: unknown; name?: unknown } } } | null;
+      if (!shopResponse || shopResponse.errors?.length || shopResponse.data?.shop?.myshopifyDomain !== session.integration.externalStoreId || typeof shopResponse.data?.shop?.name !== 'string') throw new Error('ACCOUNT_MISMATCH');
+      identity = { externalId: session.integration.externalStoreId, name: shopResponse.data.shop.name.slice(0, 160), scopes: tokenRecord.scope.split(',') };
     }
-    const credential = encryptCommerceCredential({ plaintext: JSON.stringify({ accessToken: token.access_token, scopes: identity.scopes, environment: config.environment, refreshToken: token.refresh_token ?? null, accessTokenExpiresAt: typeof token.expires_in === 'number' && token.expires_in > 0 ? new Date(Date.now() + token.expires_in * 1000).toISOString() : null }), encryptionKeyBase64: config.key, keyVersion: config.keyVersion, businessId: input.businessId, integrationId: session.integrationId, provider: input.provider });
+    if (input.provider === 'shopify') {
+      // Lifecycle delivery must be configured before the dashboard reports connected.
+      await ensureRetailShopifySubscription({ shop: identity.externalId, token: tokenRecord.access_token, apiVersion: config.apiVersion });
+    }
+    const credential = encryptCommerceCredential({ plaintext: JSON.stringify({ accessToken: tokenRecord.access_token, scopes: identity.scopes, environment: config.environment, refreshToken: tokenRecord.refresh_token ?? null, accessTokenExpiresAt: typeof tokenRecord.expires_in === 'number' && tokenRecord.expires_in > 0 ? new Date(Date.now() + tokenRecord.expires_in * 1000).toISOString() : null }), encryptionKeyBase64: config.key, keyVersion: config.keyVersion, businessId: input.businessId, integrationId: session.integrationId, provider: input.provider });
     await db.$transaction(async tx => {
       const owner = await tx.business.count({ where: { id: input.businessId, ownerId: input.userId, deletedAt: null, owner: { deletedAt: null, deactivatedAt: null } } });
       if (owner !== 1) throw new Error('FORBIDDEN');
