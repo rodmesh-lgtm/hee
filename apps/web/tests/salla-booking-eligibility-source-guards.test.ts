@@ -66,7 +66,11 @@ test("Salla connection imports historical orders and supports an explicit refres
 
 test("booking settings disclose when the multi-store gate becomes active without exposing order data publicly", () => {
   assert.match(page, /MULTI-STORE BOOKING ACCESS/);
-  assert.match(page, /يبدأ تطبيق الشرط فقط بعد اكتمال الربط الرسمي/);
+  assert.match(page, /الحجز للجميع/);
+  assert.match(page, /الحجز لأصحاب طلبات المتاجر المؤهلة فقط/);
+  assert.match(bookingRoute, /bookingAudienceSql/);
+  assert.match(workingHoursActions, /business.ownerId !== user.id/);
+  assert.match(workingHoursActions, /FOR UPDATE/);
   assert.match(page, /لا تنتقل البيانات بين المنشآت/);
   assert.doesNotMatch(bookingRoute, /externalOrderId.*NextResponse/);
 });
