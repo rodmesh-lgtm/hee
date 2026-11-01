@@ -85,3 +85,18 @@ test("light payment evidence rejects COD, partial payments, refunds, currency mi
   assert.equal(eligibleLight({ ...lightOrder, status: { slug: "cancelled" } }), false);
   assert.equal(eligibleLight({ ...lightOrder, is_pending_payment: true }), false);
 });
+
+
+test("completed Salla orders allow booking without inventing payment evidence", () => {
+  for (const payment_status of [undefined, "pending", "paid"]) {
+    const result = mapSallaOrderWebhook({ event: "order.updated", data: { id: 1, status: { slug: "completed" }, payment_status, customer: { mobile: "0501234567" } } });
+    assert.equal(result.kind, "order");
+    if (result.kind === "order") { assert.equal(result.order.eligible, true); assert.equal(result.order.paymentStatus, payment_status ?? null); }
+  }
+  for (const data of [
+    { status: { slug: "under_review" } }, { status: { slug: "cancelled" } },
+    { status: { slug: "completed" }, payment_status: "refunded" },
+    { status: { slug: "completed" }, payment_actions: { refund_action: { refund_amount: { amount: 1 } } } },
+    { status: { slug: "completed" }, draft: true },
+  ]) assert.equal(eligibleLight({ id: 1, customer: { mobile: "0501234567" }, ...data }), false);
+});
