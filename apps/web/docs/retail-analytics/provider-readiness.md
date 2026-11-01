@@ -57,7 +57,7 @@ Waiting for vendor response, as requested by the owner. Do not reverse-engineer 
 
 ## Provider registration progress (2026-11-01, later update)
 
-Shopify app INFRO Retail Analytics created with user approval in organization 244458494, app 442461683713. Version retail-oauth-v1 is Active, read_orders only, non-embedded, legacy authorization-code install flow. This is an app configuration release, not a deployed INFRO feature or merchant authorization. SHOPIFY_CLIENT_ID and SHOPIFY_ADMIN_API_VERSION=2026-10 added to Vercel Production. SHOPIFY_CLIENT_SECRET remains unset: automatic secure transfer was unavailable; do not expose it in chat.
+Shopify app INFRO Retail Analytics created with user approval in organization 244458494, app 442461683713. Version retail-oauth-v1 is Active, read_orders only, non-embedded, legacy authorization-code install flow. This is an app configuration release, not a deployed INFRO feature or merchant authorization. SHOPIFY_CLIENT_ID and SHOPIFY_ADMIN_API_VERSION=2026-10 added to Vercel Production. SHOPIFY_CLIENT_SECRET was subsequently saved by the owner-assisted Vercel flow as a sensitive Production variable; metadata verification confirmed its presence without decrypting it. A new deployment is required to load it.
 
 Foodics registration email sent with explicit owner approval on 2026-11-01 (message 1a19855e3308fffe), originally prepared as a draft to support@foodics.com, requesting sandbox/client credentials and orders.list/general.read/tokens.limited.revoke. Delivery accepted by Gmail; Foodics response and credentials are still pending.
 
@@ -68,3 +68,9 @@ GitHub unit-tests job failed ESLint on explicit any types in the new OAuth test 
 Owner-only confirmed disconnect cancels pending OAuth sessions and webhook sync jobs, marks the account unavailable before making provider calls, and retains encrypted credentials while revocation is uncertain. Shopify uses the official appUninstall GraphQL mutation (removes the calling app; UI explicitly warns about shared integrations); Foodics uses DELETE /v5/tokens/client in the credential's verified environment. 401 means the credential is already inactive; timeouts/403/429/5xx remain pending. Credentials are cleared only after confirmed revocation. Reconnect is blocked while revocation is pending. No actual customer app was disconnected in development.
 
 Tests include tenant rejection, cancellation before provider request, failed-revocation credential retention, fixed provider origins, sandbox isolation and Shopify payload errors. This does not yet implement cleanup of a newly issued token when initial OAuth verification or persistence fails, nor Shopify uninstall webhooks; those remain release blockers.
+
+## Uninstall receiver update
+
+Added POST /api/retail-analytics/shopify/uninstalled with bounded request body, Shopify HMAC verification and signed-payload shop identity matching. It verifies the currently saved token against Shopify before clearing it: a valid token survives an old uninstall delivery, only HTTP 401 clears credentials, and uncertain responses return 503 for retry. The database update compares the exact saved revision and cancels pending OAuth/sync jobs atomically, with tenant-bound audit. Payloads and tokens are not logged. Five runtime tests cover forged/mismatched events, stale deliveries, confirmed revocation, throttling/provider failure and concurrent reconnection.
+
+This receiver is still draft and must be registered as an app/uninstalled subscription and tested with a real uninstall/reinstall before release. OAuth token-issuance cleanup remains outstanding. All checks at prior head 8e4bdb1 passed; new-head CI must be checked.
