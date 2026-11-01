@@ -175,6 +175,14 @@ export function mapSallaOrderWebhook(payload: unknown): SallaWebhookMapping {
   const terminalEventStatus: Record<string, string> = { "order.cancelled": "cancelled", "order.canceled": "cancelled", "order.refunded": "refunded", "order.deleted": "deleted" };
   const orderStatus = terminalEventStatus[eventType] ?? normalizedStatus(order.status ?? order.order_status);
   const revokedByEvent = ["order.cancelled", "order.canceled", "order.refunded", "order.deleted"].includes(eventType);
+  // Booking policy: a completed Salla order is sufficient even when the
+  // provider omits settlement fields. Never turn that into a paid status.
+  const refund = record(record(order.payment_actions)?.refund_action);
+  const refundAmount = record(refund?.refund_amount)?.amount;
+  const paymentRevoked = ["refunded", "partially_refunded", "voided", "failed", "cancelled", "canceled"].includes(paymentStatus ?? "") ||
+    refund?.has_refund_amount === true || Number(refundAmount ?? 0) > 0 ||
+    (Array.isArray(refund?.refunded_transactions) && refund.refunded_transactions.length > 0);
+  const completed = orderStatus === "completed" && order.draft !== true && order.is_pending_payment !== true;
   const paid = Boolean(paymentStatus && PAID_STATUSES.has(paymentStatus));
   const confirmed = Boolean(orderStatus && CONFIRMED_ORDER_STATUSES.has(orderStatus));
   const terminal = Boolean(orderStatus && TERMINAL_INELIGIBLE_STATUSES.has(orderStatus));
@@ -186,7 +194,7 @@ export function mapSallaOrderWebhook(payload: unknown): SallaWebhookMapping {
       phoneE164: orderPhone(order),
       paymentStatus,
       orderStatus,
-      eligible: paid && confirmed && !terminal && !revokedByEvent,
+      eligible: (completed || (paid && confirmed)) && !paymentRevoked && !terminal && !revokedByEvent,
       providerUpdatedAt: payloadDate([eventType === "order.status.updated" ? data?.created_at : null, order.updated_at, root?.created_at, order.date, order.created_at]),
     },
   };
