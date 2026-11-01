@@ -54,3 +54,11 @@ Waiting for vendor response, as requested by the owner. Do not reverse-engineer 
 - Shopify registration: https://dev.shopify.com/dashboard — create/register INFRO app, use the retail callback, read_orders and non-embedded analytics UI. Select distribution suitable for independently owned customer stores; a custom app limited to one merchant is not a general SaaS distribution solution.
 - Foodics registration: https://developers.foodics.com/guides/partnership_authentication_process — request client credentials and sandbox with orders.list/general.read, plus tokens.limited.revoke for official disconnect. No registration email sent by this change.
 - Canonical planned install URL: https://ir.sa/dashboard/retail-analytics (requires INFRO owner sign-in). These routes are draft until PR475 is deployed.
+
+## Provider registration progress (2026-11-01, later update)
+
+Shopify app INFRO Retail Analytics created with user approval in organization 244458494, app 442461683713. Version retail-oauth-v1 is Active, read_orders only, non-embedded, legacy authorization-code install flow. This is an app configuration release, not a deployed INFRO feature or merchant authorization. SHOPIFY_CLIENT_ID and SHOPIFY_ADMIN_API_VERSION=2026-10 added to Vercel Production. SHOPIFY_CLIENT_SECRET remains unset: automatic secure transfer was unavailable; do not expose it in chat.
+
+Foodics registration email prepared as an unsent Gmail draft to support@foodics.com, requesting sandbox/client credentials and orders.list/general.read/tokens.limited.revoke. No email sent and no credentials issued.
+
+GitHub unit-tests job failed ESLint on explicit any types in the new OAuth test fixture. Replaced these with concrete fixture types; scoped ESLint and all four OAuth session tests pass. Re-run CI before merge.

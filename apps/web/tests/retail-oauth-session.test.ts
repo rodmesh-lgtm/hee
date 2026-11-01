@@ -13,26 +13,26 @@ async function fixture(options: { foreign?: boolean; expired?: boolean; collisio
   const tx = {
     business: { count: async () => 1 },
     whatsAppCommerceOAuthSession: {
-      findFirst: async ({ where }: any) => {
+      findFirst: async ({ where }: { where: { businessId: string; initiatedByUserId: string; integration: { provider: string }; expiresAt: { gt: Date }; status: string } }) => {
         assert.equal(where.businessId, 'tenant-a'); assert.equal(where.initiatedByUserId, 'owner-a');
         assert.equal(where.integration.provider, 'shopify'); assert.ok(where.expiresAt.gt instanceof Date);
         return options.foreign || options.expired || status !== where.status ? null : record;
       },
-      updateMany: async ({ where, data }: any) => { if (where.status !== status) return { count: 0 }; status = data.status; return { count: 1 }; },
+      updateMany: async ({ where, data }: { where: { status: string }; data: { status: string } }) => { if (where.status !== status) return { count: 0 }; status = data.status; return { count: 1 }; },
       count: async () => options.revoked ? 0 : 1,
-      update: async ({ data }: any) => { status = data.status; },
+      update: async ({ data }: { data: { status: string } }) => { status = data.status; },
     },
     whatsAppCommerceIntegration: {
       count: async () => options.collision ? 1 : 0,
-      updateMany: async ({ where, data }: any) => { assert.equal(where.businessId, 'tenant-a'); assert.equal(where.id, 'account-a'); assert.equal(data.externalStoreId, 'example.myshopify.com'); saved++; return { count: 1 }; },
+      updateMany: async ({ where, data }: { where: { businessId: string; id: string }; data: { externalStoreId: string } }) => { assert.equal(where.businessId, 'tenant-a'); assert.equal(where.id, 'account-a'); assert.equal(data.externalStoreId, 'example.myshopify.com'); saved++; return { count: 1 }; },
     },
   };
   const dependencies: Record<string, unknown> = {
     'server-only': {}, 'node:crypto': crypto, '@prisma/client': { Prisma: { TransactionIsolationLevel: { Serializable: 'Serializable' } } },
-    '../db': { db: { ...tx, $transaction: async (fn: any) => fn(tx) } },
+    '../db': { db: { ...tx, $transaction: async (fn: (database: typeof tx) => Promise<unknown>) => fn(tx) } },
     '../whatsapp/shopify-config': { shopifyAppOrigin: () => 'https://ir.sa' },
     '../whatsapp/shopify-domain': { normalizeShopifyDomain },
-    '../whatsapp/commerce-credential-envelope': { encryptCommerceCredential: (input: any) => { assert.equal(input.businessId, 'tenant-a'); assert.equal(input.integrationId, 'account-a'); assert.equal(input.provider, 'shopify'); return { encrypted: true }; } },
+    '../whatsapp/commerce-credential-envelope': { encryptCommerceCredential: (input: { businessId: string; integrationId: string; provider: string }) => { assert.equal(input.businessId, 'tenant-a'); assert.equal(input.integrationId, 'account-a'); assert.equal(input.provider, 'shopify'); return { encrypted: true }; } },
     '../whatsapp/audit': { writeWhatsAppAuditLog: async () => {} }, './oauth-domain': domain,
   };
   const source = await readFile(new URL('../app/lib/retail-analytics/oauth.ts', import.meta.url), 'utf8');
