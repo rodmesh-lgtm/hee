@@ -39,7 +39,7 @@ export type DashboardNavItem = { group: DashboardNavGroup; keywords: string; lab
 export const dashboardNavItems: DashboardNavItem[] = [
   { group: "daily", keywords: "الرئيسية ملخص متابعة", label: "مركز العمل", href: "/dashboard", icon: Home, exact: true },
   { group: "daily", keywords: "حملات قوالب جهات اتصال رسائل WhatsApp ميتا ربط", label: "تسويق واتساب", href: "/dashboard/whatsapp", icon: WhatsAppIcon, activePrefixes: ["/dashboard/whatsapp"] },
-  { group: "daily", keywords: "سلة Salla متجر ربط تجربة بدء تشخيص الحجز", label: "Salla", href: "/dashboard/commerce/salla", icon: ShoppingBag },
+  { group: "daily", keywords: "سلة زد شوبيفاي ووكومرس Salla Zid Shopify WooCommerce متجر ربط طلبات حجز", label: "تكاملات المتاجر", href: "/dashboard/commerce", icon: ShoppingBag, activePrefixes: ["/dashboard/commerce"] },
   { group: "presence", keywords: "تعديل تصميم شعار خدمات منتجات فروع فريق ساعات معرض روابط", label: "صفحتي", href: "/dashboard/my-page", icon: UserRound, activePrefixes: ["/dashboard/services", "/dashboard/products", "/dashboard/catalog", "/dashboard/gallery", "/dashboard/offers", "/dashboard/contact-links", "/dashboard/page-builder", "/dashboard/page-customization", "/dashboard/preview", "/dashboard/share", "/dashboard/branding", "/dashboard/directory", "/dashboard/tools"] },
   { group: "presence", keywords: "توثيق ملف تعريفي PDF سيو SEO", label: "الهوية الرقمية", href: "/dashboard/digital-identity", icon: BadgeCheck, activePrefixes: ["/dashboard/verification"] },
   { group: "daily", keywords: "عملاء طلب خدمة وارد", label: "الطلبات", href: "/dashboard/inbox", icon: Inbox },

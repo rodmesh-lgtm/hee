@@ -20,9 +20,11 @@ import {
   UsersRound,
 } from "lucide-react";
 import { db } from "../../lib/db";
+import { bookingAudience, bookingOrderRequired } from "../../lib/commerce/booking-audience";
 import { getOwnedBusinessForRead } from "../../lib/ownership";
 import {
   deleteBookingAvailabilityOverrideAction,
+  updateBookingAudienceAction,
   updateBookingSlotSettingsAction,
   upsertBookingAvailabilityOverrideAction,
   configureBookingWhatsAppConfirmationAction,
@@ -108,6 +110,7 @@ export default async function DashboardWorkingHoursPage({
       id: true,
       slug: true,
       bookingAvailable: true,
+      pageModules: true,
       bookingSlotMinutes: true,
       bookingCapacity: true,
       branches: {
@@ -146,6 +149,9 @@ export default async function DashboardWorkingHoursPage({
     },
   });
   if (!business) redirect("/onboarding");
+  const hasActiveStore = business.whatsappCommerceIntegrations.some(integration =>
+    ["salla", "zid", "shopify", "woocommerce"].includes(integration.provider) && integration.status === "active");
+  const audience = bookingOrderRequired(bookingAudience(business.pageModules), hasActiveStore) ? "store_orders" : "everyone";
   const publicUrl = await getPublicBusinessUrlFromRequest(business.slug);
 
   const verificationFailures = isOwner ? await db.whatsAppAuditLog.findMany({
@@ -248,6 +254,17 @@ export default async function DashboardWorkingHoursPage({
           <label className="flex min-h-12 cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-[#f8fbfb] px-3 text-[11px] font-black text-slate-700"><span>{business.bookingAvailable ? "الحجز متاح للعملاء" : "الحجز متوقف"}</span><input type="checkbox" name="bookingAvailable" defaultChecked={business.bookingAvailable} className="h-5 w-5 accent-[#00a99d]" /></label>
           <button className="h-12 rounded-xl bg-[#07181b] px-5 text-[11px] font-black text-white">حفظ الحالة</button>
         </form>
+        <form action={updateBookingAudienceAction} className="mt-5 grid gap-3 border-t border-slate-200 pt-4">
+          <label htmlFor="booking-audience" className="text-sm font-black">من يستطيع حجز موعد؟</label>
+          <select id="booking-audience" name="bookingAudience" defaultValue={audience} disabled={!isOwner} className={fieldClass} aria-describedby="booking-audience-help">
+            <option value="everyone">الحجز للجميع — لا يشترط طلب متجر</option>
+            <option value="store_orders">الحجز لأصحاب طلبات المتاجر المؤهلة فقط</option>
+          </select>
+          <p id="booking-audience-help" className="text-sm leading-6 text-slate-600">اختر «الحجز للجميع» إذا كنت تقدم مواعيد مباشرة، حتى لو لم يكن لديك متجر. خيار طلبات المتاجر يشترط متجرًا مربوطًا وطلبًا مؤهلًا بنفس رقم الجوال؛ طلب سلة المكتمل مؤهل دون اشتراط دليل دفع إضافي. تبقى ضوابط الخدمة والأوقات والطاقة الاستيعابية فعّالة في الحالتين.</p>
+          {audience === "store_orders" && !hasActiveStore ? <p role="status" className="text-sm text-amber-800">الحجز مقيد بطلبات المتاجر، ولا يوجد متجر نشط حاليًا. اربط متجرك أو اختر الحجز للجميع.</p> : null}
+          {isOwner ? <button className="h-12 rounded-xl bg-[#07181b] px-5 text-sm font-bold text-white">حفظ شروط الحجز</button> : <p className="text-sm text-slate-600">يغير صاحب المنشأة شروط الحجز.</p>}
+          {saved === "audience" ? <p role="status" className="text-sm text-emerald-700">تم حفظ شروط الحجز لهذه المنشأة.</p> : null}
+        </form>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[9px] font-black">
           <StatusItem done={business.bookingAvailable} label="التفعيل" />
           <StatusItem done={bookableCount > 0} label="الخدمات" />
@@ -268,7 +285,7 @@ export default async function DashboardWorkingHoursPage({
     {isOwner ? <>
     <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
       <div className="border-b border-slate-100 bg-[#fbfdfd] p-4 sm:p-5"><div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><MessageCircle className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">BOOKING WHATSAPP</span><h2 className="mt-1 text-base font-black text-slate-950">رقم واتساب مستقل لتأكيد المواعيد</h2><p className="mt-2 max-w-3xl text-[10px] leading-6 text-slate-500">عيّن رقمًا للحجوزات فقط، أو استخدم رقم التسويق نفسه. رسائل الحملات لا تنتقل تلقائيًا إلى رقم الحجوزات، وكل تأكيد يستخدم قالبًا خدميًا معتمدًا من Meta.</p></div></div></div>
-      {whatsappResult && whatsappResult !== "connection-selected" ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["enabled","paused","number-linked","templates-synced","template-updated"].includes(whatsappResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{whatsappResult === "template-updated" ? "تم حفظ قالب تأكيد الحجز." : whatsappResult === "verification-submitted" ? "تم تقديم قالب التحقق إلى Meta. الإرسال ينتظر اعتماده؛ حدّث القوالب لمعرفة حالته." : whatsappResult === "verification-sync-required" ? "حدّث القوالب من Meta أولًا؛ قد يكون طلب القالب قد وصل، فلا تعِد تقديمه الآن." : whatsappResult === "enabled" ? "تم تفعيل إرسال تأكيدات الحجز عبر واتساب." : whatsappResult === "paused" ? "تم إيقاف تأكيدات واتساب مؤقتًا." : whatsappResult === "number-linked" ? "تم تعيين رقم التسويق نفسه لخدمة الحجوزات." : whatsappResult === "templates-synced" ? "تم تحديث قوالب رقم الحجوزات من Meta." : whatsappResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لاستخدام الحجز وتأكيداته." : "لم تكتمل العملية. راجع اتصال الرقم والقالب المعتمد ثم حاول مجددًا."}</p> : null}
+      {whatsappResult && whatsappResult !== "connection-selected" ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["enabled","paused","number-linked","templates-synced","template-updated"].includes(whatsappResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{whatsappResult === "template-updated" ? "تم حفظ قالب تأكيد الحجز." : whatsappResult === "verification-submitted" ? "تم تقديم قالب التحقق إلى Meta. الإرسال ينتظر اعتماده؛ حدّث القوالب لمعرفة حالته." : whatsappResult === "verification-rate-limited" ? "توجد محاولة تقديم خلال آخر 24 ساعة. حدّث القوالب للتحقق من النتيجة؛ لم نرسل طلبًا مكررًا إلى Meta." : whatsappResult === "verification-rejected" ? "رفضت Meta تقديم قالب التحقق. راجع صلاحيات إدارة القوالب وحساب واتساب؛ لم يتم تفعيل إرسال الرمز." : whatsappResult === "verification-setup-failed" ? "تعذر تجهيز طلب قالب التحقق. راجع اتصال رقم الحجوزات وصلاحياته قبل إعادة المحاولة." : whatsappResult === "verification-sync-required" ? "حدّث القوالب من Meta أولًا؛ قد يكون طلب القالب قد وصل، فلا تعِد تقديمه الآن." : whatsappResult === "enabled" ? "تم تفعيل إرسال تأكيدات الحجز عبر واتساب." : whatsappResult === "paused" ? "تم إيقاف تأكيدات واتساب مؤقتًا." : whatsappResult === "number-linked" ? "تم تعيين رقم التسويق نفسه لخدمة الحجوزات." : whatsappResult === "templates-synced" ? "تم تحديث قوالب رقم الحجوزات من Meta." : whatsappResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لاستخدام الحجز وتأكيداته." : "لم تكتمل العملية. راجع اتصال الرقم والقالب المعتمد ثم حاول مجددًا."}</p> : null}
       {whatsappResult === "connection-selected" ? <p role="status" className="m-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">تم تعيين حساب واتساب المحدد للحجوزات. حدّث قوالبه ثم اختر قالب التأكيد؛ أُوقفت التأكيدات المرتبطة بأي حساب سابق.</p> : null}
       <div className="grid gap-4 p-4 sm:p-5 xl:grid-cols-[.9fr_1.1fr]">
         <article className="rounded-2xl border border-slate-200 bg-[#f8fbfb] p-4">
@@ -305,7 +322,7 @@ export default async function DashboardWorkingHoursPage({
 
     <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
       <div className="border-b border-slate-100 bg-[#fbfdfd] p-4 sm:p-5">
-        <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><Store className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">MULTI-STORE BOOKING ACCESS</span><h2 className="mt-1 text-base font-black text-slate-950">ربط المتاجر والتحقق من أهلية الحجز</h2><p className="mt-2 max-w-3xl text-[10px] leading-6 text-slate-500">يدعم INFRO سلة وShopify وWooCommerce، ويعرض جاهزية زد دون ادعاء ربط غير مكتمل. بعد تفعيل أي متجر، لا يُقبل الحجز إلا لرقم مستخدم في طلب مدفوع ومؤكد لدى المنشأة. الإلغاء أو الاسترداد يلغي أهلية الطلب، ولا تنتقل البيانات بين المنشآت.</p></div></div>
+        <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><Store className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">MULTI-STORE BOOKING ACCESS</span><h2 className="mt-1 text-base font-black text-slate-950">ربط المتاجر والتحقق من أهلية الحجز</h2><p className="mt-2 max-w-3xl text-[10px] leading-6 text-slate-500">يدعم INFRO سلة وShopify وWooCommerce، ويعرض جاهزية زد دون ادعاء ربط غير مكتمل. عند اختيار الحجز لأصحاب طلبات المتاجر فقط، يقبل سلة الطلب المكتمل أو المدفوع والمؤكد؛ وتبقى شروط الدفع الخاصة بالمتاجر الأخرى. يجب استخدام جوال الطلب لدى المنشأة. الإلغاء أو الاسترداد يلغي أهلية الطلب، ولا تنتقل البيانات بين المنشآت.</p></div></div>
       </div>
       <div className="border-b border-slate-100 bg-white p-4 sm:p-5">
         <div className="mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-[#008f87]" /><b className="text-xs text-slate-900">مركز صحة التكاملات</b><span className="text-[9px] text-slate-400">مراقبة المزامنة والتنبيه قبل تأثر أهلية الحجز</span></div>
@@ -318,7 +335,7 @@ export default async function DashboardWorkingHoursPage({
           </article>)}
         </div>
       </div>
-      {sallaResult ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["connected","disconnected","synced"].includes(sallaResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{sallaResult === "connected" ? "تم ربط متجر سلة، وبدأت المزامنة الأولية للطلبات." : sallaResult === "synced" ? "تم تحديث الطلبات المدفوعة والمؤكدة من سلة." : sallaResult === "disconnected" ? "تم فصل متجر سلة وإيقاف شرط الطلب المدفوع للحجز." : sallaResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لربط سلة." : sallaResult === "not-configured" ? "إعداد تطبيق سلة في بيئة INFRO غير مكتمل حاليًا." : sallaResult === "store-mismatch" ? "معرّف التاجر لا يطابق المتجر الذي منحتَه صلاحية الربط." : sallaResult === "store-assigned" ? "هذا المتجر مرتبط بمنشأة أخرى ولا يمكن مشاركته." : sallaResult === "cancelled" ? "أُلغي ربط سلة دون تغيير الإعدادات." : sallaResult === "sync-failed" ? "تعذر تحديث الطلبات الآن؛ بقيت آخر أهلية موثوقة محفوظة بأمان." : "لم يكتمل ربط سلة. تحقق من معرّف التاجر وأعد المحاولة."}</p> : null}
+      {sallaResult ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["connected","disconnected","synced"].includes(sallaResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{sallaResult === "connected" ? "تم ربط متجر سلة، وبدأت المزامنة الأولية للطلبات." : sallaResult === "synced" ? "تم تحديث طلبات سلة وأهلية الحجز." : sallaResult === "disconnected" ? "تم فصل متجر سلة وإيقاف شرط طلب سلة للحجز." : sallaResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لربط سلة." : sallaResult === "not-configured" ? "إعداد تطبيق سلة في بيئة INFRO غير مكتمل حاليًا." : sallaResult === "store-mismatch" ? "معرّف التاجر لا يطابق المتجر الذي منحتَه صلاحية الربط." : sallaResult === "store-assigned" ? "هذا المتجر مرتبط بمنشأة أخرى ولا يمكن مشاركته." : sallaResult === "cancelled" ? "أُلغي ربط سلة دون تغيير الإعدادات." : sallaResult === "sync-failed" ? "تعذر تحديث الطلبات الآن؛ بقيت آخر أهلية موثوقة محفوظة بأمان." : "لم يكتمل ربط سلة. تحقق من معرّف التاجر وأعد المحاولة."}</p> : null}
       <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_1fr]">
         <article className="rounded-2xl border border-slate-200 bg-[#f8fbfb] p-4">
           <div className="flex items-center justify-between gap-3"><div><b className="text-sm text-slate-900">حالة المتجر</b><span className="mt-1 block text-[9px] text-slate-400">تفويض OAuth رسمي دون طلب كلمة مرور المتجر</span></div><span className={`rounded-full px-2.5 py-1 text-[8px] font-black ${sallaIntegration?.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{sallaIntegration?.status === "active" ? "متصل" : sallaIntegration ? "غير مكتمل" : "غير مربوط"}</span></div>
@@ -334,11 +351,11 @@ export default async function DashboardWorkingHoursPage({
         <article className="rounded-2xl border border-slate-200 p-4">
           <b className="text-sm text-slate-900">سياسة السماح بالحجز</b>
           <div className="mt-4 grid gap-2 text-[10px] leading-5">
-            <div className="rounded-xl bg-emerald-50 p-3 text-emerald-800"><b className="block">طلب مدفوع ومؤكد</b><span>يسمح لصاحب رقم الجوال بالحجز في صفحة هذه المنشأة.</span></div>
-            <div className="rounded-xl bg-rose-50 p-3 text-rose-800"><b className="block">طلب غير مدفوع أو ملغي أو مسترد</b><span>لا يمنح أهلية الحجز، ولا تظهر للزائر أي تفاصيل عن الطلب.</span></div>
+            <div className="rounded-xl bg-emerald-50 p-3 text-emerald-800"><b className="block">طلب سلة مكتمل، أو طلب مدفوع ومؤكد</b><span>يسمح لصاحب رقم الجوال بالحجز في صفحة هذه المنشأة.</span></div>
+            <div className="rounded-xl bg-rose-50 p-3 text-rose-800"><b className="block">طلب ملغي أو مسترد أو لم يحقق شروط متجره</b><span>لا يمنح أهلية الحجز، ولا تظهر للزائر أي تفاصيل عن الطلب.</span></div>
             <div className="rounded-xl bg-slate-50 p-3 text-slate-600"><b className="block">عزل كامل بين العملاء</b><span>الأهلية مرتبطة بالمنشأة والمتجر ورقم الجوال؛ طلب متجر آخر لا يسمح بالحجز هنا.</span></div>
           </div>
-          {activeCommerceProviders > 0 ? <p className="mt-4 text-[9px] font-bold text-[#008f87]">متاجر نشطة للتحقق الآمن: {activeCommerceProviders}. لا نعرض أعداد أو بيانات طلبات المتجر للزائر.</p> : <p className="mt-4 text-[9px] font-bold text-slate-400">يبدأ تطبيق الشرط فقط بعد اكتمال الربط الرسمي.</p>}
+          {activeCommerceProviders > 0 ? <p className="mt-4 text-[9px] font-bold text-[#008f87]">متاجر نشطة للتحقق الآمن: {activeCommerceProviders}. لا نعرض أعداد أو بيانات طلبات المتجر للزائر.</p> : <p className="mt-4 text-[9px] font-bold text-slate-400">اختر الحجز للجميع لاستقبال مواعيد دون متجر، أو اربط متجرًا لاستخدام شرط الطلبات.</p>}
         </article>
       </div>
       <div className="grid gap-4 border-t border-slate-100 p-4 sm:p-5 lg:grid-cols-2">

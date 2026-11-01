@@ -287,6 +287,10 @@ test.describe("public transactions workflow", () => {
       await setSession(page,fixture.sessionToken); await page.goto(`${baseUrl}/Laundromat/Accounting`);
       await page.getByRole("button",{name:"تهيئة الدفتر من العمليات المسجلة",exact:true}).click();
       await expect(page.getByRole("heading",{name:"ميزان المراجعة ودليل الحسابات",exact:true})).toBeVisible();
+      // Include backdated entries when this test runs at a month boundary.
+      await page.getByLabel("بداية الفترة المحاسبية",{exact:true}).fill(riyadhDateKey(-2));
+      await page.getByRole("button",{name:"عرض الدفتر",exact:true}).click();
+      await expect(page.getByRole("button",{name:"عرض الدفتر",exact:true})).toBeEnabled();
       await page.getByRole("button",{name:"قيد جديد",exact:true}).click();
       await page.getByLabel("تاريخ القيد",{exact:true}).fill(riyadhDateKey(-2));
       await page.getByLabel("بيان القيد",{exact:true}).fill("رصيد البنك الموثق للاختبار");

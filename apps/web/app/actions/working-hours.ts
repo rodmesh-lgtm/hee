@@ -16,6 +16,33 @@ import { connectWooCommerceBookingStore, syncWooCommerceBookingOrders } from "..
 import { syncShopifyBookingOrders } from "../lib/commerce/shopify-order-sync";
 import { bookingConfirmationTemplateSupportsParameters } from "../lib/whatsapp/booking-confirmation-domain";
 import { writeWhatsAppAuditLog } from "../lib/whatsapp/audit";
+import { getCurrentUserForWrites } from "../lib/auth";
+import { normalizePageModulesForPersistence } from "../lib/page-modules";
+import { TemplateSubmissionError } from "../lib/whatsapp/template-submission";
+
+export async function updateBookingAudienceAction(formData: FormData) {
+  const business = await getOwnedBusinessForWrite("appointments");
+  const user = await getCurrentUserForWrites();
+  if (!business || !user || business.ownerId !== user.id) redirect("/dashboard");
+  const audience = formData.get("bookingAudience");
+  if (audience !== "everyone" && audience !== "store_orders") redirect("/dashboard/working-hours?error=audience");
+  await db.$transaction(async tx => {
+    const rows = await tx.$queryRaw<Array<{ pageModules: unknown; businessType: string }>>`
+      SELECT "pageModules", "businessType" FROM "Business"
+      WHERE "id" = ${business.id} AND "ownerId" = ${user.id} AND "deletedAt" IS NULL FOR UPDATE
+    `;
+    if (!rows[0]) throw new Error("BUSINESS_UNAVAILABLE");
+    const modules = normalizePageModulesForPersistence(rows[0].pageModules, rows[0].businessType);
+    const updated = modules.map(module => module.id === "contact"
+      ? { ...module, config: { ...module.config, bookingAudience: audience } } : module);
+    await tx.business.updateMany({
+      where: { id: business.id, ownerId: user.id, deletedAt: null },
+      data: { pageModules: JSON.parse(JSON.stringify(updated)) },
+    });
+  });
+  refreshAppointmentPaths(business.slug);
+  redirect("/dashboard/working-hours?saved=audience");
+}
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -529,6 +556,7 @@ export async function submitBookingVerificationTemplateAction() {
   const existing=await db.whatsAppTemplate.findFirst({where:{businessId:business.id,connectionId:connection.id,name:BOOKING_VERIFICATION_TEMPLATE,language:"ar"},select:{id:true}});
   if(existing) redirect("/dashboard/working-hours?whatsapp=verification-sync-required");
   let outcome="verification-submitted";
+  let diagnostic = "";
   try {
     const {consumePublicWriteLimit}=await import("../lib/rate-limit");
     const rate=await consumePublicWriteLimit({businessId:business.id,scope:"booking-auth-template-submission",identity:connection.id,limit:1,windowSeconds:86400});
@@ -541,9 +569,17 @@ export async function submitBookingVerificationTemplateAction() {
     const token=decryptWhatsAppCredential({envelope:connection.credentialEnvelope as unknown as import("../lib/whatsapp/credential-envelope").WhatsAppCredentialEnvelope,encryptionKeyBase64:config.META_WHATSAPP_CREDENTIAL_ENCRYPTION_KEY,businessId:business.id});
     const payload=buildTemplateSubmission({name:BOOKING_VERIFICATION_TEMPLATE,language:"ar",category:"AUTHENTICATION",body:"",footer:"",header:"NONE",examples:"",buttonText:"",buttonUrl:"",codeExpirationMinutes:5});
     await submitTemplateRequest({url:metaWhatsAppGraphUrl(config,`${connection.wabaId}/message_templates`),token,payload,persist:async receipt=>{await persistSubmittedTemplate({database:db,businessId:business.id,connectionId:connection.id,payload,receipt});}});
-  } catch { outcome="verification-sync-required"; }
+  } catch (error) {
+    if (error instanceof TemplateSubmissionError) {
+      outcome = error.outcome === "rejected" ? "verification-rejected" : "verification-sync-required";
+      diagnostic = /^\d+(\/\d+)?$/.test(error.reference) ? error.reference : "";
+    } else {
+      outcome = error instanceof Error && error.message === "SYNC_BEFORE_RETRY"
+        ? "verification-rate-limited" : "verification-setup-failed";
+    }
+  }
   const {writeWhatsAppAuditLog}=await import("../lib/whatsapp/audit");
-  await writeWhatsAppAuditLog({businessId:business.id,actorType:"user",actorUserId:business.ownerId,action:"booking.verification.template.submitted",targetType:"connection",targetId:connection.id,outcome:outcome==="verification-submitted"?"success":"failed"});
+  await writeWhatsAppAuditLog({businessId:business.id,actorType:"user",actorUserId:business.ownerId,action:"booking.verification.template.submitted",targetType:"connection",targetId:connection.id,outcome:outcome==="verification-submitted"?"success":"failed",metadata:{outcome,reference:diagnostic}});
   refreshAppointmentPaths(business.slug);
-  redirect(`/dashboard/working-hours?whatsapp=${outcome}`);
+  redirect(`/dashboard/working-hours?whatsapp=${outcome}${diagnostic ? `&verificationError=${encodeURIComponent(diagnostic)}` : ""}`);
 }

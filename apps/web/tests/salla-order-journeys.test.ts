@@ -58,7 +58,8 @@ test("official nested status webhook uses order ID rather than status history ID
   assert.equal(mapped.order.orderStatus, "completed");
   assert.equal(mapped.order.phoneE164, "+966501234567");
   assert.equal(mapped.order.providerUpdatedAt?.toISOString(), "2026-09-25T12:00:00.000Z");
-  assert.equal(mapped.order.eligible, false, "COD completion does not prove payment");
+  assert.equal(mapped.order.eligible, true, "completed orders qualify under the booking policy");
+  assert.equal(mapped.order.paymentStatus, null, "booking eligibility does not invent payment evidence");
 });
 
 test("refund events revoke eligibility and override the previous shipped status", () => {
