@@ -8,7 +8,7 @@ Existing OAuth integration records are reused under their business scope. The re
 
 Reporting uses the official GraphQL Admin API and no customer names, contact details or addresses. The current increment reads order cohorts by created_at in Riyadh time, up to 31 days within the latest 59 days. It is NOT a cash movement report by payment/refund date. Current order totals already reflect returns; totalRefundedSet is shown separately and must not be deducted again. Cancelled order values are excluded but their payment/refund history is retained. API failures do not become zeros. Five pages per refresh are allowed; capped reports are explicitly partial and cannot enter combined totals. Currency totals stay separate. No profit calculation without actual COGS.
 
-Required server configuration is the existing SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_ADMIN_API_VERSION and commerce encryption configuration. The app callback is the existing /api/whatsapp/commerce/shopify/callback. Existing connection management/entitlement flow is unchanged. Standalone retail onboarding and an independent commercial entitlement remain to be implemented; do not advertise them as delivered.
+Required server configuration is the existing SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_ADMIN_API_VERSION and commerce encryption configuration. The new retail callback is /api/retail-analytics/oauth/shopify/callback and must be registered before enabling this flow. Standalone owner-only retail onboarding now requests read_orders only. Existing WhatsApp commerce callbacks are unchanged. Independent commercial entitlements and uninstall/revocation lifecycle remain release blockers.
 
 Official references:
 - https://shopify.dev/docs/api/admin-graphql/latest/objects/Order
@@ -23,7 +23,7 @@ Official documentation retrieved 2026-11-01:
 - https://apidocs.foodics.com/core/resources/whoami
 - https://apidocs.foodics.com/core/resources/orders
 
-Production API: https://api.foodics.com/v5. Sandbox: https://api-sandbox.foodics.com/v5. Authorization is OAuth2 authorization-code grant. Foodics issues the client ID/secret and defines scopes. Authorization code lifetime is 600 seconds. Verify the actual authorization/token endpoint origins and approved redirect with the registered app before implementation; documentation's generic URL placeholders are not endpoint confirmation.
+Production API: https://api.foodics.com/v5. Sandbox: https://api-sandbox.foodics.com/v5. Authorization is OAuth2 authorization-code grant. Foodics issues the client ID/secret and defines scopes. Authorization code lifetime is 600 seconds. The official developer partnership guide confirms authorization at https://console.foodics.com/authorize (sandbox: https://console-sandbox.foodics.com/authorize) and token exchange at https://api.foodics.com/oauth/token (sandbox: https://api-sandbox.foodics.com/oauth/token). Server-only authorization-code exchange and whoami identity verification are implemented in the draft. FOODICS_ENVIRONMENT must explicitly be production or sandbox. Register /api/retail-analytics/oauth/foodics/callback with Foodics.
 
 Minimum requested scopes for an order/branch report: orders.list and general.read. Inventory reporting requires inventory.transactions.read and inventory.settings.read as appropriate; do not request write scopes. GET /whoami supplies business.id and granted scopes: bind verified external business identity, never a user-entered business ID. Never forward owner PII returned by whoami to the dashboard.
 
@@ -39,7 +39,18 @@ Waiting for vendor response, as requested by the owner. Do not reverse-engineer 
 ## Remaining verification and delivery
 
 - Browser QA and live Shopify OAuth/report reconciliation with a customer-approved account.
-- Foodics app registration, sandbox credentials, OAuth flow and verified report adapter.
+- Foodics app registration, sandbox credentials, live OAuth verification and verified report adapter. OAuth code exists; no actual Foodics account is connected.
 - ICG approved contract.
-- Dedicated retail account onboarding/permissions, scheduled synchronization, durable tenant-isolated reporting storage, product/inventory metrics and exports.
+- Complete disconnect/revocation handling, uninstall lifecycle, commercial entitlements, scheduled synchronization, durable tenant-isolated reporting storage, product/inventory metrics and exports. Failed authorization after token issuance must have a tested vendor revocation path before release; local rejection alone does not revoke provider access.
 - CI, deployment and production smoke tests; draft PR is not a production release.
+
+## Onboarding implementation and deployment check (2026-11-01)
+
+- Separate Shopify/Foodics forms, pending indicators, reconnect to a scoped existing integration, and explicit missing-configuration states.
+- Hash-only 10-minute single-use states bound to owner, business and provider. Atomic claim, final ownership/status recheck, encrypted tokens bound to tenant/integration/provider.
+- Shopify HMAC and timestamp validation; Foodics identity and scopes verified using whoami, sandbox identity namespaced separately.
+- Reject callback duplicates, foreign integrations, account replacement and cross-business collisions. Never use shop or customer credentials in client-side code.
+- Production environment metadata inspection found no visible SHOPIFY_CLIENT_ID/SECRET or FOODICS_CLIENT_ID/SECRET entries. Values were not decrypted. An actual connected merchant is still required for acceptance testing.
+- Shopify registration: https://dev.shopify.com/dashboard — create/register INFRO app, use the retail callback, read_orders and non-embedded analytics UI. Select distribution suitable for independently owned customer stores; a custom app limited to one merchant is not a general SaaS distribution solution.
+- Foodics registration: https://developers.foodics.com/guides/partnership_authentication_process — request client credentials and sandbox with orders.list/general.read, plus tokens.limited.revoke for official disconnect. No registration email sent by this change.
+- Canonical planned install URL: https://ir.sa/dashboard/retail-analytics (requires INFRO owner sign-in). These routes are draft until PR475 is deployed.
