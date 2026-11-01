@@ -5,7 +5,7 @@ import { PrismaClient } from "@prisma/client";
 import { attachDatabasePool } from "@vercel/functions";
 import { Pool } from "pg";
 import { isProductionRuntime } from "../app/lib/runtime-environment";
-import { normalizePostgresDatabaseUrl } from "./database-url";
+import { normalizePostgresRuntimeUrl } from "./database-url";
 import { operationalErrorCategory } from "../app/lib/operational-error";
 
 type GlobalPrisma = {
@@ -24,7 +24,7 @@ function validatedDatabaseUrl() {
     throw new Error("HEE database configuration is missing: set DATABASE_URL in this environment");
   }
 
-  return normalizePostgresDatabaseUrl(rawUrl);
+  return normalizePostgresRuntimeUrl(rawUrl);
 }
 
 function poolSize() {
