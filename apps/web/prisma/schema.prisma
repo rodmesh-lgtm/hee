@@ -19,6 +19,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
+  deactivatedAt DateTime?
   sessions Session[]
   businesses Business[]
   authIdentities AuthIdentity[]

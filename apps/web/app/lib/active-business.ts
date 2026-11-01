@@ -42,13 +42,13 @@ export async function getActiveBusinessForUser(userId: string, section?: StaffSe
   const requestedId = await requestedBusinessId();
   if (requestedId) {
     const requested = await db.business.findFirst({
-      where: { id: requestedId, ownerId: userId, deletedAt: null },
+      where: { id: requestedId, ownerId: userId, deletedAt: null, owner: { deletedAt: null, deactivatedAt: null } },
     });
     return requested;
   }
 
   return db.business.findFirst({
-    where: { ownerId: userId, deletedAt: null },
+    where: { ownerId: userId, deletedAt: null, owner: { deletedAt: null, deactivatedAt: null } },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 }
@@ -75,14 +75,14 @@ export async function getActiveBusinessWithPlanForUser(userId: string, section?:
   const requestedId = await requestedBusinessId();
   if (requestedId) {
     const requested = await db.business.findFirst({
-      where: { id: requestedId, ownerId: userId, deletedAt: null },
+      where: { id: requestedId, ownerId: userId, deletedAt: null, owner: { deletedAt: null, deactivatedAt: null } },
       include: { plan: true },
     });
     return withEffectivePlan(requested);
   }
 
   const first = await db.business.findFirst({
-    where: { ownerId: userId, deletedAt: null },
+    where: { ownerId: userId, deletedAt: null, owner: { deletedAt: null, deactivatedAt: null } },
     include: { plan: true },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
@@ -91,7 +91,7 @@ export async function getActiveBusinessWithPlanForUser(userId: string, section?:
 
 export async function getOwnedBusinessSummaries(userId: string) {
   return db.business.findMany({
-    where: { ownerId: userId, deletedAt: null },
+    where: { ownerId: userId, deletedAt: null, owner: { deletedAt: null, deactivatedAt: null } },
     select: { id: true, name: true, slug: true, isPublished: true, createdAt: true },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
@@ -103,13 +103,13 @@ export async function getDashboardBusinessForUser(userId: string, requireRequest
   const include = { members: { where: { userId, status: "active" }, select: { id: true, role: true, permissions: true }, take: 1 } } as const;
   const access = { OR: [{ ownerId: userId }, { members: { some: { userId, status: "active" } } }] };
   if (requestedId) {
-    const selected = await db.business.findFirst({ where: { id: requestedId, deletedAt: null, ...access }, include });
+    const selected = await db.business.findFirst({ where: { id: requestedId, deletedAt: null, owner: { deletedAt: null, deactivatedAt: null }, ...access }, include });
     if (selected || requireRequestedBusiness) return selected;
   }
-  const owned = await db.business.findFirst({ where: { ownerId: userId, deletedAt: null }, include, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
-  return owned ?? db.business.findFirst({ where: { deletedAt: null, members: { some: { userId, status: "active" } } }, include, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+  const owned = await db.business.findFirst({ where: { ownerId: userId, deletedAt: null, owner: { deletedAt: null, deactivatedAt: null } }, include, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+  return owned ?? db.business.findFirst({ where: { deletedAt: null, owner: { deletedAt: null, deactivatedAt: null }, members: { some: { userId, status: "active" } } }, include, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
 }
 
 export async function getDashboardBusinessSummaries(userId: string) {
-  return db.business.findMany({ where: { deletedAt: null, OR: [{ ownerId: userId }, { members: { some: { userId, status: "active" } } }] }, select: { id: true, name: true, slug: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+  return db.business.findMany({ where: { deletedAt: null, owner: { deletedAt: null, deactivatedAt: null }, OR: [{ ownerId: userId }, { members: { some: { userId, status: "active" } } }] }, select: { id: true, name: true, slug: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
 }
