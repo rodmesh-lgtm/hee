@@ -28,3 +28,16 @@ export function normalizePostgresDatabaseUrl(rawUrl: string) {
 
   return parsed.toString();
 }
+
+/** Runtime traffic uses Prisma Postgres' transaction pooler. CLI/admin callers
+ * retain normalizePostgresDatabaseUrl and their direct connection unchanged.
+ * Both official endpoints use the same credentials and database identity:
+ * https://www.prisma.io/docs/postgres/database/connecting-to-your-database
+ */
+export function normalizePostgresRuntimeUrl(rawUrl: string) {
+  const parsed = new URL(normalizePostgresDatabaseUrl(rawUrl));
+  if (parsed.hostname === "db.prisma.io" && (!parsed.port || parsed.port === "5432")) {
+    parsed.hostname = "pooled.db.prisma.io";
+  }
+  return parsed.toString();
+}
