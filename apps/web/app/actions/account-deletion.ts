@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { db } from "../lib/db";
 import { getCurrentUserForWrites, logoutSession } from "../lib/auth";
 import { isAdminEmail } from "../lib/admin";
+import { stopAccountBusinessServices } from "../lib/account-service-stop";
 
 const CONFIRMATION = "DELETE MY INFRO ACCOUNT";
 const DELETION_EVENT = "account_deletion_completed";
@@ -73,6 +74,7 @@ export async function deleteOwnAccountAction(formData: FormData) {
       await tx.galleryItem.updateMany({ where: { businessId: { in: businessIds } }, data: { isActive: false, caption: null } });
 
       for (const business of businesses) {
+        await stopAccountBusinessServices(tx, business.id, now);
         await tx.business.update({
           where: { id: business.id },
           data: {

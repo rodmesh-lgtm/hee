@@ -49,6 +49,7 @@ function LoginContent({ googleEnabled, appleEnabled }: LoginContentProps) {
           <div className="rounded-[28px] border border-[#dfe9e8] bg-white p-5 shadow-[0_28px_80px_-58px_rgba(7,24,27,.65)] sm:p-7">
             <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#e9fbf8] text-[#008f87]"><LogIn className="h-5 w-5" /></span>
             <span className="mt-5 block text-[9px] font-black tracking-[.18em] text-[#008f87]" dir="ltr">WELCOME BACK</span><h2 className="mt-1 text-2xl font-black">تسجيل الدخول</h2><p className="mt-1 text-sm leading-6 text-slate-500">ادخل إلى مساحة عمل INFRO الخاصة بك.</p>
+            {searchParams.get("account") === "paused" ? <p role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-7 text-amber-950">تم تعطيل حسابك مؤقتًا وحفظ بياناتك. سجّل الدخول عندما ترغب باستعادته؛ لن تعمل الخدمات تلقائيًا.</p> : null}
             {resetSuccess ? <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-700">تم تحديث كلمة المرور. يمكنك تسجيل الدخول الآن.</p> : null}
             {oauthMessage ? <p role="alert" className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-bold text-rose-700">{oauthMessage}</p> : null}
             {hasExternalProvider ? <>

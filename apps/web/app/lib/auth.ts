@@ -61,7 +61,8 @@ export async function createSession(userId: string) {
   return token;
 }
 
-export async function getCurrentUser() {
+/** Session identity used only by the explicit account recovery flow. */
+export async function getAuthenticatedAccountUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
 
@@ -86,9 +87,15 @@ export async function getCurrentUser() {
   return getQaAuditSessionUser();
 }
 
+export async function getCurrentUser() {
+  const user = await getAuthenticatedAccountUser();
+  if (user?.deactivatedAt) redirect("/account-paused");
+  return user;
+}
+
 export async function getCurrentUserForApiWrite() {
-  const user = await getCurrentUser();
-  if (!user) return null;
+  const user = await getAuthenticatedAccountUser();
+  if (!user || user.deactivatedAt) return null;
   if (await isQaAuditModeUser(user.id)) return null;
   return user;
 }
