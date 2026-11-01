@@ -6,7 +6,7 @@ import { verifyShopifyOAuthHmac } from '../../../../../lib/whatsapp/shopify-doma
 import { callbackValue, retailProvider } from '../../../../../lib/retail-analytics/oauth-domain';
 import { finishRetailOAuth, retailOAuthConfig } from '../../../../../lib/retail-analytics/oauth';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 120;
 function back(status: string) {
   const response = NextResponse.redirect(new URL(`/dashboard/retail-analytics?connection=${status}`, shopifyAppOrigin()));
   response.headers.set('Cache-Control', 'private, no-store');

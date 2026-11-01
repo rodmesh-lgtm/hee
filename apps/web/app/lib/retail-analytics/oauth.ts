@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { db } from '../db';
 import { readBoundedJson } from '../request-body';
+import { recoverFailedRetailAuthorization } from './oauth-recovery';
 import { ensureRetailShopifySubscription } from './shopify-subscription';
 import { shopifyAppOrigin } from '../whatsapp/shopify-config';
 import { normalizeShopifyDomain } from '../whatsapp/shopify-domain';
@@ -72,8 +73,13 @@ export async function finishRetailOAuth(input: { businessId: string; userId: str
     }
     const claimed = await tx.whatsAppCommerceOAuthSession.updateMany({ where: { id: record.id, status: created(input.provider) }, data: { status: exchanging(input.provider) } });
     if (claimed.count !== 1) throw new Error('OAUTH_SESSION_EXPIRED');
+    const reserved = await tx.whatsAppCommerceIntegration.updateMany({ where: { id: record.integrationId, businessId: input.businessId, provider: input.provider, status: { in: ['draft', 'disconnected'] } }, data: { status: 'authorizing', lastErrorCode: 'OAUTH_IN_PROGRESS' } });
+    if (reserved.count !== 1) throw new Error('OAUTH_SESSION_EXPIRED');
     return record;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  let issuedToken: string | null = null;
+  let savedToken = false;
+  let recoveryExternalId: string | null = input.provider === 'shopify' ? session.integration.externalStoreId : null;
   try {
     const origin = input.provider === 'shopify' ? `https://${session.integration.externalStoreId}/admin` : foodicsOrigins(config.environment).api;
     const token = await jsonRequest(`${origin}${input.provider === 'shopify' ? '/oauth/access_token' : '/oauth/token'}`, {
@@ -83,11 +89,19 @@ export async function finishRetailOAuth(input: { businessId: string; userId: str
     if (!token || typeof token !== 'object' || Array.isArray(token)) throw new Error('PROVIDER_TOKEN_INVALID');
     const tokenRecord = token as Record<string, unknown>;
     if (typeof tokenRecord.access_token !== 'string' || tokenRecord.access_token.length < 16) throw new Error('PROVIDER_TOKEN_INVALID');
+    issuedToken = tokenRecord.access_token;
+    // Persist before any identity/subscription request can fail. 'authorizing'
+    // blocks reports, reconnects and user-initiated revocation during this window.
+    const recoveryCredential = encryptCommerceCredential({ plaintext: JSON.stringify({ accessToken: issuedToken, environment: config.environment, refreshToken: typeof tokenRecord.refresh_token === 'string' ? tokenRecord.refresh_token : null }), encryptionKeyBase64: config.key, keyVersion: config.keyVersion, businessId: input.businessId, integrationId: session.integrationId, provider: input.provider });
+    const stored = await db.whatsAppCommerceIntegration.updateMany({ where: { id: session.integrationId, businessId: input.businessId, provider: input.provider, status: 'authorizing' }, data: { credentialEnvelope: recoveryCredential as Prisma.InputJsonValue } });
+    if (stored.count !== 1) throw new Error('OAUTH_SESSION_EXPIRED');
+    savedToken = true;
     let identity: { externalId: string; name: string; scopes: string[] };
     if (input.provider === 'foodics') {
       if (tokenRecord.token_type !== 'Bearer') throw new Error('PROVIDER_TOKEN_INVALID');
       identity = verifyFoodicsIdentity(await jsonRequest(`${foodicsOrigins(config.environment).api}/v5/whoami`, { headers: { Authorization: `Bearer ${tokenRecord.access_token}`, Accept: 'application/json' } }));
       identity.externalId = `${config.environment}:${identity.externalId}`;
+      recoveryExternalId = identity.externalId;
       if (!session.integration.externalStoreId.startsWith('pending:') && session.integration.externalStoreId !== identity.externalId) throw new Error('ACCOUNT_MISMATCH');
     } else {
       if (typeof tokenRecord.scope !== 'string' || !tokenRecord.scope.split(',').map((s: string) => s.trim()).includes('read_orders')) throw new Error('PROVIDER_SCOPES_MISSING');
@@ -108,12 +122,18 @@ export async function finishRetailOAuth(input: { businessId: string; userId: str
       if (pending !== 1) throw new Error('OAUTH_SESSION_EXPIRED');
       const collision = await tx.whatsAppCommerceIntegration.count({ where: { provider: input.provider, externalStoreId: identity.externalId, id: { not: session.integrationId } } });
       if (collision) throw new Error('ACCOUNT_ALREADY_ASSIGNED');
-      const changed = await tx.whatsAppCommerceIntegration.updateMany({ where: { id: session.integrationId, businessId: input.businessId, provider: input.provider, status: { in: ['draft', 'disconnected'] } }, data: { externalStoreId: identity.externalId, displayName: identity.name, status: 'active', connectedAt: now, disconnectedAt: null, credentialEnvelope: credential as Prisma.InputJsonValue, lastErrorCode: null } });
+      const changed = await tx.whatsAppCommerceIntegration.updateMany({ where: { id: session.integrationId, businessId: input.businessId, provider: input.provider, status: 'authorizing' }, data: { externalStoreId: identity.externalId, displayName: identity.name, status: 'active', connectedAt: now, disconnectedAt: null, credentialEnvelope: credential as Prisma.InputJsonValue, lastErrorCode: null } });
       if (changed.count !== 1) throw new Error('ACCOUNT_MISMATCH');
       await tx.whatsAppCommerceOAuthSession.update({ where: { id: session.id }, data: { status: 'connected', consumedAt: new Date() } });
       await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.userId, action: 'retail.oauth.complete', targetType: 'commerce_integration', targetId: session.integrationId, outcome: 'success', database: tx });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch {
+    if (issuedToken && savedToken) {
+      await recoverFailedRetailAuthorization({ businessId: input.businessId, integrationId: session.integrationId, provider: input.provider, token: issuedToken, externalId: recoveryExternalId, environment: config.environment, apiVersion: config.apiVersion });
+    } else {
+      // If issuance/persistence was uncertain, keep the slot locked for review.
+      await db.whatsAppCommerceIntegration.updateMany({ where: { id: session.integrationId, businessId: input.businessId, provider: input.provider, status: 'authorizing' }, data: { status: 'authorization_review_required', lastErrorCode: 'AUTHORIZATION_RECOVERY_REVIEW' } });
+    }
     await db.whatsAppCommerceOAuthSession.updateMany({ where: { id: session.id, businessId: input.businessId, status: exchanging(input.provider) }, data: { status: 'failed', consumedAt: new Date(), lastErrorCode: 'RETAIL_AUTHORIZATION_FAILED' } });
     throw new Error('RETAIL_AUTHORIZATION_FAILED');
   }

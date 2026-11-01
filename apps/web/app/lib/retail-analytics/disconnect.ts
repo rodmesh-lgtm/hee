@@ -12,6 +12,7 @@ export async function disconnectRetailAccount(input: { businessId: string; userI
     if (owner !== 1) throw new Error('FORBIDDEN');
     const integration = await tx.whatsAppCommerceIntegration.findFirst({ where: { id: input.integrationId, businessId: input.businessId, provider: { in: ['shopify', 'foodics'] } } });
     if (!integration) throw new Error('ACCOUNT_UNAVAILABLE');
+    if (['authorizing', 'authorization_review_required'].includes(integration.status)) throw new Error('AUTHORIZATION_RECOVERY_REVIEW');
     await tx.whatsAppCommerceOAuthSession.updateMany({ where: { businessId: input.businessId, integrationId: integration.id, status: { in: ['created', 'exchanging', 'retail_shopify_created', 'retail_shopify_exchanging', 'retail_foodics_created', 'retail_foodics_exchanging'] } }, data: { status: 'cancelled', consumedAt: new Date() } });
     await tx.whatsAppShopifyWebhookSync.updateMany({ where: { businessId: input.businessId, integrationId: integration.id }, data: { status: 'failed', leaseOwner: null, leaseExpiresAt: null, lastErrorCode: 'SHOPIFY_INTEGRATION_DISCONNECTED' } });
     // Block reads first. Preserve encrypted credentials until provider revocation is confirmed.

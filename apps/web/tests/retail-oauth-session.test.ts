@@ -9,7 +9,7 @@ import { readBoundedJson } from '../app/lib/request-body';
 import { normalizeShopifyDomain } from '../app/lib/whatsapp/shopify-domain';
 const env = { SHOPIFY_CLIENT_ID: 'test-client', SHOPIFY_CLIENT_SECRET: 'test-secret', SHOPIFY_ADMIN_API_VERSION: '2026-10', WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'), WHATSAPP_COMMERCE_CREDENTIAL_KEY_VERSION: 'v1' };
 async function fixture(options: { foreign?: boolean; expired?: boolean; collision?: boolean; revoked?: boolean; ownerGone?: boolean; webhookFailure?: boolean } = {}) {
-  let status = 'retail_shopify_created', calls = 0, saved = 0;
+  let status = 'retail_shopify_created', calls = 0, saved = 0, retained = false, recovered = false;
   const record = { id: 'session', businessId: 'tenant-a', initiatedByUserId: 'owner-a', integrationId: 'account-a', integration: { externalStoreId: 'example.myshopify.com' } };
   const tx = {
     business: { count: async () => options.ownerGone ? 0 : 1 },
@@ -25,7 +25,7 @@ async function fixture(options: { foreign?: boolean; expired?: boolean; collisio
     },
     whatsAppCommerceIntegration: {
       count: async () => options.collision ? 1 : 0,
-      updateMany: async ({ where, data }: { where: { businessId: string; id: string }; data: { externalStoreId: string } }) => { assert.equal(where.businessId, 'tenant-a'); assert.equal(where.id, 'account-a'); assert.equal(data.externalStoreId, 'example.myshopify.com'); saved++; return { count: 1 }; },
+      updateMany: async ({ where, data }: { where: { businessId: string; id: string }; data: { status?: string; externalStoreId?: string; credentialEnvelope?: unknown } }) => { assert.equal(where.businessId, 'tenant-a'); assert.equal(where.id, 'account-a'); if (data.credentialEnvelope) retained = true; if (data.status === 'active') { assert.equal(data.externalStoreId, 'example.myshopify.com'); saved++; } return { count: 1 }; },
     },
   };
   const dependencies: Record<string, unknown> = {
@@ -36,6 +36,7 @@ async function fixture(options: { foreign?: boolean; expired?: boolean; collisio
     '../whatsapp/shopify-domain': { normalizeShopifyDomain },
     '../whatsapp/commerce-credential-envelope': { encryptCommerceCredential: (input: { businessId: string; integrationId: string; provider: string }) => { assert.equal(input.businessId, 'tenant-a'); assert.equal(input.integrationId, 'account-a'); assert.equal(input.provider, 'shopify'); return { encrypted: true }; } },
     '../whatsapp/audit': { writeWhatsAppAuditLog: async () => {} }, './oauth-domain': domain,
+    './oauth-recovery': { recoverFailedRetailAuthorization: async () => { assert.equal(retained, true); recovered = true; } },
     './shopify-subscription': { ensureRetailShopifySubscription: async () => { if (options.webhookFailure) throw new Error('WEBHOOK_REGISTRATION_FAILED'); } },
   };
   const source = await readFile(new URL('../app/lib/retail-analytics/oauth.ts', import.meta.url), 'utf8');
@@ -48,7 +49,7 @@ async function fixture(options: { foreign?: boolean; expired?: boolean; collisio
       return calls === 1 ? Response.json({ access_token: 'private-token-long-enough', scope: 'read_orders' }) : Response.json({ data: { shop: { myshopifyDomain: 'example.myshopify.com', name: 'Retail' } } });
     },
   });
-  return { module: exports as typeof import('../app/lib/retail-analytics/oauth'), calls: () => calls, saved: () => saved };
+  return { module: exports as typeof import('../app/lib/retail-analytics/oauth'), calls: () => calls, saved: () => saved, recovered: () => recovered };
 }
 const input = { businessId: 'tenant-a', userId: 'owner-a', provider: 'shopify' as const, state: 'a'.repeat(43), code: 'provider-code', shop: 'example.myshopify.com' };
 test('foreign or expired authorization cannot exchange any provider credential', async () => {
@@ -65,7 +66,7 @@ test('successful authorization binds encrypted token and cannot be replayed', as
 });
 test('account collision or cancellation during exchange prevents saving credentials', async () => {
   for (const options of [{ revoked: true }, { webhookFailure: true }]) {
-    const f = await fixture(options); await assert.rejects(f.module.finishRetailOAuth(input), /RETAIL_AUTHORIZATION_FAILED/); assert.equal(f.saved(), 0);
+    const f = await fixture(options); await assert.rejects(f.module.finishRetailOAuth(input), /RETAIL_AUTHORIZATION_FAILED/); assert.equal(f.saved(), 0); assert.equal(f.recovered(), true);
   }
 });
 
