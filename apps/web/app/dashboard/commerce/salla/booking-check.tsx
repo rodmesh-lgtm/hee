@@ -24,7 +24,7 @@ export function SallaBookingCheck({ english }: { english: boolean }) {
   const message = (code: string) => messages[code]?.[english ? 1 : 0] ?? "";
   return <section id="booking-check" className="rounded-2xl border border-teal-700/40 p-5 sm:p-6">
     <h2 className="text-xl font-bold">{t("لماذا رُفض حجز العميل؟", "Why was a booking rejected?")}</h2>
-    <p className="mt-2 text-sm leading-7 opacity-80">{t("افحص جوال العميل قبل التجربة. هذا فحص خاص بمنشأتك؛ لا ينشئ حجزًا ولا يرسل رسالة، ولا يمنح أهلية دون طلب مدفوع ومؤكد.", "Check the customer's phone before testing. This private check does not create a booking, send a message or grant eligibility without a paid, confirmed order.")}</p>
+    <p className="mt-2 text-sm leading-7 opacity-80">{t("افحص جوال العميل قبل التجربة. هذا فحص خاص بمنشأتك؛ لا ينشئ حجزًا ولا يرسل رسالة، ويقبل طلب سلة المكتمل أو المدفوع والمؤكد، ويستبعد الملغي والمسترد.", "Check the customer's phone before testing. This private check does not create a booking, send a message and accepts completed Salla orders or paid confirmed orders, excluding cancellations and refunds.")}</p>
     <form action={action} className="mt-4 flex flex-wrap items-end gap-3">
       <label className="grid flex-1 gap-2 text-sm font-bold">{t("جوال العميل المسجل في الطلب", "Customer phone on the order")}<input name="phone" type="tel" dir="ltr" autoComplete="off" required maxLength={40} placeholder="05xxxxxxxx" className="min-h-12 w-full rounded-xl border border-slate-400 bg-transparent px-3" /></label>
       <button disabled={pending} name="refresh" value="no" className="min-h-12 rounded-xl border border-teal-600 px-4 font-bold disabled:opacity-50">{pending ? t("جارٍ الفحص…", "Checking…") : t("فحص الأهلية", "Check eligibility")}</button>
