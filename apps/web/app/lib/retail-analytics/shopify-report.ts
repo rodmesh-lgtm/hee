@@ -1,12 +1,17 @@
 /** Shopify order-cohort report. No credentials or customer PII are returned. */
 export type ReportPeriod = { from: string; until: string };
+export type OrderReportRow = {
+  reference: string; createdAt: string; cancelled: boolean; financialStatus: string | null; fulfillmentStatus: string;
+  currency: string; decimals: number; currentTotalMinor: number; taxMinor: number; discountsMinor: number; refundedMinor: number; netPaymentsMinor: number;
+};
 export type ShopifyReport = {
+  orders: OrderReportRow[];
   fetchedAt: string; from: string; until: string; complete: boolean; ordersRead: number;
   totals: { currency: string; decimals: number; orders: number; cancelled: number; currentTotalMinor: number; taxMinor: number; discountsMinor: number; refundedMinor: number; netPaymentsMinor: number }[];
 };
 const QUERY = `query InfroRetailOrders($after: String, $query: String!) {
   orders(first: 100, after: $after, query: $query, sortKey: CREATED_AT) {
-    nodes { id createdAt test cancelledAt
+    nodes { id name createdAt test cancelledAt displayFinancialStatus displayFulfillmentStatus
       currentTotalPriceSet { shopMoney { amount currencyCode } }
       currentTotalTaxSet { shopMoney { amount currencyCode } }
       currentTotalDiscountsSet { shopMoney { amount currencyCode } }
@@ -49,6 +54,7 @@ export async function fetchShopifyRetailReport(input: {
   if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(input.shop) || !/^20\d{2}-(01|04|07|10)$/.test(input.apiVersion)) throw new Error('INVALID_PROVIDER_HOST');
   const period = validateReportPeriod(input.period, now);
   const totals = new Map<string, ShopifyReport['totals'][number]>();
+  const rows: OrderReportRow[] = [];
   const seen = new Set<string>();
   const cursors = new Set<string>();
   let after: string | null = null, complete = false;
@@ -68,11 +74,14 @@ export async function fetchShopifyRetailReport(input: {
       const order = record(raw);
       if (typeof order.id !== 'string' || !order.id || typeof order.test !== 'boolean' || typeof order.createdAt !== 'string'
         || !Number.isFinite(Date.parse(order.createdAt)) || (order.cancelledAt !== null && typeof order.cancelledAt !== 'string')) throw new Error('INVALID_PROVIDER_RESPONSE');
+      if (typeof order.name !== 'string' || order.name.length > 255 || (order.displayFinancialStatus !== null && typeof order.displayFinancialStatus !== 'string') || typeof order.displayFulfillmentStatus !== 'string') throw new Error('INVALID_PROVIDER_RESPONSE');
       if (seen.has(order.id)) throw new Error('PROVIDER_PAGINATION_CHANGED');
       seen.add(order.id);
       if (order.test || Date.parse(order.createdAt) < Date.parse(period.from) || Date.parse(order.createdAt) >= Date.parse(period.until)) continue;
       const current = money(order.currentTotalPriceSet), tax = money(order.currentTotalTaxSet), discounts = money(order.currentTotalDiscountsSet), refunded = money(order.totalRefundedSet), payments = money(order.netPaymentSet);
       if ([tax, discounts, refunded, payments].some(m => m.currency !== current.currency)) throw new Error('PROVIDER_CURRENCY_MISMATCH');
+      rows.push({ reference: order.name as string, createdAt: order.createdAt as string, cancelled: Boolean(order.cancelledAt), financialStatus: order.displayFinancialStatus as string | null, fulfillmentStatus: order.displayFulfillmentStatus as string, currency: current.currency, decimals: current.decimals,
+        currentTotalMinor: order.cancelledAt ? 0 : current.units, taxMinor: order.cancelledAt ? 0 : tax.units, discountsMinor: order.cancelledAt ? 0 : discounts.units, refundedMinor: refunded.units, netPaymentsMinor: payments.units });
       const total = totals.get(current.currency) ?? { currency: current.currency, decimals: current.decimals, orders: 0, cancelled: 0, currentTotalMinor: 0, taxMinor: 0, discountsMinor: 0, refundedMinor: 0, netPaymentsMinor: 0 };
       total.orders++;
       // Include refund/payment history for cancelled orders; do not count their order value.
@@ -90,7 +99,7 @@ export async function fetchShopifyRetailReport(input: {
     if (typeof info.endCursor !== 'string' || !info.endCursor || cursors.has(info.endCursor)) throw new Error('INVALID_PROVIDER_PAGINATION');
     cursors.add(info.endCursor); after = info.endCursor;
   }
-  return { fetchedAt: new Date().toISOString(), ...input.period, complete, ordersRead: seen.size, totals: [...totals.values()] };
+  return { fetchedAt: new Date().toISOString(), ...input.period, complete, ordersRead: seen.size, orders: rows, totals: [...totals.values()] };
 }
 
 export function combineShopifyReports(reports: readonly ShopifyReport[]): ShopifyReport['totals'] {
@@ -106,4 +115,18 @@ export function combineShopifyReports(reports: readonly ShopifyReport[]): Shopif
     }
   }
   return [...totals.values()];
+}
+
+/** Group by the order creation day in Riyadh; preserve currency and cancellation semantics. */
+export function dailyShopifyReport(orders: readonly OrderReportRow[]) {
+  const days = new Map<string, { day: string; currency: string; decimals: number; orders: number; cancelled: number; currentTotalMinor: number; taxMinor: number; discountsMinor: number; refundedMinor: number; netPaymentsMinor: number }>();
+  for (const row of orders) {
+    const day = new Date(Date.parse(row.createdAt) + 3 * 3600000).toISOString().slice(0, 10);
+    const key = `${day}:${row.currency}`;
+    const total = days.get(key) ?? { day, currency: row.currency, decimals: row.decimals, orders: 0, cancelled: 0, currentTotalMinor: 0, taxMinor: 0, discountsMinor: 0, refundedMinor: 0, netPaymentsMinor: 0 };
+    total.orders++; if (row.cancelled) total.cancelled++;
+    for (const field of ['currentTotalMinor','taxMinor','discountsMinor','refundedMinor','netPaymentsMinor'] as const) total[field] = add(total[field], row[field]);
+    days.set(key, total);
+  }
+  return [...days.values()].sort((a,b) => a.day.localeCompare(b.day) || a.currency.localeCompare(b.currency));
 }
