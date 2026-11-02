@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { db } from '../../lib/db';
 import { retailOAuthReady } from '../../lib/retail-analytics/oauth';
 import ConnectedRetailWorkspace from './connected-workspace';
+import AccountDirectory from './account-directory';
 
 export const dynamic = 'force-dynamic';
 export async function generateMetadata() {
@@ -36,16 +37,17 @@ export default async function RetailAnalyticsPage({ searchParams }: { searchPara
   return <div dir={english ? 'ltr' : 'rtl'} className="space-y-6 pb-8">
     <header className="rounded-3xl border border-teal-500/25 bg-teal-500/5 p-6"><p>{business.name}</p><h1 className="mt-2 text-3xl font-bold">{t('مركز تحليلات الأعمال', 'Business analytics hub')}</h1><p className="mt-3 leading-7">{t('لوحة واحدة لحسابات منشأتك عبر المنصات، لمختلف الأنشطة: المطاعم والضيافة والتجارة والخدمات. تتحدد التقارير المتاحة بحسب النظام المرتبط وصلاحياته.', 'One workspace for your business accounts across platforms, serving hospitality, restaurants, commerce and services. Available reports depend on the connected system and its permissions.')}</p></header>
     {status ? <p role="status" className="rounded-xl border p-4">{status === 'connected' || status === 'already-connected' ? t('تم ربط الحساب. افتح لوحة المنصة لقراءة بياناته.', 'Account connected. Open the platform dashboard to read its data.') : t('راجع حالة الربط داخل لوحة المنصة.', 'Review connection status in the platform dashboard.')}</p> : null}
-    <section aria-labelledby="analytics-start-title" className="rounded-2xl border border-slate-500/20 p-5">
-      <h2 id="analytics-start-title" className="text-xl font-bold">{t('ابدأ من هنا', 'Start here')}</h2>
+    <AccountDirectory accounts={accounts} english={english}/>
+    <details open={accounts.length === 0} className="rounded-2xl border border-slate-500/20 p-5">
+      <summary className="cursor-pointer text-xl font-bold">{t('دليل البدء: من الربط إلى التقرير', 'Getting started: from connection to report')}</summary>
       <ol className="mt-4 grid gap-4 md:grid-cols-3">
         <li><strong>{t('1. اختر منصتك', '1. Choose your platform')}</strong><p className="mt-2 text-sm leading-6">{t('افتح بطاقة المنصة أدناه وراجع حالة إتاحة الربط.', 'Open a platform card below and review connection availability.')}</p></li>
         <li><strong>{t('2. اربط حسابات المنشأة', '2. Connect business accounts')}</strong><p className="mt-2 text-sm leading-6">{t('سجّل الدخول لدى المزود وامنح صلاحيات القراءة لكل حساب ترغب بإضافته.', 'Sign in with the provider and authorize read access for each account you want to add.')}</p></li>
         <li><strong>{t('3. تابع التقارير', '3. Review reports')}</strong><p className="mt-2 text-sm leading-6">{t('اختر الحساب والفترة، وراجع وقت آخر قراءة. الربط وحده لا يعني توفر كل أنواع التقارير.', 'Choose the account and period, and check the last read time. A connection does not guarantee every report type.')}</p></li>
       </ol>
       {reportingAccounts.length ? <a href="#unified-reports-title" className="mt-4 inline-block rounded-xl bg-teal-600 px-4 py-3 font-bold text-white">{t('انتقل إلى تقارير حساباتي', 'Go to my account reports')}</a> : null}
-    </section>
-    <section className="grid gap-5 lg:grid-cols-3">{providers.map(provider => {
+    </details>
+    <section id="provider-connections" aria-label={t('ربط المنصات', 'Platform connections')} className="grid gap-5 lg:grid-cols-3">{providers.map(provider => {
       const own = accounts.filter(a => a.provider === provider.id);
       return <Link key={provider.id} href={`/dashboard/retail-analytics/${provider.id}`} className="flex flex-col gap-5 rounded-3xl border border-teal-500/30 p-6 transition hover:bg-teal-500/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-600">
         <h2 className="text-2xl font-bold">{provider.name}</h2><p className="min-h-20 leading-7">{provider.description}</p>
