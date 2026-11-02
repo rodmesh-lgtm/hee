@@ -3,9 +3,8 @@ import { useRef, useState } from 'react';
 import ReportTable from './report-table';
 import { useAutoRefresh, RefreshStatus } from './auto-refresh';
 import type { InventoryReport } from '../../lib/retail-analytics/shopify-inventory';
-export default function InventoryWorkspace({ businessName, businessId, english, accounts }: { businessName: string; businessId: string; english: boolean; accounts: { id: string; displayName: string | null; externalStoreId: string }[] }) {
+export default function InventoryWorkspace({ businessName, businessId, english, accounts, accountId }: { accountId: string; businessName: string; businessId: string; english: boolean; accounts: { id: string; displayName: string | null; externalStoreId: string }[] }) {
   const t = (ar: string, en: string) => english ? en : ar;
-  const [accountId, setAccountId] = useState(accounts[0]?.id ?? '');
   const [report, setReport] = useState<InventoryReport | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false), [stock, setStock] = useState('all');
   const generation = useRef(0);
   const inFlight = useRef(false);
@@ -32,7 +31,7 @@ export default function InventoryWorkspace({ businessName, businessId, english, 
   return <section className="space-y-5 rounded-2xl border border-slate-500/30 p-5">
     <h2 className="text-2xl font-bold">{t('المنتجات والمخزون الحالي', 'Products and current inventory')}</h2>
     <p className="leading-7">{t('الكميات القابلة للبيع لكل متغير منتج عبر المواقع. هذه لقطة حالية وليست حركة مخزون تاريخية. لا تُحسب قيمة المخزون أو الربح دون بيانات تكلفة موثوقة.', 'Current sellable quantities per product variant across locations. This is a current snapshot, not historical stock movement. Inventory valuation and profit require verified cost data.')}</p>
-    <div className="flex flex-wrap gap-3"><label>{t('الحساب', 'Account')}<select className="mx-3 min-h-11 rounded-xl border bg-transparent px-3" value={accountId} onChange={e => { generation.current++; setAccountId(e.target.value); setReport(null); setError(''); setBusy(false); }}><option value="" disabled>{t('اختر حسابًا', 'Select an account')}</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.displayName || a.externalStoreId}</option>)}</select></label><button disabled={!accountId || busy} onClick={() => void refresh()} className="min-h-11 rounded-xl bg-teal-600 px-5 font-bold text-white disabled:opacity-50">{busy ? t('جارٍ القراءة…', 'Reading…') : t('تحديث المخزون', 'Refresh inventory')}</button></div>
+    <div className="flex flex-wrap gap-3"><button disabled={!accountId || busy} onClick={() => void refresh()} className="min-h-11 rounded-xl bg-teal-600 px-5 font-bold text-white disabled:opacity-50">{busy ? t('جارٍ القراءة…', 'Reading…') : t('تحديث المخزون', 'Refresh inventory')}</button></div>
     {accountId ? <RefreshStatus state={automatic} busy={busy} english={english}/> : null}
     {!accounts.length ? <p>{t('اربط حساب Shopify من قسم الحسابات والربط أولًا.', 'Connect Shopify from Accounts and connection first.')}</p> : null}
     {error ? <p role="alert" className="rounded-xl border border-amber-500 p-4">{error}{report ? t(' المعروض آخر قراءة ناجحة وقد يكون قديمًا.',' Showing the last successful snapshot; it may be stale.') : ''}</p> : null}

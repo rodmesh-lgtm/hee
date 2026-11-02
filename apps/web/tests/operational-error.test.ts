@@ -26,3 +26,14 @@ test("terminates on cyclic causes and non-error thrown values", () => {
   assert.equal(operationalErrorCategory(error), "unknown");
   for (const value of [null, undefined, "ETIMEDOUT", 503]) assert.equal(operationalErrorCategory(value), "unknown");
 });
+
+test("recognizes the observed Prisma protocol disconnect without exposing its query", () => {
+  const failure = { name: 'PrismaClientUnknownRequestError', message: 'Private query ConnectorError(PostgresError { code: "08P01", message: "server conn crashed?" })' };
+  assert.equal(operationalErrorCategory(failure), 'database_connection');
+  assert.equal(operationalErrorCode(failure), 'SQLSTATE_08P01');
+  assert.equal(operationalErrorCategory({cause:failure}), 'database_connection');
+  assert.equal(operationalErrorCategory({code:'08P01'}), 'database_connection');
+  assert.equal(operationalErrorCategory({...failure, name:'Error'}), 'unknown');
+  assert.equal(operationalErrorCategory({...failure, message:'Unrelated error 08P01'}), 'unknown');
+  assert.equal(operationalErrorCategory({...failure, message:failure.message.replace('08P01','23505')}), 'unknown');
+});
