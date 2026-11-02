@@ -15,8 +15,8 @@ import { combineShopifyReports, type ShopifyReport } from '../../lib/retail-anal
 type Account = { provider: string; id: string; displayName: string | null; externalStoreId: string; status: string };
 type Result = { report?: ShopifyReport; error?: string };
 const inputClass = 'min-h-11 w-full rounded-xl border border-slate-500/40 bg-transparent px-3';
-export default function ConnectedRetailWorkspace({ provider, businessId, businessName, english, accounts, configured, foodicsConfigured, connectionStatus, today }: {
-  provider: 'shopify' | 'foodics' | 'icg'; businessId: string; businessName: string; english: boolean; accounts: Account[]; configured: boolean; foodicsConfigured: boolean; connectionStatus: string; today: string;
+export default function ConnectedRetailWorkspace({ provider, businessId, businessName, english, accounts, configured, foodicsConfigured, connectionStatus, today, embedded = false }: {
+  provider: 'shopify' | 'foodics' | 'icg'; businessId: string; businessName: string; english: boolean; accounts: Account[]; configured: boolean; foodicsConfigured: boolean; connectionStatus: string; today: string; embedded?: boolean;
 }) {
   const t = (ar: string, en: string) => english ? en : ar;
   const [tab, setTab] = useState<'sales' | 'inventory' | 'accounts'>(provider === 'shopify' ? 'sales' : 'accounts');
@@ -93,11 +93,11 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
     generation.current++; setLoading(false); setResults({}); setFrom(start.toISOString().slice(0,10)); setUntil(currentDay);
   }
   return <div className="space-y-6 pb-8" dir={english ? 'ltr' : 'rtl'}>
-    <Link href="/dashboard/retail-analytics" className="inline-block font-bold text-teal-700 dark:text-teal-300">{t('العودة إلى جميع المنصات', 'Back to all platforms')}</Link>
+    {!embedded ? <><Link href="/dashboard/retail-analytics" className="inline-block font-bold text-teal-700 dark:text-teal-300">{t('العودة إلى جميع المنصات', 'Back to all platforms')}</Link>
     <header className="rounded-3xl border border-teal-500/25 bg-teal-500/5 p-6">
       <p>{businessName}</p><h1 className="mt-2 text-3xl font-bold">{provider === 'icg' ? 'ICG Manager 2018' : provider === 'shopify' ? 'Shopify' : 'Foodics'} · {t('لوحة التحليلات', 'Analytics dashboard')}</h1>
       <p className="mt-3 leading-7">{t('اقرأ تقارير حساباتك المصرّح بها من المصدر الرسمي في لوحة واحدة. تظهر حالة كل حساب وآخر وقت قراءة بصورة مستقلة.', 'Read authorized account reports from the official provider in one dashboard. Each account shows its own status and fetch time.')}</p>
-    </header>
+    </header></> : null}
     {connectionStatus ? <p role="status" className="rounded-xl border border-teal-500/40 p-4">{connectionStatus === 'connected' || connectionStatus === 'already-connected' ? t('الحساب مرتبط. يمكنك قراءة التقارير المتاحة أدناه.', 'Account connected. Read available reports below.') : connectionStatus === 'not-configured' ? t('يحتاج الربط إلى إكمال إعداد تطبيق INFRO لدى المزود.', 'INFRO provider app setup must be completed.') : connectionStatus === 'disconnected' ? t('تم فصل الحساب وإيقاف الوصول.', 'Account disconnected and access stopped.') : connectionStatus === 'revocation-pending' ? t('توقفت القراءة في INFRO؛ إلغاء التفويض لدى المزود لم يتأكد بعد. أعد محاولة الفصل.', 'INFRO reads stopped; provider revocation is not confirmed. Retry disconnect.') : connectionStatus === 'cancelled' ? t('تم إلغاء التفويض.', 'Authorization cancelled.') : t('لم يكتمل التفويض. تحقق من تسجيل الدخول والمنشأة، ثم أعد المحاولة برابط جديد.', 'Authorization did not complete. Check your sign-in and workspace, then try a new authorization link.')} </p> : null}
     {provider === 'shopify' ? <nav aria-label={t('أقسام Shopify', 'Shopify sections')} className="flex flex-wrap gap-3">{(['sales', 'inventory', 'accounts'] as const).map(value => <button key={value} aria-pressed={tab === value} onClick={() => setTab(value)} className={`min-h-11 rounded-xl border px-5 font-bold ${tab === value ? 'bg-teal-600 text-white' : 'border-slate-500/30'}`}>{value === 'sales' ? t('المبيعات والمدفوعات', 'Sales and payments') : value === 'inventory' ? t('المنتجات والمخزون', 'Products and inventory') : t('الحسابات والربط', 'Accounts and connection')}</button>)}</nav> : null}
     {provider === 'shopify' && tab === 'inventory' ? <InventoryWorkspace businessName={businessName} businessId={businessId} english={english} accounts={accounts.filter(a => a.status === 'active')}/> : null}
