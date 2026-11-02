@@ -93,7 +93,7 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
     generation.current++; setLoading(false); setResults({}); setFrom(start.toISOString().slice(0,10)); setUntil(currentDay);
   }
   return <div className="space-y-6 pb-8" dir={english ? 'ltr' : 'rtl'}>
-    {!embedded ? <><Link href="/dashboard/retail-analytics" className="inline-block font-bold text-teal-700 dark:text-teal-300">{t('العودة إلى جميع المنصات', 'Back to all platforms')}</Link>
+    {!embedded ? <><Link href="/dashboard/retail-analytics" className="inline-block font-bold text-teal-700 dark:text-teal-300">{t('العودة إلى مركز تحليلات الأعمال', 'Back to business analytics hub')}</Link>
     <header className="rounded-3xl border border-teal-500/25 bg-teal-500/5 p-6">
       <p>{businessName}</p><h1 className="mt-2 text-3xl font-bold">{provider === 'icg' ? 'ICG Manager 2018' : provider === 'shopify' ? 'Shopify' : 'Foodics'} · {t('لوحة التحليلات', 'Analytics dashboard')}</h1>
       <p className="mt-3 leading-7">{t('اقرأ تقارير حساباتك المصرّح بها من المصدر الرسمي في لوحة واحدة. تظهر حالة كل حساب وآخر وقت قراءة بصورة مستقلة.', 'Read authorized account reports from the official provider in one dashboard. Each account shows its own status and fetch time.')}</p>
