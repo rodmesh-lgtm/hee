@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { dailyShopifyReport, type ShopifyReport } from '../../lib/retail-analytics/shopify-report';
 import ReportTable from './report-table';
-export default function SalesReportDetails({ report, english, businessName, accountName }: { report: ShopifyReport; english: boolean; businessName: string; accountName: string }) {
+import SalesOverview from './sales-overview';
+function SalesReportDetails({ report, english, businessName, accountName }: { report: ShopifyReport; english: boolean; businessName: string; accountName: string }) {
   const [view, setView] = useState('summary');
   const t = (ar: string,en: string) => english ? en : ar;
   const format = (amount: number, decimals: number) => (amount / 10 ** decimals).toFixed(decimals);
@@ -15,5 +16,7 @@ export default function SalesReportDetails({ report, english, businessName, acco
   const selectedOrders = report.orders.filter(o => view !== 'refunds' || o.cancelled || o.refundedMinor !== 0);
   const headers = view === 'summary' ? [t('العملة','Currency'),t('الطلبات','Orders'),t('الملغاة','Cancelled'), ...amountHeaders,t('متوسط قيمة الطلب غير الملغى','Average non-cancelled order value')] : view === 'daily' ? [t('تاريخ إنشاء الطلب','Order creation day'),t('العملة','Currency'),t('الطلبات','Orders'),t('الملغاة','Cancelled'),...amountHeaders] : [t('مرجع الطلب','Order reference'),t('تاريخ الإنشاء','Created'),t('ملغى','Cancelled'),t('الدفع','Payment'),t('التنفيذ','Fulfillment'),t('العملة','Currency'),...amountHeaders];
   const rows = view === 'summary' ? report.totals.map(r => [r.currency,r.orders,r.cancelled,...amounts(r),r.orders > r.cancelled ? format(Math.round(r.currentTotalMinor/(r.orders-r.cancelled)),r.decimals) : '—']) : view === 'daily' ? dailyShopifyReport(report.orders).map(r => [r.day,r.currency,r.orders,r.cancelled,...amounts(r)]) : selectedOrders.map(r => [r.reference,new Date(r.createdAt).toLocaleString(english ? 'en-GB':'ar-SA',{timeZone:'Asia/Riyadh'}),r.cancelled?t('نعم','Yes'):t('لا','No'),r.financialStatus ? financial[r.financialStatus] ?? r.financialStatus : t('غير متاح','Unavailable'),fulfillment[r.fulfillmentStatus] ?? r.fulfillmentStatus,r.currency,...amounts(r)]);
-  return <div className="space-y-4"><nav aria-label={t('أنواع التقارير','Report types')} className="flex flex-wrap gap-2">{options.map(([key,label]) => <button key={key} aria-pressed={key===view} onClick={() => setView(key)} className={`min-h-11 rounded-xl border px-4 ${key===view?'bg-teal-600 text-white':'border-slate-500/30'}`}>{label}</button>)}</nav><ReportTable key={`${view}:${report.fetchedAt}`} english={english} report={{title:`INFRO · ${options.find(o=>o[0]===view)?.[1]}`,metadata,headers,rows}}/></div>;
+  return <div className="space-y-4"><SalesOverview report={report} english={english} businessName={businessName} accountName={accountName}/><h3 className="pt-4 text-xl font-bold">{t('التقارير التفصيلية','Detailed reports')}</h3><nav aria-label={t('أنواع التقارير','Report types')} className="flex flex-wrap gap-2">{options.map(([key,label]) => <button key={key} aria-pressed={key===view} onClick={() => setView(key)} className={`min-h-11 rounded-xl border px-4 ${key===view?'bg-teal-600 text-white':'border-slate-500/30'}`}>{label}</button>)}</nav><ReportTable key={view} english={english} report={{title:`INFRO · ${options.find(o=>o[0]===view)?.[1]}`,metadata,headers,rows}}/></div>;
 }
+
+export default memo(SalesReportDetails);

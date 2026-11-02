@@ -3,6 +3,7 @@ import { connectRetailAccount, disconnectRetailAccountAction } from './actions';
 import Link from 'next/link';
 import InventoryWorkspace from './inventory-workspace';
 import SalesReportDetails from './sales-report-details';
+import { useAutoRefresh, RefreshStatus } from './auto-refresh';
 import { useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 function ConnectButton({ disabled, label, pendingLabel }: { disabled: boolean; label: string; pendingLabel: string }) {
@@ -25,6 +26,9 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
   const [results, setResults] = useState<Record<string, Result>>({});
   const [loading, setLoading] = useState(false);
   const generation = useRef(0);
+  const inFlight = useRef(false);
+  const [rollingDays, setRollingDays] = useState<number | null>(1);
+  const [currentDay, setCurrentDay] = useState(today);
   const errors: Record<string, string> = {
     INVALID_PERIOD: t('اختر فترة لا تتجاوز 31 يومًا ضمن آخر 59 يومًا.', 'Choose up to 31 days within the last 59 days.'),
     REAUTHORIZE_REQUIRED: t('انتهى التفويض أو نقصت الصلاحيات. أعد ربط الحساب.', 'Authorization expired or lacks access. Reconnect this account.'),
@@ -35,38 +39,58 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
   };
   const active = accounts.filter(account => account.status === 'active' && account.provider === 'shopify' && (selectedAccount === 'all' || account.id === selectedAccount));
   let combined: ShopifyReport['totals'] = [];
-  const allComplete = active.length > 0 && active.every(a => results[a.id]?.report?.complete);
+  const allComplete = active.length > 0 && active.every(a => results[a.id]?.report?.complete && !results[a.id]?.error);
   if (allComplete) {
     try { combined = combineShopifyReports(active.map(a => results[a.id].report!)); } catch { combined = []; }
   }
-  async function refresh() {
+  async function refresh(signal?: AbortSignal) {
+    if (inFlight.current) return true;
+    const nowDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
+    setCurrentDay(nowDay);
+    if (rollingDays && until !== nowDay) {
+      const start = new Date(`${nowDay}T12:00:00Z`); start.setUTCDate(start.getUTCDate() - rollingDays + 1);
+      setFrom(start.toISOString().slice(0,10)); setUntil(nowDay); setResults({}); return true;
+    }
+    inFlight.current = true;
+    let success = true;
+    const nextResults: Record<string, Result> = {};
     const run = ++generation.current;
-    setLoading(true); setResults({});
-    for (const account of active) {
-      if (generation.current !== run) break;
+    setLoading(true);
+    for (const [index, account] of active.entries()) {
+      if (index) await new Promise(resolve => setTimeout(resolve, 8000));
+      if (generation.current !== run || signal?.aborted) break;
       try {
         const params = new URLSearchParams({ businessId, accountId: account.id, from, until });
-        const response = await fetch(`/api/retail-analytics/shopify?${params}`, { cache: 'no-store', signal: AbortSignal.timeout(85000) });
+        const response = await fetch(`/api/retail-analytics/shopify?${params}`, { cache: 'no-store', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(85000)]) : AbortSignal.timeout(85000) });
         const payload = await response.json();
-        if (generation.current !== run) break;
+        if (generation.current !== run || signal?.aborted) break;
         if (!response.ok) throw new Error(payload.error || 'REPORT_UNAVAILABLE');
         if (payload.businessId !== businessId || payload.accountId !== account.id || !payload.report) throw new Error('WORKSPACE_CHANGED');
-        setResults(current => ({ ...current, [account.id]: { report: payload.report } }));
+        nextResults[account.id] = { report: payload.report };
       } catch (error) {
-        if (generation.current !== run) break;
+        if (generation.current !== run || signal?.aborted) break;
+        success = false;
         const code = error instanceof Error ? error.message : '';
-        setResults(current => ({ ...current, [account.id]: { error: errors[code] ?? t('تعذرت قراءة التقرير. أعد المحاولة؛ لم تُستبدل البيانات بأرقام صفرية.', 'Report unavailable. Retry; failure is not represented as zero sales.') } }));
+        const accessLost = ['WORKSPACE_CHANGED','ACCOUNT_UNAVAILABLE','REAUTHORIZE_REQUIRED','UNAUTHENTICATED'].includes(code);
+        if (code === 'WORKSPACE_CHANGED' || code === 'UNAUTHENTICATED') for (const key of Object.keys(nextResults)) delete nextResults[key];
+        nextResults[account.id] = { ...(accessLost ? {} : results[account.id]), error: errors[code] ?? t('تعذرت قراءة التقرير. أعد المحاولة؛ لم تُستبدل البيانات بأرقام صفرية.', 'Report unavailable. Retry; failure is not represented as zero sales.') };
+        if (accessLost) { setResults({}); break; }
       }
     }
-    if (generation.current === run) setLoading(false);
+    inFlight.current = false;
+    if (generation.current === run) { if (!signal?.aborted) setResults(nextResults); setLoading(false); }
+    return success;
   }
+  const automatic = useAutoRefresh(`${businessId}:${selectedAccount}:${from}:${until}:${active.map(a=>a.id).join(',')}`, provider === 'shopify' && tab === 'sales' && configured && active.length > 0, refresh);
   function changePeriod(field: 'from' | 'until', value: string) {
+    setRollingDays(null);
     generation.current++; setLoading(false); setResults({});
     if (field === 'from') setFrom(value); else setUntil(value);
   }
   function quickPeriod(days: number) {
-    const start = new Date(`${today}T12:00:00Z`); start.setUTCDate(start.getUTCDate() - days + 1);
-    generation.current++; setLoading(false); setResults({}); setFrom(start.toISOString().slice(0,10)); setUntil(today);
+    setRollingDays(days);
+    const start = new Date(`${currentDay}T12:00:00Z`); start.setUTCDate(start.getUTCDate() - days + 1);
+    generation.current++; setLoading(false); setResults({}); setFrom(start.toISOString().slice(0,10)); setUntil(currentDay);
   }
   return <div className="space-y-6 pb-8" dir={english ? 'ltr' : 'rtl'}>
     <Link href="/dashboard/retail-analytics" className="inline-block font-bold text-teal-700 dark:text-teal-300">{t('العودة إلى جميع المنصات', 'Back to all platforms')}</Link>
@@ -91,10 +115,10 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
       <label className="block">{t('الحساب', 'Account')}<select className={inputClass} value={selectedAccount} onChange={e => { generation.current++; setResults({}); setLoading(false); setSelectedAccount(e.target.value); }}><option value="all">{t('جميع حسابات Shopify', 'All Shopify accounts')}</option>{accounts.filter(a => a.status === 'active').map(a => <option key={a.id} value={a.id}>{a.displayName || a.externalStoreId}</option>)}</select></label>
       <div className="flex flex-wrap gap-2">{[1,7,30].map(days => <button key={days} onClick={() => quickPeriod(days)} className="min-h-11 rounded-xl border border-slate-500/30 px-4">{days === 1 ? t('اليوم','Today') : `${t('آخر','Last')} ${days} ${t('أيام','days')}`}</button>)}</div>
       <p className="text-sm">{t('يمكن اختيار فترة حتى 31 يومًا ضمن آخر 59 يومًا. التاريخ الأقدم يحتاج موافقة Shopify وصلاحية إضافية.', 'Choose up to 31 days within the last 59 days. Older history needs Shopify approval and additional access.')}</p>
-      <div className="grid items-end gap-4 md:grid-cols-3"><label>{t('من', 'From')}<input className={inputClass} type="date" value={from} max={today} onChange={e => changePeriod('from', e.target.value)}/></label><label>{t('إلى (شامل)', 'Through (inclusive)')}<input className={inputClass} type="date" value={until} max={today} onChange={e => changePeriod('until', e.target.value)}/></label><button disabled={loading || !configured || !active.length} className="min-h-11 rounded-xl bg-teal-600 px-4 font-bold text-white disabled:opacity-50" onClick={refresh}>{loading ? t('جارٍ قراءة الحسابات…', 'Reading accounts…') : t('تحديث التقارير من Shopify', 'Refresh reports from Shopify')}</button></div>
-      <p role="status" className="text-sm">{t('حسابات متصلة:', 'Connected accounts:')} {active.length} · {t('التحديث عند الطلب؛ لا توجد مزامنة مجدولة بعد.', 'Refresh on demand; scheduled synchronization is not enabled yet.')}</p>
+      <div className="grid items-end gap-4 md:grid-cols-3"><label>{t('من', 'From')}<input className={inputClass} type="date" value={from} max={currentDay} onChange={e => changePeriod('from', e.target.value)}/></label><label>{t('إلى (شامل)', 'Through (inclusive)')}<input className={inputClass} type="date" value={until} max={currentDay} onChange={e => changePeriod('until', e.target.value)}/></label><button disabled={loading || !configured || !active.length} className="min-h-11 rounded-xl bg-teal-600 px-4 font-bold text-white disabled:opacity-50" onClick={() => void refresh()}>{loading ? t('جارٍ قراءة الحسابات…', 'Reading accounts…') : t('تحديث التقارير من Shopify', 'Refresh reports from Shopify')}</button></div>
+      <p className="text-sm">{t('حسابات متصلة:', 'Connected accounts:')} {active.length}</p><RefreshStatus state={automatic} busy={loading} english={english}/>
     </section>
-    {allComplete && active.length > 1 ? <SalesReportDetails english={english} businessName={businessName} accountName={t('جميع المتاجر: ','All stores: ') + active.map(a=>a.externalStoreId).join(', ')} report={{...results[active[0].id].report!, fetchedAt: active.map(a=>results[a.id].report!.fetchedAt).sort().at(-1)!, totals:combined, ordersRead:active.reduce((n,a)=>n+results[a.id].report!.ordersRead,0), orders:active.flatMap(a=>results[a.id].report!.orders.map(o=>({...o,reference:`${a.externalStoreId} · ${o.reference}`})))}}/> : null}
+    {allComplete && active.length > 1 ? <SalesReportDetails english={english} businessName={businessName} accountName={t('جميع المتاجر: ','All stores: ') + active.map(a=>a.externalStoreId).join(', ')} report={{...results[active[0].id].report!, fetchedAt: active.map(a=>results[a.id].report!.fetchedAt).sort()[0], totals:combined, ordersRead:active.reduce((n,a)=>n+results[a.id].report!.ordersRead,0), orders:active.flatMap(a=>results[a.id].report!.orders.map(o=>({...o,reference:`${a.externalStoreId} · ${o.reference}`})))}}/> : null}
     {combined.length ? <section className="rounded-2xl border border-teal-500/40 p-5"><h2 className="text-xl font-bold">{t('إجمالي حسابات Shopify المكتملة', 'Combined complete Shopify reports')}</h2><p className="my-2 text-sm">{t('تُجمع الحسابات المتصلة بعد نجاح قراءة جميع تقاريرها بالكامل للفترة نفسها، مع فصل العملات.', 'Connected accounts are combined only when all reports are complete for the same period. Currencies remain separate.')}</p><dl className="grid gap-4 sm:grid-cols-2">{combined.map(total => <div key={total.currency}><dt>{total.currency} · {t('قيمة الطلبات الحالية شاملة الضريبة', 'Current order value including tax')}</dt><dd className="mt-2 text-2xl font-bold">{new Intl.NumberFormat(english ? 'en' : 'ar-SA', { style: 'currency', currency: total.currency }).format(total.currentTotalMinor / 10 ** total.decimals)}</dd></div>)}</dl></section> : null}
     </div>
     <div hidden={tab === 'inventory'} className="space-y-5">
@@ -105,7 +129,7 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
         <p>{account.status === 'active' ? t('التفويض متصل', 'Authorization connected') : account.status === 'authorizing' ? t('جارٍ التحقق من التفويض؛ التقارير غير متاحة بعد.', 'Authorization verification in progress; reports are not available yet.') : account.status === 'authorization_review_required' ? t('تعثر التفويض ويحتاج مراجعة الدعم قبل إعادة المحاولة. لم يُفعّل الوصول إلى التقارير.', 'Authorization requires support review before retrying. Report access was not enabled.') : account.status === 'revocation_pending' ? t('القراءة متوقفة؛ إلغاء التفويض قيد الإكمال', 'Reads stopped; revocation pending') : t('يحتاج إكمال الربط', 'Connection required')}</p>
         {['draft', 'disconnected'].includes(account.status) ? <form action={connectRetailAccount}><input type="hidden" name="businessId" value={businessId}/><input type="hidden" name="provider" value={account.provider}/><input type="hidden" name="integrationId" value={account.id}/><input type="hidden" name="shop" value={account.provider === 'shopify' ? account.externalStoreId : ''}/><ConnectButton disabled={account.provider === 'shopify' ? !configured : !foodicsConfigured} label={t('إكمال ربط هذا الحساب', 'Complete this account connection')} pendingLabel={t('جارٍ فتح التفويض…', 'Opening authorization…')}/></form> : null}
         {account.status === 'active' || account.status === 'revocation_pending' ? <details className="rounded-xl border border-slate-500/30 p-3"><summary className="cursor-pointer">{t('فصل الحساب وإلغاء التفويض', 'Disconnect and revoke access')}</summary><p className="my-3 text-sm">{t('يوقف قراءة هذا الحساب في INFRO ويلغي وصول التطبيق لدى المزود. في Shopify يُزال تطبيق INFRO من هذا المتجر. قد تتأثر خدمات أخرى تستخدم الربط نفسه، ويمكن إعادة الربط لاحقًا.', 'Stops INFRO reads and revokes provider access. On Shopify, INFRO is uninstalled from this store. Other services sharing this connection may be affected. You can authorize again later.')}</p><form action={disconnectRetailAccountAction}><input type="hidden" name="businessId" value={businessId}/><input type="hidden" name="integrationId" value={account.id}/><label className="mb-3 flex gap-2"><input type="checkbox" name="confirm" value="yes" required/>{t('أؤكد فصل هذا الحساب', 'I confirm disconnection of this account')}</label><ConnectButton disabled={false} label={t('تأكيد الفصل', 'Confirm disconnect')} pendingLabel={t('جارٍ الفصل…', 'Disconnecting…')}/></form></details> : null}
-        {result?.error ? <p role="alert" className="rounded-xl border border-amber-500 p-3">{result.error}</p> : null}
+        {result?.error ? <p role="alert" className="rounded-xl border border-amber-500 p-3">{result.error}{result.report ? t(' المعروض أدناه آخر قراءة ناجحة وقد يكون قديمًا.', ' Below is the last successful snapshot and may be stale.') : ''}</p> : null}
         {result?.report ? <>
           <SalesReportDetails report={result.report} english={english} businessName={businessName} accountName={`${account.displayName || account.externalStoreId} · ${account.externalStoreId}`}/>
           <p>{t('وقت القراءة:', 'Fetched:')} {new Date(result.report.fetchedAt).toLocaleString(english ? 'en-GB' : 'ar-SA', { timeZone: 'Asia/Riyadh' })}</p>
