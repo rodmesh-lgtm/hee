@@ -2,9 +2,10 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 import { db } from "../db";
+import { readSchemaWithRetry } from "./schema-read-retry";
 
 export async function isSmartRemindersSchemaReady() {
-  const rows = await db.$queryRaw<Array<{
+  const rows = await readSchemaWithRetry(() => db.$queryRaw<Array<{
     reminderReady: boolean; deliveryReady: boolean; channelsReady: boolean; deliveryChannelReady: boolean;
     reminderSenderModeReady: boolean; deliverySenderModeReady: boolean; deliveryReceiptsReady: boolean;
     progressReady: boolean; workCompletionReady: boolean; executionContextReady: boolean; notificationReady: boolean;
@@ -31,7 +32,7 @@ export async function isSmartRemindersSchemaReady() {
       to_regclass('public."SmartReminderNotification"') IS NOT NULL AS "notificationReady",
       to_regclass('public."InfroReminderWhatsAppRateBucket"') IS NOT NULL AS "platformRateReady",
       to_regclass('public."InfroReminderWhatsAppOptOut"') IS NOT NULL AS "platformOptOutReady"
-  `);
+  `));
   const readiness = rows[0];
   return Boolean(readiness?.reminderReady && readiness?.deliveryReady && readiness?.channelsReady && readiness?.deliveryChannelReady
     && readiness?.reminderSenderModeReady && readiness?.deliverySenderModeReady && readiness?.deliveryReceiptsReady
