@@ -79,6 +79,8 @@ jobs:
         run: npx prisma generate
       - name: Verify migrations on clean PostgreSQL
         run: npx prisma migrate deploy
+      - name: Verify retail OAuth lifecycle on PostgreSQL
+        run: node --import tsx scripts/verify-retail-oauth-schema.ts
       - name: Verify migration checksum and release-prefix precheck
         run: node --import tsx scripts/production-migration-precheck.ts
       - name: Verify customer data retention guards

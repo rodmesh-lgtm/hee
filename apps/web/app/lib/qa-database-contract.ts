@@ -107,6 +107,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20261023090000_accounting_counted_packages",
   "20261026050000_cashier_followup_trigger_types",
   "20261101070000_account_deactivation",
+  "20261102040000_retail_oauth_lifecycle_compatibility",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

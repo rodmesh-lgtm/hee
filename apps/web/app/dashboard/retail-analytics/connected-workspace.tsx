@@ -1,5 +1,7 @@
 'use client';
 import { connectRetailAccount, disconnectRetailAccountAction } from './actions';
+import Link from 'next/link';
+import InventoryWorkspace from './inventory-workspace';
 import { useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 function ConnectButton({ disabled, label, pendingLabel }: { disabled: boolean; label: string; pendingLabel: string }) {
@@ -11,10 +13,12 @@ import { combineShopifyReports, type ShopifyReport } from '../../lib/retail-anal
 type Account = { provider: string; id: string; displayName: string | null; externalStoreId: string; status: string };
 type Result = { report?: ShopifyReport; error?: string };
 const inputClass = 'min-h-11 w-full rounded-xl border border-slate-500/40 bg-transparent px-3';
-export default function ConnectedRetailWorkspace({ businessId, businessName, english, accounts, configured, foodicsConfigured, connectionStatus, today }: {
-  businessId: string; businessName: string; english: boolean; accounts: Account[]; configured: boolean; foodicsConfigured: boolean; connectionStatus: string; today: string;
+export default function ConnectedRetailWorkspace({ provider, businessId, businessName, english, accounts, configured, foodicsConfigured, connectionStatus, today }: {
+  provider: 'shopify' | 'foodics' | 'icg'; businessId: string; businessName: string; english: boolean; accounts: Account[]; configured: boolean; foodicsConfigured: boolean; connectionStatus: string; today: string;
 }) {
   const t = (ar: string, en: string) => english ? en : ar;
+  const [tab, setTab] = useState<'sales' | 'inventory' | 'accounts'>(provider === 'shopify' ? 'sales' : 'accounts');
+  const [selectedAccount, setSelectedAccount] = useState('all');
   const [from, setFrom] = useState(today);
   const [until, setUntil] = useState(today);
   const [results, setResults] = useState<Record<string, Result>>({});
@@ -28,7 +32,7 @@ export default function ConnectedRetailWorkspace({ businessId, businessName, eng
     RATE_LIMITED: t('انتظر دقيقة ثم أعد التحديث.', 'Wait a minute before refreshing.'),
     PROVIDER_RATE_LIMIT: t('وصل الحساب إلى حد الطلبات لدى Shopify. أعد المحاولة لاحقًا.', 'Shopify rate limit reached. Try again later.'),
   };
-  const active = accounts.filter(account => account.status === 'active' && account.provider === 'shopify');
+  const active = accounts.filter(account => account.status === 'active' && account.provider === 'shopify' && (selectedAccount === 'all' || account.id === selectedAccount));
   let combined: ShopifyReport['totals'] = [];
   const allComplete = active.length > 0 && active.every(a => results[a.id]?.report?.complete);
   if (allComplete) {
@@ -60,24 +64,33 @@ export default function ConnectedRetailWorkspace({ businessId, businessName, eng
     if (field === 'from') setFrom(value); else setUntil(value);
   }
   return <div className="space-y-6 pb-8" dir={english ? 'ltr' : 'rtl'}>
+    <Link href="/dashboard/retail-analytics" className="inline-block font-bold text-teal-700 dark:text-teal-300">{t('العودة إلى جميع المنصات', 'Back to all platforms')}</Link>
     <header className="rounded-3xl border border-teal-500/25 bg-teal-500/5 p-6">
-      <p>{businessName}</p><h1 className="mt-2 text-3xl font-bold">{t('تحليلات التجزئة — حساباتك المرتبطة', 'Retail analytics — connected accounts')}</h1>
+      <p>{businessName}</p><h1 className="mt-2 text-3xl font-bold">{provider === 'icg' ? 'ICG Manager 2018' : provider === 'shopify' ? 'Shopify' : 'Foodics'} · {t('لوحة التحليلات', 'Analytics dashboard')}</h1>
       <p className="mt-3 leading-7">{t('اقرأ تقارير حساباتك المصرّح بها من المصدر الرسمي في لوحة واحدة. تظهر حالة كل حساب وآخر وقت قراءة بصورة مستقلة.', 'Read authorized account reports from the official provider in one dashboard. Each account shows its own status and fetch time.')}</p>
     </header>
     {connectionStatus ? <p role="status" className="rounded-xl border border-teal-500/40 p-4">{connectionStatus === 'connected' || connectionStatus === 'already-connected' ? t('الحساب مرتبط. يمكنك قراءة التقارير المتاحة أدناه.', 'Account connected. Read available reports below.') : connectionStatus === 'not-configured' ? t('يحتاج الربط إلى إكمال إعداد تطبيق INFRO لدى المزود.', 'INFRO provider app setup must be completed.') : connectionStatus === 'disconnected' ? t('تم فصل الحساب وإيقاف الوصول.', 'Account disconnected and access stopped.') : connectionStatus === 'revocation-pending' ? t('توقفت القراءة في INFRO؛ إلغاء التفويض لدى المزود لم يتأكد بعد. أعد محاولة الفصل.', 'INFRO reads stopped; provider revocation is not confirmed. Retry disconnect.') : connectionStatus === 'cancelled' ? t('تم إلغاء التفويض.', 'Authorization cancelled.') : t('لم يكتمل التفويض. تحقق من تسجيل الدخول والمنشأة، ثم أعد المحاولة برابط جديد.', 'Authorization did not complete. Check your sign-in and workspace, then try a new authorization link.')} </p> : null}
-    <section className="grid gap-4 md:grid-cols-3" aria-label={t('حالة المنصات', 'Provider readiness')}>
-      <div className="rounded-2xl border border-slate-500/30 p-5"><h2 className="text-xl font-bold">Shopify</h2><p className="my-3">{configured ? t('قراءة عبر Admin API للحسابات المرتبطة.', 'Admin API reporting for connected accounts.') : t('إعداد تطبيق Shopify على الخادم غير مكتمل.', 'Server-side Shopify app configuration is incomplete.')}</p><form action={connectRetailAccount} className="space-y-3"><input type="hidden" name="businessId" value={businessId}/><input type="hidden" name="provider" value="shopify"/><label className="block text-sm">{t('عنوان المتجر الأصلي', 'Original shop domain')}<input name="shop" required maxLength={255} placeholder="store.myshopify.com" autoCapitalize="none" autoCorrect="off" dir="ltr" className={inputClass}/></label><ConnectButton disabled={!configured} label={t('ربط حساب Shopify', 'Connect Shopify account')} pendingLabel={t('جارٍ فتح التفويض…', 'Opening authorization…')}/></form></div>
-      <div className="rounded-2xl border border-amber-500/30 p-5"><h2 className="text-xl font-bold">Foodics</h2><p className="my-3">{foodicsConfigured ? t('سجّل الدخول لدى Foodics ووافق على صلاحيات القراءة.', 'Sign in to Foodics and approve read access.') : t('ينتظر تفعيل تطبيق INFRO وبيانات التفويض من Foodics.', 'Awaiting INFRO app activation and OAuth credentials from Foodics.')}</p><form action={connectRetailAccount}><input type="hidden" name="businessId" value={businessId}/><input type="hidden" name="provider" value="foodics"/><ConnectButton disabled={!foodicsConfigured} label={t('ربط حساب Foodics', 'Connect Foodics account')} pendingLabel={t('جارٍ فتح التفويض…', 'Opening authorization…')}/></form></div>
-      <div className="rounded-2xl border border-amber-500/30 p-5"><h2 className="text-xl font-bold">ICG Manager 2018</h2><p className="my-3">{t('بانتظار وثائق الربط المعتمدة من ICG. بوابة المستندات وحدها لا تفعّل مزامنة التحليلات.', 'Awaiting ICG-approved integration documentation. The document portal alone does not enable analytics synchronization.')}</p></div>
+    {provider === 'shopify' ? <nav aria-label={t('أقسام Shopify', 'Shopify sections')} className="flex flex-wrap gap-3">{(['sales', 'inventory', 'accounts'] as const).map(value => <button key={value} aria-pressed={tab === value} onClick={() => setTab(value)} className={`min-h-11 rounded-xl border px-5 font-bold ${tab === value ? 'bg-teal-600 text-white' : 'border-slate-500/30'}`}>{value === 'sales' ? t('المبيعات والمدفوعات', 'Sales and payments') : value === 'inventory' ? t('المنتجات والمخزون', 'Products and inventory') : t('الحسابات والربط', 'Accounts and connection')}</button>)}</nav> : null}
+    {provider === 'shopify' && tab === 'inventory' ? <InventoryWorkspace businessId={businessId} english={english} accounts={accounts.filter(a => a.status === 'active')}/> : null}
+    <div hidden={tab !== 'accounts' && accounts.length > 0}>
+    <section className="grid gap-4" aria-label={t('حالة المنصات', 'Provider readiness')}>
+      {provider === 'shopify' ? <div className="rounded-2xl border border-slate-500/30 p-5"><h2 className="text-xl font-bold">Shopify</h2><p className="my-3">{configured ? t('قراءة عبر Admin API للحسابات المرتبطة.', 'Admin API reporting for connected accounts.') : t('إعداد تطبيق Shopify على الخادم غير مكتمل.', 'Server-side Shopify app configuration is incomplete.')}</p><form action={connectRetailAccount} className="space-y-3"><input type="hidden" name="businessId" value={businessId}/><input type="hidden" name="provider" value="shopify"/><label className="block text-sm">{t('عنوان المتجر الأصلي', 'Original shop domain')}<input name="shop" required maxLength={255} placeholder="store.myshopify.com" autoCapitalize="none" autoCorrect="off" dir="ltr" className={inputClass}/></label><ConnectButton disabled={!configured} label={t('ربط حساب Shopify', 'Connect Shopify account')} pendingLabel={t('جارٍ فتح التفويض…', 'Opening authorization…')}/></form></div> : null}
+      {provider === 'foodics' ? <div className="rounded-2xl border border-amber-500/30 p-5"><h2 className="text-xl font-bold">Foodics</h2><p className="my-3">{foodicsConfigured ? t('سجّل الدخول لدى Foodics ووافق على صلاحيات القراءة.', 'Sign in to Foodics and approve read access.') : t('ينتظر تفعيل تطبيق INFRO وبيانات التفويض من Foodics.', 'Awaiting INFRO app activation and OAuth credentials from Foodics.')}</p><form action={connectRetailAccount}><input type="hidden" name="businessId" value={businessId}/><input type="hidden" name="provider" value="foodics"/><ConnectButton disabled={!foodicsConfigured} label={t('ربط حساب Foodics', 'Connect Foodics account')} pendingLabel={t('جارٍ فتح التفويض…', 'Opening authorization…')}/></form></div> : null}
+      {provider === 'icg' ? <div className="rounded-2xl border border-amber-500/30 p-5"><h2 className="text-xl font-bold">ICG Manager 2018</h2><p className="my-3">{t('بانتظار وثائق الربط المعتمدة من ICG. بوابة المستندات وحدها لا تفعّل مزامنة التحليلات.', 'Awaiting ICG-approved integration documentation. The document portal alone does not enable analytics synchronization.')}</p></div> : null}
     </section>
+    </div>
+    <div hidden={provider !== 'shopify' || tab !== 'sales'} className="space-y-6">
     <section className="space-y-4 rounded-2xl border border-slate-500/30 p-5">
       <h2 className="text-xl font-bold">{t('تقرير طلبات Shopify', 'Shopify order report')}</h2>
       <p className="text-sm leading-7">{t('الفترة حسب تاريخ إنشاء الطلب بتوقيت الرياض. القيم تعكس الحالة الحالية لتلك الطلبات، وتشمل استرداداتها اللاحقة؛ ليست تقرير حركة النقد خلال الفترة. تُستبعد الطلبات التجريبية، ولا تُحتسب قيمة الطلبات الملغاة ضمن إجمالي الطلبات. لا يُعرض الربح دون تكلفة البضاعة.', 'Period uses order creation date in Riyadh time. Values reflect those orders’ current state, including later refunds; this is not a cash-movement report for the period. Test orders are excluded. Cancelled order values are excluded from current order totals. Profit is unavailable without goods costs.')}</p>
+      <label className="block">{t('الحساب', 'Account')}<select className={inputClass} value={selectedAccount} onChange={e => { generation.current++; setResults({}); setLoading(false); setSelectedAccount(e.target.value); }}><option value="all">{t('جميع حسابات Shopify', 'All Shopify accounts')}</option>{accounts.filter(a => a.status === 'active').map(a => <option key={a.id} value={a.id}>{a.displayName || a.externalStoreId}</option>)}</select></label>
       <div className="grid items-end gap-4 md:grid-cols-3"><label>{t('من', 'From')}<input className={inputClass} type="date" value={from} max={today} onChange={e => changePeriod('from', e.target.value)}/></label><label>{t('إلى (شامل)', 'Through (inclusive)')}<input className={inputClass} type="date" value={until} max={today} onChange={e => changePeriod('until', e.target.value)}/></label><button disabled={loading || !configured || !active.length} className="min-h-11 rounded-xl bg-teal-600 px-4 font-bold text-white disabled:opacity-50" onClick={refresh}>{loading ? t('جارٍ قراءة الحسابات…', 'Reading accounts…') : t('تحديث التقارير من Shopify', 'Refresh reports from Shopify')}</button></div>
       <p role="status" className="text-sm">{t('حسابات متصلة:', 'Connected accounts:')} {active.length} · {t('التحديث عند الطلب؛ لا توجد مزامنة مجدولة بعد.', 'Refresh on demand; scheduled synchronization is not enabled yet.')}</p>
     </section>
     {combined.length ? <section className="rounded-2xl border border-teal-500/40 p-5"><h2 className="text-xl font-bold">{t('إجمالي حسابات Shopify المكتملة', 'Combined complete Shopify reports')}</h2><p className="my-2 text-sm">{t('تُجمع الحسابات المتصلة بعد نجاح قراءة جميع تقاريرها بالكامل للفترة نفسها، مع فصل العملات.', 'Connected accounts are combined only when all reports are complete for the same period. Currencies remain separate.')}</p><dl className="grid gap-4 sm:grid-cols-2">{combined.map(total => <div key={total.currency}><dt>{total.currency} · {t('قيمة الطلبات الحالية شاملة الضريبة', 'Current order value including tax')}</dt><dd className="mt-2 text-2xl font-bold">{new Intl.NumberFormat(english ? 'en' : 'ar-SA', { style: 'currency', currency: total.currency }).format(total.currentTotalMinor / 10 ** total.decimals)}</dd></div>)}</dl></section> : null}
-    {!accounts.length ? <p className="rounded-2xl border border-dashed border-slate-500/40 p-6">{t('لم تُضف حسابات إلى هذه المنشأة. ابدأ بالربط من بطاقات المنصات أعلاه.', 'No accounts belong to this workspace yet. Start with the provider cards above.')}</p> : accounts.map(account => {
+    </div>
+    <div hidden={tab === 'inventory'} className="space-y-5">
+    {!accounts.length ? <p className="rounded-2xl border border-dashed border-slate-500/40 p-6">{t('لم تُضف حسابات إلى هذه المنشأة. ابدأ بالربط من بطاقات المنصات أعلاه.', 'No accounts belong to this workspace yet. Start with the provider cards above.')}</p> : accounts.filter(a => tab === 'accounts' || selectedAccount === 'all' || selectedAccount === a.id).map(account => {
       const result = results[account.id];
       return <section key={account.id} className="space-y-4 rounded-2xl border border-slate-500/30 p-5">
         <h2 className="text-xl font-bold">{account.displayName || (account.externalStoreId.startsWith('pending:') ? 'Foodics' : account.externalStoreId)}</h2><p dir="ltr" className="text-sm">{account.provider} · {account.externalStoreId.startsWith('pending:') ? t('بانتظار التفويض', 'Awaiting authorization') : account.externalStoreId}</p>
@@ -98,5 +111,6 @@ export default function ConnectedRetailWorkspace({ businessId, businessName, eng
         </> : !result?.error ? <p className="text-sm">{account.provider === 'foodics' ? t('التحقق من الحساب متاح؛ قارئ تقارير Foodics لم يُفعّل بعد.', 'Account verification is supported; Foodics reporting is not enabled yet.') : t('لم يُقرأ التقرير بعد. اضغط تحديث التقارير.', 'Report not fetched yet. Select Refresh reports.')}</p> : null}
       </section>;
     })}
+    </div>
   </div>;
 }
