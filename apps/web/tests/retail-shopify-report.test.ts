@@ -4,7 +4,7 @@ import { fetchShopifyRetailReport, validateReportPeriod } from '../app/lib/retai
 const now = new Date('2026-11-01T12:00:00Z');
 const input = { shop: 'retail-test.myshopify.com', token: 'test-only-token', apiVersion: '2026-10', period: { from: '2026-10-31', until: '2026-11-01' } };
 const money = (amount: string, currencyCode = 'SAR') => ({ shopMoney: { amount, currencyCode } });
-const order = (id = 'gid://shopify/Order/1') => ({ id, createdAt: '2026-11-01T10:00:00Z', test: false, cancelledAt: null as string | null,
+const order = (id = 'gid://shopify/Order/1') => ({ id, name: '#1001', displayFinancialStatus: 'PARTIALLY_REFUNDED', displayFulfillmentStatus: 'UNFULFILLED', createdAt: '2026-11-01T10:00:00Z', test: false, cancelledAt: null as string | null,
   currentTotalPriceSet: money('115.00'), currentTotalTaxSet: money('15.00'), currentTotalDiscountsSet: money('5.00'), totalRefundedSet: money('23.00'), netPaymentSet: money('92.00') });
 const response = (nodes: unknown[], hasNextPage = false, endCursor: string | null = null) => Response.json({ data: { orders: { nodes, pageInfo: { hasNextPage, endCursor } } } });
 
@@ -19,6 +19,8 @@ test('official host, private fetch, minimal fields and exact decimal aggregation
   };
   const report = await fetchShopifyRetailReport(input, fetcher, now);
   assert.equal(report.complete, true);
+  assert.equal(report.orders[0].reference, '#1001');
+  assert.equal(report.orders[0].financialStatus, 'PARTIALLY_REFUNDED');
   assert.equal(report.totals[0].currentTotalMinor, 11500);
   assert.equal(report.totals[0].netPaymentsMinor, 9200);
   assert.equal(report.totals[0].refundedMinor, 2300); // Not deducted twice from current totals.
@@ -27,6 +29,7 @@ test('official host, private fetch, minimal fields and exact decimal aggregation
 test('cancelled value excluded but actual payments/refunds retained; test orders excluded', async () => {
   const cancelled = { ...order(), cancelledAt: '2026-11-01T11:00:00Z' };
   const report = await fetchShopifyRetailReport(input, async () => response([cancelled, { ...order('2'), test: true }]), now);
+  assert.equal(report.orders.length, 1); assert.equal(report.orders[0].currentTotalMinor, 0); assert.equal(report.orders[0].refundedMinor, 2300);
   assert.equal(report.totals[0].orders, 1); assert.equal(report.totals[0].cancelled, 1);
   assert.equal(report.totals[0].currentTotalMinor, 0); assert.equal(report.totals[0].netPaymentsMinor, 9200);
 });
