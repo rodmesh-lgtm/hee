@@ -4,7 +4,7 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
-  "تحليلات التجزئة": { "en": "Retail analytics", "zh-CN": "零售分析", "es": "Análisis de ventas minoristas", "ur": "ریٹیل تجزیات" },
+  "مركز تحليلات الأعمال": { "en": "Business analytics hub", "zh-CN": "业务分析中心", "es": "Centro de análisis empresarial", "ur": "کاروباری تجزیات کا مرکز" },
   "تكاملات المتاجر": { "en": "Store integrations", "zh-CN": "商店集成", "es": "Integraciones de tiendas", "ur": "اسٹور انضمام" },
   "صيانة الأجهزة": { "en": "Appliance repair", "zh-CN": "设备维修", "es": "Reparación de aparatos", "ur": "آلات کی مرمت" },
   "خدمات الصيانة والإصلاح": { "en": "Repair and maintenance services", "zh-CN": "维护与维修服务", "es": "Servicios de mantenimiento y reparación", "ur": "دیکھ بھال اور مرمت کی خدمات" },
