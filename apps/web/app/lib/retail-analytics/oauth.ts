@@ -108,7 +108,7 @@ export async function finishRetailOAuth(input: { businessId: string; userId: str
       const response = await jsonRequest(`${origin}/api/${config.apiVersion}/graphql.json`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-shopify-access-token': tokenRecord.access_token }, body: JSON.stringify({ query: '{ shop { myshopifyDomain name } }' }) });
       const shopResponse = response as { errors?: unknown[]; data?: { shop?: { myshopifyDomain?: unknown; name?: unknown } } } | null;
       if (!shopResponse || shopResponse.errors?.length || shopResponse.data?.shop?.myshopifyDomain !== session.integration.externalStoreId || typeof shopResponse.data?.shop?.name !== 'string') throw new Error('ACCOUNT_MISMATCH');
-      identity = { externalId: session.integration.externalStoreId, name: shopResponse.data.shop.name.slice(0, 160), scopes: tokenRecord.scope.split(',') };
+      identity = { externalId: session.integration.externalStoreId, name: shopResponse.data.shop.name.slice(0, 120), scopes: tokenRecord.scope.split(',') };
     }
     if (input.provider === 'shopify') {
       // Lifecycle delivery must be configured before the dashboard reports connected.
@@ -122,7 +122,7 @@ export async function finishRetailOAuth(input: { businessId: string; userId: str
       if (pending !== 1) throw new Error('OAUTH_SESSION_EXPIRED');
       const collision = await tx.whatsAppCommerceIntegration.count({ where: { provider: input.provider, externalStoreId: identity.externalId, id: { not: session.integrationId } } });
       if (collision) throw new Error('ACCOUNT_ALREADY_ASSIGNED');
-      const changed = await tx.whatsAppCommerceIntegration.updateMany({ where: { id: session.integrationId, businessId: input.businessId, provider: input.provider, status: 'authorizing' }, data: { externalStoreId: identity.externalId, displayName: identity.name, status: 'active', connectedAt: now, disconnectedAt: null, credentialEnvelope: credential as Prisma.InputJsonValue, lastErrorCode: null } });
+      const changed = await tx.whatsAppCommerceIntegration.updateMany({ where: { id: session.integrationId, businessId: input.businessId, provider: input.provider, status: 'authorizing' }, data: { externalStoreId: identity.externalId, displayName: identity.name.slice(0, 120), status: 'active', connectedAt: now, disconnectedAt: null, credentialEnvelope: credential as Prisma.InputJsonValue, lastErrorCode: null } });
       if (changed.count !== 1) throw new Error('ACCOUNT_MISMATCH');
       await tx.whatsAppCommerceOAuthSession.update({ where: { id: session.id }, data: { status: 'connected', consumedAt: new Date() } });
       await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.userId, action: 'retail.oauth.complete', targetType: 'commerce_integration', targetId: session.integrationId, outcome: 'success', database: tx });
