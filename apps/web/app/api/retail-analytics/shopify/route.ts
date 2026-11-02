@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '../../../lib/auth';
 import { getActiveBusinessForUser } from '../../../lib/active-business';
 import { consumePublicWriteLimit } from '../../../lib/rate-limit';
-import { readConnectedShopifyReport } from '../../../lib/retail-analytics/shopify-server';
+import { readConnectedShopifyReport, readConnectedShopifyInventory } from '../../../lib/retail-analytics/shopify-server';
 import { validateReportPeriod } from '../../../lib/retail-analytics/shopify-report';
 
 export const dynamic = 'force-dynamic';
@@ -18,10 +18,11 @@ export async function GET(request: Request) {
     const id = params.get('accountId') ?? '';
     if (!/^[0-9a-f-]{36}$/i.test(id)) return reply({ error: 'INVALID_ACCOUNT' }, 400);
     const period = { from: params.get('from') ?? '', until: params.get('until') ?? '' };
-    validateReportPeriod(period);
+    const inventory = params.get('report') === 'inventory';
+    if (!inventory) validateReportPeriod(period);
     const limit = await consumePublicWriteLimit({ scope: 'retail.shopify.read', businessId: business.id, identity: user.id, limit: 10, windowSeconds: 60 });
     if (!limit.allowed) return reply({ error: 'RATE_LIMITED' }, 429);
-    const report = await readConnectedShopifyReport(business.id, id, period);
+    const report = inventory ? await readConnectedShopifyInventory(business.id, id) : await readConnectedShopifyReport(business.id, id, period);
     const current = await getActiveBusinessForUser(user.id);
     if (!current || current.id !== business.id) return reply({ error: 'WORKSPACE_CHANGED' }, 403);
     return reply({ accountId: id, businessId: business.id, report });
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
     const code = error instanceof Error ? error.message : '';
     if (code === 'INVALID_PERIOD') return reply({ error: code }, 400);
     if (code === 'ACCOUNT_UNAVAILABLE') return reply({ error: code }, 404);
-    const safe = ['REAUTHORIZE_REQUIRED', 'PROVIDER_RATE_LIMIT', 'PROVIDER_QUERY_FAILED', 'PROVIDER_PAGINATION_CHANGED'].includes(code) ? code : 'REPORT_UNAVAILABLE';
+    const safe = ['PRODUCT_ACCESS_REQUIRED', 'REAUTHORIZE_REQUIRED', 'PROVIDER_RATE_LIMIT', 'PROVIDER_QUERY_FAILED', 'PROVIDER_PAGINATION_CHANGED'].includes(code) ? code : 'REPORT_UNAVAILABLE';
     return reply({ error: safe }, 503);
   }
 }
