@@ -39,7 +39,7 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
   };
   const active = accounts.filter(account => account.status === 'active' && account.provider === 'shopify' && (selectedAccount === 'all' || account.id === selectedAccount));
   let combined: ShopifyReport['totals'] = [];
-  const allComplete = !loading && active.length > 0 && active.every(a => results[a.id]?.report?.complete && !results[a.id]?.error);
+  const allComplete = active.length > 0 && active.every(a => results[a.id]?.report?.complete && !results[a.id]?.error);
   if (allComplete) {
     try { combined = combineShopifyReports(active.map(a => results[a.id].report!)); } catch { combined = []; }
   }
@@ -53,6 +53,7 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
     }
     inFlight.current = true;
     let success = true;
+    const nextResults: Record<string, Result> = {};
     const run = ++generation.current;
     setLoading(true);
     for (const [index, account] of active.entries()) {
@@ -65,16 +66,18 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
         if (generation.current !== run || signal?.aborted) break;
         if (!response.ok) throw new Error(payload.error || 'REPORT_UNAVAILABLE');
         if (payload.businessId !== businessId || payload.accountId !== account.id || !payload.report) throw new Error('WORKSPACE_CHANGED');
-        setResults(current => ({ ...current, [account.id]: { report: payload.report } }));
+        nextResults[account.id] = { report: payload.report };
       } catch (error) {
         if (generation.current !== run || signal?.aborted) break;
         success = false;
         const code = error instanceof Error ? error.message : '';
-        setResults(current => ({ ...current, [account.id]: { ...(code === 'WORKSPACE_CHANGED' || code === 'ACCOUNT_UNAVAILABLE' || code === 'REAUTHORIZE_REQUIRED' || code === 'UNAUTHENTICATED' ? {} : current[account.id]), error: errors[code] ?? t('تعذرت قراءة التقرير. أعد المحاولة؛ لم تُستبدل البيانات بأرقام صفرية.', 'Report unavailable. Retry; failure is not represented as zero sales.') } }));
+        const accessLost = ['WORKSPACE_CHANGED','ACCOUNT_UNAVAILABLE','REAUTHORIZE_REQUIRED','UNAUTHENTICATED'].includes(code);
+        nextResults[account.id] = { ...(accessLost ? {} : results[account.id]), error: errors[code] ?? t('تعذرت قراءة التقرير. أعد المحاولة؛ لم تُستبدل البيانات بأرقام صفرية.', 'Report unavailable. Retry; failure is not represented as zero sales.') };
+        if (accessLost) { setResults({}); break; }
       }
     }
     inFlight.current = false;
-    if (generation.current === run) setLoading(false);
+    if (generation.current === run) { if (!signal?.aborted) setResults(nextResults); setLoading(false); }
     return success;
   }
   const automatic = useAutoRefresh(`${businessId}:${selectedAccount}:${from}:${until}:${active.map(a=>a.id).join(',')}`, provider === 'shopify' && tab === 'sales' && configured && active.length > 0, refresh);

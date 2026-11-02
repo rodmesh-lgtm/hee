@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { dailyShopifyReport, type ShopifyReport } from '../../lib/retail-analytics/shopify-report';
 import ReportTable from './report-table';
 
-export default function SalesOverview({ report, english }: { report: ShopifyReport; english: boolean }) {
+export default function SalesOverview({ report, english, businessName, accountName }: { report: ShopifyReport; english: boolean; businessName: string; accountName: string }) {
   const t = (ar: string, en: string) => english ? en : ar;
   const [day, setDay] = useState('');
   const daily = dailyShopifyReport(report.orders);
@@ -30,7 +30,7 @@ export default function SalesOverview({ report, english }: { report: ShopifyRepo
     })}
     {report.orders.length ? <><div className="grid gap-3 sm:grid-cols-3">{[[t('طلبات مدفوعة','Paid orders'),orders.filter(o=>!o.cancelled&&o.financialStatus==='PAID').length],[t('بانتظار التنفيذ','Awaiting fulfillment'),orders.filter(o=>!o.cancelled&&o.fulfillmentStatus==='UNFULFILLED').length],[t('طلبات ملغاة','Cancelled orders'),orders.filter(o=>o.cancelled).length]].map(([label,value])=><div key={label} className="rounded-xl border border-slate-500/20 p-4"><p>{label}</p><p className="mt-2 text-xl font-bold">{value}</p></div>)}</div>
       <div className="flex items-center justify-between"><h4 className="font-bold">{day ? `${t('طلبات يوم','Orders on')} ${day}` : t('آخر الطلبات في الفترة','Latest orders in this period')}</h4>{day?<button className="min-h-11 underline" onClick={()=>setDay('')}>{t('إظهار كل الأيام','Show all days')}</button>:null}</div>
-      <ReportTable english={english} report={{title:t('حركة الطلبات','Order activity'),metadata:[`${report.from} — ${report.until}`,day||t('كل الأيام','All days'),report.complete?t('فترة مكتملة','Complete period'):t('جزئي','Partial'),`${t('وقت القراءة','Fetched')}: ${report.fetchedAt}`],headers:[t('الطلب','Order'),t('التاريخ','Date'),t('القيمة الحالية','Current value')],rows:[...orders].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(o=>[o.reference,new Date(o.createdAt).toLocaleString(english?'en-GB':'ar-SA',{timeZone:'Asia/Riyadh'}),money(o.currentTotalMinor,o.currency,o.decimals)])}}/>
+      <ReportTable english={english} report={{title:t('حركة الطلبات','Order activity'),metadata:[businessName,accountName,`${report.from} — ${report.until}`,day||t('كل الأيام','All days'),report.complete?t('فترة مكتملة','Complete period'):t('جزئي','Partial'),`${t('وقت القراءة','Fetched')}: ${report.fetchedAt}`],headers:[t('الطلب','Order'),t('التاريخ','Date'),t('القيمة الحالية','Current value')],rows:[...orders].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(o=>[o.reference,new Date(o.createdAt).toLocaleString(english?'en-GB':'ar-SA',{timeZone:'Asia/Riyadh'}),money(o.currentTotalMinor,o.currency,o.decimals)])}}/>
     </> : null}
   </section>;
 }
