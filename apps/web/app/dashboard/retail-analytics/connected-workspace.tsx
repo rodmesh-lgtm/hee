@@ -15,12 +15,12 @@ import { combineShopifyReports, type ShopifyReport } from '../../lib/retail-anal
 type Account = { provider: string; id: string; displayName: string | null; externalStoreId: string; status: string };
 type Result = { report?: ShopifyReport; error?: string };
 const inputClass = 'min-h-11 w-full rounded-xl border border-slate-500/40 bg-transparent px-3';
-export default function ConnectedRetailWorkspace({ provider, businessId, businessName, english, accounts, configured, foodicsConfigured, connectionStatus, today, embedded = false }: {
-  provider: 'shopify' | 'foodics' | 'icg'; businessId: string; businessName: string; english: boolean; accounts: Account[]; configured: boolean; foodicsConfigured: boolean; connectionStatus: string; today: string; embedded?: boolean;
+export default function ConnectedRetailWorkspace({ provider, businessId, businessName, english, accounts, configured, foodicsConfigured, connectionStatus, today, embedded = false, initialAccountId = 'all' }: {
+  provider: 'shopify' | 'foodics' | 'icg'; businessId: string; businessName: string; english: boolean; accounts: Account[]; configured: boolean; foodicsConfigured: boolean; connectionStatus: string; today: string; embedded?: boolean; initialAccountId?: string;
 }) {
   const t = (ar: string, en: string) => english ? en : ar;
   const [tab, setTab] = useState<'sales' | 'inventory' | 'accounts'>(provider === 'shopify' ? 'sales' : 'accounts');
-  const [selectedAccount, setSelectedAccount] = useState('all');
+  const [selectedAccount, setSelectedAccount] = useState(initialAccountId);
   const [from, setFrom] = useState(today);
   const [until, setUntil] = useState(today);
   const [results, setResults] = useState<Record<string, Result>>({});
