@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { PrismaClient } from '@prisma/client';
 
+async function main() {
 // CI-only, transactional temp fixtures: never read or modify customer records.
 const target = new URL(process.env.DATABASE_URL ?? '');
 assert(['localhost', '127.0.0.1'].includes(target.hostname) && target.pathname === '/hee_ci', 'Isolated hee_ci database required');
@@ -52,3 +53,6 @@ try {
 } finally {
   await prisma.$disconnect();
 }
+
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });
