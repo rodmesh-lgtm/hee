@@ -22,7 +22,7 @@ export function retailOAuthConfig(provider: RetailProvider, env: NodeJS.ProcessE
   if (provider === 'foodics') foodicsOrigins(environment);
   const apiVersion = env.SHOPIFY_ADMIN_API_VERSION ?? '';
   if (provider === 'shopify' && !/^20\d{2}-(01|04|07|10)$/.test(apiVersion)) throw new Error('PROVIDER_NOT_CONFIGURED');
-  return { clientId, clientSecret, key, keyVersion, environment, apiVersion,
+  return { clientId, clientSecret, key, keyVersion, environment, apiVersion, productsEnabled: env.SHOPIFY_RETAIL_PRODUCTS_ENABLED === 'true',
     callback: `${shopifyAppOrigin(env)}/api/retail-analytics/oauth/${provider}/callback` };
 }
 export function retailOAuthReady(provider: RetailProvider) { try { retailOAuthConfig(provider); return true; } catch { return false; } }
@@ -50,7 +50,7 @@ export async function startRetailOAuth(input: { businessId: string; userId: stri
     await tx.whatsAppCommerceOAuthSession.create({ data: { businessId: input.businessId, integrationId: integration.id, initiatedByUserId: input.userId, stateDigest: digest(state), status: created(input.provider), expiresAt: new Date(now.getTime() + 600000) } });
     await writeWhatsAppAuditLog({ businessId: input.businessId, actorUserId: input.userId, action: 'retail.oauth.start', targetType: 'commerce_integration', targetId: integration.id, outcome: 'success', database: tx });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-  return retailAuthorizationUrl({ provider: input.provider, clientId: config.clientId, state, callback: config.callback, shop: input.shop, environment: config.environment });
+  return retailAuthorizationUrl({ provider: input.provider, clientId: config.clientId, state, callback: config.callback, shop: input.shop, environment: config.environment, productsEnabled: config.productsEnabled });
 }
 async function jsonRequest(url: string, init: RequestInit) {
   const response = await fetch(url, { ...init, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(12000) });

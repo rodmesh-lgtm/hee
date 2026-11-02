@@ -43,3 +43,9 @@ test('Foodics identity requires verified business ID and read scopes; removes ow
   assert.throws(() => verifyFoodicsIdentity({ data: { ...payload.data, business: { id: '-'.repeat(36), name: 'Retail' } } }));
   assert.throws(() => verifyFoodicsIdentity(null));
 });
+
+test('Product read scope is opt-in until the Shopify app version is configured', () => {
+  const url = new URL(retailAuthorizationUrl({ provider: 'shopify', clientId: 'test', state, callback, shop: 'example.myshopify.com', productsEnabled: true }));
+  assert.equal(url.searchParams.get('scope'), 'read_orders,read_products');
+  assert.doesNotMatch(url.searchParams.get('scope')!, /write_/);
+});
