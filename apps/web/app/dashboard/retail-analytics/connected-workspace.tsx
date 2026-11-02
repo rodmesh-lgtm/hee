@@ -72,6 +72,7 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
         success = false;
         const code = error instanceof Error ? error.message : '';
         const accessLost = ['WORKSPACE_CHANGED','ACCOUNT_UNAVAILABLE','REAUTHORIZE_REQUIRED','UNAUTHENTICATED'].includes(code);
+        if (code === 'WORKSPACE_CHANGED' || code === 'UNAUTHENTICATED') for (const key of Object.keys(nextResults)) delete nextResults[key];
         nextResults[account.id] = { ...(accessLost ? {} : results[account.id]), error: errors[code] ?? t('تعذرت قراءة التقرير. أعد المحاولة؛ لم تُستبدل البيانات بأرقام صفرية.', 'Report unavailable. Retry; failure is not represented as zero sales.') };
         if (accessLost) { setResults({}); break; }
       }
