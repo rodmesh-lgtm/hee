@@ -44,7 +44,8 @@ webhook Signature selected; canonical webhook URL configured; existing
 ### Outstanding release gates
 
 - CI, backed-up migration workflow, preview/live rehearsal and deployment.
-- Confirm worker schedule actually runs the welcome outbox in the deployed worker.
+- CLI and Vercel Salla stages both process the welcome outbox; verify the deployed
+  schedule and heartbeat after enabling Easy mode.
 - Prove delivery to a real test inbox and complete the activation/login journey.
 - Self-service activation-link renewal is implemented with email/IP limits and a
   generic response. Verify real delivery and renewal during the live rehearsal.
@@ -58,6 +59,8 @@ webhook Signature selected; canonical webhook URL configured; existing
 - Default Node test mode: 83 Salla unit tests passed, including activation-link
   renewal and welcome delivery retry/revocation/ownership checks.
 - TypeScript and scoped ESLint passed.
+- Full default unit suite passed: 1452 tests. A subsequent Vercel welcome-stage
+  test also passed, covering disabled mode, empty queue and bounded backlog.
 - CI applied the additive migration successfully to PostgreSQL. Its unit phase
   exposed a missing readiness migration entry and a server-only test harness
   import; both were corrected without relaxing production isolation checks.
