@@ -9,6 +9,8 @@ export async function sendNextSallaWelcome() {
   const key = process.env.RESEND_API_KEY?.trim(), from = process.env.HEE_FROM_EMAIL?.trim();
   if (!key || !from) return { processed: false };
   const now = new Date();
+  await db.sallaEasyInstallation.updateMany({ where: { claimedAt: null, claimExpiresAt: { lte: now }, claimHash: { not: null } },
+    data: { claimHash: null, claimEnvelope: Prisma.DbNull, welcomeStatus: "expired", welcomeLeaseUntil: null } });
   const item = await db.$transaction(async tx => {
     const rows = await tx.$queryRaw<Array<{ merchantId: string }>>(Prisma.sql`
       SELECT "merchantId" FROM "SallaEasyInstallation"
@@ -25,7 +27,8 @@ export async function sendNextSallaWelcome() {
   const where = { merchantId: item.merchantId, claimHash: item.claimHash, welcomeLeaseUntil: item.welcomeLeaseUntil };
   if (item.user.deletedAt || item.user.deactivatedAt || item.business.deletedAt || item.business.ownerId !== item.userId
     || item.integration.status !== "active" || !item.claimEnvelope || !item.claimExpiresAt || item.claimExpiresAt <= now) {
-    await db.sallaEasyInstallation.updateMany({ where, data: { welcomeStatus: "blocked", welcomeLeaseUntil: null } });
+    await db.sallaEasyInstallation.updateMany({ where, data: { welcomeStatus: "blocked", welcomeLeaseUntil: null,
+      claimHash: null, claimEnvelope: Prisma.DbNull } });
     return { processed: true, sent: false };
   }
   let sent = false;

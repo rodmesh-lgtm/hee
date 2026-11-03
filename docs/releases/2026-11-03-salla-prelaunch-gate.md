@@ -46,11 +46,21 @@ webhook Signature selected; canonical webhook URL configured; existing
 - CI, backed-up migration workflow, preview/live rehearsal and deployment.
 - Confirm worker schedule actually runs the welcome outbox in the deployed worker.
 - Prove delivery to a real test inbox and complete the activation/login journey.
-- Self-service renewal of expired activation links is not yet implemented; current
-  UI refers to support. Add a rate-limited generic-response resend flow before launch.
+- Self-service activation-link renewal is implemented with email/IP limits and a
+  generic response. Verify real delivery and renewal during the live rehearsal.
 - Implement and verify the SAR119 Salla subscription entitlement lifecycle.
 - Exercise actual WhatsApp sender/template delivery and appointment/OTP workflow.
-- Expired/purged provisioning data needs a retention cleanup policy.
+- Expired claim secrets are cleared by the welcome worker. Provisioned account
+  record retention still needs an explicit policy.
+
+### Follow-up verification
+
+- Default Node test mode: 83 Salla unit tests passed, including activation-link
+  renewal and welcome delivery retry/revocation/ownership checks.
+- TypeScript and scoped ESLint passed.
+- CI applied the additive migration successfully to PostgreSQL. Its unit phase
+  exposed a missing readiness migration entry and a server-only test harness
+  import; both were corrected without relaxing production isolation checks.
 
 ## Required implementation properties
 

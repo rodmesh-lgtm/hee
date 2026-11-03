@@ -2,9 +2,11 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef } from "react";
 import { activateSallaAccount } from "./action";
+import { resendSallaActivation } from "./resend";
 
 export default function SallaActivationPage() {
   const tokenInput = useRef<HTMLInputElement>(null);
+  const [resendState, resendAction, resending] = useActionState(resendSallaActivation, { message: "" });
   const [state, action, pending] = useActionState(activateSallaAccount, {});
   useEffect(() => {
     const value = new URLSearchParams(window.location.hash.slice(1)).get("token");
@@ -30,6 +32,7 @@ export default function SallaActivationPage() {
           <p className="text-sm">استخدم هذه الصفحة من رابط التفعيل الموجود في بريد الترحيب.</p>
           <button disabled={pending} className="w-full rounded-xl bg-teal-800 p-3 font-bold text-white disabled:opacity-50">{pending ? "جارٍ التفعيل…" : "تأكيد وتفعيل الحساب"}</button>
         </form>}
+      {!state.success ? <details className="mt-6 border-t pt-4"><summary className="cursor-pointer font-bold">لم تصلك الرسالة أو انتهت صلاحية الرابط؟</summary><form action={resendAction} className="mt-3 space-y-3"><label className="block">بريد حساب التاجر<input name="email" type="email" autoComplete="email" required maxLength={254} className="mt-2 w-full rounded-xl border p-3" /></label><button disabled={resending} className="rounded-xl border border-teal-700 px-4 py-2 disabled:opacity-50">{resending ? "جارٍ الطلب…" : "طلب رابط تفعيل جديد"}</button>{resendState.message ? <p role="status" className="text-sm leading-7">{resendState.message}</p> : null}</form></details> : null}
       <p className="mt-6 text-sm leading-7 text-slate-600">تفعيل الحساب لا يشتري باقة مدفوعة. رسوم رسائل Meta منفصلة عن اشتراك INFRO. للمساعدة: <a href="mailto:info@ir.sa" className="underline">info@ir.sa</a></p>
     </section>
   </main>;

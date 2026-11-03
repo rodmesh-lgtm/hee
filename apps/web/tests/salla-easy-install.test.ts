@@ -6,7 +6,8 @@ import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { PGlite } from "@electric-sql/pglite";
 import * as domain from "../app/lib/commerce/salla-authorization-domain";
-import * as envelope from "../app/lib/whatsapp/commerce-credential-envelope";
+import { encryption as envelope } from "./helpers/commerce-encryption";
+import type { CommerceCredentialEnvelope } from "../app/lib/whatsapp/commerce-credential-envelope";
 
 const config = { SALLA_LEGACY_WEBHOOK_UTC_OFFSET: 180,
   WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"), WHATSAPP_COMMERCE_CREDENTIAL_KEY_VERSION: "test" };
@@ -55,11 +56,11 @@ test("new install provisions unpublished tenant and encrypted credentials withou
   assert.equal(f.state.businesses[0].isPublished, false); assert.equal(f.state.businesses[0].ownerId, "new-user");
   const i = f.state.integrations[0], row = f.state.installation!;
   assert.equal(row.provisionedUser, true); assert.equal(row.businessId, i.businessId);
-  const credentials = envelope.decryptCommerceCredential({ envelope: i.credentialEnvelope as envelope.CommerceCredentialEnvelope, encryptionKeyBase64: config.WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY,
+  const credentials = envelope.decryptCommerceCredential({ envelope: i.credentialEnvelope as CommerceCredentialEnvelope, encryptionKeyBase64: config.WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY,
     businessId: String(i.businessId), integrationId: String(i.id), provider: "salla" });
   assert.equal(JSON.parse(credentials).accessToken, payload().data.access_token);
   assert.equal(JSON.stringify(i.credentialEnvelope).includes(payload().data.access_token), false);
-  assert.throws(() => envelope.decryptCommerceCredential({ envelope: i.credentialEnvelope as envelope.CommerceCredentialEnvelope, encryptionKeyBase64: config.WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY,
+  assert.throws(() => envelope.decryptCommerceCredential({ envelope: i.credentialEnvelope as CommerceCredentialEnvelope, encryptionKeyBase64: config.WHATSAPP_COMMERCE_CREDENTIAL_ENCRYPTION_KEY,
     businessId: "other-tenant", integrationId: String(i.id), provider: "salla" }));
   await f.run(payload(), "event-1");
   assert.equal(f.state.fetches, 1); assert.equal(f.state.users.length, 1);
