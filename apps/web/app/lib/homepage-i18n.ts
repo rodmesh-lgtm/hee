@@ -2,6 +2,30 @@ import type { AppLocale } from "./i18n";
 
 /** Reviewed public-homepage copy; business-owned content is never machine-translated. */
 export const HOMEPAGE_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "INFRO لإدارة الأعمال والتواصل والتحليلات": {
+  "en": "INFRO for business management, communication and analytics",
+  "zh-CN": "INFRO 企业管理、沟通与分析",
+  "es": "INFRO para gestión empresarial, comunicación y análisis",
+  "ur": "کاروباری انتظام، رابطے اور تجزیات کے لیے INFRO"
+},
+  "INFRO منصة برمجيات سحابية سعودية تخدم المنشآت بمختلف أنشطتها، وتجمع الهوية الرقمية والتشغيل والتواصل مع العملاء والتحليلات في مساحة عمل واحدة، بخدمات تُختار وفق احتياج المنشأة وباقتها.": {
+  "en": "INFRO is a Saudi cloud software platform serving businesses across industries. It brings digital identity, operations, customer communication and analytics into one workspace, with services selected according to each business's needs and plan.",
+  "zh-CN": "INFRO 是面向不同行业企业的沙特云软件平台，将数字身份、运营、客户沟通和分析整合到一个工作空间，企业可按需求和套餐选择服务。",
+  "es": "INFRO es una plataforma saudí de software en la nube para empresas de distintos sectores. Reúne identidad digital, operaciones, comunicación con clientes y análisis en un espacio, con servicios según las necesidades y el plan de cada empresa.",
+  "ur": "INFRO مختلف شعبوں کے کاروباروں کے لیے سعودی کلاؤڈ سافٹ ویئر پلیٹ فارم ہے۔ یہ ڈیجیٹل شناخت، کاروباری امور، صارفین سے رابطے اور تجزیات کو ایک جگہ جمع کرتا ہے؛ خدمات کاروبار کی ضرورت اور پیکیج کے مطابق منتخب کی جاتی ہیں۔"
+},
+  "تشمل خدماتنا صفحات المنشآت وروابطها وفروعها، وحجز المواعيد والتذكيرات، والكاشير والمحاسبة والفواتير والمخزون واشتراكات العملاء، وإدارة الفريق والصلاحيات ومذكرات الأعمال، وحملات واتساب والمحادثات والإشعارات الآلية، وربط المتاجر، ولوحات التقارير والتحليلات لحسابات المنشأة المرتبطة، وروابط المشاهدة المباشرة المؤقتة لكاميراتها.": {
+  "en": "Our services include business pages, links and branches; appointments and reminders; POS, accounting, invoices, inventory and customer subscriptions; team permissions and business notes; WhatsApp campaigns, conversations and automated notifications; store integrations; reporting and analytics for connected business accounts; and temporary live-view links for business cameras.",
+  "zh-CN": "我们的服务包括企业页面、链接与分店，预约与提醒，收银、会计、发票、库存与客户订阅，团队权限与业务笔记，WhatsApp 营销活动、对话与自动通知，店铺连接，已连接企业账户的报表与分析，以及企业摄像头的临时直播观看链接。",
+  "es": "Nuestros servicios incluyen páginas, enlaces y sucursales; citas y recordatorios; TPV, contabilidad, facturas, inventario y suscripciones de clientes; permisos de equipo y notas; campañas, conversaciones y avisos de WhatsApp; integración de tiendas; informes y análisis de cuentas conectadas; y enlaces temporales de vídeo en directo de cámaras del negocio.",
+  "ur": "خدمات میں کاروباری صفحات، روابط اور شاخیں، ملاقاتیں اور یاد دہانیاں، کیشئر، حسابات، رسیدیں، اسٹاک اور صارفین کی رکنیت، ٹیم کی اجازتیں اور کاروباری نوٹس، واٹس ایپ مہمات، گفتگو اور خودکار اطلاعات، اسٹور انضمام، منسلک کاروباری اکاؤنٹس کی رپورٹس اور تجزیات، اور کاروبار کے کیمروں کے عارضی لائیو روابط شامل ہیں۔"
+},
+  "تُقدّم الخدمات الرقمية عبر باقات اشتراك أو خدمات مستقلة وفق الأسعار والشروط المنشورة. رسوم Meta والخدمات الخارجية منفصلة بحسب المزود. يتطلب تشغيل التكاملات والبث إعدادًا وصلاحيات واختبارًا؛ وتُعرض حالة كل ربط داخل الحساب، ولا تُعد التكاملات قيد التجهيز خدمات مفعّلة.": {
+  "en": "Digital services are offered through subscription plans or standalone services under published prices and terms. Meta and external provider fees are separate. Integrations and live streaming require setup, permissions and testing. Each connection's status is shown in the account; integrations still being prepared are not active services.",
+  "zh-CN": "数字服务通过订阅套餐或独立服务提供，适用公布的价格与条款。Meta 及外部服务商的费用另计。集成和直播需要配置、授权与测试；各连接状态会在账户中显示，准备中的集成不属于已启用服务。",
+  "es": "Los servicios digitales se ofrecen mediante planes o servicios independientes, con precios y condiciones publicados. Las tarifas de Meta y proveedores externos son independientes. Las integraciones y el vídeo en directo requieren configuración, permisos y pruebas. El estado se muestra en la cuenta; las integraciones en preparación no son servicios activos.",
+  "ur": "ڈیجیٹل خدمات شائع شدہ قیمتوں اور شرائط کے مطابق پیکیجز یا الگ خدمات کی صورت میں دستیاب ہیں۔ Meta اور بیرونی فراہم کنندگان کی فیس الگ ہے۔ انضمام اور لائیو نشریات کے لیے ترتیب، اجازتیں اور جانچ ضروری ہیں۔ ہر کنکشن کی حالت اکاؤنٹ میں دکھائی جاتی ہے؛ زیر تیاری انضمام فعال خدمات نہیں ہیں۔"
+},
   "مجانية": {
     "en": "Free",
     "zh-CN": "免费",

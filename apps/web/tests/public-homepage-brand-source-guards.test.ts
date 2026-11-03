@@ -20,7 +20,7 @@ test("public homepage exposes INFRO as the product brand while preserving ir.sa 
   assert.match(pageSource, /INFRO \| هويتك الرقمية والتسويقية/);
   assert.match(homepageSource, /aria-label="INFRO"/);
   assert.match(homepageSource, /عن INFRO/);
-  assert.match(homepageSource, /INFRO للهوية الرقمية والتسويقية/);
+  assert.match(homepageSource, /INFRO لإدارة الأعمال والتواصل والتحليلات/);
   assert.match(homepageSource, /منظومة INFRO/);
   assert.match(homepageSource, /منصة INFRO/);
   assert.match(homepageSource, /صُممت INFRO/);
