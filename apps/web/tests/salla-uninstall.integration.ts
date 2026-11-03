@@ -16,6 +16,7 @@ function fixture(connectedAt = new Date("2026-10-26T09:00:00Z"), missing = false
     state.writes.push({ model, where, data }); return { count: 1 };
   };
   const database = { $transaction: async (operation: (tx: unknown) => Promise<unknown>) => operation({
+    $executeRaw: async (_sql: TemplateStringsArray, key: string) => { assert.equal(key, `salla-store:${input.merchantId}`); return 1; },
     $queryRaw: async (sql: { values: unknown[] }) => {
       assert.ok(sql.values.includes(input.businessId)); assert.ok(sql.values.includes(input.integrationId)); assert.ok(sql.values.includes(input.merchantId));
       return missing ? [] : [{ status: state.status, connectedAt }];

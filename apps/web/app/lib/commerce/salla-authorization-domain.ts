@@ -54,3 +54,17 @@ export function sallaAuthorizationIsStale(authorizedAt: Date, lastAuthorizedAt: 
   return Boolean(lastAuthorizedAt && authorizedAt <= lastAuthorizedAt
     || disconnectedAt && authorizedAt <= disconnectedAt);
 }
+
+export function parseSallaInstaller(payload: unknown, merchantId: string) {
+  const root = record(payload), data = record(root?.data), merchant = record(data?.merchant);
+  const id = merchant?.id;
+  if (root?.success !== true || !(typeof id === "string" || typeof id === "number" && Number.isSafeInteger(id))
+    || String(id) !== merchantId) throw new Error("SALLA_INSTALLER_MERCHANT_MISMATCH");
+  const email = typeof data?.email === "string" ? data.email.trim().toLowerCase() : "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) throw new Error("SALLA_INSTALLER_EMAIL_INVALID");
+  const name = typeof data?.name === "string" ? data.name.trim().slice(0, 120) : "";
+  const storeName = typeof merchant?.name === "string" ? merchant.name.trim().slice(0, 120) : "";
+  if (!name || !storeName) throw new Error("SALLA_INSTALLER_NAME_INVALID");
+  // This identifies the authorized installer, not the owner of an existing INFRO tenant.
+  return { email, name, storeName };
+}

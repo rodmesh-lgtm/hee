@@ -12,6 +12,7 @@ export async function applySallaUninstall(input: {
 }) {
   const now = input.now ?? new Date();
   return (input.database ?? db).$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`salla-store:${input.merchantId}`}))`;
     const rows = await tx.$queryRaw<Array<{ status: string; connectedAt: Date | null }>>(Prisma.sql`
       SELECT "status", "connectedAt" FROM "WhatsAppCommerceIntegration"
       WHERE "id" = ${input.integrationId} AND "businessId" = ${input.businessId}

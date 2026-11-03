@@ -20,6 +20,7 @@ model User {
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
   deactivatedAt DateTime?
+  sallaInstallations SallaEasyInstallation[]
   sessions Session[]
   businesses Business[]
   authIdentities AuthIdentity[]
@@ -194,6 +195,7 @@ model Business {
   whatsappAutomationApiKeys WhatsAppAutomationApiKey[]
   whatsappAutomationCarts WhatsAppAutomationCart[]
   whatsappAutomationCartEvents WhatsAppAutomationCartEvent[]
+  sallaInstallations SallaEasyInstallation[]
   whatsappCommerceIntegrations WhatsAppCommerceIntegration[]
   whatsappCommerceOAuthSessions WhatsAppCommerceOAuthSession[]
   whatsappShopifyWebhookEvents WhatsAppShopifyWebhookEvent[]
@@ -1310,6 +1312,7 @@ model WhatsAppCommerceIntegration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  sallaInstallation SallaEasyInstallation?
   oauthSessions WhatsAppCommerceOAuthSession[]
   shopifyWebhookEvents WhatsAppShopifyWebhookEvent[]
   shopifyWebhookSync WhatsAppShopifyWebhookSync?
@@ -1616,4 +1619,31 @@ model LiveViewSession {
   station LiveViewStation @relation(fields: [stationId, businessId], references: [id, businessId], onDelete: Restrict)
   @@index([businessId, createdAt])
   @@index([stationId, endedAt])
+}
+
+// Durable, tenant-bound Easy OAuth activation and welcome-email outbox.
+model SallaEasyInstallation {
+  merchantId String @id
+  businessId String
+  integrationId String @unique
+  userId String
+  provisionedUser Boolean @default(false)
+  authorizedAt DateTime
+  eventDigest String
+  claimHash String? @unique
+  claimExpiresAt DateTime?
+  claimEnvelope Json?
+  claimedAt DateTime?
+  welcomeStatus String @default("pending")
+  welcomeAttempts Int @default(0)
+  welcomeNextAt DateTime @default(now())
+  welcomeLeaseUntil DateTime?
+  welcomeSentAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  integration WhatsAppCommerceIntegration @relation(fields: [integrationId, businessId], references: [id, businessId], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@unique([integrationId, businessId], map: "SallaEasyInstallation_integration_business_unique")
+  @@index([welcomeStatus, welcomeNextAt])
 }

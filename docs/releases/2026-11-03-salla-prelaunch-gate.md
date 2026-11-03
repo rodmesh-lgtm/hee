@@ -17,16 +17,40 @@ pre-launch meeting email. It does not certify the portal settings or live flows.
 | Portal access | Partner portal redirects to login in the current browser. | Secure sign-in required to inspect settings, plan and create a new demo store. |
 | Feature demonstration | Existing implementations are present, but were not exercised on a fresh install during this audit. | Run the live acceptance script below; capture safe evidence. |
 
-## Prepared in this branch
+## Implemented in this branch (not enabled in production)
 
-- Strict Easy authorization payload parser with absolute epoch expiration (not
-  `expires_in`), required refresh token, offline access and provider timestamp.
-- Staleness predicate to prevent duplicate/old authorization overwriting refreshed
-  credentials or an uninstall. Persistence must call it under the merchant lock.
-- 15 passing targeted tests across authorization, refresh domain, uninstall domain
-  and webhook payload redaction.
-- The parser is deliberately **not wired to production**. It alone does not
-  implement onboarding or change authorization behavior.
+- Easy authorization handler runs after HMAC verification and before existing-store
+  lookup when `SALLA_EASY_MODE_ENABLED=true`. Default off preserves Custom OAuth.
+- Provider user-info verification compares merchant ID. Existing tenant ownership
+  is preserved even if the installer is a different Salla employee.
+- Transactional provisional account, unpublished business, encrypted integration
+  credential and tenant-bound installation record. Conflicting historical tenant
+  mappings fail closed. No paid entitlement or session is created on installation.
+- Hashed, expiring, single-use activation link; initial password and real legal
+  acceptance are required. Existing password/OAuth accounts require sign-in and
+  cannot have their credentials overwritten by installation links.
+- Durable welcome-email outbox with leases, retries and provider idempotency.
+  The activation secret is encrypted while pending and cleared after accepted send.
+  Welcome links use fragments to avoid HTTP query logs.
+- Dedicated migration with composite tenant/integration FK and unique merchant.
+- Local validation: 94 targeted Salla tests (including orchestration fixtures,
+  activation guards and actual PGlite migration constraints), TypeScript and scoped
+  ESLint. This does not constitute a live fresh-store acceptance test.
+
+Portal observed on 2026-11-03: app under review; Custom OAuth selected;
+webhook Signature selected; canonical webhook URL configured; existing
+`iNFRO_platform` demo store connected. No new store created and no portal mode changed.
+
+### Outstanding release gates
+
+- CI, backed-up migration workflow, preview/live rehearsal and deployment.
+- Confirm worker schedule actually runs the welcome outbox in the deployed worker.
+- Prove delivery to a real test inbox and complete the activation/login journey.
+- Self-service renewal of expired activation links is not yet implemented; current
+  UI refers to support. Add a rate-limited generic-response resend flow before launch.
+- Implement and verify the SAR119 Salla subscription entitlement lifecycle.
+- Exercise actual WhatsApp sender/template delivery and appointment/OTP workflow.
+- Expired/purged provisioning data needs a retention cleanup policy.
 
 ## Required implementation properties
 

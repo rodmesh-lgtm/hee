@@ -26,7 +26,7 @@ async function loadModule<T>(path: string, dependencies: Record<string, unknown>
   const source = await readFile(new URL(path, import.meta.url), "utf8");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const exports = {};
-  runInNewContext(compiled, { exports, require: (id: string) => { assert.ok(id in dependencies, id); return dependencies[id]; }, Date, Error, Response, console });
+  runInNewContext(compiled, { exports, require: (id: string) => { assert.ok(id in dependencies, id); return dependencies[id]; }, Date, Error, Response, console, process: { env: {} } });
   return exports as T;
 }
 
@@ -49,6 +49,7 @@ async function fixture() {
       return data;
     };
     return {
+      $executeRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => sql.query(Prisma.sql(strings, ...values).text, values),
       $queryRaw: async (query: Prisma.Sql) => (await sql.query(query.text, query.values)).rows,
       sallaWebhookEvent: {
         create,
@@ -96,6 +97,8 @@ async function fixture() {
   })).applySallaUninstall;
   const route = await loadModule<{ POST: (r: Request) => Promise<Response> }>("../app/api/commerce/salla/webhook/route.ts", {
     "node:crypto": { randomUUID }, "next/server": { NextResponse: Response, after: () => { scheduled++; } },
+    "../../../../lib/commerce/salla-easy-install": { installSallaEasy: () => { throw Error("Unexpected installation"); } },
+    "../../../../lib/commerce/salla-welcome": { sendNextSallaWelcome: () => { throw Error("Unexpected welcome"); } },
     "../../../../lib/db": { db: database }, "../../../../lib/request-body": { readBoundedText },
     "../../../../lib/commerce/salla-config": { getSallaConfig: () => ({ SALLA_APP_ID: "123", SALLA_WEBHOOK_SECRET: secret, SALLA_LEGACY_WEBHOOK_UTC_OFFSET: 180 }) },
     "../../../../lib/commerce/salla-subscription-receipt": receipts,
