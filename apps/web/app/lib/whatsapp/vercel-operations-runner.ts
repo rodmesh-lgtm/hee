@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "../db";
 import { processNextSmartReminderDelivery } from "../reminders/delivery-worker";
 import { processNextSallaWebhookEvent } from "../commerce/salla-webhook-processor";
+import { sendNextSallaWelcome } from "../commerce/salla-welcome";
 import { runPeriodicCommerceOrderSync } from "../commerce/periodic-order-sync";
 import { isSmartRemindersSchemaReady } from "../reminders/schema-readiness";
 import { runSmartReminderScheduler } from "../reminders/scheduler";
@@ -70,6 +71,11 @@ async function runShopifyWebhooks(env: NodeJS.ProcessEnv) {
 }
 
 async function runSallaWebhooks(env: NodeJS.ProcessEnv) {
+  if (env.SALLA_EASY_MODE_ENABLED === "true") {
+    for (let index = 0; index < 10; index += 1) {
+      if (!(await sendNextSallaWelcome()).processed) break;
+    }
+  }
   const batchSize = boundedBatch(env, "SALLA_WEBHOOK_BATCH_SIZE", 100, 500);
   const workerId = `vercel-salla-${randomUUID()}`;
   for (let index = 0; index < batchSize; index += 1) {

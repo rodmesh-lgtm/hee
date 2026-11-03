@@ -5,6 +5,8 @@ import { after, NextResponse } from "next/server";
 import { db } from "../../../../lib/db";
 import { readBoundedText } from "../../../../lib/request-body";
 import { getSallaConfig } from "../../../../lib/commerce/salla-config";
+import { installSallaEasy } from "../../../../lib/commerce/salla-easy-install";
+import { sendNextSallaWelcome } from "../../../../lib/commerce/salla-welcome";
 import { sallaWebhookStoragePayload } from "../../../../lib/commerce/salla-webhook-storage";
 import { parseSallaUninstall } from "../../../../lib/commerce/salla-lifecycle-domain";
 import { applySallaUninstall } from "../../../../lib/commerce/salla-uninstall";
@@ -32,6 +34,17 @@ export async function POST(request: Request) {
   const merchantId = sallaMerchantId(payload);
   const eventType = sallaEventType(payload);
   if (!/^\d{1,32}$/.test(merchantId) || !eventType) return NextResponse.json({ ok: false }, { status: 400 });
+  if (eventType === "app.store.authorize" && process.env.SALLA_EASY_MODE_ENABLED === "true") {
+    // Keep disabled until the schema migration and fresh-install rehearsal pass.
+    try {
+      await installSallaEasy(payload, sallaWebhookEventId(rawBody, merchantId, null));
+      after(async () => { try { await sendNextSallaWelcome(); } catch { console.error("[salla-welcome] retry_required"); } });
+      return NextResponse.json({ ok: true });
+    } catch {
+      console.error("[salla-webhook] authorization_failed");
+      return NextResponse.json({ ok: false }, { status: 503 });
+    }
+  }
   const integration = await db.whatsAppCommerceIntegration.findFirst({
     where: { provider: "salla", externalStoreId: merchantId, status: eventType === "app.uninstalled" ? { in: ["active", "disconnected"] } : "active" },
     orderBy: [{ status: "asc" }, { connectedAt: "desc" }, { createdAt: "desc" }],
