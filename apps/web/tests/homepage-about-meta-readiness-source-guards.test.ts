@@ -9,8 +9,8 @@ const page = readFileSync(resolve(process.cwd(), "app/page.tsx"), "utf8");
 test("homepage exposes a navigable and visible About INFRO section", () => {
   assert.match(homepage, /href="#about">\{t\("عن INFRO"\)\}/);
   assert.match(homepage, /<section id="about" aria-labelledby="about-title"/);
-  assert.match(homepage, /INFRO مشروع تقني سعودي/);
-  assert.match(homepage, /هوية أعمال رقمية وتسويقية موثوقة ومنظمة/);
+  assert.match(homepage, /INFRO منصة برمجيات سحابية سعودية/);
+  assert.match(homepage, /الهوية الرقمية والتشغيل والتواصل مع العملاء والتحليلات/);
   assert.match(homepage, /الكيان القانوني: مجموعة طلبات المعلومات لخدمات الأعمال/);
   assert.doesNotMatch(homepage, /href="#about">عن iR/);
 });
