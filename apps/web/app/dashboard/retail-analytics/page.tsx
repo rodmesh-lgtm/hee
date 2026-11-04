@@ -1,3 +1,5 @@
+import { Infro360Plan } from "../../../components/infro-360-plan";
+import { commercialAccess } from "../../lib/commercial-access";
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '../../lib/auth';
 import { getActiveBusinessForUser } from '../../lib/active-business';
@@ -15,9 +17,15 @@ export async function generateMetadata() {
 export default async function RetailAnalyticsPage({ searchParams }: { searchParams: Promise<{ connection?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  // Financial reports are owner-only; visitor analytics permission is insufficient.
-  const business = await getActiveBusinessForUser(user.id);
+  // Financial report access requires explicit membership permission and a current paid seat.
+  const business = await getActiveBusinessForUser(user.id, "businessAnalytics");
   if (!business) redirect('/dashboard');
+  const isOwner = business.ownerId === user.id;
+  const seats = isOwner ? await Promise.all([
+    commercialAccess(business.id),
+    db.businessMember.count({where:{businessId:business.id,status:"active"}}),
+    db.oAuthState.count({where:{provider:"business-staff-invite",nonce:business.id,expiresAt:{gt:new Date()}}}),
+  ]).then(([plan, members, pending])=>({limit:plan.staffLimit,used:members+1,pending})) : undefined;
   const english = await getRequestLocale() === 'en';
   const accounts = await db.whatsAppCommerceIntegration.findMany({
     where: { businessId: business.id, provider: { in: ['shopify', 'foodics'] } },
@@ -37,6 +45,7 @@ export default async function RetailAnalyticsPage({ searchParams }: { searchPara
   return <div dir={english ? 'ltr' : 'rtl'} className="space-y-6 pb-8">
     <header className="rounded-3xl border border-teal-500/25 bg-teal-500/5 p-6"><p>{business.name}</p><h1 className="mt-2 text-3xl font-bold">{t('مركز تحليلات الأعمال', 'Business analytics hub')}</h1><p className="mt-3 leading-7">{t('لوحة واحدة لحسابات منشأتك عبر المنصات، لمختلف الأنشطة: المطاعم والضيافة والتجارة والخدمات. تتحدد التقارير المتاحة بحسب النظام المرتبط وصلاحياته.', 'One workspace for your business accounts across platforms, serving hospitality, restaurants, commerce and services. Available reports depend on the connected system and its permissions.')}</p></header>
     {status ? <p role="status" className="rounded-xl border p-4">{status === 'connected' || status === 'already-connected' ? t('تم ربط الحساب. افتح لوحة المنصة لقراءة بياناته.', 'Account connected. Open the platform dashboard to read its data.') : t('راجع حالة الربط داخل لوحة المنصة.', 'Review connection status in the platform dashboard.')}</p> : null}
+    <Infro360Plan workspace canManage={isOwner} seats={seats}/>
     <AccountDirectory accounts={accounts} english={english}/>
     <details open={accounts.length === 0} className="rounded-2xl border border-slate-500/20 p-5">
       <summary className="cursor-pointer text-xl font-bold">{t('دليل البدء: من الربط إلى التقرير', 'Getting started: from connection to report')}</summary>
@@ -63,7 +72,7 @@ export default async function RetailAnalyticsPage({ searchParams }: { searchPara
         <p className="mt-3 text-sm font-semibold">{t('نطاق التقارير الحالي: Shopify', 'Current reporting coverage: Shopify')} · {reportingAccounts.length} {t('حساب متصل', 'connected accounts')}</p>
         <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm leading-7">{t('Foodics وICG بانتظار استكمال التكامل الرسمي. لا تدخل بياناتهما في الإجماليات المعروضة، ولا تُعامل كأن مبيعاتهما صفر.', 'Foodics and ICG await completion of their official integrations. Their data is not included in displayed totals and is not treated as zero sales.')}</p>
       </header>
-      {shopifyAccounts.length ? <ConnectedRetailWorkspace key={`${business.id}:hub`} embedded provider="shopify" businessId={business.id} businessName={business.name} english={english} accounts={shopifyAccounts} configured={retailOAuthReady('shopify')} foodicsConfigured={retailOAuthReady('foodics')} connectionStatus="" today={today}/> : <div className="rounded-2xl border border-dashed border-teal-500/30 p-6"><h3 className="text-xl font-bold">{t('ابدأ بربط أول حساب', 'Connect your first account')}</h3><p className="my-3 leading-7">{t('اربط متجر Shopify من بطاقته أعلاه، وستظهر تقاريره هنا تلقائيًا. يمكنك إضافة أكثر من متجر للمنشأة نفسها.', 'Connect a Shopify store using its card above. Its reports will appear here automatically, and you can add multiple stores to the same business.')}</p><Link href="/dashboard/retail-analytics/shopify" className="inline-block rounded-xl bg-teal-600 px-4 py-3 font-bold text-white">{t('ربط متجر Shopify', 'Connect Shopify store')}</Link></div>}
+      {shopifyAccounts.length ? <ConnectedRetailWorkspace canManage={business.ownerId === user.id} key={`${business.id}:hub`} embedded provider="shopify" businessId={business.id} businessName={business.name} english={english} accounts={shopifyAccounts} configured={retailOAuthReady('shopify')} foodicsConfigured={retailOAuthReady('foodics')} connectionStatus="" today={today}/> : <div className="rounded-2xl border border-dashed border-teal-500/30 p-6"><h3 className="text-xl font-bold">{t('ابدأ بربط أول حساب', 'Connect your first account')}</h3><p className="my-3 leading-7">{t('اربط متجر Shopify من بطاقته أعلاه، وستظهر تقاريره هنا تلقائيًا. يمكنك إضافة أكثر من متجر للمنشأة نفسها.', 'Connect a Shopify store using its card above. Its reports will appear here automatically, and you can add multiple stores to the same business.')}</p><Link href="/dashboard/retail-analytics/shopify" className="inline-block rounded-xl bg-teal-600 px-4 py-3 font-bold text-white">{t('ربط متجر Shopify', 'Connect Shopify store')}</Link></div>}
     </section>
   </div>;
 }

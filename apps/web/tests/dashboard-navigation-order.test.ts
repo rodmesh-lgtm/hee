@@ -24,3 +24,16 @@ test("server preference validation rejects malformed, duplicated and unknown rou
   assert.equal(validDashboardOrder([],allowed),true);
   assert.equal(validDashboardOrder(["b","a"],allowed),true);
 });
+
+test("visibility preferences round-trip without changing ordering or accepting arbitrary routes", async () => {
+  const { dashboardPreferences, hiddenDashboardItems, validDashboardPreferences } = await import('../lib/dashboard-navigation-order');
+  const allowed=['/dashboard','/dashboard/settings','/dashboard/support','/dashboard/whatsapp','/Accounting'];
+  const saved=dashboardPreferences(allowed,['/Accounting','/dashboard/whatsapp']);
+  assert.equal(validDashboardPreferences(saved,allowed),true);
+  assert.deepEqual(hiddenDashboardItems(saved),['/Accounting','/dashboard/whatsapp']);
+  assert.deepEqual(orderDashboardItems(allowed.map(href=>({href})),saved).map(item=>item.href),allowed);
+  for(const invalid of [['hidden:/dashboard'],['hidden:/dashboard/settings'],['hidden:/dashboard/support'],['hidden:/admin'],['hidden:/Accounting','hidden:/Accounting'],[null],{}]) assert.equal(validDashboardPreferences(invalid,allowed),false);
+  assert.equal(validDashboardPreferences(allowed,allowed),true);
+  assert.deepEqual(hiddenDashboardItems([]),[]);
+  assert.deepEqual(dashboardPreferences([],['/dashboard','/dashboard/settings']),[]);
+});

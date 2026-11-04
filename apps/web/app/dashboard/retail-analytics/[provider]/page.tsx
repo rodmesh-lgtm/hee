@@ -13,8 +13,8 @@ export default async function RetailAnalyticsPage({ searchParams, params }: { pa
   if (!['shopify', 'foodics', 'icg'].includes(provider)) notFound();
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  // Financial reports are owner-only; visitor analytics permission is insufficient.
-  const business = await getActiveBusinessForUser(user.id);
+  // Financial report access requires explicit membership permission and a current paid seat.
+  const business = await getActiveBusinessForUser(user.id, "businessAnalytics");
   if (!business) redirect('/dashboard');
   const english = await getRequestLocale() === 'en';
   const accounts = await db.whatsAppCommerceIntegration.findMany({
@@ -26,5 +26,5 @@ export default async function RetailAnalyticsPage({ searchParams, params }: { pa
   let initialAccountId: string;
   try { initialAccountId = resolveAccountSelection(query.account, accounts); } catch { notFound(); }
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-  return <ConnectedRetailWorkspace key={`${business.id}:${provider}:${initialAccountId}`} initialAccountId={initialAccountId} provider={provider as 'shopify' | 'foodics' | 'icg'} businessId={business.id} businessName={business.name} english={english} accounts={accounts} configured={retailOAuthReady('shopify')} foodicsConfigured={retailOAuthReady('foodics')} connectionStatus={query.connection ?? ''} today={today}/>;
+  return <ConnectedRetailWorkspace canManage={business.ownerId === user.id} key={`${business.id}:${provider}:${initialAccountId}`} initialAccountId={initialAccountId} provider={provider as 'shopify' | 'foodics' | 'icg'} businessId={business.id} businessName={business.name} english={english} accounts={accounts} configured={retailOAuthReady('shopify')} foodicsConfigured={retailOAuthReady('foodics')} connectionStatus={query.connection ?? ''} today={today}/>;
 }

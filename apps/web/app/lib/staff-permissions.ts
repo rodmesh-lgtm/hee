@@ -13,6 +13,7 @@ export const STAFF_SECTIONS = {
   notifications: { label: "الإشعارات", href: "/dashboard/notifications" },
   notes: { label: "مذكرات الأعمال", href: "/dashboard/notes" },
   store: { label: "متجر الأعمال", href: "/dashboard/business-store" },
+  businessAnalytics: { label: "مركز تحليلات الأعمال — قراءة التقارير المالية والمخزون", href: "/dashboard/retail-analytics" },
   analytics: { label: "الأداء", href: "/dashboard/analytics" },
   support: { label: "الدعم والمساعدة", href: "/dashboard/support" },
 } as const;
@@ -29,7 +30,7 @@ export function staffSectionForPath(pathname: string): StaffSection | null {
   if (["my-page", "services", "products", "catalog", "gallery", "offers", "contact-links", "page-builder", "page-customization", "preview", "share", "branding", "directory", "tools"].includes(root)) return "page";
   if (["digital-identity", "verification"].includes(root)) return "identity";
   if (["appointments", "working-hours"].includes(root)) return "appointments";
-  const roots: Record<string, StaffSection> = { "live-view": "liveView", inbox: "orders", whatsapp: "whatsapp", reminders: "reminders", notifications: "notifications", notes: "notes", "business-store": "store", analytics: "analytics", support: "support" };
+  const roots: Record<string, StaffSection> = { "retail-analytics": "businessAnalytics", "live-view": "liveView", inbox: "orders", whatsapp: "whatsapp", reminders: "reminders", notifications: "notifications", notes: "notes", "business-store": "store", analytics: "analytics", support: "support" };
   return roots[root] ?? null;
 }
 export function staffCanOpenPath(pathname: string, permissions: unknown) {
@@ -41,4 +42,11 @@ export function staffCanOpenPath(pathname: string, permissions: unknown) {
   if (["/dashboard", "/dashboard/settings", "/dashboard/settings/sessions"].includes(pathname)) return true;
   const section = staffSectionForPath(pathname);
   return section !== null && memberCanAccess(permissions, section);
+}
+
+/** Owner consumes the first paid seat. Stable member order prevents expired or
+ * downgraded plans from keeping all historical financial-report access alive. */
+export function withinAnalyticsSeatLimit(memberIds: readonly string[], memberId: string, staffLimit: number | null): boolean {
+  const position = memberIds.indexOf(memberId);
+  return position >= 0 && (staffLimit === null || (Number.isSafeInteger(staffLimit) && position + 1 < staffLimit));
 }

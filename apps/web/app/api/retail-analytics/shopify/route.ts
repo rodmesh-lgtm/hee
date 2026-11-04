@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   try {
     const user = await getCurrentUser();
     if (!user) return reply({ error: 'UNAUTHENTICATED' }, 401);
-    const business = await getActiveBusinessForUser(user.id);
+    const business = await getActiveBusinessForUser(user.id, "businessAnalytics");
     const params = new URL(request.url).searchParams;
     if (!business || params.get('businessId') !== business.id) return reply({ error: 'WORKSPACE_CHANGED' }, 403);
     const id = params.get('accountId') ?? '';
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const limit = await consumePublicWriteLimit({ scope: 'retail.shopify.read', businessId: business.id, identity: user.id, limit: 10, windowSeconds: 60 });
     if (!limit.allowed) return reply({ error: 'RATE_LIMITED' }, 429);
     const report = inventory ? await readConnectedShopifyInventory(business.id, id) : await readConnectedShopifyReport(business.id, id, period);
-    const current = await getActiveBusinessForUser(user.id);
+    const current = await getActiveBusinessForUser(user.id, "businessAnalytics");
     if (!current || current.id !== business.id) return reply({ error: 'WORKSPACE_CHANGED' }, 403);
     return reply({ accountId: id, businessId: business.id, report });
   } catch (error) {
