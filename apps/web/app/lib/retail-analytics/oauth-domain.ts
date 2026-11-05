@@ -9,11 +9,11 @@ export function foodicsOrigins(environment: string) {
   if (environment === 'sandbox') return { api: 'https://api-sandbox.foodics.com', console: 'https://console-sandbox.foodics.com' };
   throw new Error('FOODICS_ENVIRONMENT_REQUIRED');
 }
-export function retailAuthorizationUrl(input: { provider: RetailProvider; clientId: string; state: string; callback: string; shop?: string; environment?: string; productsEnabled?: boolean }) {
+export function retailAuthorizationUrl(input: { provider: RetailProvider; clientId: string; state: string; callback: string; shop?: string; environment?: string; productsEnabled?: boolean; locationsEnabled?: boolean }) {
   if (!/^[A-Za-z0-9_-]{43}$/.test(input.state)) throw new Error('INVALID_STATE');
   const params = new URLSearchParams({ client_id: input.clientId, state: input.state });
   if (input.provider === 'foodics') return `${foodicsOrigins(input.environment ?? '').console}/authorize?${params}`;
-  params.set('scope', input.productsEnabled ? 'read_orders,read_products' : 'read_orders');
+  params.set('scope', ['read_orders', ...(input.productsEnabled ? ['read_products'] : []), ...(input.locationsEnabled ? ['read_locations'] : [])].join(','));
   params.set('redirect_uri', input.callback);
   return `https://${normalizeShopifyDomain(input.shop ?? '')}/admin/oauth/authorize?${params}`;
 }

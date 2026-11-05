@@ -49,3 +49,11 @@ test('Product read scope is opt-in until the Shopify app version is configured',
   assert.equal(url.searchParams.get('scope'), 'read_orders,read_products');
   assert.doesNotMatch(url.searchParams.get('scope')!, /write_/);
 });
+
+test('Location consent is independently opt-in and never requests write permissions', () => {
+  for (const productsEnabled of [false, true]) {
+    const url = new URL(retailAuthorizationUrl({ provider:'shopify', clientId:'test', state, callback, shop:'example.myshopify.com', productsEnabled, locationsEnabled:true }));
+    assert.equal(url.searchParams.get('scope'), productsEnabled ? 'read_orders,read_products,read_locations' : 'read_orders,read_locations');
+    assert.doesNotMatch(url.searchParams.get('scope')!, /write_/);
+  }
+});

@@ -30,3 +30,9 @@ test('zero or cancelled-only groups have no invented average or positive share',
 test('overflow fails instead of producing inaccurate financial figures',()=>{
  assert.throws(()=>compareAccounts([{id:'a',name:'A',report:report([order({currentTotalMinor:Number.MAX_SAFE_INTEGER}),order()])}],period,'accounts'),/OVERFLOW/);
 });
+
+test('an empty account without location permission cannot complete a branch comparison',()=>{
+ const sources=[{id:'a',name:'A',report:report([],{locationsReadable:false})}];
+ assert.equal(compareAccounts(sources,period,'branches').complete,false);
+ assert.equal(compareAccounts(sources,period,'accounts').complete,true);
+});

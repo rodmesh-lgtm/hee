@@ -33,7 +33,7 @@ export function compareAccounts(sources: ComparisonSource[], period: { from: str
     }
   }
   // Do not issue portfolio rankings/shares when any selected account is unavailable.
-  const complete = sources.length > 0 && eligible.length === sources.length && (mode === 'accounts' || unavailable === 0);
+  const complete = sources.length > 0 && eligible.length === sources.length && (mode === 'accounts' || (unavailable === 0 && eligible.every(s => s.report!.locationsReadable !== false)));
   if (complete) for (const row of rows) {
     const total = rows.filter(r => r.currency === row.currency).reduce((sum,r) => sum + r.value, 0);
     if (!Number.isSafeInteger(total)) throw new Error('AMOUNT_OVERFLOW');
