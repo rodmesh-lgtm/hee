@@ -6,6 +6,7 @@ export type OrderReportRow = {
   currency: string; decimals: number; currentTotalMinor: number; taxMinor: number; discountsMinor: number; refundedMinor: number; netPaymentsMinor: number;
 };
 export type ShopifyReport = {
+  locationsReadable?: boolean;
   orders: OrderReportRow[];
   fetchedAt: string; from: string; until: string; complete: boolean; ordersRead: number;
   totals: { currency: string; decimals: number; orders: number; cancelled: number; currentTotalMinor: number; taxMinor: number; discountsMinor: number; refundedMinor: number; netPaymentsMinor: number }[];
@@ -110,7 +111,7 @@ export async function fetchShopifyRetailReport(input: {
     if (typeof info.endCursor !== 'string' || !info.endCursor || cursors.has(info.endCursor)) throw new Error('INVALID_PROVIDER_PAGINATION');
     cursors.add(info.endCursor); after = info.endCursor;
   }
-  return { fetchedAt: new Date().toISOString(), ...input.period, complete, ordersRead: seen.size, orders: rows, totals: [...totals.values()] };
+  return { fetchedAt: new Date().toISOString(), ...input.period, locationsReadable: input.includeLocations === true, complete, ordersRead: seen.size, orders: rows, totals: [...totals.values()] };
 }
 
 export function combineShopifyReports(reports: readonly ShopifyReport[]): ShopifyReport['totals'] {
