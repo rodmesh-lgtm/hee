@@ -2,9 +2,9 @@
 import { useI18n } from "../i18n/locale-provider";
 
 import { useId, useRef, useState, useTransition } from "react";
-import { ArrowDown, ArrowUp, GripVertical, ListOrdered } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, ListOrdered, Eye, EyeOff } from "lucide-react";
 import { saveDashboardNavigation } from "../../app/actions/dashboard-navigation";
-import { moveDashboardItem, orderDashboardItems } from "../../lib/dashboard-navigation-order";
+import { moveDashboardItem, orderDashboardItems, hiddenDashboardItems, dashboardPreferences, canHideDashboardItem } from "../../lib/dashboard-navigation-order";
 import { dashboardNavGroups, type DashboardNavItem } from "./dashboard-nav";
 
 export function DashboardNavOrderEditor({ items, order, onSaved }: { items: DashboardNavItem[]; order: string[]; onSaved: (order: string[]) => void }) {
@@ -13,6 +13,7 @@ export function DashboardNavOrderEditor({ items, order, onSaved }: { items: Dash
   const [editing, setEditing] = useState(false);
   const dragHelpId = useId();
   const [draft, setDraft] = useState<string[]>([]);
+  const [hidden, setHidden] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
   const dragged = useRef<string | null>(null);
@@ -29,15 +30,15 @@ export function DashboardNavOrderEditor({ items, order, onSaved }: { items: Dash
       try {
         const result = await saveDashboardNavigation(value);
         if (result.error) { setMessage(result.error); return; }
-        onSaved(value); setEditing(false); setMessage(value.length ? "تم حفظ ترتيبك في حسابك." : "تمت استعادة الترتيب الافتراضي.");
+        onSaved(value); setEditing(false); setMessage(value.length ? "تم حفظ ترتيب الأقسام وإمكانية ظهورها في حسابك." : "تمت استعادة الترتيب الافتراضي.");
         opener.current?.focus();
       } catch { setMessage("تعذر الاتصال. لم يُحفظ الترتيب؛ حاول مرة أخرى."); }
     });
   }
   return <div className="infro-nav-customizer">
-    <button ref={opener} type="button" aria-expanded={editing} onClick={() => { setDraft(orderDashboardItems(order.length ? items : dashboardNavGroups.flatMap(group => items.filter(item => item.group === group.id)), order).map(item => item.href)); setMessage(""); setEditing(value => !value); }} disabled={pending}><ListOrdered size={16}/>{editing ? t("إغلاق الترتيب") : t("ترتيب القائمة")}</button>
+    <button ref={opener} type="button" aria-expanded={editing} onClick={() => { setHidden(hiddenDashboardItems(order)); setDraft(orderDashboardItems(order.length ? items : dashboardNavGroups.flatMap(group => items.filter(item => item.group === group.id)), order).map(item => item.href)); setMessage(""); setEditing(value => !value); }} disabled={pending}><ListOrdered size={16}/>{editing ? t("إغلاق التخصيص") : t("تخصيص الأقسام")}</button>
     {editing ? <div className="infro-nav-editor">
-      <p>{t("اسحب الأقسام من المقبض أو استخدم الأسهم، ثم اضغط حفظ. يُحفظ ترتيبك في حسابك على جميع أجهزتك.")}</p>
+      <p>{t("رتب الأقسام بالأسهم أو السحب، واستخدم العين لإخفائها وإظهارها. تُحفظ اختياراتك في حسابك؛ الإخفاء لا يلغي الاشتراك أو يغيّر الصلاحيات.")}</p>
       <ol>{orderDashboardItems(items, draft).map((item, index, all) => <li key={item.href} draggable={!pending} onDragStart={event => { dragged.current=item.href; event.dataTransfer.effectAllowed="move"; event.dataTransfer.setData("text/plain",item.href); }} onDragEnd={() => { dragged.current=null; }} onDragOver={event => { if (!pending && dragged.current) { event.preventDefault(); event.dataTransfer.dropEffect="move"; } }} onDrop={event => { event.preventDefault(); if (!pending && dragged.current) move(dragged.current,item.href); dragged.current=null; }}>
         <button type="button" className="infro-nav-drag-handle" disabled={pending} aria-label={`${t("سحب")}: ${t(item.label)}`} aria-describedby={dragHelpId}
           ref={element => { const row = element?.closest("li"); if (row) rows.current.set(item.href, row); else rows.current.delete(item.href); }}
@@ -59,11 +60,12 @@ export function DashboardNavOrderEditor({ items, order, onSaved }: { items: Dash
           onLostPointerCapture={() => { touchDrag.current = null; setDropTarget(null); }}
           data-drop-target={dropTarget === item.href || undefined}
         ><GripVertical size={16} aria-hidden="true"/></button><span>{t(item.label)}</span>
+        <button type="button" disabled={pending || !canHideDashboardItem(item.href)} aria-pressed={!hidden.includes(item.href)} aria-label={`${hidden.includes(item.href) ? t("إظهار") : t("إخفاء")}: ${t(item.label)}`} title={!canHideDashboardItem(item.href) ? t("قسم أساسي يبقى ظاهرًا") : undefined} onClick={() => setHidden(current => current.includes(item.href) ? current.filter(href => href !== item.href) : [...current, item.href])}>{hidden.includes(item.href) ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
         <button type="button" disabled={pending || index===0} aria-label={`${t("رفع")}: ${t(item.label)}`} onClick={() => move(item.href,all[index-1].href)}><ArrowUp size={14}/></button>
         <button type="button" disabled={pending || index===all.length-1} aria-label={`${t("خفض")}: ${t(item.label)}`} onClick={() => move(item.href,all[index+1].href)}><ArrowDown size={14}/></button>
       </li>)}</ol>
       <span id={dragHelpId} className="sr-only">{t("على الجوال اسحب المقبض إلى القسم المطلوب. بلوحة المفاتيح استخدم زري الرفع والخفض.")}</span>
-      <div className="infro-nav-editor-actions"><button type="button" disabled={pending} onClick={() => save(draft)}>{pending ? t("جارٍ الحفظ…") : t("حفظ الترتيب")}</button><button type="button" disabled={pending} onClick={() => save([])}>{t("الافتراضي")}</button></div>
+      <div className="infro-nav-editor-actions"><button type="button" disabled={pending} onClick={() => save(dashboardPreferences(draft, hidden))}>{pending ? t("جارٍ الحفظ…") : t("حفظ التخصيص")}</button><button type="button" disabled={pending} onClick={() => save([])}>{t("إظهار الكل واستعادة الترتيب")}</button></div>
     </div> : null}
     {message ? <p role="status">{t(message)}</p> : null}
   </div>;

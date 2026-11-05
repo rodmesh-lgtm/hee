@@ -5,7 +5,7 @@ import { commercialAccess } from "./commercial-access";
 import { cookies, headers } from "next/headers";
 import { db } from "./db";
 import { getEffectiveSubscription } from "./subscription-entitlement";
-import { memberCanAccess, type StaffSection } from "./staff-permissions";
+import { memberCanAccess, withinAnalyticsSeatLimit, type StaffSection } from "./staff-permissions";
 
 export const ACTIVE_BUSINESS_COOKIE = "hee_active_business";
 const WORKSPACE_BUSINESS_COOKIE = "infro_workspace_business";
@@ -33,6 +33,11 @@ export async function getActiveBusinessForUser(userId: string, section?: StaffSe
     if (section.startsWith("laundry") && ACCOUNTING_SECURITY_HOLD) return null;
     const business = await getDashboardBusinessForUser(userId, true);
     if(!business || !(business.ownerId===userId || memberCanAccess(business.members[0]?.permissions,section)))return null;
+    if(section==="businessAnalytics" && business.ownerId!==userId){
+      const plan=await commercialAccess(business.id);
+      const members=await db.businessMember.findMany({where:{businessId:business.id,status:"active"},select:{id:true},orderBy:[{createdAt:"asc"},{id:"asc"}]});
+      if(!withinAnalyticsSeatLimit(members.map(member=>member.id),business.members[0]?.id??"",plan.staffLimit))return null;
+    }
     if(section==="liveView"||section.startsWith("laundry")){
       const plan=await commercialAccess(business.id);
       if(section==="liveView"?!plan.liveView:!plan.cashier)return null;

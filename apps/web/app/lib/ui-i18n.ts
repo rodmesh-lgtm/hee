@@ -4,6 +4,16 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "تخصيص الأقسام": {"en": "Customize sections", "zh-CN": "自定义栏目", "es": "Personalizar secciones", "ur": "حصوں کو حسب ضرورت بنائیں"},
+  "إغلاق التخصيص": {"en": "Close customization", "zh-CN": "关闭自定义", "es": "Cerrar personalización", "ur": "تخصیص بند کریں"},
+  "حفظ التخصيص": {"en": "Save customization", "zh-CN": "保存自定义", "es": "Guardar personalización", "ur": "تخصیص محفوظ کریں"},
+  "إظهار الكل واستعادة الترتيب": {"en": "Show all and reset order", "zh-CN": "显示全部并重置顺序", "es": "Mostrar todo y restablecer orden", "ur": "سب دکھائیں اور ترتیب بحال کریں"},
+  "قسم أساسي يبقى ظاهرًا": {"en": "Essential section stays visible", "zh-CN": "基础栏目保持可见", "es": "La sección esencial permanece visible", "ur": "بنیادی حصہ نظر آتا رہے گا"},
+  "إظهار": {"en": "Show", "zh-CN": "显示", "es": "Mostrar", "ur": "دکھائیں"},
+  "إخفاء": {"en": "Hide", "zh-CN": "隐藏", "es": "Ocultar", "ur": "چھپائیں"},
+  "تم حفظ ترتيب الأقسام وإمكانية ظهورها في حسابك.": {"en": "Section order and visibility saved to your account.", "zh-CN": "栏目顺序和可见性已保存到您的账户。", "es": "Orden y visibilidad guardados en tu cuenta.", "ur": "حصوں کی ترتیب اور مرئیت آپ کے اکاؤنٹ میں محفوظ ہو گئی۔"},
+  "رتب الأقسام بالأسهم أو السحب، واستخدم العين لإخفائها وإظهارها. تُحفظ اختياراتك في حسابك؛ الإخفاء لا يلغي الاشتراك أو يغيّر الصلاحيات.": {"en": "Reorder with arrows or drag, and use the eye to hide or show sections. Preferences are saved to your account; hiding does not cancel subscriptions or change permissions.", "zh-CN": "用箭头或拖动排序，点击眼睛隐藏或显示栏目。偏好保存在您的账户中；隐藏不会取消订阅或更改权限。", "es": "Ordena con flechas o arrastrando y usa el ojo para ocultar o mostrar secciones. Se guarda en tu cuenta; ocultar no cancela suscripciones ni cambia permisos.", "ur": "تیروں یا گھسیٹ کر ترتیب دیں، اور آنکھ سے حصے چھپائیں یا دکھائیں۔ انتخاب اکاؤنٹ میں محفوظ ہوتا ہے؛ چھپانے سے رکنیت یا اجازتیں نہیں بدلتی۔"},
+
   "مركز تحليلات الأعمال": { "en": "Business analytics hub", "zh-CN": "业务分析中心", "es": "Centro de análisis empresarial", "ur": "کاروباری تجزیات کا مرکز" },
   "تكاملات المتاجر": { "en": "Store integrations", "zh-CN": "商店集成", "es": "Integraciones de tiendas", "ur": "اسٹور انضمام" },
   "صيانة الأجهزة": { "en": "Appliance repair", "zh-CN": "设备维修", "es": "Reparación de aparatos", "ur": "آلات کی مرمت" },

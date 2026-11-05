@@ -87,7 +87,7 @@ test.describe.serial("customer dashboard functional surface", () => {
     try {
       await page.goto(`${baseUrl}/dashboard`);
       const nav = page.getByRole("navigation", { name: "التنقل الرئيسي", exact: true });
-      await nav.getByRole("button", { name: "ترتيب القائمة", exact: true }).click();
+      await nav.getByRole("button", { name: "تخصيص الأقسام", exact: true }).click();
       const rows=nav.locator(".infro-nav-editor li");
       await rows.filter({hasText:"تسويق واتساب"}).dragTo(rows.filter({hasText:"مركز العمل"}));
       await expect(rows.first()).toContainText("تسويق واتساب");
@@ -102,15 +102,21 @@ test.describe.serial("customer dashboard functional surface", () => {
       await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await touch.detach();
       await expect(rows.first()).toContainText("تسويق واتساب");
-      await nav.getByRole("button", { name: "حفظ الترتيب", exact: true }).click();
-      await expect(nav.getByRole("status")).toHaveText("تم حفظ ترتيبك في حسابك.");
+      await nav.getByRole("button", { name: "إخفاء: المواعيد والحجوزات", exact: true }).click();
+      await expect(nav.getByRole("button", { name: "إظهار: المواعيد والحجوزات", exact: true })).toHaveAttribute("aria-pressed", "false");
+      await expect(nav.getByRole("button", { name: "إخفاء: مركز العمل", exact: true })).toBeDisabled();
+      await nav.getByRole("button", { name: "حفظ التخصيص", exact: true }).click();
+      await expect(nav.getByRole("status")).toHaveText("تم حفظ ترتيب الأقسام وإمكانية ظهورها في حسابك.");
       expect((await db.user.findUniqueOrThrow({ where: { id: fixture.userId } })).dashboardNavOrder[0]).toBe("/dashboard/whatsapp");
       expect((await db.user.findUniqueOrThrow({ where: { id: other.userId } })).dashboardNavOrder).toEqual([]);
       await page.reload();
       await expect(nav.locator(".infro-nav-group a").first()).toContainText("تسويق واتساب");
-      await nav.getByRole("button", { name: "ترتيب القائمة", exact: true }).click();
-      await nav.getByRole("button", { name: "الافتراضي", exact: true }).click();
+      await expect(nav.locator('a[href="/dashboard/appointments"]')).toHaveCount(0);
+      expect((await db.user.findUniqueOrThrow({ where: { id: fixture.userId } })).dashboardNavOrder).toContain("hidden:/dashboard/appointments");
+      await nav.getByRole("button", { name: "تخصيص الأقسام", exact: true }).click();
+      await nav.getByRole("button", { name: "إظهار الكل واستعادة الترتيب", exact: true }).click();
       await expect(nav.getByRole("status")).toHaveText("تمت استعادة الترتيب الافتراضي.");
+      await expect(nav.locator('a[href="/dashboard/appointments"]')).toBeVisible();
       await page.reload();
       await expect(nav.locator(".infro-nav-group a").first()).toContainText("مركز العمل");
     } finally { await cleanup(fixture); await cleanup(other); }
