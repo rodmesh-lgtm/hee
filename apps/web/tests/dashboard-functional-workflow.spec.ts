@@ -88,12 +88,16 @@ test.describe.serial("customer dashboard functional surface", () => {
       await page.goto(`${baseUrl}/dashboard`);
       const nav = page.getByRole("navigation", { name: "التنقل الرئيسي", exact: true });
       await nav.getByRole("button", { name: "تخصيص الأقسام", exact: true }).click();
-      const rows=nav.locator(".infro-nav-editor li");
+      const editor=page.getByRole("dialog",{name:"تخصيص الأقسام",exact:true});
+      await expect(editor).toBeVisible();
+      const bounds=await editor.boundingBox();
+      expect(bounds?.width).toBeGreaterThan(600);
+      const rows=editor.locator("li");
       await rows.filter({hasText:"تسويق واتساب"}).dragTo(rows.filter({hasText:"مركز العمل"}));
       await expect(rows.first()).toContainText("تسويق واتساب");
-      await nav.getByRole("button", { name: "خفض: تسويق واتساب", exact: true }).click();
+      await editor.getByRole("button", { name: "خفض: تسويق واتساب", exact: true }).click();
       // Real touch input exercises pointer capture and the mobile drag handle.
-      const handle = await nav.getByRole("button", { name: "سحب: تسويق واتساب", exact: true }).boundingBox();
+      const handle = await editor.getByRole("button", { name: "سحب: تسويق واتساب", exact: true }).boundingBox();
       const target = await rows.filter({ hasText: "مركز العمل" }).boundingBox();
       if (!handle || !target) throw new Error("Navigation drag targets are missing");
       const touch = await page.context().newCDPSession(page);
@@ -102,10 +106,10 @@ test.describe.serial("customer dashboard functional surface", () => {
       await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await touch.detach();
       await expect(rows.first()).toContainText("تسويق واتساب");
-      await nav.getByRole("button", { name: "إخفاء: المواعيد والحجوزات", exact: true }).click();
-      await expect(nav.getByRole("button", { name: "إظهار: المواعيد والحجوزات", exact: true })).toHaveAttribute("aria-pressed", "false");
-      await expect(nav.getByRole("button", { name: "إخفاء: مركز العمل", exact: true })).toBeDisabled();
-      await nav.getByRole("button", { name: "حفظ التخصيص", exact: true }).click();
+      await editor.getByRole("button", { name: "إخفاء: المواعيد والحجوزات", exact: true }).click();
+      await expect(editor.getByRole("button", { name: "إظهار: المواعيد والحجوزات", exact: true })).toHaveAttribute("aria-pressed", "false");
+      await expect(editor.getByRole("button", { name: "إخفاء: مركز العمل", exact: true })).toBeDisabled();
+      await editor.getByRole("button", { name: "حفظ التخصيص", exact: true }).click();
       await expect(nav.getByRole("status")).toHaveText("تم حفظ ترتيب الأقسام وإمكانية ظهورها في حسابك.");
       expect((await db.user.findUniqueOrThrow({ where: { id: fixture.userId } })).dashboardNavOrder[0]).toBe("/dashboard/whatsapp");
       expect((await db.user.findUniqueOrThrow({ where: { id: other.userId } })).dashboardNavOrder).toEqual([]);
@@ -114,7 +118,7 @@ test.describe.serial("customer dashboard functional surface", () => {
       await expect(nav.locator('a[href="/dashboard/appointments"]')).toHaveCount(0);
       expect((await db.user.findUniqueOrThrow({ where: { id: fixture.userId } })).dashboardNavOrder).toContain("hidden:/dashboard/appointments");
       await nav.getByRole("button", { name: "تخصيص الأقسام", exact: true }).click();
-      await nav.getByRole("button", { name: "إظهار الكل واستعادة الترتيب", exact: true }).click();
+      await editor.getByRole("button", { name: "إظهار الكل واستعادة الترتيب", exact: true }).click();
       await expect(nav.getByRole("status")).toHaveText("تمت استعادة الترتيب الافتراضي.");
       await expect(nav.locator('a[href="/dashboard/appointments"]')).toBeVisible();
       await page.reload();

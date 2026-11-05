@@ -506,9 +506,13 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         const search=page.getByLabel(viewport.width<1024?"البحث في قائمة الجوال":"البحث في أقسام اللوحة",{exact:true});
         const reorderNav=page.getByRole("navigation",{name:viewport.width<1024?"كل أدوات لوحة العميل":"التنقل الرئيسي",exact:true});
         await reorderNav.getByRole("button",{name:"تخصيص الأقسام",exact:true}).click();
-        await expect(reorderNav.getByRole("button",{name:"رفع: تسويق واتساب",exact:true})).toBeVisible();
+        const customizer=page.getByRole("dialog",{name:"تخصيص الأقسام",exact:true});
+        await expect(customizer).toBeVisible();
+        const customizerBox=await customizer.boundingBox();
+        expect(customizerBox!.width).toBeGreaterThan(viewport.width<1024?350:600);
+        await expect(customizer.getByRole("button",{name:"رفع: تسويق واتساب",exact:true})).toBeVisible();
         await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-ordering-customer-workspace.png`,fullPage:false,timeout:15_000});
-        await reorderNav.getByRole("button",{name:"إغلاق التخصيص",exact:true}).click();
+        await customizer.getByRole("button",{name:"إغلاق التخصيص",exact:true}).click();
         await search.fill("الأداء");
         const navigation=page.getByRole("navigation",{name:viewport.width<1024?"كل أدوات لوحة العميل":"التنقل الرئيسي",exact:true});
         await expect(navigation.getByRole("link",{name:"الأداء",exact:true})).toBeVisible();

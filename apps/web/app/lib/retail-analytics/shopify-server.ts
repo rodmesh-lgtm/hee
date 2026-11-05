@@ -5,7 +5,7 @@ import { decryptCommerceCredential, type CommerceCredentialEnvelope } from '../w
 import { fetchShopifyInventory } from './shopify-inventory';
 import { fetchShopifyRetailReport, type ReportPeriod } from './shopify-report';
 
-async function readConnectedShopify<T>(businessId: string, integrationId: string, requiredScope: string, read: (input: { shop: string; token: string; apiVersion: string }) => Promise<T>) {
+async function readConnectedShopify<T>(businessId: string, integrationId: string, requiredScope: string, read: (input: { shop: string; token: string; apiVersion: string; includeLocations: boolean }) => Promise<T>) {
   const integration = await db.whatsAppCommerceIntegration.findFirst({
     where: { id: integrationId, businessId, provider: 'shopify', status: 'active' },
     select: { id: true, externalStoreId: true, credentialEnvelope: true },
@@ -23,7 +23,7 @@ async function readConnectedShopify<T>(businessId: string, integrationId: string
     if (!Number.isFinite(expiry) || expiry <= Date.now() + 60000) throw new Error('REAUTHORIZE_REQUIRED');
   }
   if (requiredScope !== 'read_orders' && (!Array.isArray(credential.scopes) || !credential.scopes.includes(requiredScope))) throw new Error('PRODUCT_ACCESS_REQUIRED');
-  const result = await read({ shop: integration.externalStoreId, token: credential.accessToken, apiVersion: config.SHOPIFY_ADMIN_API_VERSION });
+  const result = await read({ shop: integration.externalStoreId, token: credential.accessToken, apiVersion: config.SHOPIFY_ADMIN_API_VERSION, includeLocations: Array.isArray(credential.scopes) && credential.scopes.includes("read_locations") });
   // Revocation during the provider call must prevent disclosure of the resulting report.
   const stillActive = await db.whatsAppCommerceIntegration.count({ where: { id: integration.id, businessId, status: 'active', provider: 'shopify' } });
   if (!stillActive) throw new Error('ACCOUNT_UNAVAILABLE');

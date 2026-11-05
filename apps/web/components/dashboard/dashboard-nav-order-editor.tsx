@@ -1,7 +1,7 @@
 "use client";
 import { useI18n } from "../i18n/locale-provider";
 
-import { useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, GripVertical, ListOrdered, Eye, EyeOff } from "lucide-react";
 import { saveDashboardNavigation } from "../../app/actions/dashboard-navigation";
 import { moveDashboardItem, orderDashboardItems, hiddenDashboardItems, dashboardPreferences, canHideDashboardItem } from "../../lib/dashboard-navigation-order";
@@ -12,6 +12,16 @@ export function DashboardNavOrderEditor({ items, order, onSaved }: { items: Dash
 
   const [editing, setEditing] = useState(false);
   const dragHelpId = useId();
+  const dialogTitleId = useId();
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!editing) return;
+    const node = dialog.current;
+    node?.showModal();
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { node?.close(); document.body.style.overflow = previous; };
+  }, [editing]);
   const [draft, setDraft] = useState<string[]>([]);
   const [hidden, setHidden] = useState<string[]>([]);
   const [message, setMessage] = useState("");
@@ -23,7 +33,7 @@ export function DashboardNavOrderEditor({ items, order, onSaved }: { items: Dash
   const opener = useRef<HTMLButtonElement>(null);
   function move(source: string, target: string) {
     setDraft(current => moveDashboardItem(current, source, target));
-    setMessage("تم تغيير الموضع. اضغط حفظ الترتيب لتطبيقه.");
+    setMessage("تم تغيير الموضع. اضغط حفظ التخصيص لتطبيقه.");
   }
   function save(value: string[]) {
     startTransition(async () => {
@@ -36,10 +46,11 @@ export function DashboardNavOrderEditor({ items, order, onSaved }: { items: Dash
     });
   }
   return <div className="infro-nav-customizer">
-    <button ref={opener} type="button" aria-expanded={editing} onClick={() => { setHidden(hiddenDashboardItems(order)); setDraft(orderDashboardItems(order.length ? items : dashboardNavGroups.flatMap(group => items.filter(item => item.group === group.id)), order).map(item => item.href)); setMessage(""); setEditing(value => !value); }} disabled={pending}><ListOrdered size={16}/>{editing ? t("إغلاق التخصيص") : t("تخصيص الأقسام")}</button>
-    {editing ? <div className="infro-nav-editor">
+    <button ref={opener} type="button" aria-expanded={editing} onClick={() => { setHidden(hiddenDashboardItems(order)); setDraft(orderDashboardItems(order.length ? items : dashboardNavGroups.flatMap(group => items.filter(item => item.group === group.id)), order).map(item => item.href)); setMessage(""); setEditing(value => !value); }} disabled={pending}><ListOrdered size={16}/>{t("تخصيص الأقسام")}</button>
+    {editing ? <dialog ref={dialog} className="infro-nav-editor" aria-labelledby={dialogTitleId} onCancel={event => { if (pending) event.preventDefault(); else setEditing(false); }} onClose={() => { setEditing(false); opener.current?.focus(); }}>
+      <header className="infro-nav-editor-header"><h2 id={dialogTitleId}>{t("تخصيص الأقسام")}</h2><button type="button" disabled={pending} onClick={() => setEditing(false)}>{t("إغلاق التخصيص")}</button></header>
       <p>{t("رتب الأقسام بالأسهم أو السحب، واستخدم العين لإخفائها وإظهارها. تُحفظ اختياراتك في حسابك؛ الإخفاء لا يلغي الاشتراك أو يغيّر الصلاحيات.")}</p>
-      <ol>{orderDashboardItems(items, draft).map((item, index, all) => <li key={item.href} draggable={!pending} onDragStart={event => { dragged.current=item.href; event.dataTransfer.effectAllowed="move"; event.dataTransfer.setData("text/plain",item.href); }} onDragEnd={() => { dragged.current=null; }} onDragOver={event => { if (!pending && dragged.current) { event.preventDefault(); event.dataTransfer.dropEffect="move"; } }} onDrop={event => { event.preventDefault(); if (!pending && dragged.current) move(dragged.current,item.href); dragged.current=null; }}>
+      <ol>{orderDashboardItems(items, draft).map((item, index, all) => <li key={item.href} draggable={!pending} onDragStart={event => { dragged.current=item.href; event.dataTransfer.effectAllowed="move"; event.dataTransfer.setData("text/plain",item.href); }} onDragEnd={() => { dragged.current=null; setDropTarget(null); }} onDragOver={event => { if (!pending && dragged.current) { event.preventDefault(); event.dataTransfer.dropEffect="move"; setDropTarget(item.href); const list = event.currentTarget.closest("ol"); if (list) { const bounds = list.getBoundingClientRect(); if (event.clientY < bounds.top + 64) list.scrollTop -= 24; else if (event.clientY > bounds.bottom - 64) list.scrollTop += 24; } } }} onDrop={event => { event.preventDefault(); if (!pending && dragged.current) move(dragged.current,item.href); dragged.current=null; setDropTarget(null); }}>
         <button type="button" className="infro-nav-drag-handle" disabled={pending} aria-label={`${t("سحب")}: ${t(item.label)}`} aria-describedby={dragHelpId}
           ref={element => { const row = element?.closest("li"); if (row) rows.current.set(item.href, row); else rows.current.delete(item.href); }}
           onPointerDown={event => { if (event.pointerType === "mouse" || pending) return; event.preventDefault(); touchDrag.current = { source: item.href, target: item.href }; setDropTarget(item.href); event.currentTarget.setPointerCapture(event.pointerId); }}
@@ -66,7 +77,8 @@ export function DashboardNavOrderEditor({ items, order, onSaved }: { items: Dash
       </li>)}</ol>
       <span id={dragHelpId} className="sr-only">{t("على الجوال اسحب المقبض إلى القسم المطلوب. بلوحة المفاتيح استخدم زري الرفع والخفض.")}</span>
       <div className="infro-nav-editor-actions"><button type="button" disabled={pending} onClick={() => save(dashboardPreferences(draft, hidden))}>{pending ? t("جارٍ الحفظ…") : t("حفظ التخصيص")}</button><button type="button" disabled={pending} onClick={() => save([])}>{t("إظهار الكل واستعادة الترتيب")}</button></div>
-    </div> : null}
-    {message ? <p role="status">{t(message)}</p> : null}
+      {message ? <p role="status">{t(message)}</p> : null}
+    </dialog> : null}
+    {!editing && message ? <p role="status">{t(message)}</p> : null}
   </div>;
 }
