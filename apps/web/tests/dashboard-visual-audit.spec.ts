@@ -135,6 +135,10 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
     for(const rect of statRects)if(!statRowTops.some(top=>Math.abs(top-rect.top)<=3))statRowTops.push(rect.top);
     return{path:root?.dataset.dashboardPath??null,theme:root?.dataset.dashboardTheme??null,overflow:document.documentElement.scrollWidth-window.innerWidth,largeLightSurfaces:largeLight,bodyHeight:document.body.scrollHeight,canvasWidth:Math.round(canvasWidth),splitExpected,minExpectedWidth:Math.round(minExpectedWidth),compressedDirectChildren,collisions,directChildren,workCardCount:workCards.length,workCardChildCollisions,workCardChildOverflow,workCardLightIslands,statsCount:statRects.length,statsRows:statRowTops.length};
   });
+  if(input.name==="infro360-work-center" && input.viewportName.startsWith("mobile")) {
+    const search=await page.getByRole("searchbox",{name:"ابحث باسم الحساب أو عنوانه"}).boundingBox();
+    expect(search?.width).toBeGreaterThan(250);
+  }
   const file=`${input.viewportName}-${input.theme}-${input.name}.png`;
   await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
   await writeFile(`${outDir}/${input.viewportName}-${input.theme}-${input.name}.json`,JSON.stringify({...metrics,file,url:`${baseUrl}${input.path}`},null,2),"utf8");
