@@ -1,0 +1,5 @@
+/* Workspace appearance is scoped to its shell, not the document dark class. */
+.light { display: block; }
+.dark { display: none; }
+:global([data-dashboard-theme="dark"]) .light { display: none; }
+:global([data-dashboard-theme="dark"]) .dark { display: block; }
