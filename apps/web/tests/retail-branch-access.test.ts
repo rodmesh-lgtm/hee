@@ -8,7 +8,7 @@ test('branch aggregates are tenant scoped, contain no PII, and recheck revocatio
  const source=readFileSync(new URL('../app/api/retail-analytics/branches/route.ts',import.meta.url),'utf8');
  let user:unknown={id:'u'},business:unknown={id:'own'},revoke=false,reads=0,checks=0;
  const queries:unknown[]=[];
- const exports:{GET?:(request:Request)=>Promise<{body:any;status:number}>}={};
+ const exports:{GET?:(request:Request)=>Promise<{body:{rows:{counts:{completed:number}}[];unassigned:number};status:number}>}={};
  runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{
   exports,URL,Date,Set,Object,Error,
   require:(name:string)=>{
