@@ -1,6 +1,7 @@
 /** Shopify order-cohort report. No credentials or customer PII are returned. */
 export type ReportPeriod = { from: string; until: string };
 export type OrderReportRow = {
+  location?: { id: string; name: string } | null;
   reference: string; createdAt: string; cancelled: boolean; financialStatus: string | null; fulfillmentStatus: string;
   currency: string; decimals: number; currentTotalMinor: number; taxMinor: number; discountsMinor: number; refundedMinor: number; netPaymentsMinor: number;
 };
@@ -9,9 +10,10 @@ export type ShopifyReport = {
   fetchedAt: string; from: string; until: string; complete: boolean; ordersRead: number;
   totals: { currency: string; decimals: number; orders: number; cancelled: number; currentTotalMinor: number; taxMinor: number; discountsMinor: number; refundedMinor: number; netPaymentsMinor: number }[];
 };
-const QUERY = `query InfroRetailOrders($after: String, $query: String!) {
+const QUERY = `query InfroRetailOrders($after: String, $query: String!, $locations: Boolean!) {
   orders(first: 100, after: $after, query: $query, sortKey: CREATED_AT) {
     nodes { id name createdAt test cancelledAt displayFinancialStatus displayFulfillmentStatus
+      retailLocation @include(if: $locations) { id name }
       currentTotalPriceSet { shopMoney { amount currencyCode } }
       currentTotalTaxSet { shopMoney { amount currencyCode } }
       currentTotalDiscountsSet { shopMoney { amount currencyCode } }
@@ -49,7 +51,7 @@ function money(raw: unknown) {
 }
 function add(a: number, b: number) { const result = a + b; if (!Number.isSafeInteger(result)) throw new Error('AMOUNT_OVERFLOW'); return result; }
 export async function fetchShopifyRetailReport(input: {
-  shop: string; token: string; apiVersion: string; period: ReportPeriod;
+  shop: string; token: string; apiVersion: string; period: ReportPeriod; includeLocations?: boolean;
 }, fetcher: typeof fetch = fetch, now = new Date()): Promise<ShopifyReport> {
   if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(input.shop) || !/^20\d{2}-(01|04|07|10)$/.test(input.apiVersion)) throw new Error('INVALID_PROVIDER_HOST');
   const period = validateReportPeriod(input.period, now);
@@ -63,7 +65,7 @@ export async function fetchShopifyRetailReport(input: {
     const response = await fetcher(`https://${input.shop}/admin/api/${input.apiVersion}/graphql.json`, {
       method: 'POST', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(12000),
       headers: { 'content-type': 'application/json', 'x-shopify-access-token': input.token },
-      body: JSON.stringify({ query: QUERY, variables: { after, query: `created_at:>=${period.from} created_at:<${period.until} test:false` } }),
+      body: JSON.stringify({ query: QUERY, variables: { after, locations: input.includeLocations === true, query: `created_at:>=${period.from} created_at:<${period.until} test:false` } }),
     });
     if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'REAUTHORIZE_REQUIRED' : response.status === 429 ? 'PROVIDER_RATE_LIMIT' : 'PROVIDER_UNAVAILABLE');
     const payload = record(await response.json());
@@ -80,7 +82,16 @@ export async function fetchShopifyRetailReport(input: {
       if (order.test || Date.parse(order.createdAt) < Date.parse(period.from) || Date.parse(order.createdAt) >= Date.parse(period.until)) continue;
       const current = money(order.currentTotalPriceSet), tax = money(order.currentTotalTaxSet), discounts = money(order.currentTotalDiscountsSet), refunded = money(order.totalRefundedSet), payments = money(order.netPaymentSet);
       if ([tax, discounts, refunded, payments].some(m => m.currency !== current.currency)) throw new Error('PROVIDER_CURRENCY_MISMATCH');
-      rows.push({ reference: order.name as string, createdAt: order.createdAt as string, cancelled: Boolean(order.cancelledAt), financialStatus: order.displayFinancialStatus as string | null, fulfillmentStatus: order.displayFulfillmentStatus as string, currency: current.currency, decimals: current.decimals,
+      let location: OrderReportRow['location'];
+      if (input.includeLocations) {
+        if (order.retailLocation === null) location = null;
+        else {
+          const rawLocation = record(order.retailLocation);
+          if (typeof rawLocation.id !== 'string' || !rawLocation.id || typeof rawLocation.name !== 'string') throw new Error('INVALID_PROVIDER_RESPONSE');
+          location = { id: rawLocation.id, name: rawLocation.name.slice(0, 255) };
+        }
+      }
+      rows.push({ ...(input.includeLocations ? { location } : {}), reference: order.name as string, createdAt: order.createdAt as string, cancelled: Boolean(order.cancelledAt), financialStatus: order.displayFinancialStatus as string | null, fulfillmentStatus: order.displayFulfillmentStatus as string, currency: current.currency, decimals: current.decimals,
         currentTotalMinor: order.cancelledAt ? 0 : current.units, taxMinor: order.cancelledAt ? 0 : tax.units, discountsMinor: order.cancelledAt ? 0 : discounts.units, refundedMinor: refunded.units, netPaymentsMinor: payments.units });
       const total = totals.get(current.currency) ?? { currency: current.currency, decimals: current.decimals, orders: 0, cancelled: 0, currentTotalMinor: 0, taxMinor: 0, discountsMinor: 0, refundedMinor: 0, netPaymentsMinor: 0 };
       total.orders++;

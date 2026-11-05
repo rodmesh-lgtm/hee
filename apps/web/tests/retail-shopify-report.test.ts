@@ -78,3 +78,14 @@ test('combined report requires identical complete periods and keeps currencies s
   const usd = { ...report, totals: report.totals.map(t => ({ ...t, currency: 'USD' })) };
   assert.equal(combineShopifyReports([report, usd]).length, 2);
 });
+
+test('retail locations are explicitly scoped and unknown locations stay unassigned', async()=>{
+ let requested=false;
+ const report=await fetchShopifyRetailReport({...input,includeLocations:true},async(_url,init)=>{
+  requested=JSON.parse(String(init?.body)).variables.locations;
+  return response([{...order(),retailLocation:{id:'gid://shopify/Location/1',name:'Riyadh'}},{...order('2'),retailLocation:null}]);
+ },now);
+ assert.equal(requested,true);assert.equal(report.orders[0].location?.name,'Riyadh');assert.equal(report.orders[1].location,null);
+ const without=await fetchShopifyRetailReport(input,async(_url,init)=>{assert.equal(JSON.parse(String(init?.body)).variables.locations,false);return response([order()]);},now);
+ assert.equal(without.orders[0].location,undefined);
+});

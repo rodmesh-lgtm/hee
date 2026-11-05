@@ -1,6 +1,7 @@
 'use client';
 import { connectRetailAccount, disconnectRetailAccountAction } from './actions';
 import Link from 'next/link';
+import ComparisonWorkspace from './comparison-workspace';
 import InventoryWorkspace from './inventory-workspace';
 import { inventoryAccountSelection } from '../../lib/retail-analytics/account-selection';
 import SalesReportDetails from './sales-report-details';
@@ -120,6 +121,7 @@ export default function ConnectedRetailWorkspace({ provider, businessId, busines
       <div className="grid items-end gap-4 md:grid-cols-3"><label>{t('من', 'From')}<input className={inputClass} type="date" value={from} max={currentDay} onChange={e => changePeriod('from', e.target.value)}/></label><label>{t('إلى (شامل)', 'Through (inclusive)')}<input className={inputClass} type="date" value={until} max={currentDay} onChange={e => changePeriod('until', e.target.value)}/></label><button disabled={loading || !configured || !active.length} className="min-h-11 rounded-xl bg-teal-600 px-4 font-bold text-white disabled:opacity-50" onClick={() => void refresh()}>{loading ? t('جارٍ قراءة الحسابات…', 'Reading accounts…') : t('تحديث التقارير من Shopify', 'Refresh reports from Shopify')}</button></div>
       <p className="text-sm">{t('حسابات متصلة:', 'Connected accounts:')} {active.length}</p>{active.length && configured ? <RefreshStatus state={automatic} busy={loading} english={english}/> : null}
     </section>
+    <ComparisonWorkspace key={`${businessId}:${selectedAccount}`} english={english} from={from} until={until} sources={active.map(a=>({id:a.id,name:a.displayName||a.externalStoreId,...results[a.id]}))}/>
     {allComplete && active.length > 1 ? <SalesReportDetails english={english} businessName={businessName} accountName={t('جميع المتاجر: ','All stores: ') + active.map(a=>a.externalStoreId).join(', ')} report={{...results[active[0].id].report!, fetchedAt: active.map(a=>results[a.id].report!.fetchedAt).sort()[0], totals:combined, ordersRead:active.reduce((n,a)=>n+results[a.id].report!.ordersRead,0), orders:active.flatMap(a=>results[a.id].report!.orders.map(o=>({...o,reference:`${a.externalStoreId} · ${o.reference}`})))}}/> : null}
 
     </div>

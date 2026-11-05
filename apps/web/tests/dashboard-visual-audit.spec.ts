@@ -135,6 +135,10 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
     for(const rect of statRects)if(!statRowTops.some(top=>Math.abs(top-rect.top)<=3))statRowTops.push(rect.top);
     return{path:root?.dataset.dashboardPath??null,theme:root?.dataset.dashboardTheme??null,overflow:document.documentElement.scrollWidth-window.innerWidth,largeLightSurfaces:largeLight,bodyHeight:document.body.scrollHeight,canvasWidth:Math.round(canvasWidth),splitExpected,minExpectedWidth:Math.round(minExpectedWidth),compressedDirectChildren,collisions,directChildren,workCardCount:workCards.length,workCardChildCollisions,workCardChildOverflow,workCardLightIslands,statsCount:statRects.length,statsRows:statRowTops.length};
   });
+  if(input.name==="infro360-work-center" && input.viewportName.startsWith("mobile")) {
+    const search=await page.getByRole("searchbox",{name:"ابحث باسم الحساب أو عنوانه"}).boundingBox();
+    expect(search?.width).toBeGreaterThan(250);
+  }
   const file=`${input.viewportName}-${input.theme}-${input.name}.png`;
   await page.screenshot({path:`${outDir}/${file}`,fullPage:true});
   await writeFile(`${outDir}/${input.viewportName}-${input.theme}-${input.name}.json`,JSON.stringify({...metrics,file,url:`${baseUrl}${input.path}`},null,2),"utf8");
@@ -506,9 +510,13 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         const search=page.getByLabel(viewport.width<1024?"البحث في قائمة الجوال":"البحث في أقسام اللوحة",{exact:true});
         const reorderNav=page.getByRole("navigation",{name:viewport.width<1024?"كل أدوات لوحة العميل":"التنقل الرئيسي",exact:true});
         await reorderNav.getByRole("button",{name:"تخصيص الأقسام",exact:true}).click();
-        await expect(reorderNav.getByRole("button",{name:"رفع: تسويق واتساب",exact:true})).toBeVisible();
+        const customizer=page.getByRole("dialog",{name:"تخصيص الأقسام",exact:true});
+        await expect(customizer).toBeVisible();
+        const customizerBox=await customizer.boundingBox();
+        expect(customizerBox!.width).toBeGreaterThan(viewport.width<1024?350:600);
+        await expect(customizer.getByRole("button",{name:"رفع: تسويق واتساب",exact:true})).toBeVisible();
         await page.screenshot({path:`${outDir}/${viewport.width<1024?"mobile":"desktop"}-${theme}-ordering-customer-workspace.png`,fullPage:false,timeout:15_000});
-        await reorderNav.getByRole("button",{name:"إغلاق التخصيص",exact:true}).click();
+        await customizer.getByRole("button",{name:"إغلاق التخصيص",exact:true}).click();
         await search.fill("الأداء");
         const navigation=page.getByRole("navigation",{name:viewport.width<1024?"كل أدوات لوحة العميل":"التنقل الرئيسي",exact:true});
         await expect(navigation.getByRole("link",{name:"الأداء",exact:true})).toBeVisible();
@@ -564,7 +572,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     test.setTimeout(600_000);if(!seeded)throw new Error("visual fixture missing");
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/tools",name:"tools"},{path:"/dashboard/verification",name:"verification"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
     routes.push({path:"/dashboard/my-page",name:"my-page"},{path:"/dashboard/working-hours",name:"booking-schedule"},{path:"/dashboard/services",name:"services"},{path:"/dashboard/inbox",name:"inbox"},{path:"/dashboard/appointments",name:"appointments"},{path:"/dashboard/appointments?tab=branches",name:"appointment-branches"},{path:"/dashboard/settings",name:"settings"});
-    routes.push({path:"/dashboard/support?context=meta",name:"contextual-support"});
+    routes.push({path:"/dashboard/support?context=meta",name:"contextual-support"},{path:"/dashboard/retail-analytics",name:"infro360-work-center"});
     routes.push({path:"/dashboard/analytics",name:"customer-performance"},{path:"/dashboard/notifications",name:"notifications"},{path:"/dashboard/branding",name:"branding"},{path:"/dashboard/directory",name:"directory"},{path:"/dashboard/catalog",expectedPath:"/dashboard/my-page",name:"catalog"},{path:"/dashboard/products",expectedPath:"/dashboard/my-page",name:"products"},{path:"/dashboard/gallery",expectedPath:"/dashboard/my-page",name:"gallery"},{path:"/dashboard/offers",expectedPath:"/dashboard/my-page",name:"offers"},{path:"/dashboard/contact-links",expectedPath:"/dashboard/my-page",name:"contact-links"},{path:"/dashboard/share",expectedPath:"/dashboard/my-page",name:"share"});
     const viewports=[{name:"desktop",value:{width:1440,height:960}},{name:"mobile",value:{width:390,height:844}}] as const;
     const results:unknown[]=[];

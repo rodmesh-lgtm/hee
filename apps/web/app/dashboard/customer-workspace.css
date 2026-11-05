@@ -141,3 +141,19 @@
 [data-dashboard-path] .infro-nav-editor li .infro-nav-drag-handle{touch-action:none;min-height:44px;min-width:32px;cursor:grab;background:transparent;border-color:transparent}
 [data-dashboard-path] .infro-nav-editor li:has([data-drop-target="true"]){outline:2px solid #089889;outline-offset:-2px;background:#e2f3ed}
 [data-dashboard-theme="dark"] .infro-nav-editor li:has([data-drop-target="true"]){background:#245249}
+
+/* A native top-layer dialog keeps customization clear of narrow sidebars. */
+[data-dashboard-path] dialog.infro-nav-editor{position:fixed;inset:0;width:min(760px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 40px);margin:auto;padding:24px;border-radius:24px;box-shadow:0 24px 80px #0006;color:#24443f;overflow:hidden}
+[data-dashboard-path] dialog.infro-nav-editor[open]{display:flex;flex-direction:column;gap:12px}
+[data-dashboard-path] dialog.infro-nav-editor::backdrop{background:#062523b3;backdrop-filter:blur(4px)}
+[data-dashboard-path] .infro-nav-editor-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+[data-dashboard-path] .infro-nav-editor-header h2{font-size:22px;font-weight:800}
+[data-dashboard-path] dialog.infro-nav-editor p{font-size:14px;margin:0;line-height:1.8}
+[data-dashboard-path] dialog.infro-nav-editor ol{flex:1;min-height:0;max-height:60dvh;overflow:auto;gap:10px;margin:0;padding:4px;scrollbar-gutter:stable;scroll-padding:60px}
+[data-dashboard-path] dialog.infro-nav-editor li{gap:12px;padding:12px;border-radius:14px;min-height:72px}
+[data-dashboard-path] dialog.infro-nav-editor li>span{font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+[data-dashboard-path] dialog.infro-nav-editor li button{min-width:44px;min-height:44px;flex-shrink:0}
+[data-dashboard-path] dialog.infro-nav-editor .infro-nav-editor-actions{flex-shrink:0;gap:12px;padding-top:12px;border-top:1px solid #a5bdb5}
+[data-dashboard-path] dialog.infro-nav-editor .infro-nav-editor-actions button{min-height:48px;padding:10px 18px;font-size:14px}
+[data-dashboard-theme="dark"] dialog.infro-nav-editor{color:#e7f7f1}
+@media(max-width:540px){[data-dashboard-path] dialog.infro-nav-editor{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:14px;border-radius:18px}[data-dashboard-path] dialog.infro-nav-editor li{gap:6px;padding:8px;flex-wrap:wrap}[data-dashboard-path] dialog.infro-nav-editor li>span{flex-basis:calc(100% - 60px)}[data-dashboard-path] dialog.infro-nav-editor li button:not(.infro-nav-drag-handle){flex:1}[data-dashboard-path] dialog.infro-nav-editor ol{max-height:64dvh}}
