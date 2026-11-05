@@ -10,8 +10,10 @@ export async function connectRetailAccount(form: FormData) {
   const business = await getOwnedBusinessForWrite();
   if (!business || form.get('businessId') !== business.id) redirect('/dashboard/retail-analytics?connection=forbidden');
   let authorization: string;
+  let returnPath = "/dashboard/retail-analytics";
   try {
     const provider = retailProvider(form.get('provider'));
+    returnPath = `/dashboard/retail-analytics/${provider}`;
     const limit = await consumePublicWriteLimit({ scope: 'retail.oauth.start', businessId: business.id, identity: business.ownerId, limit: 5, windowSeconds: 600 });
     if (!limit.allowed) throw new Error('RATE_LIMITED');
     await syncWorkspaceBusinessPreference(business.id);
@@ -19,7 +21,7 @@ export async function connectRetailAccount(form: FormData) {
   } catch (error) {
     const code = error instanceof Error ? error.message : '';
     const status = code === 'ALREADY_CONNECTED' ? 'already-connected' : code === 'PROVIDER_NOT_CONFIGURED' || code === 'FOODICS_ENVIRONMENT_REQUIRED' ? 'not-configured' : code === 'RATE_LIMITED' ? 'rate-limited' : 'failed';
-    redirect(`/dashboard/retail-analytics?connection=${status}`);
+    redirect(`${returnPath}?connection=${status}`);
   }
   redirect(authorization!);
 }
