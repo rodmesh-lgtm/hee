@@ -1,6 +1,7 @@
 "use client";
 import { useI18n } from "../../components/i18n/locale-provider";
 
+import { activeWorkspaceRoute, matchesWorkspaceSearch } from "../../lib/workspace-navigation";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,26 +18,36 @@ const groups: NavGroup[] = [
 ];
 
 function activeFor(pathname: string, href: string) {
-  return href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  return activeWorkspaceRoute(pathname, groups.flatMap(group => group.items.map(item => item.href)), "/admin") === href;
+}
+function NavigationSearch({ query, onChange }: { query: string; onChange: (value: string) => void }) {
+  const { t } = useI18n();
+  return <label className="mb-5 block text-sm font-semibold"><span className="mb-2 block">{t("البحث في أقسام اللوحة")}</span><input type="search" value={query} onChange={event => onChange(event.target.value)} placeholder={t("ابحث عن قسم…")} className="min-h-11 w-full rounded-xl border border-current/20 bg-transparent px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-teal-400"/></label>;
+}
+function filteredGroups(query: string, t: (text: string) => string) {
+  return groups.map(group => ({ ...group, items: group.items.filter(item => matchesWorkspaceSearch(query, group.label, t(group.label), item.label, t(item.label))) })).filter(group => group.items.length);
 }
 
 function Item({ href, label, icon: Icon, badge, compact = false }: NavItem & { compact?: boolean }) {
 
 
+  const { t } = useI18n();
   const pathname = usePathname();
   const active = activeFor(pathname, href);
   return <Link href={href} aria-current={active ? "page" : undefined} className={`group relative flex items-center gap-3 overflow-hidden rounded-[14px] font-bold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#35e4cb]/50 ${compact ? "min-h-11 px-3 text-sm" : "min-h-12 px-3.5 text-sm"} ${active ? "bg-white/[.09] text-white shadow-[inset_0_0_0_1px_rgba(110,234,216,.12)]" : "text-slate-400 hover:bg-white/[.055] hover:text-white"}`}>
-    {active ? <span className="absolute inset-y-2 right-0 w-[3px] rounded-l-full bg-[#35e4cb] shadow-[0_0_18px_rgba(53,228,203,.65)]" /> : null}
+    {active ? <span className="absolute inset-y-2 start-0 w-[3px] rounded-full bg-[#35e4cb]" /> : null}
     <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-[9px] transition ${active ? "bg-[#35e4cb]/12 text-[#6eead8]" : "bg-white/[.035] text-slate-500 group-hover:bg-white/[.07] group-hover:text-[#6eead8]"}`}><Icon className="h-[15px] w-[15px]" /></span>
-    <span className="min-w-0 flex-1">{label}</span>
-    {badge ? <span className={`rounded-full px-2 py-0.5 text-[7px] font-black tracking-[.12em] ${active ? "bg-[#35e4cb]/12 text-[#8ff5e6]" : "bg-white/[.05] text-slate-500"}`}>{badge}</span> : !compact && active ? <ArrowUpLeft className="h-3 w-3 text-[#35e4cb]" /> : null}
+    <span className="min-w-0 flex-1">{t(label)}</span>
+    {badge ? <span className={`rounded-full px-2 py-0.5 text-[7px] font-black tracking-[.12em] ${active ? "bg-[#35e4cb]/12 text-[#8ff5e6]" : "bg-white/[.05] text-slate-500"}`}>{t(badge)}</span> : !compact && active ? <ArrowUpLeft className="h-3 w-3 text-[#35e4cb]" /> : null}
   </Link>;
 }
 
 export function AdminDesktopNavigation() {
  const { t } = useI18n();
 
-  return <nav className="flex-1 overflow-y-auto px-3.5 py-4 [scrollbar-width:thin]" aria-label={t("تنقل إدارة المنصة")}>{groups.map((group, index) => <section key={group.eyebrow} className={index ? "mt-6" : ""}><div className="mb-2 flex flex-col items-start gap-1 px-3"><span className="text-[8px] font-bold text-slate-600">{t(group.label)}</span></div><div className="space-y-1">{group.items.map((item) => <Item key={item.href} {...item} />)}</div></section>)}</nav>;
+  const [query, setQuery] = useState("");
+  const visible = filteredGroups(query, t);
+  return <nav className="flex-1 overflow-y-auto px-3.5 py-4 [scrollbar-width:thin]" aria-label={t("تنقل إدارة المنصة")}><NavigationSearch query={query} onChange={setQuery}/>{!visible.length ? <p role="status" className="text-sm text-slate-300">{t("لا توجد أقسام بهذا الاسم.")}</p> : null}{visible.map((group, index) => <section key={group.eyebrow} className={index ? "mt-6" : ""}><div className="mb-2 flex flex-col items-start gap-1 px-3"><span className="text-[8px] font-bold text-slate-600">{t(group.label)}</span></div><div className="space-y-1">{group.items.map((item) => <Item key={item.href} {...item} />)}</div></section>)}</nav>;
 }
 
 const mobilePrimary: NavItem[] = [
@@ -46,13 +57,15 @@ const mobilePrimary: NavItem[] = [
   { href: "/admin/whatsapp", label: "واتساب", icon: MessageCircleMore },
 ];
 
-const focusable='a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])';
+const focusable='a[href],input:not([disabled]),button:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 export function AdminMobileNavigation() {
  const { t } = useI18n();
 
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const visible = filteredGroups(query, t);
   const dialogRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -98,6 +111,6 @@ export function AdminMobileNavigation() {
         <button ref={triggerRef} type="button" onClick={()=>setOpen(true)} aria-expanded={open} aria-controls="infro-admin-mobile-menu" className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-black text-slate-500 active:scale-[.98]"><MoreHorizontal className="h-4 w-4 text-slate-400"/><span>{t("المزيد")}</span></button>
       </div>
     </nav>
-    {open?<><button aria-label={t("إغلاق قائمة الإدارة")} onClick={()=>setOpen(false)} className="fixed inset-0 z-[78] bg-[#061619]/45 backdrop-blur-[3px] lg:hidden"/><aside ref={dialogRef} id="infro-admin-mobile-menu" role="dialog" aria-modal="true" aria-labelledby="infro-admin-mobile-menu-title" className="fixed inset-x-2.5 bottom-[calc(74px+env(safe-area-inset-bottom))] z-[80] max-h-[74dvh] overflow-y-auto overscroll-contain rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_30px_80px_rgba(7,24,27,.26)] lg:hidden sm:inset-x-4"><div className="sticky top-0 z-10 -mx-4 -mt-4 mb-4 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-4 backdrop-blur-xl"><div><p className="text-[8px] font-black tracking-[.16em] text-[#008f87]" dir="ltr">{t("إدارة INFRO")}</p><h2 id="infro-admin-mobile-menu-title" className="mt-1 text-base font-black text-slate-950">{t("كل أدوات الإدارة")}</h2></div><button ref={closeRef} type="button" onClick={()=>setOpen(false)} aria-label={t("إغلاق")} className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 active:scale-[.97]"><X className="h-4 w-4"/></button></div><div className="space-y-5">{groups.map(group=><section key={group.eyebrow}><div className="mb-2 flex items-center justify-between"><span className="text-[9px] font-bold text-slate-400">{t(group.label)}</span></div><div className="grid gap-2 sm:grid-cols-2">{group.items.map(item=>{const Icon=item.icon;const active=activeFor(pathname,item.href);return <Link key={item.href} href={item.href} onClick={()=>setOpen(false)} aria-current={active?"page":undefined} className={`flex min-h-14 items-center gap-3 rounded-2xl border px-3 text-xs font-black transition active:scale-[.99] ${active?"border-[#9fe8df] bg-[#effbf9] text-[#075d58]":"border-slate-100 bg-[#fbfdfd] text-slate-700"}`}><span className={`grid h-10 w-10 place-items-center rounded-xl ${active?"bg-[#07181b] text-[#66e7d5]":"bg-white text-slate-400 shadow-sm"}`}><Icon className="h-4 w-4"/></span><span className="flex-1">{t(item.label)}</span>{item.badge?<span className="rounded-full bg-[#dffbf6] px-2 py-0.5 text-[7px] text-[#00877f]">{item.badge}</span>:null}</Link>})}</div></section>)}</div></aside></>:null}
+    {open?<><button aria-label={t("إغلاق قائمة الإدارة")} onClick={()=>setOpen(false)} className="fixed inset-0 z-[78] bg-[#061619]/45 backdrop-blur-[3px] lg:hidden"/><aside ref={dialogRef} id="infro-admin-mobile-menu" role="dialog" aria-modal="true" aria-labelledby="infro-admin-mobile-menu-title" className="fixed inset-x-2.5 bottom-[calc(74px+env(safe-area-inset-bottom))] z-[80] max-h-[74dvh] overflow-y-auto overscroll-contain rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_30px_80px_rgba(7,24,27,.26)] lg:hidden sm:inset-x-4"><div className="sticky top-0 z-10 -mx-4 -mt-4 mb-4 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-4 backdrop-blur-xl"><div><p className="text-[8px] font-black tracking-[.16em] text-[#008f87]" dir="ltr">{t("إدارة INFRO")}</p><h2 id="infro-admin-mobile-menu-title" className="mt-1 text-base font-black text-slate-950">{t("كل أدوات الإدارة")}</h2></div><button ref={closeRef} type="button" onClick={()=>setOpen(false)} aria-label={t("إغلاق")} className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 active:scale-[.97]"><X className="h-4 w-4"/></button></div><NavigationSearch query={query} onChange={setQuery}/>{!visible.length ? <p role="status" className="text-sm">{t("لا توجد أقسام بهذا الاسم.")}</p> : null}<div className="space-y-5">{visible.map(group=><section key={group.eyebrow}><div className="mb-2 flex items-center justify-between"><span className="text-[9px] font-bold text-slate-400">{t(group.label)}</span></div><div className="grid gap-2 sm:grid-cols-2">{group.items.map(item=>{const Icon=item.icon;const active=activeFor(pathname,item.href);return <Link key={item.href} href={item.href} onClick={()=>setOpen(false)} aria-current={active?"page":undefined} className={`flex min-h-14 items-center gap-3 rounded-2xl border px-3 text-xs font-black transition active:scale-[.99] ${active?"border-[#9fe8df] bg-[#effbf9] text-[#075d58]":"border-slate-100 bg-[#fbfdfd] text-slate-700"}`}><span className={`grid h-10 w-10 place-items-center rounded-xl ${active?"bg-[#07181b] text-[#66e7d5]":"bg-white text-slate-400 shadow-sm"}`}><Icon className="h-4 w-4"/></span><span className="flex-1">{t(item.label)}</span>{item.badge?<span className="rounded-full bg-[#dffbf6] px-2 py-0.5 text-[7px] text-[#00877f]">{t(item.badge)}</span>:null}</Link>})}</div></section>)}</div></aside></>:null}
   </>;
 }
