@@ -99,6 +99,42 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   const journals=await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryJournal" WHERE "businessId"=${shop.id} AND ("sourceKey" LIKE 'invoice-return:%' OR "sourceKey" LIKE 'invoice-refund:%')`;expect(journals[0].n).toBe(2);
   await wa.page.screenshot({path:'test-results/cashier-returns-desktop.png',fullPage:true});
   await wa.page.setViewportSize({width:390,height:844});await wa.page.screenshot({path:'test-results/cashier-returns-mobile.png',fullPage:true});await wa.page.setViewportSize({width:1280,height:800});
+  // Catalog editing is available to each owner, preserves original invoice snapshots
+  // and prices subsequent orders using the same service identity.
+  await wa.page.goto('/Accounting');
+  await wa.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
+  await wa.page.getByRole('button',{name:'تعديل — تغيير زيت خاص بالورشة',exact:true}).click();
+  const editForm=wa.page.getByRole('form',{name:'تعديل — تغيير زيت خاص بالورشة',exact:true});
+  await editForm.getByLabel('اسم الصنف',{exact:true}).fill('خدمة ورشة معدلة');
+  await editForm.getByLabel('التصنيف',{exact:true}).fill('خدمات الورشة');
+  await editForm.getByLabel('السعر بالريال',{exact:true}).fill('30');
+  await editForm.getByRole('button',{name:'حفظ التعديلات',exact:true}).click();
+  await expect(wa.page.getByRole('button',{name:'تعديل — خدمة ورشة معدلة',exact:true})).toBeVisible();
+  const original=await db.$queryRaw<Array<{total:number;items:Array<{name:string;unitPrice:number}>}>>`SELECT total,items FROM "LaundryTicket" WHERE "businessId"=${shop.id} AND number=2`;
+  expect(original[0].total).toBe(2500);expect(original[0].items[0].name).toBe('تغيير زيت خاص بالورشة');expect(original[0].items[0].unitPrice).toBe(2500);
+  await wa.page.goto('/Accounting');
+  await wa.page.getByRole('button',{name:'إضافة خدمة ورشة معدلة',exact:true}).click();
+  await wa.page.getByLabel('اسم العميل',{exact:true}).fill('عميل السعر الجديد');
+  await wa.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneA);
+  await wa.page.getByRole('button',{name:'غدًا في هذا الوقت',exact:true}).click();
+  await wa.page.getByRole('button',{name:'حفظ الطلب وإصدار المستند',exact:true}).click();
+  await expect(wa.page.getByRole('dialog')).toContainText('خدمة ورشة معدلة');
+  const updatedInvoice=await db.$queryRaw<Array<{total:number;items:Array<{serviceId:string}>}>>`SELECT total,items FROM "LaundryTicket" WHERE "businessId"=${shop.id} AND number=4`;
+  expect(updatedInvoice[0].total).toBe(3000);expect(updatedInvoice[0].items[0].serviceId).toBe(sa);
+  await lb.page.setViewportSize({width:390,height:844});await lb.page.goto('/Accounting');
+  await lb.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
+  await lb.page.getByRole('button',{name:'تعديل — ثوب — غسيل وكوي',exact:true}).click();
+  const laundryEdit=lb.page.getByRole('form',{name:'تعديل — ثوب — غسيل وكوي',exact:true});
+  await laundryEdit.getByLabel('السعر بالريال',{exact:true}).fill('22');
+  await laundryEdit.getByLabel('سعر المستعجل بالريال',{exact:true}).fill('28');
+  expect(await lb.page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
+  await lb.page.screenshot({path:'test-results/cashier-catalog-edit-form-mobile.png',fullPage:true});
+  await laundryEdit.getByRole('button',{name:'حفظ التعديلات',exact:true}).click();
+  await expect(laundryEdit).toHaveCount(0);
+  const updatedService=await db.$queryRaw<Array<{id:string;price:number}>>`SELECT id,price FROM "LaundryService" WHERE "businessId"=${laundry.id} AND id IN (${sb},${'urgent:'+sb}) ORDER BY price`;
+  expect(updatedService).toEqual([{id:sb,price:2200},{id:'urgent:'+sb,price:2800}]);
+  const oldLaundry=await db.$queryRaw<Array<{total:number}>>`SELECT total FROM "LaundryTicket" WHERE "businessId"=${laundry.id} AND number=2`;expect(oldLaundry[0].total).toBe(2000);
+  await lb.page.screenshot({path:'test-results/cashier-catalog-edit-mobile.png',fullPage:true});
   await wa.context.addCookies([{name:'hee_active_business',value:laundry.id,url:baseUrl}]);await wa.page.goto('/Accounting');expect(await wa.page.content()).not.toContain(nameA);expect(await wa.page.content()).not.toContain(nameB);await expect(wa.page.getByText('سجّل الدخول واختر منشأتك للوصول إلى حساباتها.',{exact:true})).toBeVisible();
   const restricted=await login(staff.id,shop.id);await restricted.page.goto('/Accounting');await expect(restricted.page.getByText('تحتاج صلاحية البرنامج المحاسبي',{exact:true})).toBeVisible();expect(await restricted.page.content()).not.toContain(nameA);await lb.context.clearCookies();await lb.page.reload();expect(await lb.page.content()).not.toContain(nameB);expect(await lb.page.content()).not.toContain(phoneB);
  }finally{for(const context of contexts)await context.close();await db.session.deleteMany({where:{userId:{in:users.map(u=>u.id)}}});await db.business.updateMany({where:{id:{in:[shop.id,laundry.id]}},data:{deletedAt:new Date()}});await db.user.updateMany({where:{id:{in:users.map(u=>u.id)}},data:{deletedAt:new Date()}});await db.$disconnect();await pool.end();}
