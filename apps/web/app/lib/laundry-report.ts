@@ -7,4 +7,4 @@ export function laundryReportRange(from:string,to:string){
 export function laundryCsv(rows:Array<Array<string|number>>){
  return "\uFEFF"+rows.map(row=>row.map(value=>{const raw=String(value);const safe=/^[\s]*[=+@-]/.test(raw)?`'${raw}`:raw;return `"${safe.replace(/"/g,'""')}"`;}).join(",")).join("\r\n");
 }
-export type LaundryReport={from:string;to:string;invoiced:number;orders:number;cash:number;card:number;transfer:number;expenses:number;openingReceivables:number;closingReceivables:number;movementCount:number;movements:Array<{id:string;kind:string;description:string;method:string;amount:number;createdAt:string}>};
+export type LaundryReport={from:string;to:string;invoiced:number;returned:number;orders:number;cash:number;card:number;transfer:number;expenses:number;openingReceivables:number;closingReceivables:number;movementCount:number;movements:Array<{id:string;kind:string;description:string;method:string;amount:number;createdAt:string}>};

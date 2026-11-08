@@ -55,6 +55,13 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test tests/cashier-tenant-workflow.spec.ts
+      - name: Preserve cashier return browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cashier-return-browser-evidence
+          path: apps/web/test-results/
+          retention-days: 14
       - name: Verify navigation, public lists, booking sender and staff isolation
         run: >-
           npx playwright test tests/dashboard-functional-workflow.spec.ts tests/rc-owner-workflow.spec.ts tests/staff-permissions-workflow.spec.ts

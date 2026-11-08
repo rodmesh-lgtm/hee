@@ -23,6 +23,7 @@ test("receipt query keeps balances at ticket redemption, includes exhausted unit
  ('m3','shop','pieces','piece-use','redeem',200,2,'2026-10-24T06:00Z'),
  ('m4','other','foreign','foreign-pay','redeem',800,0,'2026-10-24T06:00Z');
  `);
+ await db.exec(`ALTER TABLE "LaundryTicket" ADD returned int DEFAULT 0;ALTER TABLE "LaundryTicket" ADD refunded int DEFAULT 0;CREATE TABLE "CashierRefund"("businessId" text,"prepaidId" text,amount int,units int,"createdAt" timestamptz);`);
  const source=await readFile(new URL("../app/Laundromat/server-workspace.tsx",import.meta.url),"utf8");
  const template=source.match(/db\.\$queryRaw<LaundryTicket\[\]>`([\s\S]*?)`/)![1];
  const values:Record<string,string>={"business.id":"shop",pattern:"%",q:"",filter:"all",normalizedPhone:"",'normalizedPhone.replace(/^\\+/,"")':"",localPhone:""};

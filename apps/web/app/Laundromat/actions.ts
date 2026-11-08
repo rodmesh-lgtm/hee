@@ -1,4 +1,5 @@
 "use server";
+import { invoiceBalance } from "../lib/cashier-return";
 import { commissionQuote } from "../lib/cashier-commission";
 import { laundryCustomerPhone } from "../lib/laundry-customer";
 import { cashierOrderNotes } from "../lib/cashier-workflow";
@@ -172,7 +173,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           const old=await tx.$queryRaw<Array<{ticketId:string}>>`SELECT "ticketId" FROM "LaundryPayment" WHERE "businessId"=${business.id} AND "requestId"=${data.requestId}`;
           if(old[0]) {if(old[0].ticketId!==id) throw new LaundryInputError("معرّف الدفعة مستخدم");return {id};}
           const amount=moneyToHalalas(data.amount);
-          if(amount<=0 || amount>ticket.total-ticket.paid) throw new LaundryInputError("الدفعة يجب ألا تتجاوز المبلغ المتبقي");
+          if(amount<=0 || amount>invoiceBalance(ticket).outstanding) throw new LaundryInputError("الدفعة يجب ألا تتجاوز المبلغ المتبقي");
           const allocations=collectionAllocations(data.amount,data.method,data.cashPaid);
           for(const [index,allocation] of allocations.entries()){const paymentId=randomUUID();const paymentRequest=index===0?data.requestId:`${data.requestId}:${index}`;
             await tx.$executeRaw`INSERT INTO "LaundryPayment" ("id","businessId","ticketId","requestId","amount","method","createdBy") VALUES (${paymentId},${business.id},${id},${paymentRequest},${allocation.amount},${allocation.method},${user.id})`;
@@ -180,13 +181,14 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           }
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "paid"="paid"+${amount},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
         } else {
+          if(ticket.returned && ticket.returned===ticket.total)throw new LaundryInputError("الفاتورة مرتجعة بالكامل؛ لا يمكن استكمال تنفيذها");
           if(ticket.status===data.status)return {id};
           if(data.status==="delivered"){const delivery=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryDelivery" WHERE "businessId"=${business.id} AND "ticketId"=${id}`;if(delivery.length)throw new LaundryInputError("هذا الطلب مسند للتوصيل؛ وثّق تسليمه من مساحة التوصيل");}
-          if(!nextLaundryStatus(ticket.status,data.status,ticket.total-ticket.paid)) throw new LaundryInputError("اتبع مراحل الطلب بالترتيب، وسدّد المتبقي قبل التسليم");
+          if(!nextLaundryStatus(ticket.status,data.status,invoiceBalance(ticket).outstanding+invoiceBalance(ticket).refundDue)) throw new LaundryInputError("اتبع مراحل الطلب بالترتيب، وسدّد المتبقي قبل التسليم");
           await tx.$executeRaw`UPDATE "LaundryTicket" SET "status"=${data.status},"updatedAt"=now() WHERE "id"=${id} AND "businessId"=${business.id}`;
           if(data.status==="ready"||data.status==="delivered")await endOrderLiveSessions(tx,business.id,id,user.id);
           if(data.status==="ready")await enqueueLaundryReady(tx,business.id,id);
-          if(data.status==="delivered")await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"delivery",amount:ticket.total,at:new Date(),description:`إيراد تسليم طلب #${ticket.number}`});
+          if(data.status==="delivered")await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"delivery",amount:invoiceBalance(ticket).net,at:new Date(),description:`إيراد تسليم طلب #${ticket.number}`});
         }
       }
       await tx.$executeRaw`INSERT INTO "LaundryAudit" ("id","businessId","actorId","action","targetId") VALUES (${(data.type==="catalog"||data.type==="product"||data.type==="urgent-price"||data.type==="urgent-settings")?data.requestId:randomUUID()},${business.id},${user.id},${data.type},${id})`;

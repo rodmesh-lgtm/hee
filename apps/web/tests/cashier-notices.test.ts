@@ -45,7 +45,7 @@ test("real followup query isolates tenants and rechecks consent, status, balance
  CREATE TABLE "WhatsAppAutomationEvent"("businessId" text,source text,"externalEventId" text);
  INSERT INTO "Business" VALUES('a','A',NULL),('b','B',NULL);
  INSERT INTO "LaundryTicket" VALUES('t','a',1,'+966500000000','عميل',10000,2500,'ready','2026-10-22T00:00Z'),('other','b',2,'+966500000000','آخر',10000,0,'delivered','2026-10-22T00:00Z');
- INSERT INTO "LaundryAudit" VALUES('a','t','status','2026-10-23T00:00Z'),('a','t','order-reminder-consent','2026-10-22T00:00Z');`);
+ INSERT INTO "LaundryAudit" VALUES('a','t','status','2026-10-23T00:00Z'),('a','t','order-reminder-consent','2026-10-22T00:00Z');ALTER TABLE "LaundryTicket" ADD returned int DEFAULT 0;ALTER TABLE "LaundryTicket" ADD refunded int DEFAULT 0;`);
  const now=new Date("2026-10-25T00:00Z"),activatedAt=new Date("2026-10-21T00:00Z");
  const fetch=async(trigger="cashier_payment_reminder",pendingOnly=false)=>{const q=cashierNoticeTicketsQuery({businessId:"a",trigger,now,activatedAt,pendingOnly});return (await d.query<{id:string;remaining:number}>(q.text,q.values)).rows;};
  assert.deepEqual((await fetch()).map(t=>[t.id,t.remaining]),[['t',7500]]);
@@ -64,7 +64,7 @@ test("real followup query isolates tenants and rechecks consent, status, balance
 
 test("ready notices exclude pre-activation orders and require the current tenant, phone, status and explicit order consent",async()=>{
  const {readyNoticeQuery}=await queryModule("../app/lib/whatsapp/ready-notice-query.ts") as typeof import("../app/lib/whatsapp/ready-notice-query");const d=new PGlite();try{
- await d.exec(`CREATE TABLE "Business"(id text PRIMARY KEY,name text,"deletedAt" timestamptz);CREATE TABLE "LaundryTicket"(id text,"businessId" text,number int,phone text,"customerName" text,status text,"readyNotifyConsentAt" timestamptz,"createdAt" timestamptz);INSERT INTO "Business" VALUES('a','A',NULL),('b','B',NULL);INSERT INTO "LaundryTicket" VALUES('t','a',1,'+966500000000','عميل','ready','2026-10-25T00:00Z','2026-10-25T00:00Z');`);
+ await d.exec(`CREATE TABLE "Business"(id text PRIMARY KEY,name text,"deletedAt" timestamptz);CREATE TABLE "LaundryTicket"(id text,"businessId" text,number int,phone text,"customerName" text,status text,"readyNotifyConsentAt" timestamptz,"createdAt" timestamptz);INSERT INTO "Business" VALUES('a','A',NULL),('b','B',NULL);INSERT INTO "LaundryTicket" VALUES('t','a',1,'+966500000000','عميل','ready','2026-10-25T00:00Z','2026-10-25T00:00Z');ALTER TABLE "LaundryTicket" ADD returned int DEFAULT 0;ALTER TABLE "LaundryTicket" ADD total int DEFAULT 100;`);
  const rows=async(businessId='a',phone='+966500000000',activatedAt=new Date('2026-10-24T00:00Z'))=>{const q=readyNoticeQuery(businessId,'t',phone,activatedAt);return (await d.query(q.text,q.values)).rows;};
  assert.equal((await rows()).length,1);assert.equal((await rows('b')).length,0);assert.equal((await rows('a','+966511111111')).length,0);assert.equal((await rows('a','+966500000000',new Date('2026-10-26T00:00Z'))).length,0);
  await d.exec(`UPDATE "LaundryTicket" SET status='delivered'`);assert.equal((await rows()).length,0);

@@ -5,13 +5,13 @@ import {cashierNotice} from "./cashier-notice-domain";
 export function cashierNoticeTicketsQuery(input:{businessId:string;trigger:string;activatedAt:Date;now:Date;ticketId?:string;phone?:string;limit?:number;pendingOnly?:boolean}){
  const n=cashierNotice(input.trigger);if(!n)throw new Error("CASHIER_NOTICE_INVALID");
  const status=input.trigger==="cashier_review_request"?"delivered":"ready",cutoff=new Date(input.now.getTime()-n.hours*3600000);
- return Prisma.sql`SELECT t.id,t.number,t.phone,t."customerName",b.name AS "businessName",(t.total-t.paid)::int AS remaining
+ return Prisma.sql`SELECT t.id,t.number,t.phone,t."customerName",b.name AS "businessName",GREATEST(0,t.total-t.returned-t.paid+t.refunded)::int AS remaining
  FROM "LaundryTicket" t JOIN "Business" b ON b.id=t."businessId"
- WHERE ${!ACCOUNTING_SECURITY_HOLD} AND t."businessId"=${input.businessId} AND b."deletedAt" IS NULL AND t.status=${status}
+ WHERE ${!ACCOUNTING_SECURITY_HOLD} AND t.returned<t.total AND t."businessId"=${input.businessId} AND b."deletedAt" IS NULL AND t.status=${status}
  AND t."createdAt">=${input.activatedAt} AND t."createdAt"<=${input.now}
  AND EXISTS(SELECT 1 FROM "LaundryAudit" c WHERE c."businessId"=t."businessId" AND c."targetId"=t.id AND c.action=${n.consent} AND c."createdAt"<=${input.now})
  AND (SELECT MAX(s."createdAt") FROM "LaundryAudit" s WHERE s."businessId"=t."businessId" AND s."targetId"=t.id AND s.action='status')<=${cutoff}
- ${input.trigger==="cashier_payment_reminder"?Prisma.sql`AND t.paid<t.total`:Prisma.empty}
+ ${input.trigger==="cashier_payment_reminder"?Prisma.sql`AND t.paid-t.refunded<t.total-t.returned`:Prisma.empty}
  ${input.ticketId?Prisma.sql`AND t.id=${input.ticketId}`:Prisma.empty}
  ${input.phone?Prisma.sql`AND t.phone=${input.phone}`:Prisma.empty}
  AND NOT EXISTS(SELECT 1 FROM "WhatsAppContact" c WHERE c."businessId"=t."businessId" AND c."phoneE164"=t.phone AND (c."optedOutAt" IS NOT NULL OR c."deletedAt" IS NOT NULL))
