@@ -15,7 +15,7 @@ test("laundry persistence has tenant uniqueness, composite foreign keys and mone
  assert.ok(migration.includes('UNIQUE ("businessId","number")'));
 });
 test("preset activation is owner-only, transactional, tenant-scoped and idempotent",()=>{
- assert.ok(actions.includes('["service","catalog","product","archive","expense","urgent-price"]'));
+ assert.ok(actions.includes('["service","service-update","catalog","product","archive","expense","urgent-price"]'));
  assert.ok(actions.includes('resolveLaundryPreset(item.presetId,item.operation??"")'));
  assert.ok(actions.includes('"businessId"=${business.id} AND "id"=${id} AND "action"=${data.type}'));
  assert.ok(actions.includes('WHERE NOT EXISTS (SELECT 1 FROM "LaundryService" s WHERE s."businessId"=${business.id}'));
