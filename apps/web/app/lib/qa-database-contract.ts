@@ -109,6 +109,8 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20261101070000_account_deactivation",
   "20261102040000_retail_oauth_lifecycle_compatibility",
   "20261103110000_salla_easy_installation",
+  "20261108100000_cashier_employee_commissions",
+  "20261108140000_cashier_invoice_returns",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

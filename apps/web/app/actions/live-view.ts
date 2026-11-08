@@ -82,7 +82,7 @@ export async function createLiveSessionAction(_: LiveViewState, form: FormData):
       if(orderId){
        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${who.business.id}`}))`;
        if(!(await commercialAccess(who.business.id,tx)).cashier)throw new Error("ORDER");
-       const rows=await tx.$queryRaw<Array<{customerName:string;phone:string;number:number}>>`SELECT "customerName",phone,number FROM "LaundryTicket" WHERE id=${orderId} AND "businessId"=${who.business.id} AND status IN ('received','processing')`;
+       const rows=await tx.$queryRaw<Array<{customerName:string;phone:string;number:number}>>`SELECT "customerName",phone,number FROM "LaundryTicket" WHERE id=${orderId} AND "businessId"=${who.business.id} AND returned<total AND status IN ('received','processing')`;
        order=rows[0];if(!order||customerName!==order.customerName.slice(0,80)||(sendWhatsApp&&liveViewRecipientPhone(text(form,"phone"))!==order.phone))throw new Error("ORDER");
       }
       const station = await stationLock(tx, who.business.id, id); const now = new Date();

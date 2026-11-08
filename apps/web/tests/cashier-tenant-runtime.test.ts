@@ -55,6 +55,7 @@ test("actual customer order queries cannot disclose another tenant's invoices th
  try {
   await pg.exec('CREATE TABLE "LaundryTicket" (id text,number int,"businessId" text,"customerId" text,"createdAt" timestamptz,status text,total int,paid int)');
   await pg.query('INSERT INTO "LaundryTicket" VALUES ($1,1,$2,$3,now(),\'received\',100,0),($4,2,$5,$6,now(),\'received\',900,0)',[randomUUID(),businessA,customerA,randomUUID(),businessB,customerB]);
+  await pg.exec('ALTER TABLE "LaundryTicket" ADD returned int DEFAULT 0;ALTER TABLE "LaundryTicket" ADD refunded int DEFAULT 0');
   await pg.exec('CREATE TABLE "LaundryService" (id text,"businessId" text,name text,category text,active boolean); CREATE TABLE "AccountingPackage" (id text,"businessId" text,name text,description text,amount int,"durationDays" int,"serviceIds" jsonb,active boolean,kind text,"unitsIncluded" int,"createdAt" timestamptz)');
   await pg.query(`INSERT INTO "LaundryService" VALUES ($1,$2,'تغيير زيت المحرك','صيانة دورية',true),($3,$2,'إزالة البقع','غسيل وكوي',true),($4,$5,'ثوب — غسيل وكوي','ملابس رجالية',true)`,[randomUUID(),businessA,randomUUID(),randomUUID(),businessB]);
   await pg.query(`INSERT INTO "AccountingPackage" VALUES ($1,$2,'ورشة A','',100,30,'[]',true,'credit',null,now()),($3,$4,'مغسلة B','',900,30,'[]',true,'credit',null,now())`,[randomUUID(),businessA,randomUUID(),businessB]);

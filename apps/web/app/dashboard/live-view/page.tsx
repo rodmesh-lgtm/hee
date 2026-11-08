@@ -17,7 +17,7 @@ export default async function LiveViewPage({ searchParams }: { searchParams: Pro
   // Publish the section without requiring an unprovisioned media database.
   if (!liveGatewayConfig()) return <LiveViewPreparation />;
   const cashier=await getActiveBusinessForUser(user.id,"laundry");
-  const orders=cashier?.id===business.id?await db.$queryRaw<Array<{id:string;number:number;customerName:string;phone:string}>>`SELECT id,number,"customerName",phone FROM "LaundryTicket" WHERE "businessId"=${business.id} AND status IN ('received','processing') ORDER BY "createdAt" DESC LIMIT 100`:[];
+  const orders=cashier?.id===business.id?await db.$queryRaw<Array<{id:string;number:number;customerName:string;phone:string}>>`SELECT id,number,"customerName",phone FROM "LaundryTicket" WHERE "businessId"=${business.id} AND status IN ('received','processing') AND returned<total ORDER BY "createdAt" DESC LIMIT 100`:[];
   const query = await searchParams;
   const q = String(query.q || "").trim().slice(0,100);
   const status = ["active","ended"].includes(query.status || "") ? query.status : "all";
