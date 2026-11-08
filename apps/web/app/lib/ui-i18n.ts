@@ -4,6 +4,8 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "حسابات منشأتك وتقاريرها ومقارنة أدائها بحسب البيانات المتاحة وصلاحيات الربط.": {"en": "Your business accounts, reports and performance comparisons based on available data and connection permissions.", "zh-CN": "根据可用数据和连接权限查看企业账户、报表并比较表现。", "es": "Cuentas, informes y comparaciones según los datos disponibles y permisos.", "ur": "دستیاب ڈیٹا اور رابطے کی اجازتوں کے مطابق کاروباری اکاؤنٹس، رپورٹس اور کارکردگی کا موازنہ۔"},
+  "راجع طلبات المتاجر المرتبطة وتابع حالة المزامنة من حساب منشأتك.": {"en": "Review connected store orders and synchronization status from your business account.", "zh-CN": "在企业账户中查看已连接商店的订单和同步状态。", "es": "Revisa pedidos de tiendas conectadas y su estado de sincronización.", "ur": "اپنے کاروباری اکاؤنٹ سے منسلک اسٹور کے آرڈرز اور ہم وقت سازی کی حالت دیکھیں۔"},
   "تخصيص الأقسام": {"en": "Customize sections", "zh-CN": "自定义栏目", "es": "Personalizar secciones", "ur": "حصوں کو حسب ضرورت بنائیں"},
   "إغلاق التخصيص": {"en": "Close customization", "zh-CN": "关闭自定义", "es": "Cerrar personalización", "ur": "تخصیص بند کریں"},
   "حفظ التخصيص": {"en": "Save customization", "zh-CN": "保存自定义", "es": "Guardar personalización", "ur": "تخصیص محفوظ کریں"},

@@ -243,6 +243,31 @@ async function auditAdminRoute(browser:Browser,input:{theme:"light"|"dark";viewp
     const response=await page.goto(`${baseUrl}/admin`,{waitUntil:"domcontentloaded"});
     expect(response?.status()).toBe(200);
     await expect(page.locator("[data-admin-shell]")).toBeVisible();
+    await expect(page.getByRole("searchbox", { name: "البحث عن منشأة" })).toBeVisible();
+    if (input.viewport.width >= 1024) {
+      const navigation = page.getByRole("navigation", { name: "تنقل إدارة المنصة" });
+      const search = navigation.getByRole("searchbox");
+      await search.fill("التذكيرات");
+      await expect(navigation.getByRole("link", { name: /التذكيرات الذكية/ })).toBeVisible();
+      await expect(navigation.getByRole("link", { name: "المنشآت", exact: true })).toHaveCount(0);
+      await search.fill("no-section-matches-this-query");
+      await expect(navigation.getByRole("status")).toBeVisible();
+      await search.clear();
+      await expect(navigation.getByRole("link", { name: "المنشآت", exact: true })).toBeVisible();
+    } else {
+      await page.getByRole("button", { name: "المزيد", exact: true }).click();
+      const drawer = page.getByRole("dialog", { name: "كل أدوات الإدارة" });
+      const search = drawer.getByRole("searchbox");
+      await search.fill("التذكيرات");
+      await expect(drawer.getByRole("link", { name: /التذكيرات الذكية/ })).toBeVisible();
+      await expect(drawer.getByRole("link", { name: "المنشآت", exact: true })).toHaveCount(0);
+      await search.fill("no-section-matches-this-query");
+      await expect(drawer.getByRole("status")).toBeVisible();
+      await search.press("Escape");
+      await expect(drawer).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "المزيد", exact: true })).toBeFocused();
+    }
+
     await assertLanguageClearOfNavigation(page);
     const metrics=await page.evaluate(()=>{
       const lightSurfaces=[...document.querySelectorAll<HTMLElement>("main section,main article")].filter(el=>{const r=el.getBoundingClientRect();const rgb=getComputedStyle(el).backgroundColor.match(/\d+(?:\.\d+)?/g)?.slice(0,3).map(Number)??[];return r.width>=140&&r.height>=72&&rgb.length===3&&rgb.every(value=>value>220)}).length;
