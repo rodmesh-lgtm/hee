@@ -1,4 +1,6 @@
 "use server";
+import { commissionQuote } from "../lib/cashier-commission";
+import { laundryCustomerPhone } from "../lib/laundry-customer";
 import { cashierOrderNotes } from "../lib/cashier-workflow";
 import { cashierProfileForBusiness } from "../lib/cashier-profile-server";
 import { cashierActivityProfile, cashierServiceAllowed, isClothingPresetService } from "../lib/cashier-activity";
@@ -28,7 +30,7 @@ const command = z.discriminatedUnion("type", [
   z.object({type:z.literal("urgent-settings"),enabled:z.boolean(),requestId:key}),
   z.object({ type:z.literal("urgent-price"),id:key,price:z.string(),requestId:key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
-  z.object({ type: z.literal("order"), vehicleModel:z.string().trim().max(80).optional(),vehiclePlate:z.string().trim().max(30).optional(),vehicleMileage:z.string().trim().max(7).optional(), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
+  z.object({ type: z.literal("order"), commission:z.object({name:z.string().trim().min(2).max(100),phone:z.string().min(8).max(40),kind:z.enum(["fixed","percent"]),value:z.string().max(20)}).optional(), vehicleModel:z.string().trim().max(80).optional(),vehiclePlate:z.string().trim().max(30).optional(),vehicleMileage:z.string().trim().max(7).optional(), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
   z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0") }),
   z.object({ type: z.literal("status"), requestId: key, id: key, status: z.enum(["received","processing","ready","delivered"]) }),
   z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string(), method:z.enum(["cash","transfer","unspecified"]).default("unspecified") }),
@@ -132,6 +134,12 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           lines=quote.lines;total=quote.total;
         }
         await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName},${customer.phone},${customer.id},${JSON.stringify(supportsUrgent?withLaundryServiceSpeed(lines,data.serviceSpeed):lines)}::jsonb,${total},${paid},${dueAt},${notes},${user.id})`;
+        if(data.commission){
+          const commission=commissionQuote(data.commission.kind,data.commission.value,total);
+          const employeePhone=laundryCustomerPhone(data.commission.phone);
+          await tx.$executeRaw`INSERT INTO "CashierCommission" (id,"businessId","ticketId",name,phone,kind,value,base,amount,"createdBy") VALUES (${randomUUID()},${business.id},${id},${data.commission.name},${employeePhone},${commission.kind},${commission.value},${commission.base},${commission.amount},${user.id})`;
+          await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${randomUUID()},${business.id},${user.id},'commission-recorded',${id})`;
+        }
         await postLaundrySource(tx,{businessId:business.id,actorId:user.id,id,kind:"order",amount:total,at:new Date(),description:`استلام طلب #${rows[0].number}`});
         if(quote){
           for(const allocation of quote.allocations){
