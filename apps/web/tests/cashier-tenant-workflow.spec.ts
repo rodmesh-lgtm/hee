@@ -173,6 +173,8 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await lb.page.goto('/Accounting');await lb.page.getByRole('button',{name:'مستعجل',exact:true}).click();
   const rateField=lb.page.getByRole('spinbutton',{name:'سعر المستعجل — بطانية — غسيل وكوي',exact:true});
   await rateField.fill('15');
+  expect(await lb.page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
+  await lb.page.screenshot({path:'test-results/cashier-urgent-inline-pricing-mobile.png',fullPage:true});
   await rateField.locator('xpath=ancestor::form').getByRole('button',{name:'حفظ سعر المستعجل',exact:true}).click();
   await expect(lb.page.getByRole('button',{name:'إضافة بطانية — غسيل وكوي',exact:true})).toBeEnabled();
   await lb.page.getByRole('button',{name:'إضافة بطانية — غسيل وكوي',exact:true}).click();
@@ -181,6 +183,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await lb.page.getByRole('button',{name:'بعد ساعة',exact:true}).click();
   await lb.page.getByLabel('نوع الخصم',{exact:true}).selectOption('fixed');await lb.page.getByLabel('قيمة الخصم بالريال',{exact:true}).fill('2');
   await expect(lb.page.getByLabel(consentLabel,{exact:true})).not.toBeChecked();
+  await lb.page.screenshot({path:'test-results/cashier-discount-consent-mobile.png',fullPage:true});
   await lb.page.getByRole('button',{name:'حفظ الطلب وإصدار المستند',exact:true}).click();
   await expect(lb.page.getByRole('dialog')).toContainText('خصم الفاتورة');
   const urgentDiscount=await db.$queryRaw<Array<{total:number;consented:boolean;items:Array<{unitPrice:number;discount:number;serviceSpeed:string}>}>>`SELECT total,"readyNotifyConsentAt" IS NOT NULL AS consented,items FROM "LaundryTicket" WHERE "businessId"=${laundry.id} AND number=3`;
