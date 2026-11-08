@@ -29,8 +29,8 @@ export async function laundryDeliveryCommand(value:unknown):Promise<{ok:boolean;
  if(d.type==="assign"){
   const member=await tx.businessMember.findFirst({where:{businessId:b.id,userId:d.driverId,status:"active"},select:{permissions:true}});
   if(!member||!memberCanAccess(member.permissions,"laundryDelivery"))throw new LaundryInputError("اختر موظفًا نشطًا لديه صلاحية توصيل المغسلة");
-  const tickets=await tx.$queryRaw<Array<{id:string;customerName:string;phone:string;status:string;paid:number;total:number}>>`SELECT id,"customerName",phone,status,paid,total FROM "LaundryTicket" WHERE "businessId"=${b.id} AND number=${d.number} FOR UPDATE`;
-  const t=tickets[0];if(!t||t.status!=="ready"||t.paid!==t.total)throw new LaundryInputError("الإسناد لطلب جاهز ومسدّد بالكامل فقط");
+  const tickets=await tx.$queryRaw<Array<{id:string;customerName:string;phone:string;status:string;paid:number;total:number}>>`SELECT id,"customerName",phone,status,paid-refunded AS paid,total-returned AS total FROM "LaundryTicket" WHERE "businessId"=${b.id} AND number=${d.number} FOR UPDATE`;
+  const t=tickets[0];if(!t||t.total<=0||t.status!=="ready"||t.paid!==t.total)throw new LaundryInputError("الإسناد لطلب جاهز ومسدّد بالكامل فقط");
   const existing=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryDelivery" WHERE "businessId"=${b.id} AND "ticketId"=${t.id}`;if(existing.length)throw new LaundryInputError("للطلب مهمة توصيل بالفعل؛ أعد محاولة المهمة المتعذرة من سجلها");
   id=randomUUID();status="assigned";note=`إسناد طلب #${d.number} مع تسجيل موافقة مشاركة عنوان التوصيل`;
   await tx.$executeRaw`INSERT INTO "LaundryDelivery" (id,"businessId","ticketId","driverId","customerName",phone,address,"consentRecordedBy") VALUES (${id},${b.id},${t.id},${d.driverId},${t.customerName},${t.phone},${d.address},${user.id})`;
@@ -41,8 +41,8 @@ export async function laundryDeliveryCommand(value:unknown):Promise<{ok:boolean;
   if(!laundryDeliveryTransition(job.status,status,owner))throw new LaundryInputError("اتبع مراحل التوصيل؛ إعادة المحاولة متاحة للمالك بعد التعذر فقط");
   if(status==="delivered"){
    if(d.recipient.length<2)throw new LaundryInputError("سجّل اسم مستلم الطلب لتوثيق التسليم");
-   const tickets=await tx.$queryRaw<Array<{id:string;number:number;total:number;paid:number;status:string}>>`SELECT id,number,total,paid,status FROM "LaundryTicket" WHERE "businessId"=${b.id} AND id=${job.ticketId} FOR UPDATE`;
-   const t=tickets[0];if(!t||t.status!=="ready"||t.paid!==t.total)throw new LaundryInputError("حالة الطلب تغيرت؛ راجع المالك قبل التسليم");
+   const tickets=await tx.$queryRaw<Array<{id:string;number:number;total:number;paid:number;status:string}>>`SELECT id,number,total-returned AS total,paid-refunded AS paid,status FROM "LaundryTicket" WHERE "businessId"=${b.id} AND id=${job.ticketId} FOR UPDATE`;
+   const t=tickets[0];if(!t||t.total<=0||t.status!=="ready"||t.paid!==t.total)throw new LaundryInputError("حالة الطلب تغيرت؛ راجع المالك قبل التسليم");
    await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${randomUUID()},${b.id},${user.id},'status',${t.id})`;
    await tx.$executeRaw`UPDATE "LaundryTicket" SET status='delivered',"updatedAt"=now() WHERE "businessId"=${b.id} AND id=${t.id}`;
    await endOrderLiveSessions(tx,b.id,t.id,user.id);

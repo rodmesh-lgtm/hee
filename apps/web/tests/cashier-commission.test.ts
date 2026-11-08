@@ -25,6 +25,7 @@ async function database() {
     INSERT INTO "Business" VALUES ('11111111-1111-4111-8111-111111111111'),('22222222-2222-4222-8222-222222222222');
     INSERT INTO "LaundryTicket" VALUES ('a','11111111-1111-4111-8111-111111111111',1),('b','22222222-2222-4222-8222-222222222222',2);`);
   await pg.exec(readFileSync("prisma/migrations/20261108100000_cashier_employee_commissions/migration.sql","utf8"));
+  await pg.exec(`CREATE VIEW "CashierCommissionEvent" AS SELECT * FROM "CashierCommission"`);
   return pg;
 }
 const a="11111111-1111-4111-8111-111111111111", b="22222222-2222-4222-8222-222222222222";

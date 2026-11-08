@@ -23,13 +23,13 @@ export function CashierCommissions({ businessId }: { businessId: string }) {
   }
   function download() {
     if (!report || !period) return;
-    const rows = [[t("عمولات الموظفين"), period.from, period.to], [t("اسم الموظف"),t("الجوال"),t("عدد الفواتير"),t("إجمالي العمولات بالريال")],...report.employees.map(row=>[row.name,row.phone,row.invoices,(row.amount/100).toFixed(2)])];
+    const rows = [[t("عمولات الموظفين"), period.from, period.to], [t("اسم الموظف"),t("الجوال"),t("عدد الحركات"),t("إجمالي العمولات بالريال")],...report.employees.map(row=>[row.name,row.phone,row.invoices,(row.amount/100).toFixed(2)])];
     const url=URL.createObjectURL(new Blob([laundryCsv(rows)],{type:"text/csv;charset=utf-8"}));
     const anchor=document.createElement("a");anchor.href=url;anchor.download=`INFRO-commissions-${period.from}-${period.to}.csv`;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   return <section className="ld-panel">
     <div className="ld-panel-title"><h2>{t("عمولات الموظفين")}</h2><span>{t("سجل خاص بالمنشأة")}</span></div>
-    <p className="ld-fine">{t("اختر الفترة لعرض كل موظف وعمولاته المرتبطة بالفواتير. هذا سجل عمولات مسجلة وليس كشف صرف أو قيد مصروف محاسبي.")}</p>
+    <p className="ld-fine">{t("اختر الفترة لعرض كل موظف وعمولاته المرتبطة بالفواتير. تظهر تسويات المرتجعات بالسالب في تاريخ تسجيلها. هذا سجل عمولات مسجلة وليس كشف صرف أو قيد مصروف محاسبي.")}</p>
     <form className="ld-inline-form" onSubmit={event=>{event.preventDefault();const data=new FormData(event.currentTarget);void load({from:String(data.get("from")),to:String(data.get("to")),phone:String(data.get("phone")??"")});}}>
       <label>{t("من تاريخ")}<input name="from" type="date" required defaultValue={`${today.slice(0,7)}-01`}/></label>
       <label>{t("إلى تاريخ")}<input name="to" type="date" required defaultValue={today}/></label>
@@ -39,12 +39,12 @@ export function CashierCommissions({ businessId }: { businessId: string }) {
     {error?<p role="alert" className="ld-alert">{t(error)}</p>:null}
     {report && period ? <>
       <p className="ld-fine">{period.from} — {period.to} · {t("بتوقيت الرياض")}</p>
-      <div className="ld-report-summary"><article><span>{t("عدد الموظفين")}</span><strong>{report.employees.length}</strong></article><article><span>{t("عدد الفواتير")}</span><strong>{report.count}</strong></article><article><span>{t("إجمالي العمولات")}</span><strong>{money(report.amount)} {t("ر.س")}</strong></article></div>
+      <div className="ld-report-summary"><article><span>{t("عدد الموظفين")}</span><strong>{report.employees.length}</strong></article><article><span>{t("عدد الحركات")}</span><strong>{report.count}</strong></article><article><span>{t("إجمالي العمولات")}</span><strong>{money(report.amount)} {t("ر.س")}</strong></article></div>
       <div className="ld-panel-title"><h3>{t("كل موظف وعمولته")}</h3><button type="button" className="ld-outline" onClick={download} disabled={!report.count}>{t("تصدير ملخص الموظفين CSV")}</button></div>
-      <div className="ld-table-wrap"><table><thead><tr><th>{t("اسم الموظف")}</th><th>{t("الجوال")}</th><th>{t("عدد الفواتير")}</th><th>{t("العمولات بالريال")}</th></tr></thead><tbody>{report.employees.map(row=><tr key={row.phone}><td>{row.name}</td><td dir="ltr">{row.phone}</td><td>{row.invoices}</td><td>{money(row.amount)}</td></tr>)}</tbody></table></div>
+      <div className="ld-table-wrap"><table><thead><tr><th>{t("اسم الموظف")}</th><th>{t("الجوال")}</th><th>{t("عدد الحركات")}</th><th>{t("العمولات بالريال")}</th></tr></thead><tbody>{report.employees.map(row=><tr key={row.phone}><td>{row.name}</td><td dir="ltr">{row.phone}</td><td>{row.invoices}</td><td>{money(row.amount)}</td></tr>)}</tbody></table></div>
       {!report.count?<p className="ld-empty">{t("لا توجد عمولات مسجلة في هذه الفترة")}</p>:<>
-        <h3>{t("تفاصيل عمولات الفواتير")}</h3>
-        <div className="ld-table-wrap"><table><thead><tr><th>{t("الفاتورة")}</th><th>{t("التاريخ")}</th><th>{t("الموظف")}</th><th>{t("الاتفاق")}</th><th>{t("إجمالي الفاتورة")}</th><th>{t("العمولة")}</th></tr></thead><tbody>{report.entries.map(row=><tr key={row.id}><td>#{row.number}</td><td>{new Intl.DateTimeFormat(intlLocale,{timeZone:"Asia/Riyadh",dateStyle:"short"}).format(new Date(row.createdAt))}</td><td>{row.name}<small dir="ltr">{row.phone}</small></td><td>{money(row.value)} {row.kind==="percent"?"٪":t("ر.س")}</td><td>{money(row.base)}</td><td>{money(row.amount)}</td></tr>)}</tbody></table></div>
+        <h3>{t("تفاصيل العمولات وتسويات المرتجعات")}</h3>
+        <div className="ld-table-wrap"><table><thead><tr><th>{t("الفاتورة")}</th><th>{t("التاريخ")}</th><th>{t("الموظف")}</th><th>{t("الاتفاق")}</th><th>{t("إجمالي الفاتورة")}</th><th>{t("العمولة")}</th></tr></thead><tbody>{report.entries.map(row=><tr key={row.id}><td>#{row.number}{row.amount<0?<small>{t("عكس عمولة مرتجع")}</small>:null}</td><td>{new Intl.DateTimeFormat(intlLocale,{timeZone:"Asia/Riyadh",dateStyle:"short"}).format(new Date(row.createdAt))}</td><td>{row.name}<small dir="ltr">{row.phone}</small></td><td>{money(row.value)} {row.kind==="percent"?"٪":t("ر.س")}</td><td>{money(row.base)}</td><td>{money(row.amount)}</td></tr>)}</tbody></table></div>
         <div className="ld-dialog-tools"><button type="button" className="ld-outline" disabled={busy||report.page===0} onClick={()=>void load(period,report.page-1)}>{t("السابق")}</button><span>{report.page+1} / {Math.ceil(report.count/100)}</span><button type="button" className="ld-outline" disabled={busy||(report.page+1)*100>=report.count} onClick={()=>void load(period,report.page+1)}>{t("التالي")}</button></div>
       </>}
     </>:null}

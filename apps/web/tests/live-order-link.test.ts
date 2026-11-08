@@ -21,7 +21,7 @@ test("order completion closes only linked tenant sessions, preserves isolation a
 test("bound creation and completion use the same business lock before the station lock, and refuse completed/cross-tenant orders",()=>{
  const source=readFileSync("app/actions/live-view.ts","utf8"),start=source.indexOf("const createdSession ="),body=source.slice(start,source.indexOf('revalidatePath("/dashboard/live-view")',start));
  assert.ok(body.indexOf('`laundry:${who.business.id}`')<body.indexOf('await stationLock'));
- assert.match(body,/"businessId"=\$\{who.business.id\} AND status IN \('received','processing'\)/);
+ assert.match(body,/"businessId"=\$\{who.business.id\} AND returned<total AND status IN \('received','processing'\)/);
  assert.match(body,/liveViewRecipientPhone\(text\(form,"phone"\)\)!==order.phone/);
  assert.match(body,/action:"live-view.order.linked"/);
  const action=readFileSync("app/Laundromat/actions.ts","utf8");assert.match(action,/data.status==="ready"\|\|data.status==="delivered"\)await endOrderLiveSessions/);

@@ -39,7 +39,7 @@ export async function laundryLedgerCommand(value:unknown):Promise<{ok:boolean;er
    const pending=await tx.$queryRaw<Array<{id:string;kind:"order"|"payment"|"delivery"|"expense";amount:number;method:string;at:Date;description:string}>>`
     SELECT s.* FROM (
      SELECT "id",'order' AS kind,"total" AS amount,'' AS method,"createdAt" AS at,('استلام طلب #'||"number") AS description FROM "LaundryTicket" WHERE "businessId"=${business.id}
-     UNION ALL SELECT "id",'delivery',"total",'',"updatedAt",('تسليم طلب #'||"number") FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "status"='delivered'
+     UNION ALL SELECT "id",'delivery',"total"-returned,'',"updatedAt",('تسليم طلب #'||"number") FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "status"='delivered'
      UNION ALL SELECT "id",'payment',"amount","method","createdAt",'تحصيل طلب' FROM "LaundryPayment" WHERE "businessId"=${business.id}
      UNION ALL SELECT "id",'expense',"amount","method","createdAt","description" FROM "LaundryExpense" WHERE "businessId"=${business.id}
     ) s WHERE s.amount>0 AND NOT EXISTS(SELECT 1 FROM "LaundryJournal" j WHERE j."businessId"=${business.id} AND j."sourceKey"=s.kind||':'||s.id) ORDER BY s.at,s.kind,s.id LIMIT 25`;

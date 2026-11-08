@@ -10,7 +10,7 @@ export type LaundryService = { id: string; name: string; category: string; price
 export const LAUNDRY_SERVICE_SPEEDS = {normal:"عادي",urgent:"مستعجل"} as const;
 export type LaundryServiceSpeed = keyof typeof LAUNDRY_SERVICE_SPEEDS;
 export type LaundryLine = { serviceSpeed?: LaundryServiceSpeed; regularUnitPrice?: number; serviceId: string; name: string; quantity: number; unitPrice: number; total: number };
-export type LaundryTicket = { subscriptionBalances?: Array<{id:string;name:string;originalAmount:number;usedAmount:number;remaining:number;unitsRemaining:number|null;kind:"credit"|"pieces"|"visits"}>; collections?: Array<{method:string;amount:number}>; id: string; number: number; customerName: string; phone: string; items: LaundryLine[]; total: number; paid: number; status: LaundryStatus; dueAt: Date; notes: string; createdAt: Date };
+export type LaundryTicket = { returned?: number; refunded?: number; subscriptionBalances?: Array<{id:string;name:string;originalAmount:number;usedAmount:number;remaining:number;unitsRemaining:number|null;kind:"credit"|"pieces"|"visits"}>; collections?: Array<{method:string;amount:number}>; id: string; number: number; customerName: string; phone: string; items: LaundryLine[]; total: number; paid: number; status: LaundryStatus; dueAt: Date; notes: string; createdAt: Date };
 export function moneyToHalalas(value: string) {
   if (!/^\d{1,7}(\.\d{1,2})?$/.test(value)) throw new LaundryInputError("أدخل مبلغًا صحيحًا بمنزلتين عشريتين كحد أقصى");
   const [whole, fraction = ""] = value.split(".");

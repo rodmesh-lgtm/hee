@@ -71,6 +71,34 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await lb.page.getByRole('button',{name:'عرض العمولات',exact:true}).click();
   await expect(lb.page.getByText('موظف المغسلة الخاص',{exact:true}).first()).toBeVisible();
   expect(await lb.page.content()).not.toContain('موظف الورشة الخاص');
+  // Exercise an actual partial return and its separately confirmed cash refund.
+  const rt=randomUUID(),rp=randomUUID();
+  await db.$executeRaw`INSERT INTO "LaundryTicket"(id,"businessId",number,"requestId","customerName",phone,"customerId",items,total,paid,status,"dueAt","createdBy") VALUES (${rt},${shop.id},3,${randomUUID()},${nameA},${phoneA},${ca},${JSON.stringify([{serviceId:sa,name:'خدمة قابلة للإرجاع',quantity:2,unitPrice:500,total:1000}])}::jsonb,1000,1000,'received',${new Date(Date.now()+86400000)},${a.id})`;
+  await db.$executeRaw`INSERT INTO "LaundryPayment"(id,"businessId","ticketId","requestId",amount,method,"createdBy") VALUES (${rp},${shop.id},${rt},${randomUUID()},1000,'cash',${a.id})`;
+  await wa.page.getByRole('button',{name:'دفتر المحاسبة',exact:true}).click();
+  await wa.page.getByRole('button',{name:'تهيئة الدفتر من العمليات المسجلة',exact:true}).click();
+  await expect(wa.page.getByText('تم حفظ العملية المحاسبية',{exact:true})).toBeVisible();
+  await wa.page.getByRole('button',{name:'مرتجعات الفواتير',exact:true}).click();
+  await wa.page.getByLabel('رقم الفاتورة',{exact:true}).fill('3');
+  await wa.page.getByRole('button',{name:'استعراض الفاتورة والمرتجعات',exact:true}).click();
+  await wa.page.getByLabel('كمية مرتجع 1',{exact:true}).fill('1');
+  await wa.page.getByLabel('سبب المرتجع',{exact:true}).fill('إرجاع نصف الخدمات بناء على طلب العميل');
+  await wa.page.getByRole('button',{name:'اعتماد المرتجع وتحديث الرصيد',exact:true}).click();
+  await expect(wa.page.getByText('تم حفظ المرتجع. راجع المبلغ المستحق للإعادة أدناه',{exact:true})).toBeVisible();
+  const credited=await db.$queryRaw<Array<{total:number;paid:number;returned:number;refunded:number}>>`SELECT total,paid,returned,refunded FROM "LaundryTicket" WHERE id=${rt}`;
+  expect(credited[0]).toEqual({total:1000,paid:1000,returned:500,refunded:0});
+  await wa.page.getByLabel('المبلغ المعاد',{exact:true}).fill('5');
+  await wa.page.getByLabel('مرجع الإعادة أو سند الصرف',{exact:true}).fill('سند نقدي تجريبي 123');
+  await wa.page.getByLabel('أؤكد إعادة المبلغ فعليًا بنفس وسيلة الدفعة المختارة',{exact:true}).check();
+  await wa.page.getByRole('button',{name:'تسجيل المبلغ المعاد فعليًا',exact:true}).click();
+  await expect(wa.page.getByText('تم توثيق إعادة المبلغ',{exact:true})).toBeVisible();
+  await wa.page.getByRole('button',{name:'عرض وطباعة المرتجع',exact:true}).click();
+  await expect(wa.page.getByRole('dialog')).toContainText('خدمة قابلة للإرجاع');
+  await wa.page.getByRole('button',{name:'إغلاق السند',exact:true}).click();
+  const refunded=await db.$queryRaw<Array<{refunded:number}>>`SELECT refunded FROM "LaundryTicket" WHERE id=${rt}`;expect(refunded[0].refunded).toBe(500);
+  const journals=await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryJournal" WHERE "businessId"=${shop.id} AND ("sourceKey" LIKE 'invoice-return:%' OR "sourceKey" LIKE 'invoice-refund:%')`;expect(journals[0].n).toBe(2);
+  await wa.page.screenshot({path:'test-results/cashier-returns-desktop.png',fullPage:true});
+  await wa.page.setViewportSize({width:390,height:844});await wa.page.screenshot({path:'test-results/cashier-returns-mobile.png',fullPage:true});await wa.page.setViewportSize({width:1280,height:800});
   await wa.context.addCookies([{name:'hee_active_business',value:laundry.id,url:baseUrl}]);await wa.page.goto('/Accounting');expect(await wa.page.content()).not.toContain(nameA);expect(await wa.page.content()).not.toContain(nameB);await expect(wa.page.getByText('سجّل الدخول واختر منشأتك للوصول إلى حساباتها.',{exact:true})).toBeVisible();
   const restricted=await login(staff.id,shop.id);await restricted.page.goto('/Accounting');await expect(restricted.page.getByText('تحتاج صلاحية البرنامج المحاسبي',{exact:true})).toBeVisible();expect(await restricted.page.content()).not.toContain(nameA);await lb.context.clearCookies();await lb.page.reload();expect(await lb.page.content()).not.toContain(nameB);expect(await lb.page.content()).not.toContain(phoneB);
  }finally{for(const context of contexts)await context.close();await db.session.deleteMany({where:{userId:{in:users.map(u=>u.id)}}});await db.business.updateMany({where:{id:{in:[shop.id,laundry.id]}},data:{deletedAt:new Date()}});await db.user.updateMany({where:{id:{in:users.map(u=>u.id)}},data:{deletedAt:new Date()}});await db.$disconnect();await pool.end();}
