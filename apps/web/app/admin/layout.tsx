@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     <a href="#admin-main-content" className="fixed right-4 top-3 z-[100] -translate-y-24 rounded-xl bg-[#07181b] px-4 py-2 text-sm font-black text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00bfae] focus-visible:ring-offset-2">{t("الانتقال إلى المحتوى الرئيسي")}</a>
     <aside className="fixed inset-y-0 start-0 z-50 hidden w-[296px] overflow-hidden border-l border-white/[.06] bg-[#061619] text-white lg:flex lg:flex-col">
       <div className="relative flex h-[88px] items-center border-b border-white/[.06] px-5">
-        <IrLogo className="h-10 text-2xl text-white" priority workspace surface="dark" />
+        <IrLogo className="h-10 text-2xl text-white" priority workspace />
       </div>
       <div className="relative mx-4 mt-4 rounded-[18px] border border-white/[.07] bg-white/[.035] p-3.5"><div className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#35e4cb]/10 text-[#6eead8]"><Command className="h-4 w-4"/></span><div><p className="text-[9px] font-black tracking-[.13em] text-[#6eead8]" dir={LOCALE_META[locale].dir}>{t("إدارة المنصة")}</p><p className="mt-1 text-[10px] font-semibold text-slate-400">{t("إدارة المنصة والعمليات من مركز واحد")}</p></div></div></div>
       <AdminDesktopNavigation />

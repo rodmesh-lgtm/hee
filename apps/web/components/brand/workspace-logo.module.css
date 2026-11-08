@@ -3,8 +3,3 @@
 .dark { display: none; }
 :global([data-dashboard-theme="dark"]) .light { display: none; }
 :global([data-dashboard-theme="dark"]) .dark { display: block; }
-/* A fixed sidebar surface takes precedence over the selected page theme. */
-.onDark .light { display: none; }
-.onDark .dark { display: block; }
-.onLight .light { display: block; }
-.onLight .dark { display: none; }
