@@ -30,7 +30,7 @@ export function CommissionFields({ businessId }: { businessId: string }) {
       {message ? <p className="ld-fine" role="status">{t(message)}</p> : null}
       <label>{t("اسم موظف العمولة")}<input name="commissionName" required minLength={2} maxLength={100} value={name} onChange={event => { revision.current++; setName(event.target.value); }}/></label>
       <div className="ld-form-row">
-        <label>{t("نوع العمولة")}<select name="commissionKind" value={kind} onChange={event => setKind(event.target.value as CommissionKind)}><option value="fixed">{t("مبلغ ثابت بالريال")}</option><option value="percent">{t("نسبة من إجمالي الفاتورة")}</option></select></label>
+        <label>{t("نوع العمولة")}<select aria-label={t("نوع العمولة")} name="commissionKind" value={kind} onChange={event => setKind(event.target.value as CommissionKind)}><option value="fixed">{t("مبلغ ثابت بالريال")}</option><option value="percent">{t("نسبة من إجمالي الفاتورة")}</option></select></label>
         <label>{t(kind === "fixed" ? "قيمة العمولة بالريال" : "نسبة العمولة ٪")}<input key={kind} name="commissionValue" type="number" inputMode="decimal" required min="0.01" max={kind === "percent" ? "100" : "100000"} step="0.01"/></label>
       </div>
       <p className="ld-fine">{t("تُسجل العمولة عند إصدار الفاتورة. النسبة من إجماليها النهائي، ولا تتجاوز العمولة قيمتها. لا تُضاف إلى مبلغ العميل ولا تظهر في فاتورته. تسجيلها لا يعني صرفها للموظف.")}</p>
