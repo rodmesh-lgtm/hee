@@ -135,6 +135,57 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   expect(updatedService).toEqual([{id:sb,price:2200},{id:'urgent:'+sb,price:2800}]);
   const oldLaundry=await db.$queryRaw<Array<{total:number}>>`SELECT total FROM "LaundryTicket" WHERE "businessId"=${laundry.id} AND number=2`;expect(oldLaundry[0].total).toBe(2000);
   await lb.page.screenshot({path:'test-results/cashier-catalog-edit-mobile.png',fullPage:true});
+  // Percentage discount, one explicit consent, net commission and exact partial returns.
+  const consentLabel='وافق العميل على إشعارات واتساب لهذا الطلب: الجاهزية وتذكير الاستلام والمبلغ وطلب التقييم';
+  await wa.page.goto('/Accounting');
+  await wa.page.getByRole('button',{name:'إضافة خدمة ورشة معدلة',exact:true}).click();
+  await wa.page.getByRole('button',{name:'إضافة خدمة ورشة معدلة',exact:true}).click();
+  await wa.page.getByLabel('اسم العميل',{exact:true}).fill('عميل خصم النسبة');
+  await wa.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneA);
+  await wa.page.getByRole('button',{name:'غدًا في هذا الوقت',exact:true}).click();
+  await wa.page.getByLabel('نوع الخصم',{exact:true}).selectOption('percent');
+  await wa.page.getByLabel('نسبة الخصم ٪',{exact:true}).fill('10');
+  await expect(wa.page.getByLabel(consentLabel,{exact:true})).not.toBeChecked();
+  await wa.page.getByLabel(consentLabel,{exact:true}).check();
+  await wa.page.getByLabel('الدفعة المستلمة',{exact:true}).fill('54');
+  await wa.page.getByLabel('إضافة عمولة لهذه الفاتورة',{exact:true}).check();
+  await wa.page.getByLabel('جوال موظف العمولة',{exact:true}).fill('0500000099');
+  await wa.page.getByLabel('اسم موظف العمولة',{exact:true}).fill('موظف الورشة الخاص');
+  await wa.page.getByLabel('نوع العمولة',{exact:true}).selectOption('percent');
+  await wa.page.getByLabel('نسبة العمولة ٪',{exact:true}).fill('10');
+  await wa.page.getByRole('button',{name:'حفظ الطلب وإصدار المستند',exact:true}).click();
+  await expect(wa.page.getByRole('dialog')).toContainText('خصم الفاتورة');
+  const discounted=await db.$queryRaw<Array<{id:string;total:number;paid:number;consented:boolean;items:Array<{discount:number}>}>>`SELECT id,total,paid,"readyNotifyConsentAt" IS NOT NULL AS consented,items FROM "LaundryTicket" WHERE "businessId"=${shop.id} AND number=5`;
+  expect(discounted[0].total).toBe(5400);expect(discounted[0].paid).toBe(5400);expect(discounted[0].consented).toBe(true);expect(discounted[0].items[0].discount).toBe(600);
+  const consents=await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryAudit" WHERE "businessId"=${shop.id} AND "targetId"=${discounted[0].id} AND action IN ('order-reminder-consent','order-review-consent')`;expect(consents[0].n).toBe(2);
+  await wa.page.getByRole('button',{name:'إنشاء أو استعراض مرتجع',exact:true}).click();
+  await wa.page.getByRole('button',{name:'استعراض الفاتورة والمرتجعات',exact:true}).click();
+  for(let i=0;i<2;i++){
+   await wa.page.getByLabel('كمية مرتجع 1',{exact:true}).fill('1');
+   await wa.page.getByLabel('سبب المرتجع',{exact:true}).fill('مرتجع خصم تجريبي');
+   await wa.page.getByRole('button',{name:'اعتماد المرتجع وتحديث الرصيد',exact:true}).click();
+   await expect.poll(async()=>(await db.$queryRaw<Array<{returned:number}>>`SELECT returned FROM "LaundryTicket" WHERE id=${discounted[0].id}`)[0].returned).toBe((i+1)*2700);
+  }
+  const netCommission=await db.$queryRaw<Array<{n:number}>>`SELECT SUM(amount)::int AS n FROM "CashierCommissionEvent" WHERE "businessId"=${shop.id} AND "ticketId"=${discounted[0].id}`;expect(netCommission[0].n).toBe(0);
+  // Missing urgent rates can be priced beside the item without leaving the POS.
+  const extraService=randomUUID();
+  await db.$executeRaw`INSERT INTO "LaundryService"(id,"businessId",name,category,price) VALUES (${extraService},${laundry.id},'بطانية — غسيل وكوي','مفروشات',1000)`;
+  await lb.page.goto('/Accounting');await lb.page.getByRole('button',{name:'مستعجل',exact:true}).click();
+  const rateField=lb.page.getByRole('spinbutton',{name:'سعر المستعجل — بطانية — غسيل وكوي',exact:true});
+  await rateField.fill('15');
+  await rateField.locator('xpath=ancestor::form').getByRole('button',{name:'حفظ سعر المستعجل',exact:true}).click();
+  await expect(lb.page.getByRole('button',{name:'إضافة بطانية — غسيل وكوي',exact:true})).toBeEnabled();
+  await lb.page.getByRole('button',{name:'إضافة بطانية — غسيل وكوي',exact:true}).click();
+  await lb.page.getByRole('button',{name:/مراجعة الطلب ·/}).click();
+  await lb.page.getByLabel('اسم العميل',{exact:true}).fill('عميل المستعجل والخصم');await lb.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneB);
+  await lb.page.getByRole('button',{name:'بعد ساعة',exact:true}).click();
+  await lb.page.getByLabel('نوع الخصم',{exact:true}).selectOption('fixed');await lb.page.getByLabel('قيمة الخصم بالريال',{exact:true}).fill('2');
+  await expect(lb.page.getByLabel(consentLabel,{exact:true})).not.toBeChecked();
+  await lb.page.getByRole('button',{name:'حفظ الطلب وإصدار المستند',exact:true}).click();
+  await expect(lb.page.getByRole('dialog')).toContainText('خصم الفاتورة');
+  const urgentDiscount=await db.$queryRaw<Array<{total:number;consented:boolean;items:Array<{unitPrice:number;discount:number;serviceSpeed:string}>}>>`SELECT total,"readyNotifyConsentAt" IS NOT NULL AS consented,items FROM "LaundryTicket" WHERE "businessId"=${laundry.id} AND number=3`;
+  expect(urgentDiscount[0].total).toBe(1300);expect(urgentDiscount[0].consented).toBe(false);expect(urgentDiscount[0].items[0].unitPrice).toBe(1500);expect(urgentDiscount[0].items[0].discount).toBe(200);expect(urgentDiscount[0].items[0].serviceSpeed).toBe('urgent');
+  await lb.page.screenshot({path:'test-results/cashier-urgent-discount-receipt-mobile.png',fullPage:true});
   await wa.context.addCookies([{name:'hee_active_business',value:laundry.id,url:baseUrl}]);await wa.page.goto('/Accounting');expect(await wa.page.content()).not.toContain(nameA);expect(await wa.page.content()).not.toContain(nameB);await expect(wa.page.getByText('سجّل الدخول واختر منشأتك للوصول إلى حساباتها.',{exact:true})).toBeVisible();
   const restricted=await login(staff.id,shop.id);await restricted.page.goto('/Accounting');await expect(restricted.page.getByText('تحتاج صلاحية البرنامج المحاسبي',{exact:true})).toBeVisible();expect(await restricted.page.content()).not.toContain(nameA);await lb.context.clearCookies();await lb.page.reload();expect(await lb.page.content()).not.toContain(nameB);expect(await lb.page.content()).not.toContain(phoneB);
  }finally{for(const context of contexts)await context.close();await db.session.deleteMany({where:{userId:{in:users.map(u=>u.id)}}});await db.business.updateMany({where:{id:{in:[shop.id,laundry.id]}},data:{deletedAt:new Date()}});await db.user.updateMany({where:{id:{in:users.map(u=>u.id)}},data:{deletedAt:new Date()}});await db.$disconnect();await pool.end();}

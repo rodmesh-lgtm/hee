@@ -1,3 +1,4 @@
+import { discountedCashierLines, type CashierDiscount } from "./cashier-discount";
 import { LaundryInputError, type LaundryLine } from "./laundry-domain";
 export type PackageKind = "credit"|"pieces"|"visits";
 export const packageUnitLabels={credit:"ر.س",pieces:"قطعة",visits:"زيارة"};
@@ -61,7 +62,7 @@ export function countedValue(remaining:number,unitsRemaining:number,units:number
  if(!Number.isSafeInteger(remaining)||!Number.isSafeInteger(unitsRemaining)||!Number.isSafeInteger(units)||units<1||unitsRemaining<units||remaining<unitsRemaining)throw new LaundryInputError("رصيد وحدات الباقة غير صالح");
  return Math.floor(remaining*units/unitsRemaining);
 }
-export function quoteSubscriberOrder(subscriptions:SubscriberBalance[],lines:LaundryLine[],paid:number,now=new Date()) {
+export function quoteSubscriberOrder(subscriptions:SubscriberBalance[],lines:LaundryLine[],paid:number,now=new Date(),discount?:CashierDiscount) {
  if(!Number.isSafeInteger(paid)||paid<0||lines.some(l=>!Number.isSafeInteger(l.quantity)||l.quantity<1||!Number.isSafeInteger(l.unitPrice)||l.unitPrice<0||l.total!==l.quantity*l.unitPrice||(l.regularUnitPrice!==undefined&&(!Number.isSafeInteger(l.regularUnitPrice)||l.regularUnitPrice<0||l.regularUnitPrice>l.unitPrice))))throw new LaundryInputError("راجع كميات الطلب والدفعة");
  const remainingLines=lines.map(l=>({...l})),packageLines:LaundryLine[]=[],urgentLines:LaundryLine[]=[];
  const allocations:Array<{id:string;name:string;amount:number;remaining:number;units:number;unitsRemaining:number|null;kind:PackageKind}>=[];
@@ -78,7 +79,7 @@ export function quoteSubscriberOrder(subscriptions:SubscriberBalance[],lines:Lau
   line.quantity-=units;line.total=line.quantity*line.unitPrice;
   allocations.push({id:s.id,name:s.name,amount,remaining:s.remaining-amount,units,unitsRemaining:s.unitsRemaining-units,kind:s.kind!});
  }
- const uncovered=[...remainingLines.filter(l=>l.quantity>0),...urgentLines],retail=uncovered.reduce((sum,l)=>sum+l.total,0);
+ const uncovered=discountedCashierLines([...remainingLines.filter(l=>l.quantity>0),...urgentLines],discount),retail=uncovered.reduce((sum,l)=>sum+l.total,0);
  if(paid>retail)throw new LaundryInputError("الدفعة الجديدة تتجاوز الخدمات غير المغطاة بالباقة؛ خفّض الدفعة أو أوقف استخدام الاشتراك");
  const credit=allocateSubscriptions(subscriptions.filter(s=>!s.kind||s.kind==="credit"),uncovered,retail-paid,now);
  allocations.push(...credit.allocations.map(a=>({...a,units:0,unitsRemaining:null,kind:"credit" as const})));
