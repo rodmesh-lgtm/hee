@@ -120,7 +120,7 @@ test.describe("public transactions workflow", () => {
       await page.getByLabel("التصنيف",{exact:true}).fill("صيانة");
       await page.getByLabel("السعر بالريال",{exact:true}).fill("25");
       await page.getByRole("button",{name:"إضافة الصنف",exact:true}).click();
-      await expect(page.getByRole("status")).toContainText("تم حفظ العملية بنجاح");
+      await expect(page.getByRole("status").filter({hasText:"تم حفظ العملية بنجاح"})).toBeVisible();
       await openLaundrySection(page,"الكاشير");
       await page.getByRole("button",{name:"إضافة فحص جهاز",exact:true}).click();
       await page.getByLabel("اسم العميل",{exact:true}).fill("عميل صيانة تجريبي");
