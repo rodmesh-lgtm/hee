@@ -4,6 +4,19 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "خصم الفاتورة": {"en": "Invoice discount", "zh-CN": "发票折扣", "es": "Descuento de factura", "ur": "رسید کی رعایت"},
+  "نوع الخصم": {"en": "Discount type", "zh-CN": "折扣类型", "es": "Tipo de descuento", "ur": "رعایت کی قسم"},
+  "بدون خصم": {"en": "No discount", "zh-CN": "无折扣", "es": "Sin descuento", "ur": "بغیر رعایت"},
+  "نسبة الخصم ٪": {"en": "Discount percentage %", "zh-CN": "折扣百分比 %", "es": "Porcentaje de descuento %", "ur": "رعایت کی شرح ٪"},
+  "قيمة الخصم بالريال": {"en": "Discount amount in SAR", "zh-CN": "折扣金额（里亚尔）", "es": "Descuento en SAR", "ur": "رعایت کی رقم ریال میں"},
+  "الإجمالي قبل الخصم": {"en": "Total before discount", "zh-CN": "折扣前总额", "es": "Total antes del descuento", "ur": "رعایت سے پہلے کل"},
+  "الإجمالي بعد الخصم": {"en": "Total after discount", "zh-CN": "折扣后总额", "es": "Total después del descuento", "ur": "رعایت کے بعد کل"},
+  "تفعيل المستعجل": {"en": "Enable urgent service", "zh-CN": "启用加急服务", "es": "Activar servicio urgente", "ur": "فوری خدمت فعال کریں"},
+  "وافق العميل على إشعارات واتساب لهذا الطلب: الجاهزية وتذكير الاستلام والمبلغ وطلب التقييم": {"en": "Customer agreed to WhatsApp notifications for this order: readiness, pickup and balance reminders, and review requests", "zh-CN": "客户已同意接收此订单的 WhatsApp 通知：备妥、取件和余额提醒，以及评价邀请", "es": "El cliente aceptó avisos de WhatsApp para este pedido: disponibilidad, recogida, saldo y solicitud de valoración", "ur": "گاہک نے اس آرڈر کے واٹس ایپ پیغامات کی اجازت دی: تیاری، وصولی اور بقایا یاددہانی، اور رائے کی درخواست"},
+  "يطبق الخصم على الخدمات غير المغطاة بباقات القطع والزيارات، قبل استخدام الرصيد المالي والتحصيل.": {"en": "Discount applies to services not covered by item or visit packages, before using monetary credit and collecting payment.", "zh-CN": "折扣适用于件数或次数套餐未覆盖的服务，在使用金额余额和收款前计算。", "es": "El descuento se aplica a servicios no cubiertos por paquetes de artículos o visitas, antes del saldo monetario y el cobro.", "ur": "رعایت ان خدمات پر لگتی ہے جو اشیاء یا دوروں کے پیکیج میں شامل نہیں، مالی بیلنس اور ادائیگی سے پہلے۔"},
+  "نسبة الخصم يجب أن تكون أقل من 100٪": {"en": "Discount percentage must be below 100%", "zh-CN": "折扣百分比必须低于 100%", "es": "El descuento debe ser inferior al 100 %", "ur": "رعایت کی شرح 100٪ سے کم ہونی چاہیے"},
+  "الخصم يجب أن يقل عن قيمة الخدمات غير المغطاة بالباقة": {"en": "Discount must be less than the value of services not covered by the package", "zh-CN": "折扣必须小于套餐未覆盖服务的金额", "es": "El descuento debe ser menor al importe no cubierto por el paquete", "ur": "رعایت پیکیج سے باہر خدمات کی قیمت سے کم ہونی چاہیے"},
+  "الخصم كبير جدًا؛ يجب ألا يقل صافي سعر الوحدة عن هللة": {"en": "Discount is too large; net unit price must be at least one halala", "zh-CN": "折扣过大；净单价不得低于一哈拉拉", "es": "El descuento es excesivo; el precio neto por unidad debe ser de al menos una halala", "ur": "رعایت بہت زیادہ ہے؛ فی اکائی خالص قیمت کم از کم ایک ہللہ ہونی چاہیے"},
   "إدارة الأصناف والأسعار": {"en": "Manage items and prices", "zh-CN": "管理商品和价格", "es": "Gestionar artículos y precios", "ur": "اشیاء اور قیمتوں کا انتظام"},
   "تسري التعديلات على الفواتير الجديدة فقط. تحتفظ الفواتير السابقة بأسماء أصنافها وأسعارها، وتبقى ارتباطات الباقات محفوظة.": {"en": "Changes apply to new invoices only. Existing invoices retain their item names and prices, and package links are preserved.", "zh-CN": "更改仅适用于新发票。现有发票保留原商品名称和价格，套餐关联保持不变。", "es": "Los cambios se aplican solo a facturas nuevas. Las anteriores conservan los nombres y precios, y se mantienen los vínculos con paquetes.", "ur": "تبدیلیاں صرف نئی رسیدوں پر لاگو ہوتی ہیں۔ پرانی رسیدوں میں اشیاء کے نام اور قیمتیں برقرار رہتی ہیں اور پیکیج کے روابط محفوظ رہتے ہیں۔"},
   "لا توجد أصناف مطابقة": {"en": "No matching items", "zh-CN": "没有匹配的商品", "es": "No hay artículos coincidentes", "ur": "کوئی مماثل اشیاء نہیں"},
