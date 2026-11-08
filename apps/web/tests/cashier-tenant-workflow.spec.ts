@@ -127,6 +127,8 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   const laundryEdit=lb.page.getByRole('form',{name:'تعديل — ثوب — غسيل وكوي',exact:true});
   await laundryEdit.getByLabel('السعر بالريال',{exact:true}).fill('22');
   await laundryEdit.getByLabel('سعر المستعجل بالريال',{exact:true}).fill('28');
+  expect(await lb.page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
+  await lb.page.screenshot({path:'test-results/cashier-catalog-edit-form-mobile.png',fullPage:true});
   await laundryEdit.getByRole('button',{name:'حفظ التعديلات',exact:true}).click();
   await expect(laundryEdit).toHaveCount(0);
   const updatedService=await db.$queryRaw<Array<{id:string;price:number}>>`SELECT id,price FROM "LaundryService" WHERE "businessId"=${laundry.id} AND id IN (${sb},${'urgent:'+sb}) ORDER BY price`;
