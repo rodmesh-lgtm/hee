@@ -282,6 +282,56 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   const languageBox=await english.boundingBox();expect(await lb.page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('button')?.textContent?.includes('English'),{x:languageBox!.x+languageBox!.width/2,y:languageBox!.y+languageBox!.height/2})).toBe(true);await lb.page.locator('[data-language-switcher]>summary').click();
   await lb.page.getByRole('button',{name:'إضافة صنف تجريبي 1',exact:true}).click();await lb.page.getByLabel('الكمية — صنف تجريبي 1',{exact:true}).fill('');await expect(lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true})).toBeDisabled();
   await lb.page.getByLabel('الكمية — صنف تجريبي 1',{exact:true}).fill('5');await expect(lb.page.locator('.ld-cart .ld-total strong')).toContainText(/٢٥[٫,]٠٠/);
+  // Actual print-media widths reproduce the dashboard's narrow-table rules.
+  const printTicket=randomUUID(),printNumber=900;
+  const printNames=['إزالة البقع — غسيل وكوي','روب حمام — غسيل وكوي','روب حمام — كوي','بطانية — كوي بخار','بطانية — غسيل وكوي','شرشف سرير مفرد — غسيل وكوي','شرشف سرير مزدوج — غسيل وكوي','فرشة غرفة كبيرة — غسيل وتنظيف وتعقيم وإزالة البقع والعناية بالألوان','LONG_UNBROKEN_ITEM_REFERENCE_ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789'];
+  const printItems=printNames.map((name,index)=>({serviceId:sa,name,quantity:index===7?5.25:index===6?2:1,unit:index===7?'square_meter':undefined,unitPrice:400,total:index===7?1999:index===6?699:299,discount:101,discountKind:'fixed',discountValue:101}));
+  const printTotal=printItems.reduce((sum,line)=>sum+line.total,0);
+  await db.$executeRaw`INSERT INTO "LaundryTicket"(id,"businessId",number,"requestId","customerName",phone,"customerId",items,total,paid,status,"dueAt","createdBy") VALUES (${printTicket},${shop.id},${printNumber},${randomUUID()},'عميل مراجعة الطباعة',${phoneA},${ca},${JSON.stringify(printItems)}::jsonb,${printTotal},0,'received',${new Date(Date.now()+86400000)},${a.id})`;
+  const logo='data:image/svg+xml;base64,'+Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#087e80"/><text x="8" y="45" font-size="17" fill="white">INFRO</text></svg>').toString('base64');
+  await db.business.update({where:{id:shop.id},data:{logoUrl:logo}});
+  await wa.page.goto('/Accounting?q=900');await wa.page.getByRole('button',{name:'التفاصيل والفاتورة',exact:true}).click();
+  await wa.page.getByLabel('مقاس الطباعة',{exact:true}).selectOption('thermal');
+  await wa.page.setViewportSize({width:302,height:1000});await wa.page.emulateMedia({media:'print'});
+  await expect(wa.page.locator('.ld-invoice-table')).toBeHidden();await expect(wa.page.locator('.ld-thermal-item')).toHaveCount(printItems.length);
+  const thermalGeometry=await wa.page.locator('.ld-receipt').evaluate(receipt=>{
+   const issues:string[]=[];const bounds=receipt.getBoundingClientRect();
+   for(const item of receipt.querySelectorAll('.ld-thermal-item')){
+    const name=item.querySelector('.ld-invoice-item-name')!,metrics=item.querySelector('dl')!;
+    if(name.getBoundingClientRect().bottom>metrics.getBoundingClientRect().top+1)issues.push('name-overlaps-quantities');
+    for(const field of metrics.querySelectorAll('dd,dt')){
+     const cell=field.getBoundingClientRect(),range=document.createRange();range.selectNodeContents(field);
+     for(const rect of range.getClientRects())if(rect.left<cell.left-1||rect.right>cell.right+1)issues.push('numeric-field-overflows');
+    }
+    const nameRange=document.createRange();nameRange.selectNodeContents(name);
+    for(const rect of nameRange.getClientRects())if(rect.left<bounds.left-1||rect.right>bounds.right+1)issues.push('name-outside-paper');
+   }
+   return {issues,overflow:receipt.scrollWidth-receipt.clientWidth};
+  });expect(thermalGeometry).toEqual({issues:[],overflow:0});
+  await expect(wa.page.locator('.ld-receipt-logo')).toBeVisible();
+  await wa.page.screenshot({path:'test-results/cashier-print-thermal-narrow.png',fullPage:true});
+  await wa.page.pdf({path:'test-results/cashier-print-thermal-80mm.pdf',width:'80mm',height:'297mm',printBackground:true,preferCSSPageSize:false,displayHeaderFooter:false});
+  await wa.page.emulateMedia({media:'screen'});await wa.page.setViewportSize({width:1280,height:800});await wa.page.getByLabel('مقاس الطباعة',{exact:true}).selectOption('a4');
+  await wa.page.emulateMedia({media:'print'});await wa.page.setViewportSize({width:794,height:1123});
+  await expect(wa.page.locator('.ld-thermal-lines')).toBeHidden();await expect(wa.page.locator('.ld-invoice-table')).toBeVisible();
+  expect(await wa.page.locator('.ld-invoice-table td').evaluateAll(cells=>cells.every(cell=>getComputedStyle(cell).whiteSpace==='normal'&&cell.scrollWidth<=cell.clientWidth+1))).toBe(true);
+  await wa.page.pdf({path:'test-results/cashier-print-a4.pdf',format:'A4',printBackground:true,preferCSSPageSize:true,displayHeaderFooter:false});
+  await wa.page.emulateMedia({media:'screen'});await wa.page.setViewportSize({width:1280,height:800});
+  // Printing waits for images, includes the saved number in the PDF filename, and never creates another ticket.
+  await wa.page.evaluate(()=>{
+   const w=window as typeof window&{receiptPrints?:string[];releaseReceiptAssets?:()=>void};w.receiptPrints=[];
+   const decode=HTMLImageElement.prototype.decode;HTMLImageElement.prototype.decode=function(){return new Promise<void>(resolve=>{w.releaseReceiptAssets=()=>{HTMLImageElement.prototype.decode=decode;resolve();};});};
+   w.print=()=>{w.receiptPrints!.push(document.title);};
+  });
+  const invoiceCount=await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryTicket" WHERE "businessId"=${shop.id}`;
+  await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();
+  expect(await wa.page.evaluate(()=>(window as typeof window&{receiptPrints:string[]}).receiptPrints.length)).toBe(0);
+  await wa.page.evaluate(()=>(window as typeof window&{releaseReceiptAssets:()=>void}).releaseReceiptAssets());
+  await expect.poll(()=>wa.page.evaluate(()=>(window as typeof window&{receiptPrints:string[]}).receiptPrints.length)).toBe(1);
+  expect(await wa.page.evaluate(()=>(window as typeof window&{receiptPrints:string[]}).receiptPrints[0])).toContain('00900');
+  await wa.page.reload();await wa.page.getByRole('button',{name:'التفاصيل والفاتورة',exact:true}).click();
+  await expect(wa.page.locator('.ld-receipt')).toContainText('00900');
+  expect(await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryTicket" WHERE "businessId"=${shop.id}`).toEqual(invoiceCount);
   await wa.context.addCookies([{name:'hee_active_business',value:laundry.id,url:baseUrl}]);await wa.page.goto('/Accounting');expect(await wa.page.content()).not.toContain(nameA);expect(await wa.page.content()).not.toContain(nameB);await expect(wa.page.getByText('سجّل الدخول واختر منشأتك للوصول إلى حساباتها.',{exact:true})).toBeVisible();
   const restricted=await login(staff.id,shop.id);await restricted.page.goto('/Accounting');await expect(restricted.page.getByText('تحتاج صلاحية البرنامج المحاسبي',{exact:true})).toBeVisible();expect(await restricted.page.content()).not.toContain(nameA);await lb.context.clearCookies();await lb.page.reload();expect(await lb.page.content()).not.toContain(nameB);expect(await lb.page.content()).not.toContain(phoneB);
   await db.businessMember.updateMany({where:{businessId:shop.id,userId:staff.id},data:{permissions:['laundry','laundryAccounting']}});
