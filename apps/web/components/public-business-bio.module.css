@@ -203,9 +203,6 @@
 .destinations > a:hover { border-color:var(--primary); background:var(--soft); }
 
 /* A focused business link page: one reading column on every screen. */
-.location { display:flex; justify-content:center; align-items:center; gap:6px; margin:12px auto 0; color:var(--muted); font-size:12px; }
-.location svg { flex-shrink:0; }
-.location span { overflow-wrap:anywhere; }
 .nav a { background:transparent; }
 .sectionHeading .eyebrow { font-size:10px; }
 .service,.branch,.destinations > a { box-shadow:0 3px 0 var(--line); }

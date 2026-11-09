@@ -62,7 +62,6 @@ export function PublicBusinessBio({business,publicUrl,pageModules=[],bookingRibb
     <div className={styles.logo}><span>{logo?<img src={logo} alt={`${t("شعار")} ${business.name}`}/>:<Building2 size={40}/>}</span>{business.isVerified?<BadgeCheck aria-label={t("منشأة موثقة")} className={styles.verified}/>:null}</div>
     <h1 translate="no">{locale !== "ar" && clean(business.nameEn) ? business.nameEn : business.name}</h1>
     {summary?<p className={styles.summary}>{summary}</p>:null}
-    {[business.city,business.district].some(value=>clean(value))?<p className={styles.location}><MapPin size={14} aria-hidden="true"/><span>{[business.city,business.district].map(value=>clean(value)).filter(Boolean).join(t("، "))}</span></p>:null}
     <span className={styles.heroRule} aria-hidden="true"/>
    </header>
    <div className={styles.identityDetails}>
