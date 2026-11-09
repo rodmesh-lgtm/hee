@@ -302,3 +302,5 @@
  body:has(.ld-pos-mode[data-cashier-owner=false]):has(.accounting-program-bar nav a:nth-child(2)) .ld-pos-mode{min-height:calc(100dvh - 88px)}
 }
 @media screen and (min-width:900px){body:has(.ld-pos-mode[data-cashier-owner=false]):has(.accounting-program-bar nav a:nth-child(2)) .ld-pos{height:calc(100dvh - 146px)}}
+
+.ld-return-shortcuts{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
