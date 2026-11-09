@@ -4,6 +4,15 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "وحدة الصنف": {"en": "Item unit", "zh-CN": "商品单位", "es": "Unidad del artículo", "ur": "آئٹم کی اکائی"},
+  "متر": {"en": "Meter", "zh-CN": "米", "es": "Metro", "ur": "میٹر"},
+  "متر مربع": {"en": "Square meter", "zh-CN": "平方米", "es": "Metro cuadrado", "ur": "مربع میٹر"},
+  "قياس": {"en": "Measurement", "zh-CN": "测量", "es": "Medida", "ur": "پیمائش"},
+  "أدخل قياسًا موجبًا بمنزلتين عشريتين كحد أقصى": {"en": "Enter a positive measurement with at most two decimal places", "zh-CN": "请输入最多两位小数的正数测量值", "es": "Introduce una medida positiva con hasta dos decimales", "ur": "دو اعشاری مقامات تک مثبت پیمائش درج کریں"},
+  "أدخل كمية صحيحة؛ القياسات تقبل منزلتين عشريتين والقطع أعدادًا كاملة": {"en": "Enter a valid quantity: measurements allow two decimals; pieces require whole numbers", "zh-CN": "请输入有效数量：测量值最多两位小数，件数必须为整数", "es": "Cantidad válida: medidas con dos decimales; piezas en números enteros", "ur": "درست مقدار درج کریں: پیمائش دو اعشاری مقامات تک اور اشیاء مکمل تعداد میں"},
+  "قيمة الصنف يجب ألا تقل عن هللة": {"en": "Item total must be at least one halala", "zh-CN": "商品总额不得低于一哈拉拉", "es": "El total debe ser al menos una halala", "ur": "آئٹم کی کل رقم کم از کم ایک ہللہ ہونی چاہیے"},
+  "الصنف مرتبط بباقة قطع أو زيارات؛ أضف صنف قياس مستقلًا للحفاظ على الباقات": {"en": "This item is linked to a piece or visit package; add a separate measured item to preserve packages", "zh-CN": "此商品已关联件数或次数套餐；请添加独立的计量商品以保留套餐", "es": "El artículo está vinculado a un paquete de piezas o visitas; crea otro artículo medido para conservarlo", "ur": "یہ آئٹم اشیاء یا دوروں کے پیکیج سے منسلک ہے؛ پیکیج برقرار رکھنے کے لیے الگ پیمائشی آئٹم شامل کریں"},
+  "باقات القطع والزيارات تتطلب صنفًا بالقطعة؛ استخدم الرصيد المالي لخدمات القياس": {"en": "Piece and visit packages require piece-based items; use monetary credit for measured services", "zh-CN": "件数和次数套餐需要按件商品；计量服务请使用金额余额", "es": "Los paquetes de piezas o visitas requieren artículos por pieza; usa saldo monetario para servicios medidos", "ur": "اشیاء اور دوروں کے پیکیج کے لیے فی عدد آئٹم درکار ہے؛ پیمائشی خدمات کے لیے مالی بیلنس استعمال کریں"},
   "خصم الفاتورة": {"en": "Invoice discount", "zh-CN": "发票折扣", "es": "Descuento de factura", "ur": "رسید کی رعایت"},
   "نوع الخصم": {"en": "Discount type", "zh-CN": "折扣类型", "es": "Tipo de descuento", "ur": "رعایت کی قسم"},
   "بدون خصم": {"en": "No discount", "zh-CN": "无折扣", "es": "Sin descuento", "ur": "بغیر رعایت"},

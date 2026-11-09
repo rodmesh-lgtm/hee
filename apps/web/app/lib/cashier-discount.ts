@@ -11,7 +11,7 @@ export function discountedCashierLines(lines:LaundryLine[],discount?:CashierDisc
  let through=0,allocated=0;
  return lines.map(line=>{
   through+=line.total;const next=Math.round(amount*through/gross),part=next-allocated;allocated=next;
-  if(part&&line.total-part<line.quantity)throw new LaundryInputError("الخصم كبير جدًا؛ يجب ألا يقل صافي سعر الوحدة عن هللة");
+  if(part&&line.total-part<(line.unit&&line.unit!=="piece"?1:line.quantity))throw new LaundryInputError("الخصم كبير جدًا؛ يجب ألا يقل صافي سعر الوحدة عن هللة");
   return {...line,total:line.total-part,...(part?{discount:part,discountKind:kind,discountValue:value}:{})};
  });
 }

@@ -1,5 +1,5 @@
 import { discountedCashierLines, type CashierDiscount } from "./cashier-discount";
-import { LaundryInputError, type LaundryLine } from "./laundry-domain";
+import { cashierLineTotal, LaundryInputError, type LaundryLine } from "./laundry-domain";
 export type PackageKind = "credit"|"pieces"|"visits";
 export const packageUnitLabels={credit:"ر.س",pieces:"قطعة",visits:"زيارة"};
 export type AccountingPackage = {kind?:PackageKind;unitsIncluded?:number|null;id:string;name:string;description:string;amount:number;durationDays:number;serviceIds:string[];active:boolean};
@@ -63,13 +63,13 @@ export function countedValue(remaining:number,unitsRemaining:number,units:number
  return Math.floor(remaining*units/unitsRemaining);
 }
 export function quoteSubscriberOrder(subscriptions:SubscriberBalance[],lines:LaundryLine[],paid:number,now=new Date(),discount?:CashierDiscount) {
- if(!Number.isSafeInteger(paid)||paid<0||lines.some(l=>!Number.isSafeInteger(l.quantity)||l.quantity<1||!Number.isSafeInteger(l.unitPrice)||l.unitPrice<0||l.total!==l.quantity*l.unitPrice||(l.regularUnitPrice!==undefined&&(!Number.isSafeInteger(l.regularUnitPrice)||l.regularUnitPrice<0||l.regularUnitPrice>l.unitPrice))))throw new LaundryInputError("راجع كميات الطلب والدفعة");
+ if(!Number.isSafeInteger(paid)||paid<0||lines.some(l=>!Number.isSafeInteger(l.unitPrice)||l.unitPrice<0||l.total!==cashierLineTotal(l.unitPrice,l.quantity,l.unit)||(l.regularUnitPrice!==undefined&&(!Number.isSafeInteger(l.regularUnitPrice)||l.regularUnitPrice<0||l.regularUnitPrice>l.unitPrice))))throw new LaundryInputError("راجع كميات الطلب والدفعة");
  const remainingLines=lines.map(l=>({...l})),packageLines:LaundryLine[]=[],urgentLines:LaundryLine[]=[];
  const allocations:Array<{id:string;name:string;amount:number;remaining:number;units:number;unitsRemaining:number|null;kind:PackageKind}>=[];
  const counted=subscriptions.filter(s=>s.kind&&s.kind!=="credit"&&subscriberStatus(s,now)==="active").sort((a,b)=>a.expiresAt.localeCompare(b.expiresAt)||a.id.localeCompare(b.id));
  for(const s of counted){
   if(s.serviceIds.length!==1||!s.unitsRemaining)continue;
-  const line=remainingLines.find(l=>l.serviceId===s.serviceIds[0]);if(!line?.quantity)continue;
+  const line=remainingLines.find(l=>l.serviceId===s.serviceIds[0]);if(!line?.quantity||(line.unit&&line.unit!=="piece"))continue;
   const units=Math.min(line.quantity,s.unitsRemaining),amount=countedValue(s.remaining,s.unitsRemaining,units);
   const price=Math.floor(amount/units),extra=amount%units;
   // Two integer-priced rows preserve exact halalas without fractional unit prices.

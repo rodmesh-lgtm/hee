@@ -111,6 +111,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20261103110000_salla_easy_installation",
   "20261108100000_cashier_employee_commissions",
   "20261108140000_cashier_invoice_returns",
+  "20261109070000_cashier_measured_units",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

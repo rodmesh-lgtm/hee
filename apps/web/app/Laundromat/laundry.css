@@ -111,3 +111,5 @@
 .ld-service-edit{border-bottom:1px solid var(--ld-line);padding-block:10px;min-width:0}.ld-service-fields{display:flex;align-items:end;flex-wrap:wrap;gap:12px;border:0;padding:12px 0;margin:0;min-width:0;width:100%}.ld-service-fields label{flex:1;min-width:min(100%,180px)}.ld-service-buttons{display:flex;gap:8px;flex-wrap:wrap}.ld-service-edit .ld-inline-form{margin:0}
 
 .ld-inline-urgent{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--ld-line)}.ld-inline-urgent label{flex:1;min-width:110px}.ld-inline-urgent button{min-height:44px}.ld-inline-urgent input{width:100%;min-width:0}
+
+.ld-measured-quantity{display:grid;gap:5px;margin-block:8px;max-width:190px;font-size:12px}.ld-measured-quantity input{width:100%;min-width:80px}.ld-cart-line>div:first-child{min-width:0;flex:1}

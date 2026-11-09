@@ -13,6 +13,7 @@ test('catalog edits preserve invoice snapshots and IDs, isolate tenants, reject 
  let active=a,actor='owner',transactions=0;
  try{
   await pg.exec(`CREATE TABLE "LaundryService"(id text PRIMARY KEY,"businessId" text,name text,category text,price int,active boolean DEFAULT true);CREATE TABLE "LaundryAudit"(id text PRIMARY KEY,"businessId" text,"actorId" text,action text,"targetId" text);CREATE TABLE "LaundryTicket"(items jsonb,total int);`);
+  await pg.exec(readFileSync('prisma/migrations/20261109070000_cashier_measured_units/migration.sql','utf8'));
   await pg.query('INSERT INTO "LaundryService"(id,"businessId",name,category,price) VALUES($1,$2,$3,$4,500),($5,$6,$7,$4,900)',[id,a,'Original service','Services',foreign,b,'Foreign service']);
   const snapshot=JSON.stringify([{serviceId:id,name:'Original service',quantity:1,unitPrice:500,total:500}]);
   await pg.query('INSERT INTO "LaundryTicket" VALUES($1::jsonb,500)',[snapshot]);
@@ -43,5 +44,12 @@ test('catalog edits preserve invoice snapshots and IDs, isolate tenants, reject 
   const variant=await pg.query<{active:boolean}>('SELECT active FROM "LaundryService" WHERE id=$1',[`urgent:${id}`]);assert.equal(variant.rows[0].active,false);
   assert.equal((await pg.query<{price:number}>('SELECT price FROM "LaundryService" WHERE id=$1',[foreign])).rows[0].price,900);
   assert.equal((await pg.query<{n:number}>('SELECT COUNT(*)::int AS n FROM "LaundryAudit"')).rows[0].n,2);
+  await pg.exec(`CREATE TABLE "AccountingPackage"(id text,"businessId" text,kind text,"serviceIds" jsonb);CREATE TABLE "LaundryPrepaid"(id text,"businessId" text,kind text,"serviceIds" jsonb);`);
+  await pg.query(`INSERT INTO "AccountingPackage" VALUES($1,$2,'pieces',$3::jsonb)`,[randomUUID(),a,JSON.stringify([id])]);
+  const measuredEdit={...edit,requestId:randomUUID(),unit:'meter',price:'10',urgentPrice:'',previous:{...previous,price:1000,urgentPrice:null}};
+  assert.equal((await command(measuredEdit)).ok,false);
+  await pg.exec('DELETE FROM "AccountingPackage"');
+  assert.equal((await command({...measuredEdit,requestId:randomUUID()})).ok,true);
+  assert.equal((await pg.query<{unit:string}>('SELECT unit FROM "LaundryService" WHERE id=$1',[id])).rows[0].unit,'meter');
  }finally{await pg.close();}
 });
