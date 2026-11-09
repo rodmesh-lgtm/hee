@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { sallaSubscriptionFailureMessage } from "../../../lib/commerce/salla-subscription-diagnostics";
 
 export function SallaSubscriptionCheck({ integrationId, english }: { integrationId: string; english: boolean }) {
   const [busy, setBusy] = useState(false);
@@ -12,11 +13,15 @@ export function SallaSubscriptionCheck({ integrationId, english }: { integration
     setMessage("");
     try {
       const response = await fetch(`/api/commerce/salla/subscription?store=${encodeURIComponent(integrationId)}`, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
-      const result = await response.json() as { error?: string; subscriptions?: unknown[] };
+      const result = await response.json() as { error?: string; subscriptions?: unknown[]; failureReason?: unknown };
+      const guidance = sallaSubscriptionFailureMessage(result.failureReason, english);
       if (response.status === 429) setMessage(t("تم إجراء عدة محاولات. انتظر دقيقة ثم أعد التحقق.", "Too many checks. Wait a minute and try again."));
       else if (response.status === 403) setMessage(t("لا تملك صلاحية فحص الاشتراك. حدّث الصفحة أو راجع مالك الحساب.", "You cannot check this subscription. Refresh the page or contact the account owner."));
+      else if (!response.ok && guidance) setMessage(guidance);
       else if (result.error === "SALLA_SUBSCRIPTION_HTTP_404") setMessage(t("لم تُرجع سلة سجل اشتراك لهذا التطبيق. ربط المتجر قائم، لكن لا يمكن تأكيد اشتراك سلة حاليًا. تواصل مع دعم INFRO قبل أي دفع إضافي.", "Salla did not return a subscription record for this app. Your store remains connected, but its Salla subscription cannot be verified yet. Contact INFRO support before making another payment."));
       else if (!response.ok) setMessage(t("تعذّر التحقق من سلة الآن. لم يتغير اشتراكك ولم يُخصم أي مبلغ. أعد المحاولة لاحقًا أو تواصل مع الدعم.", "Salla verification is unavailable. Your subscription has not changed and no payment was taken. Try later or contact support."));
+      else if (Array.isArray(result.subscriptions) && result.subscriptions.length === 0) setMessage(t("اكتمل الاتصال بسلة، لكن القائمة لا تحتوي على اشتراك لهذا التطبيق. تحقق من صفحة اشتراكات التطبيقات في سلة، وراجع الدعم إذا كان لديك دفع مكتمل.", "Connected to Salla, but the list contains no subscription for this app. Check app subscriptions in Salla and contact support if you have a completed payment."));
+      else if (!Array.isArray(result.subscriptions)) setMessage(t("تعذّر قراءة نتيجة التحقق. لم يتغير اشتراكك؛ أعد المحاولة لاحقًا.", "Could not read the verification result. Your subscription has not changed; try again later."));
       else setMessage(t("تم استلام سجل الاشتراك من سلة. التفعيل التلقائي لباقات سلة لم يُتح بعد؛ راجع الدعم لتأكيد صلاحيات حسابك.", "Subscription records were received from Salla. Automatic Salla plan activation is not available yet; contact support to confirm your account access."));
     } catch {
       setMessage(t("تعذّر الاتصال بخدمة التحقق. أعد المحاولة لاحقًا؛ لم يتغير اشتراكك.", "Could not reach the verification service. Try later; your subscription has not changed."));

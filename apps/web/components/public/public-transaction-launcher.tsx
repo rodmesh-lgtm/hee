@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, Check, Clock3, LoaderCircle, MessageCircle, X } from "lucide-react";
 import { PublicActionDialog } from "./public-action-dialog";
+import { PublicDataNotice } from "./public-data-notice";
 import { DEFAULT_BOOKING_FORM, type BookingForm } from "../../app/lib/booking-form-domain";
 
 type Service = {
@@ -363,6 +364,7 @@ export function PublicTransactionLauncher({ serviceRequestEnabled = true, bookin
           {sallaBookingEligibilityRequired ? <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-bold leading-6 text-amber-900">{t("لإتمام الحجز، استخدم رقم الجوال نفسه المسجل في طلبك المدفوع والمؤكد من متجر المنشأة.")}</p> : null}
           {whatsappBookingConfirmationAvailable ? <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#bdebe5] bg-[#effbf9] p-3 text-xs leading-6 text-[#315b5d]"><input type="checkbox" checked={values.whatsappConfirmationConsent} onChange={(event) => setValues((current) => ({ ...current, whatsappConfirmationConsent: event.target.checked }))} className="mt-1 h-5 w-5 shrink-0 accent-[#00a99d]"/><span><b className="block text-[#07545d]">{t("إرسال تأكيد الموعد عبر واتساب")}</b>{t("أوافق على استلام تأكيد هذا الحجز وتحديثاته من")}{whatsappBookingSender || businessName}{t("على رقم الجوال الذي أدخلته.")}</span></label> : null}
           {error ? <p role="alert" aria-live="assertive" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700">{t(error)}</p> : null}
+          <PublicDataNotice businessName={businessName} />
           <button disabled={submitting || availabilityState !== "ready" || !values.bookingDate || !values.bookingTime} className="h-12 w-full rounded-2xl bg-[linear-gradient(135deg,#073437,#0b5955)] text-sm font-black text-white shadow-[0_10px_25px_rgba(7,52,55,.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00a99d] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? t("جارٍ تسجيل الحجز...") : t("تأكيد الحجز")}</button>
         </form>}
       </div>

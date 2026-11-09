@@ -1,13 +1,19 @@
 "use client";
 import {useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import {useI18n} from '../../components/i18n/locale-provider';
-import {bridgeRequest,parsePrinterConfig,printerConfigText,savePrinterConfig,PRINT_CONFIG_EVENT,PRINT_STATUS_EVENT,type DirectPrinterConfig,type PrintStatus} from './direct-printer';
+import {bridgeRequest,clearReviewedPrint,parsePrinterConfig,printerConfigText,savePrinterConfig,PRINT_CONFIG_EVENT,PRINT_STATUS_EVENT,type DirectPrinterConfig,type PrintStatus} from './direct-printer';
 const download='https://github.com/rodmesh-lgtm/hee/releases/download/infro-print-bridge-v1.0.0/INFRO-Print-Bridge-1.0.0.zip';
 function subscribe(notify:()=>void){window.addEventListener('storage',notify);window.addEventListener(PRINT_CONFIG_EVENT,notify);return()=>{window.removeEventListener('storage',notify);window.removeEventListener(PRINT_CONFIG_EVENT,notify);};}
 export function ReceiptPrintStatus({businessId,documentId}:{businessId:string;documentId:string}){
  const {t}=useI18n();const [status,setStatus]=useState<PrintStatus|null>(null);
  useEffect(()=>{const listener=(event:Event)=>{const next=(event as CustomEvent<PrintStatus>).detail;if(next.businessId===businessId&&next.documentId===documentId)setStatus(next);};window.addEventListener(PRINT_STATUS_EVENT,listener);return()=>window.removeEventListener(PRINT_STATUS_EVENT,listener);},[businessId,documentId]);
- return status?<p className={`ld-print-status ${status.kind==='error'?'ld-alert':'ld-fine'}`} role={status.kind==='error'?'alert':'status'}>{t(status.message)}</p>:null;
+ const current=status?.businessId===businessId&&status.documentId===documentId?status:null;
+ const reviewable=current?.kind==='error'&&['UNCERTAIN','EXPIRED','PENDING_INVALID','JOB_EXPIRED'].includes(current.errorCode??'');
+ return current?<div className="ld-print-status"><p className={current.kind==='error'?'ld-alert':'ld-fine'} role={current.kind==='error'?'alert':'status'}>{t(current.message)}</p>{reviewable?<button type="button" className="ld-outline" onClick={()=>{
+  if(!window.confirm(t('تحقق من طابور ويندوز والطابعة أولًا. ألغِ الطلب القديم إن كان ما زال في الطابور. السماح بنسخة جديدة قد ينتج نسخة إضافية إذا خرجت السابقة. هل راجعت الطابور وتريد المتابعة؟')))return;
+  try{clearReviewedPrint(businessId,documentId);setStatus({businessId,documentId,kind:'success',message:'تمت إعادة تهيئة الطلب. اضغط طباعة لإرسال نسخة جديدة عند الحاجة.'});}
+  catch(error){setStatus({...current,message:(error as Error).message});}
+ }}>{t('راجعت طابور ويندوز — السماح بنسخة جديدة')}</button>:null}</div>:null;
 }
 export function CashierPrinterSettings({business,onDirect}:{business:{id:string;name:string};onDirect:()=>void}){
  const {t}=useI18n();const raw=useSyncExternalStore(subscribe,()=>printerConfigText(business.id),()=> '');const config=parsePrinterConfig(raw,business.id);

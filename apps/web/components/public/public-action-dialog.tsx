@@ -4,6 +4,7 @@ import { useI18n } from "../i18n/locale-provider";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MessageCircle, Phone, X } from "lucide-react";
+import { PublicDataNotice } from "./public-data-notice";
 
 export type PublicActionDialogMode = "request" | "inquiry";
 
@@ -256,6 +257,7 @@ export function PublicActionDialog({ open, onClose, mode, businessName, whatsapp
           </div>
 
           <div className="shrink-0 border-t border-white/10 bg-slate-950 px-4 py-3.5 sm:px-5" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+            <PublicDataNotice businessName={businessName} storeRequest={mode === "request"} whatsapp={Boolean(normalizedWhatsApp)} dark />
             <button disabled={submitting} type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
               {normalizedWhatsApp ? <MessageCircle className="h-4 w-4" /> : <Phone className="h-4 w-4" />}
               {submitting ? t("جارٍ تسجيل الطلب...") : (ctaLabel ?? (mode === "request" ? t("إرسال عبر واتساب") : t("إرسال الاستفسار عبر واتساب")))}

@@ -1,4 +1,4 @@
-import { readPrinterConfig,reportPrintStatus,sendDirectReceipt } from "./direct-printer";
+import { readPrinterConfig,reportPrintStatus,sendDirectReceipt,PrinterError } from "./direct-printer";
 const pendingReceipts=new WeakSet<HTMLElement>();
 
 /** Wait for receipt assets before opening the browser print dialog. */
@@ -20,7 +20,7 @@ export async function printCashierReceipt(receipt:HTMLElement|null,title:string)
  const businessId=receipt.dataset.businessId;
  const config=businessId?readPrinterConfig(businessId):null;
  if(config?.enabled&&receipt.classList.contains('thermal')){
-  const notify=(message:string,kind:'busy'|'success'|'error'='busy')=>reportPrintStatus({businessId:config.businessId,documentId:invoiceId??'',kind,message});
+  const notify=(message:string,kind:'busy'|'success'|'error'='busy',errorCode?:string)=>reportPrintStatus({businessId:config.businessId,documentId:invoiceId??'',kind,message,errorCode});
   try{
    if(!invoiceId)throw new Error('الفاتورة غير محددة');
    notify('جارٍ تجهيز الفاتورة للطباعة المباشرة…');
@@ -30,7 +30,7 @@ export async function printCashierReceipt(receipt:HTMLElement|null,title:string)
     return png;
    },message=>notify(message));
    notify('أُرسلت الفاتورة إلى طابور الطباعة في ويندوز','success');
-  }catch(error){notify(error instanceof Error?error.message:'تعذر إكمال الطباعة المباشرة','error');}
+  }catch(error){notify(error instanceof Error?error.message:'تعذر إكمال الطباعة المباشرة','error',error instanceof PrinterError?error.code:undefined);}
   return;
  }
  const previousTitle=document.title;

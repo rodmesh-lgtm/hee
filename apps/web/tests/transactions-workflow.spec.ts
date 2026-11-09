@@ -1199,6 +1199,8 @@ test.describe("public transactions workflow", () => {
       await requestButton.click();
       const requestDialog = publicPage.getByRole("dialog", { name: "طلب خدمة" });
       await expect(requestDialog).toBeVisible();
+      await expect(requestDialog.locator("[data-public-data-notice]")).toContainText("INFRO");
+      await expect(requestDialog.getByRole("link", {name:"سياسة الخصوصية واستخدام البيانات",exact:true})).toHaveAttribute("href","/privacy");
       await expect(requestDialog.getByLabel("الاسم")).toBeFocused();
       expect(await publicPage.evaluate(() => document.body.style.overflow)).toBe("hidden");
       await publicPage.keyboard.press("Escape");
@@ -1232,6 +1234,10 @@ test.describe("public transactions workflow", () => {
       const bookingSubmit = bookingDialog.getByRole("button", { name: "تأكيد الحجز" });
       await bookingSubmit.scrollIntoViewIfNeeded();
       await expect(bookingSubmit).toBeVisible();
+      await expect(bookingDialog.locator("[data-public-data-notice]")).toBeVisible();
+      await expect(bookingDialog.getByRole("link", {name:"سياسة الخصوصية واستخدام البيانات",exact:true})).toHaveAttribute("href","/privacy");
+      expect(await bookingDialog.evaluate(element=>element.scrollWidth-element.clientWidth)).toBeLessThanOrEqual(1);
+      await publicPage.screenshot({path:"test-results/booking-visitor-data-notice-mobile.png",fullPage:true});
 
       const tomorrow = riyadhDateKey(1);
       await bookingDialog.getByLabel("رقم الجوال").fill("0500000011");
