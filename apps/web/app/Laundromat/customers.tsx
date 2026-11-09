@@ -5,17 +5,17 @@ import { findLaundryCustomer,getLaundryCustomers,getLaundryCustomerOrders,saveLa
 import { laundryMoney as money,LAUNDRY_STATUSES,type LaundryStatus } from "../lib/laundry-domain";
 export function LaundryCustomerFields({businessId,onPhoneChange,phoneValue}:{businessId:string;onPhoneChange?:(phone:string)=>void;phoneValue?:string}){
  const {t:tr}=useI18n();
- const name=useRef<HTMLInputElement>(null),phone=useRef<HTMLInputElement>(null),revision=useRef(0),loading=useRef(false);
+ const name=useRef<HTMLInputElement>(null),phone=useRef<HTMLInputElement>(null),revision=useRef(0),loading=useRef(false),automaticName=useRef("");
  const [busy,setBusy]=useState(false),[message,setMessage]=useState("");
- useEffect(()=>{const form=name.current?.form;const reset=()=>{revision.current++;setMessage("");onPhoneChange?.("");};form?.addEventListener("reset",reset);return()=>form?.removeEventListener("reset",reset);},[onPhoneChange]);
+ useEffect(()=>{const form=name.current?.form;const reset=()=>{automaticName.current="";revision.current++;setMessage("");onPhoneChange?.("");};form?.addEventListener("reset",reset);return()=>form?.removeEventListener("reset",reset);},[onPhoneChange]);
  async function lookup(automatic=false){
   if(loading.current||(automatic&&(phone.current?.value.trim().length??0)<8))return;
   const version=++revision.current,previousName=name.current?.value??"";loading.current=true;setBusy(true);setMessage("");
   try{const r=await findLaundryCustomer({businessId,phone:phone.current?.value??""});if(version!==revision.current)return;
-   if(!r.ok)setMessage(r.error??"تعذر البحث");else if(r.customer){if(name.current&&(!automatic||(!previousName&&name.current.value===previousName)))name.current.value=r.customer.name;setMessage("تم استدعاء العميل المحفوظ");}else setMessage("عميل جديد؛ سيُحفظ ملفه عند حفظ الطلب");
+   if(!r.ok)setMessage(r.error??"تعذر البحث");else if(r.customer){if(name.current&&(!automatic||((!previousName||previousName===automaticName.current)&&name.current.value===previousName))){name.current.value=r.customer.name;automaticName.current=r.customer.name;}setMessage("تم استدعاء العميل المحفوظ");}else setMessage("عميل جديد؛ سيُحفظ ملفه عند حفظ الطلب");
   }catch{if(version===revision.current)setMessage("تعذر الاتصال");}finally{loading.current=false;setBusy(false);}
  }
- return <div className="ld-customer-fields"><label>{tr("رقم الجوال")}<input ref={phone} value={phoneValue} name="phone" required type="tel" dir="ltr" maxLength={40} placeholder="05xxxxxxxx" autoComplete="tel" onBlur={()=>void lookup(true)} onChange={e=>{revision.current++;setMessage("");onPhoneChange?.(e.target.value);}}/></label><label>{tr("اسم العميل")}<input ref={name} name="customerName" required maxLength={100} autoComplete="name"/></label><button type="button" className="ld-outline ld-customer-lookup" disabled={busy} onClick={()=>void lookup()}>{busy?tr("جارٍ البحث…"):tr("استدعاء العميل بالجوال")}</button>{message?<p role="status" className="ld-fine">{tr(message)}</p>:null}</div>;
+ return <div className="ld-customer-fields"><label>{tr("رقم الجوال")}<input ref={phone} value={phoneValue} name="phone" required type="tel" dir="ltr" maxLength={40} placeholder="05xxxxxxxx" autoComplete="tel" onBlur={()=>void lookup(true)} onChange={e=>{revision.current++;if(automaticName.current&&name.current?.value===automaticName.current)name.current.value="";automaticName.current="";setMessage("");onPhoneChange?.(e.target.value);}}/></label><label>{tr("اسم العميل")}<input ref={name} name="customerName" required maxLength={100} autoComplete="name"/></label><button type="button" className="ld-outline ld-customer-lookup" disabled={busy} onClick={()=>void lookup()}>{busy?tr("جارٍ البحث…"):tr("استدعاء العميل بالجوال")}</button>{message?<p role="status" className="ld-fine">{tr(message)}</p>:null}</div>;
 }
 const empty={name:"",phone:"",notes:"",address:""};
 export function LaundryCustomers({businessId}:{businessId:string}){

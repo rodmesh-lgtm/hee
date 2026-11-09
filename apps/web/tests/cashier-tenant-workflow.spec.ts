@@ -239,6 +239,8 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   const savedCustomer=await db.$queryRaw<Array<{name:string}>>`SELECT name FROM "LaundryCustomer" WHERE "businessId"=${laundry.id} AND phone=${phoneB}`;
   await lb.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneB);await lb.page.getByLabel('رقم الجوال',{exact:true}).press('Tab');
   await expect(lb.page.getByLabel('اسم العميل',{exact:true})).toHaveValue(savedCustomer[0].name);
+  await lb.page.getByLabel('رقم الجوال',{exact:true}).fill('+966500000333');await expect(lb.page.getByLabel('اسم العميل',{exact:true})).toHaveValue('');
+  await lb.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneB);await lb.page.getByLabel('رقم الجوال',{exact:true}).press('Tab');await expect(lb.page.getByLabel('اسم العميل',{exact:true})).toHaveValue(savedCustomer[0].name);
   await lb.page.getByRole('button',{name:'غدًا في هذا الوقت',exact:true}).click();
   await expect(lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true})).toBeEnabled();
   await lb.page.getByRole('button',{name:'دفع كامل',exact:true}).click();await expect(lb.page.getByLabel('الدفعة المستلمة',{exact:true})).toHaveValue('10.00');
