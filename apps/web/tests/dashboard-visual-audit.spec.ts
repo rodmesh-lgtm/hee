@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { createHmac } from "node:crypto";
+import { IDENTITY_PALETTES } from "../app/lib/public-identity-appearance";
 import { getDefaultPageModules } from "../app/lib/page-modules";
 import { retryCampaignFailureReceipt } from "../app/lib/whatsapp/campaign-receipt-retry";
 import { persistSubmittedTemplate, submitTemplateRequest, recentSubmissionWhere } from "../app/lib/whatsapp/template-submission";
@@ -1508,6 +1509,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         else pageModule.sortOrder+=10;
         if(pageModule.id==="contact"){
           pageModule.config.bottomActions=[{id:"phone",enabled:true,sortOrder:0},{id:"whatsapp",enabled:false,sortOrder:1},{id:"share",enabled:true,sortOrder:2}];
+          pageModule.config.appearance={...IDENTITY_PALETTES[index % IDENTITY_PALETTES.length],font:"infro"};
           pageModule.config.serviceRequestEnabled=false;
           pageModule.config.bookingPlacement="ribbon";
         }
@@ -1530,6 +1532,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
           const locations=await page.locator('[data-public-module="location"]').boundingBox();
           const services=await page.locator('#highlights').boundingBox();
           expect(locations!.y).toBeLessThan(services!.y);
+          const canvas=await page.locator("[data-public-page] > div").first().boundingBox();
+          expect(canvas!.width).toBeLessThanOrEqual(704);
           expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
           await page.screenshot({path:`${outDir}/activity-${index}-${viewport.width}.png`,fullPage:true});
           await page.getByRole('button',{name:'حجز موعد',exact:true}).click();
