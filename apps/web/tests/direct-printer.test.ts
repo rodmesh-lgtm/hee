@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {bridgeRequest,parsePrinterConfig,sendDirectReceipt,PrinterError,type DirectPrinterConfig} from '../app/Laundromat/direct-printer';
+import {bridgeRequest,clearReviewedPrint,parsePrinterConfig,sendDirectReceipt,PrinterError,type DirectPrinterConfig} from '../app/Laundromat/direct-printer';
 import nextConfig from '../next.config';
 const businessId='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
 const config:DirectPrinterConfig={version:1,businessId,printerName:'Evelon D10',token:Buffer.alloc(32).toString('base64'),enabled:true};
@@ -36,4 +36,16 @@ test('loopback access is restricted to cashier route headers and a single fixed 
   const scoped=entries.filter(entry=>entry.source===route).flatMap(entry=>entry.headers);const csp=scoped.find(header=>header.key==='Content-Security-Policy')!.value;
   assert.ok(csp.includes('http://127.0.0.1:17861'));assert.ok(!csp.includes('http://localhost:*'));assert.ok(scoped.some(header=>header.key==='Permissions-Policy'&&header.value.includes('loopback-network=(self)')));
  }
+});
+
+test('operator-reviewed recovery clears only the chosen document and never prints automatically',async()=>{
+ let sent=0;const f=fixture(async()=>{sent++;return result({ok:true,status:'uncertain'});});
+ try{
+  await assert.rejects(sendDirectReceipt(config,'invoice-a','Invoice A',async()=>'raster',()=>{}),PrinterError);
+  await assert.rejects(sendDirectReceipt(config,'invoice-b','Invoice B',async()=>'raster',()=>{}),PrinterError);
+  const foreignKey=`infro:cashier:pending-print:${other}:invoice-a`;f.values.set(foreignKey,'foreign-job');
+  clearReviewedPrint(businessId,'invoice-a');
+  assert.equal(sent,2);assert.equal(f.values.size,2);assert.equal(f.values.get(foreignKey),'foreign-job');
+  assert.ok(f.values.has(`infro:cashier:pending-print:${businessId}:invoice-b`));
+ }finally{f.restore();}
 });

@@ -91,3 +91,34 @@ test("diagnostics distinguish missing app/subscription/route without inventing a
   assert.equal(diagnostics.sallaSubscriptionFailureReason(429, null), "rate_limited");
   assert.equal(diagnostics.sallaSubscriptionFailureReason(500, { message: "Application not found" }), "unclassified");
 });
+
+test("customer guidance distinguishes provider causes without echoing arbitrary provider fields", () => {
+ for(const reason of ["app_not_found","subscription_not_found","endpoint_not_found","permission_denied","rate_limited"]){
+  assert.ok(diagnostics.sallaSubscriptionFailureMessage(reason,false));
+  assert.ok(diagnostics.sallaSubscriptionFailureMessage(reason,true));
+ }
+ for(const reason of [null,{},"unclassified","PRIVATE_PROVIDER_TOKEN","__proto__"]){
+  assert.equal(diagnostics.sallaSubscriptionFailureMessage(reason,false),null);
+ }
+ assert.match(diagnostics.sallaSubscriptionFailureMessage("endpoint_not_found",true)!,/service/);
+ assert.match(diagnostics.sallaSubscriptionFailureMessage("subscription_not_found",true)!,/record/);
+});
+
+test("authenticated subscription API returns a safe actionable reason without provider payload", async () => {
+  const f = await fixture();
+  const source = await readFile(new URL("../app/api/commerce/salla/subscription/route.ts", import.meta.url), "utf8");
+  const dependencies: Record<string, unknown> = {
+    "../../../../lib/whatsapp/rbac": {getWhatsAppReadContext: async(permission: string) => {assert.equal(permission,"connection.manage"); return {businessId:"business-a",userId:"owner-a"};}},
+    "../../../../lib/rate-limit": {consumePublicWriteLimit: async(input: {businessId: string}) => {assert.equal(input.businessId,"business-a");return {allowed:true};}},
+    "../../../../lib/commerce/salla-subscription-read": {...f.module,readSallaSubscription: async(input: {businessId: string;integrationId: string}) => {
+      assert.equal(input.businessId,"business-a");assert.equal(input.integrationId,"11111111-1111-4111-8111-111111111111");
+      throw new f.module.SallaSubscriptionReadError("SALLA_SUBSCRIPTION_HTTP_404",404,undefined,"endpoint_not_found");
+    }},
+  };
+  const exports: {GET?: (request: Request)=>Promise<Response>} = {};
+  runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,
+    {exports,require:(id: string)=>{assert.ok(id in dependencies,id);return dependencies[id];},Response,URL,Error});
+  const response=await exports.GET!(new Request("https://ir.sa/api/commerce/salla/subscription?store=11111111-1111-4111-8111-111111111111"));
+  assert.equal(response.status,503);assert.equal(response.headers.get("cache-control"),"private, no-store");
+  assert.deepEqual(await response.json(),{error:"SALLA_SUBSCRIPTION_HTTP_404",providerStatus:404,failureReason:"endpoint_not_found"});
+});

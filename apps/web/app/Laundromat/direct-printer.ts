@@ -2,7 +2,7 @@ export const PRINT_BRIDGE_URL='http://127.0.0.1:17861';
 export const PRINT_CONFIG_EVENT='infro:cashier-printer-config';
 export const PRINT_STATUS_EVENT='infro:cashier-printer-status';
 export type DirectPrinterConfig={version:1;businessId:string;token:string;printerName:string;enabled:boolean};
-export type PrintStatus={businessId:string;documentId:string;kind:'busy'|'success'|'error';message:string};
+export type PrintStatus={businessId:string;documentId:string;kind:'busy'|'success'|'error';message:string;errorCode?:string};
 export class PrinterError extends Error{constructor(public code:string,message:string){super(message);}}
 const configKey=(businessId:string)=>`infro:cashier:direct-printer:${businessId}`;
 const pendingKey=(businessId:string,documentId:string)=>`infro:cashier:pending-print:${businessId}:${documentId}`;
@@ -17,6 +17,11 @@ export function savePrinterConfig(config:DirectPrinterConfig|null,businessId:str
  catch{throw new PrinterError('STORAGE','اسمح بحفظ إعداد الطابعة في هذا المتصفح');}
 }
 export function reportPrintStatus(status:PrintStatus){window.dispatchEvent(new CustomEvent(PRINT_STATUS_EVENT,{detail:status}));}
+/** Only called after the operator explicitly checks the Windows queue. Never prints. */
+export function clearReviewedPrint(businessId:string,documentId:string){
+ try{window.localStorage.removeItem(pendingKey(businessId,documentId));}
+ catch{throw new PrinterError('STORAGE','اسمح بحفظ إعداد الطابعة في هذا المتصفح');}
+}
 const errorMessages:Record<string,string>={PAIR_REQUIRED:'أعد ربط الكاشير ببرنامج INFRO على هذا الجهاز',PAIR_EXPIRED:'أنشئ رمز ربط جديدًا من برنامج INFRO على ويندوز',PAIR_INVALID:'رمز الربط غير صحيح',PRINTER_MISSING:'اختر طابعة Evelon D10 المثبتة في ويندوز',QUEUE_BUSY:'طابور الطباعة مشغول؛ انتظر ثم تحقق من العملية',JOB_EXPIRED:'طلب قديم غير مؤكد؛ راجع طابور ويندوز قبل إعادة الطباعة',JOB_MISMATCH:'طلب الطباعة محفوظ بمحتوى مختلف؛ راجع طابور ويندوز',ORIGIN_DENIED:'افتح الكاشير من ir.sa لربط الطابعة',INVALID_IMAGE_SIZE:'الفاتورة أطول من الحد المدعوم للطباعة المباشرة'};
 type BridgeResult={ok:boolean;code?:string;version?:string;token?:string;printers?:string[];printerName?:string;jobId?:string;status?:string};
 export async function bridgeRequest(path:'/v1/pair'|'/v1/printers'|'/v1/select'|'/v1/revoke'|'/v1/status'|'/v1/print',body:Record<string,unknown>,token?:string):Promise<BridgeResult>{

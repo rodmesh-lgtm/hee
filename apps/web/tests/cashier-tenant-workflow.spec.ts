@@ -373,6 +373,14 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   loseD10Acknowledgement=true;await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();
   await expect(wa.page.getByRole('alert').filter({hasText:'افتح برنامج INFRO على ويندوز'})).toBeVisible();expect(d10Prints).toBe(2);
   await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();await expect(wa.page.getByText('أُرسلت الفاتورة إلى طابور الطباعة في ويندوز',{exact:true})).toBeVisible();expect(d10Prints).toBe(2);
+  // An uncertain job stays blocked until an operator explicitly reviews/cancels its Windows queue entry.
+  await wa.page.evaluate(({businessId,documentId})=>localStorage.setItem(`infro:cashier:pending-print:${businessId}:${documentId}`,JSON.stringify({jobId:crypto.randomUUID(),createdAt:new Date().toISOString()})),{businessId:shop.id,documentId:printTicket});
+  const uncertainJob=await wa.page.evaluate(({businessId,documentId})=>JSON.parse(localStorage.getItem(`infro:cashier:pending-print:${businessId}:${documentId}`)!).jobId,{businessId:shop.id,documentId:printTicket});d10Jobs.set(uncertainJob,'uncertain');
+  await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();
+  const recovery=wa.page.getByRole('button',{name:'راجعت طابور ويندوز — السماح بنسخة جديدة',exact:true});await expect(recovery).toBeVisible();expect(d10Prints).toBe(2);
+  wa.page.once('dialog',dialog=>dialog.dismiss());await recovery.click();await expect(recovery).toBeVisible();expect(d10Prints).toBe(2);
+  wa.page.once('dialog',dialog=>dialog.accept());await recovery.click();await expect(recovery).toHaveCount(0);expect(d10Prints).toBe(2);
+  await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();await expect(wa.page.getByText('أُرسلت الفاتورة إلى طابور الطباعة في ويندوز',{exact:true})).toBeVisible();expect(d10Prints).toBe(3);
   expect(await wa.page.evaluate(otherId=>localStorage.getItem(`infro:cashier:direct-printer:${otherId}`),laundry.id)).toBeNull();
   await wa.context.addCookies([{name:'hee_active_business',value:laundry.id,url:baseUrl}]);await wa.page.goto('/Accounting');expect(await wa.page.content()).not.toContain(nameA);expect(await wa.page.content()).not.toContain(nameB);await expect(wa.page.getByText('سجّل الدخول واختر منشأتك للوصول إلى حساباتها.',{exact:true})).toBeVisible();
   const restricted=await login(staff.id,shop.id);await restricted.page.goto('/Accounting');await expect(restricted.page.getByText('تحتاج صلاحية البرنامج المحاسبي',{exact:true})).toBeVisible();expect(await restricted.page.content()).not.toContain(nameA);await lb.context.clearCookies();await lb.page.reload();expect(await lb.page.content()).not.toContain(nameB);expect(await lb.page.content()).not.toContain(phoneB);

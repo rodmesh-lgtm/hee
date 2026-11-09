@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     return json({ subscriptions: sallaSubscriptionSummary(result.subscriptions), fetchedAt: result.fetchedAt.toISOString(),
       entitlementSync: "not_enabled", source: "salla" });
   } catch (error) {
-    if (error instanceof SallaSubscriptionReadError) return json({ error: error.message, providerStatus: error.providerStatus, dataShape: error.dataShape }, 503);
+    if (error instanceof SallaSubscriptionReadError) return json({ error: error.message, providerStatus: error.providerStatus, dataShape: error.dataShape, failureReason: error.failureReason }, 503);
     const code = error instanceof Error ? error.message : "";
     const exposed = ["SALLA_INTEGRATION_UNAVAILABLE", "SALLA_SUBSCRIPTION_PERMISSION_REQUIRED", "SALLA_RECONNECT_REQUIRED"].includes(code);
     return json({ error: exposed ? code : "SALLA_SUBSCRIPTION_UNAVAILABLE" }, code === "SALLA_INTEGRATION_UNAVAILABLE" ? 404 : 503);
