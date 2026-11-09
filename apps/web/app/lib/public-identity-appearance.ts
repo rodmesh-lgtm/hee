@@ -9,6 +9,9 @@ export const IDENTITY_PALETTES = [
   { name: "عنابي", primary: "#6b2942", accent: "#bd946f", background: "#fcf8f6" },
   { name: "فيروزي", primary: "#086d70", accent: "#ba965e", background: "#f4faf9" },
   { name: "فحمي", primary: "#e0bb79", accent: "#b7c3d4", background: "#1c2228" },
+  { name: "رملي", primary: "#74563e", accent: "#b88d55", background: "#fbf5eb" },
+  { name: "زمردي داكن", primary: "#8dd9bc", accent: "#c7ad79", background: "#102e29" },
+  { name: "بني وذهبي", primary: "#ebc277", accent: "#c5a176", background: "#292522" },
 ] as const;
 export function validIdentityColor(value: unknown): value is string { return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value); }
 export function normalizeIdentityAppearance(raw: unknown): IdentityAppearance {

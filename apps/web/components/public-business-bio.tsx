@@ -62,13 +62,14 @@ export function PublicBusinessBio({business,publicUrl,pageModules=[],bookingRibb
     <div className={styles.logo}><span>{logo?<img src={logo} alt={`${t("شعار")} ${business.name}`}/>:<Building2 size={40}/>}</span>{business.isVerified?<BadgeCheck aria-label={t("منشأة موثقة")} className={styles.verified}/>:null}</div>
     <h1 translate="no">{locale !== "ar" && clean(business.nameEn) ? business.nameEn : business.name}</h1>
     {summary?<p className={styles.summary}>{summary}</p>:null}
+    {[business.city,business.district].some(value=>clean(value))?<p className={styles.location}><MapPin size={14} aria-hidden="true"/><span>{[business.city,business.district].map(value=>clean(value)).filter(Boolean).join(t("، "))}</span></p>:null}
     <span className={styles.heroRule} aria-hidden="true"/>
    </header>
    <div className={styles.identityDetails}>
     <div data-public-profile-slot/>
     <div data-public-social-slot/>
    </div>
-   {sectionLinks.length?<nav aria-label={t("أقسام صفحة المنشأة")} className={styles.nav}>{sectionLinks.map(item=><a key={item.href} href={item.href}>{item.label}<ArrowUpLeft size={14} aria-hidden="true"/></a>)}</nav>:null}
+   {sectionLinks.length?<nav aria-label={t("أقسام صفحة المنشأة")} className={styles.nav}>{sectionLinks.map(item=><a key={item.href} href={item.href}>{item.label}</a>)}</nav>:null}
    <div className={styles.sections}>
     <section data-public-module="request" aria-labelledby="intent-title" id={!groups.length?"contact":undefined} className={styles.request} style={{order:sectionOrder("request")}}>
      <div className={styles.requestHeading}><span className={styles.requestIcon}><MessageCircle size={24} aria-hidden="true"/></span><div><span className={styles.eyebrow}>{t("نرحّب بتواصلك")}</span><h2 id="intent-title">{t("كيف نقدر نخدمك اليوم؟")}</h2><p>{t("كل ما تحتاجه للتواصل معنا، في مكان واحد.")}</p></div></div>

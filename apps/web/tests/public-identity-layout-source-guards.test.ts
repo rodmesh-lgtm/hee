@@ -45,7 +45,7 @@ test("approved business identity hierarchy stays fixed and avoids AI visual clic
   assert.ok(transactions < branches && branches < contacts);
   assert.ok(contacts < highlights && highlights < destinations);
   const styles = source("components/public-business-bio.module.css");
-  assert.match(styles, /max-width:1024px/);
+  assert.match(styles, /max-width:704px/);
   assert.match(styles, /@media \(max-width:767px\)/);
   assert.doesNotMatch(renderer, /Sparkles|وصول ذكي/);
   assert.doesNotMatch(renderer, /الرد خلال 5 دقائق|محدّث اليوم/);
