@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "../db";
+import { orderSyncErrorCode } from "./order-sync-error";
 import { syncShopifyBookingOrders } from "./shopify-order-sync";
 import { syncSallaBookingOrders } from "./salla-order-sync";
 import { syncWooCommerceBookingOrders } from "./woocommerce-commerce";
@@ -51,22 +52,24 @@ export async function runPeriodicCommerceOrderSync(input: { env?: NodeJS.Process
     for (const integration of integrations) {
       attempted += 1;
       let outcome = "success";
+      let errorCode: string | null = null;
       try {
         await syncIntegration(provider, integration.businessId, integration.id);
         succeeded += 1;
-      } catch {
+      } catch (error) {
         outcome = "failed";
+        errorCode = orderSyncErrorCode(provider, error);
         failed += 1;
         await db.whatsAppCommerceIntegration.updateMany({
           where: { id: integration.id, businessId: integration.businessId, status: "active" },
-          data: { lastErrorCode: `${provider.toUpperCase()}_ORDER_SYNC_FAILED` },
+          data: { lastErrorCode: errorCode },
         }).catch(() => undefined);
       }
       // Operational metadata only; never store credentials, order payloads or exception messages.
       await db.analyticsEvent.create({ data: {
         businessId: integration.businessId,
         eventType: "commerce_periodic_sync_result",
-        metadata: { integrationId: integration.id, provider, outcome },
+        metadata: { integrationId: integration.id, provider, outcome, ...(errorCode ? { errorCode } : {}) },
       } }).catch(() => undefined);
     }
   }

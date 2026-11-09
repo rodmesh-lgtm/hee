@@ -55,9 +55,21 @@ physical hardware or live message delivery.
 | Neoleap/Newland N910 automatic charge/split/cancel integration | Official device/ECR protocol, sandbox or actual terminal, matching settlement/cancel semantics; no matching support response found in the connected inbox searches | Durable request idempotency, unknown-outcome reconciliation and atomic ledger posting, followed by real terminal acceptance. Manual card recording is not terminal charging. |
 | Actual camera playback at Sada Al Marakib | Reachable branch Windows connector and DVR stream; cannot reach local equipment from this workspace | Prove media in INFRO, Windows reboot without login, network recovery, revocation/expiry and customer-link access termination. |
 | Evelon D10 physical paper output | Run the released bridge on the cashier's Windows computer, official driver, 80mm configuration and pairing | Print a receipt, confirm Arabic/quantities/margins/cut and retry behaviour on actual hardware. |
-| Full authenticated operational review | `https://hub.ir.sa/dashboard` redirected this audit browser to `https://ir.sa/login`; no active platform session is available | Resume authenticated verification after sign-in; do not create sessions by copying database tokens or bypassing authentication. |
+| Full authenticated operational review | Customer and separate administrator sign-in completed through the normal secure login flow on 9 November. Commerce and WhatsApp screens reviewed; further provider and hardware acceptance remains open | Preserve tenant isolation and verify real provider results; never copy database tokens or manufacture sessions. |
 | Open launch/legal issues #181 and #182 | Determine whether current live notices now satisfy the issue; actual operator, processing geography and retention facts must be confirmed | Reconcile issue text with current source and verified business facts before closing or opening paid launch. |
 
 No remaining external dependency is marked complete merely because code exists.
 No new messages, charges, marketplace submissions, device installations or
 customer-data deletion were performed by this reconciliation.
+
+## Authenticated follow-up on 9 November
+
+- Production release `0655195ce5e18a454fb3d2ca56a4b773de19a95d` passed preflight and deployment; public booking/request notices were checked in the live browser.
+- The active Salla demo integration was synchronizing orders. Layla Clean showed `SALLA_STORE_ALREADY_ASSIGNED`; this isolation guard must not be bypassed.
+- The Shopify demo integration showed `SHOPIFY_ORDER_SYNC_FAILED`; provider diagnosis remains open.
+- The administrator subscription check encountered a Prisma session-read connection failure (`08P01`) before establishing the provider subscription result. Add one bounded fresh read to authenticated session lookups only. Revoked/expired/unverified sessions remain denied; mutations and transactions are never retried by this helper.
+- Local validation for this recovery: 23 focused tests, TypeScript and ESLint passed. Release CI and live recheck must be recorded separately.
+
+- A subsequent authenticated Salla subscription check reached the provider and returned HTTP404 with no safely identifiable reason. This is not proof of non-payment; partner app/plan matching remains necessary.
+- The administrator WhatsApp screen showed connected sender records for Layla Clean, Sada Al Marakib and the Salla review store, with a healthy shared worker. No new customer messages were sent during this audit.
+- Preserve allowlisted provider HTTP, configuration, credential and transient database/timeout classifications for periodic store synchronization. Arbitrary exception text, credentials and order data are never persisted in this diagnostic. Regression coverage checks same-tenant failure persistence without reporting success. This enables the next live worker run to distinguish the previously generic Shopify failure.
