@@ -294,3 +294,11 @@
  .ld-pos-mode .ld-payment-amount{margin-bottom:6px}
  .ld-pos-mode .ld-payment-heading .ld-pay-full{min-height:22px;padding:2px 5px;font-size:10px;white-space:nowrap}
 }
+/* Multi-role employees retain their server-authorized programme navigation. */
+@media screen{
+ body:has(.ld-pos-mode[data-cashier-owner=false]) .accounting-program-bar:has(nav a:nth-child(2)){display:flex;height:36px;min-height:36px;box-sizing:border-box;padding:4px 12px;align-items:center}
+ body:has(.ld-pos-mode[data-cashier-owner=false]) .accounting-program-bar:has(nav a:nth-child(2))>div{display:none}
+ body:has(.ld-pos-mode[data-cashier-owner=false]) .accounting-program-bar:has(nav a:nth-child(2)) nav a{min-height:26px;padding:4px 8px;font-size:12px;line-height:1.2}
+ body:has(.ld-pos-mode[data-cashier-owner=false]):has(.accounting-program-bar nav a:nth-child(2)) .ld-pos-mode{min-height:calc(100dvh - 88px)}
+}
+@media screen and (min-width:900px){body:has(.ld-pos-mode[data-cashier-owner=false]):has(.accounting-program-bar nav a:nth-child(2)) .ld-pos{height:calc(100dvh - 146px)}}
