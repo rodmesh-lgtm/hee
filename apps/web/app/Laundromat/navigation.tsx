@@ -9,13 +9,13 @@ const groups=[
  {label:"إعداد المنشأة",items:[{id:"services",label:"الخدمات والأسعار",icon:Settings2},{id:"branding",label:"الشعار وبيانات الفواتير",icon:Image}]}
 ];
 export const laundryTitles=Object.fromEntries(groups.flatMap(g=>g.items.map(i=>[i.id,i.label])));
-export function LaundryNavigation({tab,onChange,owner,allowed,program=false}:{program?:boolean;allowed?:string[];tab:string;onChange:(tab:string)=>void;owner:boolean}){
+export function LaundryNavigation({tab,onChange,owner,allowed,program=false,compact=false,compactTitle}:{compactTitle?:string;compact?:boolean;program?:boolean;allowed?:string[];tab:string;onChange:(tab:string)=>void;owner:boolean}){
  const { t: tr } = useI18n();
 
  const [open,setOpen]=useState(false),[search,setSearch]=useState("");
  function select(id:string){onChange(id);setOpen(false);setSearch("");}
- return <aside className={`ld-sidebar ld-navigation ${open?"is-open":""}`} aria-label={tr("أقسام البرنامج")}>
-  <div className="ld-mobile-nav"><button type="button" aria-label={open?tr("إغلاق قائمة الأقسام"):tr("فتح قائمة الأقسام")} aria-expanded={open} aria-controls="laundry-navigation" onClick={()=>setOpen(!open)}>{open?<X size={20}/>:<Menu size={20}/>}<span>{tr(laundryTitles[tab])}</span><small>{tr("الأقسام")}</small></button>{tab!=="pos"&&(!allowed||allowed.includes("pos"))?<button type="button" onClick={()=>select("pos")}><ReceiptText size={18}/>{tr("طلب جديد")}</button>:null}</div>
+ return <aside className={`ld-sidebar ld-navigation ${compact?"ld-navigation-compact":""} ${open?"is-open":""}`} aria-label={tr("أقسام البرنامج")} onKeyDown={e=>{if(e.key==="Escape")setOpen(false);}}>
+  <div className="ld-mobile-nav"><button type="button" aria-label={open?tr("إغلاق قائمة الأقسام"):tr("فتح قائمة الأقسام")} aria-expanded={open} aria-controls="laundry-navigation" onClick={()=>setOpen(!open)}>{open?<X size={20}/>:<Menu size={20}/>}<span>{tr(compact?"أقسام البرنامج":laundryTitles[tab])}</span><small>{tr("الأقسام")}</small></button>{compact?<button type="button" onClick={()=>select("orders")}>{tr("الطلبات السابقة")}</button>:null}{compact?<div className="ld-compact-business"><strong>{compactTitle}</strong><span>{tr("طلب جديد")}</span></div>:null}{tab!=="pos"&&(!allowed||allowed.includes("pos"))?<button type="button" onClick={()=>select("pos")}><ReceiptText size={18}/>{tr("طلب جديد")}</button>:null}</div>
   <nav id="laundry-navigation" className="ld-nav-content" aria-label={tr("التنقل بين أقسام البرنامج")}>
    <label className="ld-nav-search"><Search size={16}/><input aria-label={tr("البحث عن قسم")} placeholder={tr("ابحث عن قسم…")} value={search} onChange={e=>setSearch(e.target.value)}/></label>
    {groups.map(group=>{const items=group.items.filter(i=>(allowed?allowed.includes(i.id):owner||["pos","orders"].includes(i.id))&&(i.label.includes(search)||tr(i.label).toLowerCase().includes(search.toLowerCase())));return items.length?<div className="ld-nav-group" key={group.label}><p>{tr(group.label)}</p>{items.map(item=><button key={item.id} aria-current={tab===item.id?"page":undefined} onClick={()=>select(item.id)} className={tab===item.id?"active":""}><item.icon size={18}/><span>{tr(item.label)}</span></button>)}</div>:null;})}
