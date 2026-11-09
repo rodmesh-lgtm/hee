@@ -90,6 +90,8 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await expect(wa.page.getByText('تم حفظ المرتجع. راجع المبلغ المستحق للإعادة أدناه',{exact:true})).toBeVisible();
   const credited=await db.$queryRaw<Array<{total:number;paid:number;returned:number;refunded:number}>>`SELECT total,paid,returned,refunded FROM "LaundryTicket" WHERE id=${rt}`;
   expect(credited[0]).toEqual({total:1000,paid:1000,returned:500,refunded:0});
+  await wa.page.getByRole('button',{name:'تعبئة المرتجع الكامل',exact:true}).click();await expect(wa.page.getByLabel('كمية مرتجع 1',{exact:true})).toHaveValue('1');
+  await wa.page.getByRole('button',{name:'تصفير كميات المرتجع',exact:true}).click();await expect(wa.page.getByLabel('كمية مرتجع 1',{exact:true})).toHaveValue('0');
   await wa.page.getByLabel('المبلغ المعاد',{exact:true}).fill('5');
   await wa.page.getByLabel('مرجع الإعادة أو سند الصرف',{exact:true}).fill('سند نقدي تجريبي 123');
   await wa.page.getByLabel('أؤكد إعادة المبلغ فعليًا بنفس وسيلة الدفعة المختارة',{exact:true}).check();
@@ -162,7 +164,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   expect(discounted[0].total).toBe(5400);expect(discounted[0].paid).toBe(5400);expect(discounted[0].consented).toBe(true);expect(discounted[0].items[0].discount).toBe(600);
   const consents=await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryAudit" WHERE "businessId"=${shop.id} AND "targetId"=${discounted[0].id} AND action IN ('order-reminder-consent','order-review-consent')`;expect(consents[0].n).toBe(2);
   await wa.page.getByRole('button',{name:'إنشاء أو استعراض مرتجع',exact:true}).click();
-  await wa.page.getByRole('button',{name:'استعراض الفاتورة والمرتجعات',exact:true}).click();
+  await expect(wa.page.getByRole('form',{name:'تحديد أصناف المرتجع',exact:true})).toBeVisible();
   for(let i=0;i<2;i++){
    await wa.page.getByLabel('كمية مرتجع 1',{exact:true}).fill('1');
    await wa.page.getByLabel('سبب المرتجع',{exact:true}).fill('مرتجع خصم تجريبي');
@@ -210,10 +212,23 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await wa.page.getByRole('button',{name:'حفظ الطلب وإصدار المستند',exact:true}).click();await expect(wa.page.getByRole('dialog')).toContainText('متر');
   const measured=await db.$queryRaw<Array<{id:string;total:number;items:Array<{unit:string;quantity:number}>}>>`SELECT id,total,items FROM "LaundryTicket" WHERE "businessId"=${shop.id} AND number=6`;
   expect(measured[0].total).toBe(1999);expect(measured[0].items[0].unit).toBe('meter');expect(measured[0].items[0].quantity).toBe(5.25);
-  await wa.page.getByRole('button',{name:'إنشاء أو استعراض مرتجع',exact:true}).click();await wa.page.getByRole('button',{name:'استعراض الفاتورة والمرتجعات',exact:true}).click();
+  await wa.page.getByRole('button',{name:'إنشاء أو استعراض مرتجع',exact:true}).click();await expect(wa.page.getByRole('form',{name:'تحديد أصناف المرتجع',exact:true})).toBeVisible();
   await wa.page.getByLabel('كمية مرتجع 1',{exact:true}).fill('2.5');await wa.page.getByLabel('سبب المرتجع',{exact:true}).fill('إرجاع قياس جزئي');
   await wa.page.getByRole('button',{name:'اعتماد المرتجع وتحديث الرصيد',exact:true}).click();
   await expect.poll(async()=>(await db.$queryRaw<Array<{returned:number}>>`SELECT returned FROM "LaundryTicket" WHERE id=${measured[0].id}`)[0].returned).toBe(952);
+  // Full-return shortcut fills only the remaining measured quantity and never saves by itself.
+  await wa.page.getByRole('button',{name:'تعبئة المرتجع الكامل',exact:true}).click();
+  await expect(wa.page.getByLabel('كمية مرتجع 1',{exact:true})).toHaveValue('2.75');
+  await wa.page.screenshot({path:'test-results/cashier-full-return-shortcut.png',fullPage:true});
+  expect((await db.$queryRaw<Array<{returned:number}>>`SELECT returned FROM "LaundryTicket" WHERE id=${measured[0].id}`)[0].returned).toBe(952);
+  await wa.page.getByRole('button',{name:'تصفير كميات المرتجع',exact:true}).click();
+  await expect(wa.page.getByLabel('كمية مرتجع 1',{exact:true})).toHaveValue('0');
+  await wa.page.getByRole('button',{name:'تعبئة المرتجع الكامل',exact:true}).click();
+  await wa.page.getByLabel('سبب المرتجع',{exact:true}).fill('استكمال إرجاع القياس المتبقي');
+  await wa.page.getByRole('button',{name:'اعتماد المرتجع وتحديث الرصيد',exact:true}).click();
+  await expect(wa.page.getByText('هذه الفاتورة مرتجعة بالكامل',{exact:true})).toBeVisible();
+  expect((await db.$queryRaw<Array<{returned:number}>>`SELECT returned FROM "LaundryTicket" WHERE id=${measured[0].id}`)[0].returned).toBe(1999);
+
   await lb.page.goto('/Accounting');await lb.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
   const carpetForm=lb.page.getByRole('form',{name:'إضافة صنف',exact:true});
   await carpetForm.getByLabel('اسم الصنف',{exact:true}).fill('فرشة غرفة');await carpetForm.getByLabel('التصنيف',{exact:true}).fill('مفروشات');

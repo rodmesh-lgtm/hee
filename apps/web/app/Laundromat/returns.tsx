@@ -1,5 +1,5 @@
 "use client";
-import { useRef,useState } from "react";
+import { useEffect,useRef,useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "../../components/i18n/locale-provider";
 import { getInvoiceReturns,invoiceReturnCommand,type ReturnView } from "./return-actions";
@@ -9,8 +9,14 @@ import { LaundryVoucher,type LaundryVoucherData } from "./voucher";
 
 export function CashierReturns({business,initialNumber}:{business:{id:string;name:string;logoUrl:string|null;phone?:string;address?:string};initialNumber?:number}){
  const {t,intlLocale}=useI18n(),router=useRouter();
- const [view,setView]=useState<ReturnView|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
+ const [view,setView]=useState<ReturnView|null>(null),[busy,setBusy]=useState(!!initialNumber),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [voucher,setVoucher]=useState<LaundryVoucherData|null>(null);
+ useEffect(()=>{
+  if(!initialNumber)return;
+  let live=true;
+  void getInvoiceReturns({businessId:business.id,number:initialNumber}).then(result=>{if(!live)return;if(result.ok)setView(result.view);else {setView(null);setError(result.error);}}).catch(()=>{if(live)setError("تعذر الاتصال");}).finally(()=>{if(live)setBusy(false);});
+  return()=>{live=false;};
+ },[business.id,initialNumber]);
  const pending=useRef<{body:string;id:string}|null>(null);
  const money=(v:number)=>laundryMoney(v,intlLocale),labels:Record<string,string>={cash:"نقد",card:"شبكة",transfer:"تحويل",prepaid:"رصيد الاشتراك"};
  async function load(number:number){
@@ -29,14 +35,16 @@ export function CashierReturns({business,initialNumber}:{business:{id:string;nam
   <form className="ld-inline-form" onSubmit={async e=>{e.preventDefault();if(busy)return;const f=new FormData(e.currentTarget);setBusy(true);setError("");setNotice("");try{await load(Number(f.get("number")));}catch{setError("تعذر الاتصال");}finally{setBusy(false);}}}>
    <label>{t("رقم الفاتورة")}<input name="number" type="number" min="1" required defaultValue={initialNumber}/></label><button disabled={busy} className="ld-primary">{t("استعراض الفاتورة والمرتجعات")}</button>
   </form>
+  {busy&&!view?<p role="status" className="ld-fine">{t("جارٍ استعراض الفاتورة والمرتجعات…")}</p>:null}
   {error?<p className="ld-alert" role="alert">{t(error)}</p>:null}{notice?<p className="ld-success" role="status">{t(notice)}</p>:null}
   {view&&balance?<div key={`${view.ticket.id}:${view.returns.length}:${view.refunds.length}`}>
    <h3>{t("فاتورة")} #{view.ticket.number} · {view.ticket.customerName}</h3>
    <div className="ld-report-summary">{[["قيمة الفاتورة الأصلية",view.ticket.total],["إجمالي المرتجعات",view.ticket.returned],["الصافي بعد المرتجعات",balance.net],["المتبقي على العميل",balance.outstanding],["المعاد فعليًا أو إلى الاشتراك",view.ticket.refunded],["مبلغ مستحق للإعادة",balance.refundDue]].map(([label,v])=><article key={String(label)}><span>{t(String(label))}</span><strong>{money(Number(v))} {t("ر.س")}</strong></article>)}</div>
-   {balance.net>0?<form onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);const items=view.ticket.items.flatMap((_,index)=>{const quantity=Number(f.get(`quantity-${index}`));return quantity?[{index,quantity}]:[];});void run({type:"return",items,reason:String(f.get("reason")??"")});}}>
+   {balance.net>0?<form aria-label={t("تحديد أصناف المرتجع")} onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);const items=view.ticket.items.flatMap((_,index)=>{const quantity=Number(f.get(`quantity-${index}`));return quantity?[{index,quantity}]:[];});void run({type:"return",items,reason:String(f.get("reason")??"")});}}>
+    <div className="ld-return-shortcuts"><button type="button" className="ld-outline" disabled={busy} onClick={e=>{e.currentTarget.form?.querySelectorAll<HTMLInputElement>('input[name^="quantity-"]:not(:disabled)').forEach(input=>{input.value=input.max;});}}>{t("تعبئة المرتجع الكامل")}</button><button type="button" className="ld-outline" disabled={busy} onClick={e=>{e.currentTarget.form?.querySelectorAll<HTMLInputElement>('input[name^="quantity-"]:not(:disabled)').forEach(input=>{input.value="0";});}}>{t("تصفير كميات المرتجع")}</button></div>
     <div className="ld-table-wrap"><table><thead><tr><th>{t("الصنف")}</th><th>{t("السعر")}</th><th>{t("القابل للإرجاع")}</th><th>{t("كمية المرتجع")}</th></tr></thead><tbody>{view.ticket.items.map((line,index)=>{const returned=view.returns.flatMap(r=>r.items).filter(l=>l.index===index).reduce((s,l)=>s+l.quantity,0),available=Math.round((line.quantity-returned)*100)/100;return <tr key={index}><td>{line.name}</td><td>{money(line.unitPrice)}</td><td>{available} {line.unit?t(CASHIER_UNITS[line.unit]):""}</td><td><input aria-label={`${t("كمية مرتجع")} ${index+1}`} name={`quantity-${index}`} type="number" min="0" max={available} step={line.unit&&line.unit!=="piece"?"0.01":"1"} defaultValue="0" disabled={!available||busy}/></td></tr>;})}</tbody></table></div>
     <label>{t("سبب المرتجع")}<input name="reason" required minLength={4} maxLength={300}/></label>
-    <p className="ld-fine">{t("للمرتجع الكامل أدخل الكمية المتبقية لكل صنف. فواتير باقات القطع والزيارات تتطلب مرتجعًا كاملًا لاستعادة وحداتها دون تخمين. هذا الإجراء لا يعيد مواد المخزون تلقائيًا؛ راجع حركة المخزون الفعلية إن وجدت.")}</p>
+    <p className="ld-fine">{t("زر تعبئة المرتجع الكامل يحدد الكميات المتبقية فقط؛ لا يُعتمد المرتجع إلا بعد إدخال السبب والضغط على اعتماد. فواتير باقات القطع والزيارات تتطلب مرتجعًا كاملًا لاستعادة وحداتها دون تخمين. هذا الإجراء لا يعيد مواد المخزون تلقائيًا؛ راجع حركة المخزون الفعلية إن وجدت.")}</p>
     <button className="ld-primary" disabled={busy}>{t("اعتماد المرتجع وتحديث الرصيد")}</button>
    </form>:<p className="ld-success">{t("هذه الفاتورة مرتجعة بالكامل")}</p>}
    {balance.refundDue>0?<section className="ld-panel"><h3>{t("توثيق إعادة المبلغ")}</h3><p>{t("هذا الزر يسجل مبلغًا أعدته بالفعل. لا يُرسل طلب استرداد إلى البنك أو جهاز مدى.")}</p>
