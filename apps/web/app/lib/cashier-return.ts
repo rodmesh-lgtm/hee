@@ -15,8 +15,8 @@ export function quoteInvoiceReturn(items: LaundryLine[], previous: ReturnLine[],
     if (!Number.isSafeInteger(original.discount??0)||(original.discount??0)<0||original.total<0||original.total+(original.discount??0)!==cashierLineTotal(original.unitPrice,original.quantity,original.unit)) throw new LaundryInputError("تفاصيل الفاتورة تحتاج مراجعة قبل الإرجاع");
     const requested=quantityTicks(l.quantity,original.unit),all=quantityTicks(original.quantity,original.unit);
     const amount=Math.round(original.total*(used+requested)/all)-Math.round(original.total*used/all);
-    const gross=original.total+(original.discount??0);
-    const discount=Math.round(gross*(used+requested)/all)-Math.round(gross*used/all)-amount;
+    const originalDiscount=original.discount??0;
+    const discount=Math.round(originalDiscount*(used+requested)/all)-Math.round(originalDiscount*used/all);
     return {...l,...(original.unit?{unit:original.unit}:{}),name:original.name,unitPrice:original.unitPrice,amount,...(discount?{discount}:{})};
   });
   const amount=lines.reduce((s,l)=>s+l.amount,0);
