@@ -25,15 +25,16 @@ import { getActiveBusinessForUser } from "../lib/active-business";
 import { LaundryInputError, withLaundryServiceSpeed, laundryPricedLines, laundryPriceToken, moneyToHalalas, nextLaundryStatus, type LaundryService, type LaundryTicket } from "../lib/laundry-domain";
 
 const key = z.string().uuid();
+const unit=z.enum(["piece","meter","square_meter"]).default("piece");
 const command = z.discriminatedUnion("type", [
-  z.object({type:z.literal("product"),requestId:key,name:z.string().trim().min(2).max(80),category:z.string().trim().min(2).max(50),wash_iron:z.string(),iron:z.string()}),
+  z.object({type:z.literal("product"),unit,requestId:key,name:z.string().trim().min(2).max(80),category:z.string().trim().min(2).max(50),wash_iron:z.string(),iron:z.string()}),
   z.object({type:z.literal("catalog"),requestId:key,operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),items:z.array(z.object({presetId:z.string().max(50),operation:z.enum(["wash","iron","wash_iron","dry"]).optional(),price:z.string()})).min(1).max(120)}),
-  z.object({ type: z.literal("service"), name: z.string().trim().min(2).max(100), category: z.string().trim().min(2).max(50), price: z.string(), requestId: key }),
-  z.object({type:z.literal("service-update"),id:key,requestId:key,name:z.string().trim().min(2).max(100),category:z.string().trim().min(2).max(50),price:z.string(),urgentPrice:z.string(),previous:z.object({name:z.string(),category:z.string(),price:z.number().int(),urgentPrice:z.number().int().nullable()})}),
+  z.object({ type: z.literal("service"),unit, name: z.string().trim().min(2).max(100), category: z.string().trim().min(2).max(50), price: z.string(), requestId: key }),
+  z.object({type:z.literal("service-update"),unit,id:key,requestId:key,name:z.string().trim().min(2).max(100),category:z.string().trim().min(2).max(50),price:z.string(),urgentPrice:z.string(),previous:z.object({unit,name:z.string(),category:z.string(),price:z.number().int(),urgentPrice:z.number().int().nullable()})}),
   z.object({type:z.literal("urgent-settings"),enabled:z.boolean(),requestId:key}),
   z.object({ type:z.literal("urgent-price"),id:key,price:z.string(),requestId:key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
-  z.object({ type: z.literal("order"), notificationConsent:z.boolean().default(false), discount:z.object({kind:z.enum(["none","percent","fixed"]),value:z.string().max(20)}).optional(), commission:z.object({name:z.string().trim().min(2).max(100),phone:z.string().min(8).max(40),kind:z.enum(["fixed","percent"]),value:z.string().max(20)}).optional(), vehicleModel:z.string().trim().max(80).optional(),vehiclePlate:z.string().trim().max(30).optional(),vehicleMileage:z.string().trim().max(7).optional(), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().int().min(1).max(100)})).min(1).max(80) }),
+  z.object({ type: z.literal("order"), notificationConsent:z.boolean().default(false), discount:z.object({kind:z.enum(["none","percent","fixed"]),value:z.string().max(20)}).optional(), commission:z.object({name:z.string().trim().min(2).max(100),phone:z.string().min(8).max(40),kind:z.enum(["fixed","percent"]),value:z.string().max(20)}).optional(), vehicleModel:z.string().trim().max(80).optional(),vehiclePlate:z.string().trim().max(30).optional(),vehicleMileage:z.string().trim().max(7).optional(), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().min(2).max(100), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().min(0.01).max(10000)})).min(1).max(80) }),
   z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0") }),
   z.object({ type: z.literal("status"), requestId: key, id: key, status: z.enum(["received","processing","ready","delivered"]) }),
   z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string(), method:z.enum(["cash","transfer","unspecified"]).default("unspecified") }),
@@ -80,27 +81,31 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           if(!preset)throw new LaundryInputError("الصنف غير موجود في الدليل");
           const price=moneyToHalalas(item.price);
           if(price<=0)throw new LaundryInputError("حدد سعرًا أكبر من صفر لكل صنف ترغب بتفعيله");
-          return {id:randomUUID(),name:preset.name,category:preset.category,price};
+          return {id:randomUUID(),name:preset.name,category:preset.category,price,unit:data.type==="product"?data.unit:"piece"};
         });
         // One database round trip keeps full-catalog setup within the transaction deadline.
-        await tx.$executeRaw`INSERT INTO "LaundryService" ("id","businessId","name","category","price")
-          SELECT p.id,${business.id},p.name,p.category,p.price
-          FROM jsonb_to_recordset(${JSON.stringify(presets)}::jsonb) AS p(id text,name text,category text,price int)
-          WHERE NOT EXISTS (SELECT 1 FROM "LaundryService" s WHERE s."businessId"=${business.id} AND s."name"=p.name AND s."category"=p.category AND s."active"=TRUE)`;
+        await tx.$executeRaw`INSERT INTO "LaundryService" ("id","businessId","name","category","price",unit)
+          SELECT p.id,${business.id},p.name,p.category,p.price,p.unit
+          FROM jsonb_to_recordset(${JSON.stringify(presets)}::jsonb) AS p(id text,name text,category text,price int,unit text)
+          WHERE NOT EXISTS (SELECT 1 FROM "LaundryService" s WHERE s."businessId"=${business.id} AND s."name"=p.name AND s."category"=p.category AND s.unit=p.unit AND s."active"=TRUE)`;
       } else if (data.type === "service") {
         id=data.requestId; const price=moneyToHalalas(data.price);
-        await tx.$executeRaw`INSERT INTO "LaundryService" ("id","businessId","name","category","price") VALUES (${id},${business.id},${data.name},${data.category},${price}) ON CONFLICT ("id") DO NOTHING`;
+        await tx.$executeRaw`INSERT INTO "LaundryService" ("id","businessId","name","category","price",unit) VALUES (${id},${business.id},${data.name},${data.category},${price},${data.unit}) ON CONFLICT ("id") DO NOTHING`;
       } else if (data.type === "service-update") {
         id=data.id;
         const replay=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryAudit" WHERE "businessId"=${business.id} AND id=${data.requestId} AND action='service-update' AND "targetId"=${id}`;
         if(replay.length)return {id};
-        const rows=await tx.$queryRaw<Array<{name:string;category:string;price:number;urgentPrice:number|null}>>`SELECT s.name,s.category,s.price,u.price AS "urgentPrice" FROM "LaundryService" s LEFT JOIN "LaundryService" u ON u.id='urgent:'||s.id AND u."businessId"=s."businessId" AND u.active=TRUE WHERE s."businessId"=${business.id} AND s.id=${id} AND s.active=TRUE`;
+        const rows=await tx.$queryRaw<Array<{unit:"piece"|"meter"|"square_meter";name:string;category:string;price:number;urgentPrice:number|null}>>`SELECT s.unit,s.name,s.category,s.price,u.price AS "urgentPrice" FROM "LaundryService" s LEFT JOIN "LaundryService" u ON u.id='urgent:'||s.id AND u."businessId"=s."businessId" AND u.active=TRUE WHERE s."businessId"=${business.id} AND s.id=${id} AND s.active=TRUE`;
         const current=rows[0];if(!current)throw new LaundryInputError("الخدمة غير متاحة في منشأتك");
-        if(current.name!==data.previous.name||current.category!==data.previous.category||current.price!==data.previous.price||current.urgentPrice!==data.previous.urgentPrice)throw new LaundryInputError("تغير الصنف منذ فتح التعديل؛ حدّث الصفحة وراجع أحدث الأسعار");
+        if(current.unit!==data.previous.unit||current.name!==data.previous.name||current.category!==data.previous.category||current.price!==data.previous.price||current.urgentPrice!==data.previous.urgentPrice)throw new LaundryInputError("تغير الصنف منذ فتح التعديل؛ حدّث الصفحة وراجع أحدث الأسعار");
+        if(current.unit!==data.unit){
+          const linked=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "AccountingPackage" WHERE "businessId"=${business.id} AND kind<>'credit' AND "serviceIds" ? ${id} UNION ALL SELECT id FROM "LaundryPrepaid" WHERE "businessId"=${business.id} AND kind<>'credit' AND "serviceIds" ? ${id} LIMIT 1`;
+          if(linked.length)throw new LaundryInputError("الصنف مرتبط بباقة قطع أو زيارات؛ أضف صنف قياس مستقلًا للحفاظ على الباقات");
+        }
         const price=moneyToHalalas(data.price),urgentPrice=data.urgentPrice.trim()?moneyToHalalas(data.urgentPrice):null;
         if(price<=0)throw new LaundryInputError("حدد سعرًا أكبر من صفر");
         if(urgentPrice!==null&&urgentPrice<=price)throw new LaundryInputError("سعر المستعجل يجب أن يكون أعلى من السعر العادي");
-        await tx.$executeRaw`UPDATE "LaundryService" SET name=${data.name},category=${data.category},price=${price} WHERE "businessId"=${business.id} AND id=${id} AND active=TRUE`;
+        await tx.$executeRaw`UPDATE "LaundryService" SET name=${data.name},category=${data.category},price=${price},unit=${data.unit} WHERE "businessId"=${business.id} AND id=${id} AND active=TRUE`;
         const variantId=`urgent:${id}`;
         if(urgentPrice===null)await tx.$executeRaw`UPDATE "LaundryService" SET active=FALSE WHERE "businessId"=${business.id} AND id=${variantId}`;
         else await tx.$executeRaw`INSERT INTO "LaundryService" (id,"businessId",name,category,price) VALUES (${variantId},${business.id},${`${data.name} — مستعجل`},${data.category},${urgentPrice}) ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,category=EXCLUDED.category,price=EXCLUDED.price,active=TRUE WHERE "LaundryService"."businessId"=EXCLUDED."businessId"`;

@@ -53,7 +53,7 @@ async function settle(tx:Tx,businessId:string,actorId:string,ticket:Ticket,payme
  await tx.$executeRaw`INSERT INTO "LaundryAudit" (id,"businessId","actorId",action,"targetId") VALUES (${randomUUID()},${businessId},${actorId},'invoice-refund',${id})`;
 }
 const input=z.discriminatedUnion("type",[
- z.object({type:z.literal("return"),businessId:z.string().uuid(),ticketId:z.string().uuid(),requestId:z.string().uuid(),reason:z.string().trim().min(4).max(300),items:z.array(z.object({index:z.number().int().min(0),quantity:z.number().int().min(1).max(100)})).min(1).max(240)}),
+ z.object({type:z.literal("return"),businessId:z.string().uuid(),ticketId:z.string().uuid(),requestId:z.string().uuid(),reason:z.string().trim().min(4).max(300),items:z.array(z.object({index:z.number().int().min(0),quantity:z.number().min(0.01).max(10000)})).min(1).max(240)}),
  z.object({type:z.literal("refund"),businessId:z.string().uuid(),ticketId:z.string().uuid(),requestId:z.string().uuid(),paymentId:z.string().uuid(),amount:z.string(),reference:z.string().trim().min(4).max(300),confirmed:z.literal(true)})
 ]);
 export async function invoiceReturnCommand(value:unknown){

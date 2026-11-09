@@ -1,6 +1,6 @@
-import { LaundryInputError, type LaundryLine } from "./laundry-domain";
+import { cashierLineTotal, quantityTicks, LaundryInputError, type CashierUnit, type LaundryLine } from "./laundry-domain";
 
-export type ReturnLine = { index: number; quantity: number; name: string; unitPrice: number; amount: number; discount?: number };
+export type ReturnLine = { unit?:CashierUnit; index: number; quantity: number; name: string; unitPrice: number; amount: number; discount?: number };
 export type ReturnBalance = { total: number; paid: number; returned?: number; refunded?: number };
 export function invoiceBalance(t: ReturnBalance) {
   const net = t.total - (t.returned ?? 0), retained = t.paid - (t.refunded ?? 0);
@@ -10,12 +10,14 @@ export function quoteInvoiceReturn(items: LaundryLine[], previous: ReturnLine[],
   if (!requested.length || requested.length > items.length || new Set(requested.map(l=>l.index)).size !== requested.length) throw new LaundryInputError("حدد أصناف المرتجع دون تكرار");
   const lines = requested.map(l => {
     const original = items[l.index];
-    const used = previous.filter(p=>p.index===l.index).reduce((s,p)=>s+p.quantity,0);
-    if (!Number.isInteger(l.index) || l.index<0 || !original || !Number.isInteger(l.quantity) || l.quantity<1 || l.quantity>original.quantity-used) throw new LaundryInputError("كمية المرتجع تتجاوز المتبقي من الصنف");
-    if (!Number.isSafeInteger(original.discount??0)||(original.discount??0)<0||original.total<0||original.total+(original.discount??0)!==original.unitPrice*original.quantity) throw new LaundryInputError("تفاصيل الفاتورة تحتاج مراجعة قبل الإرجاع");
-    const amount=Math.round(original.total*(used+l.quantity)/original.quantity)-Math.round(original.total*used/original.quantity);
-    const discount=original.unitPrice*l.quantity-amount;
-    return {...l,name:original.name,unitPrice:original.unitPrice,amount,...(discount?{discount}:{})};
+    const used = previous.filter(p=>p.index===l.index).reduce((s,p)=>s+quantityTicks(p.quantity,original?.unit),0);
+    if (!Number.isInteger(l.index) || l.index<0 || !original || !Number.isFinite(l.quantity) || quantityTicks(l.quantity,original.unit)>quantityTicks(original.quantity,original.unit)-used) throw new LaundryInputError("كمية المرتجع تتجاوز المتبقي من الصنف");
+    if (!Number.isSafeInteger(original.discount??0)||(original.discount??0)<0||original.total<0||original.total+(original.discount??0)!==cashierLineTotal(original.unitPrice,original.quantity,original.unit)) throw new LaundryInputError("تفاصيل الفاتورة تحتاج مراجعة قبل الإرجاع");
+    const requested=quantityTicks(l.quantity,original.unit),all=quantityTicks(original.quantity,original.unit);
+    const amount=Math.round(original.total*(used+requested)/all)-Math.round(original.total*used/all);
+    const originalDiscount=original.discount??0;
+    const discount=Math.round(originalDiscount*(used+requested)/all)-Math.round(originalDiscount*used/all);
+    return {...l,...(original.unit?{unit:original.unit}:{}),name:original.name,unitPrice:original.unitPrice,amount,...(discount?{discount}:{})};
   });
   const amount=lines.reduce((s,l)=>s+l.amount,0);
   if (!Number.isSafeInteger(amount)||amount<=0) throw new LaundryInputError("قيمة المرتجع يجب أن تكون أكبر من صفر");
