@@ -261,6 +261,8 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toHaveValue('');await expect(lb.page.locator('.ld-cart-line')).toHaveCount(0);
   await expect(lb.page.locator('input[name="dueAt"]')).toHaveValue('');await expect(lb.page.getByLabel('طابعة الفاتورة',{exact:true})).toHaveValue('thermal');
   await lb.page.reload();await expect(lb.page.getByLabel('طابعة الفاتورة',{exact:true})).toHaveValue('thermal');
+  await lb.page.locator('[data-language-switcher]>summary').click();const english=lb.page.getByRole('button',{name:'English',exact:true});await expect(english).toBeVisible();
+  const languageBox=await english.boundingBox();expect(await lb.page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('button')?.textContent?.includes('English'),{x:languageBox!.x+languageBox!.width/2,y:languageBox!.y+languageBox!.height/2})).toBe(true);await lb.page.locator('[data-language-switcher]>summary').click();
   await lb.page.getByRole('button',{name:'إضافة صنف تجريبي 1',exact:true}).click();await lb.page.getByLabel('الكمية — صنف تجريبي 1',{exact:true}).fill('');await expect(lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true})).toBeDisabled();
   await lb.page.getByLabel('الكمية — صنف تجريبي 1',{exact:true}).fill('5');await expect(lb.page.locator('.ld-cart .ld-total strong')).toContainText(/٢٥[٫,]٠٠/);
   await wa.context.addCookies([{name:'hee_active_business',value:laundry.id,url:baseUrl}]);await wa.page.goto('/Accounting');expect(await wa.page.content()).not.toContain(nameA);expect(await wa.page.content()).not.toContain(nameB);await expect(wa.page.getByText('سجّل الدخول واختر منشأتك للوصول إلى حساباتها.',{exact:true})).toBeVisible();
