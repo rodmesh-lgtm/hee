@@ -1,0 +1,96 @@
+name: INFRO D10 Windows Print Bridge
+on:
+  pull_request:
+    paths: ['apps/print-bridge-windows/**', '.github/workflows/infro-print-bridge-windows.yml']
+  push:
+    branches: [hee-v6-rc]
+    paths: ['apps/print-bridge-windows/**', '.github/workflows/infro-print-bridge-windows.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Compile native application and test runner
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $compiler = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          $sources = @('apps/print-bridge-windows/InfroPrintBridge.cs', 'apps/print-bridge-windows/SelfTests.cs')
+          $references = @('/reference:System.dll','/reference:System.Core.dll','/reference:System.Drawing.dll','/reference:System.Windows.Forms.dll','/reference:System.Web.Extensions.dll','/reference:System.Security.dll')
+          & $compiler /nologo /codepage:65001 /optimize+ /target:winexe /out:dist/InfroPrintBridge.exe @references @sources
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $compiler /nologo /codepage:65001 /target:exe /out:dist/BridgeChecks.exe @references @sources
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify native isolation, pairing and spool idempotency
+        shell: pwsh
+        run: |
+          & ./dist/BridgeChecks.exe --self-test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Package printer connector
+        id: package
+        shell: pwsh
+        run: |
+          $version = (Get-Content apps/print-bridge-windows/version.json | ConvertFrom-Json).version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid version' }
+          Copy-Item apps/print-bridge-windows/README-ar.txt dist/
+          Copy-Item apps/print-bridge-windows/version.json dist/
+          $hash = (Get-FileHash dist/InfroPrintBridge.exe -Algorithm SHA256).Hash.ToLower()
+          $nativeTree = git rev-parse '${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}:apps/print-bridge-windows'
+          @{ version=$version; nativeTree=$nativeTree; sourceCommit='${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}'; sha256=$hash } | ConvertTo-Json | Set-Content dist/build-proof.json -Encoding utf8
+          $zip = "INFRO-Print-Bridge-$version.zip"
+          Compress-Archive -Path dist/InfroPrintBridge.exe,dist/README-ar.txt,dist/version.json,dist/build-proof.json -DestinationPath "dist/$zip"
+          "$((Get-FileHash "dist/$zip" -Algorithm SHA256).Hash.ToLower())  $zip" | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+          "version=$version" >> $env:GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: infro-d10-windows-bridge
+          path: |
+            dist/INFRO-Print-Bridge-*.zip
+            dist/SHA256SUMS.txt
+          retention-days: 30
+  publish:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/hee-v6-rc'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: infro-d10-windows-bridge
+          path: dist
+      - name: Publish immutable tested Windows package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./apps/print-bridge-windows/version.json').version")"
+          tag="infro-print-bridge-v${version}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            mkdir -p /tmp/infro-existing-release
+            gh release download "$tag" --pattern "INFRO-Print-Bridge-${version}.zip" --dir /tmp/infro-existing-release
+            expected_tree="$(git rev-parse "$GITHUB_SHA:apps/print-bridge-windows")"
+            python - "$version" "$expected_tree" <<'PYVERIFY'
+          import json,sys,zipfile
+          with zipfile.ZipFile('/tmp/infro-existing-release/INFRO-Print-Bridge-'+sys.argv[1]+'.zip') as archive:
+              proof=json.loads(archive.read('build-proof.json').decode('utf-8-sig'))
+          if proof.get('nativeTree')!=sys.argv[2]:
+              raise SystemExit('Published version has different native sources; bump the version instead of replacing it.')
+          PYVERIFY
+            echo "Release already contains identical native sources; keep its package immutable."
+            exit 0
+          fi
+          gh release create "$tag" "dist/INFRO-Print-Bridge-${version}.zip" dist/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --title "INFRO Print Bridge ${version} — Evelon D10" \
+            --notes "Windows 10/11 companion for direct 80 mm Evelon D10 receipt printing. Native isolation and duplicate-job checks passed. Install the official Evelon Windows driver first. Source: ${GITHUB_SHA}. Physical printer setup is required on each cashier computer."

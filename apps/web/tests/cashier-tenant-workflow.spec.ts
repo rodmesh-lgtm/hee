@@ -1,3 +1,4 @@
+import {writeFile} from "node:fs/promises";
 import {createHash,randomBytes,randomUUID} from "node:crypto";
 import {test,expect,type BrowserContext,type Page} from "@playwright/test";
 import {PrismaClient} from "@prisma/client";
@@ -333,6 +334,46 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await wa.page.reload();await wa.page.getByRole('button',{name:'التفاصيل والفاتورة',exact:true}).click();
   await expect(wa.page.locator('.ld-receipt')).toContainText('00900');
   expect(await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryTicket" WHERE "businessId"=${shop.id}`).toEqual(invoiceCount);
+  // Windows companion protocol is mocked here; the native Windows job runs independent transport checks.
+  const d10Token=Buffer.alloc(32,7).toString('base64'),d10Jobs=new Map<string,string>();let d10Requests=0,d10Prints=0,loseD10Acknowledgement=false;
+  await wa.page.route('http://127.0.0.1:17861/**',async route=>{
+   d10Requests++;const request=route.request(),headers={'Access-Control-Allow-Origin':new URL(baseUrl).origin,'Access-Control-Allow-Headers':'Content-Type, X-Infro-Token','Access-Control-Allow-Methods':'POST, OPTIONS'};
+   if(request.method()==='OPTIONS')return route.fulfill({status:200,headers,body:'{}'});
+   const data=JSON.parse(request.postData()??'{}');expect(data.businessId).toBe(shop.id);
+   const path=new URL(request.url()).pathname;let result:Record<string,unknown>={ok:true};
+   if(path==='/v1/pair'){expect(data.code).toBe('12345678');result={ok:true,version:'1.0.0',token:d10Token,printers:['Evelon D10 test'],printerName:''};}
+   else{
+    expect(request.headers()['x-infro-token']).toBe(d10Token);
+    if(path==='/v1/printers')result={ok:true,version:'1.0.0',printers:['Evelon D10 test'],printerName:'Evelon D10 test'};
+    if(path==='/v1/select')expect(data.printerName).toBe('Evelon D10 test');
+    if(path==='/v1/print'){
+     d10Prints++;expect(data.documentId).toBe(printTicket);expect(data.title).toContain('00900');
+     const png=Buffer.from(data.png,'base64');expect(png.subarray(1,4).toString()).toBe('PNG');expect(png.readUInt32BE(16)).toBe(576);expect(png.readUInt32BE(20)).toBeGreaterThan(200);
+     await writeFile('test-results/cashier-evelon-d10-raster.png',png);d10Jobs.set(data.jobId,'spooled');
+     if(loseD10Acknowledgement){loseD10Acknowledgement=false;return route.abort('failed');}
+     result={ok:true,status:'pending',jobId:data.jobId,printerName:'Evelon D10 test'};
+    }
+    if(path==='/v1/status')result={ok:true,status:d10Jobs.get(data.jobId)??'not-found',jobId:data.jobId};
+   }
+   return route.fulfill({status:200,headers,contentType:'application/json',body:JSON.stringify(result)});
+  });
+  await wa.page.getByRole('button',{name:'إغلاق',exact:true}).click();await wa.page.goto('/Accounting');expect(d10Requests).toBe(0);
+  await wa.page.getByRole('button',{name:'إعداد الطابعة',exact:true}).click();expect(d10Requests).toBe(0);
+  await wa.page.getByLabel('رمز ربط الطابعة',{exact:true}).fill('12345678');await wa.page.getByRole('button',{name:'ربط هذا الكاشير',exact:true}).click();
+  await wa.page.getByLabel('الطابعة المثبتة في ويندوز',{exact:true}).selectOption('Evelon D10 test');
+  await wa.page.getByRole('button',{name:'اعتماد الطابعة وتفعيل الطباعة المباشرة',exact:true}).click();
+  await expect(wa.page.getByText('تم تفعيل الطباعة المباشرة على ورق 80 مم',{exact:true})).toBeVisible();
+  await wa.page.screenshot({path:'test-results/cashier-evelon-d10-settings.png',fullPage:true});
+  await wa.page.getByRole('button',{name:'إغلاق',exact:true}).click();await expect(wa.page.getByLabel('طابعة الفاتورة',{exact:true})).toHaveValue('thermal');
+  await wa.page.goto('/Accounting?q=900');await wa.page.getByRole('button',{name:'التفاصيل والفاتورة',exact:true}).click();
+  await wa.page.evaluate(()=>{const w=window as typeof window&{browserPrints?:number};w.browserPrints=0;w.print=()=>{w.browserPrints!++;};});
+  await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();await expect(wa.page.getByText('أُرسلت الفاتورة إلى طابور الطباعة في ويندوز',{exact:true})).toBeVisible();expect(d10Prints).toBe(1);
+  expect(await wa.page.evaluate(()=>(window as typeof window&{browserPrints:number}).browserPrints)).toBe(0);
+  // Native acceptance followed by lost HTTP response must reconcile the same job, never send a replacement.
+  loseD10Acknowledgement=true;await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();
+  await expect(wa.page.getByRole('alert').filter({hasText:'افتح برنامج INFRO على ويندوز'})).toBeVisible();expect(d10Prints).toBe(2);
+  await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();await expect(wa.page.getByText('أُرسلت الفاتورة إلى طابور الطباعة في ويندوز',{exact:true})).toBeVisible();expect(d10Prints).toBe(2);
+  expect(await wa.page.evaluate(otherId=>localStorage.getItem(`infro:cashier:direct-printer:${otherId}`),laundry.id)).toBeNull();
   await wa.context.addCookies([{name:'hee_active_business',value:laundry.id,url:baseUrl}]);await wa.page.goto('/Accounting');expect(await wa.page.content()).not.toContain(nameA);expect(await wa.page.content()).not.toContain(nameB);await expect(wa.page.getByText('سجّل الدخول واختر منشأتك للوصول إلى حساباتها.',{exact:true})).toBeVisible();
   const restricted=await login(staff.id,shop.id);await restricted.page.goto('/Accounting');await expect(restricted.page.getByText('تحتاج صلاحية البرنامج المحاسبي',{exact:true})).toBeVisible();expect(await restricted.page.content()).not.toContain(nameA);await lb.context.clearCookies();await lb.page.reload();expect(await lb.page.content()).not.toContain(nameB);expect(await lb.page.content()).not.toContain(phoneB);
   await db.businessMember.updateMany({where:{businessId:shop.id,userId:staff.id},data:{permissions:['laundry','laundryAccounting']}});
