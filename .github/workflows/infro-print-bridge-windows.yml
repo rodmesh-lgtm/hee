@@ -22,11 +22,14 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           $compiler = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-          $sources = @('apps/print-bridge-windows/InfroPrintBridge.cs', 'apps/print-bridge-windows/SelfTests.cs')
+          $nativeRoot = (Resolve-Path 'apps/print-bridge-windows').Path
+          $sources = @("$nativeRoot\InfroPrintBridge.cs", "$nativeRoot\SelfTests.cs")
+          $guiOutput = '/out:' + (Join-Path $PWD 'dist\InfroPrintBridge.exe')
+          $testOutput = '/out:' + (Join-Path $PWD 'dist\BridgeChecks.exe')
           $references = @('/reference:System.dll','/reference:System.Core.dll','/reference:System.Drawing.dll','/reference:System.Windows.Forms.dll','/reference:System.Web.Extensions.dll','/reference:System.Security.dll')
-          & $compiler /nologo /codepage:65001 /optimize+ /target:winexe /out:dist/InfroPrintBridge.exe @references @sources
+          & $compiler /nologo /codepage:65001 /optimize+ /target:winexe $guiOutput @references @sources
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $compiler /nologo /codepage:65001 /target:exe /out:dist/BridgeChecks.exe @references @sources
+          & $compiler /nologo /codepage:65001 /target:exe $testOutput @references @sources
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify native isolation, pairing and spool idempotency
         shell: pwsh
