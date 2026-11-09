@@ -304,3 +304,43 @@
 @media screen and (min-width:900px){body:has(.ld-pos-mode[data-cashier-owner=false]):has(.accounting-program-bar nav a:nth-child(2)) .ld-pos{height:calc(100dvh - 146px)}}
 
 .ld-return-shortcuts{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+
+/* Receipt layout must not inherit dashboard nowrap rules at narrow print widths. */
+.laundry .ld-receipt .ld-invoice-table{table-layout:fixed;width:100%;min-width:0}
+.laundry .ld-receipt .ld-invoice-table th,.laundry .ld-receipt .ld-invoice-table td{white-space:normal;overflow-wrap:anywhere;vertical-align:top;text-align:start}
+.ld-invoice-name-column{width:48%}.ld-invoice-table[data-discounted=true] .ld-invoice-name-column{width:40%}
+.laundry .ld-receipt .ld-invoice-item-name{white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.7}
+.ld-invoice-unit{display:block;font-size:.85em;font-weight:400}
+.ld-thermal-lines{display:none}
+.ld-receipt.thermal .ld-invoice-table{display:none}
+.ld-receipt.thermal .ld-thermal-lines{display:block}
+.laundry .ld-receipt.thermal .ld-thermal-item{display:block;margin:0;padding:2.5mm 0;border-bottom:1px dashed #777;break-inside:avoid;min-width:0;background:transparent}
+.ld-thermal-item>.ld-invoice-item-name{display:block;font-size:12px;margin:0 0 1.5mm}
+.ld-thermal-item dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.5mm;margin:0}
+.ld-thermal-item dl[data-discounted=true]{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ld-thermal-item dl>div{min-width:0;text-align:start}
+.ld-thermal-item dt{font-size:10px;font-weight:400;line-height:1.6;white-space:normal;overflow-wrap:anywhere}
+.ld-thermal-item dd{font-size:11px;font-weight:600;line-height:1.7;margin:0;white-space:normal;overflow-wrap:anywhere}
+.ld-thermal-item dd bdi{font-variant-numeric:tabular-nums}
+@media print{
+ body:has(.ld-dialog[open]){margin:0;background:#fff!important;color-scheme:light}
+ .laundry .ld-receipt,.laundry .ld-receipt *{color:#000!important;box-shadow:none!important;text-shadow:none!important}
+ .laundry .ld-receipt{background:#fff!important;white-space:normal;min-width:0}
+ .laundry .ld-receipt p{white-space:normal;overflow-wrap:anywhere}
+ .laundry .ld-receipt-notes{white-space:pre-wrap!important}
+ .laundry .ld-receipt .ld-total{gap:2mm;flex-wrap:wrap;break-inside:avoid}
+ .laundry .ld-receipt .ld-total strong{white-space:normal;overflow-wrap:anywhere}
+ .laundry .ld-receipt-logo{visibility:visible!important;display:block!important;object-fit:contain}
+ .laundry .ld-receipt th{background:#fff!important;border-bottom:1px solid #777}
+ .laundry .ld-receipt td{background:#fff!important}
+ .laundry .ld-receipt.thermal{width:72mm;max-width:100%;margin:0;padding:0}
+ .laundry .ld-receipt.thermal .ld-thermal-item{padding:2mm 0}
+ .laundry .ld-receipt .ld-eyebrow{display:none}
+}
+
+@media print{
+ body:has(.ld-dialog[open]) [data-operations-shell]{background:#fff!important;color:#000!important;min-height:0;height:auto;max-height:none;overflow:visible}
+ body:has(.ld-dialog[open]) .infro-operations-header{display:none!important}
+}
+
+@media print{body:has(.ld-dialog[open]) main.laundry{padding:0!important;width:100%;max-width:none}}

@@ -4,6 +4,7 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "أصناف الفاتورة": {"en":"Invoice items","zh-CN":"发票商品","es":"Artículos de la factura","ur":"رسید کی اشیاء"},
   "تحديد أصناف المرتجع": {"en": "Select return items", "zh-CN": "选择退货商品", "es": "Seleccionar artículos de devolución", "ur": "واپسی کی اشیاء منتخب کریں"},
   "جارٍ استعراض الفاتورة والمرتجعات…": {"en": "Loading invoice and returns…", "zh-CN": "正在加载发票与退货…", "es": "Cargando factura y devoluciones…", "ur": "رسید اور واپسی لوڈ ہو رہی ہے…"},
   "تعبئة المرتجع الكامل": {"en": "Fill all remaining quantities", "zh-CN": "填入全部剩余数量", "es": "Rellenar todas las cantidades restantes", "ur": "تمام باقی مقداریں درج کریں"},
