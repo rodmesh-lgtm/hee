@@ -20,6 +20,10 @@ test('split measured returns conserve the discounted invoice and commission to t
  const previous:ReturnType<typeof quoteInvoiceReturn>['lines']=[];let total=0,reversed=0;
  for(const quantity of [.1,.2,4.95]){const r=quoteInvoiceReturn(original,previous,[{index:0,quantity}]);previous.push(...r.lines);reversed+=commissionReturnDelta(199,1999,total,total+r.amount);total+=r.amount;assert.equal(r.lines[0].unit,'meter');}
  assert.equal(total,1999);assert.equal(reversed,199);
+ const tiny=discountedCashierLines(laundryLines([{serviceId:'meter',quantity:.04}],[{...service,price:75}]),{kind:'fixed',value:'0.01'});
+ const first=quoteInvoiceReturn(tiny,[],[{index:0,quantity:.02}]);
+ const second=quoteInvoiceReturn(tiny,first.lines,[{index:0,quantity:.01}]);
+ assert.equal(first.amount+second.amount,2);assert.ok(first.lines[0].discount!>=0);assert.ok((second.lines[0].discount??0)>=0);
  assert.throws(()=>quoteInvoiceReturn(original,previous,[{index:0,quantity:.01}]));
  assert.throws(()=>quoteInvoiceReturn(original,[],[{index:0,quantity:.001}]));
 });
