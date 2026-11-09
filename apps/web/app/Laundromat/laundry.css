@@ -113,3 +113,156 @@
 .ld-inline-urgent{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--ld-line)}.ld-inline-urgent label{flex:1;min-width:110px}.ld-inline-urgent button{min-height:44px}.ld-inline-urgent input{width:100%;min-width:0}
 
 .ld-measured-quantity{display:grid;gap:5px;margin-block:8px;max-width:190px;font-size:12px}.ld-measured-quantity input{width:100%;min-width:80px}.ld-cart-line>div:first-child{min-width:0;flex:1}
+/* Focused checkout: one catalogue, one order, with visible totals and actions. */
+@media screen{
+ body:has(.ld-pos-mode) .accounting-program-bar{display:none}
+ body:has(.ld-pos-mode) .infro-operations-header{height:52px;min-height:52px;padding:6px 14px}
+ body:has(.ld-pos-mode) .infro-operations-brand>span{width:30px;height:30px;font-size:18px;border-radius:8px}
+ body:has(.ld-pos-mode) .infro-operations-brand small{font-size:10px}
+ body:has(.ld-pos-mode) .infro-operations-header nav{gap:6px}
+ body:has(.ld-pos-mode) .infro-operations-header nav>a{padding:6px 9px;min-height:32px;font-size:11px}
+ .ld-pos-mode{min-height:calc(100dvh - 52px)}
+ .ld-pos-mode>.ld-top,.ld-pos-mode .ld-heading,.ld-pos-mode .ld-stats{display:none}
+ .ld-pos-mode>.ld-shell{display:block;max-width:none}
+ .ld-pos-mode .ld-navigation-compact{position:relative;top:auto;height:42px;max-height:none;overflow:visible;padding:4px 12px;z-index:35;border-bottom:1px solid var(--ld-line);background:var(--ld-surface,#fff)}
+ .ld-navigation-compact .ld-mobile-nav{display:flex;align-items:center;gap:12px;height:34px;justify-content:space-between}
+ .ld-navigation-compact .ld-mobile-nav>button{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:5px 10px;font-size:12px;border:1px solid var(--ld-line);border-radius:7px;background:transparent;color:var(--ld-ink)}
+ .ld-navigation-compact .ld-mobile-nav small{display:none}
+ .ld-compact-business{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--ld-ink)}
+ .ld-compact-business span{font-size:11px;color:var(--ld-muted)}
+ .ld-navigation-compact .ld-nav-content{display:none;position:absolute;inset-inline-start:12px;top:100%;width:290px;max-height:calc(100dvh - 106px);overflow:auto;padding:12px;border:1px solid var(--ld-line);border-radius:0 0 10px 10px;background:#142f40;box-shadow:0 14px 30px #0003}
+ .ld-navigation-compact.is-open .ld-nav-content{display:block}
+ .ld-pos-mode .ld-main{padding:8px 12px;min-width:0}
+ .ld-pos-mode .ld-main>.ld-success{position:fixed;top:58px;inset-inline-end:16px;max-width:360px;z-index:45;padding:6px 10px;font-size:11px;pointer-events:none}
+ .ld-pos-mode .ld-pos{grid-template-columns:minmax(0,1fr) minmax(350px,400px);gap:10px;align-items:stretch;height:calc(100dvh - 110px);min-height:0}
+ .ld-pos-mode .ld-panel{padding:12px;border-radius:10px;box-shadow:none}
+ .ld-pos-mode .ld-panel-title{margin-bottom:8px;gap:8px;flex-wrap:wrap}
+ .ld-pos-mode .ld-panel-title h2{font-size:14px}
+ .ld-pos-mode .ld-panel-title>button{font-size:10px;padding:5px 8px;min-height:30px}
+ .ld-pos-mode .ld-catalog{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+ .ld-pos-mode .ld-print-choice{margin:0;margin-inline-start:auto;display:flex;flex-direction:row;gap:6px;align-items:center;font-size:10px}
+ .ld-pos-mode .ld-print-choice select{width:100px;min-height:30px;height:30px;padding:3px 6px;font-size:11px}
+ .ld-pos-mode .ld-speed-menu{padding:5px 7px;margin:0 0 8px;border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+ .ld-pos-mode .ld-speed-heading{margin:0;display:flex;align-items:center;gap:8px}
+ .ld-pos-mode .ld-speed-heading>strong{font-size:11px}
+ .ld-pos-mode .ld-speed-heading>button{min-height:28px;font-size:10px;padding:4px 7px}
+ .ld-pos-mode .ld-speed-options{display:flex;gap:5px;flex:1;justify-content:flex-end}
+ .ld-pos-mode .ld-speed-options button{padding:5px 12px;min-height:32px;min-width:82px;border-radius:6px}
+ .ld-pos-mode .ld-speed-options button strong{display:flex;align-items:center;justify-content:center;gap:5px;font-size:12px}
+ .ld-pos-mode .ld-speed-options button>span,.ld-pos-mode .ld-speed-menu>p{display:none}
+ .ld-pos-mode .ld-product-search{margin:0 0 7px}
+ .ld-pos-mode .ld-product-search>svg{top:9px;width:17px;height:17px}
+ .ld-pos-mode .ld-product-search input{height:36px;min-height:36px;padding-block:6px;font-size:13px}
+ .ld-pos-mode .ld-operation-tabs{margin:0 0 7px;padding:3px;min-height:34px}
+ .ld-pos-mode .ld-operation-tabs button{min-height:28px;padding:4px 10px;font-size:12px}
+ .ld-pos-mode .ld-filters{margin-bottom:8px;gap:5px;flex-wrap:wrap;overflow:visible;max-height:74px;overflow-y:auto;padding:0}
+ .ld-pos-mode .ld-filters button{min-height:28px;padding:4px 9px;font-size:11px;border-radius:6px}
+ .ld-pos-mode .ld-catalog .ld-services{flex:1;min-height:0;max-height:none;overflow:auto;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:7px;padding:1px;align-content:start}
+ .ld-pos-mode .ld-product-card{padding:9px;border-radius:8px;grid-template-columns:1fr;gap:0;align-self:start}
+ .ld-pos-mode .ld-product-card>svg,.ld-pos-mode .ld-product-card>small{display:none}
+ .ld-pos-mode .ld-product-card h3{grid-column:1;font-size:13px;line-height:1.5;margin:0 0 6px}
+ .ld-pos-mode .ld-product-options{gap:5px}
+ .ld-pos-mode .ld-services .ld-product-options button{min-height:38px;padding:6px 7px;border-radius:6px;gap:2px}
+ .ld-pos-mode .ld-product-options button strong{font-size:11px}
+ .ld-pos-mode .ld-product-options button>span{font-size:10px}
+ .ld-product-rate{font-size:10px;margin-top:4px}
+ .ld-product-rate>summary{cursor:pointer;padding:3px 0;text-decoration:underline;text-underline-offset:3px;color:var(--ld-muted)}
+ .ld-product-rate .ld-inline-urgent{margin:4px 0 0;gap:4px}
+ .ld-pos-mode .ld-product-rate input{min-height:30px;padding:4px;font-size:12px}
+ .ld-pos-mode .ld-product-rate label{font-size:10px}
+ .ld-pos-mode .ld-cart{position:static;top:auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;border-top-width:2px}
+ .ld-pos-mode .ld-cart-lines{max-height:132px;min-height:40px;overflow:auto;margin:0 0 7px;padding:0 0 5px;flex-shrink:0}
+ .ld-pos-mode .ld-cart-line{gap:7px;margin:5px 0}
+ .ld-pos-mode .ld-cart-line strong{font-size:12px}
+ .ld-pos-mode .ld-cart-line small{font-size:10px;margin-top:2px}
+ .ld-pos-mode .ld-stepper button{width:30px;height:30px;min-height:30px}
+ .ld-pos-mode .ld-stepper span{min-width:28px;font-size:12px}
+ .ld-pos-mode .ld-muted{font-size:12px;margin:4px 0}
+ .ld-pos-mode .ld-checkout-form{display:flex;flex-direction:column;flex:1;min-height:0}
+ .ld-pos-mode .ld-checkout-fields{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:2px 3px 4px}
+ .ld-pos-mode .ld-checkout-fields label{margin-bottom:6px;gap:3px;font-size:11px}
+ .ld-pos-mode input,.ld-pos-mode select,.ld-pos-mode textarea{min-height:34px;padding:6px 8px;font-size:13px;border-radius:6px}
+ .ld-pos-mode .ld-customer-fields{display:grid;grid-template-columns:1fr 1fr;gap:3px 8px;margin-bottom:5px}
+ .ld-customer-fields .ld-customer-lookup{grid-column:1/-1;justify-self:start}
+ .ld-pos-mode .ld-customer-lookup{font-size:10px;min-height:24px;padding:2px 6px}
+ .ld-pos-mode .ld-customer-fields .ld-fine{grid-column:1/-1;margin:2px 0;font-size:10px}
+ .ld-pos-mode .ld-schedule{padding:6px 8px;margin:5px 0;border-radius:7px}
+ .ld-pos-mode .ld-schedule legend{font-size:11px;padding-inline:5px}
+ .ld-pos-mode .ld-cart-speed{display:none}
+ .ld-pos-mode .ld-schedule-shortcuts{gap:5px;margin:0;display:flex;flex-wrap:wrap}
+ .ld-pos-mode .ld-schedule-shortcuts button{min-height:28px;font-size:10px;padding:4px 7px}
+ .ld-pos-mode .ld-schedule-summary{padding:4px 0;margin:3px 0;font-size:10px;background:transparent;line-height:1.5}
+ .ld-custom-schedule>summary{font-size:10px;cursor:pointer;padding:4px 0}
+ .ld-pos-mode .ld-custom-schedule .ld-form-row{grid-template-columns:1fr 1fr;gap:4px 8px}
+ .ld-pos-mode .ld-check-label{font-size:10px;line-height:1.5;gap:5px}
+ .ld-pos-mode .ld-check-label input{width:16px;min-height:16px;height:16px}
+ .ld-pos-options{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0;align-items:start}
+ .ld-pos-option{border:1px solid var(--ld-line);border-radius:6px;min-width:70px;flex:1}
+ .ld-pos-option>summary{cursor:pointer;padding:6px 8px;font-size:11px;font-weight:700}
+ .ld-pos-option[open]{flex-basis:100%}
+ .ld-pos-option>.ld-schedule,.ld-pos-option>label{margin:6px!important;padding:4px;border:0}
+ .ld-pos-mode .ld-fine{font-size:10px;line-height:1.6;margin:5px 0}
+ .ld-subscriber-compact[data-state=empty]{display:none}
+ .ld-pos-mode .ld-subscriber-compact{padding:5px 7px;margin:4px 0;border-radius:7px;font-size:10px}
+ .ld-subscriber-compact ul{margin:3px 0;padding-inline-start:14px;max-height:75px;overflow:auto}
+ .ld-subscriber-compact p{margin:3px 0;font-size:10px}
+ .ld-subscriber-compact summary{font-size:10px;cursor:pointer}
+ .ld-pos-mode .ld-checkout-footer{flex-shrink:0;border-top:1px solid var(--ld-line);padding-top:5px;margin-top:4px}
+ .ld-pos-mode .ld-total{margin:0;padding:3px 0;border:0}
+ .ld-pos-mode .ld-total strong{font-size:23px}
+ .ld-pos-mode .ld-total>span{font-size:12px}
+ .ld-cashier-tip{font-size:10px;color:var(--ld-muted);margin:3px 0 6px}
+ .ld-save-actions{display:grid;grid-template-columns:1fr;gap:4px}
+ .ld-pos-mode .ld-save-actions .ld-primary{min-height:38px;padding:7px 10px;font-size:13px}
+ .ld-pos-mode .ld-save-actions .ld-outline{min-height:26px;padding:3px 7px;font-size:10px;border:0}
+ .ld-pos-mode .ld-alert{margin:4px 0;padding:5px 8px;font-size:11px}
+ .ld-pos-mode .ld-measured-quantity{margin:4px 0;max-width:150px}
+}
+@media screen and (min-width:900px){
+ body:has(.ld-pos-mode){overflow:hidden}
+ .ld-pos-mode .ld-cart-back,.ld-pos-mode .ld-cart-shortcut{display:none}
+}
+@media screen and (max-width:899px){
+ .ld-pos-mode .ld-pos{height:auto;min-height:0;grid-template-columns:minmax(0,1fr) 330px}
+ .ld-pos-mode .ld-catalog{min-height:calc(100dvh - 120px)}
+ .ld-pos-mode .ld-cart{max-height:calc(100dvh - 112px);position:sticky;top:8px}
+}
+@media screen and (max-width:700px){
+ .ld-pos-mode .ld-pos{display:block}
+ .ld-pos-mode .ld-main{padding:8px 10px 80px}
+ .ld-pos-mode .ld-catalog{min-height:0;overflow:visible}
+ .ld-pos-mode .ld-catalog .ld-services{overflow:visible;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ld-pos-mode .ld-cart{display:none;position:static;max-height:none;overflow:visible}
+ .ld-pos-mode .ld-checkout .ld-cart{display:flex}
+ .ld-pos-mode .ld-checkout-fields{overflow:visible}
+ .ld-pos-mode .ld-checkout-footer{position:sticky;bottom:0;background:var(--ld-surface,#fff);z-index:5;padding:8px 0}
+ .ld-pos-mode .ld-cart-back{margin:0 0 8px;min-height:30px;font-size:11px}
+ .ld-pos-mode .ld-product-options button{min-height:44px}
+ .ld-pos-mode .ld-navigation-compact{height:auto;min-height:42px}
+ .ld-compact-business{font-size:11px;max-width:62%;text-align:end}
+ .ld-compact-business span{display:none}
+ .ld-pos-mode .ld-navigation-compact .ld-nav-content{max-width:calc(100vw - 24px);width:290px}
+ .ld-pos-mode .ld-panel-title h2{font-size:13px}
+ .ld-pos-mode .ld-speed-menu{gap:4px}
+ .ld-pos-mode .ld-speed-heading>button{display:none}
+ .ld-pos-mode .ld-cart-shortcut{min-height:46px;padding:9px 12px;bottom:12px}
+ .ld-pos-mode .ld-print-choice{font-size:9px}
+}
+@media screen{
+ [data-operations-shell] .laundry.ld-pos-mode{max-width:none;width:100%;--ld-surface:var(--ui-panel,#fff)}
+ [data-operations-shell] .laundry.ld-pos-mode label{font-size:11px}
+}
+@media screen and (max-width:700px){
+ .ld-pos-mode .ld-services .ld-product-options button{min-height:44px}
+ .ld-pos-mode input,.ld-pos-mode select,.ld-pos-mode textarea{font-size:16px}
+ .ld-navigation-compact .ld-mobile-nav>button{min-height:40px}
+}
+@media screen{
+ .ld-pos-mode .ld-pay-full{grid-column:1/-1;justify-self:start;min-height:25px;padding:3px 10px;font-size:11px}
+ .ld-cashier-balance{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:var(--ld-muted);margin:3px 0}
+}
+@media screen{
+ [data-operations-shell] .laundry.ld-pos-mode :is(input,select,textarea){font-size:13px}
+ .ld-pos-mode .ld-main>.ld-alert{position:fixed;top:58px;inset-inline-end:16px;max-width:360px;z-index:45;pointer-events:none}
+}
+@media screen and (max-width:700px){[data-operations-shell] .laundry.ld-pos-mode :is(input,select,textarea){font-size:16px}}

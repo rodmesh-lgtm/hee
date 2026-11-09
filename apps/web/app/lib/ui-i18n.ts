@@ -4,6 +4,16 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "طابعة الفاتورة": {"en": "Invoice printer", "zh-CN": "发票打印机", "es": "Impresora de facturas", "ur": "رسید کا پرنٹر"},
+  "حفظ وطباعة الفاتورة": {"en": "Save and print invoice", "zh-CN": "保存并打印发票", "es": "Guardar e imprimir factura", "ur": "رسید محفوظ اور پرنٹ کریں"},
+  "تحديد موعد آخر": {"en": "Choose another time", "zh-CN": "选择其他时间", "es": "Elegir otra fecha", "ur": "دوسرا وقت منتخب کریں"},
+  "تعديل سعر المستعجل": {"en": "Edit urgent price", "zh-CN": "修改加急价格", "es": "Editar precio urgente", "ur": "فوری خدمت کی قیمت بدلیں"},
+  "دفع كامل": {"en": "Pay in full", "zh-CN": "全额支付", "es": "Pago completo", "ur": "مکمل ادائیگی"},
+  "F2 بحث · F8 العميل · Ctrl+Enter حفظ وطباعة": {"en": "F2 Search · F8 Customer · Ctrl+Enter Save and print", "zh-CN": "F2 搜索 · F8 客户 · Ctrl+Enter 保存并打印", "es": "F2 Buscar · F8 Cliente · Ctrl+Enter Guardar e imprimir", "ur": "F2 تلاش · F8 گاہک · Ctrl+Enter محفوظ اور پرنٹ"},
+  "الطلبات السابقة": {"en": "Previous orders", "zh-CN": "历史订单", "es": "Pedidos anteriores", "ur": "پچھلے آرڈرز"},
+  "عمولة": {"en": "Commission", "zh-CN": "佣金", "es": "Comisión", "ur": "کمیشن"},
+  "خصم": {"en": "Discount", "zh-CN": "折扣", "es": "Descuento", "ur": "رعایت"},
+  "صنف": {"en": "Item", "zh-CN": "商品", "es": "Artículo", "ur": "آئٹم"},
   "وحدة الصنف": {"en": "Item unit", "zh-CN": "商品单位", "es": "Unidad del artículo", "ur": "آئٹم کی اکائی"},
   "متر": {"en": "Meter", "zh-CN": "米", "es": "Metro", "ur": "میٹر"},
   "متر مربع": {"en": "Square meter", "zh-CN": "平方米", "es": "Metro cuadrado", "ur": "مربع میٹر"},

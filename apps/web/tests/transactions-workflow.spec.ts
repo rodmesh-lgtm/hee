@@ -28,6 +28,7 @@ async function openLaundrySection(page:Page,name:string){
 }
 
 async function setCashierDelivery(page:Page,days:number,hour:number){
+  const custom=page.locator(".ld-custom-schedule");if(await custom.count()&&!await custom.evaluate(el=>(el as HTMLDetailsElement).open))await custom.locator("summary").click();
   await page.getByLabel("يوم التسليم",{exact:true}).fill(riyadhDateKey(days));
   await page.getByLabel("ساعة التسليم",{exact:true}).selectOption(String(hour%12||12));
   await page.getByLabel("دقيقة التسليم",{exact:true}).selectOption("00");
@@ -434,7 +435,7 @@ test.describe("public transactions workflow", () => {
         await expect(page.locator(".ld-product-card")).toHaveCount(1);
         expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
         const target=await product.getByRole("button",{name:"إضافة ثوب — غسيل وكوي",exact:true}).boundingBox();
-        expect(target?.height).toBeGreaterThanOrEqual(44);
+        expect(target?.height).toBeGreaterThanOrEqual(viewport.width<=700?44:36);
         if(viewport.width===390){
           await expect(page.locator(".ld-cart")).toBeHidden();
           await page.getByRole("button",{name:/مراجعة الطلب/}).click();
@@ -457,6 +458,7 @@ test.describe("public transactions workflow", () => {
       await page.getByRole("button",{name:"حفظ الطلب وإصدار المستند",exact:true}).click();const request=await sent;
       await expect(page.getByRole("heading",{name:"فاتورة",exact:true})).toBeVisible();
       await page.getByRole("button",{name:"إغلاق",exact:true}).click();
+      await openLaundrySection(page,"الطلبات والتسليم");
       await expect(page.getByRole("button",{name:"التفاصيل والفاتورة",exact:true})).toBeVisible();
       const replay=()=>page.request.post(request.url(),{headers:{"next-action":request.headers()["next-action"],"content-type":request.headers()["content-type"],origin:new URL(baseUrl).origin},data:request.postData()??""});
       await replay();

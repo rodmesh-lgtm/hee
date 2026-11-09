@@ -5,7 +5,7 @@ import { useEffect,useState } from "react";
 import type { getCashierSubscriptions } from "./package-actions";
 import { quoteSubscriberOrder,packageUnitLabels,subscriberStatus,subscriberStatusLabels,type SubscriberBalance } from "../lib/accounting-packages";
 import { laundryMoney as money,moneyToHalalas,type LaundryLine } from "../lib/laundry-domain";
-export function SubscriberCheckout({businessId,phone,lines,paid,onReady,pricingReady=true,discount,onPricing}:{businessId:string;phone:string;lines:LaundryLine[];paid:string;onReady:(ready:boolean)=>void;pricingReady?:boolean;discount?:CashierDiscount;onPricing?:(value:{total:number;amount:number;subtotal:number}|null)=>void}) {
+export function SubscriberCheckout({businessId,phone,lines,paid,onReady,pricingReady=true,discount,onPricing,compact=false}:{compact?:boolean;businessId:string;phone:string;lines:LaundryLine[];paid:string;onReady:(ready:boolean)=>void;pricingReady?:boolean;discount?:CashierDiscount;onPricing?:(value:{total:number;amount:number;subtotal:number;payable:number;outstanding:number}|null)=>void}) {
  const { t: tr, intlLocale } = useI18n();
 
  const [result,setResult]=useState<{phone:string;subscriptions:SubscriberBalance[];error?:string}|null>(null),[enabled,setEnabled]=useState(true),[retry,setRetry]=useState(0);
@@ -15,9 +15,20 @@ export function SubscriberCheckout({businessId,phone,lines,paid,onReady,pricingR
  let received=0;try{received=moneyToHalalas(paid);}catch{}
  let quote:ReturnType<typeof quoteSubscriberOrder>|null=null,quoteError="";
  if(pricingReady)try{quote=quoteSubscriberOrder(enabled&&ready?result.subscriptions:[],lines,received,new Date(),discount);}catch(e){quoteError=e instanceof Error?e.message:"راجع الطلب";}
- const quotedTotal=quote?.total,summary=quote?cashierDiscountSummary(quote.lines):null,quotedDiscount=summary?.amount,quotedSubtotal=summary?.subtotal;
- useEffect(()=>{onPricing?.(quotedTotal===undefined?null:{total:quotedTotal,amount:quotedDiscount??0,subtotal:quotedSubtotal??0});},[quotedTotal,quotedDiscount,quotedSubtotal,onPricing]);
+ const quotedTotal=quote?.total,summary=quote?cashierDiscountSummary(quote.lines):null,quotedDiscount=summary?.amount,quotedSubtotal=summary?.subtotal,quotedOutstanding=quote?.outstanding,quotedPayable=quote?quote.outstanding+received:undefined;
+ useEffect(()=>{onPricing?.(quotedTotal===undefined?null:{total:quotedTotal,amount:quotedDiscount??0,subtotal:quotedSubtotal??0,payable:quotedPayable??0,outstanding:quotedOutstanding??0});},[quotedTotal,quotedDiscount,quotedSubtotal,quotedPayable,quotedOutstanding,onPricing]);
  const valid=!!quote;useEffect(()=>{onReady((!enabled||!!ready)&&valid);},[enabled,ready,valid,onReady]);
+ if(compact){
+  const showChoice=!!(ready&&result.subscriptions.length)||!!(result?.phone===phone&&result.error);
+  const empty=!quoteError&&(phone.trim().length<8||(ready&&!result.subscriptions.length));
+  return <section className="ld-subscriber-checkout ld-subscriber-compact" data-state={empty?"empty":"visible"} aria-label={tr("اشتراكات العميل في الكاشير")}>
+   {showChoice?<label className="ld-check-label"><input name="useSubscription" type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/>{tr("استخدام رصيد اشتراك العميل تلقائيًا")}</label>:<input type="hidden" name="useSubscription" value={enabled?"on":""}/>}
+   <input type="hidden" name="subscriptionToken" value={enabled&&ready&&quote?quote.token:""}/><input type="hidden" name="subscriptionCovered" value={enabled?(ready&&quote?quote.covered:-1):0}/>
+   {quoteError?<p role="alert" className="ld-alert">{tr(quoteError)}</p>:null}
+   {!ready&&phone.trim().length>=8?<p className="ld-fine">{result?.phone===phone&&result.error?<>{tr(result.error)} <button type="button" className="ld-outline" onClick={()=>{setResult(null);setRetry(n=>n+1);}}>{tr("إعادة قراءة الرصيد")}</button></>:tr("جارٍ قراءة اشتراكات العميل…")}</p>:null}
+   {ready&&result.subscriptions.length?<><ul>{result.subscriptions.map(s=><li key={s.id}>{s.name} · {tr(subscriberStatusLabels[subscriberStatus(s)])} · {s.kind&&s.kind!=="credit"?`${s.unitsRemaining} ${tr(packageUnitLabels[s.kind])}`:money(s.remaining,intlLocale)}</li>)}</ul>{enabled&&quote?<><p>{tr("المغطى من الاشتراكات:")} <strong>{money(quote.covered,intlLocale)} {tr("ر.س")}</strong></p><p>{tr("المتبقي على الطلب بعد الدفعة والاشتراك:")} <strong>{money(quote.outstanding,intlLocale)} {tr("ر.س")}</strong></p>{quote.allocations.map(a=><p key={a.id}>{a.name}{tr(": سيبقى")} {a.kind!=="credit"?`${a.unitsRemaining} ${tr(packageUnitLabels[a.kind])}`:money(a.remaining,intlLocale)} {tr("بعد الحفظ")}</p>)}</>:null}<details><summary>{tr("تفاصيل رصيد الاشتراك")}</summary><p>{tr("إجمالي الطلب بعد تسعير الباقات:")} {money(quote?.total??0,intlLocale)} {tr("ر.س")}</p><p className="ld-fine">{tr("يخصم العدد عند حفظ الطلب. كل كمية من الخدمة المحددة تستهلك قطعة أو زيارة واحدة؛ الزيارة ليست جميع أصناف الطلب. تُسعّر الوحدات المغطاة بحصتها من سعر الباقة")}{tr("، ثم يطبّق الرصيد المالي على الخدمات المتبقية. الدفعة المستلمة أدناه مبلغ جديد فقط؛ لا تشمل رصيد الاشتراك.")}</p><button type="button" className="ld-outline" onClick={()=>{setResult(null);setRetry(n=>n+1);}}>{tr("تحديث رصيد الاشتراكات")}</button></details></>:null}
+  </section>;
+ }
  return <section className="ld-subscriber-checkout" aria-label={tr("اشتراكات العميل في الكاشير")}>
  <label className="ld-check-label"><input name="useSubscription" type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/>{" "}{tr("استخدام رصيد اشتراك العميل تلقائيًا")}</label>
  <input type="hidden" name="subscriptionToken" value={enabled&&ready&&quote?quote.token:""}/>
