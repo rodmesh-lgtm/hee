@@ -40,10 +40,10 @@
 .sectionHeading h2 { margin-top:4px; font-size:20px; font-weight:750; line-height:1.65; letter-spacing:-.025em; }
 .count { display:grid; place-items:center; width:34px; height:34px; flex-shrink:0; border:1px solid var(--line); border-radius:50%; color:var(--muted); font-size:13px; }
 .request { border:1px solid var(--line); border-radius:24px; background:var(--soft); padding:22px; }
-.requestHeading { display:flex; align-items:center; gap:12px; }
-.requestIcon { display:grid; flex-shrink:0; place-items:center; width:46px; height:46px; border-radius:16px; background:var(--primary); color:var(--on-primary); }
-.request h2 { margin-top:2px; font-size:21px; font-weight:750; line-height:1.6; }
-.request p { color:var(--muted); font-size:13px; line-height:1.8; margin-top:5px; }
+.requestHeading { display:flex; align-items:center; justify-content:center; gap:12px; text-align:center; }
+.requestIcon { display:none; flex-shrink:0; place-items:center; width:46px; height:46px; border-radius:16px; background:var(--primary); color:var(--on-primary); }
+.request h2 { margin-top:0; font-size:21px; font-weight:750; line-height:1.6; }
+.request p { display:none; color:var(--muted); font-size:13px; line-height:1.8; margin-top:5px; }
 .request [data-public-transactions-slot]:has(section) { margin-top:18px; }
 .contactLinks { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
 .contactLinks:empty { display:none; }
@@ -223,3 +223,5 @@
 @media (prefers-reduced-motion:reduce) {
  .destinations > a:hover,.contactLinks a:hover { transform:none; }
 }
+
+.requestHeading .eyebrow { display:none; }
