@@ -325,6 +325,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   });
   const invoiceCount=await db.$queryRaw<Array<{n:number}>>`SELECT COUNT(*)::int AS n FROM "LaundryTicket" WHERE "businessId"=${shop.id}`;
   await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();
+  await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();
   expect(await wa.page.evaluate(()=>(window as typeof window&{receiptPrints:string[]}).receiptPrints.length)).toBe(0);
   await wa.page.evaluate(()=>(window as typeof window&{releaseReceiptAssets:()=>void}).releaseReceiptAssets());
   await expect.poll(()=>wa.page.evaluate(()=>(window as typeof window&{receiptPrints:string[]}).receiptPrints.length)).toBe(1);

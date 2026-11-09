@@ -1,6 +1,10 @@
+const pendingReceipts=new WeakSet<HTMLElement>();
+
 /** Wait for receipt assets before opening the browser print dialog. */
 export async function printCashierReceipt(receipt:HTMLElement|null,title:string){
- if(!receipt)return;
+ if(!receipt||pendingReceipts.has(receipt))return;
+ pendingReceipts.add(receipt);
+ try{
  const invoiceId=receipt.dataset.invoiceId;
  const images=Array.from(receipt.querySelectorAll('img'));
  let timer:ReturnType<typeof setTimeout>|undefined;
@@ -15,4 +19,5 @@ export async function printCashierReceipt(receipt:HTMLElement|null,title:string)
  const previousTitle=document.title;
  document.title=title.replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
  try{window.print();}finally{document.title=previousTitle;}
+ }finally{pendingReceipts.delete(receipt);}
 }
