@@ -69,3 +69,7 @@ customer-data deletion were performed by this reconciliation.
 - The Shopify demo integration showed `SHOPIFY_ORDER_SYNC_FAILED`; provider diagnosis remains open.
 - The administrator subscription check encountered a Prisma session-read connection failure (`08P01`) before establishing the provider subscription result. Add one bounded fresh read to authenticated session lookups only. Revoked/expired/unverified sessions remain denied; mutations and transactions are never retried by this helper.
 - Local validation for this recovery: 23 focused tests, TypeScript and ESLint passed. Release CI and live recheck must be recorded separately.
+
+- A subsequent authenticated Salla subscription check reached the provider and returned HTTP404 with no safely identifiable reason. This is not proof of non-payment; partner app/plan matching remains necessary.
+- The administrator WhatsApp screen showed connected sender records for Layla Clean, Sada Al Marakib and the Salla review store, with a healthy shared worker. No new customer messages were sent during this audit.
+- Preserve allowlisted provider HTTP, configuration, credential and transient database/timeout classifications for periodic store synchronization. Arbitrary exception text, credentials and order data are never persisted in this diagnostic. Regression coverage checks same-tenant failure persistence without reporting success. This enables the next live worker run to distinguish the previously generic Shopify failure.
