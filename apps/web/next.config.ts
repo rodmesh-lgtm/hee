@@ -70,6 +70,15 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: [...baseSecurityHeaders, { key: "Permissions-Policy", value: defaultPermissionsPolicy }],
       },
+      ...["/Accounting/:path*", "/Laundromat/:path*"].map(source => ({
+        source,
+        // A fixed loopback companion is available only on accounting surfaces.
+        // User-granted browser loopback permission and native pairing still apply.
+        headers: [
+          { key: "Content-Security-Policy", value: contentSecurityPolicy.replace("connect-src 'self'", "connect-src 'self' http://127.0.0.1:17861") },
+          { key: "Permissions-Policy", value: `${defaultPermissionsPolicy}, loopback-network=(self)` },
+        ],
+      })),
       {
         // Voice memos are intentionally the only browser surface allowed to request
         // microphone access. The more-specific rule overrides the global deny policy.

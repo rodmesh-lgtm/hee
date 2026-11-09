@@ -344,3 +344,17 @@
 }
 
 @media print{body:has(.ld-dialog[open]) main.laundry{padding:0!important;width:100%;max-width:none}}
+
+@media screen{
+ .ld-printer-dialog{width:min(600px,calc(100vw - 24px));max-height:85dvh;overflow:auto;border:1px solid var(--ui-line,#cbd5e1);border-radius:16px;padding:22px;background:var(--ui-panel,#fff);color:var(--ui-ink,#172e40);box-sizing:border-box;font-family:inherit;line-height:1.8}
+ .ld-printer-dialog::backdrop{background:#061b25aa}
+ .ld-printer-dialog h2{font-size:18px}.ld-printer-dialog label{display:flex;flex-direction:column;gap:6px;margin:12px 0;font-size:13px;font-weight:700}
+ .ld-printer-dialog input,.ld-printer-dialog select{width:100%;min-height:42px;border:1px solid #a5bdc5;border-radius:8px;padding:8px;background:var(--ui-field,var(--ui-panel,#fff));color:var(--ui-ink,#172e40);font:inherit;box-sizing:border-box}
+ .ld-printer-dialog button{margin:4px 0}.ld-printer-dialog .ld-form-row{align-items:end}
+ .ld-printer-steps{padding-inline-start:22px}.ld-printer-steps li{margin:12px 0}.ld-printer-steps a{color:#087e80;text-decoration:underline;font-weight:700}
+ .ld-printer-connected{border-top:1px solid #dce5ed;margin-top:16px;padding-top:12px}.ld-printer-connected strong{display:block;overflow-wrap:anywhere}
+ .ld-print-status{margin:12px 0}.ld-direct-print-host{contain:none!important}
+ .ld-direct-print-host .ld-receipt,.ld-direct-print-host .ld-receipt *{color:#000!important;background-color:#fff!important;box-shadow:none!important;text-shadow:none!important}
+ .ld-direct-print-host .ld-receipt .ld-eyebrow{display:none}
+}
+@media print{.ld-print-status,.ld-printer-dialog{display:none!important}}
