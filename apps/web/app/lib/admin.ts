@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { db } from "./db";
+import { readDatabaseWithRetry } from "./database-read-retry";
 import { getCurrentUser } from "./auth";
 import { isQaAuditModeUser } from "./qa-audit";
 import { isExplicitTestRuntime, isProductionRuntime } from "./runtime-environment";
@@ -69,7 +70,7 @@ export async function getCurrentAdminUser() {
   const rawToken = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
   if (rawToken) {
     const storedToken = adminStorageToken(rawToken);
-    const session = await db.session.findUnique({ where: { token: storedToken }, include: { user: true } });
+    const session = await readDatabaseWithRetry(() => db.session.findUnique({ where: { token: storedToken }, include: { user: true } }));
     if (session && session.expiresAt >= new Date() && !session.user.deletedAt && session.user.emailVerifiedAt && isAdminEmail(session.user.email)) {
       if (!(await isQaAuditModeUser(session.user.id))) return session.user;
     }

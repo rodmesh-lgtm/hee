@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { compare, hash } from "bcryptjs";
 import { db } from "./db";
+import { readDatabaseWithRetry } from "./database-read-retry";
 import { clearQaAuditSession, getQaAuditSessionUser, isQaAuditModeUser } from "./qa-audit";
 import { isExplicitTestRuntime } from "./runtime-environment";
 
@@ -71,10 +72,10 @@ export async function getAuthenticatedAccountUser() {
     // session rows are accepted solely by the explicit CI test runtime, and a Vercel
     // Production signal always wins over a drifting APP_ENV=test value.
     const hashedToken = sessionStorageToken(token);
-    let session = await db.session.findUnique({ where: { token: hashedToken }, include: { user: true } });
+    let session = await readDatabaseWithRetry(() => db.session.findUnique({ where: { token: hashedToken }, include: { user: true } }));
     let storedToken = hashedToken;
     if (!session && allowLegacyPlaintextSessions()) {
-      session = await db.session.findUnique({ where: { token }, include: { user: true } });
+      session = await readDatabaseWithRetry(() => db.session.findUnique({ where: { token }, include: { user: true } }));
       storedToken = token;
     }
     if (session && session.expiresAt >= new Date() && !session.user.deletedAt) return session.user;
@@ -107,7 +108,7 @@ export async function getCurrentSessionIdForUser(userId: string) {
   const token = cookieStore.get(SESSION_COOKIE)?.value || cookieStore.get(LEGACY_SESSION_COOKIE)?.value;
   if (!token || token.startsWith(QA_TOKEN_PREFIX) || looksLikeStoredSessionToken(token)) return null;
   const candidates = [sessionStorageToken(token), ...(allowLegacyPlaintextSessions() ? [token] : [])];
-  const session = await db.session.findFirst({ where: { userId, token: { in: candidates }, expiresAt: { gt: new Date() } }, select: { id: true } });
+  const session = await readDatabaseWithRetry(() => db.session.findFirst({ where: { userId, token: { in: candidates }, expiresAt: { gt: new Date() } }, select: { id: true } }));
   return session?.id ?? null;
 }
 
