@@ -34,6 +34,10 @@ physical hardware or live message delivery.
   does not issue a print or create another invoice. A later explicit print creates
   a new job; automatic duplicate protection remains in place.
 - Centre the direct-printer setup dialog.
+- Add a business-specific data-use notice and privacy link immediately before
+  public booking/request submission, plus an explicit WhatsApp handoff explanation.
+  This addresses the form placement issue without claiming the full legal notice
+  has been finalized.
 - Return the existing bounded Salla subscription failure classification to the
   authorized client and show distinct fixed guidance for missing app, missing
   subscription, unavailable endpoint, denied permission and throttling.
