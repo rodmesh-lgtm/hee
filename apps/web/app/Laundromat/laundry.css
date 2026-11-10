@@ -358,3 +358,28 @@
  .ld-direct-print-host .ld-receipt .ld-eyebrow{display:none}
 }
 @media print{.ld-print-status,.ld-printer-dialog{display:none!important}}
+
+/* Keep the cashier's primary action legible at desktop density and on touchscreens. */
+@media screen{
+ .ld-pos-mode .ld-product-search>svg{inset-inline-start:12px;inset-inline-end:auto;pointer-events:none}
+ .ld-pos-mode .ld-product-search input{padding-inline-start:40px;padding-inline-end:12px}
+ .ld-pos-mode .ld-catalog .ld-services{grid-template-columns:repeat(auto-fill,minmax(174px,1fr));gap:10px;align-items:stretch}
+ .ld-pos-mode .ld-product-card{align-self:stretch;padding:10px;border-radius:10px;display:flex;flex-direction:column}
+ .ld-pos-mode .ld-product-card h3{font-size:14px;line-height:1.6;margin-bottom:8px}
+ .ld-pos-mode .ld-services .ld-product-options button{grid-template-columns:minmax(0,1fr) 42px;column-gap:8px;min-height:66px;padding:8px;border-radius:8px;transition:background-color .15s,border-color .15s}
+ .ld-pos-mode .ld-product-options button strong{font-size:12px;overflow-wrap:anywhere}
+ .ld-pos-mode .ld-product-options button>span:not(.ld-product-add){grid-column:1;grid-row:2;font-size:11px;line-height:1.6;align-self:start;overflow-wrap:anywhere}
+ .ld-pos-mode .ld-product-options button>.ld-product-add{grid-column:2;grid-row:1 / 4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;line-height:1.2;align-self:center;color:var(--ld-ink)}
+ .ld-product-add-icon{width:30px;height:30px;display:grid;place-items:center;border:1px solid #075e60;background:#087e80;color:#fff;border-radius:8px;flex-shrink:0;box-shadow:0 1px 2px #0002}
+ .ld-product-add-icon svg{display:block;width:20px;height:20px;min-width:20px;overflow:visible;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
+ .ld-pos-mode .ld-product-options button>.ld-product-quantity{grid-column:1;grid-row:3;font-size:11px;font-weight:800;color:var(--ld-ink);margin:2px 0 0}
+ .ld-pos-mode .ld-product-options button:hover:not(:disabled){border-color:#087e80;box-shadow:0 0 0 1px #087e80}
+ .ld-pos-mode .ld-product-options button:active:not(:disabled){transform:translateY(1px)}
+ .ld-pos-mode .ld-product-options button:disabled{cursor:not-allowed}
+ .ld-notification-preference{border:1px solid var(--ld-line);border-radius:8px;padding:8px 10px;margin:8px 0;background:var(--ld-surface,#fff)}
+ .ld-pos-mode .ld-notification-preference label{font-size:12px;margin:0;gap:8px;align-items:center}
+ .ld-notification-preference>small{display:block;color:var(--ld-muted);font-size:10px;line-height:1.6;margin-top:4px}
+ .ld-pos-mode .ld-notification-preference input{accent-color:#087e80;flex-shrink:0}
+}
+@media screen and (max-width:700px){.ld-pos-mode .ld-catalog .ld-services{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ld-pos-mode .ld-product-card{padding:8px}.ld-pos-mode .ld-product-card h3{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.ld-pos-mode .ld-product-options button{transition:none}.ld-pos-mode .ld-product-options button:active:not(:disabled){transform:none}}

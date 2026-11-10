@@ -141,8 +141,8 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   expect(updatedService).toEqual([{id:sb,price:2200},{id:'urgent:'+sb,price:2800}]);
   const oldLaundry=await db.$queryRaw<Array<{total:number}>>`SELECT total FROM "LaundryTicket" WHERE "businessId"=${laundry.id} AND number=2`;expect(oldLaundry[0].total).toBe(2000);
   await lb.page.screenshot({path:'test-results/cashier-catalog-edit-mobile.png',fullPage:true});
-  // Percentage discount, one explicit consent, net commission and exact partial returns.
-  const consentLabel='وافق العميل على إشعارات واتساب لهذا الطلب: الجاهزية وتذكير الاستلام والمبلغ وطلب التقييم';
+  // Percentage discount, automatic order notices, net commission and exact partial returns.
+  const consentLabel='إشعارات واتساب لهذا الطلب';
   await wa.page.goto('/Accounting');
   await wa.page.getByRole('button',{name:'إضافة خدمة ورشة معدلة',exact:true}).click();
   await wa.page.getByRole('button',{name:'إضافة خدمة ورشة معدلة',exact:true}).click();
@@ -151,6 +151,11 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await wa.page.getByRole('button',{name:'غدًا في هذا الوقت',exact:true}).click();
   await openOption(wa.page,'خصم');await wa.page.getByLabel('نوع الخصم',{exact:true}).selectOption('percent');
   await wa.page.getByLabel('نسبة الخصم ٪',{exact:true}).fill('10');
+  await expect(wa.page.getByLabel(consentLabel,{exact:true})).toBeChecked();
+  await wa.page.getByLabel(consentLabel,{exact:true}).uncheck();
+  await wa.page.getByLabel('رقم الجوال',{exact:true}).fill('');
+  await expect(wa.page.getByLabel(consentLabel,{exact:true})).toBeDisabled();
+  await wa.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneA);
   await expect(wa.page.getByLabel(consentLabel,{exact:true})).not.toBeChecked();
   await wa.page.getByLabel(consentLabel,{exact:true}).check();
   await wa.page.getByLabel('الدفعة المستلمة',{exact:true}).fill('54');
@@ -189,7 +194,8 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await lb.page.getByLabel('اسم العميل',{exact:true}).fill('عميل المستعجل والخصم');await lb.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneB);
   await lb.page.getByRole('button',{name:'بعد ساعة',exact:true}).click();
   await openOption(lb.page,'خصم');await lb.page.getByLabel('نوع الخصم',{exact:true}).selectOption('fixed');await lb.page.getByLabel('قيمة الخصم بالريال',{exact:true}).fill('2');
-  await expect(lb.page.getByLabel(consentLabel,{exact:true})).not.toBeChecked();
+  await expect(lb.page.getByLabel(consentLabel,{exact:true})).toBeChecked();
+  await lb.page.getByLabel(consentLabel,{exact:true}).uncheck();
   await lb.page.screenshot({path:'test-results/cashier-discount-consent-mobile.png',fullPage:true});
   await lb.page.getByRole('button',{name:'حفظ الطلب وإصدار المستند',exact:true}).click();
   await expect(lb.page.getByRole('dialog')).toContainText('خصم الفاتورة');
@@ -266,6 +272,14 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    expect(await lb.page.evaluate(()=>document.documentElement.scrollHeight-innerHeight)).toBeLessThanOrEqual(2);
    const saveBox=await lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true}).boundingBox();expect(saveBox!.y+saveBox!.height).toBeLessThanOrEqual(viewport.height+1);
    await lb.page.locator('.ld-checkout-fields').evaluate(el=>el.scrollTop=0);
+   const addButton=lb.page.getByRole('button',{name:'إضافة فرشة غرفة — غسيل وكوي',exact:true});
+   await expect(addButton.locator('.ld-product-add')).toContainText('إضافة');
+   await expect(addButton.locator('.ld-product-quantity')).toContainText('2.5');
+   const iconBox=await addButton.locator('.ld-product-add-icon').boundingBox();
+   const plusBox=await addButton.locator('.ld-product-add-icon svg').boundingBox();
+   expect(iconBox!.width).toBeGreaterThanOrEqual(30);expect(plusBox!.width).toBe(20);
+   expect(plusBox!.x).toBeGreaterThan(iconBox!.x);expect(plusBox!.x+plusBox!.width).toBeLessThan(iconBox!.x+iconBox!.width);
+
    await lb.page.screenshot({path:`test-results/cashier-compact-desktop-${viewport.width}.png`,fullPage:true});
   }
   await lb.page.setViewportSize({width:1366,height:768});
