@@ -34,6 +34,21 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
  }
  try{
   const wa=await login(a.id,shop.id),lb=await login(b.id,laundry.id);
+  // Stale laundry preferences must not surface speed controls in any other activity.
+  for(const businessCategory of ['صيانة السيارات','مغسلة سيارات','صيانة الأجهزة','مطعم','متجر','بقالة','صالون','عيادة','خدمات منزلية']){
+   await db.business.update({where:{id:shop.id},data:{businessType:'خدمات',businessCategory,pageModules:[{id:'contact',enabled:true,config:{cashierUrgentEnabled:true}}]}});
+   await wa.page.goto('/Accounting');
+   await expect(wa.page.getByRole('button',{name:'تفعيل المستعجل',exact:true})).toHaveCount(0);
+   await expect(wa.page.getByRole('button',{name:'مستعجل',exact:true})).toHaveCount(0);
+   await expect(wa.page.getByText('موعد استلام الملابس',{exact:true})).toHaveCount(0);
+   await wa.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
+   await expect(wa.page.getByRole('checkbox',{name:'تفعيل عادي / مستعجل لهذا النشاط',exact:true})).toHaveCount(0);
+   await expect(wa.page.getByRole('heading',{name:'أسعار المستعجل',exact:true})).toHaveCount(0);
+   if(businessCategory==='صيانة السيارات')await wa.page.screenshot({path:'test-results/cashier-workshop-activity-settings.png',fullPage:true});
+  }
+  await db.business.update({where:{id:shop.id},data:{businessType:'WORKSHOP',businessCategory:'ورشة / صيانة سيارات'}});
+  await db.$executeRaw`INSERT INTO "LaundryService"(id,"businessId",name,category,price) VALUES (${'urgent:'+sa},${shop.id},'سعر قديم محفوظ','صيانة دورية',3500)`;
+
   await wa.page.goto('/Accounting');await expect(wa.page.getByRole('heading',{name:'خدمات الصيانة وقطع الغيار',exact:true})).toBeVisible();await expect(wa.page.getByRole('button',{name:'مستعجل',exact:true})).toHaveCount(0);await expect(wa.page.getByText('موعد جاهزية المركبة المتوقع',{exact:true})).toBeVisible();
   expect(await wa.page.content()).not.toContain(nameB);expect(await wa.page.content()).not.toContain(phoneB);expect(await wa.page.content()).not.toContain('ثوب — غسيل وكوي');
   await wa.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneB);await wa.page.getByRole('button',{name:'استدعاء العميل بالجوال',exact:true}).click();await expect(wa.page.getByText('عميل جديد؛ سيُحفظ ملفه عند حفظ الطلب',{exact:true})).toBeVisible();
@@ -111,6 +126,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await wa.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
   await wa.page.getByRole('button',{name:'تعديل — تغيير زيت خاص بالورشة',exact:true}).click();
   const editForm=wa.page.getByRole('form',{name:'تعديل — تغيير زيت خاص بالورشة',exact:true});
+  await expect(editForm.getByLabel('سعر المستعجل بالريال',{exact:true})).toHaveCount(0);
   await editForm.getByLabel('اسم الصنف',{exact:true}).fill('خدمة ورشة معدلة');
   await editForm.getByLabel('التصنيف',{exact:true}).fill('خدمات الورشة');
   await editForm.getByLabel('السعر بالريال',{exact:true}).fill('30');
