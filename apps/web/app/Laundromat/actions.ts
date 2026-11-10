@@ -53,6 +53,9 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
   if((data.type==="service"||data.type==="service-update")&&!cashierServiceAllowed(business,data,(await cashierProfileForBusiness(business)).id==="laundry"))return {ok:false,error:"هذا الصنف من دليل مغاسل الملابس ولا يتوافق مع نشاط المنشأة."};
   if (["service","service-update","catalog","product","archive","expense","urgent-price"].includes(data.type) && business.ownerId !== user.id) return {ok:false,error:"هذه العملية متاحة لمالك المنشأة فقط"};
   if(data.type==="urgent-settings"&&business.ownerId!==user.id)return {ok:false,error:"إعداد خيارات الخدمة متاح للمالك فقط"};
+  const editsSpeed=data.type==="urgent-settings"||data.type==="urgent-price"||data.type==="service-update";
+  const urgentAllowed=editsSpeed&&(await cashierProfileForBusiness(business)).id==="laundry";
+  if(!urgentAllowed&&(data.type==="urgent-settings"||data.type==="urgent-price"||(data.type==="service-update"&&data.urgentPrice.trim())))return {ok:false,error:"خيارات الغسيل المستعجل متاحة لمغاسل الملابس فقط"};
   try {
     const result = await db.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${business.id}`}))`;
@@ -62,8 +65,9 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         const replay=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryAudit" WHERE "businessId"=${business.id} AND id=${id} AND action='urgent-settings'`;
         if(replay.length)return {id};
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`page-modules:${business.id}`}))`;
-        const current=await tx.business.findFirst({where:{id:business.id,ownerId:user.id,deletedAt:null},select:{pageModules:true,businessType:true,updatedAt:true}});
+        const current=await tx.business.findFirst({where:{id:business.id,ownerId:user.id,deletedAt:null},select:{pageModules:true,businessType:true,businessCategory:true,updatedAt:true}});
         if(!current)throw new LaundryInputError("المنشأة غير متاحة");
+        if((await cashierProfileForBusiness({...current,id:business.id},tx)).id!=="laundry")throw new LaundryInputError("تغير نشاط المنشأة؛ حدّث الصفحة");
         const modules=normalizePageModulesForPersistence(current.pageModules,current.businessType).map(module=>module.id==="contact"?{...module,config:{...module.config,cashierUrgentEnabled:data.enabled}}:module);
         const changed=await tx.business.updateMany({where:{id:business.id,ownerId:user.id,deletedAt:null,updatedAt:current.updatedAt},data:{pageModules:JSON.parse(JSON.stringify(modules))}});
         if(changed.count!==1)throw new LaundryInputError("تغيرت الإعدادات؛ حدّث الصفحة وأعد المحاولة");
@@ -106,9 +110,11 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         if(price<=0)throw new LaundryInputError("حدد سعرًا أكبر من صفر");
         if(urgentPrice!==null&&urgentPrice<=price)throw new LaundryInputError("سعر المستعجل يجب أن يكون أعلى من السعر العادي");
         await tx.$executeRaw`UPDATE "LaundryService" SET name=${data.name},category=${data.category},price=${price},unit=${data.unit} WHERE "businessId"=${business.id} AND id=${id} AND active=TRUE`;
+        if(urgentAllowed){
         const variantId=`urgent:${id}`;
         if(urgentPrice===null)await tx.$executeRaw`UPDATE "LaundryService" SET active=FALSE WHERE "businessId"=${business.id} AND id=${variantId}`;
         else await tx.$executeRaw`INSERT INTO "LaundryService" (id,"businessId",name,category,price) VALUES (${variantId},${business.id},${`${data.name} — مستعجل`},${data.category},${urgentPrice}) ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,category=EXCLUDED.category,price=EXCLUDED.price,active=TRUE WHERE "LaundryService"."businessId"=EXCLUDED."businessId"`;
+        }
       } else if (data.type === "urgent-price") {
         id=data.id;
         const replay=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryAudit" WHERE "businessId"=${business.id} AND id=${data.requestId} AND action='urgent-price'`;

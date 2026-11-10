@@ -11,8 +11,8 @@ test("only clothing laundries get speed options by default",()=>{
   assert.equal(accountingActivity(business),"general");assert.equal(cashierUrgentEnabled(null,business),false);
  }
 });
-test("owner opt-in and opt-out override defaults without changing business activity",()=>{
- assert.equal(cashierUrgentEnabled(configured(true),{businessType:"صيانة"}),true);
+test("only laundry settings can override the laundry default",()=>{
+ assert.equal(cashierUrgentEnabled(configured(true),{businessType:"صيانة"}),false);
  assert.equal(cashierUrgentEnabled(configured(false),{businessType:"laundry"},true),false);
  assert.equal(cashierUrgentEnabled(configured("true"),{businessType:"متجر"}),false);
 });
@@ -25,4 +25,12 @@ test("legacy generic laundry keeps its options while explicit car washes remain 
 test("persistence preserves explicit false and optional invoice contact",()=>{
  const contact=normalizePageModulesForPersistence(configured(false),"laundry").find(m=>m.id==="contact");
  assert.equal(contact?.config.cashierUrgentEnabled,false);assert.equal(contact?.config.invoicePhone,"0112345678");
+});
+
+test("stale urgency configuration never enables laundry options in other declared activities",()=>{
+ for(const businessCategory of ["صيانة السيارات","مغسلة سيارات","صيانة الأجهزة","مطعم","متجر","بقالة","صالون","عيادة","خدمات منزلية"]){
+  assert.equal(cashierUrgentEnabled(configured(true),{businessType:"خدمات",businessCategory}),false,businessCategory);
+ }
+ assert.equal(cashierUrgentEnabled(configured(true),{businessType:"WORKSHOP"},true),false);
+ assert.equal(cashierUrgentEnabled(configured(true),{businessType:"laundry"}),true);
 });
