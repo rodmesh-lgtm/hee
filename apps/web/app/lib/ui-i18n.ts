@@ -4,6 +4,9 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "حذف {name} من الطلب": {"en":"Remove {name} from order","zh-CN":"从订单中移除 {name}","es":"Quitar {name} del pedido","ur":"آرڈر سے {name} ہٹائیں"},
+  "حُذف {name} من الطلب": {"en":"{name} removed from order","zh-CN":"已从订单中移除 {name}","es":"Se quitó {name} del pedido","ur":"آرڈر سے {name} ہٹا دیا گیا"},
+  "تراجع عن الحذف": {"en":"Undo removal","zh-CN":"撤销移除","es":"Deshacer eliminación","ur":"حذف کو واپس کریں"},
   "إشعارات واتساب لهذا الطلب": {"en":"WhatsApp notifications for this order","zh-CN":"此订单的 WhatsApp 通知","es":"Avisos de WhatsApp para este pedido","ur":"اس آرڈر کے واٹس ایپ پیغامات"},
   "تُفعّل تلقائيًا للرقم الصحيح؛ يمكنك إيقافها لهذا الطلب. يُحترم إلغاء الاشتراك السابق.": {"en":"Enabled automatically for a valid number; you can turn them off for this order. Previous opt-outs are respected.","zh-CN":"有效号码将自动启用通知；可为此订单关闭。仍遵守之前的退订选择。","es":"Se activan con un número válido; puedes desactivarlos para este pedido. Se respetan las bajas anteriores.","ur":"درست نمبر پر خودکار فعال ہوتے ہیں؛ اس آرڈر کے لیے بند کر سکتے ہیں۔ پہلے سے کی گئی ان سبسکرائب درخواست برقرار رہتی ہے۔"},
   "تُفعّل إشعارات الجاهزية والتذكير والتقييم عند إدخال رقم صحيح.": {"en":"Ready, reminder and review notifications activate when a valid number is entered.","zh-CN":"输入有效号码后启用就绪、提醒和评价通知。","es":"Los avisos de preparación, recordatorios y valoraciones se activan al introducir un número válido.","ur":"درست نمبر درج کرنے پر تیاری، یاد دہانی اور جائزے کے پیغامات فعال ہوں گے۔"},

@@ -383,3 +383,26 @@
 }
 @media screen and (max-width:700px){.ld-pos-mode .ld-catalog .ld-services{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ld-pos-mode .ld-product-card{padding:8px}.ld-pos-mode .ld-product-card h3{font-size:13px}}
 @media(prefers-reduced-motion:reduce){.ld-pos-mode .ld-product-options button{transition:none}.ld-pos-mode .ld-product-options button:active:not(:disabled){transform:none}}
+
+@media screen{
+ .ld-pos-mode .ld-cart-lines{max-height:clamp(132px,22vh,190px);scrollbar-gutter:stable;overscroll-behavior:contain}
+ .ld-pos-mode .ld-cart-line{padding:7px 0;margin:0;border-bottom:1px solid var(--ld-line);align-items:center}
+ .ld-pos-mode .ld-cart-line:last-child{border-bottom:0}
+ .ld-cart-line-info{min-width:0;flex:1;overflow-wrap:anywhere}
+ .ld-pos-mode .ld-cart-line-info strong{display:block;line-height:1.6}
+ .ld-pos-mode .ld-cart-line-info small{font-size:11px;line-height:1.7}
+ .ld-cart-line-actions{display:flex;flex-direction:column;gap:5px;align-items:flex-end;flex-shrink:0}
+ .ld-pos-mode .ld-stepper{border-color:var(--ld-line);border-radius:8px;direction:ltr}
+ .ld-pos-mode .ld-stepper button{width:34px;height:34px;min-height:34px;color:var(--ld-ink);background:var(--ld-surface,#fff)}
+ .ld-pos-mode .ld-stepper button:last-child{background:#087e80;color:#fff}
+ .ld-pos-mode .ld-stepper button svg{width:18px;height:18px;display:block;overflow:visible;flex-shrink:0}
+ .ld-pos-mode .ld-stepper button:focus-visible{outline-offset:-3px}
+ .ld-pos-mode .ld-stepper button:hover:not(:disabled){box-shadow:inset 0 0 0 2px #087e80}
+ .ld-pos-mode .ld-stepper button:disabled{cursor:not-allowed}
+ .ld-pos-mode .ld-remove-item{min-height:26px;padding:3px 9px;border:1px solid var(--ld-line);border-radius:6px;background:var(--ld-surface,#fff);color:var(--ld-ink);font-size:11px;font-weight:700;cursor:pointer}
+ .ld-pos-mode .ld-remove-item:hover:not(:disabled){border-color:#b65252;color:#b65252}
+ .ld-cart-undo{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;padding:7px 9px;margin-bottom:7px;border:1px solid var(--ld-line);background:var(--ld-surface,#fff);border-radius:8px;font-size:11px;line-height:1.5}
+ .ld-cart-undo>span{min-width:0;overflow-wrap:anywhere}
+ .ld-cart-undo>button{flex-shrink:0;border:1px solid #087e80;border-radius:6px;padding:5px 8px;min-height:30px;background:#087e80;color:#fff;font-size:11px;font-weight:700;cursor:pointer}
+}
+@media screen and (max-width:700px){.ld-pos-mode .ld-stepper button{width:40px;min-height:40px;height:40px}.ld-pos-mode .ld-cart-lines{max-height:none}.ld-pos-mode .ld-remove-item{min-height:32px}}
