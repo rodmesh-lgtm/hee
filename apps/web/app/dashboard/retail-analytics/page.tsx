@@ -10,6 +10,7 @@ import { retailOAuthReady } from '../../lib/retail-analytics/oauth';
 import ConnectedRetailWorkspace from './connected-workspace';
 import BranchWorkspace from './branch-workspace';
 import AccountDirectory from './account-directory';
+import RetailDemoWorkspace from './demo-workspace';
 
 export const dynamic = 'force-dynamic';
 export async function generateMetadata() {
@@ -46,9 +47,10 @@ export default async function RetailAnalyticsPage({ searchParams }: { searchPara
   return <div dir={english ? 'ltr' : 'rtl'} className="space-y-6 pb-8">
     <header className="rounded-3xl border border-teal-500/25 bg-teal-500/5 p-6"><p>{business.name}</p><h1 className="mt-2 text-3xl font-bold">{t('INFRO 360 · مركز أعمالك', 'INFRO 360 · Your business center')}</h1><p className="mt-3 leading-7">{t('لوحة واحدة لحسابات منشأتك عبر المنصات، لمختلف الأنشطة: المطاعم والضيافة والتجارة والخدمات. تتحدد التقارير المتاحة بحسب النظام المرتبط وصلاحياته.', 'One workspace for your business accounts across platforms, serving hospitality, restaurants, commerce and services. Available reports depend on the connected system and its permissions.')}</p></header>
     {status ? <p role="status" className="rounded-xl border p-4">{status === 'connected' || status === 'already-connected' ? t('تم ربط الحساب. افتح لوحة المنصة لقراءة بياناته.', 'Account connected. Open the platform dashboard to read its data.') : t('راجع حالة الربط داخل لوحة المنصة.', 'Review connection status in the platform dashboard.')}</p> : null}
+    {accounts.length === 0 ? <RetailDemoWorkspace english={english}/> : <details className="rounded-2xl border border-teal-500/30 p-5"><summary className="cursor-pointer font-bold">{t('استكشف العرض التجريبي المستقل', 'Explore the standalone demo')}</summary><div className="mt-4"><RetailDemoWorkspace english={english}/></div></details>}
     <details className="rounded-2xl border border-teal-500/30 p-5"><summary className="cursor-pointer font-bold">{t("اشتراك INFRO 360 وإضافة مستخدمين", "INFRO 360 subscription and additional users")}</summary><div className="mt-4"><Infro360Plan workspace canManage={isOwner} seats={seats}/></div></details>
     <nav aria-label={t('مركز عمل INFRO 360','INFRO 360 work center')} className="flex flex-wrap gap-3">{[['#unified-reports-title',t('الحسابات والمقارنات','Accounts and comparisons')],['#infro-branches',t('فروع INFRO','INFRO branches')],['#provider-connections',t('إدارة المنصات','Manage platforms')]].map(([href,label])=><a key={href} href={href} className="min-h-11 rounded-xl border border-teal-500/30 px-5 py-3 font-bold">{label}</a>)}</nav>
-    <AccountDirectory accounts={accounts} english={english}/>
+    {accounts.length > 0 ? <AccountDirectory accounts={accounts} english={english}/> : null}
     <details open={accounts.length === 0} className="rounded-2xl border border-slate-500/20 p-5">
       <summary className="cursor-pointer text-xl font-bold">{t('دليل البدء: من الربط إلى التقرير', 'Getting started: from connection to report')}</summary>
       <ol className="mt-4 grid gap-4 md:grid-cols-3">

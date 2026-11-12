@@ -137,7 +137,7 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
     return{path:root?.dataset.dashboardPath??null,theme:root?.dataset.dashboardTheme??null,overflow:document.documentElement.scrollWidth-window.innerWidth,largeLightSurfaces:largeLight,bodyHeight:document.body.scrollHeight,canvasWidth:Math.round(canvasWidth),splitExpected,minExpectedWidth:Math.round(minExpectedWidth),compressedDirectChildren,collisions,directChildren,workCardCount:workCards.length,workCardChildCollisions,workCardChildOverflow,workCardLightIslands,statsCount:statRects.length,statsRows:statRowTops.length};
   });
   if(input.name==="infro360-work-center" && input.viewportName.startsWith("mobile")) {
-    const search=await page.getByRole("searchbox",{name:"ابحث باسم الحساب أو عنوانه"}).boundingBox();
+    const search=await page.getByTestId("retail-demo").getByRole("searchbox",{name:"البحث برقم الفاتورة",exact:true}).boundingBox();
     expect(search?.width).toBeGreaterThan(250);
   }
   const file=`${input.viewportName}-${input.theme}-${input.name}.png`;
@@ -591,6 +591,54 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         expect(await page.evaluate(()=>localStorage.getItem("infro-dashboard-theme"))).toBe(theme==="light"?"dark":"system");
         expect(hydrationErrors).toEqual([]);
       } finally {await context.close();}
+    }
+  });
+
+  test("retail demo filters, invoice drilldown and export work independently of provider data", async ({ browser }) => {
+    if (!seeded) throw new Error("seed missing");
+    for (const viewport of [{width:1366,height:900},{width:390,height:844}]) {
+      const context = await authenticatedContext(browser, viewport, "light", seeded.sessionToken);
+      try {
+        const page = await context.newPage();
+        const providerRequests: string[] = [];
+        page.on("request", request => { if (/\/api\/retail-analytics\/(shopify|foodics|icg)/.test(request.url())) providerRequests.push(request.url()); });
+        await page.goto(`${baseUrl}/dashboard/retail-analytics/icg`);
+        const demo = page.getByTestId("retail-demo");
+        await demo.getByRole("button", {name:"English",exact:true}).click();
+        await expect(demo).toHaveAttribute("dir", "ltr");
+        await expect(demo.getByText("Sample data only · ICG is not connected", {exact:true})).toBeVisible();
+        await demo.getByLabel("Sample period", {exact:true}).selectOption("1");
+        await demo.getByLabel("Sample branch", {exact:true}).selectOption("north");
+        await expect(demo.getByRole("status")).toContainText("3 matching invoices");
+        await demo.getByRole("button", {name:"DEMO-0003",exact:true}).click();
+        await expect(page.locator("#demo-invoice-detail")).toContainText("Sample invoice");
+        await expect(page.locator("#demo-invoice-detail")).toContainText("50.00 SAR");
+        const downloadPromise = page.waitForEvent("download");
+        await demo.getByRole("button", {name:"Download demo CSV",exact:true}).click();
+        const download = await downloadPromise;
+        expect(download.suggestedFilename()).toBe("INFRO-DEMO-north-1days.csv");
+        const path = await download.path();
+        expect(path).toBeTruthy();
+        const csv = await readFile(path!, "utf8");
+        expect(csv).toContain("DEMO ONLY");
+        expect(csv).toContain("DEMO-0003");
+        expect(csv).not.toContain("DEMO-0004");
+        await demo.getByLabel("Search invoice number", {exact:true}).fill("NOT-FOUND");
+        await expect(demo.getByText("No matches. Try another invoice number or clear your search.")).toBeVisible();
+        await demo.getByLabel("Search invoice number", {exact:true}).fill("");
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+        const searchFits = await demo.getByLabel("Search invoice number", {exact:true}).evaluate(el => {
+          const input = el.getBoundingClientRect(); const parent = el.closest("section")!.getBoundingClientRect();
+          return input.left >= parent.left && input.right <= parent.right;
+        });
+        expect(searchFits).toBe(true);
+        await page.evaluate(() => { (document.activeElement as HTMLElement)?.blur(); window.scrollTo(0,0); });
+        await page.screenshot({path:`${outDir}/retail-demo-${viewport.width}-en.png`,fullPage:true});
+        await demo.getByRole("button", {name:"العربية",exact:true}).click();
+        await expect(demo).toHaveAttribute("dir", "rtl");
+        await page.screenshot({path:`${outDir}/retail-demo-${viewport.width}-ar.png`,fullPage:true});
+        expect(providerRequests).toEqual([]);
+      } finally { await context.close(); }
     }
   });
 
