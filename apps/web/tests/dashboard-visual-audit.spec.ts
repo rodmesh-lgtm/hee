@@ -594,6 +594,48 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     }
   });
 
+  test("retail demo filters, invoice drilldown and export work independently of provider data", async ({ browser }) => {
+    if (!seeded) throw new Error("seed missing");
+    for (const viewport of [{width:1366,height:900},{width:390,height:844}]) {
+      const context = await authenticatedContext(browser, viewport, "light", seeded.sessionToken);
+      try {
+        const page = await context.newPage();
+        const providerRequests: string[] = [];
+        page.on("request", request => { if (/\/api\/retail-analytics\/(shopify|foodics|icg)/.test(request.url())) providerRequests.push(request.url()); });
+        await page.goto(`${baseUrl}/dashboard/retail-analytics/icg`);
+        const demo = page.getByTestId("retail-demo");
+        await demo.getByRole("button", {name:"English",exact:true}).click();
+        await expect(demo).toHaveAttribute("dir", "ltr");
+        await expect(demo.getByText("Sample data only · ICG is not connected", {exact:true})).toBeVisible();
+        await demo.getByLabel("Sample period", {exact:true}).selectOption("1");
+        await demo.getByLabel("Sample branch", {exact:true}).selectOption("north");
+        await expect(demo.getByRole("status")).toContainText("3 matching invoices");
+        await demo.getByRole("button", {name:"DEMO-0003",exact:true}).click();
+        await expect(page.locator("#demo-invoice-detail")).toContainText("Sample invoice");
+        await expect(page.locator("#demo-invoice-detail")).toContainText("50.00 SAR");
+        const downloadPromise = page.waitForEvent("download");
+        await demo.getByRole("button", {name:"Download demo CSV",exact:true}).click();
+        const download = await downloadPromise;
+        expect(download.suggestedFilename()).toBe("INFRO-DEMO-north-1days.csv");
+        const path = await download.path();
+        expect(path).toBeTruthy();
+        const csv = await readFile(path!, "utf8");
+        expect(csv).toContain("DEMO ONLY");
+        expect(csv).toContain("DEMO-0003");
+        expect(csv).not.toContain("DEMO-0004");
+        await demo.getByLabel("Search invoice number", {exact:true}).fill("NOT-FOUND");
+        await expect(demo.getByText("No matches. Try another invoice number or clear your search.")).toBeVisible();
+        await demo.getByLabel("Search invoice number", {exact:true}).fill("");
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+        await page.screenshot({path:`${outDir}/retail-demo-${viewport.width}-en.png`,fullPage:true});
+        await demo.getByRole("button", {name:"العربية",exact:true}).click();
+        await expect(demo).toHaveAttribute("dir", "rtl");
+        await page.screenshot({path:`${outDir}/retail-demo-${viewport.width}-ar.png`,fullPage:true});
+        expect(providerRequests).toEqual([]);
+      } finally { await context.close(); }
+    }
+  });
+
   test("captures launch-critical public and authenticated surfaces without overflow, collisions, light islands or compressed grids",async({browser})=>{
     test.setTimeout(600_000);if(!seeded)throw new Error("visual fixture missing");
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/tools",name:"tools"},{path:"/dashboard/verification",name:"verification"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
