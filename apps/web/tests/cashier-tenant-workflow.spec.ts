@@ -307,6 +307,15 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    expect(await lb.page.evaluate(()=>document.documentElement.scrollHeight-innerHeight)).toBeLessThanOrEqual(2);
    const saveBox=await lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true}).boundingBox();expect(saveBox!.y+saveBox!.height).toBeLessThanOrEqual(viewport.height+1);
    await lb.page.locator('.ld-checkout-fields').evaluate(el=>el.scrollTop=0);
+   for(const label of ['الدفعة المستلمة','طريقة التحصيل']){
+    const field=lb.page.getByLabel(label,{exact:true});
+    await expect(field).toBeInViewport({ratio:1});
+    const box=await field.boundingBox();
+    expect(box!.y+box!.height).toBeLessThan(saveBox!.y);
+   }
+   await lb.page.locator('.ld-checkout-fields').evaluate(el=>el.scrollTop=el.scrollHeight);
+   await expect(lb.page.getByLabel('الدفعة المستلمة',{exact:true})).toBeInViewport({ratio:1});
+   await lb.page.locator('.ld-checkout-fields').evaluate(el=>el.scrollTop=0);
    const addButton=lb.page.getByRole('button',{name:'إضافة فرشة غرفة — غسيل وكوي',exact:true});
    await expect(addButton.locator('.ld-product-add')).toContainText('إضافة');
    await expect(addButton.locator('.ld-product-quantity')).toContainText('2.5');
