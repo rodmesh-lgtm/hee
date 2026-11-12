@@ -137,7 +137,7 @@ async function auditRoute(context:BrowserContext,input:{path:string;expectedPath
     return{path:root?.dataset.dashboardPath??null,theme:root?.dataset.dashboardTheme??null,overflow:document.documentElement.scrollWidth-window.innerWidth,largeLightSurfaces:largeLight,bodyHeight:document.body.scrollHeight,canvasWidth:Math.round(canvasWidth),splitExpected,minExpectedWidth:Math.round(minExpectedWidth),compressedDirectChildren,collisions,directChildren,workCardCount:workCards.length,workCardChildCollisions,workCardChildOverflow,workCardLightIslands,statsCount:statRects.length,statsRows:statRowTops.length};
   });
   if(input.name==="infro360-work-center" && input.viewportName.startsWith("mobile")) {
-    const search=await page.getByRole("searchbox",{name:"ابحث باسم الحساب أو عنوانه"}).boundingBox();
+    const search=await page.getByTestId("retail-demo").getByRole("searchbox",{name:"البحث برقم الفاتورة",exact:true}).boundingBox();
     expect(search?.width).toBeGreaterThan(250);
   }
   const file=`${input.viewportName}-${input.theme}-${input.name}.png`;
