@@ -259,6 +259,13 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await carpetForm.getByRole('button',{name:'إضافة الصنف',exact:true}).click();await expect(lb.page.getByRole('button',{name:'تعديل — فرشة غرفة — غسيل وكوي',exact:true})).toBeVisible();
   await lb.page.goto('/Accounting');await lb.page.getByRole('button',{name:'إضافة فرشة غرفة — غسيل وكوي',exact:true}).click();await lb.page.getByRole('button',{name:/مراجعة الطلب ·/}).click();
   await lb.page.getByLabel('قياس — فرشة غرفة — غسيل وكوي',{exact:true}).fill('2.5');
+  await expect(lb.page.locator('.ld-catalog')).toBeHidden();
+  await lb.page.getByRole('button',{name:'العودة إلى الأصناف',exact:true}).click();
+  await expect(lb.page.locator('.ld-catalog')).toBeVisible();
+  await expect(lb.page.locator('.ld-cart')).toBeHidden();
+  await lb.page.getByRole('button',{name:/مراجعة الطلب ·/}).click();
+  await expect(lb.page.locator('.ld-catalog')).toBeHidden();
+  await expect(lb.page.getByLabel('قياس — فرشة غرفة — غسيل وكوي',{exact:true})).toHaveValue('2.5');
   await lb.page.getByLabel('اسم العميل',{exact:true}).fill('عميل المتر المربع');await lb.page.getByLabel('رقم الجوال',{exact:true}).fill(phoneB);await lb.page.getByRole('button',{name:'غدًا في هذا الوقت',exact:true}).click();
   await expect(lb.page.getByRole('button',{name:'حفظ الطلب وإصدار المستند',exact:true})).toBeEnabled();
   expect(await lb.page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);await lb.page.screenshot({path:'test-results/cashier-measured-cart-mobile.png',fullPage:true});
@@ -306,6 +313,15 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    await lb.page.setViewportSize(viewport);expect(await lb.page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
    expect(await lb.page.evaluate(()=>document.documentElement.scrollHeight-innerHeight)).toBeLessThanOrEqual(2);
    const saveBox=await lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true}).boundingBox();expect(saveBox!.y+saveBox!.height).toBeLessThanOrEqual(viewport.height+1);
+   await lb.page.locator('.ld-checkout-fields').evaluate(el=>el.scrollTop=0);
+   for(const label of ['الدفعة المستلمة','طريقة التحصيل']){
+    const field=lb.page.getByLabel(label,{exact:true});
+    await expect(field).toBeInViewport({ratio:1});
+    const box=await field.boundingBox();
+    expect(box!.y+box!.height).toBeLessThan(saveBox!.y);
+   }
+   await lb.page.locator('.ld-checkout-fields').evaluate(el=>el.scrollTop=el.scrollHeight);
+   await expect(lb.page.getByLabel('الدفعة المستلمة',{exact:true})).toBeInViewport({ratio:1});
    await lb.page.locator('.ld-checkout-fields').evaluate(el=>el.scrollTop=0);
    const addButton=lb.page.getByRole('button',{name:'إضافة فرشة غرفة — غسيل وكوي',exact:true});
    await expect(addButton.locator('.ld-product-add')).toContainText('إضافة');
