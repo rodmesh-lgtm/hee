@@ -627,6 +627,12 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         await expect(demo.getByText("No matches. Try another invoice number or clear your search.")).toBeVisible();
         await demo.getByLabel("Search invoice number", {exact:true}).fill("");
         expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+        const searchFits = await demo.getByLabel("Search invoice number", {exact:true}).evaluate(el => {
+          const input = el.getBoundingClientRect(); const parent = el.closest("section")!.getBoundingClientRect();
+          return input.left >= parent.left && input.right <= parent.right;
+        });
+        expect(searchFits).toBe(true);
+        await page.evaluate(() => { (document.activeElement as HTMLElement)?.blur(); window.scrollTo(0,0); });
         await page.screenshot({path:`${outDir}/retail-demo-${viewport.width}-en.png`,fullPage:true});
         await demo.getByRole("button", {name:"العربية",exact:true}).click();
         await expect(demo).toHaveAttribute("dir", "rtl");
