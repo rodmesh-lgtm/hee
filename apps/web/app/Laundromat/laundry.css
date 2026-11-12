@@ -429,6 +429,7 @@
  .ld-pos-mode .ld-cashier-tip{display:none}
 }
 @media screen and (max-width:700px){
+ .ld-pos-mode .ld-checkout .ld-catalog{display:none}
  .ld-pos-mode .ld-checkout-footer{position:static}
  .ld-pos-mode .ld-save-actions .ld-primary{min-height:46px}
 }
