@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_IDENTITY_APPEARANCE, IDENTITY_PALETTES, identityAppearanceStyle, identityContrast, normalizeIdentityAppearance } from "../app/lib/public-identity-appearance";
+import { DEFAULT_IDENTITY_APPEARANCE, IDENTITY_DESIGNS, IDENTITY_PALETTES, identityAppearanceStyle, identityContrast, normalizeIdentityAppearance } from "../app/lib/public-identity-appearance";
 import { applyActivityPagePreset, normalizePageModules, serializePageModules } from "../app/lib/page-modules";
 
 test("unconfigured and malformed appearances use the shared INFRO defaults", () => {
@@ -26,5 +26,16 @@ test("appearance survives serialization, activity changes and unrelated contact 
     const config=normalized.find(module=>module.id==="contact")!.config;
     assert.deepEqual(config.appearance,contact.config.appearance);
     assert.equal(config.bookingPlacement,"ribbon"); assert.equal(config.serviceRequestEnabled,false);
+  }
+});
+
+test("design selection is bounded and survives activity changes without changing brand colors", () => {
+  assert.equal(normalizeIdentityAppearance({design:"unknown"}).design,"classic");
+  for (const design of IDENTITY_DESIGNS) {
+    const appearance=normalizeIdentityAppearance({...DEFAULT_IDENTITY_APPEARANCE,design,primary:"#913e2c"});
+    const modules=normalizePageModules(null,"متجر");
+    modules.find(module=>module.id==="contact")!.config.appearance=appearance;
+    const next=applyActivityPagePreset(serializePageModules(modules),"عيادة");
+    assert.deepEqual(next.find(module=>module.id==="contact")!.config.appearance,appearance);
   }
 });

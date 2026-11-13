@@ -1,9 +1,18 @@
 import type { CSSProperties } from "react";
 
 export const IDENTITY_FONTS = ["infro", "cairo", "tajawal"] as const;
-export type IdentityAppearance = { primary: string; accent: string; background: string; font: typeof IDENTITY_FONTS[number] };
-export const DEFAULT_IDENTITY_APPEARANCE: IdentityAppearance = { primary: "#204f43", accent: "#b5a171", background: "#fdfdf9", font: "infro" };
+export const IDENTITY_DESIGNS = ["classic", "bloom", "signature", "studio"] as const;
+export const IDENTITY_DESIGN_OPTIONS = [
+  { id: "classic", name: "كلاسيك", description: "هوية هادئة وروابط واضحة لكل الأنشطة" },
+  { id: "bloom", name: "إشراقة", description: "خلفية ناعمة وشعار دائري وحضور مميز" },
+  { id: "signature", name: "توقيع", description: "تفاصيل أنيقة وحواف مستقيمة للعلامات الراقية" },
+  { id: "studio", name: "واجهة", description: "غلاف بارز وبطاقات للخدمات ومعرض الأعمال" },
+] as const;
+export type IdentityAppearance = { primary: string; accent: string; background: string; font: typeof IDENTITY_FONTS[number]; design: typeof IDENTITY_DESIGNS[number] };
+export const DEFAULT_IDENTITY_APPEARANCE: IdentityAppearance = { primary: "#204f43", accent: "#b5a171", background: "#fdfdf9", font: "infro", design: "classic" };
 export const IDENTITY_PALETTES = [
+  { name: "لافندر", primary: "#583479", accent: "#a9a147", background: "#faf7ff" },
+  { name: "طيني", primary: "#913e2c", accent: "#c89966", background: "#fff8f0" },
   { name: "انفرو", primary: "#204f43", accent: "#b5a171", background: "#fdfdf9" },
   { name: "كحلي", primary: "#243b64", accent: "#b6a175", background: "#f7f9fc" },
   { name: "عنابي", primary: "#6b2942", accent: "#bd946f", background: "#fcf8f6" },
@@ -17,7 +26,7 @@ export function validIdentityColor(value: unknown): value is string { return typ
 export function normalizeIdentityAppearance(raw: unknown): IdentityAppearance {
   const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
   const color = (key: "primary" | "accent" | "background") => validIdentityColor(value[key]) ? value[key].toLowerCase() : DEFAULT_IDENTITY_APPEARANCE[key];
-  return { primary: color("primary"), accent: color("accent"), background: color("background"), font: IDENTITY_FONTS.includes(value.font as IdentityAppearance["font"]) ? value.font as IdentityAppearance["font"] : "infro" };
+  return { design: IDENTITY_DESIGNS.includes(value.design as IdentityAppearance["design"]) ? value.design as IdentityAppearance["design"] : "classic", primary: color("primary"), accent: color("accent"), background: color("background"), font: IDENTITY_FONTS.includes(value.font as IdentityAppearance["font"]) ? value.font as IdentityAppearance["font"] : "infro" };
 }
 function rgb(color: string) { return [1, 3, 5].map(offset => parseInt(color.slice(offset, offset + 2), 16)); }
 function mix(base: string, tint: string, amount: number) { const a = rgb(base), b = rgb(tint); return "#" + a.map((value, i) => Math.round(value * (1 - amount) + b[i] * amount).toString(16).padStart(2, "0")).join(""); }

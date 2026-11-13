@@ -1515,6 +1515,39 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
       await db.subscription.delete({where:{id:subscription.id}});
     }
   });
+  test("identity design collection persists and renders across phone and desktop", async({browser})=>{
+    test.setTimeout(180_000);
+    if(!seeded)throw new Error("visual fixture missing");
+    const original=await db.business.findUniqueOrThrow({where:{id:seeded.businessId}});
+    const context=await authenticatedContext(browser,{width:1366,height:960},"light",seeded.sessionToken);
+    const page=await context.newPage();
+    try {
+      await db.business.update({where:{id:original.id},data:{isPublished:true}});
+      await page.goto(`${baseUrl}/dashboard/branding`,{waitUntil:"networkidle"});
+      await page.getByRole("button",{name:"تصميم إشراقة",exact:true}).click();
+      await expect(page.locator("[data-identity-theme-preview]")).toHaveAttribute("data-identity-design","bloom");
+      await page.getByRole("button",{name:"إلغاء التغييرات",exact:true}).click();
+      await page.screenshot({path:`${outDir}/identity-design-editor.png`,fullPage:true});
+      for(const design of ["classic","bloom","signature","studio"]){
+        const saved=await context.request.post(`${baseUrl}/api/dashboard/page-appearance`,{headers:{Origin:baseUrl},data:{businessId:original.id,appearance:{primary:"#583479",accent:"#a9a147",background:"#faf7ff",font:"infro",design}}});
+        expect(saved.status()).toBe(200);
+        for(const width of [390,1366]){
+          await page.setViewportSize({width,height:960});
+          await page.goto(`${baseUrl}/${original.slug}`,{waitUntil:"networkidle"});
+          await expect(page.locator("[data-public-page]")).toHaveAttribute("data-identity-design",design);
+          await expect(page.getByRole("heading",{level:1,name:original.name})).toBeVisible();
+          expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
+          await expect(page.locator("#services")).toContainText("استشارة أعمال");
+          await page.screenshot({path:`${outDir}/identity-design-${design}-${width}.png`,fullPage:true});
+        }
+      }
+      const invalid=await context.request.post(`${baseUrl}/api/dashboard/page-appearance`,{headers:{Origin:baseUrl},data:{businessId:original.id,appearance:{primary:"#583479",accent:"#a9a147",background:"#faf7ff",font:"infro",design:"unknown"}}});
+      expect(invalid.status()).toBe(400);
+    }finally{
+      await db.business.update({where:{id:original.id},data:{isPublished:original.isPublished,pageModules:JSON.parse(JSON.stringify(original.pageModules ?? []))}});
+      await context.close();
+    }
+  });
   test("seven activity layouts preserve stored ordering, configurable actions and optional booking on three screen sizes",async({browser})=>{
     test.setTimeout(600_000);
     if(!seeded)throw new Error("visual fixture missing");
@@ -1557,7 +1590,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         else pageModule.sortOrder+=10;
         if(pageModule.id==="contact"){
           pageModule.config.bottomActions=[{id:"phone",enabled:true,sortOrder:0},{id:"whatsapp",enabled:false,sortOrder:1},{id:"share",enabled:true,sortOrder:2}];
-          pageModule.config.appearance={...IDENTITY_PALETTES[index % IDENTITY_PALETTES.length],font:"infro"};
+          pageModule.config.appearance={...IDENTITY_PALETTES[index % IDENTITY_PALETTES.length],font:"infro",design:"classic"};
           pageModule.config.serviceRequestEnabled=false;
           pageModule.config.bookingPlacement="ribbon";
         }
