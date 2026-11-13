@@ -52,7 +52,7 @@ export function PublicBusinessBio({business,publicUrl,pageModules=[],bookingRibb
  async function share(){if(navigator.share){try{await navigator.share({title:business.name,url:publicUrl});return}catch{}}try{await navigator.clipboard.writeText(publicUrl);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{}}
  const appearance=normalizeIdentityAppearance(contactConfig?.appearance);
  const cover=asset(business.coverUrl);
- return <main data-public-page data-identity-design={appearance.design} dir={dir} className={`${styles.page} ${identityFontVariables}`} style={identityAppearanceStyle(appearance)}>
+ return <main data-public-page dir={dir} data-identity-design={appearance.design} className={`${styles.page} ${identityFontVariables}`} style={identityAppearanceStyle(appearance)}>
   <div className={styles.shell}>
    <div className={styles.brandDock}><Link href="/" data-infro-customer-header aria-label="INFRO" className={styles.brand}><IrMark className="h-9" priority/></Link></div>
    <div className={styles.topbar}>
