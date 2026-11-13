@@ -287,3 +287,5 @@
  .page[data-identity-design="studio"] .cover + .logo { margin-top:-48px; margin-inline:16px; }
 }
 @media (prefers-reduced-motion:reduce) { .destinations > a { transition:none; } }
+
+.createPage { display:inline-flex; align-items:center; gap:8px; min-height:44px; color:var(--ink); font-size:12px; font-weight:650; text-decoration:underline; text-underline-offset:4px; }
