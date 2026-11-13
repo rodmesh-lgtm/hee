@@ -77,6 +77,16 @@ jobs:
         run: npm run build
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+      - name: Verify identity design collection
+        run: npx playwright test tests/dashboard-visual-audit.spec.ts --grep "identity design collection" --retries=0
+      - name: Upload identity design review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infro-identity-design-review
+          path: /tmp/infro-visual-audit/identity-design-*.png
+          if-no-files-found: warn
+          retention-days: 7
       - name: Verify read-only analytics demo
         run: npx playwright test tests/dashboard-visual-audit.spec.ts --grep "retail demo filters" --retries=0
       - name: Upload analytics demo review

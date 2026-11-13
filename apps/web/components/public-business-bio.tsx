@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BadgeCheck, BriefcaseBusiness, Building2, Clock3, FileText, Globe2, Mail, MapPin, MessageCircle, Phone, Share2, ShoppingBag, ArrowUpLeft, UsersRound } from "lucide-react";
 import { IrMark } from "./brand/ir-logo";
-import { identityAppearanceStyle } from "../app/lib/public-identity-appearance";
+import { identityAppearanceStyle, normalizeIdentityAppearance } from "../app/lib/public-identity-appearance";
 import { identityFontVariables } from "./public-identity-fonts";
 import styles from "./public-business-bio.module.css";
 import type { PageModuleState } from "../app/lib/page-modules";
@@ -50,7 +50,9 @@ export function PublicBusinessBio({business,publicUrl,pageModules=[],bookingRibb
  if(communicationCount)trustFacts.push({label:`${communicationCount} ${t(communicationCount===1?"قناة تواصل":"قنوات تواصل")}`,icon:Phone});
  if(trustFacts.length<3&&services.length)trustFacts.push({label:`${services.length} ${t(services.length===1?"خدمة":"خدمات")}`,icon:BriefcaseBusiness});
  async function share(){if(navigator.share){try{await navigator.share({title:business.name,url:publicUrl});return}catch{}}try{await navigator.clipboard.writeText(publicUrl);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{}}
- return <main data-public-page dir={dir} className={`${styles.page} ${identityFontVariables}`} style={identityAppearanceStyle(contactConfig?.appearance)}>
+ const appearance=normalizeIdentityAppearance(contactConfig?.appearance);
+ const cover=asset(business.coverUrl);
+ return <main data-public-page data-identity-design={appearance.design} dir={dir} className={`${styles.page} ${identityFontVariables}`} style={identityAppearanceStyle(appearance)}>
   <div className={styles.shell}>
    <div className={styles.brandDock}><Link href="/" data-infro-customer-header aria-label="INFRO" className={styles.brand}><IrMark className="h-9" priority/></Link></div>
    <div className={styles.topbar}>
@@ -59,6 +61,7 @@ export function PublicBusinessBio({business,publicUrl,pageModules=[],bookingRibb
     <span className={styles.brandPlaceholder} aria-hidden="true"/>
    </div>
    <header className={styles.hero}>
+    {cover && (appearance.design === "studio" || appearance.design === "signature") ? <div className={styles.cover}><img src={cover} alt=""/></div> : null}
     <div className={styles.logo}><span>{logo?<img src={logo} alt={`${t("شعار")} ${business.name}`}/>:<Building2 size={40}/>}</span>{business.isVerified?<BadgeCheck aria-label={t("منشأة موثقة")} className={styles.verified}/>:null}</div>
     <h1 translate="no">{locale !== "ar" && clean(business.nameEn) ? business.nameEn : business.name}</h1>
     {summary?<p className={styles.summary}>{summary}</p>:null}

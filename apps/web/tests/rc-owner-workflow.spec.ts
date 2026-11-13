@@ -56,6 +56,8 @@ test.describe.serial("RC owner workflow",()=>{
       await expect(page.getByRole('button',{name:'حفظ مظهر الصفحة',exact:true})).toBeDisabled();
       await page.getByRole("button",{name:"كحلي",exact:true}).click();
       await page.getByLabel("خط الصفحة",{exact:true}).selectOption("cairo");
+      await page.getByRole("button",{name:"تصميم إشراقة",exact:true}).click();
+      await expect(themePreview).toHaveAttribute("data-identity-design","bloom");
       await page.getByRole("button",{name:"حفظ مظهر الصفحة",exact:true}).click();
       await expect(page.getByRole("status")).toContainText("تم حفظ مظهر الصفحة");
       await page.reload({waitUntil:"networkidle"});
@@ -63,7 +65,7 @@ test.describe.serial("RC owner workflow",()=>{
       await expect(page.getByLabel("خط الصفحة",{exact:true})).toHaveValue("cairo");
       const stored=await db.business.findUniqueOrThrow({where:{id:seeded.businessId}});
       const savedModules=stored.pageModules as Array<{id:string;config:{appearance?:{primary:string;font:string}}}>;
-      expect(savedModules.find(module=>module.id==="contact")?.config.appearance).toMatchObject({primary:"#243b64",font:"cairo"});
+      expect(savedModules.find(module=>module.id==="contact")?.config.appearance).toMatchObject({primary:"#243b64",font:"cairo",design:"bloom"});
       if(modulesBefore!=="null") expect(savedModules.map(module=>({...module,config:{...module.config,appearance:undefined}}))).toEqual(JSON.parse(modulesBefore));
       const invalidTheme=await page.request.post(`${baseUrl}/api/dashboard/page-appearance`,{headers:{Origin:baseUrl},data:{businessId:seeded.businessId,appearance:{primary:"url(https://invalid.test)",accent:"#ffffff",background:"#ffffff",font:"cairo"}}});
       expect(invalidTheme.status()).toBe(400);
@@ -76,6 +78,7 @@ test.describe.serial("RC owner workflow",()=>{
       // before leaving the editor so it cannot race the explicit public-page navigation below.
       await page.waitForLoadState("networkidle");
       await page.goto(`${baseUrl}/${seeded.slug}`,{waitUntil:"domcontentloaded"});await expect(page.getByRole("heading",{name:"منشأة HEE المحدثة"})).toBeVisible();await expect(page.locator('section[aria-labelledby="intent-title"]')).toBeVisible();await expect(page.getByRole("heading",{name:"أبرز ما نقدمه"})).toBeVisible();await expect(page.getByText("استشارة أعمال",{exact:true})).toBeVisible();await expect(page.getByText("تطوير الهوية",{exact:true})).toBeVisible();await expect(page.getByRole("heading",{name:"فروعنا"})).toBeVisible();
+      await expect(page.locator("[data-public-page]")).toHaveAttribute("data-identity-design","bloom");
       await expect(page.locator("[data-public-page]")).toHaveCSS("--primary","#243b64");
       await expect(page.locator("[data-public-page]")).toHaveCSS("font-family",/cairo/i);
       await expect(page.locator("[data-infro-customer-header]")).toBeVisible();

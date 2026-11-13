@@ -5,12 +5,12 @@ import { z } from "zod";
 import { db } from "../../../lib/db";
 import { getOwnedBusinessForApiWrite } from "../../../lib/ownership";
 import { normalizePageModulesForPersistence, serializePageModules } from "../../../lib/page-modules";
-import { IDENTITY_FONTS, normalizeIdentityAppearance } from "../../../lib/public-identity-appearance";
+import { IDENTITY_DESIGNS, IDENTITY_FONTS, normalizeIdentityAppearance } from "../../../lib/public-identity-appearance";
 import { consumePublicWriteLimit, requestClientAddress } from "../../../lib/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "../../../lib/request-body";
 
 const color = z.string().regex(/^#[0-9a-f]{6}$/i);
-const schema = z.object({ businessId: z.string().min(1).max(100), appearance: z.object({ primary: color, accent: color, background: color, font: z.enum(IDENTITY_FONTS) }).strict() }).strict();
+const schema = z.object({ businessId: z.string().min(1).max(100), appearance: z.object({ primary: color, accent: color, background: color, font: z.enum(IDENTITY_FONTS), design: z.enum(IDENTITY_DESIGNS).optional() }).strict() }).strict();
 export async function POST(request: Request) {
   // Match the browser host; Next.js can normalize the internal request hostname.
   const requestOrigin = `${new URL(request.url).protocol}//${request.headers.get("host")}`;
