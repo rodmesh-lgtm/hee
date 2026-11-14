@@ -29,7 +29,7 @@ test("paid workspace gates reject free, expired and revoked grants while analyti
   expect((await context.request.get(`${baseUrl}/api/dashboard/bookings/updates?businessId=${business.id}`)).status()).toBe(200);
   await db.subscription.update({where:{id:subscription.id},data:{endsAt:new Date(Date.now()-1000)}});
   await page.goto(`${baseUrl}/dashboard/notes`);await expect(page).toHaveURL(/feature=notes/);
-  await db.subscription.update({where:{id:subscription.id},data:{status:"expired"}});
+  await db.subscription.update({where:{id:subscription.id},data:{status:"replaced"}});
   const code=await db.subscriptionAccessCode.create({data:{codeHash:randomUUID(),planId:paid.id,createdByUserId:user.id}});
   const grantTerm=await db.subscription.create({data:{businessId:business.id,planId:paid.id,provider:"access_code",autoRenew:false,startsAt:new Date(Date.now()-60000),endsAt:null}});
   await db.subscriptionAccessGrant.create({data:{codeId:code.id,businessId:business.id,planId:paid.id,subscriptionId:grantTerm.id,redeemedByUserId:user.id}});
