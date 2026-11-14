@@ -1,3 +1,4 @@
+import { requirePaidSectionPage } from "../../../lib/paid-section-page";
 import { CameraPreparationGuide } from "../camera-guide";
 import { liveStationReadiness } from "../../../lib/live-view/readiness";
 import { WindowsConnectorSetup } from "../windows-setup";
@@ -12,6 +13,7 @@ import { connectorOnline, INPUT_STATUS_LABELS, LIVE_ACTIVITIES } from "../../../
 import { AddConnectorForm, CameraControls, CameraForm, ConnectorControls, SetupAutoRefresh } from "./forms";
 export const dynamic="force-dynamic";
 export default async function LiveSetupPage({searchParams}:{searchParams:Promise<{q?:string}>}) {
+  await requirePaidSectionPage("liveView");
   const user=await getCurrentUser();if(!user)redirect("/login");
   const business=await getActiveBusinessForUser(user.id);if(!business)return <p role="alert">إعداد أجهزة الربط والكاميرات متاح لمالك المنشأة فقط. يستطيع الموظف المفوض إدارة الجلسات من المشاهدة المؤقتة.</p>;
   if(!connectorPlatformConfig()) return <LiveViewPreparation setup/>;

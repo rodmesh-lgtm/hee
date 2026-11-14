@@ -1,3 +1,4 @@
+import { requirePaidSectionPage } from "../../lib/paid-section-page";
 import { HistoryResetLink } from "../../../components/dashboard/history-reset-link";
 import { HistoryPagination } from "../../../components/dashboard/history-pagination";
 import { HISTORY_PAGE_SIZE, historyPage, historyQuery, historyHref } from "../../lib/history-navigation";
@@ -59,6 +60,7 @@ function Notice({params}:{params:Record<string,string|undefined>}){
 function SchemaPending(){return <div dir="rtl" className="space-y-6 pb-10" data-reminder-schema="pending"><header className="rounded-[28px] bg-[#07181b] p-6 text-white"><p className="text-[10px] font-black tracking-[.16em] text-[#4ee7d4]">INFRO BUSINESS EXECUTION</p><h1 className="mt-3 text-2xl font-black">تذكيرات أعمالك الذكية</h1></header><section className="rounded-[24px] border border-slate-200 bg-white p-6 text-sm text-slate-600">يجري تجهيز تحديث مساحة التذكيرات بأمان.</section></div>}
 
 export default async function SmartRemindersPage({searchParams}:{searchParams:Promise<Record<string,string|undefined>>}){
+  await requirePaidSectionPage("reminders");
   const user=await getCurrentUser();if(!user)redirect("/login");
   const business=await getActiveBusinessForUser(user.id, "reminders");if(!business)redirect("/dashboard?business=required");
   const params=await searchParams;if(!await isSmartRemindersSchemaReady())return <SchemaPending/>;

@@ -77,6 +77,16 @@ jobs:
         run: npm run build
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+      - name: Verify paid section access and analytics trial
+        run: npx playwright test tests/paid-sections-workflow.spec.ts --retries=0
+      - name: Upload paid section review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infro-paid-sections-review
+          path: /tmp/infro-visual-audit/paid-sections-*.png
+          if-no-files-found: warn
+          retention-days: 7
       - name: Verify identity design collection
         run: npx playwright test tests/dashboard-visual-audit.spec.ts --grep "identity design collection" --retries=0
       - name: Upload identity design review

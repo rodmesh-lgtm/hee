@@ -1,3 +1,4 @@
+import * as paidSections from "../app/lib/paid-sections";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {readFile} from "node:fs/promises";
@@ -26,7 +27,7 @@ test("cashier fails closed on an unauthorized selected business instead of falli
  const active=await moduleExports("../app/lib/active-business.ts",{
   "next/headers":{cookies:async()=>({get:(key:string)=>key==="infro_workspace_business"&&selected?{value:selected}:undefined})},
   "./db":{db:{business:{findFirst:async(args:{where:{id?:string}})=>{lookups++;return args.where.id===businessB?null:{id:businessA,ownerId:"owner",members:[]};}}}},
-  "./commercial-access":{commercialAccess:async()=>({cashier:true})},"./staff-permissions":staff
+  "./paid-sections":paidSections,"./commercial-access":{commercialAccess:async()=>({code:"BUSINESS",cashier:true})},"./staff-permissions":staff
  });
  const resolve=active.getActiveBusinessForUser as (user:string,section:string)=>Promise<{id:string}|null>;
  assert.equal(await resolve("owner","laundry"),null);assert.equal(lookups,1);

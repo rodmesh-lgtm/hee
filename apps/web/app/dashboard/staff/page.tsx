@@ -1,3 +1,4 @@
+import { requirePaidSectionPage } from "../../lib/paid-section-page";
 import { UsersRound, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "../../lib/auth";
@@ -8,6 +9,7 @@ import { InviteStaffForm, StaffMemberForm } from "../../../components/dashboard/
 import { revokeStaffInvitationAction } from "../../actions/staff";
 
 export default async function StaffPage() {
+  await requirePaidSectionPage("staff");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const business = await getActiveBusinessForUser(user.id);

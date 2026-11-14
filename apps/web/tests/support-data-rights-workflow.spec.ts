@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
+import { grantPaidWorkspace } from "./helpers/paid-workspace";
 
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 const adminEmail = "rc-platform-admin@hee.test";
@@ -36,6 +37,7 @@ test.describe.serial("customer support and data rights", () => {
     await db.session.create({ data: { token: adminToken, userId: admin.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
 
     try {
+      await grantPaidWorkspace(db, business.id);
       await setSession(page, ownerToken);
       await page.goto(`${baseUrl}/dashboard/working-hours`, { waitUntil: "domcontentloaded" });
       await page.getByRole("link", { name: "طلب مساعدة في هذه الصفحة" }).click();
@@ -82,6 +84,7 @@ test.describe.serial("customer support and data rights", () => {
     } finally {
       await db.analyticsEvent.deleteMany({ where: { businessId: business.id } });
       await db.service.deleteMany({ where: { businessId: business.id } });
+      await db.subscription.deleteMany({ where: { businessId: business.id } });
       await db.business.delete({ where: { id: business.id } });
       await db.session.deleteMany({ where: { userId: { in: [owner.id, admin.id] } } });
       await db.authIdentity.deleteMany({ where: { userId: owner.id } });

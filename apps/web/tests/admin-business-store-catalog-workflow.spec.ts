@@ -1,3 +1,4 @@
+import { grantPaidWorkspace } from "./helpers/paid-workspace";
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -24,6 +25,7 @@ async function seed(): Promise<Fixture> {
   const ownerToken = crypto.randomUUID();
   await db.session.create({ data: { token: ownerToken, userId: owner.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
   const business = await db.business.create({ data: { ownerId: owner.id, planId: free.id, name: "منشأة اختبار الكتالوج", slug: `rc-store-${suffix}`, businessType: "خدمات أعمال", onboardingCompleted: true, logoUrl: "/images/logo.png" } });
+  await grantPaidWorkspace(db,business.id);
   return { adminId: admin.id, adminToken, ownerId: owner.id, ownerToken, businessId: business.id, sku: `rc-central-product-${suffix}`.toLowerCase() };
 }
 
@@ -38,6 +40,7 @@ async function cleanup(fixture: Fixture) {
   await db.businessStoreOrder.deleteMany({ where: { businessId: fixture.businessId } });
   await db.$executeRaw`DELETE FROM "BusinessStoreCatalogAudit" WHERE "productId" IN (SELECT "id" FROM "BusinessStoreCatalogProduct" WHERE "sku" = ${fixture.sku})`;
   await db.$executeRaw`DELETE FROM "BusinessStoreCatalogProduct" WHERE "sku" = ${fixture.sku}`;
+  await db.subscription.deleteMany({where:{businessId:fixture.businessId}});
   await db.business.delete({ where: { id: fixture.businessId } });
   await db.session.deleteMany({ where: { userId: { in: [fixture.adminId, fixture.ownerId] } } });
   await db.authIdentity.deleteMany({ where: { userId: fixture.ownerId } });
