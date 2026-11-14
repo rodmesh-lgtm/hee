@@ -1,5 +1,6 @@
 "use server";
 
+import { commercialAccess } from "../lib/commercial-access";
 import { assertStaffCapacity,CommercialLimitError } from "../lib/commercial-usage";
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
@@ -20,7 +21,8 @@ function safeRole(form: FormData) { const role = text(form, "role"); return ["ad
 
 export async function inviteStaffAction(_state: StaffActionState, form: FormData): Promise<StaffActionState> {
   const user = await getCurrentUserForWrites();
-  const business = await getActiveBusinessForUser(user.id); // Owner-only; no section can delegate member administration.
+  const business = await getActiveBusinessForUser(user.id);
+  if (business && (await commercialAccess(business.id)).code === "FREE") redirect("/dashboard/billing/manage?feature=staff"); // Owner-only; no section can delegate member administration.
   if (!business) return { error: "إدارة الموظفين متاحة لمالك المنشأة فقط." };
   const name = text(form, "name"), email = text(form, "email").toLowerCase();
   const permissions = staffSections(form.getAll("permissions"));
@@ -59,6 +61,7 @@ export async function inviteStaffAction(_state: StaffActionState, form: FormData
 export async function updateStaffAction(_state: StaffActionState, form: FormData): Promise<StaffActionState> {
   const user = await getCurrentUserForWrites();
   const business = await getActiveBusinessForUser(user.id);
+  if (business && (await commercialAccess(business.id)).code === "FREE") redirect("/dashboard/billing/manage?feature=staff");
   if (!business) return { error: "إدارة الموظفين متاحة للمالك فقط." };
   const status = text(form, "status"), id = text(form, "memberId");
   if (!["active", "suspended", "revoked"].includes(status)) return { error: "حالة غير صحيحة." };
@@ -80,6 +83,7 @@ export async function updateStaffAction(_state: StaffActionState, form: FormData
 export async function revokeStaffInvitationAction(form: FormData) {
   const user = await getCurrentUserForWrites();
   const business = await getActiveBusinessForUser(user.id);
+  if (business && (await commercialAccess(business.id)).code === "FREE") redirect("/dashboard/billing/manage?feature=staff");
   if (!business) return;
   await db.oAuthState.deleteMany({ where: { id: text(form, "invitationId"), nonce: business.id, provider: STAFF_INVITE_PROVIDER } });
   revalidatePath("/dashboard/staff");revalidatePath("/Laundromat/Staff");
@@ -97,6 +101,7 @@ export async function acceptStaffInvitationAction(form: FormData) {
   const token = text(form, "token");
   const invitation = await readStaffInvitation(token);
   if (!invitation || !user.emailVerifiedAt || invitation.invitation.email !== user.email.toLowerCase() || invitation.business.ownerId === user.id) redirect("/join-team?status=invalid");
+  if ((await commercialAccess(invitation.business.id)).code === "FREE") redirect("/join-team?status=invalid");
   const accepted = await db.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`staff-invite-accept:${inviteHash(token)}`}))`;
     const pending = await tx.oAuthState.findFirst({ where: { id: invitation.row.id, provider: STAFF_INVITE_PROVIDER, state: inviteHash(token), expiresAt: { gt: new Date() } } });

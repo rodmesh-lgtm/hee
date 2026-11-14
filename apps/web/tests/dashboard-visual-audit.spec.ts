@@ -1,3 +1,4 @@
+import { grantPaidWorkspace } from "./helpers/paid-workspace";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -20,6 +21,7 @@ async function seedWorkspace():Promise<Seeded>{
   const plan=await db.businessPlan.upsert({where:{code:"FREE"},update:{isActive:true},create:{code:"FREE",name:"Free",monthlyPrice:0,productLimit:3,isActive:true}});
   const user=await db.user.create({data:{name:"INFRO Visual QA",email:`infro-visual-${suffix}@hee.test`,passwordHash:"visual-only",emailVerifiedAt:new Date()}});
   const business=await db.business.create({data:{ownerId:user.id,planId:plan.id,name:"منشأة مراجعة INFRO",slug:`visual-audit-${suffix}`,businessType:"خدمات أعمال",shortDescription:"مساحة اختبار بصرية ووظيفية قبل الإطلاق",description:"بيانات مؤقتة لمراجعة واجهة INFRO.",phone:"0555000011",whatsapp:"966555000011",city:"الرياض",district:"العليا",isPublished:false,onboardingCompleted:true}});
+  await grantPaidWorkspace(db,business.id);
   await db.service.create({data:{businessId:business.id,name:"استشارة أعمال",description:"خدمة اختبار",price:250,sortOrder:0}});
   await db.analyticsEvent.createMany({data:[
     {businessId:business.id,eventType:"support_requested",metadata:{subject:"متابعة ربط رقم واتساب",message:"طلب تجريبي لمراجعة خطوات الربط وظهور الرقم في لوحة المنشأة.",category:"technical",status:"open",context:"meta"}},

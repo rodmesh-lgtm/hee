@@ -1,5 +1,6 @@
 import "server-only";
 import { ACCOUNTING_SECURITY_HOLD } from "./accounting-security";
+import { canUsePaidSection, paidSectionForPermission } from "./paid-sections";
 import { commercialAccess } from "./commercial-access";
 
 import { cookies, headers } from "next/headers";
@@ -38,6 +39,8 @@ export async function getActiveBusinessForUser(userId: string, section?: StaffSe
       const members=await db.businessMember.findMany({where:{businessId:business.id,status:"active"},select:{id:true},orderBy:[{createdAt:"asc"},{id:"asc"}]});
       if(!withinAnalyticsSeatLimit(members.map(member=>member.id),business.members[0]?.id??"",plan.staffLimit))return null;
     }
+    const paidSection = paidSectionForPermission(section);
+    if (paidSection && !canUsePaidSection(await commercialAccess(business.id), paidSection)) return null;
     if(section==="liveView"||section.startsWith("laundry")){
       const plan=await commercialAccess(business.id);
       if(section==="liveView"?!plan.liveView:!plan.cashier)return null;

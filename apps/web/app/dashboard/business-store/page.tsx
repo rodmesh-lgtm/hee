@@ -1,3 +1,4 @@
+import { requirePaidSectionPage } from "../../lib/paid-section-page";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -8,6 +9,7 @@ import { getCurrentUser } from "../../lib/auth";
 import { listBusinessStoreCatalogItems } from "../../lib/business-store-catalog";
 
 export default async function BusinessStorePage(){
+  await requirePaidSectionPage("store");
   const user=await getCurrentUser();
   if(!user)redirect("/login");
   const business=await getActiveBusinessForUser(user.id, "store");

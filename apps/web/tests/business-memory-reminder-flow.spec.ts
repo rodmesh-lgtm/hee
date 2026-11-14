@@ -1,3 +1,4 @@
+import { grantPaidWorkspace } from "./helpers/paid-workspace";
 import { expect, test, type Browser, type BrowserContext } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -18,6 +19,7 @@ async function seedWorkspace(label:string):Promise<Workspace>{
   const plan=await db.businessPlan.upsert({where:{code:"FREE"},update:{isActive:true},create:{code:"FREE",name:"Free",monthlyPrice:0,productLimit:3,isActive:true}});
   const user=await db.user.create({data:{name:`INFRO Flow ${label}`,email:`infro-flow-${suffix}@hee.test`,passwordHash:"flow-only",emailVerifiedAt:new Date()}});
   const business=await db.business.create({data:{ownerId:user.id,planId:plan.id,name:`منشأة تدفق ${label}`,slug:`infro-flow-${suffix}`,businessType:"خدمات أعمال",shortDescription:"اختبار تدفق ذاكرة الأعمال والتذكير",description:"بيانات اختبار مؤقتة",city:"الرياض",district:"العليا",isPublished:false,onboardingCompleted:true}});
+  await grantPaidWorkspace(db,business.id);
   const sessionToken=crypto.randomUUID();
   await db.session.create({data:{token:sessionToken,userId:user.id,expiresAt:new Date(Date.now()+60*60*1000)}});
   return{userId:user.id,businessId:business.id,sessionToken};

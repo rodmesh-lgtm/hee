@@ -1,3 +1,4 @@
+import { grantPaidWorkspace } from "./helpers/paid-workspace";
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -38,6 +39,7 @@ async function seed(): Promise<Fixture> {
       onboardingCompleted: true,
     },
   });
+  await grantPaidWorkspace(db,business.id);
   const token = crypto.randomUUID();
   await db.session.create({ data: { token, userId: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) } });
   return { userId: user.id, businessId: business.id, token };

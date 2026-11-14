@@ -1,3 +1,4 @@
+import { requirePaidSectionPage } from "../../lib/paid-section-page";
 import { LiveViewPreparation } from "./preparation";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -11,6 +12,7 @@ import { liveGatewayConfig } from "../../lib/live-view/gateway";
 import { AddStationForm, EndSessionForm, NewSessionForm, StationControls, ReissueSessionForm } from "./forms";
 export const dynamic = "force-dynamic";
 export default async function LiveViewPage({ searchParams }: { searchParams: Promise<{q?:string;status?:string}> }) {
+  await requirePaidSectionPage("liveView");
   const user = await getCurrentUser(); if (!user) redirect("/login");
   const business = await getActiveBusinessForUser(user.id, "liveView");
   if (!business) return <section dir="rtl" className="rounded-2xl border p-6"><h1 className="text-xl font-bold">المشاهدة المؤقتة</h1><p className="my-3">تتوفر ضمن الباقة الشاملة، ويحدد المالك صلاحية الموظفين للوصول إليها.</p><Link href="/dashboard/plans" className="font-bold underline">الباقات وحدود المشاهدة</Link></section>;

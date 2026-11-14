@@ -1,3 +1,4 @@
+import { grantPaidWorkspace } from "./helpers/paid-workspace";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
@@ -14,6 +15,7 @@ test("booking bell alerts on new tenant bookings, supports mute and stops when a
   const employee = await db.user.create({ data: { name: "Bell Staff", email: `bell-staff-${suffix}@example.invalid`, emailVerifiedAt: new Date() } });
   const plan = await db.businessPlan.upsert({ where: { code: "FREE" }, update: {}, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3 } });
   const business = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "اختبار جرس المواعيد", slug: `bell-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
+  await grantPaidWorkspace(db,business.id);
   const other = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "منشأة أخرى", slug: `bell-other-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
   const member = await db.businessMember.create({ data: { businessId: business.id, userId: employee.id, role: "viewer", status: "active", permissions: ["appointments"] } });
   const customer = await db.customer.create({ data: { businessId: business.id, name: "عميل اختباري", phone: "+966555000099" } });
@@ -69,6 +71,7 @@ test("booking bell alerts on new tenant bookings, supports mute and stops when a
     await db.booking.deleteMany({ where: { businessId: { in: [business.id, other.id] } } });
     await db.customer.deleteMany({ where: { businessId: { in: [business.id, other.id] } } });
     await db.businessMember.deleteMany({ where: { businessId: business.id } });
+    await db.subscription.deleteMany({where:{businessId:business.id}});
     await db.business.deleteMany({ where: { id: { in: [business.id, other.id] } } });
     await db.session.deleteMany({ where: { userId: employee.id } });
     await db.user.deleteMany({ where: { id: { in: [owner.id, employee.id] } } });

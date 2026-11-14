@@ -1,3 +1,4 @@
+import { requirePaidSectionPage } from "../../lib/paid-section-page";
 import { getPublicBusinessUrlFromRequest } from "../../lib/public-url";
 import { getCurrentUser } from "../../lib/auth";
 import Link from "next/link";
@@ -99,6 +100,7 @@ export default async function DashboardWorkingHoursPage({
   const sallaResult = Array.isArray(params.salla) ? params.salla[0] : params.salla;
   const wooCommerceResult = Array.isArray(params.woocommerce) ? params.woocommerce[0] : params.woocommerce;
   const shopifyResult = Array.isArray(params.shopify) ? params.shopify[0] : params.shopify;
+  await requirePaidSectionPage("appointments");
   const activeBusiness = await getOwnedBusinessForRead("appointments");
   if (!activeBusiness) redirect("/onboarding");
 

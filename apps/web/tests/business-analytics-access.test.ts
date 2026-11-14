@@ -1,3 +1,4 @@
+import * as paidSections from "../app/lib/paid-sections";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -39,6 +40,7 @@ test('active-business resolution isolates financial readers and checks paid capa
   runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText, {
     exports,
     require:(name:string)=>{
+      if(name==='./paid-sections')return paidSections;
       if(name==='server-only')return {};
       if(name==='./accounting-security')return {ACCOUNTING_SECURITY_HOLD:false};
       if(name==='./commercial-access')return {commercialAccess:async()=>({staffLimit:limit})};

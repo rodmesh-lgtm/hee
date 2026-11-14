@@ -1,3 +1,4 @@
+import { requirePaidSectionPage } from "../../lib/paid-section-page";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
@@ -21,6 +22,7 @@ function BookingAction({ id, status, label, danger = false, confirm }: { id: str
 }
 
 export default async function AppointmentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  await requirePaidSectionPage("appointments");
   const business = await getOwnedBusinessForRead("appointments");
   if (!business) redirect("/onboarding");
   const params = await searchParams;

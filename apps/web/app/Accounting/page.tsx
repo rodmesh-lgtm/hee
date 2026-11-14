@@ -1,3 +1,4 @@
+import { requirePaidSectionPage } from "../lib/paid-section-page";
 import { ACCOUNTING_SECURITY_HOLD } from "../lib/accounting-security";
 import { AccountingSecurityNotice } from "../Laundromat/security-notice";
 import { getRequestLocale } from "../lib/i18n-server";
@@ -19,6 +20,7 @@ import "../Laundromat/laundry.css";
 export const dynamic = "force-dynamic";
 export async function generateMetadata():Promise<Metadata>{const locale=await getRequestLocale();return {title:{absolute:`INFRO · ${uiText(locale,"البرنامج المحاسبي")}`},robots:{index:false,follow:false,noarchive:true}};}
 export default async function AccountingProgram({ searchParams }: { searchParams: Promise<{ view?: string; q?: string; filter?: string }> }) {
+  await requirePaidSectionPage("accounting");
   const user = await getCurrentUser();
   const business = user ? await getDashboardBusinessForUser(user.id, true) : null;
   if (!user || !business) return <UiAttributes direction><main className="laundry-gate" dir="rtl"><h1><UiText>{"البرنامج المحاسبي"}</UiText></h1><p><UiText>{"سجّل الدخول واختر منشأتك للوصول إلى حساباتها."}</UiText></p><Link href={user ? "/dashboard" : "/login"}><UiText>{user ? "اختيار المنشأة" : "تسجيل الدخول"}</UiText></Link></main></UiAttributes>;
