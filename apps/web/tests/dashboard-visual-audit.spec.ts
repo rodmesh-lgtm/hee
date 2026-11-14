@@ -21,7 +21,6 @@ async function seedWorkspace():Promise<Seeded>{
   const plan=await db.businessPlan.upsert({where:{code:"FREE"},update:{isActive:true},create:{code:"FREE",name:"Free",monthlyPrice:0,productLimit:3,isActive:true}});
   const user=await db.user.create({data:{name:"INFRO Visual QA",email:`infro-visual-${suffix}@hee.test`,passwordHash:"visual-only",emailVerifiedAt:new Date()}});
   const business=await db.business.create({data:{ownerId:user.id,planId:plan.id,name:"منشأة مراجعة INFRO",slug:`visual-audit-${suffix}`,businessType:"خدمات أعمال",shortDescription:"مساحة اختبار بصرية ووظيفية قبل الإطلاق",description:"بيانات مؤقتة لمراجعة واجهة INFRO.",phone:"0555000011",whatsapp:"966555000011",city:"الرياض",district:"العليا",isPublished:false,onboardingCompleted:true}});
-  await grantPaidWorkspace(db,business.id);
   await db.service.create({data:{businessId:business.id,name:"استشارة أعمال",description:"خدمة اختبار",price:250,sortOrder:0}});
   await db.analyticsEvent.createMany({data:[
     {businessId:business.id,eventType:"support_requested",metadata:{subject:"متابعة ربط رقم واتساب",message:"طلب تجريبي لمراجعة خطوات الربط وظهور الرقم في لوحة المنشأة.",category:"technical",status:"open",context:"meta"}},
@@ -646,6 +645,8 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
 
   test("captures launch-critical public and authenticated surfaces without overflow, collisions, light islands or compressed grids",async({browser})=>{
     test.setTimeout(600_000);if(!seeded)throw new Error("visual fixture missing");
+    const operationalTerm=await grantPaidWorkspace(db,seeded.businessId);
+    try {
     const routes=[{path:"/dashboard",name:"command-space"},{path:"/dashboard/notes",name:"business-memory"},{path:"/dashboard/reminders",name:"smart-reminders"},{path:"/dashboard/digital-identity",name:"digital-identity"},{path:"/dashboard/tools",name:"tools"},{path:"/dashboard/verification",name:"verification"},{path:"/dashboard/billing/manage",name:"billing"},{path:"/dashboard/whatsapp",expectedPath:"/dashboard/billing/manage",name:"whatsapp-gate"}];
     routes.push({path:"/dashboard/my-page",name:"my-page"},{path:"/dashboard/working-hours",name:"booking-schedule"},{path:"/dashboard/services",name:"services"},{path:"/dashboard/inbox",name:"inbox"},{path:"/dashboard/appointments",name:"appointments"},{path:"/dashboard/appointments?tab=branches",name:"appointment-branches"},{path:"/dashboard/settings",name:"settings"});
     routes.push({path:"/dashboard/support?context=meta",name:"contextual-support"},{path:"/dashboard/retail-analytics",name:"infro360-work-center"});
@@ -662,6 +663,7 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
     }
     for(const adminViewport of [{viewportName:"desktop",viewport:{width:1440,height:960}},{viewportName:"tablet",viewport:{width:768,height:1024}},{viewportName:"mobile",viewport:{width:390,height:844}}])for(const theme of ["light","dark"] as const)results.push(...await auditAdminRoute(browser,{...adminViewport,theme,token:seeded.adminSessionToken,businessId:seeded.businessId}));
     await writeFile(`${outDir}/metrics.json`,JSON.stringify(results,null,2),"utf8");
+    } finally { await db.subscription.delete({where:{id:operationalTerm.id}}); }
   });
   test("account sessions are private and revocation preserves the current login", async ({ browser }) => {
     test.setTimeout(120_000);
