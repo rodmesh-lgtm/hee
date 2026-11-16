@@ -309,6 +309,20 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await expect(lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true})).toBeEnabled();
   await lb.page.getByRole('button',{name:'دفع كامل',exact:true}).click();await expect(lb.page.getByLabel('الدفعة المستلمة',{exact:true})).toHaveValue('10.00');
   await lb.page.getByLabel('طابعة الفاتورة',{exact:true}).selectOption('thermal');
+  // A touchscreen layout prioritizes the basket without losing draft fields.
+  await lb.page.getByRole('button',{name:'شاشة لمس',exact:true}).click();
+  await expect(lb.page.locator('.laundry')).toHaveAttribute('data-pos-display','touch');
+  await expect(lb.page.locator('.ld-checkout-details')).not.toHaveAttribute('open','');
+  const touchPlus=await lb.page.getByRole('button',{name:'زيادة فرشة غرفة — غسيل وكوي',exact:true}).boundingBox();
+  expect(touchPlus!.width).toBeGreaterThanOrEqual(44);expect(touchPlus!.height).toBeGreaterThanOrEqual(44);
+  await lb.page.locator('.ld-services').evaluate(el=>el.scrollTop=0);
+  await lb.page.screenshot({path:'test-results/cashier-pos-touch-basket.png',fullPage:true});
+  await lb.page.keyboard.press('F8');
+  await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toBeFocused();
+  await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toHaveValue(phoneB);
+  await expect(lb.page.getByLabel('الدفعة المستلمة',{exact:true})).toHaveValue('10.00');
+  await lb.page.getByRole('button',{name:'كمبيوتر',exact:true}).click();
+  await expect(lb.page.locator('.laundry')).toHaveAttribute('data-pos-display','desktop');
   for(const viewport of [{width:1366,height:768},{width:1280,height:720},{width:1024,height:600}]){
    await lb.page.setViewportSize(viewport);expect(await lb.page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
    expect(await lb.page.evaluate(()=>document.documentElement.scrollHeight-innerHeight)).toBeLessThanOrEqual(2);
@@ -332,6 +346,14 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    expect(plusBox!.x).toBeGreaterThan(iconBox!.x);expect(plusBox!.x+plusBox!.width).toBeLessThan(iconBox!.x+iconBox!.width);
 
    await lb.page.screenshot({path:`test-results/cashier-compact-desktop-${viewport.width}.png`,fullPage:true});
+   if(viewport.height<=700){
+    await expect(lb.page.locator('.ld-checkout-details')).not.toHaveAttribute('open','');
+    await lb.page.keyboard.press('F8');
+    await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toBeFocused();
+    await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toBeInViewport({ratio:1});
+    await lb.page.screenshot({path:'test-results/cashier-short-screen-customer.png',fullPage:true});
+    await lb.page.locator('.ld-checkout-details>summary').click();
+   }
   }
   await lb.page.setViewportSize({width:1366,height:768});
   for(let i=0;i<3&&await lb.page.locator('[data-operations-shell]').getAttribute('data-dashboard-theme')!=='dark';i++)await lb.page.locator('.infro-theme-toggle').click();
