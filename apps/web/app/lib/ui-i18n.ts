@@ -4,6 +4,12 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "إضافة بيانات العميل والتسليم": {"en": "Add customer and delivery details", "zh-CN": "添加客户和交付信息", "es": "Añadir cliente y entrega", "ur": "کسٹمر اور ترسیل کی تفصیلات شامل کریں"},
+  "العميل وتفاصيل الطلب": {"en": "Customer and order details", "zh-CN": "客户和订单详情", "es": "Cliente y detalles del pedido", "ur": "کسٹمر اور آرڈر کی تفصیلات"},
+  "شاشة لمس": {"en": "Touchscreen", "zh-CN": "触摸屏", "es": "Pantalla táctil", "ur": "ٹچ اسکرین"},
+  "كمبيوتر": {"en": "Desktop", "zh-CN": "电脑", "es": "Ordenador", "ur": "کمپیوٹر"},
+  "نقطة البيع": {"en": "Point of sale", "zh-CN": "销售点", "es": "Punto de venta", "ur": "پوائنٹ آف سیل"},
+  "طريقة استخدام الكاشير": {"en": "Cashier display", "zh-CN": "收银界面", "es": "Vista de caja", "ur": "کیشیئر ڈسپلے"},
   "حذف {name} من الطلب": {"en":"Remove {name} from order","zh-CN":"从订单中移除 {name}","es":"Quitar {name} del pedido","ur":"آرڈر سے {name} ہٹائیں"},
   "حُذف {name} من الطلب": {"en":"{name} removed from order","zh-CN":"已从订单中移除 {name}","es":"Se quitó {name} del pedido","ur":"آرڈر سے {name} ہٹا دیا گیا"},
   "تراجع عن الحذف": {"en":"Undo removal","zh-CN":"撤销移除","es":"Deshacer eliminación","ur":"حذف کو واپس کریں"},

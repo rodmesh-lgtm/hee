@@ -433,3 +433,79 @@
  .ld-pos-mode .ld-checkout-footer{position:static}
  .ld-pos-mode .ld-save-actions .ld-primary{min-height:46px}
 }
+
+/* POS workspace: the basket owns the available height; customer details are
+   a disclosure, while collection and receipt actions remain in a fixed footer.
+   Screen-only rules deliberately do not affect thermal/A4 receipt geometry. */
+@media screen {
+ .ld-pos-mode .ld-pos-display{display:flex;align-items:center;gap:4px;margin-bottom:12px;flex-shrink:0}
+ .ld-pos-display>span{margin-inline-end:auto;font-size:20px;font-weight:850}
+ .ld-pos-display button{min-height:40px;padding:8px 16px;border:1px solid var(--ld-line);border-radius:8px;background:var(--ld-surface,#fff);color:var(--ld-ink);font:inherit;font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation}
+ .ld-pos-display button[aria-pressed=true]{background:var(--ld-ink);color:var(--ld-surface,#fff);border-color:var(--ld-ink)}
+ .ld-pos-mode .ld-catalog>.ld-panel-title{padding-bottom:10px;border-bottom:1px solid var(--ld-line)}
+ .ld-pos-mode .ld-product-search input{height:44px!important;min-height:44px!important;font-size:14px!important}
+ .ld-pos-mode .ld-product-search>svg{top:13px}
+ .ld-pos-mode .ld-filters{flex-shrink:0;max-height:100px;gap:6px}
+ .ld-pos-mode .ld-filters button{min-height:40px;padding:8px 14px;font-size:12px;border-radius:8px;font-weight:700}
+ .ld-pos-mode .ld-operation-tabs button{min-height:36px}
+ .ld-pos-mode .ld-catalog .ld-services{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;align-items:start}
+ .ld-pos-mode .ld-product-card{position:relative;padding:12px;border-radius:12px;border-top:3px solid #087e80;background:var(--ld-surface,#fff);align-self:start}
+ .ld-pos-mode .ld-product-card>small{display:block;margin:0 0 4px;font-size:10px}
+ .ld-pos-mode .ld-product-card h3{font-size:15px;line-height:1.6;margin:0 0 12px}
+ .ld-pos-mode .ld-services .ld-product-options button{min-height:76px;background:color-mix(in srgb,var(--ld-surface,#fff) 94%,#087e80);border-color:transparent;padding:10px}
+ .ld-pos-mode .ld-product-options button>span:not(.ld-product-add){font-size:13px;font-weight:700}
+ .ld-pos-mode .ld-product-options button strong{font-size:12px;font-weight:500}
+ .ld-pos-mode .ld-product-options button.selected{background:color-mix(in srgb,var(--ld-surface,#fff) 85%,#087e80);border-color:#087e80}
+ .ld-pos-mode .ld-product-add-icon{width:36px;height:36px;border-radius:10px;box-shadow:none}
+ .ld-pos-mode .ld-cart>.ld-panel-title{padding:4px 0 12px;border-bottom:1px solid var(--ld-line);flex-shrink:0}
+ .ld-pos-mode .ld-cart>.ld-panel-title h2{font-size:18px}
+ .ld-pos-mode .ld-cart>.ld-panel-title>span{padding:5px 10px;border-radius:6px;background:color-mix(in srgb,var(--ld-surface,#fff) 87%,#087e80);font-weight:800}
+ .ld-pos-mode .ld-cart-lines{flex:1 1 120px;min-height:68px;max-height:none;margin:0;padding:0 2px 8px;border-bottom:0}
+ .ld-pos-mode .ld-cart-lines>.ld-muted{display:grid;place-items:center;min-height:100%;padding:16px;text-align:center}
+ .ld-pos-mode .ld-cart-line{padding:12px 0;gap:10px}
+ .ld-pos-mode .ld-cart-line-info strong{font-size:14px}
+ .ld-pos-mode .ld-cart-line-actions{flex-direction:row-reverse;align-items:center;gap:6px}
+ .ld-pos-mode .ld-remove-item{min-height:40px}
+ .ld-pos-mode .ld-stepper button{width:40px;height:40px;min-height:40px}
+ .ld-pos-mode .ld-checkout-form{flex:0 1 auto;min-height:0}
+ .ld-pos-mode .ld-checkout-details{min-height:0;overflow:auto;border-top:1px solid var(--ld-line);flex-shrink:1}
+ .ld-pos-mode .ld-checkout-details>summary{position:relative;cursor:pointer;min-height:48px;padding:10px 4px;list-style-position:inside;font-size:13px;font-weight:800}
+ .ld-checkout-details>summary>small{display:block;font-size:11px;font-weight:400;color:var(--ld-muted);margin:3px 16px 0;direction:ltr;text-align:start}
+ .ld-pos-mode .ld-checkout-fields{max-height:28dvh;overflow:auto;padding:8px 3px}
+ .ld-pos-mode .ld-checkout-footer{border-top:1px solid var(--ld-line);padding-top:12px;margin-top:0;max-height:48dvh;overflow:auto}
+ .ld-pos-mode .ld-total{padding:7px 0}
+ .ld-pos-mode .ld-total strong{font-size:28px;font-variant-numeric:tabular-nums}
+ .ld-pos-mode .ld-save-actions .ld-primary{min-height:50px;font-size:15px;border-radius:10px}
+ .ld-pos-mode .ld-save-actions .ld-outline{min-height:36px;font-size:12px}
+ .ld-pos-mode .ld-cashier-tip{font-size:10px}
+ .ld-pos-mode[data-pos-display=touch] .ld-catalog .ld-services{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+ .ld-pos-mode[data-pos-display=touch] :is(.ld-filters button,.ld-operation-tabs button,.ld-speed-options button,.ld-schedule-shortcuts button,.ld-customer-lookup,.ld-pos-option>summary,.ld-remove-item,.ld-pay-full){min-height:44px;font-size:13px;padding:10px}
+ .ld-pos-mode[data-pos-display=touch] .ld-services .ld-product-options button{min-height:96px}
+ .ld-pos-mode[data-pos-display=touch] .ld-product-card h3{font-size:17px}
+ .ld-pos-mode[data-pos-display=touch] .ld-product-options button>span:not(.ld-product-add){font-size:15px}
+ .ld-pos-mode[data-pos-display=touch] .ld-stepper button{width:46px;min-height:46px;height:46px}
+ [data-operations-shell] .laundry.ld-pos-mode[data-pos-display=touch] :is(input,select):not([type=hidden]):not([type=checkbox]):not([type=radio]){height:46px;min-height:46px;font-size:16px}
+ .ld-pos-mode[data-pos-display=touch] .ld-checkout-details>summary{min-height:56px;font-size:15px}
+ .ld-pos-mode[data-pos-display=touch] .ld-save-actions .ld-primary{min-height:56px}
+ .ld-pos-mode button{touch-action:manipulation}
+}
+@media screen and (min-width:900px){
+ .ld-pos-mode .ld-pos{grid-template-columns:minmax(0,1fr) minmax(370px,30%)}
+ .ld-pos-mode .ld-cart:has(.ld-checkout-details[open]) .ld-cart-line-actions{flex-direction:column}
+}
+@media screen and (max-height:700px) and (min-width:900px){
+ .ld-pos-mode .ld-checkout-fields{max-height:20dvh}
+ .ld-pos-mode .ld-checkout-footer{padding-top:6px}
+ .ld-pos-mode .ld-cashier-tip{display:none}
+ .ld-pos-mode .ld-total strong{font-size:24px}
+}
+@media screen and (max-width:700px){
+ .ld-pos-mode .ld-pos-display>span{font-size:18px}
+ .ld-pos-mode .ld-catalog .ld-services,.ld-pos-mode[data-pos-display=touch] .ld-catalog .ld-services{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .ld-pos-mode .ld-product-card{padding:9px}
+ .ld-pos-mode .ld-product-card h3{font-size:14px}
+ .ld-pos-mode .ld-cart-lines{flex:none;max-height:none;min-height:100px}
+ .ld-pos-mode .ld-checkout-fields{max-height:none;overflow:visible}
+ .ld-pos-mode .ld-checkout-footer{max-height:none}
+ .ld-pos-mode .ld-cart-line-actions{flex-direction:column}
+}
