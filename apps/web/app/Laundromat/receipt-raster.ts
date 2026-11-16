@@ -1,6 +1,8 @@
+// Cache only embedded font CSS, never invoice contents or customer images.
+const fontCss=new Map<string,Promise<string>>();
 /** Rasterize the existing Arabic receipt so printer code pages cannot reorder it. */
 export async function receiptPng(receipt:HTMLElement):Promise<string>{
- const {toCanvas}=await import('html-to-image');
+ const {toCanvas,getFontEmbedCSS}=await import('html-to-image');
  const width=72*96/25.4;
  const host=document.createElement('div');host.className='laundry ld-direct-print-host';host.setAttribute('aria-hidden','true');
  Object.assign(host.style,{position:'fixed',left:'-10000px',top:'0',width:`${width}px`,background:'#fff',color:'#000',pointerEvents:'none',minHeight:'0'});
@@ -12,7 +14,11 @@ export async function receiptPng(receipt:HTMLElement):Promise<string>{
   await Promise.all(Array.from(clone.querySelectorAll('img')).map(async image=>{image.loading='eager';try{await image.decode();}catch{throw new Error('تعذر تحميل شعار الفاتورة؛ أعد المحاولة أو استخدم طباعة المتصفح');}}));
   const height=Math.ceil(clone.getBoundingClientRect().height),pixels=Math.ceil(height*576/width);
   if(pixels<1||pixels>30000)throw new Error('الفاتورة أطول من الحد المدعوم للطباعة المباشرة');
-  const canvas=await toCanvas(clone,{width,height,canvasWidth:576,canvasHeight:pixels,pixelRatio:1,skipAutoScale:true,backgroundColor:'#fff',preferredFontFormat:'woff2',cacheBust:false});
+  const fontKey=clone.style.fontFamily;
+  let embedded=fontCss.get(fontKey);
+  if(!embedded){embedded=getFontEmbedCSS(clone,{preferredFontFormat:"woff2"}).catch(error=>{fontCss.delete(fontKey);throw error;});fontCss.set(fontKey,embedded);}
+  const fontEmbedCSS=await embedded;
+  const canvas=await toCanvas(clone,{fontEmbedCSS,width,height,canvasWidth:576,canvasHeight:pixels,pixelRatio:1,skipAutoScale:true,backgroundColor:'#fff',preferredFontFormat:'woff2',cacheBust:false});
   const context=canvas.getContext('2d');if(!context)throw new Error('تعذر تجهيز صورة الفاتورة');
   const image=context.getImageData(0,0,canvas.width,canvas.height);
   for(let i=0;i<image.data.length;i+=4){const value=(image.data[i]*299+image.data[i+1]*587+image.data[i+2]*114)/1000;const ink=value<180?0:255;image.data[i]=image.data[i+1]=image.data[i+2]=ink;image.data[i+3]=255;}

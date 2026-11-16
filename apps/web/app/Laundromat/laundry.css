@@ -570,3 +570,6 @@
 @media screen and (max-width:700px){
  .ld-pos-mode .ld-order-scroll{flex:none;overflow:visible;padding:0;scrollbar-gutter:auto}
 }
+@media screen and (min-width:900px){
+ .ld-pos-mode .ld-cart:has(.ld-checkout-details[open]) .ld-cart-line-actions{flex-direction:row-reverse;flex-wrap:wrap}
+}

@@ -1,0 +1,13 @@
+import "server-only";
+import { db } from "./db";
+import type { LaundryTicket } from "./laundry-domain";
+export async function savedCashierReceipt(businessId:string,ticketId:string){
+ const rows=await db.$queryRaw<LaundryTicket[]>`SELECT "id","number","customerName","phone","items","total","paid",returned,refunded,"status","dueAt","notes","createdAt",(SELECT COALESCE(jsonb_agg(jsonb_build_object('method',c.method,'amount',c.amount) ORDER BY c.method),'[]'::jsonb) FROM (SELECT p.method,SUM(p.amount)::int AS amount FROM "LaundryPayment" p WHERE p."businessId"=${businessId} AND p."ticketId"="LaundryTicket".id GROUP BY p.method) c) AS collections,
+    (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'kind',s.kind,'originalAmount',s.amount,'usedAmount',COALESCE(used.amount,0),
+       'remaining',s.amount-COALESCE((SELECT SUM(m.amount) FROM "LaundryPrepaidMovement" m WHERE m."businessId"=s."businessId" AND m."prepaidId"=s.id AND m.kind IN ('redeem','refund') AND m."createdAt"<=COALESCE(used.at,"LaundryTicket"."createdAt")),0)+COALESCE((SELECT SUM(r.amount) FROM "CashierRefund" r WHERE r."businessId"=s."businessId" AND r."prepaidId"=s.id AND r."createdAt"<=COALESCE(used.at,"LaundryTicket"."createdAt")),0),
+       'unitsRemaining',CASE WHEN s.kind='credit' THEN NULL ELSE s."unitsIncluded"-COALESCE((SELECT SUM(m.units) FROM "LaundryPrepaidMovement" m WHERE m."businessId"=s."businessId" AND m."prepaidId"=s.id AND m.kind IN ('redeem','refund') AND m."createdAt"<=COALESCE(used.at,"LaundryTicket"."createdAt")),0)+COALESCE((SELECT SUM(r.units) FROM "CashierRefund" r WHERE r."businessId"=s."businessId" AND r."prepaidId"=s.id AND r."createdAt"<=COALESCE(used.at,"LaundryTicket"."createdAt")),0) END) ORDER BY s.id),'[]'::jsonb)
+     FROM "LaundryPrepaid" s LEFT JOIN LATERAL (SELECT MAX(m."createdAt") AS at,SUM(m.amount)::int AS amount FROM "LaundryPrepaidMovement" m JOIN "LaundryPayment" p ON p.id=m."paymentId" AND p."businessId"=m."businessId" WHERE m."businessId"=s."businessId" AND m."prepaidId"=s.id AND m.kind='redeem' AND p."ticketId"="LaundryTicket".id) used ON TRUE
+     WHERE s."businessId"=${businessId} AND s."customerId"="LaundryTicket"."customerId" AND (used.at IS NOT NULL OR (s."createdAt"<="LaundryTicket"."createdAt" AND s."startsAt"<="LaundryTicket"."createdAt" AND s."expiresAt">"LaundryTicket"."createdAt"))) AS "subscriptionBalances" FROM "LaundryTicket" WHERE "businessId"=${businessId} AND id=${ticketId} LIMIT 1`;
+ const row=rows[0];
+ return row?{...row,dueAt:row.dueAt?.toISOString()??null,createdAt:row.createdAt.toISOString()}:undefined;
+}

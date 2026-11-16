@@ -17,6 +17,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
+import { savedCashierReceipt } from "../lib/cashier-saved-receipt";
 import { cashierValidationMessage } from "../lib/cashier-validation";
 import { ensureLaundryCustomer } from "../lib/laundry-customer";
 import { postLaundrySource } from "../lib/laundry-ledger";
@@ -35,12 +36,12 @@ const command = z.discriminatedUnion("type", [
   z.object({type:z.literal("urgent-settings"),enabled:z.boolean(),requestId:key}),
   z.object({ type:z.literal("urgent-price"),id:key,price:z.string(),requestId:key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
-  z.object({ type: z.literal("order"), notificationConsent:z.boolean().default(false), discount:z.object({kind:z.enum(["none","percent","fixed"]),value:z.string().max(20)}).optional(), commission:z.object({name:z.string().trim().min(2).max(100),phone:z.string().min(8).max(40),kind:z.enum(["fixed","percent"]),value:z.string().max(20)}).optional(), vehicleModel:z.string().trim().max(80).optional(),vehiclePlate:z.string().trim().max(30).optional(),vehicleMileage:z.string().trim().max(7).optional(), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().max(100).default(""), phone: z.string().min(8).max(40), dueAt: z.string().datetime({ offset: true }), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().min(0.01).max(10000)})).min(1).max(80) }),
+  z.object({ type: z.literal("order"), notificationConsent:z.boolean().default(false), discount:z.object({kind:z.enum(["none","percent","fixed"]),value:z.string().max(20)}).optional(), commission:z.object({name:z.string().trim().min(2).max(100),phone:z.string().min(8).max(40),kind:z.enum(["fixed","percent"]),value:z.string().max(20)}).optional(), vehicleModel:z.string().trim().max(80).optional(),vehiclePlate:z.string().trim().max(30).optional(),vehicleMileage:z.string().trim().max(7).optional(), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().max(100).default(""), phone: z.string().min(8).max(40), dueAt: z.union([z.string().datetime({ offset: true }),z.literal("")]).nullish(), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().min(0.01).max(10000)})).min(1).max(80) }),
   z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0") }),
   z.object({ type: z.literal("status"), requestId: key, id: key, status: z.enum(["received","processing","ready","delivered"]) }),
   z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string(), method:z.enum(["cash","transfer","unspecified"]).default("unspecified") }),
 ]);
-export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?:string;id?:string}> {
+export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?:string;id?:string;receipt?:Awaited<ReturnType<typeof savedCashierReceipt>>}> {
   const parsed = command.safeParse(value);
   if (!parsed.success) return {ok:false,error:cashierValidationMessage(parsed.error.issues)};
   const user = await getCurrentUserForApiWrite();
@@ -138,8 +139,8 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         const previous=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "requestId"=${data.requestId}`;
         if(previous[0]) return {id:previous[0].id};
         await assertInvoiceCapacity(tx,business.id);
-        const dueAt=new Date(data.dueAt);
-        if(dueAt.getTime()<Date.now()-60000 || dueAt.getTime()>Date.now()+366*86400000) throw new LaundryInputError("حدد موعد تسليم قادمًا خلال سنة");
+        const dueAt=data.dueAt?new Date(data.dueAt):null;
+        if(dueAt&&(dueAt.getTime()<Date.now()-60000 || dueAt.getTime()>Date.now()+366*86400000)) throw new LaundryInputError("حدد موعد تسليم قادمًا خلال سنة");
         const catalog=await tx.$queryRaw<LaundryService[]>`SELECT s.*,u.price AS "urgentPrice" FROM "LaundryService" s LEFT JOIN "LaundryService" u ON u.id='urgent:'||s.id AND u."businessId"=s."businessId" AND u.active=TRUE WHERE s."businessId"=${business.id} AND s.active=TRUE AND s.id NOT LIKE 'urgent:%'`;
         const current=await tx.business.findFirst({where:{id:business.id,deletedAt:null},select:{pageModules:true,businessType:true,businessCategory:true}});
         if(!current)throw new LaundryInputError("المنشأة غير متاحة");
@@ -222,6 +223,12 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
       await tx.$executeRaw`INSERT INTO "LaundryAudit" ("id","businessId","actorId","action","targetId") VALUES (${(data.type==="catalog"||data.type==="product"||data.type==="service-update"||data.type==="urgent-price"||data.type==="urgent-settings")?data.requestId:randomUUID()},${business.id},${user.id},${data.type},${id})`;
       return {id};
     },{timeout:15000});
+    if(data.type==="order"){
+      // Return the committed receipt without waiting for the entire workspace refresh.
+      // A snapshot read failure must never turn a committed order into a failed save.
+      const receipt=await savedCashierReceipt(business.id,result.id).catch(()=>undefined);
+      return {ok:true,id:result.id,receipt};
+    }
     revalidatePath("/Laundromat");revalidatePath("/Accounting");
     return {ok:true,id:result.id};
   } catch(error) {

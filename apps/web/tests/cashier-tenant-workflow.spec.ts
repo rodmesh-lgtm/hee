@@ -488,13 +488,23 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await lb.page.goto('/Accounting');
   await lb.page.getByRole('button',{name:'إضافة صنف تجريبي 1',exact:true}).click();
   await lb.page.getByLabel('رقم الجوال',{exact:true}).fill('0500000333');
-  await lb.page.getByRole('button',{name:'غدًا في هذا الوقت',exact:true}).click();
   await lb.page.getByLabel('اسم العميل',{exact:true}).fill('');
   await expect(lb.page.getByLabel('اسم العميل',{exact:true})).not.toHaveAttribute('required','');
-  await lb.page.getByRole('button',{name:'حفظ الطلب وإصدار المستند',exact:true}).click();
-  await expect(lb.page.getByRole('dialog')).toBeVisible();
-  const unnamed=await db.$queryRaw<Array<{customerName:string;name:string}>>`SELECT t."customerName",c.name FROM "LaundryTicket" t JOIN "LaundryCustomer" c ON c.id=t."customerId" AND c."businessId"=t."businessId" WHERE t."businessId"=${laundry.id} AND t.phone='+966500000333'`;
-  expect(unnamed).toEqual([{customerName:'عميل',name:'عميل'}]);
+  let releaseRefresh:()=>void=()=>{};
+  const refreshGate=new Promise<void>(resolve=>{releaseRefresh=resolve;});
+  await lb.page.route('**/Accounting*',async route=>{
+   if(route.request().method()==='GET'&&route.request().headers()['rsc'])await refreshGate;
+   await route.continue();
+  });
+  await lb.page.evaluate(()=>{const w=window as typeof window&{testPrintCount?:number};w.testPrintCount=0;w.print=()=>{w.testPrintCount=(w.testPrintCount??0)+1;};});
+  try {
+   await lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true}).click();
+   await expect(lb.page.getByRole('dialog')).toContainText('غير محدد');
+   await expect.poll(()=>lb.page.evaluate(()=>(window as typeof window&{testPrintCount?:number}).testPrintCount)).toBe(1);
+  }finally{releaseRefresh();await lb.page.unroute('**/Accounting*');}
+  await expect(lb.page.getByRole('dialog')).toContainText('غير محدد');
+  const unnamed=await db.$queryRaw<Array<{customerName:string;name:string;dueAt:Date|null}>>`SELECT t."customerName",c.name,t."dueAt" FROM "LaundryTicket" t JOIN "LaundryCustomer" c ON c.id=t."customerId" AND c."businessId"=t."businessId" WHERE t."businessId"=${laundry.id} AND t.phone='+966500000333'`;
+  expect(unnamed).toEqual([{customerName:'عميل',name:'عميل',dueAt:null}]);
   await lb.page.getByRole('dialog').getByRole('button',{name:'طلب جديد',exact:true}).click();
   await lb.page.screenshot({path:'test-results/cashier-empty-customer-room.png',fullPage:true});
   const restricted=await login(staff.id,shop.id);await restricted.page.goto('/Accounting');await expect(restricted.page.getByText('تحتاج صلاحية البرنامج المحاسبي',{exact:true})).toBeVisible();expect(await restricted.page.content()).not.toContain(nameA);await lb.context.clearCookies();await lb.page.reload();expect(await lb.page.content()).not.toContain(nameB);expect(await lb.page.content()).not.toContain(phoneB);
