@@ -436,6 +436,18 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
     if(path==='/v1/print'){
      d10Prints++;expect(data.documentId).toBe(printTicket);expect(data.title).toContain('00900');
      const png=Buffer.from(data.png,'base64');expect(png.subarray(1,4).toString()).toBe('PNG');expect(png.readUInt32BE(16)).toBe(576);expect(png.readUInt32BE(20)).toBeGreaterThan(200);
+     const safeEdges=await wa.page.evaluate(async encoded=>{
+      const image=new Image();image.src='data:image/png;base64,'+encoded;await image.decode();
+      const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+      const context=canvas.getContext('2d')!;context.drawImage(image,0,0);
+      const pixels=context.getImageData(0,0,canvas.width,canvas.height).data;
+      let edgeInk=0,bodyInk=0;
+      for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++){
+       if(pixels[(y*canvas.width+x)*4]<128){if(x<24||x>=canvas.width-24)edgeInk++;else bodyInk++;}
+      }
+      return {edgeInk,bodyInk};
+     },data.png as string);
+     expect(safeEdges.edgeInk).toBe(0);expect(safeEdges.bodyInk).toBeGreaterThan(100);
      await writeFile('test-results/cashier-evelon-d10-raster.png',png);d10Jobs.set(data.jobId,'spooled');
      if(loseD10Acknowledgement){loseD10Acknowledgement=false;return route.abort('failed');}
      result={ok:true,status:'pending',jobId:data.jobId,printerName:'Evelon D10 test'};

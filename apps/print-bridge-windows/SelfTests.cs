@@ -19,6 +19,16 @@ namespace Infro.PrintBridge {
   static string Pair(Service service,string business){return (string)Result(service.Process("https://ir.sa","/v1/pair",Body("businessId",business,"businessName","اختبار الطابعة","code",service.NewCode()),null))["token"];}
   static Dictionary<string,object> Await(Service service,string business,string token,string id){for(int i=0;i<100;i++){var state=Result(service.Process("https://ir.sa","/v1/status",Body("businessId",business,"jobId",id),token));if((string)state["status"]!="pending")return state;Thread.Sleep(20);}throw new Exception("Job timed out");}
   public static int Run(){string root=Path.Combine(Path.GetTempPath(),"infro-print-tests-"+Guid.NewGuid());try{
+   // Model 80 mm drivers with symmetric, asymmetric and narrow printable widths.
+   // The physical paper is 315 units wide; only the printable width may be used.
+   foreach(float printableWidth in new[]{283f,260f,300f}){
+    int offset=0,pages=0;var size=new Size(576,7000);var area=new SizeF(printableWidth,500);
+    while(offset<size.Height){int pixels;var bounds=WindowsPrinter.ImageBounds(size,area,offset,out pixels);
+     Check(bounds.Left>=0&&bounds.Right<=area.Width+0.001f&&bounds.Top>=0&&bounds.Bottom<=area.Height,"Receipt stays inside printable area "+printableWidth);
+     Check(pixels>0&&offset+pixels<=size.Height,"Page slice preserves image rows");offset+=pixels;if(++pages>100)throw new Exception("Pagination did not terminate");
+    }
+    Check(offset==size.Height&&pages>1,"Long receipt prints every row exactly once");
+   }
    var fake=new FakePrinter();var service=new Service(root,fake);string business=Guid.NewGuid().ToString(),other=Guid.NewGuid().ToString();
    Reject(delegate{service.Process("https://evil.example","/v1/health",Body(),null);},"ORIGIN_DENIED");
    string pin=service.NewCode();for(int i=0;i<6;i++)Reject(delegate{service.Process("https://ir.sa","/v1/pair",Body("businessId",business,"businessName","Test","code",pin=="00000000"?"11111111":"00000000"),null);},"PAIR_INVALID");
