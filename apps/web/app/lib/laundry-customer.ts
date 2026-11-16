@@ -10,9 +10,10 @@ export function laundryCustomerPhone(raw:string){
 // All callers hold the same per-business laundry advisory lock.
 export async function ensureLaundryCustomer(tx:Prisma.TransactionClient,businessId:string,name:string,rawPhone:string){
  const phone=laundryCustomerPhone(rawPhone);
- const rows=await tx.$queryRaw<Array<{id:string}>>`SELECT id FROM "LaundryCustomer" WHERE "businessId"=${businessId} AND phone=${phone}`;
- if(rows[0])return {id:rows[0].id,phone};
+ const rows=await tx.$queryRaw<Array<{id:string;name:string}>>`SELECT id,name FROM "LaundryCustomer" WHERE "businessId"=${businessId} AND phone=${phone}`;
+ if(rows[0])return {id:rows[0].id,phone,name:rows[0].name};
+ name=name.trim()||"عميل";
  const id=randomUUID();
  await tx.$executeRaw`INSERT INTO "LaundryCustomer" (id,"businessId",name,phone) VALUES (${id},${businessId},${name},${phone})`;
- return {id,phone};
+ return {id,phone,name};
 }
