@@ -26,3 +26,14 @@ export function useCashierDisplay(businessId: string) {
     window.dispatchEvent(new Event(event));
   }] as const;
 }
+
+const shortScreenQuery = "(min-width: 900px) and (max-height: 700px)";
+function subscribeShortScreen(notify: () => void) {
+  const screen = window.matchMedia(shortScreenQuery);
+  screen.addEventListener("change", notify);
+  return () => screen.removeEventListener("change", notify);
+}
+export function useShortCashierScreen() {
+  return useSyncExternalStore(subscribeShortScreen,
+    () => window.matchMedia(shortScreenQuery).matches, () => false);
+}

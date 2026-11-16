@@ -315,6 +315,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await expect(lb.page.locator('.ld-checkout-details')).not.toHaveAttribute('open','');
   const touchPlus=await lb.page.getByRole('button',{name:'زيادة فرشة غرفة — غسيل وكوي',exact:true}).boundingBox();
   expect(touchPlus!.width).toBeGreaterThanOrEqual(44);expect(touchPlus!.height).toBeGreaterThanOrEqual(44);
+  await lb.page.locator('.ld-services').evaluate(el=>el.scrollTop=0);
   await lb.page.screenshot({path:'test-results/cashier-pos-touch-basket.png',fullPage:true});
   await lb.page.keyboard.press('F8');
   await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toBeFocused();
@@ -345,6 +346,14 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    expect(plusBox!.x).toBeGreaterThan(iconBox!.x);expect(plusBox!.x+plusBox!.width).toBeLessThan(iconBox!.x+iconBox!.width);
 
    await lb.page.screenshot({path:`test-results/cashier-compact-desktop-${viewport.width}.png`,fullPage:true});
+   if(viewport.height<=700){
+    await expect(lb.page.locator('.ld-checkout-details')).not.toHaveAttribute('open','');
+    await lb.page.keyboard.press('F8');
+    await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toBeFocused();
+    await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toBeInViewport({ratio:1});
+    await lb.page.screenshot({path:'test-results/cashier-short-screen-customer.png',fullPage:true});
+    await lb.page.locator('.ld-checkout-details>summary').click();
+   }
   }
   await lb.page.setViewportSize({width:1366,height:768});
   for(let i=0;i<3&&await lb.page.locator('[data-operations-shell]').getAttribute('data-dashboard-theme')!=='dark';i++)await lb.page.locator('.infro-theme-toggle').click();

@@ -494,7 +494,9 @@
  .ld-pos-mode .ld-cart:has(.ld-checkout-details[open]) .ld-cart-line-actions{flex-direction:column}
 }
 @media screen and (max-height:700px) and (min-width:900px){
- .ld-pos-mode .ld-checkout-fields{max-height:20dvh}
+ .ld-pos-mode .ld-cart:has(.ld-checkout-details[open]) .ld-cart-lines{display:none}
+ .ld-pos-mode .ld-cart:has(.ld-checkout-details[open]) .ld-checkout-form{flex:1}
+ .ld-pos-mode .ld-checkout-fields{max-height:none}
  .ld-pos-mode .ld-checkout-footer{padding-top:6px}
  .ld-pos-mode .ld-cashier-tip{display:none}
  .ld-pos-mode .ld-total strong{font-size:24px}
