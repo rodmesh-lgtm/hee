@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import {useI18n} from '../../components/i18n/locale-provider';
 import {bridgeRequest,clearReviewedPrint,parsePrinterConfig,printerConfigText,savePrinterConfig,PRINT_CONFIG_EVENT,PRINT_STATUS_EVENT,type DirectPrinterConfig,type PrintStatus} from './direct-printer';
-const download='https://github.com/rodmesh-lgtm/hee/releases/download/infro-print-bridge-v1.0.0/INFRO-Print-Bridge-1.0.0.zip';
+const download='https://github.com/rodmesh-lgtm/hee/releases/download/infro-print-bridge-v1.0.1/INFRO-Print-Bridge-1.0.1.zip';
 function subscribe(notify:()=>void){window.addEventListener('storage',notify);window.addEventListener(PRINT_CONFIG_EVENT,notify);return()=>{window.removeEventListener('storage',notify);window.removeEventListener(PRINT_CONFIG_EVENT,notify);};}
 export function ReceiptPrintStatus({businessId,documentId}:{businessId:string;documentId:string}){
  const {t}=useI18n();const [status,setStatus]=useState<PrintStatus|null>(null);

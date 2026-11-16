@@ -16,14 +16,23 @@ using Microsoft.Win32;
 [assembly:System.Reflection.AssemblyTitle("INFRO Print Bridge")]
 [assembly:System.Reflection.AssemblyCompany("INFRO")]
 [assembly:System.Reflection.AssemblyProduct("INFRO Print Bridge — Evelon D10")]
-[assembly:System.Reflection.AssemblyVersion("1.0.0.0")]
-[assembly:System.Reflection.AssemblyFileVersion("1.0.0.0")]
+[assembly:System.Reflection.AssemblyVersion("1.0.1.0")]
+[assembly:System.Reflection.AssemblyFileVersion("1.0.1.0")]
 namespace Infro.PrintBridge {
  public sealed class ApiError : Exception { public int Status; public string Code; public ApiError(int status,string code,string message):base(message){Status=status;Code=code;} }
  public sealed class Binding { public string BusinessId; public string BusinessName; public string Origin; public string TokenHash; public string PrinterName; }
  public sealed class Job { public string JobId; public string BusinessId; public string DocumentId; public string Fingerprint; public string PrinterName; public string Status; public string CreatedAt; }
  public interface IPrinter { string[] Names(); void Print(string printer,string title,byte[] png); }
  public sealed class WindowsPrinter : IPrinter {
+  // OriginAtMargins=false: Graphics starts at the printable area's origin,
+  // not the physical paper edge. Never add a second paper-centering offset.
+  public static RectangleF ImageBounds(Size image,SizeF printable,int offset,out int pixels){
+   if(image.Width<1||image.Height<1||offset<0||offset>=image.Height||printable.Width<=0||printable.Height<=8)throw new InvalidOperationException("Invalid printable area");
+   float width=Math.Min(576f*100/203,printable.Width),scale=width/image.Width;
+   pixels=Math.Min(image.Height-offset,(int)Math.Floor((printable.Height-8)/scale));
+   if(pixels<1)throw new InvalidOperationException("Printable area is too small");
+   return new RectangleF((printable.Width-width)/2,0,width,pixels*scale);
+  }
   public string[] Names(){return PrinterSettings.InstalledPrinters.Cast<string>().Where(n=>!n.StartsWith("Microsoft Print to PDF",StringComparison.OrdinalIgnoreCase)&&!n.Contains("XPS")&&!n.Contains("OneNote")&&!n.Equals("Fax",StringComparison.OrdinalIgnoreCase)).ToArray();}
   public void Print(string printer,string title,byte[] png){
    if(!Names().Contains(printer))throw new InvalidOperationException("Printer is unavailable");
@@ -36,11 +45,8 @@ namespace Infro.PrintBridge {
     int offset=0;
     document.PrintPage+=delegate(object sender,PrintPageEventArgs e){
      // Keep 203 dpi text at its original size; long receipts continue on another page.
-     float width=Math.Min(576f*100/203,e.PageSettings.PrintableArea.Width);
-     float scale=width/image.Width;float available=Math.Max(1,e.PageSettings.PrintableArea.Height-8);
-     int pixels=Math.Min(image.Height-offset,Math.Max(1,(int)Math.Floor(available/scale)));
-     float x=Math.Max(0,(e.PageBounds.Width-width)/2-e.PageSettings.HardMarginX);
-     e.Graphics.DrawImage(image,new RectangleF(x,0,width,pixels*scale),new Rectangle(0,offset,image.Width,pixels),GraphicsUnit.Pixel);
+     int pixels;var bounds=ImageBounds(image.Size,e.PageSettings.PrintableArea.Size,offset,out pixels);
+     e.Graphics.DrawImage(image,bounds,new Rectangle(0,offset,image.Width,pixels),GraphicsUnit.Pixel);
      offset+=pixels;e.HasMorePages=offset<image.Height;
     };
     document.Print();
@@ -48,7 +54,7 @@ namespace Infro.PrintBridge {
   }
  }
  public sealed class Service {
-  public const string Version="1.0.0";
+  public const string Version="1.0.1";
   readonly object gate=new object();readonly string directory;readonly IPrinter printer;readonly JavaScriptSerializer json=new JavaScriptSerializer{MaxJsonLength=8500000};
   List<Binding> bindings=new List<Binding>();string code="";DateTime expires=DateTime.MinValue;int attempts=0,active=0;
   public string LastMessage="جاهز للربط";

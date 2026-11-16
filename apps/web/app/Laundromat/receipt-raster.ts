@@ -5,7 +5,8 @@ export async function receiptPng(receipt:HTMLElement):Promise<string>{
  const host=document.createElement('div');host.className='laundry ld-direct-print-host';host.setAttribute('aria-hidden','true');
  Object.assign(host.style,{position:'fixed',left:'-10000px',top:'0',width:`${width}px`,background:'#fff',color:'#000',pointerEvents:'none',minHeight:'0'});
  const clone=receipt.cloneNode(true) as HTMLElement;clone.dir=getComputedStyle(receipt).direction;clone.style.fontFamily=getComputedStyle(receipt).fontFamily;clone.classList.remove('a4');clone.classList.add('thermal');
- Object.assign(clone.style,{width:`${width}px`,maxWidth:'none',margin:'0',padding:'0',background:'#fff',color:'#000'});host.appendChild(clone);document.body.appendChild(host);
+ // A safe inset also protects existing bridge installations from driver edge clipping.
+ Object.assign(clone.style,{width:`${width}px`,maxWidth:'none',boxSizing:'border-box',margin:'0',padding:'2mm 4mm',background:'#fff',color:'#000'});host.appendChild(clone);document.body.appendChild(host);
  try{
   await document.fonts.ready;
   await Promise.all(Array.from(clone.querySelectorAll('img')).map(async image=>{image.loading='eager';try{await image.decode();}catch{throw new Error('تعذر تحميل شعار الفاتورة؛ أعد المحاولة أو استخدم طباعة المتصفح');}}));

@@ -356,6 +356,8 @@
  .ld-print-status{margin:12px 0}.ld-direct-print-host{contain:none!important}
  .ld-direct-print-host .ld-receipt,.ld-direct-print-host .ld-receipt *{color:#000!important;background-color:#fff!important;box-shadow:none!important;text-shadow:none!important}
  .ld-direct-print-host .ld-receipt .ld-eyebrow{display:none}
+ .ld-direct-print-host .ld-receipt.thermal .ld-receipt-logo{width:45px;height:45px}
+ .ld-direct-print-host .ld-receipt .ld-total strong{white-space:nowrap;flex-shrink:0}
 }
 @media print{.ld-print-status,.ld-printer-dialog{display:none!important}}
 
