@@ -32,7 +32,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
  const contexts:BrowserContext[]=[];
  async function login(userId:string,businessId:string){
   const token=randomBytes(32).toString('base64url');await db.session.create({data:{userId,token:`hee_session_sha256:${createHash('sha256').update(token).digest('hex')}`,expiresAt:new Date(Date.now()+3600000)}});
-  const context=await browser.newContext({locale:'ar-SA'});contexts.push(context);await context.addCookies([{name:'hee_session',value:token,url:baseUrl},{name:'hee_active_business',value:businessId,url:baseUrl},{name:'infro_locale',value:'ar',url:baseUrl}]);return {context,page:await context.newPage()};
+  const context=await browser.newContext({locale:'ar-SA',baseURL:baseUrl});contexts.push(context);await context.addCookies([{name:'hee_session',value:token,url:baseUrl},{name:'hee_active_business',value:businessId,url:baseUrl},{name:'infro_locale',value:'ar',url:baseUrl}]);return {context,page:await context.newPage()};
  }
  try{
   const wa=await login(a.id,shop.id),lb=await login(b.id,laundry.id);
@@ -501,7 +501,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    await lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true}).click();
    await expect(lb.page.getByRole('dialog')).toContainText('غير محدد');
    await expect.poll(()=>lb.page.evaluate(()=>(window as typeof window&{testPrintCount?:number}).testPrintCount)).toBe(1);
-  }finally{releaseRefresh();await lb.page.unroute('**/Accounting*');}
+  }finally{releaseRefresh();await lb.page.unrouteAll({behavior:'wait'});}
   await expect(lb.page.getByRole('dialog')).toContainText('غير محدد');
   const unnamed=await db.$queryRaw<Array<{customerName:string;name:string;dueAt:Date|null}>>`SELECT t."customerName",c.name,t."dueAt" FROM "LaundryTicket" t JOIN "LaundryCustomer" c ON c.id=t."customerId" AND c."businessId"=t."businessId" WHERE t."businessId"=${laundry.id} AND t.phone='+966500000333'`;
   expect(unnamed).toEqual([{customerName:'عميل',name:'عميل',dueAt:null}]);
