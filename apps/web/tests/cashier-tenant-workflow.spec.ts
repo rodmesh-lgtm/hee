@@ -41,7 +41,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    await expect(wa.page.getByRole('button',{name:'تفعيل المستعجل',exact:true})).toHaveCount(0);
    await expect(wa.page.getByRole('button',{name:'مستعجل',exact:true})).toHaveCount(0);
    await expect(wa.page.getByText('موعد استلام الملابس',{exact:true})).toHaveCount(0);
-   await wa.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
+   await wa.page.locator('.ld-pos-tools>summary').click();await wa.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
    await expect(wa.page.getByRole('checkbox',{name:'تفعيل عادي / مستعجل لهذا النشاط',exact:true})).toHaveCount(0);
    await expect(wa.page.getByRole('heading',{name:'أسعار المستعجل',exact:true})).toHaveCount(0);
    if(businessCategory==='صيانة السيارات')await wa.page.screenshot({path:'test-results/cashier-workshop-activity-settings.png',fullPage:true});
@@ -123,7 +123,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   // Catalog editing is available to each owner, preserves original invoice snapshots
   // and prices subsequent orders using the same service identity.
   await wa.page.goto('/Accounting');
-  await wa.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
+  await wa.page.locator('.ld-pos-tools>summary').click();await wa.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
   await wa.page.getByRole('button',{name:'تعديل — تغيير زيت خاص بالورشة',exact:true}).click();
   const editForm=wa.page.getByRole('form',{name:'تعديل — تغيير زيت خاص بالورشة',exact:true});
   await expect(editForm.getByLabel('سعر المستعجل بالريال',{exact:true})).toHaveCount(0);
@@ -144,7 +144,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   const updatedInvoice=await db.$queryRaw<Array<{total:number;items:Array<{serviceId:string}>}>>`SELECT total,items FROM "LaundryTicket" WHERE "businessId"=${shop.id} AND number=4`;
   expect(updatedInvoice[0].total).toBe(3000);expect(updatedInvoice[0].items[0].serviceId).toBe(sa);
   await lb.page.setViewportSize({width:390,height:844});await lb.page.goto('/Accounting');
-  await lb.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
+  await lb.page.locator('.ld-pos-tools>summary').click();await lb.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
   await lb.page.getByRole('button',{name:'تعديل — ثوب — غسيل وكوي',exact:true}).click();
   const laundryEdit=lb.page.getByRole('form',{name:'تعديل — ثوب — غسيل وكوي',exact:true});
   await laundryEdit.getByLabel('السعر بالريال',{exact:true}).fill('22');
@@ -219,7 +219,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   expect(urgentDiscount[0].total).toBe(1300);expect(urgentDiscount[0].consented).toBe(false);expect(urgentDiscount[0].items[0].unitPrice).toBe(1500);expect(urgentDiscount[0].items[0].discount).toBe(200);expect(urgentDiscount[0].items[0].serviceSpeed).toBe('urgent');
   await lb.page.screenshot({path:'test-results/cashier-urgent-discount-receipt-mobile.png',fullPage:true});
   // All activities can define measured items; invoice snapshots and returns retain the unit.
-  await wa.page.goto('/Accounting');await wa.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
+  await wa.page.goto('/Accounting');await wa.page.locator('.ld-pos-tools>summary').click();await wa.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
   const measuredForm=wa.page.getByRole('form',{name:'إضافة صنف',exact:true});
   await measuredForm.getByLabel('اسم الصنف',{exact:true}).fill('خدمة بالمتر');await measuredForm.getByLabel('التصنيف',{exact:true}).fill('خدمات القياس');
   await measuredForm.getByLabel('وحدة الصنف',{exact:true}).selectOption('meter');await measuredForm.getByLabel('السعر بالريال',{exact:true}).fill('4');
@@ -252,7 +252,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await expect(wa.page.getByText('هذه الفاتورة مرتجعة بالكامل',{exact:true})).toBeVisible();
   expect((await db.$queryRaw<Array<{returned:number}>>`SELECT returned FROM "LaundryTicket" WHERE id=${measured[0].id}`)[0].returned).toBe(1999);
 
-  await lb.page.goto('/Accounting');await lb.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
+  await lb.page.goto('/Accounting');await lb.page.locator('.ld-pos-tools>summary').click();await lb.page.getByRole('button',{name:'إدارة الأصناف والأسعار',exact:true}).click();
   const carpetForm=lb.page.getByRole('form',{name:'إضافة صنف',exact:true});
   await carpetForm.getByLabel('اسم الصنف',{exact:true}).fill('فرشة غرفة');await carpetForm.getByLabel('التصنيف',{exact:true}).fill('مفروشات');
   await carpetForm.getByLabel('وحدة الصنف',{exact:true}).selectOption('square_meter');await carpetForm.getByLabel('سعر غسيل وكوي',{exact:true}).fill('4');
@@ -308,7 +308,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await lb.page.getByRole('button',{name:'غدًا في هذا الوقت',exact:true}).click();
   await expect(lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true})).toBeEnabled();
   await lb.page.getByRole('button',{name:'دفع كامل',exact:true}).click();await expect(lb.page.getByLabel('الدفعة المستلمة',{exact:true})).toHaveValue('10.00');
-  await lb.page.getByLabel('طابعة الفاتورة',{exact:true}).selectOption('thermal');
+  await lb.page.locator('.ld-pos-tools>summary').click();await lb.page.getByLabel('طابعة الفاتورة',{exact:true}).selectOption('thermal');await lb.page.locator('.ld-pos-tools>summary').click();
   // A touchscreen layout prioritizes the basket without losing draft fields.
   await lb.page.getByRole('button',{name:'شاشة لمس',exact:true}).click();
   await expect(lb.page.locator('.laundry')).toHaveAttribute('data-pos-display','touch');
@@ -445,7 +445,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    return route.fulfill({status:200,headers,contentType:'application/json',body:JSON.stringify(result)});
   });
   await wa.page.getByRole('button',{name:'إغلاق',exact:true}).click();await wa.page.goto('/Accounting');expect(d10Requests).toBe(0);
-  await wa.page.getByRole('button',{name:'إعداد الطابعة',exact:true}).click();expect(d10Requests).toBe(0);
+  await wa.page.locator('.ld-pos-tools>summary').click();await wa.page.getByRole('button',{name:'إعداد الطابعة',exact:true}).click();expect(d10Requests).toBe(0);
   await wa.page.getByLabel('رمز ربط الطابعة',{exact:true}).fill('12345678');await wa.page.getByRole('button',{name:'ربط هذا الكاشير',exact:true}).click();
   await wa.page.getByLabel('الطابعة المثبتة في ويندوز',{exact:true}).selectOption('Evelon D10 test');
   await wa.page.getByRole('button',{name:'اعتماد الطابعة وتفعيل الطباعة المباشرة',exact:true}).click();
