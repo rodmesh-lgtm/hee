@@ -24,6 +24,7 @@ export function clearReviewedPrint(businessId:string,documentId:string){
 }
 const errorMessages:Record<string,string>={PAIR_REQUIRED:'أعد ربط الكاشير ببرنامج INFRO على هذا الجهاز',PAIR_EXPIRED:'أنشئ رمز ربط جديدًا من برنامج INFRO على ويندوز',PAIR_INVALID:'رمز الربط غير صحيح',PRINTER_MISSING:'اختر طابعة Evelon D10 المثبتة في ويندوز',QUEUE_BUSY:'طابور الطباعة مشغول؛ انتظر ثم تحقق من العملية',JOB_EXPIRED:'طلب قديم غير مؤكد؛ راجع طابور ويندوز قبل إعادة الطباعة',JOB_MISMATCH:'طلب الطباعة محفوظ بمحتوى مختلف؛ راجع طابور ويندوز',ORIGIN_DENIED:'افتح الكاشير من ir.sa لربط الطابعة',INVALID_IMAGE_SIZE:'الفاتورة أطول من الحد المدعوم للطباعة المباشرة'};
 type BridgeResult={ok:boolean;code?:string;version?:string;token?:string;printers?:string[];printerName?:string;jobId?:string;status?:string};
+const supportedBridgeVersions=new Set(['1.0.0','1.0.1']);
 export async function bridgeRequest(path:'/v1/pair'|'/v1/printers'|'/v1/select'|'/v1/revoke'|'/v1/status'|'/v1/print',body:Record<string,unknown>,token?:string):Promise<BridgeResult>{
  // Never probe loopback on page load. Call only from setup/print user actions.
  if(typeof navigator!=='undefined'&&navigator.permissions?.query){try{const permission=await navigator.permissions.query({name:'loopback-network' as PermissionName});if(permission.state==='denied')throw new PrinterError('PERMISSION','اسمح لـ ir.sa بالاتصال برابط الطباعة من إعدادات المتصفح');}catch(error){if(error instanceof PrinterError)throw error;}}
@@ -31,7 +32,7 @@ export async function bridgeRequest(path:'/v1/pair'|'/v1/printers'|'/v1/select'|
   const options:RequestInit&{targetAddressSpace:'loopback'}={method:'POST',mode:'cors',credentials:'omit',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json',...(token?{'X-Infro-Token':token}:{})},body:JSON.stringify(body),signal:AbortSignal.timeout(12000),targetAddressSpace:'loopback'};
   const response=await fetch(`${PRINT_BRIDGE_URL}${path}`,options);const result=await response.json() as BridgeResult;
   if(!response.ok||result.ok!==true)throw new PrinterError(result.code??'BRIDGE',errorMessages[result.code??'']??'تعذر إكمال الطلب؛ راجع برنامج ربط الطابعة');
-  if(((path==='/v1/pair'||path==='/v1/printers')&&result.version!=='1.0.0')||(result.version&&result.version!=='1.0.0'))throw new PrinterError('VERSION','حدّث برنامج ربط الطابعة ثم أعد المحاولة');
+  if(((path==='/v1/pair'||path==='/v1/printers')&&!supportedBridgeVersions.has(result.version??''))||(result.version!==undefined&&!supportedBridgeVersions.has(result.version)))throw new PrinterError('VERSION','حدّث برنامج ربط الطابعة ثم أعد المحاولة');
   return result;
  }catch(error){if(error instanceof PrinterError)throw error;throw new PrinterError('CONNECTION','افتح برنامج INFRO على ويندوز واسمح للمتصفح بالاتصال به، ثم تحقق من الطابعة');}
 }

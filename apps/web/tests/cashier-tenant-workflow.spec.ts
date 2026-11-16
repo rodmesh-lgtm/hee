@@ -1,4 +1,6 @@
 import {writeFile} from "node:fs/promises";
+import {readFileSync} from "node:fs";
+const nativeBridgeVersion=JSON.parse(readFileSync("../print-bridge-windows/version.json","utf8")).version as string;
 import {createHash,randomBytes,randomUUID} from "node:crypto";
 import {test,expect,type BrowserContext,type Page} from "@playwright/test";
 import {PrismaClient} from "@prisma/client";
@@ -428,10 +430,10 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    if(request.method()==='OPTIONS')return route.fulfill({status:200,headers,body:'{}'});
    const data=JSON.parse(request.postData()??'{}');expect(data.businessId).toBe(shop.id);
    const path=new URL(request.url()).pathname;let result:Record<string,unknown>={ok:true};
-   if(path==='/v1/pair'){expect(data.code).toBe('12345678');result={ok:true,version:'1.0.0',token:d10Token,printers:['Evelon D10 test'],printerName:''};}
+   if(path==='/v1/pair'){expect(data.code).toBe('12345678');result={ok:true,version:nativeBridgeVersion,token:d10Token,printers:['Evelon D10 test'],printerName:''};}
    else{
     expect(request.headers()['x-infro-token']).toBe(d10Token);
-    if(path==='/v1/printers')result={ok:true,version:'1.0.0',printers:['Evelon D10 test'],printerName:'Evelon D10 test'};
+    if(path==='/v1/printers')result={ok:true,version:nativeBridgeVersion,printers:['Evelon D10 test'],printerName:'Evelon D10 test'};
     if(path==='/v1/select')expect(data.printerName).toBe('Evelon D10 test');
     if(path==='/v1/print'){
      d10Prints++;expect(data.documentId).toBe(printTicket);expect(data.title).toContain('00900');

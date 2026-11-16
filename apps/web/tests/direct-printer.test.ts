@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import {bridgeRequest,clearReviewedPrint,parsePrinterConfig,sendDirectReceipt,PrinterError,type DirectPrinterConfig} from '../app/Laundromat/direct-printer';
 import nextConfig from '../next.config';
 const businessId='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
@@ -10,6 +11,19 @@ function fixture(fetcher:typeof fetch){
  return {values,restore(){globalThis.fetch=original;if(windowDescriptor)Object.defineProperty(globalThis,'window',windowDescriptor);else Reflect.deleteProperty(globalThis,'window');}};
 }
 const result=(body:unknown)=>new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
+test('pairing and printer discovery accept the released native bridge and legacy compatible bridge',async()=>{
+ const released=JSON.parse(readFileSync(new URL('../../print-bridge-windows/version.json',import.meta.url),'utf8')).version as string;
+ for(const version of new Set(['1.0.0',released])){
+  const f=fixture(async()=>result({ok:true,version}));
+  try{for(const path of ['/v1/pair','/v1/printers'] as const)assert.equal((await bridgeRequest(path,{businessId},config.token)).version,version);}finally{f.restore();}
+ }
+});
+test('missing, malformed and unsupported bridge versions fail closed',async()=>{
+ for(const version of [undefined,'','1.0.2','2.0.0','bad']){
+  const f=fixture(async()=>result({ok:true,version}));
+  try{for(const path of ['/v1/pair','/v1/printers'] as const)await assert.rejects(bridgeRequest(path,{businessId},config.token),error=>error instanceof PrinterError&&error.code==='VERSION');}finally{f.restore();}
+ }
+});
 test('printer credentials are scoped to one business and malformed persisted configuration fails closed',()=>{
  assert.deepEqual(parsePrinterConfig(JSON.stringify(config),businessId),config);assert.equal(parsePrinterConfig(JSON.stringify(config),other),null);assert.equal(parsePrinterConfig(JSON.stringify({...config,token:'invalid'}),businessId),null);assert.equal(parsePrinterConfig('{bad',businessId),null);
 });
