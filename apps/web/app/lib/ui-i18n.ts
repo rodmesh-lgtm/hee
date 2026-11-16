@@ -4,6 +4,7 @@ import type { AppLocale } from "./i18n";
 import { homepageText } from "./homepage-i18n";
 
 export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, string>> = {
+  "إعدادات الكاشير": {"en":"Cashier settings","zh-CN":"收银设置","es":"Configuración de caja","ur":"کیشیئر کی ترتیبات"},
   "إضافة بيانات العميل والتسليم": {"en": "Add customer and delivery details", "zh-CN": "添加客户和交付信息", "es": "Añadir cliente y entrega", "ur": "کسٹمر اور ترسیل کی تفصیلات شامل کریں"},
   "العميل وتفاصيل الطلب": {"en": "Customer and order details", "zh-CN": "客户和订单详情", "es": "Cliente y detalles del pedido", "ur": "کسٹمر اور آرڈر کی تفصیلات"},
   "شاشة لمس": {"en": "Touchscreen", "zh-CN": "触摸屏", "es": "Pantalla táctil", "ur": "ٹچ اسکرین"},

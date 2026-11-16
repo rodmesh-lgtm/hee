@@ -511,3 +511,29 @@
  .ld-pos-mode .ld-checkout-footer{max-height:none}
  .ld-pos-mode .ld-cart-line-actions{flex-direction:column}
 }
+
+/* Keep setup controls out of the selling surface and use one customer scroll area. */
+@media screen {
+ .ld-pos-mode .ld-pos-display{position:relative;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--ld-line);gap:6px}
+ .ld-pos-display>h2{margin:0;margin-inline-end:auto;flex:1;min-width:180px;font-size:18px;font-weight:850;line-height:1.5}
+ .ld-pos-tools{position:relative;flex-shrink:0}
+ .ld-pos-tools>summary{list-style-position:inside;cursor:pointer;min-height:40px;padding:10px 12px;border:1px solid var(--ld-line);border-radius:8px;font-size:12px;font-weight:700;color:var(--ld-ink);background:var(--ld-surface,#fff)}
+ .ld-pos-tools[open]>summary{border-color:#087e80}
+ .ld-pos-tools-content{position:absolute;inset-inline-end:0;top:calc(100% + 8px);z-index:40;width:min(320px,calc(100vw - 56px));max-height:65dvh;overflow:auto;padding:16px;display:grid;gap:12px;background:var(--ld-surface,#fff);border:1px solid var(--ld-line);border-radius:12px;box-shadow:0 12px 32px #0002}
+ .ld-pos-mode .ld-pos-tools-content .ld-print-choice{display:grid;margin:0;font-size:13px}
+ .ld-pos-mode .ld-pos-tools-content .ld-print-choice select{width:100%;height:44px;min-height:44px;font-size:14px}
+ .ld-pos-mode .ld-pos-tools-content>button{width:100%;min-height:44px;font-size:13px;text-align:start}
+ .ld-pos-tools-content>span{font-size:12px;color:var(--ld-muted)}
+ .ld-pos-mode .ld-cart-lines>.ld-muted{margin:0}
+ .ld-pos-mode .ld-checkout-details{max-height:calc(28dvh + 68px);scrollbar-width:thin;scrollbar-color:#7b9c9b transparent}
+ .ld-pos-mode .ld-checkout-details>summary{position:sticky;top:0;z-index:2;background:var(--ld-surface,#fff)}
+ .ld-pos-mode .ld-checkout-details .ld-checkout-fields{overflow:visible;max-height:none;scrollbar-gutter:auto}
+ .ld-pos-mode :is(.ld-cart-lines,.ld-services){scrollbar-width:thin;scrollbar-color:#7b9c9b transparent}
+ .ld-pos-mode[data-pos-display=touch] :is(.ld-pos-display>button,.ld-pos-tools>summary){min-height:44px}
+}
+@media screen and (max-height:700px) and (min-width:900px){.ld-pos-mode .ld-checkout-details{max-height:none}}
+@media screen and (max-width:700px){
+ .ld-pos-display>h2{flex-basis:100%;font-size:16px}
+ .ld-pos-mode .ld-pos-tools{margin-inline-start:auto}
+ .ld-pos-mode .ld-checkout-details{max-height:none;overflow:visible}
+}
