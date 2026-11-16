@@ -1,6 +1,6 @@
 import {writeFile} from "node:fs/promises";
 import {readFileSync} from "node:fs";
-const nativeBridgeVersion=JSON.parse(readFileSync(new URL("../../print-bridge-windows/version.json",import.meta.url),"utf8")).version as string;
+const nativeBridgeVersion=JSON.parse(readFileSync("../print-bridge-windows/version.json","utf8")).version as string;
 import {createHash,randomBytes,randomUUID} from "node:crypto";
 import {test,expect,type BrowserContext,type Page} from "@playwright/test";
 import {PrismaClient} from "@prisma/client";
