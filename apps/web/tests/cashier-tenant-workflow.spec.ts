@@ -32,7 +32,7 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
  const contexts:BrowserContext[]=[];
  async function login(userId:string,businessId:string){
   const token=randomBytes(32).toString('base64url');await db.session.create({data:{userId,token:`hee_session_sha256:${createHash('sha256').update(token).digest('hex')}`,expiresAt:new Date(Date.now()+3600000)}});
-  const context=await browser.newContext({locale:'ar-SA'});contexts.push(context);await context.addCookies([{name:'hee_session',value:token,url:baseUrl},{name:'hee_active_business',value:businessId,url:baseUrl},{name:'infro_locale',value:'ar',url:baseUrl}]);return {context,page:await context.newPage()};
+  const context=await browser.newContext({locale:'ar-SA',baseURL:baseUrl});contexts.push(context);await context.addCookies([{name:'hee_session',value:token,url:baseUrl},{name:'hee_active_business',value:businessId,url:baseUrl},{name:'infro_locale',value:'ar',url:baseUrl}]);return {context,page:await context.newPage()};
  }
  try{
   const wa=await login(a.id,shop.id),lb=await login(b.id,laundry.id);
@@ -329,16 +329,16 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    await lb.page.setViewportSize(viewport);expect(await lb.page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(2);
    expect(await lb.page.evaluate(()=>document.documentElement.scrollHeight-innerHeight)).toBeLessThanOrEqual(2);
    const saveBox=await lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true}).boundingBox();expect(saveBox!.y+saveBox!.height).toBeLessThanOrEqual(viewport.height+1);
-   await lb.page.locator('.ld-checkout-fields').evaluate(el=>el.scrollTop=0);
+   await lb.page.locator('.ld-order-scroll').evaluate(el=>el.scrollTop=0);
    for(const label of ['الدفعة المستلمة','طريقة التحصيل']){
     const field=lb.page.getByLabel(label,{exact:true});
     await expect(field).toBeInViewport({ratio:1});
     const box=await field.boundingBox();
     expect(box!.y+box!.height).toBeLessThan(saveBox!.y);
    }
-   await lb.page.locator('.ld-checkout-fields').evaluate(el=>el.scrollTop=el.scrollHeight);
+   await lb.page.locator('.ld-order-scroll').evaluate(el=>el.scrollTop=el.scrollHeight);
    await expect(lb.page.getByLabel('الدفعة المستلمة',{exact:true})).toBeInViewport({ratio:1});
-   await lb.page.locator('.ld-checkout-fields').evaluate(el=>el.scrollTop=0);
+   await lb.page.locator('.ld-order-scroll').evaluate(el=>el.scrollTop=0);
    const addButton=lb.page.getByRole('button',{name:'إضافة فرشة غرفة — غسيل وكوي',exact:true});
    await expect(addButton.locator('.ld-product-add')).toContainText('إضافة');
    await expect(addButton.locator('.ld-product-quantity')).toContainText('2.5');
@@ -348,22 +348,22 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
    expect(plusBox!.x).toBeGreaterThan(iconBox!.x);expect(plusBox!.x+plusBox!.width).toBeLessThan(iconBox!.x+iconBox!.width);
 
    await lb.page.screenshot({path:`test-results/cashier-compact-desktop-${viewport.width}.png`,fullPage:true});
-   if(viewport.height<=700){
-    await expect(lb.page.locator('.ld-checkout-details')).not.toHaveAttribute('open','');
-    await lb.page.keyboard.press('F8');
-    await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toBeFocused();
-    await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toBeInViewport({ratio:1});
-    await lb.page.screenshot({path:'test-results/cashier-short-screen-customer.png',fullPage:true});
-    await lb.page.locator('.ld-checkout-details>summary').click();
-   }
+   await expect(lb.page.locator('.ld-checkout-details')).toHaveAttribute('open','');
+   const orderArea=await lb.page.locator('.ld-order-scroll').boundingBox();
+   expect(orderArea!.height).toBeGreaterThan(viewport.height>=720?250:120);
+   expect(await lb.page.locator('.ld-checkout-details').evaluate(el=>el.scrollHeight-el.clientHeight)).toBeLessThanOrEqual(2);
+   await lb.page.keyboard.press('F8');
+   await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toBeInViewport({ratio:1});
+   await lb.page.screenshot({path:`test-results/cashier-customer-room-${viewport.width}.png`,fullPage:true});
   }
   await lb.page.setViewportSize({width:1366,height:768});
   for(let i=0;i<3&&await lb.page.locator('[data-operations-shell]').getAttribute('data-dashboard-theme')!=='dark';i++)await lb.page.locator('.infro-theme-toggle').click();
   await lb.page.screenshot({path:'test-results/cashier-compact-desktop-dark.png',fullPage:true});
   await lb.page.evaluate(()=>{const w=window as typeof window&{testPrintCount?:number};w.testPrintCount=0;w.print=()=>{w.testPrintCount=(w.testPrintCount??0)+1;};});
+  await lb.page.getByLabel('اسم العميل',{exact:true}).fill('');
   await lb.page.keyboard.press('Control+Enter');await expect(lb.page.getByRole('dialog')).toContainText('فرشة غرفة');
   await expect.poll(()=>lb.page.evaluate(()=>(window as typeof window&{testPrintCount?:number}).testPrintCount)).toBe(1);
-  const fastInvoice=await db.$queryRaw<Array<{total:number;paid:number}>>`SELECT total,paid FROM "LaundryTicket" WHERE "businessId"=${laundry.id} AND number=5`;expect(fastInvoice).toEqual([{total:1000,paid:1000}]);
+  const fastInvoice=await db.$queryRaw<Array<{total:number;paid:number;customerName:string}>>`SELECT total,paid,"customerName" FROM "LaundryTicket" WHERE "businessId"=${laundry.id} AND number=5`;expect(fastInvoice).toEqual([{total:1000,paid:1000,customerName:savedCustomer[0].name}]);
   await lb.page.getByRole('dialog').getByRole('button',{name:'طلب جديد',exact:true}).click();
   await expect(lb.page.getByLabel('رقم الجوال',{exact:true})).toHaveValue('');await expect(lb.page.locator('.ld-cart-line')).toHaveCount(0);
   await expect(lb.page.locator('input[name="dueAt"]')).toHaveValue('');await expect(lb.page.getByLabel('طابعة الفاتورة',{exact:true})).toHaveValue('thermal');
@@ -484,6 +484,29 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   await wa.page.getByRole('button',{name:'طباعة',exact:true}).click();await expect(wa.page.getByText('أُرسلت الفاتورة إلى طابور الطباعة في ويندوز',{exact:true})).toBeVisible();expect(d10Prints).toBe(3);
   expect(await wa.page.evaluate(otherId=>localStorage.getItem(`infro:cashier:direct-printer:${otherId}`),laundry.id)).toBeNull();
   await wa.context.addCookies([{name:'hee_active_business',value:laundry.id,url:baseUrl}]);await wa.page.goto('/Accounting');expect(await wa.page.content()).not.toContain(nameA);expect(await wa.page.content()).not.toContain(nameB);await expect(wa.page.getByText('سجّل الدخول واختر منشأتك للوصول إلى حساباتها.',{exact:true})).toBeVisible();
+  // An unnamed new customer can complete an order without borrowing another tenant's name.
+  await lb.page.goto('/Accounting');
+  await lb.page.getByRole('button',{name:'إضافة صنف تجريبي 1',exact:true}).click();
+  await lb.page.getByLabel('رقم الجوال',{exact:true}).fill('0500000333');
+  await lb.page.getByLabel('اسم العميل',{exact:true}).fill('');
+  await expect(lb.page.getByLabel('اسم العميل',{exact:true})).not.toHaveAttribute('required','');
+  let releaseRefresh:()=>void=()=>{};
+  const refreshGate=new Promise<void>(resolve=>{releaseRefresh=resolve;});
+  await lb.page.route('**/Accounting*',async route=>{
+   if(route.request().method()==='GET'&&route.request().headers()['rsc'])await refreshGate;
+   await route.continue();
+  });
+  await lb.page.evaluate(()=>{const w=window as typeof window&{testPrintCount?:number};w.testPrintCount=0;w.print=()=>{w.testPrintCount=(w.testPrintCount??0)+1;};});
+  try {
+   await lb.page.getByRole('button',{name:'حفظ وطباعة الفاتورة',exact:true}).click();
+   await expect(lb.page.getByRole('dialog')).toContainText('غير محدد');
+   await expect.poll(()=>lb.page.evaluate(()=>(window as typeof window&{testPrintCount?:number}).testPrintCount)).toBe(1);
+  }finally{releaseRefresh();await lb.page.unrouteAll({behavior:'wait'});}
+  await expect(lb.page.getByRole('dialog')).toContainText('غير محدد');
+  const unnamed=await db.$queryRaw<Array<{customerName:string;name:string;dueAt:Date|null}>>`SELECT t."customerName",c.name,t."dueAt" FROM "LaundryTicket" t JOIN "LaundryCustomer" c ON c.id=t."customerId" AND c."businessId"=t."businessId" WHERE t."businessId"=${laundry.id} AND t.phone='+966500000333'`;
+  expect(unnamed).toEqual([{customerName:'عميل',name:'عميل',dueAt:null}]);
+  await lb.page.getByRole('dialog').getByRole('button',{name:'طلب جديد',exact:true}).click();
+  await lb.page.screenshot({path:'test-results/cashier-empty-customer-room.png',fullPage:true});
   const restricted=await login(staff.id,shop.id);await restricted.page.goto('/Accounting');await expect(restricted.page.getByText('تحتاج صلاحية البرنامج المحاسبي',{exact:true})).toBeVisible();expect(await restricted.page.content()).not.toContain(nameA);await lb.context.clearCookies();await lb.page.reload();expect(await lb.page.content()).not.toContain(nameB);expect(await lb.page.content()).not.toContain(phoneB);
   await db.businessMember.updateMany({where:{businessId:shop.id,userId:staff.id},data:{permissions:['laundry','laundryAccounting']}});
   await restricted.page.goto('/Accounting');const staffFinance=restricted.page.getByRole('link',{name:'الإدارة المالية',exact:true});await expect(staffFinance).toBeVisible();await expect(staffFinance).toHaveAttribute('href','/Accounting?view=accounting');

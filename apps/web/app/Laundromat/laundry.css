@@ -539,3 +539,37 @@
  .ld-pos-mode .ld-pos-tools{margin-inline-start:auto}
  .ld-pos-mode .ld-checkout-details{max-height:none;overflow:visible}
 }
+
+/* One generous order scroll area: empty baskets never consume customer space. */
+@media screen {
+ .ld-pos-mode .ld-cart>.ld-panel-title{margin-bottom:8px}
+ .ld-pos-mode .ld-checkout-form{flex:1 1 0;min-height:0}
+ .ld-pos-mode .ld-order-scroll{flex:1 1 0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:#7b9c9b transparent;padding-inline-end:6px;scroll-padding-block:12px}
+ .ld-pos-mode .ld-order-scroll .ld-cart-lines{display:block;flex:none;min-height:0;max-height:none;overflow:visible;padding-bottom:8px}
+ .ld-pos-mode .ld-order-scroll .ld-cart-lines>.ld-muted{min-height:0;padding:10px 4px;text-align:start;display:block}
+ .ld-pos-mode .ld-order-scroll .ld-checkout-details{max-height:none;overflow:visible}
+ .ld-pos-mode .ld-checkout-details>summary{position:static;font-size:15px;padding:12px 4px}
+ .ld-pos-mode .ld-checkout-details>summary>small{font-size:12px}
+ .ld-pos-mode .ld-checkout-fields{padding:10px 3px}
+ .ld-pos-mode .ld-checkout-fields label,.ld-pos-mode .ld-checkout-payment label{font-size:13px;gap:6px}
+ .ld-pos-mode .ld-customer-fields{gap:10px 12px;margin-bottom:12px}
+ .ld-pos-mode .ld-customer-lookup{font-size:12px;min-height:36px;padding:6px 10px}
+ .ld-pos-mode .ld-schedule{padding:12px;margin:12px 0}
+ .ld-pos-mode .ld-schedule legend{font-size:13px;font-weight:700}
+ .ld-pos-mode .ld-schedule-shortcuts{gap:8px}
+ .ld-pos-mode .ld-schedule-shortcuts button{min-height:40px;font-size:12px;padding:8px 10px}
+ .ld-pos-mode .ld-schedule-summary,.ld-pos-mode .ld-custom-schedule>summary{font-size:12px;line-height:1.7}
+ .ld-pos-mode .ld-checkout-footer{flex:none;max-height:none;overflow:visible;padding-top:8px}
+ .ld-pos-mode .ld-checkout-footer .ld-total{padding:4px 0}
+ .ld-pos-mode .ld-cashier-tip{display:none}
+ [data-operations-shell] .laundry.ld-pos-mode .ld-cart :is(input,select):not([type=hidden]):not([type=checkbox]):not([type=radio]){height:44px;min-height:44px;font-size:15px}
+}
+@media screen and (min-width:900px){
+ .ld-pos-mode .ld-pos{grid-template-columns:minmax(0,1fr) minmax(420px,36%)}
+}
+@media screen and (max-width:700px){
+ .ld-pos-mode .ld-order-scroll{flex:none;overflow:visible;padding:0;scrollbar-gutter:auto}
+}
+@media screen and (min-width:900px){
+ .ld-pos-mode .ld-cart:has(.ld-checkout-details[open]) .ld-cart-line-actions{flex-direction:row-reverse;flex-wrap:wrap}
+}
