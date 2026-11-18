@@ -5,7 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { grantPaidWorkspace } from "./helpers/paid-workspace";
 
-test("calendar paginates a busy day, preserves branch filters and never exposes another tenant", async ({ browser }) => {
+test("calendar paginates a busy day, preserves branch filters and never exposes another tenant", async ({ browser }, testInfo) => {
   test.setTimeout(120_000);
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
   const db = new PrismaClient({ adapter: new PrismaPg(pool) });
@@ -35,6 +35,7 @@ test("calendar paginates a busy day, preserves branch filters and never exposes 
     await expect(page.locator("[data-booking-id]")).toHaveCount(10);
     await expect(page.getByText("FOREIGN CALENDAR SECRET", { exact: true })).toHaveCount(0);
     await expect(page.locator('select[name="branch"] option')).toHaveCount(3);
+    await page.screenshot({ path: testInfo.outputPath("visitor-booking-calendar-week-desktop.png"), fullPage: true });
     await page.getByRole("link", { name: /عرض جميع مواعيد اليوم/ }).click();
     await expect(page.locator("[data-booking-id]")).toHaveCount(25);
     await expect(page.locator('select[name="branch"]')).toHaveValue(branch.id);
@@ -42,6 +43,7 @@ test("calendar paginates a busy day, preserves branch filters and never exposes 
     await expect(page.locator("[data-booking-id]")).toHaveCount(2);
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("visitor-booking-calendar-day-mobile.png"), fullPage: true });
     await page.goto(`${baseUrl}/dashboard/appointments/calendar?date=2030-01-16&view=day&branch=${foreignBranch.id}`);
     await expect(page.getByRole("alert").filter({ hasText: "الفرع المطلوب غير موجود" })).toBeVisible();
     await expect(page.locator("[data-booking-id]")).toHaveCount(0);
