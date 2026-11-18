@@ -22,7 +22,7 @@ export function CashierTaxHeading({ document }: { document: CashierTaxDocument }
 
 export function CashierTaxTotals({ document }: { document: CashierTaxDocument }) {
   const { size, path } = useMemo(() => {
-    const { modules } = QRCode.create(cashierTaxQrPayload(document), { errorCorrectionLevel: "M" });
+    const { modules } = QRCode.create(document.zatca?.qr ?? cashierTaxQrPayload(document), { errorCorrectionLevel: "M" });
     const path: string[] = [];
     for (let row = 0; row < modules.size; row++) {
       for (let column = 0; column < modules.size; column++) {

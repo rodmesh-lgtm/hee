@@ -25,6 +25,7 @@ import { CollectionFields } from "./collection-fields";
 import { collectionLabels } from "../lib/accounting-collection";
 import { CashierTaxHeading, CashierTaxTotals } from "./tax-receipt";
 import { CashierTaxSettings } from "./tax-settings";
+import { CashierZatcaSettings, type CashierZatcaStatus } from "./zatca-settings";
 import { cashierVatFromGross, type CashierTaxProfile } from "../lib/cashier-tax";
 import { LaundryBranding } from "./branding";
 import { LaundryCustomers,LaundryCustomerFields } from "./customers";
@@ -45,11 +46,11 @@ import { LaundryCatalogSetup } from "./catalog-setup";
 import { CASHIER_UNITS, quantityTicks, cashierLineTotal, LAUNDRY_FILTERS, LAUNDRY_STATUSES, LAUNDRY_SERVICE_SPEEDS, laundryServiceSpeed, laundryUnitPrice, laundryPriceToken, type LaundryLine, type LaundryServiceSpeed, laundryMoney as money, type LaundryFilter, type LaundryService, type LaundryTicket } from "../lib/laundry-domain";
 import type { CashierProfile } from "../lib/cashier-activity";
 type Ticket=Omit<LaundryTicket,"dueAt"|"createdAt">&{dueAt:string|null;createdAt:string};
-type Props={profile:CashierProfile;urgentEnabled:boolean;activity?:"laundry"|"general";basePath?:string;business:{id:string;name:string;phone:string;address:string;logoUrl:string|null};owner:boolean;taxProfile:CashierTaxProfile|null;taxEnabled:boolean;services:LaundryService[];tickets:Ticket[];totals:{active:number;ready:number;outstanding:number;collected:number;expenses:number};expenses:Array<{id:string;description:string;amount:number;createdAt:string}>;query:string;filter:LaundryFilter};
+type Props={profile:CashierProfile;urgentEnabled:boolean;activity?:"laundry"|"general";basePath?:string;business:{id:string;name:string;phone:string;address:string;logoUrl:string|null};owner:boolean;taxProfile:CashierTaxProfile|null;zatcaStatus:CashierZatcaStatus|null;taxEnabled:boolean;services:LaundryService[];tickets:Ticket[];totals:{active:number;ready:number;outstanding:number;collected:number;expenses:number};expenses:Array<{id:string;description:string;amount:number;createdAt:string}>;query:string;filter:LaundryFilter};
 function validQuantity(value:number,unit:LaundryService["unit"]){try{quantityTicks(value,unit);return true;}catch{return false;}}
 function previewLineTotal(price:number,quantity:number,unit:LaundryService["unit"]){return validQuantity(quantity,unit)?cashierLineTotal(price,quantity,unit):0;}
 const date=(value:string,locale="ar-SA")=>new Intl.DateTimeFormat(`${locale}-u-ca-gregory`,{timeZone:"Asia/Riyadh",year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(new Date(value));
-export function LaundryWorkspace({profile,business,owner,taxProfile,taxEnabled,services,tickets,totals,expenses,query,filter,urgentEnabled,activity="general",basePath="/Laundromat"}:Props){
+export function LaundryWorkspace({profile,business,owner,taxProfile,zatcaStatus,taxEnabled,services,tickets,totals,expenses,query,filter,urgentEnabled,activity="general",basePath="/Laundromat"}:Props){
  const { t: tr, f, dir, intlLocale } = useI18n();
 
  const [displayMode,setDisplayMode]=useCashierDisplay(business.id);
@@ -123,7 +124,7 @@ export function LaundryWorkspace({profile,business,owner,taxProfile,taxEnabled,s
   {tab==="contracts"&&owner?<LaundryContracts businessId={business.id} business={business}/>:null}
   {tab==="bank"&&owner?<LaundryReconciliation businessId={business.id}/>:null}
   {tab==="ledger"&&owner?<LaundryLedger businessId={business.id}/>:null}
-  {tab==="branding"&&owner?<><LaundryBranding business={business}/><CashierTaxSettings businessId={business.id} profile={taxProfile}/></>:null}
+  {tab==="branding"&&owner?<><LaundryBranding business={business}/><CashierTaxSettings businessId={business.id} profile={taxProfile} phaseTwoActive={zatcaStatus?.active ?? false}/>{zatcaStatus ? <CashierZatcaSettings businessId={business.id} status={zatcaStatus} taxNumberSaved={Boolean(taxProfile)}/> : null}</>:null}
   {tab==="finance"&&owner?<LaundryReports businessId={business.id}/>:null}
   {tab==="finance"&&owner?<section className="ld-panel"><div className="ld-panel-title"><h2>{tr("التحصيل والمصروفات")}</h2><span>{tr("ملخص تشغيلي · جميع الفترات")}</span></div><div className="ld-finance"><article><span>{tr("المحصّل")}</span><strong>{money(totals.collected,intlLocale)}{" "}{tr("ر.س")}</strong></article><article><span>{tr("المصروفات المسجلة")}</span><strong>{money(totals.expenses,intlLocale)}{" "}{tr("ر.س")}</strong></article><article><span>{tr("صافي التحصيل بعد المصروفات")}</span><strong>{money(totals.collected-totals.expenses,intlLocale)}{" "}{tr("ر.س")}</strong></article></div><p className="ld-fine">{tr("يشمل تحصيل الطلبات المباشر والمصروفات فقط؛ شراء الاشتراكات واستردادها ودفعات الموردين في سجلاتها والدفتر. هذا ملخص نقدي تشغيلي، وليس قائمة أرباح أو دفتر محاسبة معتمدًا. تُسجّل مدفوعات الشبكة والتحويل يدويًا.")}</p><h3>{tr("تسجيل مصروف")}</h3><form className="ld-inline-form" onSubmit={async e=>{e.preventDefault();const f=e.currentTarget;if(await submit("expense",formData(f)))f.reset();}}><label>{tr("بيان المصروف")}<input name="description" required maxLength={200} placeholder={tr("مواد تنظيف، تغليف…")}/></label><label>{tr("المبلغ بالريال")}<input name="amount" required inputMode="decimal" type="number" min="0.01" max="100000" step="0.01"/></label><label>{tr("مصدر دفع المصروف")}<select name="method"><option value="cash">{tr("الصندوق")}</option><option value="transfer">{tr("تحويل مسجل")}</option><option value="unspecified">{tr("غير محدد — يحتاج تسوية")}</option></select></label><button disabled={busy} className="ld-primary">{tr("تسجيل المصروف")}</button></form><h3>{tr("آخر 50 مصروفًا")}</h3>{expenses.map(x=><div className="ld-service-row" key={x.id}><div><strong>{x.description}</strong><small>{date(x.createdAt,intlLocale)}</small></div><span>{money(x.amount,intlLocale)}{" "}{tr("ر.س")}</span></div>)}</section>:null}
   </section></div>

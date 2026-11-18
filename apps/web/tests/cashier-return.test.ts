@@ -31,6 +31,7 @@ async function fixture(){
  await pg.exec(readFileSync('prisma/migrations/20261108100000_cashier_employee_commissions/migration.sql','utf8'));
  await pg.exec(readFileSync('prisma/migrations/20261108140000_cashier_invoice_returns/migration.sql','utf8'));
  await pg.exec(readFileSync('prisma/migrations/20261118110000_cashier_tax_documents/migration.sql','utf8'));
+ await pg.exec(readFileSync('prisma/migrations/20261118130000_cashier_zatca_phase_two/migration.sql','utf8'));
  const taxSelect=readFileSync('app/lib/cashier-tax-server.ts','utf8').match(/cashierReturnTaxDocument = Prisma\.sql`([\s\S]*?)`/)![1];
  let active=a,reads=0,failJournal=false;
  function sql(strings:TemplateStringsArray){return strings.reduce((s,p,i)=>s+(i?`$${i}`:'')+p,'');}

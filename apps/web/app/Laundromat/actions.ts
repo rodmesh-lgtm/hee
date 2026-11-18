@@ -171,7 +171,8 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName||customer.name},${customer.phone},${customer.id},${JSON.stringify(supportsUrgent?withLaundryServiceSpeed(lines,data.serviceSpeed):lines)}::jsonb,${total},${paid},${dueAt},${notes},${user.id})`;
         if (taxProfile?.enabled) {
           if (total <= 0) throw new LaundryInputError("يجب أن يكون إجمالي الفاتورة الضريبية أكبر من صفر.");
-          await issueCashierTaxDocument(tx, { businessId: business.id, ticketId: id, gross: total, seller: taxProfile });
+          await issueCashierTaxDocument(tx, { businessId: business.id, ticketId: id, gross: total, seller: taxProfile, method: data.method,
+            lines: lines.map(line => ({ ...line, gross: line.total })) });
         }
         if(data.commission){
           const commission=commissionQuote(data.commission.kind,data.commission.value,total);

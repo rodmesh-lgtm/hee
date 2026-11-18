@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { CashierTaxProfile } from "../lib/cashier-tax";
 import { saveCashierTaxProfile } from "./tax-actions";
 
-export function CashierTaxSettings({ businessId, profile }: { businessId: string; profile: CashierTaxProfile | null }) {
+export function CashierTaxSettings({ businessId, profile, phaseTwoActive }: { businessId: string; profile: CashierTaxProfile | null; phaseTwoActive: boolean }) {
   const router = useRouter();
   const modeId = useId();
   const [enabled, setEnabled] = useState(profile?.enabled ?? false);
@@ -36,7 +36,8 @@ export function CashierTaxSettings({ businessId, profile }: { businessId: string
   }
 
   return <section className="ld-panel ld-branding">
-    <div className="ld-panel-title"><h2>الفوترة الضريبية · زاتكا</h2><span>{profile?.enabled ? "الإصدار المبسط مفعّل" : "الإصدار المبسط متوقف"}</span></div>
+    <div className="ld-panel-title"><h2>الفوترة الضريبية · زاتكا</h2><span>{phaseTwoActive ? "إصدار المرحلة الثانية مفعّل" : profile?.enabled ? "الإصدار المبسط مفعّل" : "الإصدار المبسط متوقف"}</span></div>
+    {phaseTwoActive ? <p>رقم التسجيل الضريبي <bdi>{profile?.vatNumber}</bdi></p> : <>
     <p className="ld-fine">للمنشآت المسجلة في الضريبة التي لم يحلّ موعد ربطها بمنصة فاتورة. يصدر الكاشير فاتورة ضريبية مبسطة للمستهلك عن المبيعات الجديدة الخاضعة للنسبة الأساسية. معاملات الباقات تحتاج مسار فوترة منفصل.</p>
     <form onSubmit={save}>
       <label>اسم البائع المسجّل<input name="sellerName" required maxLength={255} defaultValue={profile?.sellerName ?? ""}/></label>
@@ -50,6 +51,7 @@ export function CashierTaxSettings({ businessId, profile }: { businessId: string
       <button className="ld-primary" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات الضريبة"}</button>
     </form>
     {message ? <p role={message.ok ? "status" : "alert"} className={message.ok ? "ld-success" : "ld-alert"}>{message.text}</p> : null}
-    <p className="ld-fine">حالة الربط بمنصة فاتورة · غير مرتبط. تتطلب المرحلة الثانية تهيئة جهاز إصدار باسم المنشأة لدى الهيئة.</p>
+    <p className="ld-fine">تجد إعدادات جهاز الإصدار للمرحلة الثانية أدناه.</p>
+    </>}
   </section>;
 }

@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getActiveBusinessForUser } from "../lib/active-business";
 import { getCurrentUserForApiWrite } from "../lib/auth";
-import { CASHIER_OUTPUT_VAT_ACCOUNT, normalizeCashierVatNumber } from "../lib/cashier-tax";
+import { normalizeCashierVatNumber } from "../lib/cashier-tax";
+import { ensureCashierOutputVatAccount } from "../lib/cashier-tax-server";
 import { db } from "../lib/db";
 import { LaundryInputError } from "../lib/laundry-domain";
 
@@ -37,23 +38,17 @@ export async function saveCashierTaxProfile(value: unknown) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${business.id}`}))`;
       const owned = await tx.business.findFirst({ where: { id: business.id, ownerId: user.id, deletedAt: null }, select: { id: true } });
       if (!owned) throw new LaundryInputError("المنشأة غير متاحة.");
-      if (enabled) {
-        const [book] = await tx.$queryRaw<Array<{ initializedAt: Date | null }>>`
-          SELECT "initializedAt" FROM "LaundryBook" WHERE "businessId" = ${business.id}
-        `;
-        if (!book?.initializedAt) throw new LaundryInputError("هيّئ دفتر المحاسبة أولًا لترحيل ضريبة المبيعات.");
-        await tx.$executeRaw`
-          INSERT INTO "LaundryAccount" ("businessId", code, name, kind)
-          VALUES (${business.id}, ${CASHIER_OUTPUT_VAT_ACCOUNT}, 'ضريبة القيمة المضافة على المبيعات', 'liability')
-          ON CONFLICT ("businessId", code) DO NOTHING
-        `;
-        const [account] = await tx.$queryRaw<Array<{ name: string; kind: string }>>`
-          SELECT name, kind FROM "LaundryAccount" WHERE "businessId" = ${business.id} AND code = ${CASHIER_OUTPUT_VAT_ACCOUNT}
-        `;
-        if (account?.kind !== "liability" || account.name !== "ضريبة القيمة المضافة على المبيعات") {
-          throw new LaundryInputError("رمز حساب ضريبة المبيعات مستخدم لحساب آخر. راجع دليل الحسابات.");
+      const [device] = await tx.$queryRaw<Array<{ active: boolean }>>`SELECT active FROM "CashierZatcaDevice"
+        WHERE "businessId"=${business.id} AND environment='production' AND credentials IS NOT NULL`;
+      if (device) {
+        const [current] = await tx.$queryRaw<Array<{ sellerName: string; sellerAddress: string; vatNumber: string; enabled: boolean }>>`
+          SELECT * FROM "CashierTaxProfile" WHERE "businessId"=${business.id}`;
+        if (current && (current.sellerName !== input.sellerName || current.sellerAddress !== input.sellerAddress ||
+            current.vatNumber !== input.vatNumber || (device.active && current.enabled && !enabled))) {
+          throw new LaundryInputError("بيانات البائع مرتبطة بجهاز زاتكا. راجع إعدادات جهاز الإصدار قبل تعديلها.");
         }
       }
+      if (enabled) await ensureCashierOutputVatAccount(tx, business.id);
       await tx.$executeRaw`
         INSERT INTO "CashierTaxProfile" ("businessId", "sellerName", "sellerAddress", "vatNumber", "enabled")
         VALUES (${business.id}, ${input.sellerName}, ${input.sellerAddress}, ${input.vatNumber}, ${enabled})
