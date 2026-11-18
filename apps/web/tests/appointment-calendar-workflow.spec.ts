@@ -1,0 +1,64 @@
+import { randomUUID } from "node:crypto";
+import { expect, test } from "@playwright/test";
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
+import { grantPaidWorkspace } from "./helpers/paid-workspace";
+
+test("calendar paginates a busy day, preserves branch filters and never exposes another tenant", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
+  const db = new PrismaClient({ adapter: new PrismaPg(pool) });
+  const suffix = randomUUID();
+  const owner = await db.user.create({ data: { name: "Calendar Owner", email: `calendar-${suffix}@example.invalid`, emailVerifiedAt: new Date() } });
+  const plan = await db.businessPlan.upsert({ where: { code: "FREE" }, update: {}, create: { code: "FREE", name: "Free", monthlyPrice: 0, productLimit: 3 } });
+  const business = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "تقويم اختباري", slug: `calendar-${suffix}`, businessType: "خدمات", onboardingCompleted: true, bookingAvailable: true } });
+  const foreign = await db.business.create({ data: { ownerId: owner.id, planId: plan.id, name: "منشأة معزولة", slug: `calendar-other-${suffix}`, businessType: "خدمات", onboardingCompleted: true } });
+  const memberUser = await db.user.create({ data: { name: "Calendar Staff", email: `calendar-staff-${suffix}@example.invalid`, emailVerifiedAt: new Date() } });
+  const member = await db.businessMember.create({ data: { businessId: business.id, userId: memberUser.id, role: "viewer", status: "active", permissions: ["appointments"] } });
+  await grantPaidWorkspace(db, business.id);
+  const customer = await db.customer.create({ data: { businessId: business.id, name: "عميل التقويم", phone: "0500000871" } });
+  const foreignCustomer = await db.customer.create({ data: { businessId: foreign.id, name: "FOREIGN CALENDAR SECRET", phone: "0500000872" } });
+  const branch = await db.branch.create({ data: { businessId: business.id, name: "فرع التقويم" } });
+  const foreignBranch = await db.branch.create({ data: { businessId: foreign.id, name: "FOREIGN BRANCH SECRET" } });
+  await db.booking.createMany({ data: Array.from({ length: 27 }, () => ({ businessId: business.id, customerId: customer.id, branchId: branch.id, bookingDate: "2030-01-16", bookingTime: "10:00", status: "pending" })) });
+  await db.booking.create({ data: { businessId: foreign.id, customerId: foreignCustomer.id, branchId: foreignBranch.id, bookingDate: "2030-01-16", bookingTime: "10:00", status: "pending" } });
+  const token = randomUUID();
+  await db.session.create({ data: { token, userId: memberUser.id, expiresAt: new Date(Date.now() + 3600_000) } });
+  const context = await browser.newContext();
+  const baseUrl = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
+  await context.addCookies([{ name: "hee_session", value: token, url: baseUrl }]);
+  const page = await context.newPage();
+  try {
+    await page.goto(`${baseUrl}/dashboard/appointments/calendar?date=2030-01-16&view=week&branch=${branch.id}`);
+    await expect(page.getByRole("heading", { name: "تقويم المواعيد", exact: true })).toBeVisible();
+    await expect(page.locator("[data-booking-id]")).toHaveCount(10);
+    await expect(page.getByText("FOREIGN CALENDAR SECRET", { exact: true })).toHaveCount(0);
+    await expect(page.locator('select[name="branch"] option')).toHaveCount(3);
+    await page.getByRole("link", { name: /عرض جميع مواعيد اليوم/ }).click();
+    await expect(page.locator("[data-booking-id]")).toHaveCount(25);
+    await expect(page.locator('select[name="branch"]')).toHaveValue(branch.id);
+    await page.getByRole("navigation", { name: "صفحات التقويم اليومي" }).getByRole("link", { name: "التالي", exact: true }).click();
+    await expect(page.locator("[data-booking-id]")).toHaveCount(2);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.goto(`${baseUrl}/dashboard/appointments/calendar?date=2030-01-16&view=day&branch=${foreignBranch.id}`);
+    await expect(page.getByRole("alert").filter({ hasText: "الفرع المطلوب غير موجود" })).toBeVisible();
+    await expect(page.locator("[data-booking-id]")).toHaveCount(0);
+    await db.businessMember.update({ where: { id: member.id }, data: { status: "revoked" } });
+    await page.goto(`${baseUrl}/dashboard/appointments/calendar?date=2030-01-16&view=day`);
+    await expect(page.locator("[data-booking-id]")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "تقويم المواعيد", exact: true })).toHaveCount(0);
+  } finally {
+    await context.close();
+    await db.booking.deleteMany({ where: { businessId: { in: [business.id, foreign.id] } } });
+    await db.customer.deleteMany({ where: { businessId: { in: [business.id, foreign.id] } } });
+    await db.branch.deleteMany({ where: { businessId: { in: [business.id, foreign.id] } } });
+    await db.businessMember.deleteMany({ where: { businessId: business.id } });
+    await db.subscription.deleteMany({ where: { businessId: business.id } });
+    await db.business.deleteMany({ where: { id: { in: [business.id, foreign.id] } } });
+    await db.session.deleteMany({ where: { userId: memberUser.id } });
+    await db.user.deleteMany({ where: { id: { in: [owner.id, memberUser.id] } } });
+    await db.$disconnect(); await pool.end();
+  }
+});

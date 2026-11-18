@@ -5,9 +5,8 @@ import { Prisma } from "@prisma/client";
 import { Building2, CalendarDays, CalendarCheck2, Clock3, Settings2, Search, Phone, ArrowLeft, MapPin } from "lucide-react";
 import { db } from "../../lib/db";
 import { getOwnedBusinessForRead } from "../../lib/ownership";
-import { updateBookingStatusAction } from "../../actions/transactions";
 import { appointmentPage, appointmentSearch, appointmentSearchPattern, appointmentStatus, appointmentTab } from "../../lib/appointment-board";
-import { ConfirmSubmitButton } from "../../../components/dashboard/confirm-submit-button";
+import { BookingStatusAction as BookingAction } from "../../../components/dashboard/booking-status-action";
 import { WorkspaceRefresh } from "../../../components/dashboard/workspace-refresh";
 import "./appointments.css";
 
@@ -16,10 +15,6 @@ const fmt = (n: number) => new Intl.NumberFormat("ar-SA").format(n);
 const dateTime = (value: Date) => new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { timeZone: "Asia/Riyadh", dateStyle: "medium", timeStyle: "short" }).format(value);
 const visitTime = (date: string, time: string) => dateTime(new Date(`${date}T${time}:00+03:00`));
 const param = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
-
-function BookingAction({ id, status, label, danger = false, confirm }: { id: string; status: string; label: string; danger?: boolean; confirm?: string }) {
-  return <form action={updateBookingStatusAction}><input type="hidden" name="id" value={id}/><input type="hidden" name="status" value={status}/>{confirm ? <ConfirmSubmitButton label={label} confirmMessage={confirm} showIcon={false} className={`appointment-button ${danger ? "appointment-button-danger" : ""}`}/> : <button className="appointment-button">{label}</button>}</form>;
-}
 
 export default async function AppointmentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requirePaidSectionPage("appointments");
@@ -67,7 +62,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
   }
   const tabs = [{ key: "upcoming", label: "المواعيد القادمة", count: data.counts.upcoming }, { key: "new", label: "بانتظار التأكيد", count: data.counts.pending }, { key: "history", label: "سجل المواعيد", count: data.counts.history }, { key: "branches", label: "فروع المواعيد", count: branches.length }];
   return <div className="appointment-board space-y-5">
-    <section className="appointment-surface appointment-hero"><div><p className="appointment-eyebrow">إدارة الزيارات والفروع</p><h1>المواعيد والحجوزات</h1><p>القادم حسب وقت الزيارة، والجديد حسب وقت استقباله. الحجوزات السابقة لها سجل مستقل.</p></div><Link href="/dashboard/working-hours" className="appointment-button"><Settings2 aria-hidden="true" size={17}/>إعدادات الحجز وساعات العمل</Link></section>
+    <section className="appointment-surface appointment-hero"><div><p className="appointment-eyebrow">إدارة الزيارات والفروع</p><h1>المواعيد والحجوزات</h1><p>القادم حسب وقت الزيارة، والجديد حسب وقت استقباله. الحجوزات السابقة لها سجل مستقل.</p></div><Link href="/dashboard/appointments/calendar" className="appointment-button"><CalendarDays aria-hidden="true" size={17}/>التقويم اليومي والأسبوعي</Link><Link href="/dashboard/working-hours" className="appointment-button"><Settings2 aria-hidden="true" size={17}/>إعدادات الحجز وساعات العمل</Link></section>
     <WorkspaceRefresh observedAt={data.counts.observedAt.toISOString()} observedTime={dateTime(data.counts.observedAt)}/>
     <div className="appointment-stats"><Stat icon={<CalendarDays size={20}/>} title="مواعيد قادمة" count={data.counts.upcoming}/><Stat icon={<Clock3 size={20}/>} title="بانتظار تأكيدك" count={data.counts.pending}/><Stat icon={<CalendarCheck2 size={20}/>} title="في السجل" count={data.counts.history}/></div>
     <nav aria-label="عرض المواعيد" className="appointment-tabs">{tabs.map(item => <Link key={item.key} href={href({ tab: item.key, page: 1 })} aria-current={tab === item.key ? "page" : undefined}>{item.label}<span>{fmt(item.count)}</span></Link>)}</nav>

@@ -2,6 +2,7 @@ import { requirePaidSectionPage } from "../../lib/paid-section-page";
 import { getPublicBusinessUrlFromRequest } from "../../lib/public-url";
 import { getCurrentUser } from "../../lib/auth";
 import Link from "next/link";
+import { BookingSetupGuide } from "../../../components/dashboard/booking-setup-guide";
 import { WeeklyBookingHoursEditor } from "../../../components/dashboard/weekly-booking-hours-editor";
 import { redirect } from "next/navigation";
 import {
@@ -111,6 +112,7 @@ export default async function DashboardWorkingHoursPage({
     select: {
       id: true,
       slug: true,
+      isPublished: true,
       bookingAvailable: true,
       pageModules: true,
       bookingSlotMinutes: true,
@@ -212,6 +214,13 @@ export default async function DashboardWorkingHoursPage({
               : null;
 
   return <div className="space-y-4 pb-24 lg:pb-4">
+    <BookingSetupGuide subscriptionActive={subscriptionActive} hasServices={bookableCount > 0}
+      hasHours={business.openingHours.some(day => !day.isClosed && Boolean((day.opensAt && day.closesAt && day.opensAt !== day.closesAt) || (day.secondOpensAt && day.secondClosesAt && day.secondOpensAt !== day.secondClosesAt)))}
+      bookingEnabled={business.bookingAvailable} published={business.isPublished}
+      audienceReady={audience !== "store_orders" || hasActiveStore}
+      whatsappReady={Boolean(bookingConnection && bookingAutomation?.status === "active" && eligibleBookingTemplates.some(template => template.id === selectedBookingTemplate))}
+      publicUrl={publicUrl}/>
+
     {isOwner ? <>
     <section id="visitor-booking-verification" className="rounded-[24px] border border-slate-200 bg-white p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-black">رموز التحقق وتعديل المواعيد</h2><p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">يستقبل عميلك الرمز من رقم منشأتك لتعديل موعده بأمان. صلاحية الرمز خمس دقائق.</p></div><span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">إعدادات خاصة بمنشأتك</span></div>
@@ -247,7 +256,7 @@ export default async function DashboardWorkingHoursPage({
     {errorMessage ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold leading-7 text-rose-700">{errorMessage}</div> : null}
 
     <section className="grid gap-4 xl:grid-cols-[1fr_1.15fr]">
-      <article className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)] sm:p-5">
+      <article id="booking-reception-settings" className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)] sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">BOOKING STATUS</span><h2 className="mt-1 text-base font-black text-slate-950">استقبال الحجوزات</h2><p className="mt-2 text-[10px] leading-5 text-slate-500">لن يظهر زر «حجز موعد» للزائر إلا بعد تفعيل الحجز ووجود خدمة قابلة للحجز ووقت متاح.</p></div>
           <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${ready ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400"}`}><Power className="h-4 w-4" /></span>
@@ -285,7 +294,7 @@ export default async function DashboardWorkingHoursPage({
     </section>
 
     {isOwner ? <>
-    <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
+    <section id="booking-whatsapp-settings" className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_60px_-48px_rgba(7,24,27,.5)]">
       <div className="border-b border-slate-100 bg-[#fbfdfd] p-4 sm:p-5"><div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e9fbf8] text-[#008f87]"><MessageCircle className="h-4 w-4" /></span><div><span className="text-[8px] font-black tracking-[.14em] text-[#008f87]" dir="ltr">BOOKING WHATSAPP</span><h2 className="mt-1 text-base font-black text-slate-950">رقم واتساب مستقل لتأكيد المواعيد</h2><p className="mt-2 max-w-3xl text-[10px] leading-6 text-slate-500">عيّن رقمًا للحجوزات فقط، أو استخدم رقم التسويق نفسه. رسائل الحملات لا تنتقل تلقائيًا إلى رقم الحجوزات، وكل تأكيد يستخدم قالبًا خدميًا معتمدًا من Meta.</p></div></div></div>
       {whatsappResult && whatsappResult !== "connection-selected" ? <p role="status" className={`m-4 rounded-xl border px-3 py-2.5 text-[10px] font-bold leading-5 sm:mx-5 ${["enabled","paused","number-linked","templates-synced","template-updated"].includes(whatsappResult) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{whatsappResult === "template-updated" ? "تم حفظ قالب تأكيد الحجز." : whatsappResult === "verification-submitted" ? "تم تقديم قالب التحقق إلى Meta. الإرسال ينتظر اعتماده؛ حدّث القوالب لمعرفة حالته." : whatsappResult === "verification-rate-limited" ? "توجد محاولة تقديم خلال آخر 24 ساعة. حدّث القوالب للتحقق من النتيجة؛ لم نرسل طلبًا مكررًا إلى Meta." : whatsappResult === "verification-rejected" ? "رفضت Meta تقديم قالب التحقق. راجع صلاحيات إدارة القوالب وحساب واتساب؛ لم يتم تفعيل إرسال الرمز." : whatsappResult === "verification-setup-failed" ? "تعذر تجهيز طلب قالب التحقق. راجع اتصال رقم الحجوزات وصلاحياته قبل إعادة المحاولة." : whatsappResult === "verification-sync-required" ? "حدّث القوالب من Meta أولًا؛ قد يكون طلب القالب قد وصل، فلا تعِد تقديمه الآن." : whatsappResult === "enabled" ? "تم تفعيل إرسال تأكيدات الحجز عبر واتساب." : whatsappResult === "paused" ? "تم إيقاف تأكيدات واتساب مؤقتًا." : whatsappResult === "number-linked" ? "تم تعيين رقم التسويق نفسه لخدمة الحجوزات." : whatsappResult === "templates-synced" ? "تم تحديث قوالب رقم الحجوزات من Meta." : whatsappResult === "subscription-required" ? "يلزم اشتراك INFRO فعال لاستخدام الحجز وتأكيداته." : "لم تكتمل العملية. راجع اتصال الرقم والقالب المعتمد ثم حاول مجددًا."}</p> : null}
       {whatsappResult === "connection-selected" ? <p role="status" className="m-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">تم تعيين حساب واتساب المحدد للحجوزات. حدّث قوالبه ثم اختر قالب التأكيد؛ أُوقفت التأكيدات المرتبطة بأي حساب سابق.</p> : null}
@@ -420,7 +429,7 @@ export default async function DashboardWorkingHoursPage({
       </div> : <div className="border-t border-dashed border-slate-200 px-4 py-5 text-center text-[10px] font-bold text-slate-400">لا توجد تواريخ خاصة؛ سيُستخدم جدول الأسبوع تلقائيًا.</div>}
     </section>
 
-    <WeeklyBookingHoursEditor initial={business.openingHours.map(({ dayOfWeek, opensAt, closesAt, secondOpensAt, secondClosesAt, isClosed }) => ({ dayOfWeek, opensAt, closesAt, secondOpensAt, secondClosesAt, isClosed }))} slotMinutes={business.bookingSlotMinutes}/>
+    <div id="booking-weekly-hours"><WeeklyBookingHoursEditor initial={business.openingHours.map(({ dayOfWeek, opensAt, closesAt, secondOpensAt, secondClosesAt, isClosed }) => ({ dayOfWeek, opensAt, closesAt, secondOpensAt, secondClosesAt, isClosed }))} slotMinutes={business.bookingSlotMinutes}/></div>
   </div>;
 }
 
