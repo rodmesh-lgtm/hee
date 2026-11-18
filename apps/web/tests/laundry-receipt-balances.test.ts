@@ -27,8 +27,11 @@ test("receipt query keeps balances at ticket redemption, includes exhausted unit
  const source=await readFile(new URL("../app/Laundromat/server-workspace.tsx",import.meta.url),"utf8");
  const template=source.match(/db\.\$queryRaw<LaundryTicket\[\]>`([\s\S]*?)`/)![1];
  const values:Record<string,string>={"business.id":"shop",pattern:"%",q:"",filter:"all",normalizedPhone:"",'normalizedPhone.replace(/^\\+/,"")':"",localPhone:""};
+ const taxSource=await readFile(new URL("../app/lib/cashier-tax-server.ts",import.meta.url),"utf8");
+ const taxSelect=taxSource.match(/cashierInvoiceTaxDocument = Prisma\.sql`([\s\S]*?)`/)![1];
+ await db.exec('CREATE TABLE "CashierTaxDocument"("businessId" text,"ticketId" text,"returnId" text)');
  const parameters:string[]=[];
- const sql=template.replace(/\$\{([^}]+)\}/g,(_,key:string)=>{assert.ok(key in values,key);parameters.push(values[key]);return `$${parameters.length}`;});
+ const sql=template.replace(/\$\{([^}]+)\}/g,(_,key:string)=>{if(key==="cashierInvoiceTaxDocument")return taxSelect;assert.ok(key in values,key);parameters.push(values[key]);return `$${parameters.length}`;});
  const result=await db.query<{id:string;subscriptionBalances:Array<{id:string;originalAmount:number;usedAmount:number;remaining:number;unitsRemaining:number|null}>}>(sql,parameters);
  assert.equal(result.rows.length,3);
  assert.deepEqual(result.rows.find(t=>t.id==="regular")?.subscriptionBalances,[]);

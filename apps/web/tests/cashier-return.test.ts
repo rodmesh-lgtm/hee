@@ -5,6 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {runInNewContext} from 'node:vm';
 import ts from 'typescript';
 import {z} from 'zod';
+import {Prisma} from '@prisma/client';
 import {PGlite} from '@electric-sql/pglite';
 import * as domain from '../app/lib/laundry-domain';
 import * as returns from '../app/lib/cashier-return';
@@ -29,14 +30,16 @@ async function fixture(){
  `);
  await pg.exec(readFileSync('prisma/migrations/20261108100000_cashier_employee_commissions/migration.sql','utf8'));
  await pg.exec(readFileSync('prisma/migrations/20261108140000_cashier_invoice_returns/migration.sql','utf8'));
+ await pg.exec(readFileSync('prisma/migrations/20261118110000_cashier_tax_documents/migration.sql','utf8'));
+ const taxSelect=readFileSync('app/lib/cashier-tax-server.ts','utf8').match(/cashierReturnTaxDocument = Prisma\.sql`([\s\S]*?)`/)![1];
  let active=a,reads=0,failJournal=false;
  function sql(strings:TemplateStringsArray){return strings.reduce((s,p,i)=>s+(i?`$${i}`:'')+p,'');}
  const tx={
-  $queryRaw:async(strings:TemplateStringsArray,...values:unknown[])=>{reads++;return (await pg.query(sql(strings),values)).rows;},
+  $queryRaw:async(strings:TemplateStringsArray,...values:unknown[])=>{reads++;const query=Prisma.sql(strings,...values);return (await pg.query(query.text,query.values)).rows;},
   $executeRaw:async(strings:TemplateStringsArray,...values:unknown[])=>{if(strings.join('').includes('pg_advisory'))return 1;return (await pg.query(sql(strings),values)).affectedRows??0;}
  };
  const db={...tx,$transaction:async(fn:(t:typeof tx)=>Promise<unknown>)=>{await pg.exec('BEGIN');try{const r=await fn(tx);await pg.exec('COMMIT');return r;}catch(e){await pg.exec('ROLLBACK');throw e;}}};
- const deps:Record<string,unknown>={'node:crypto':{randomUUID},zod:{z},'next/cache':{revalidatePath:()=>{}},'../lib/db':{db},'../lib/auth':{getCurrentUser:async()=>({id:'actor'}),getCurrentUserForApiWrite:async()=>({id:'actor'})},'../lib/active-business':{getActiveBusinessForUser:async()=>active?{id:active}:null},'../lib/laundry-domain':domain,'../lib/cashier-return':returns,'../lib/live-view/order-link':{endOrderLiveSessions:async()=>{}},'../lib/laundry-ledger':{postLaundryJournal:async(_tx:unknown,input:{sourceKey:string;lines:unknown})=>{if(failJournal)throw Error('closed');await pg.query('INSERT INTO "TestJournal" VALUES($1,$2::jsonb)',[input.sourceKey,JSON.stringify(input.lines)]);}}};
+ const deps:Record<string,unknown>={'node:crypto':{randomUUID},zod:{z},'next/cache':{revalidatePath:()=>{}},'../lib/db':{db},'../lib/auth':{getCurrentUser:async()=>({id:'actor'}),getCurrentUserForApiWrite:async()=>({id:'actor'})},'../lib/active-business':{getActiveBusinessForUser:async()=>active?{id:active}:null},'../lib/laundry-domain':domain,'../lib/cashier-return':returns,'../lib/cashier-tax-server':{cashierOriginalTaxDocument:async()=>null,cashierReturnTaxDocument:Prisma.raw(taxSelect)},'../lib/live-view/order-link':{endOrderLiveSessions:async()=>{}},'../lib/laundry-ledger':{postLaundryJournal:async(_tx:unknown,input:{sourceKey:string;lines:unknown})=>{if(failJournal)throw Error('closed');await pg.query('INSERT INTO "TestJournal" VALUES($1,$2::jsonb)',[input.sourceKey,JSON.stringify(input.lines)]);}}};
  const output={};runInNewContext(ts.transpileModule(readFileSync('app/Laundromat/return-actions.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:output,require:(id:string)=>deps[id],Date,Error,Math,JSON});
  async function invoice(bid=a,paid=1000,method='cash',units=0){
   const id=randomUUID(),paymentId=randomUUID(),prepaidId=method==='prepaid'?randomUUID():null;
