@@ -21,7 +21,7 @@ const connectInput = z.object({
 async function getOwner(businessId: string) {
   const user = await getCurrentUserForApiWrite();
   const business = user && await getActiveBusinessForUser(user.id, "laundry");
-  return user && business?.id === businessId && business.ownerId === user.id ? user.id : null;
+  return user && business?.id === businessId && business.ownerId === user.id ? { id: user.id, industry: (business.businessCategory || business.businessType || "خدمات").trim().slice(0, 100) } : null;
 }
 
 export async function connectCashierZatca(value: unknown) {
@@ -58,7 +58,7 @@ export async function connectCashierZatca(value: unknown) {
   if (!started.length) return { ok: false, message: "تحقق من نجاح المحاكاة أولًا. قد يكون الجهاز مسجلًا أو التهيئة قيد التنفيذ." };
 
   try {
-    const result = await onboardZatcaDevice({ ...input, profile, deviceId });
+    const result = await onboardZatcaDevice({ ...input, profile, deviceId, industry: owner.industry });
     if (input.environment === "simulation") {
       const sample = await signZatcaInvoice(buildZatcaInvoice({
         profile, address: input.address, number: 1, counter: 1, previousHash: null, issuedAt: new Date(),
@@ -69,7 +69,7 @@ export async function connectCashierZatca(value: unknown) {
     const finalized = await db.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${input.businessId}`}))`;
       const [owned] = await tx.$queryRaw<Array<{ id: string }>>`SELECT b.id FROM "Business" b JOIN "CashierTaxProfile" p
-        ON p."businessId"=b.id WHERE b.id=${input.businessId} AND b."ownerId"=${owner} AND b."deletedAt" IS NULL
+        ON p."businessId"=b.id WHERE b.id=${input.businessId} AND b."ownerId"=${owner.id} AND b."deletedAt" IS NULL
         AND (p."sellerName",p."sellerAddress",p."vatNumber")=(${profile.sellerName},${profile.sellerAddress},${profile.vatNumber})`;
       if (!owned) return 0;
       return tx.$executeRaw`UPDATE "CashierZatcaDevice" SET credentials=${JSON.stringify(sealZatcaCredentials(input.businessId,deviceId,result.credentials))}::jsonb,
@@ -100,7 +100,7 @@ export async function activateCashierZatca(value: unknown) {
     const changed = await db.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${businessId}`}))`;
       const [owned] = await tx.$queryRaw<Array<{ id: string }>>`
-        SELECT id FROM "Business" WHERE id=${businessId} AND "ownerId"=${owner} AND "deletedAt" IS NULL`;
+        SELECT id FROM "Business" WHERE id=${businessId} AND "ownerId"=${owner.id} AND "deletedAt" IS NULL`;
       if (!owned || !await cashierTaxProfile(businessId, tx)) return 0;
       await ensureCashierOutputVatAccount(tx, businessId);
       const updated = await tx.$executeRaw`UPDATE "CashierZatcaDevice" SET active=TRUE WHERE "businessId"=${businessId}

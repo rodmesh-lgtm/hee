@@ -11,6 +11,7 @@ const certificate = z.object({
 const validation = z.object({
   status: z.enum(["PASS", "WARNING", "ERROR"]),
   warningMessages: z.array(z.unknown()).optional(),
+  errorMessages: z.array(z.object({ code: z.string().nullish() })).optional(),
 });
 export class ZatcaGatewayError extends Error {
   constructor(readonly code: string, readonly status: number = 0) { super(code); }
@@ -38,12 +39,19 @@ async function gatewayRequest(input: {
   } catch {
     throw new ZatcaGatewayError("NETWORK");
   }
-  if (!response.ok) throw new ZatcaGatewayError(`HTTP_${response.status}`, response.status);
-  try {
-    return (await response.json()) as unknown;
-  } catch {
-    throw new ZatcaGatewayError("INVALID_RESPONSE", response.status);
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const parsed = z.object({ validationResults: validation }).safeParse(payload);
+    const code = parsed.success ? zatcaValidationCode(parsed.data.validationResults) : "";
+    throw new ZatcaGatewayError(`HTTP_${response.status}${code}`, response.status);
   }
+  if (payload === null) throw new ZatcaGatewayError("INVALID_RESPONSE", response.status);
+  return payload;
+}
+
+function zatcaValidationCode(result: z.infer<typeof validation>) {
+  const code = result.errorMessages?.find(message => /^[A-Za-z0-9_.-]{2,48}$/.test(message.code ?? ""))?.code;
+  return code ? `:${code}` : "";
 }
 
 function requestBody(artifact: { xml: string; uuid: string; hash: string }) {
@@ -54,13 +62,14 @@ export async function onboardZatcaDevice(input: {
   environment: ZatcaEnvironment;
   otp: string;
   deviceId: string;
+  industry: string;
   address: ZatcaAddress;
   profile: Omit<CashierTaxProfile, "enabled">;
 }) {
   const { environment, address, profile, deviceId } = input;
   const { EGS } = await import("zatca-sdk");
   const device = new EGS({
-    uuid: deviceId, branchName: address.city, branchIndustry: "Retail", model: "Cashier",
+    uuid: deviceId, branchName: address.city, branchIndustry: input.industry, model: "Cashier",
     location: `${address.building} ${address.street} ${address.city} ${address.postalCode}`,
     commonName: `INFRO-${profile.vatNumber}-${deviceId.slice(0, 8)}`,
     organizationName: profile.sellerName, countryCode: "SA", vatNumber: profile.vatNumber, invoiceType: "0100",
@@ -85,7 +94,7 @@ export async function onboardZatcaDevice(input: {
     const result = z.object({ validationResults: validation }).parse(await gatewayRequest({
       environment, path: "/compliance/invoices", auth: compliance, body: requestBody(signed),
     }));
-    if (result.validationResults.status === "ERROR") throw new ZatcaGatewayError("COMPLIANCE_REJECTED");
+    if (result.validationResults.status === "ERROR") throw new ZatcaGatewayError(`COMPLIANCE_REJECTED${zatcaValidationCode(result.validationResults)}`);
     original ??= { number };
     previousHash = signed.hash;
   }

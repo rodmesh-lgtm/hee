@@ -9,7 +9,7 @@ import { buildZatcaInvoice, signZatcaInvoice, type ZatcaAddress, type ZatcaCrede
 import { reportZatcaInvoice, ZatcaGatewayError } from "./cashier-zatca-gateway";
 import type { CashierTaxProfile } from "./cashier-tax";
 
-type Device = { id: string; seller: ZatcaAddress; credentials: CommerceCredentialEnvelope; expiresAt: Date; counter: number; lastHash: string | null };
+type Device = { id: string; seller: ZatcaAddress & { vatNumber: string }; credentials: CommerceCredentialEnvelope; expiresAt: Date; counter: number; lastHash: string | null };
 type Report = { number: number; businessId: string; deviceId: string; uuid: string; hash: string; xml: string; attempts: number };
 
 export function zatcaConfiguration() {
@@ -52,6 +52,7 @@ export async function attachZatcaArtifact(tx: Prisma.TransactionClient, input: {
     return;
   }
 
+  if (device.seller.vatNumber !== input.seller.vatNumber) throw new LaundryInputError("الرقم الضريبي للمستند يختلف عن الرقم المسجّل لجهاز الإصدار.");
   if (device.expiresAt <= input.issuedAt) throw new LaundryInputError("انتهت شهادة جهاز زاتكا. راجع مالك المنشأة لتجديدها.");
   let artifact;
   try {

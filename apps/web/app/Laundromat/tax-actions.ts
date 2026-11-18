@@ -38,13 +38,13 @@ export async function saveCashierTaxProfile(value: unknown) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${business.id}`}))`;
       const owned = await tx.business.findFirst({ where: { id: business.id, ownerId: user.id, deletedAt: null }, select: { id: true } });
       if (!owned) throw new LaundryInputError("المنشأة غير متاحة.");
-      const [device] = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "CashierZatcaDevice"
+      const [device] = await tx.$queryRaw<Array<{ active: boolean }>>`SELECT active FROM "CashierZatcaDevice"
         WHERE "businessId"=${business.id} AND environment='production' AND credentials IS NOT NULL`;
       if (device) {
         const [current] = await tx.$queryRaw<Array<{ sellerName: string; sellerAddress: string; vatNumber: string; enabled: boolean }>>`
           SELECT * FROM "CashierTaxProfile" WHERE "businessId"=${business.id}`;
         if (current && (current.sellerName !== input.sellerName || current.sellerAddress !== input.sellerAddress ||
-            current.vatNumber !== input.vatNumber || (current.enabled && !enabled))) {
+            current.vatNumber !== input.vatNumber || (device.active && current.enabled && !enabled))) {
           throw new LaundryInputError("بيانات البائع مرتبطة بجهاز زاتكا. راجع إعدادات جهاز الإصدار قبل تعديلها.");
         }
       }

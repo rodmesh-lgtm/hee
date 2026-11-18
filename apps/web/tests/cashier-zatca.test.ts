@@ -59,7 +59,7 @@ test("onboarding and reporting use a signed chain and preserve unit precision an
     return Response.json({ reportingStatus: "REPORTED", validationResults: { status: "WARNING", warningMessages: [{}] } });
   });
 
-  const device = await onboardZatcaDevice({ profile, address, deviceId: randomUUID(), environment: "simulation", otp: "123456" });
+  const device = await onboardZatcaDevice({ profile, address, deviceId: randomUUID(), industry: "Vehicle maintenance", environment: "simulation", otp: "123456" });
   const issuedAt = new Date();
   const root = { profile, address, issuedAt, gross: 11500, vat: 1500, lines: [{ name: "قماش & خدمة", quantity: 3, gross: 11500, unit: "meter" }] };
   const invoice = buildZatcaInvoice({ ...root, number: 8, counter: 1, previousHash: null });
