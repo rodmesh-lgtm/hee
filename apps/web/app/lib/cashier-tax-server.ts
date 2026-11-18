@@ -1,7 +1,28 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
-import { cashierVatFromGross, type CashierTaxDocument, type CashierTaxProfile } from "./cashier-tax";
+import { attachZatcaArtifact } from "./cashier-zatca-server";
+import type { ZatcaLine } from "./cashier-zatca-document";
+import { LaundryInputError } from "./laundry-domain";
+import { CASHIER_OUTPUT_VAT_ACCOUNT, cashierVatFromGross, type CashierTaxDocument, type CashierTaxProfile } from "./cashier-tax";
+
+export async function ensureCashierOutputVatAccount(tx: Prisma.TransactionClient, businessId: string) {
+  const [book] = await tx.$queryRaw<Array<{ initializedAt: Date | null }>>`
+    SELECT "initializedAt" FROM "LaundryBook" WHERE "businessId" = ${businessId}
+  `;
+  if (!book?.initializedAt) throw new LaundryInputError("هيّئ دفتر المحاسبة أولًا لترحيل ضريبة المبيعات.");
+  await tx.$executeRaw`
+    INSERT INTO "LaundryAccount" ("businessId", code, name, kind)
+    VALUES (${businessId}, ${CASHIER_OUTPUT_VAT_ACCOUNT}, 'ضريبة القيمة المضافة على المبيعات', 'liability')
+    ON CONFLICT ("businessId", code) DO NOTHING
+  `;
+  const [account] = await tx.$queryRaw<Array<{ name: string; kind: string }>>`
+    SELECT name, kind FROM "LaundryAccount" WHERE "businessId" = ${businessId} AND code = ${CASHIER_OUTPUT_VAT_ACCOUNT}
+  `;
+  if (account?.kind !== "liability" || account.name !== "ضريبة القيمة المضافة على المبيعات") {
+    throw new LaundryInputError("رمز حساب ضريبة المبيعات مستخدم لحساب آخر. راجع دليل الحسابات.");
+  }
+}
 
 export async function cashierTaxProfile(businessId: string, database: Prisma.TransactionClient = db) {
   const [profile] = await database.$queryRaw<CashierTaxProfile[]>`
@@ -22,27 +43,33 @@ export async function cashierOriginalTaxDocument(tx: Prisma.TransactionClient, b
 /** Call within the existing laundry business lock and source transaction. */
 export async function issueCashierTaxDocument(tx: Prisma.TransactionClient, input: {
   businessId: string; ticketId: string; gross: number; seller: Omit<CashierTaxProfile,"enabled">;
-  credit?: { id: string; originalNumber: number; previousGross: number };
+  lines?: ZatcaLine[]; method?: string;
+  credit?: { id: string; originalNumber: number; previousGross: number; reason?: string };
 }) {
   const { businessId, ticketId, gross, seller, credit } = input;
   const previousGross = credit?.previousGross ?? 0;
   const vat = cashierVatFromGross(previousGross + gross) - cashierVatFromGross(previousGross);
-  await tx.$executeRaw`
+  const [document] = await tx.$queryRaw<Array<{ number: number; issuedAt: Date }>>`
     INSERT INTO "CashierTaxDocument" ("businessId", "ticketId", "returnId", "number", "sellerName",
       "sellerAddress", "vatNumber", "gross", "vat", "originalNumber")
     SELECT ${businessId}, ${ticketId}, ${credit?.id ?? null}, COALESCE(MAX("number"),0) + 1,
       ${seller.sellerName}, ${seller.sellerAddress}, ${seller.vatNumber}, ${gross}, ${vat}, ${credit?.originalNumber ?? null}
     FROM "CashierTaxDocument" WHERE "businessId" = ${businessId}
+    RETURNING number,"issuedAt"
   `;
+  if (input.lines) await attachZatcaArtifact(tx, { ...document, businessId, gross, vat, seller, lines: input.lines,
+    method: input.method, credit: credit ? { number: credit.originalNumber, reason: credit.reason ?? "" } : undefined });
   return vat;
 }
 
 export const cashierInvoiceTaxDocument = Prisma.sql`
-  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' FROM "CashierTaxDocument" d
+  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' || jsonb_build_object('zatca',CASE WHEN r.number IS NOT NULL THEN jsonb_build_object('qr',r.qr,'status',r.status) END) FROM "CashierTaxDocument" d
+   LEFT JOIN "CashierZatcaReport" r ON (r."businessId",r.number)=(d."businessId",d.number)
    WHERE d."businessId" = "LaundryTicket"."businessId" AND d."ticketId" = "LaundryTicket".id AND d."returnId" IS NULL) AS "taxDocument"
 `;
 
 export const cashierReturnTaxDocument = Prisma.sql`
-  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' FROM "CashierTaxDocument" d
+  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' || jsonb_build_object('zatca',CASE WHEN r.number IS NOT NULL THEN jsonb_build_object('qr',r.qr,'status',r.status) END) FROM "CashierTaxDocument" d
+   LEFT JOIN "CashierZatcaReport" r ON (r."businessId",r.number)=(d."businessId",d.number)
    WHERE d."businessId" = "CashierReturn"."businessId" AND d."returnId" = "CashierReturn".id) AS "taxDocument"
 `;

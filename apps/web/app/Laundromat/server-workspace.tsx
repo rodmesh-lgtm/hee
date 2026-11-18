@@ -10,6 +10,8 @@ import { getCurrentUser } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
 import { cashierInvoiceTaxDocument, cashierTaxProfile } from "../lib/cashier-tax-server";
 import { db } from "../lib/db";
+import { zatcaConfiguration } from "../lib/cashier-zatca-server";
+import type { CashierZatcaStatus } from "./zatca-settings";
 import type { LaundryService, LaundryTicket } from "../lib/laundry-domain";
 import { laundryFilter } from "../lib/laundry-domain";
 import { laundryCustomerPhone } from "../lib/laundry-customer";
@@ -29,7 +31,7 @@ export async function AccountingWorkspacePage({searchParams,expectedBusinessId,b
   const localPhone=normalizedPhone.startsWith("+9665")?`0${normalizedPhone.slice(4)}`:normalizedPhone;
   const filter=laundryFilter(params.filter);
   const pattern=`%${q.replace(/[\\%_]/g,"\\$&")}%`;
-  const [services,tickets,totals,expenses,taxProfile]=await Promise.all([
+  const [services,tickets,totals,expenses,taxProfile,devices,reports]=await Promise.all([
     db.$queryRaw<LaundryService[]>`SELECT s.*,u.price AS "urgentPrice" FROM "LaundryService" s LEFT JOIN "LaundryService" u ON u.id='urgent:'||s.id AND u."businessId"=s."businessId" AND u.active=TRUE WHERE s."businessId"=${business.id} AND s.active=TRUE AND s.id NOT LIKE 'urgent:%' ORDER BY s.category,s.name`,
     db.$queryRaw<LaundryTicket[]>`SELECT "id","number","customerName","phone","items","total","paid",returned,refunded,"status","dueAt","notes","createdAt",${cashierInvoiceTaxDocument},(SELECT COALESCE(jsonb_agg(jsonb_build_object('method',c.method,'amount',c.amount) ORDER BY c.method),'[]'::jsonb) FROM (SELECT p.method,SUM(p.amount)::int AS amount FROM "LaundryPayment" p WHERE p."businessId"=${business.id} AND p."ticketId"="LaundryTicket".id GROUP BY p.method) c) AS collections,
     (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'kind',s.kind,'originalAmount',s.amount,'usedAmount',COALESCE(used.amount,0),
@@ -40,10 +42,23 @@ export async function AccountingWorkspacePage({searchParams,expectedBusinessId,b
     db.$queryRaw<Array<{active:number;ready:number;outstanding:number;collected:number;expenses:number}>>`SELECT (SELECT COUNT(*)::int FROM "LaundryTicket" WHERE "businessId"=${business.id} AND returned<total AND "status"!='delivered') AS active,(SELECT COUNT(*)::int FROM "LaundryTicket" WHERE "businessId"=${business.id} AND returned<total AND "status"='ready') AS ready,(SELECT COALESCE(SUM(GREATEST(0,"total"-returned-"paid"+refunded)),0)::float8 FROM "LaundryTicket" WHERE "businessId"=${business.id}) AS outstanding,(SELECT COALESCE(SUM("amount"),0)::float8 FROM "LaundryPayment" WHERE "businessId"=${business.id} AND method<>'prepaid') -(SELECT COALESCE(SUM(amount),0)::float8 FROM "CashierRefund" WHERE "businessId"=${business.id} AND method<>'prepaid') AS collected,(SELECT COALESCE(SUM("amount"),0)::float8 FROM "LaundryExpense" WHERE "businessId"=${business.id}) AS expenses`,
     owner?db.$queryRaw<Array<{id:string;description:string;amount:number;createdAt:Date}>>`SELECT * FROM "LaundryExpense" WHERE "businessId"=${business.id} ORDER BY "createdAt" DESC LIMIT 50`:Promise.resolve([]),
     cashierTaxProfile(business.id),
+    owner ? db.$queryRaw<Array<{ environment: string; active: boolean; expiresAt: Date | null; tested: boolean }>>`
+      SELECT environment,active,"expiresAt","testedAt" IS NOT NULL AND credentials IS NOT NULL AS tested
+      FROM "CashierZatcaDevice" WHERE "businessId"=${business.id}` : Promise.resolve([]),
+    owner ? db.$queryRaw<CashierZatcaStatus["reports"]>`
+      SELECT r.number,r.status,r."resultCode",r.status<>'reported' AND d."issuedAt"<now()-interval '24 hours' AS overdue
+      FROM "CashierZatcaReport" r JOIN "CashierTaxDocument" d ON (r."businessId",r.number)=(d."businessId",d.number)
+      WHERE r."businessId"=${business.id} ORDER BY (r.status='reported'),d."issuedAt" DESC LIMIT 25` : Promise.resolve([]),
   ]);
   const legacy=services.some(isClothingPresetService);
   const activity=accountingActivity(business,legacy);
   const profile=cashierActivityProfile(business,legacy);
   const activityServices=services.filter(service=>cashierServiceAllowed(business,service,legacy));
-  return <LaundryWorkspace key={`${business.id}:${profile.id}`} profile={profile} urgentEnabled={cashierUrgentEnabled(business.pageModules,business,legacy)} activity={activity} basePath={basePath} business={{id:business.id,name:business.name,phone:invoiceContactPhone(business.pageModules,business.businessType),address:business.address??"",logoUrl:business.logoUrl}} owner={owner} taxProfile={owner ? taxProfile : null} taxEnabled={Boolean(taxProfile?.enabled)} services={activityServices} tickets={tickets.map(x=>({...x,dueAt:x.dueAt?.toISOString()??null,createdAt:x.createdAt.toISOString()}))} totals={owner?totals[0]:{active:totals[0].active,ready:totals[0].ready,outstanding:0,collected:0,expenses:0}} expenses={expenses.map(x=>({...x,createdAt:x.createdAt.toISOString()}))} query={q} filter={filter}/>;
+  const productionDevice = devices.find(device => device.environment === "production");
+  const config = zatcaConfiguration();
+  const zatcaStatus = owner ? { configured: config.configured, productionAvailable: config.production,
+    active: productionDevice?.active ?? false, simulationVerified: devices.some(device => device.environment === "simulation" && device.tested),
+    productionReady: Boolean(productionDevice?.tested), expiresAt: productionDevice?.expiresAt?.toISOString() ?? null, reports,
+  } satisfies CashierZatcaStatus : null;
+  return <LaundryWorkspace key={`${business.id}:${profile.id}`} profile={profile} urgentEnabled={cashierUrgentEnabled(business.pageModules,business,legacy)} activity={activity} basePath={basePath} business={{id:business.id,name:business.name,phone:invoiceContactPhone(business.pageModules,business.businessType),address:business.address??"",logoUrl:business.logoUrl}} owner={owner} zatcaStatus={zatcaStatus} taxProfile={owner ? taxProfile : null} taxEnabled={Boolean(taxProfile?.enabled)} services={activityServices} tickets={tickets.map(x=>({...x,dueAt:x.dueAt?.toISOString()??null,createdAt:x.createdAt.toISOString()}))} totals={owner?totals[0]:{active:totals[0].active,ready:totals[0].ready,outstanding:0,collected:0,expenses:0}} expenses={expenses.map(x=>({...x,createdAt:x.createdAt.toISOString()}))} query={q} filter={filter}/>;
 }

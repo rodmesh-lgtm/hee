@@ -88,7 +88,8 @@ export async function invoiceReturnCommand(value:unknown){
   const originalTax = await cashierOriginalTaxDocument(tx, b.id, ticket.id);
   const vat = originalTax ? await issueCashierTaxDocument(tx, {
     businessId: b.id, ticketId: ticket.id, gross: quote.amount, seller: originalTax,
-    credit: { id, originalNumber: originalTax.number, previousGross: ticket.returned },
+    lines: quote.lines.map(line => ({ ...line, gross: line.amount })),
+    credit: { id, originalNumber: originalTax.number, previousGross: ticket.returned, reason: d.reason },
   }) : 0;
   await tx.$executeRaw`UPDATE "LaundryTicket" SET returned=${next} WHERE "businessId"=${b.id} AND id=${ticket.id}`;
   ticket.returned=next;

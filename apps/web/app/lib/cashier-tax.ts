@@ -14,6 +14,7 @@ export type CashierTaxDocument = Omit<CashierTaxProfile, "enabled"> & {
   gross: number;
   vat: number;
   originalNumber: number | null;
+  zatca?: { qr: string; status: "pending" | "reported" | "review" } | null;
 };
 
 export function cashierVatFromGross(gross: number) {
