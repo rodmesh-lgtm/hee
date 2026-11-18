@@ -1,6 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
+import { cashierOriginalTaxDocument } from "./cashier-tax-server";
+import { CASHIER_OUTPUT_VAT_ACCOUNT, cashierVatFromGross } from "./cashier-tax";
 import { LaundryInputError } from "./laundry-domain";
 import { balancedLaundryLines, laundrySourceLines, type LedgerLine } from "./laundry-ledger-domain";
 type Tx=Prisma.TransactionClient;
@@ -29,5 +31,17 @@ export async function postLaundrySource(tx:Tx,input:{businessId:string;actorId:s
  if(!input.amount)return null;
  const times=input.kind==="payment"?await tx.$queryRaw<Array<{at:Date}>>`SELECT "createdAt" AS at FROM "LaundryPayment" WHERE "businessId"=${input.businessId} AND "id"=${input.id}`:input.kind==="expense"?await tx.$queryRaw<Array<{at:Date}>>`SELECT "createdAt" AS at FROM "LaundryExpense" WHERE "businessId"=${input.businessId} AND "id"=${input.id}`:await tx.$queryRaw<Array<{at:Date}>>`SELECT CASE WHEN ${input.kind}='delivery' THEN "updatedAt" ELSE "createdAt" END AS at FROM "LaundryTicket" WHERE "businessId"=${input.businessId} AND "id"=${input.id}`;
  if(!times[0])throw new LaundryInputError("مصدر القيد غير موجود في المنشأة");
- return postLaundryJournal(tx,{businessId:input.businessId,actorId:input.actorId,sourceKey:`${input.kind}:${input.id}`,description:input.description,effectiveAt:times[0].at,lines:laundrySourceLines(input.kind,input.amount,input.method)});
+ const document = input.kind === "order" || input.kind === "delivery"
+   ? await cashierOriginalTaxDocument(tx, input.businessId, input.id)
+   : null;
+ const amount = input.kind === "delivery" && document
+   ? input.amount - (document.vat - cashierVatFromGross(document.gross - input.amount))
+   : input.amount;
+ if (!amount) return null;
+ const lines = laundrySourceLines(input.kind, amount, input.method);
+ if (input.kind === "order" && document && document.vat > 0) {
+   lines[1].credit -= document.vat;
+   lines.push({ accountCode: CASHIER_OUTPUT_VAT_ACCOUNT, debit: 0, credit: document.vat });
+ }
+ return postLaundryJournal(tx,{businessId:input.businessId,actorId:input.actorId,sourceKey:`${input.kind}:${input.id}`,description:input.description,effectiveAt:times[0].at,lines});
 }

@@ -25,7 +25,7 @@ function adapter(pg:PGlite|Transaction){
  } as unknown as Prisma.TransactionClient;
 }
 async function setup(mergeCustomer=true){
- const ledger=await load("../app/lib/laundry-ledger.ts",{"node:crypto":crypto,"./laundry-domain":domain,"./laundry-ledger-domain":ledgerDomain});
+ const ledger=await load("../app/lib/laundry-ledger.ts",{"node:crypto":crypto,"./laundry-domain":domain,"./laundry-ledger-domain":ledgerDomain,"./cashier-tax-server":{cashierOriginalTaxDocument:async()=>null}});
  const api=await load("../app/lib/accounting-ownership-correction.ts",{"node:crypto":crypto,"@prisma/client":{Prisma},"./laundry-ledger":ledger,"./accounting-correction-preflight":preflight}) as Api;
  const pg=new PGlite(),c=api.OWNERSHIP_CORRECTION;
  await pg.exec('CREATE TABLE "Business"(id text PRIMARY KEY)');

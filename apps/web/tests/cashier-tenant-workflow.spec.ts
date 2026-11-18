@@ -513,5 +513,52 @@ test("independent cashier accounts reject cross-tenant invoice/customer access a
   expect(await restricted.page.evaluate(()=>document.documentElement.scrollHeight-innerHeight)).toBeLessThanOrEqual(2);
   await staffFinance.click();await expect(restricted.page).toHaveURL(/view=accounting/);
   await db.businessMember.updateMany({where:{businessId:shop.id,userId:staff.id},data:{permissions:['laundry']}});await restricted.page.goto('/Accounting');await expect(restricted.page.getByRole('link',{name:'الإدارة المالية',exact:true})).toHaveCount(0);
+  const taxOwner = await login(a.id, shop.id);
+  await taxOwner.page.goto('/Accounting');
+  await openSection(taxOwner.page, 'الشعار وبيانات الفواتير');
+  await taxOwner.page.getByLabel('اسم البائع المسجّل', { exact: true }).fill('البائع المسجّل في جدة');
+  await taxOwner.page.getByLabel('عنوان البائع المسجّل', { exact: true }).fill('جدة، المملكة العربية السعودية');
+  await taxOwner.page.getByLabel('رقم تسجيل ضريبة القيمة المضافة', { exact: true }).fill('300000000000003');
+  await taxOwner.page.getByRole('button', { name: 'حفظ إعدادات الضريبة', exact: true }).click();
+  await expect(taxOwner.page.getByText('تم حفظ إعدادات الفوترة الضريبية.', { exact: true })).toBeVisible();
+  const [savedTax] = await db.$queryRaw<Array<{ enabled: boolean }>>`SELECT enabled FROM "CashierTaxProfile" WHERE "businessId"=${shop.id}`;
+  expect(savedTax.enabled).toBe(false);
+  await taxOwner.page.getByLabel('وضع الإصدار', { exact: true }).selectOption('retail_phase_one');
+  await taxOwner.page.getByRole('checkbox', { name: /أؤكد أن المنشأة مسجلة بالضريبة/ }).check();
+  await taxOwner.page.getByRole('button', { name: 'حفظ إعدادات الضريبة', exact: true }).click();
+  await expect(taxOwner.page.getByText('الإصدار المبسط مفعّل', { exact: true })).toBeVisible();
+  const taxService = randomUUID();
+  await db.$executeRaw`INSERT INTO "LaundryService"(id,"businessId",name,category,price)
+    VALUES (${taxService},${shop.id},'خدمة ضريبية اختبارية','صيانة دورية',11500)`;
+  await taxOwner.page.goto('/Accounting');
+  await taxOwner.page.getByRole('button', { name: 'إضافة خدمة ضريبية اختبارية', exact: true }).click();
+  await taxOwner.page.getByLabel('رقم الجوال', { exact: true }).fill('0500000444');
+  await taxOwner.page.getByRole('button', { name: 'حفظ الطلب وإصدار المستند', exact: true }).click();
+  const taxReceipt = taxOwner.page.getByRole('dialog');
+  await expect(taxReceipt.getByRole('heading', { name: 'فاتورة ضريبية مبسطة', exact: true })).toBeVisible();
+  await expect(taxReceipt.getByRole('img', { name: 'رمز التحقق من بيانات الفاتورة الضريبية' })).toBeVisible();
+  await expect(taxReceipt).toContainText('115.00');
+  await expect(taxReceipt).toContainText('15.00');
+  const [issued] = await db.$queryRaw<Array<{ ticket: number; vat: number; credit: bigint }>>`
+    SELECT t.number AS ticket,d.vat,l.credit FROM "CashierTaxDocument" d
+    JOIN "LaundryTicket" t ON t."businessId"=d."businessId" AND t.id=d."ticketId"
+    JOIN "LaundryJournal" j ON j."businessId"=d."businessId" AND j."sourceKey"='order:'||t.id
+    JOIN "LaundryJournalLine" l ON l."businessId"=d."businessId" AND l."journalId"=j.id AND l."accountCode"='2215'
+    WHERE d."businessId"=${shop.id} AND d."number"=1`;
+  expect(issued).toMatchObject({ vat: 1500, credit: 1500n });
+  await taxReceipt.getByRole('button', { name: 'إنشاء أو استعراض مرتجع', exact: true }).click();
+  await taxOwner.page.getByLabel('رقم الفاتورة', { exact: true }).fill(String(issued.ticket));
+  await taxOwner.page.getByRole('button', { name: 'استعراض الفاتورة والمرتجعات', exact: true }).click();
+  await taxOwner.page.getByLabel('كمية مرتجع 1', { exact: true }).fill('1');
+  await taxOwner.page.getByLabel('سبب المرتجع', { exact: true }).fill('إلغاء كامل للخدمة التجريبية');
+  await taxOwner.page.getByRole('button', { name: 'اعتماد المرتجع وتحديث الرصيد', exact: true }).click();
+  await taxOwner.page.getByRole('button', { name: 'عرض وطباعة المرتجع', exact: true }).click();
+  const taxCredit = taxOwner.page.getByRole('dialog');
+  await expect(taxCredit.getByRole('heading', { name: 'إشعار دائن لفاتورة ضريبية مبسطة' })).toBeVisible();
+  await expect(taxCredit).toContainText('VAT-000001');
+  await expect(taxCredit).toContainText('VAT-000002');
+  const [{ count: foreignDocuments }] = await db.$queryRaw<Array<{ count: number }>>`
+    SELECT COUNT(*)::int AS count FROM "CashierTaxDocument" WHERE "businessId"=${laundry.id}`;
+  expect(foreignDocuments).toBe(0);
  }finally{for(const context of contexts)await context.close();await db.session.deleteMany({where:{userId:{in:users.map(u=>u.id)}}});await db.business.updateMany({where:{id:{in:[shop.id,laundry.id]}},data:{deletedAt:new Date()}});await db.user.updateMany({where:{id:{in:users.map(u=>u.id)}},data:{deletedAt:new Date()}});await db.$disconnect();await pool.end();}
 });

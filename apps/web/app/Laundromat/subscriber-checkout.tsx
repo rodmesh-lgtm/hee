@@ -5,19 +5,20 @@ import { useEffect,useState } from "react";
 import type { getCashierSubscriptions } from "./package-actions";
 import { quoteSubscriberOrder,packageUnitLabels,subscriberStatus,subscriberStatusLabels,type SubscriberBalance } from "../lib/accounting-packages";
 import { laundryMoney as money,moneyToHalalas,type LaundryLine } from "../lib/laundry-domain";
-export function SubscriberCheckout({businessId,phone,lines,paid,onReady,pricingReady=true,discount,onPricing,compact=false}:{compact?:boolean;businessId:string;phone:string;lines:LaundryLine[];paid:string;onReady:(ready:boolean)=>void;pricingReady?:boolean;discount?:CashierDiscount;onPricing?:(value:{total:number;amount:number;subtotal:number;payable:number;outstanding:number}|null)=>void}) {
+export function SubscriberCheckout({businessId,phone,lines,paid,onReady,pricingReady=true,discount,onPricing,compact=false,subscriptionsAllowed=true}:{compact?:boolean;subscriptionsAllowed?:boolean;businessId:string;phone:string;lines:LaundryLine[];paid:string;onReady:(ready:boolean)=>void;pricingReady?:boolean;discount?:CashierDiscount;onPricing?:(value:{total:number;amount:number;subtotal:number;payable:number;outstanding:number}|null)=>void}) {
  const { t: tr, intlLocale } = useI18n();
 
  const [result,setResult]=useState<{phone:string;subscriptions:SubscriberBalance[];error?:string}|null>(null),[enabled,setEnabled]=useState(true),[retry,setRetry]=useState(0);
- useEffect(()=>{let live=true;if(phone.trim().length<8)return;const timer=setTimeout(()=>{void fetch("/api/accounting/subscriptions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({businessId,phone}),cache:"no-store"}).then(r=>r.json() as Promise<Awaited<ReturnType<typeof getCashierSubscriptions>>>).then(r=>{if(live)setResult({phone,subscriptions:r.ok?r.subscriptions:[],error:r.ok?undefined:r.error});}).catch(()=>{if(live)setResult({phone,subscriptions:[],error:"تعذر قراءة الاشتراكات"});});},350);return()=>{live=false;clearTimeout(timer);};},[businessId,phone,retry]);
+ useEffect(()=>{let live=true;if(!subscriptionsAllowed||phone.trim().length<8)return;const timer=setTimeout(()=>{void fetch("/api/accounting/subscriptions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({businessId,phone}),cache:"no-store"}).then(r=>r.json() as Promise<Awaited<ReturnType<typeof getCashierSubscriptions>>>).then(r=>{if(live)setResult({phone,subscriptions:r.ok?r.subscriptions:[],error:r.ok?undefined:r.error});}).catch(()=>{if(live)setResult({phone,subscriptions:[],error:"تعذر قراءة الاشتراكات"});});},350);return()=>{live=false;clearTimeout(timer);};},[businessId,phone,retry,subscriptionsAllowed]);
  const ready=result?.phone===phone&&!result.error;
 
  let received=0;try{received=moneyToHalalas(paid);}catch{}
  let quote:ReturnType<typeof quoteSubscriberOrder>|null=null,quoteError="";
- if(pricingReady)try{quote=quoteSubscriberOrder(enabled&&ready?result.subscriptions:[],lines,received,new Date(),discount);}catch(e){quoteError=e instanceof Error?e.message:"راجع الطلب";}
+ if(pricingReady)try{quote=quoteSubscriberOrder(subscriptionsAllowed&&enabled&&ready?result.subscriptions:[],lines,received,new Date(),discount);}catch(e){quoteError=e instanceof Error?e.message:"راجع الطلب";}
  const quotedTotal=quote?.total,summary=quote?cashierDiscountSummary(quote.lines):null,quotedDiscount=summary?.amount,quotedSubtotal=summary?.subtotal,quotedOutstanding=quote?.outstanding,quotedPayable=quote?quote.outstanding+received:undefined;
  useEffect(()=>{onPricing?.(quotedTotal===undefined?null:{total:quotedTotal,amount:quotedDiscount??0,subtotal:quotedSubtotal??0,payable:quotedPayable??0,outstanding:quotedOutstanding??0});},[quotedTotal,quotedDiscount,quotedSubtotal,quotedPayable,quotedOutstanding,onPricing]);
- const valid=!!quote;useEffect(()=>{onReady((!enabled||!!ready)&&valid);},[enabled,ready,valid,onReady]);
+ const valid=!!quote;useEffect(()=>{onReady((!subscriptionsAllowed||!enabled||!!ready)&&valid);},[subscriptionsAllowed,enabled,ready,valid,onReady]);
+ if (!subscriptionsAllowed) return quoteError ? <p role="alert" className="ld-alert">{tr(quoteError)}</p> : null;
  if(compact){
   const showChoice=!!(ready&&result.subscriptions.length)||!!(result?.phone===phone&&result.error);
   const empty=!quoteError&&(phone.trim().length<8||(ready&&!result.subscriptions.length));

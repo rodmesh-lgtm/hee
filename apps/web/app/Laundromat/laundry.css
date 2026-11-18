@@ -573,3 +573,10 @@
 @media screen and (min-width:900px){
  .ld-pos-mode .ld-cart:has(.ld-checkout-details[open]) .ld-cart-line-actions{flex-direction:row-reverse;flex-wrap:wrap}
 }
+
+.ld-receipt .ld-tax-qr {
+  display: block;
+  margin: .5rem auto;
+  max-width: 100%;
+  break-inside: avoid;
+}

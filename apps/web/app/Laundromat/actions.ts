@@ -17,6 +17,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
+import { cashierTaxProfile, issueCashierTaxDocument } from "../lib/cashier-tax-server";
 import { savedCashierReceipt } from "../lib/cashier-saved-receipt";
 import { cashierValidationMessage } from "../lib/cashier-validation";
 import { ensureLaundryCustomer } from "../lib/laundry-customer";
@@ -139,6 +140,10 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         const previous=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "LaundryTicket" WHERE "businessId"=${business.id} AND "requestId"=${data.requestId}`;
         if(previous[0]) return {id:previous[0].id};
         await assertInvoiceCapacity(tx,business.id);
+        const taxProfile = await cashierTaxProfile(business.id, tx);
+        if (taxProfile?.enabled && data.useSubscription) {
+          throw new LaundryInputError("استخدام رصيد الباقات يتطلب مسار فوترة ضريبية منفصل.");
+        }
         const dueAt=data.dueAt?new Date(data.dueAt):null;
         if(dueAt&&(dueAt.getTime()<Date.now()-60000 || dueAt.getTime()>Date.now()+366*86400000)) throw new LaundryInputError("حدد موعد تسليم قادمًا خلال سنة");
         const catalog=await tx.$queryRaw<LaundryService[]>`SELECT s.*,u.price AS "urgentPrice" FROM "LaundryService" s LEFT JOIN "LaundryService" u ON u.id='urgent:'||s.id AND u."businessId"=s."businessId" AND u.active=TRUE WHERE s."businessId"=${business.id} AND s.active=TRUE AND s.id NOT LIKE 'urgent:%'`;
@@ -164,6 +169,10 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
           lines=quote.lines;total=quote.total;
         }else{lines=discountedCashierLines(lines,data.discount);total=lines.reduce((sum,line)=>sum+line.total,0);if(paid>total)throw new LaundryInputError("الدفعة أكبر من إجمالي الطلب بعد الخصم");}
         await tx.$executeRaw`INSERT INTO "LaundryTicket" ("id","businessId","number","requestId","customerName","phone","customerId","items","total","paid","dueAt","notes","createdBy") VALUES (${id},${business.id},${rows[0].number},${data.requestId},${data.customerName||customer.name},${customer.phone},${customer.id},${JSON.stringify(supportsUrgent?withLaundryServiceSpeed(lines,data.serviceSpeed):lines)}::jsonb,${total},${paid},${dueAt},${notes},${user.id})`;
+        if (taxProfile?.enabled) {
+          if (total <= 0) throw new LaundryInputError("يجب أن يكون إجمالي الفاتورة الضريبية أكبر من صفر.");
+          await issueCashierTaxDocument(tx, { businessId: business.id, ticketId: id, gross: total, seller: taxProfile });
+        }
         if(data.commission){
           const commission=commissionQuote(data.commission.kind,data.commission.value,total);
           const employeePhone=laundryCustomerPhone(data.commission.phone);
