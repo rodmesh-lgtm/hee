@@ -98,7 +98,7 @@ test("actual cashier render preserves generic legacy laundry prices and hides cu
  const exports=await moduleExports("../app/Laundromat/server-workspace.tsx",{
   "react/jsx-runtime":jsxRuntime,"../lib/auth":{getCurrentUser:async()=>({id:"owner"})},
   "../lib/active-business":{getActiveBusinessForUser:async()=>business},"../lib/accounting-program":activity,"../lib/cashier-activity":cashier,"../lib/cashier-settings":settings,
-  "../lib/invoice-contact":{invoiceContactPhone:()=>""},"../lib/laundry-domain":domain,"./workspace":{LaundryWorkspace:()=>null},
+  "../lib/invoice-contact":{invoiceContactPhone:()=>""},"../lib/laundry-domain":domain,"./workspace":{LaundryWorkspace:()=>null},"../lib/cashier-tax-server":{cashierInvoiceTaxDocument:null,cashierTaxProfile:async()=>null},
   "../lib/db":{db:{$queryRaw:async(strings:TemplateStringsArray,...values:unknown[])=>{
    assert.ok(values.includes(business.id));const sql=strings.join("?");
    if(sql.includes('FROM "LaundryService" s'))return rows;

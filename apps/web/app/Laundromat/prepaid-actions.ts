@@ -3,6 +3,7 @@ import { calendarSubscriptionPeriod } from "../lib/accounting-dates";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { cashierTaxProfile } from "../lib/cashier-tax-server";
 import { db } from "../lib/db";
 import { getCurrentUser,getCurrentUserForApiWrite } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
@@ -28,6 +29,9 @@ export async function laundryPrepaidCommand(value:unknown):Promise<{ok:boolean;e
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${b.id}`}))`;
   const replay=await tx.$queryRaw<Array<{prepaidId:string;kind:string}>>`SELECT "prepaidId",kind FROM "LaundryPrepaidMovement" WHERE "businessId"=${b.id} AND "requestId"=${rid}`;
   if(replay[0]){if(replay[0].kind!==d.type||(d.type!=="purchase"&&replay[0].prepaidId!==d.id))throw new LaundryInputError("معرّف العملية مستخدم لعملية أخرى");return replay[0].prepaidId;}
+  if (d.type !== "refund" && (await cashierTaxProfile(b.id, tx))?.enabled) {
+    throw new LaundryInputError("شراء أو استخدام رصيد الباقات يتطلب مسار فوترة ضريبية منفصل.");
+  }
   const book=await tx.$queryRaw<Array<{initializedAt:Date|null}>>`SELECT "initializedAt" FROM "LaundryBook" WHERE "businessId"=${b.id}`;
   if(!book[0]?.initializedAt)throw new LaundryInputError("أكمل تهيئة دفتر المحاسبة قبل تسجيل الاشتراكات");
   let amount=moneyToHalalas(d.amount);if(amount<=0)throw new LaundryInputError("أدخل مبلغًا أكبر من صفر");

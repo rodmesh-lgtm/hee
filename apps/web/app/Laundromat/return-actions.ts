@@ -8,13 +8,15 @@ import { getCurrentUser, getCurrentUserForApiWrite } from "../lib/auth";
 import { getActiveBusinessForUser } from "../lib/active-business";
 import { LaundryInputError, moneyToHalalas, type LaundryTicket } from "../lib/laundry-domain";
 import { invoiceBalance, quoteInvoiceReturn, commissionReturnDelta, type ReturnLine } from "../lib/cashier-return";
+import { cashierOriginalTaxDocument, cashierReturnTaxDocument, issueCashierTaxDocument } from "../lib/cashier-tax-server";
+import { CASHIER_OUTPUT_VAT_ACCOUNT, type CashierTaxDocument } from "../lib/cashier-tax";
 import { postLaundryJournal } from "../lib/laundry-ledger";
 import { endOrderLiveSessions } from "../lib/live-view/order-link";
 
 type Tx=Prisma.TransactionClient;
 type Ticket=LaundryTicket & {returned:number;refunded:number};
 type Payment={id:string;amount:number;method:string;available:number;prepaidId:string|null;units:number;kind:string|null};
-export type ReturnDocument={id:string;number:number;reason:string;items:ReturnLine[];amount:number;createdAt:string};
+export type ReturnDocument={taxDocument?:CashierTaxDocument | null;id:string;number:number;reason:string;items:ReturnLine[];amount:number;createdAt:string};
 export type ReturnView={ticket:Pick<Ticket,"id"|"number"|"customerName"|"phone"|"items"|"total"|"paid"|"returned"|"refunded">;returns:ReturnDocument[];payments:Payment[];refunds:Array<{id:string;amount:number;method:string;reference:string;createdAt:string}>};
 async function paymentsFor(tx:Tx,businessId:string,ticketId:string){
  return tx.$queryRaw<Payment[]>`SELECT p.id,p.amount,p.method,(p.amount-COALESCE((SELECT SUM(r.amount) FROM "CashierRefund" r WHERE r."businessId"=p."businessId" AND r."paymentId"=p.id),0))::int AS available,m."prepaidId",COALESCE(m.units,0)::int AS units,s.kind FROM "LaundryPayment" p LEFT JOIN "LaundryPrepaidMovement" m ON m."businessId"=p."businessId" AND m."paymentId"=p.id AND m.kind='redeem' LEFT JOIN "LaundryPrepaid" s ON s."businessId"=m."businessId" AND s.id=m."prepaidId" WHERE p."businessId"=${businessId} AND p."ticketId"=${ticketId} ORDER BY p."createdAt",p.id`;
@@ -28,7 +30,7 @@ export async function getInvoiceReturns(value:unknown):Promise<{ok:true;view:Ret
  const view=await db.$transaction(async tx=>{
  const rows=await tx.$queryRaw<Ticket[]>`SELECT id,number,"customerName",phone,items,total,paid,returned,refunded FROM "LaundryTicket" WHERE "businessId"=${b.id} AND ((${p.data.ticketId??""}<>'' AND id=${p.data.ticketId??""}) OR (${p.data.ticketId??""}='' AND number=${p.data.number??0}))`;
  const ticket=rows[0];if(!ticket)throw new LaundryInputError("الفاتورة غير موجودة في منشأتك");
- const returns=await tx.$queryRaw<Array<Omit<ReturnDocument,"createdAt">&{createdAt:Date}>>`SELECT id,number,reason,items,amount,"createdAt" FROM "CashierReturn" WHERE "businessId"=${b.id} AND "ticketId"=${ticket.id} ORDER BY "createdAt",id`;
+ const returns=await tx.$queryRaw<Array<Omit<ReturnDocument,"createdAt">&{createdAt:Date}>>`SELECT id,number,reason,items,amount,"createdAt",${cashierReturnTaxDocument} FROM "CashierReturn" WHERE "businessId"=${b.id} AND "ticketId"=${ticket.id} ORDER BY "createdAt",id`;
  const refunds=await tx.$queryRaw<Array<{id:string;amount:number;method:string;reference:string;createdAt:Date}>>`SELECT id,amount,method,reference,"createdAt" FROM "CashierRefund" WHERE "businessId"=${b.id} AND "ticketId"=${ticket.id} ORDER BY "createdAt",id`;
  return {ticket,returns:returns.map(r=>({...r,createdAt:r.createdAt.toISOString()})),refunds:refunds.map(r=>({...r,createdAt:r.createdAt.toISOString()})),payments:await paymentsFor(tx,b.id,ticket.id)};
  },{isolationLevel:"RepeatableRead",timeout:15000});
@@ -83,9 +85,14 @@ export async function invoiceReturnCommand(value:unknown){
   const numbers=await tx.$queryRaw<Array<{n:number}>>`SELECT COALESCE(MAX(number),0)+1 AS n FROM "CashierReturn" WHERE "businessId"=${b.id}`;
   const id=randomUUID();
   await tx.$executeRaw`INSERT INTO "CashierReturn" (id,"businessId","ticketId","requestId",number,reason,items,amount,"commissionReversed","createdBy") VALUES (${id},${b.id},${ticket.id},${d.requestId},${numbers[0].n},${d.reason},${JSON.stringify(quote.lines)}::jsonb,${quote.amount},${reversed},${user.id})`;
+  const originalTax = await cashierOriginalTaxDocument(tx, b.id, ticket.id);
+  const vat = originalTax ? await issueCashierTaxDocument(tx, {
+    businessId: b.id, ticketId: ticket.id, gross: quote.amount, seller: originalTax,
+    credit: { id, originalNumber: originalTax.number, previousGross: ticket.returned },
+  }) : 0;
   await tx.$executeRaw`UPDATE "LaundryTicket" SET returned=${next} WHERE "businessId"=${b.id} AND id=${ticket.id}`;
   ticket.returned=next;
-  await postLaundryJournal(tx,{businessId:b.id,actorId:user.id,sourceKey:`invoice-return:${id}`,description:`مرتجع #${numbers[0].n} للفاتورة #${ticket.number}: ${d.reason}`,effectiveAt:new Date(),lines:[{accountCode:ticket.status==="delivered"?"4000":"2200",debit:quote.amount,credit:0},{accountCode:"1200",debit:0,credit:quote.amount}]});
+  await postLaundryJournal(tx,{businessId:b.id,actorId:user.id,sourceKey:`invoice-return:${id}`,description:`مرتجع #${numbers[0].n} للفاتورة #${ticket.number}: ${d.reason}`,effectiveAt:new Date(),lines:[{accountCode:ticket.status==="delivered"?"4000":"2200",debit:quote.amount-vat,credit:0},...(vat ? [{accountCode:CASHIER_OUTPUT_VAT_ACCOUNT,debit:vat,credit:0}] : []),{accountCode:"1200",debit:0,credit:quote.amount}].filter(line => line.debit || line.credit)});
   for(const payment of payments.filter(p=>p.method==="prepaid"&&p.available>0)){
    const amount=Math.min(payment.available,invoiceBalance(ticket).refundDue);if(!amount)break;
    await settle(tx,b.id,user.id,ticket,payment,amount,`${d.requestId}:${payment.id}`,`استعادة رصيد اشتراك من المرتجع #${numbers[0].n}`);
