@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { CashierTaxProfile } from "../lib/cashier-tax";
 import { saveCashierTaxProfile } from "./tax-actions";
 
 export function CashierTaxSettings({ businessId, profile }: { businessId: string; profile: CashierTaxProfile | null }) {
   const router = useRouter();
+  const modeId = useId();
   const [enabled, setEnabled] = useState(profile?.enabled ?? false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string }>();
@@ -41,10 +42,10 @@ export function CashierTaxSettings({ businessId, profile }: { businessId: string
       <label>اسم البائع المسجّل<input name="sellerName" required maxLength={255} defaultValue={profile?.sellerName ?? ""}/></label>
       <label>عنوان البائع المسجّل<input name="sellerAddress" required maxLength={300} defaultValue={profile?.sellerAddress ?? ""}/></label>
       <label>رقم تسجيل ضريبة القيمة المضافة<input name="vatNumber" dir="ltr" inputMode="numeric" required maxLength={15} defaultValue={profile?.vatNumber ?? ""}/></label>
-      <label>وضع الإصدار<select value={enabled ? "retail_phase_one" : "disabled"} onChange={event => setEnabled(event.target.value === "retail_phase_one")}>
+      <div><label htmlFor={modeId}>وضع الإصدار</label><select id={modeId} value={enabled ? "retail_phase_one" : "disabled"} onChange={event => setEnabled(event.target.value === "retail_phase_one")}>
         <option value="disabled">إيقاف إصدار الفواتير الضريبية</option>
         <option value="retail_phase_one">إصدار الفاتورة المبسطة · المرحلة الأولى</option>
-      </select></label>
+      </select></div>
       {enabled ? <label><input type="checkbox" name="confirmed" required/> أؤكد أن المنشأة مسجلة بالضريبة، ولم يحل موعد ربطها بمنصة فاتورة، وأن أسعار الكاشير تشمل ضريبة ١٥٪ وتخص توريدات خاضعة لها.</label> : null}
       <button className="ld-primary" disabled={saving}>{saving ? "جارٍ الحفظ…" : "حفظ إعدادات الضريبة"}</button>
     </form>
