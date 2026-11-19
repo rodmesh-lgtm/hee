@@ -21,6 +21,8 @@ export type ZatcaCredentials = { privateKey: string; binarySecurityToken: string
 export type ZatcaLine = { name: string; quantity: number; gross: number; unit?: string };
 
 const sar = (amount: number) => amount / 100;
+export const zatcaBuyerWithSupplyDate = zatcaBuyer.extend({ supplyDate: z.string().date() });
+export const zatcaRiyadhDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Riyadh" });
 const riyadhIssueTime = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Asia/Riyadh", dateStyle: "short", timeStyle: "medium", hourCycle: "h23",
 });

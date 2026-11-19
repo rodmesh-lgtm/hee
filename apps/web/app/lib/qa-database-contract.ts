@@ -116,6 +116,7 @@ export const EXPECTED_PREVIEW_MIGRATIONS = [
   "20261118110000_cashier_tax_documents",
   "20261118130000_cashier_zatca_phase_two",
   "20261119130000_cashier_zatca_clearance",
+  "20261119165000_cashier_zatca_clearance_reissues",
 ] as const;
 export const EXPECTED_PREVIEW_LATEST_MIGRATION =
   EXPECTED_PREVIEW_MIGRATIONS.at(-1)!;

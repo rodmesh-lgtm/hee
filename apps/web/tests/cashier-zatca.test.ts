@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { buildZatcaInvoice, prepareStandardZatcaInvoice, signZatcaInvoice } from "../app/lib/cashier-zatca-document";
-import { clearZatcaInvoice, onboardZatcaDevice, reportZatcaInvoice, standardZatcaSampleBuyer, ZatcaGatewayError } from "../app/lib/cashier-zatca-gateway";
+import { clearZatcaInvoice, onboardZatcaDevice, reportZatcaInvoice, renewZatcaProductionDevice, standardZatcaSampleBuyer, ZatcaGatewayError } from "../app/lib/cashier-zatca-gateway";
 
 const profile = { sellerName: "مؤسسة اختبار للصيانة", sellerAddress: "جدة", vatNumber: "300000000000003" };
 const address = { street: "شارع الاختبار", district: "الحي", city: "جدة", building: "1234",
@@ -133,4 +133,46 @@ test("standard invoices use pre-clearance XML and reject unrelated or unstamped 
   await assert.rejects(clearZatcaInvoice(artifact, credentials, "simulation"), /CLEARANCE_DOCUMENT_INVALID/);
   responseXml = artifact.xml;
   await assert.rejects(clearZatcaInvoice(artifact, credentials, "simulation"), /CLEARANCE_DOCUMENT_INVALID/);
+});
+
+test("only an explicit Fatoora rejection permits replacement", async t => {
+  const { cashierCanReissueClearance } = await import("../app/lib/cashier-tax");
+  const document = { xml: "<Invoice/>", uuid: randomUUID(), hash: "fixture" };
+  const credentials = { privateKey: "", binarySecurityToken: "fixture", secret: "fixture" };
+  let response = Response.json({ clearanceStatus: "NOT_CLEARED",
+    validationResults: { status: "ERROR", errorMessages: [{ code: "BR-KSA-10" }] } }, { status: 400 });
+  t.mock.method(globalThis, "fetch", async () => response);
+  await assert.rejects(clearZatcaInvoice(document, credentials, "simulation"),
+    error => error instanceof ZatcaGatewayError && error.code === "CLEARANCE_REJECTED:BR-KSA-10" && cashierCanReissueClearance(error.code));
+  response = Response.json({ validationResults: { status: "ERROR", errorMessages: [{ code: "BR-KSA-10" }] } }, { status: 400 });
+  await assert.rejects(clearZatcaInvoice(document, credentials, "simulation"),
+    error => error instanceof ZatcaGatewayError && !cashierCanReissueClearance(error.code));
+  response = new Response(null, { status: 303, headers: { Location: "https://example.invalid" } });
+  await assert.rejects(clearZatcaInvoice(document, credentials, "simulation"),
+    error => error instanceof ZatcaGatewayError && error.code === "CLEARANCE_DISABLED" && !cashierCanReissueClearance(error.code));
+});
+
+test("production renewal uses the current CSID and a new CSR and validates the replacement certificate", async t => {
+  const dir = mkdtempSync(join(tmpdir(), "infro-zatca-renewal-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const csrPath = join(dir, "device.csr"), certPath = join(dir, "device.pem"), key = join(dir, "issuer.key");
+  execFileSync("openssl", ["ecparam", "-name", "secp256k1", "-genkey", "-noout", "-out", key]);
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async (url: string, request: RequestInit) => {
+    calls++;
+    assert.match(url, /core\/production\/csids$/);
+    assert.equal(request.method, "PATCH");
+    const headers = new Headers(request.headers);
+    assert.equal(headers.get("OTP"), "012345");
+    assert.equal(headers.get("Authorization"), "Basic " + Buffer.from("prior-token:prior-secret").toString("base64"));
+    writeFileSync(csrPath, Buffer.from(JSON.parse(String(request.body)).csr, "base64"));
+    execFileSync("openssl", ["x509", "-req", "-in", csrPath, "-force_pubkey", exportPublicKey(csrPath, dir),
+      "-signkey", key, "-days", "5", "-out", certPath], { stdio: "ignore" });
+    return Response.json({ requestID: 91, binarySecurityToken: readFileSync(certPath, "utf8"), secret: "new-secret" });
+  });
+  const result = await renewZatcaProductionDevice({ profile, address, industry: "Workshop", deviceId: randomUUID(),
+    scope: "standard", otp: "012345", credentials: { privateKey: "", binarySecurityToken: "prior-token", secret: "prior-secret" } });
+  assert.equal(result.credentials.secret, "new-secret");
+  assert.ok(result.expiresAt > new Date());
+  assert.equal(calls, 1);
 });

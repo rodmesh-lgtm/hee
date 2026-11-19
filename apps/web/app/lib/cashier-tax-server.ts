@@ -63,13 +63,13 @@ export async function issueCashierTaxDocument(tx: Prisma.TransactionClient, inpu
 }
 
 export const cashierInvoiceTaxDocument = Prisma.sql`
-  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' || jsonb_build_object('zatca',CASE WHEN r.number IS NOT NULL THEN jsonb_build_object('qr',COALESCE(r."clearedQr",r.qr),'status',r.status,'buyer',r.buyer) END) FROM "CashierTaxDocument" d
+  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' || jsonb_build_object('issuedAt',COALESCE(r."reissuedAt",d."issuedAt"),'zatca',CASE WHEN r.number IS NOT NULL THEN jsonb_build_object('qr',COALESCE(r."clearedQr",r.qr),'status',r.status,'buyer',r.buyer) END) FROM "CashierTaxDocument" d
    LEFT JOIN "CashierZatcaReport" r ON (r."businessId",r.number)=(d."businessId",d.number)
    WHERE d."businessId" = "LaundryTicket"."businessId" AND d."ticketId" = "LaundryTicket".id AND d."returnId" IS NULL) AS "taxDocument"
 `;
 
 export const cashierReturnTaxDocument = Prisma.sql`
-  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' || jsonb_build_object('zatca',CASE WHEN r.number IS NOT NULL THEN jsonb_build_object('qr',COALESCE(r."clearedQr",r.qr),'status',r.status,'buyer',r.buyer) END) FROM "CashierTaxDocument" d
+  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' || jsonb_build_object('issuedAt',COALESCE(r."reissuedAt",d."issuedAt"),'zatca',CASE WHEN r.number IS NOT NULL THEN jsonb_build_object('qr',COALESCE(r."clearedQr",r.qr),'status',r.status,'buyer',r.buyer) END) FROM "CashierTaxDocument" d
    LEFT JOIN "CashierZatcaReport" r ON (r."businessId",r.number)=(d."businessId",d.number)
    WHERE d."businessId" = "CashierReturn"."businessId" AND d."returnId" = "CashierReturn".id) AS "taxDocument"
 `;
