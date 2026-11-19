@@ -13,7 +13,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ num
   const business = user && await getActiveBusinessForUser(user.id, "laundry");
   if (!business || business.ownerId !== user.id) return new Response(null, { status: 404 });
   const [document] = await db.$queryRaw<Array<{ xml: string }>>`
-    SELECT xml FROM "CashierZatcaReport" WHERE "businessId"=${business.id} AND number=${Number(number)}`;
+    SELECT COALESCE("clearedXml",xml) AS xml FROM "CashierZatcaReport"
+    WHERE "businessId"=${business.id} AND number=${Number(number)} AND (buyer IS NULL OR status='reported')`;
   if (!document) return new Response(null, { status: 404 });
   return new Response(document.xml, { headers: {
     "Content-Type": "application/xml; charset=utf-8",

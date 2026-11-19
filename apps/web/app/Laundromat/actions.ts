@@ -17,6 +17,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
+import { zatcaBuyer } from "../lib/cashier-zatca-document";
 import { cashierTaxProfile, issueCashierTaxDocument } from "../lib/cashier-tax-server";
 import { savedCashierReceipt } from "../lib/cashier-saved-receipt";
 import { cashierValidationMessage } from "../lib/cashier-validation";
@@ -37,7 +38,7 @@ const command = z.discriminatedUnion("type", [
   z.object({type:z.literal("urgent-settings"),enabled:z.boolean(),requestId:key}),
   z.object({ type:z.literal("urgent-price"),id:key,price:z.string(),requestId:key }),
   z.object({ type: z.literal("archive"), id: key, requestId: key }),
-  z.object({ type: z.literal("order"), notificationConsent:z.boolean().default(false), discount:z.object({kind:z.enum(["none","percent","fixed"]),value:z.string().max(20)}).optional(), commission:z.object({name:z.string().trim().min(2).max(100),phone:z.string().min(8).max(40),kind:z.enum(["fixed","percent"]),value:z.string().max(20)}).optional(), vehicleModel:z.string().trim().max(80).optional(),vehiclePlate:z.string().trim().max(30).optional(),vehicleMileage:z.string().trim().max(7).optional(), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().max(100).default(""), phone: z.string().min(8).max(40), dueAt: z.union([z.string().datetime({ offset: true }),z.literal("")]).nullish(), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().min(0.01).max(10000)})).min(1).max(80) }),
+  z.object({ type: z.literal("order"), buyer: z.unknown().optional(), notificationConsent:z.boolean().default(false), discount:z.object({kind:z.enum(["none","percent","fixed"]),value:z.string().max(20)}).optional(), commission:z.object({name:z.string().trim().min(2).max(100),phone:z.string().min(8).max(40),kind:z.enum(["fixed","percent"]),value:z.string().max(20)}).optional(), vehicleModel:z.string().trim().max(80).optional(),vehiclePlate:z.string().trim().max(30).optional(),vehicleMileage:z.string().trim().max(7).optional(), serviceSpeed:z.enum(["normal","urgent"]).default("normal"),priceToken:z.string().max(30000).optional(), useSubscription:z.boolean().default(false),subscriptionToken:z.string().max(30000).optional(),subscriptionCovered:z.coerce.number().int().default(0), readyNotifyConsent:z.boolean().default(false),reminderConsent:z.boolean().default(false),reviewConsent:z.boolean().default(false), requestId: key, customerName: z.string().trim().max(100).default(""), phone: z.string().min(8).max(40), dueAt: z.union([z.string().datetime({ offset: true }),z.literal("")]).nullish(), notes: z.string().trim().max(1000), paid: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0"), items: z.array(z.object({serviceId:key,quantity:z.number().min(0.01).max(10000)})).min(1).max(80) }),
   z.object({ type: z.literal("payment"), requestId: key, id: key, amount: z.string(), method: z.enum(["cash","card","transfer","mixed"]), cashPaid: z.string().default("0") }),
   z.object({ type: z.literal("status"), requestId: key, id: key, status: z.enum(["received","processing","ready","delivered"]) }),
   z.object({ type: z.literal("expense"), requestId: key, description: z.string().trim().min(2).max(200), amount: z.string(), method:z.enum(["cash","transfer","unspecified"]).default("unspecified") }),
@@ -141,6 +142,15 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         if(previous[0]) return {id:previous[0].id};
         await assertInvoiceCapacity(tx,business.id);
         const taxProfile = await cashierTaxProfile(business.id, tx);
+        let buyer;
+        if (data.buyer !== undefined) {
+          const parsedBuyer = zatcaBuyer.extend({ supplyDate: z.string().date() }).safeParse(data.buyer);
+          const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Riyadh" }).format(new Date());
+          if (!parsedBuyer.success || !taxProfile?.enabled || parsedBuyer.data.vatNumber === taxProfile.vatNumber || parsedBuyer.data.supplyDate > today) {
+            throw new LaundryInputError("تحقق من بيانات المشتري ورقمه الضريبي وتاريخ التوريد وتفعيل فوترة الشركات.");
+          }
+          buyer = parsedBuyer.data;
+        }
         if (taxProfile?.enabled && data.useSubscription) {
           throw new LaundryInputError("استخدام رصيد الباقات يتطلب مسار فوترة ضريبية منفصل.");
         }
@@ -172,6 +182,7 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         if (taxProfile?.enabled) {
           if (total <= 0) throw new LaundryInputError("يجب أن يكون إجمالي الفاتورة الضريبية أكبر من صفر.");
           await issueCashierTaxDocument(tx, { businessId: business.id, ticketId: id, gross: total, seller: taxProfile, method: data.method,
+            buyer, supplyDate: buyer?.supplyDate,
             lines: lines.map(line => ({ ...line, gross: line.total })) });
         }
         if(data.commission){

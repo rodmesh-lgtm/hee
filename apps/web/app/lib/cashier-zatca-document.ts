@@ -11,11 +11,19 @@ export const zatcaAddress = z.object({
   postalCode: z.string().regex(/^\d{5}$/),
   crNumber: z.string().regex(/^\d{10}$/),
 });
+export const zatcaBuyer = zatcaAddress.omit({ crNumber: true }).extend({
+  name: text, vatNumber: z.string().regex(/^3[0-9]{13}3$/), region: text,
+});
+export type ZatcaBuyer = z.infer<typeof zatcaBuyer>;
+export type ZatcaScope = "simplified" | "standard";
 export type ZatcaAddress = z.infer<typeof zatcaAddress>;
 export type ZatcaCredentials = { privateKey: string; binarySecurityToken: string; secret: string };
 export type ZatcaLine = { name: string; quantity: number; gross: number; unit?: string };
 
 const sar = (amount: number) => amount / 100;
+const riyadhIssueTime = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Asia/Riyadh", dateStyle: "short", timeStyle: "medium", hourCycle: "h23",
+});
 const units: Record<string, string> = { piece: "PCE", meter: "MTR", square_meter: "MTK" };
 
 export async function zatcaSigningCertificate(credentials: ZatcaCredentials, at = new Date()) {
@@ -42,10 +50,12 @@ export function buildZatcaInvoice(input: {
   vat: number;
   lines: ZatcaLine[];
   method?: string;
+  buyer?: ZatcaBuyer;
+  supplyDate?: string;
   correction?: { number: number; reason: string; debit?: boolean };
 }): Invoice {
-  const { address: { crNumber, ...address }, profile, correction } = input;
-  const issuedAt = input.issuedAt.toISOString();
+  const { address: { crNumber, ...address }, profile, correction, buyer } = input;
+  const issuedAt = buyer ? riyadhIssueTime.format(input.issuedAt) : input.issuedAt.toISOString();
   const net = input.gross - input.vat;
   const grossSum = input.lines.reduce((sum, line) => sum + line.gross, 0);
   if (grossSum !== input.gross || net < 0 || input.gross <= 0 || Math.abs(cashierVatFromGross(input.gross) - input.vat) > 1) {
@@ -79,12 +89,16 @@ export function buildZatcaInvoice(input: {
   return {
     uuid: randomUUID(), id: cashierTaxNumber(input.number), issueDate: issuedAt.slice(0, 10),
     issueTime: issuedAt.slice(11, 19), invoiceTypeCode: correction ? (correction.debit ? "383" : "381") : "388",
-    invoiceSubType: "0200000", documentCurrency: "SAR", taxCurrency: "SAR",
+    invoiceSubType: buyer ? "0100000" : "0200000", documentCurrency: "SAR", taxCurrency: "SAR",
     invoiceCounterValue: input.counter, previousInvoiceHash: input.previousHash ?? initialHash,
     paymentMeansCode: input.method === "cash" ? "10" : input.method === "card" ? "48" : input.method === "transfer" ? "30" : "1",
     seller: { registrationName: profile.sellerName, vatNumber: profile.vatNumber, identification: { schemeId: "CRN", value: crNumber },
       address: { street: address.street, city: address.city, buildingNumber: address.building, citySubdivision: address.district,
         postalCode: address.postalCode, plotIdentification: address.additionalNumber, country: "SA" } },
+    buyer: buyer ? { registrationName: buyer.name, vatNumber: buyer.vatNumber,
+      address: { street: buyer.street, buildingNumber: buyer.building, plotIdentification: buyer.additionalNumber,
+        citySubdivision: buyer.district, city: buyer.city, postalCode: buyer.postalCode, countrySubentity: buyer.region, country: "SA" } } : undefined,
+    actualDeliveryDate: buyer && !correction ? input.supplyDate : undefined,
     lineExtensionAmount: sar(net), taxExclusiveAmount: sar(net), taxInclusiveAmount: sar(input.gross),
     payableAmount: sar(input.gross), taxTotal: sar(input.vat),
     taxSubtotals: [{ taxableAmount: sar(net), taxAmount: sar(input.vat), taxPercent: CASHIER_VAT_RATE, taxCategory: "S" }],
@@ -99,18 +113,33 @@ function unwrap<T>(result: Result<T>): T {
   return result.data;
 }
 
-export async function signZatcaInvoice(document: Invoice, credentials: ZatcaCredentials) {
-  const { buildInvoiceXml, computeInvoiceHashFromXml, createUBLExtensions, formatQrTimestamp,
-    generateTLVString, insertUBLExtensions, replaceQrPlaceholder, verifyInvoiceSignature } = await import("zatca-sdk");
-  const timestamp = formatQrTimestamp(document.issueDate, document.issueTime);
-  const { certificatePem } = await zatcaSigningCertificate(credentials);
+async function assembleZatcaXml(document: Invoice) {
+  const { buildInvoiceXml } = await import("zatca-sdk");
   let index = 0;
   // BT-146 allows extra decimals. Keep the exact per-unit price before hashing.
-  const unsigned = unwrap(buildInvoiceXml(document)).replace(
+  const xml = unwrap(buildInvoiceXml(document)).replace(
     /(<cbc:PriceAmount currencyID="SAR">)[0-9.]+(<\/cbc:PriceAmount>)/g,
     (_match, start: string, end: string) => start + document.lines[index++].unitPrice.toFixed(10) + end,
   );
   if (index !== document.lines.length) throw new Error("ZATCA_PRICE_COUNT_MISMATCH");
+  return xml;
+}
+
+export async function prepareStandardZatcaInvoice(document: Invoice) {
+  if (document.invoiceSubType !== "0100000" || !document.buyer) throw new Error("ZATCA_STANDARD_BUYER_REQUIRED");
+  const { computeInvoiceHashFromXml } = await import("zatca-sdk");
+  const xml = (await assembleZatcaXml(document))
+    .replace(/  <cac:AdditionalDocumentReference>\s*<cbc:ID>QR<\/cbc:ID>[\s\S]*?<\/cac:AdditionalDocumentReference>\n/u, "")
+    .replace(/  <cac:Signature>[\s\S]*?<\/cac:Signature>\n/u, "");
+  return { uuid: document.uuid, hash: unwrap(computeInvoiceHashFromXml(xml)), xml, qr: "" };
+}
+
+export async function signZatcaInvoice(document: Invoice, credentials: ZatcaCredentials) {
+  const { computeInvoiceHashFromXml, createUBLExtensions, formatQrTimestamp, generateTLVString,
+    insertUBLExtensions, replaceQrPlaceholder, verifyInvoiceSignature } = await import("zatca-sdk");
+  const timestamp = formatQrTimestamp(document.issueDate, document.issueTime);
+  const { certificatePem } = await zatcaSigningCertificate(credentials);
+  const unsigned = await assembleZatcaXml(document);
   const hash = unwrap(computeInvoiceHashFromXml(unsigned));
   const signed = unwrap(createUBLExtensions(hash, { certificate: certificatePem, privateKey: credentials.privateKey }));
   const qr = generateTLVString({ sellerName: document.seller.registrationName, vatNumber: document.seller.vatNumber ?? "",

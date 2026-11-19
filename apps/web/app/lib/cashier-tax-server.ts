@@ -2,7 +2,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { attachZatcaArtifact } from "./cashier-zatca-server";
-import type { ZatcaLine } from "./cashier-zatca-document";
+import type { ZatcaLine, ZatcaBuyer } from "./cashier-zatca-document";
 import { LaundryInputError } from "./laundry-domain";
 import { CASHIER_OUTPUT_VAT_ACCOUNT, cashierVatFromGross, type CashierTaxDocument, type CashierTaxProfile } from "./cashier-tax";
 
@@ -43,7 +43,7 @@ export async function cashierOriginalTaxDocument(tx: Prisma.TransactionClient, b
 /** Call within the existing laundry business lock and source transaction. */
 export async function issueCashierTaxDocument(tx: Prisma.TransactionClient, input: {
   businessId: string; ticketId: string; gross: number; seller: Omit<CashierTaxProfile,"enabled">;
-  lines?: ZatcaLine[]; method?: string;
+  lines?: ZatcaLine[]; method?: string; buyer?: ZatcaBuyer; supplyDate?: string;
   credit?: { id: string; originalNumber: number; previousGross: number; reason?: string };
 }) {
   const { businessId, ticketId, gross, seller, credit } = input;
@@ -58,18 +58,18 @@ export async function issueCashierTaxDocument(tx: Prisma.TransactionClient, inpu
     RETURNING number,"issuedAt"
   `;
   if (input.lines) await attachZatcaArtifact(tx, { ...document, businessId, gross, vat, seller, lines: input.lines,
-    method: input.method, credit: credit ? { number: credit.originalNumber, reason: credit.reason ?? "" } : undefined });
+    method: input.method, buyer: input.buyer, supplyDate: input.supplyDate, credit: credit ? { number: credit.originalNumber, reason: credit.reason ?? "" } : undefined });
   return vat;
 }
 
 export const cashierInvoiceTaxDocument = Prisma.sql`
-  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' || jsonb_build_object('zatca',CASE WHEN r.number IS NOT NULL THEN jsonb_build_object('qr',r.qr,'status',r.status) END) FROM "CashierTaxDocument" d
+  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' || jsonb_build_object('zatca',CASE WHEN r.number IS NOT NULL THEN jsonb_build_object('qr',COALESCE(r."clearedQr",r.qr),'status',r.status,'buyer',r.buyer) END) FROM "CashierTaxDocument" d
    LEFT JOIN "CashierZatcaReport" r ON (r."businessId",r.number)=(d."businessId",d.number)
    WHERE d."businessId" = "LaundryTicket"."businessId" AND d."ticketId" = "LaundryTicket".id AND d."returnId" IS NULL) AS "taxDocument"
 `;
 
 export const cashierReturnTaxDocument = Prisma.sql`
-  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' || jsonb_build_object('zatca',CASE WHEN r.number IS NOT NULL THEN jsonb_build_object('qr',r.qr,'status',r.status) END) FROM "CashierTaxDocument" d
+  (SELECT to_jsonb(d) - 'businessId' - 'ticketId' - 'returnId' || jsonb_build_object('zatca',CASE WHEN r.number IS NOT NULL THEN jsonb_build_object('qr',COALESCE(r."clearedQr",r.qr),'status',r.status,'buyer',r.buyer) END) FROM "CashierTaxDocument" d
    LEFT JOIN "CashierZatcaReport" r ON (r."businessId",r.number)=(d."businessId",d.number)
    WHERE d."businessId" = "CashierReturn"."businessId" AND d."returnId" = "CashierReturn".id) AS "taxDocument"
 `;
