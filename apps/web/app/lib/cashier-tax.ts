@@ -54,3 +54,7 @@ export function cashierTaxQrPayload(document: CashierTaxDocument) {
 export function cashierTaxAwaitingClearance(document?: CashierTaxDocument | null) {
   return Boolean(document?.zatca?.buyer && document.zatca.status !== "reported");
 }
+
+export function cashierCanReissueClearance(resultCode: string | null) {
+  return /^CLEARANCE_REJECTED(?::[A-Za-z0-9_.-]{2,48})?$/.test(resultCode ?? "");
+}

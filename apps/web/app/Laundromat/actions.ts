@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
-import { zatcaBuyer } from "../lib/cashier-zatca-document";
+import { zatcaBuyerWithSupplyDate, zatcaRiyadhDate } from "../lib/cashier-zatca-document";
 import { cashierTaxProfile, issueCashierTaxDocument } from "../lib/cashier-tax-server";
 import { savedCashierReceipt } from "../lib/cashier-saved-receipt";
 import { cashierValidationMessage } from "../lib/cashier-validation";
@@ -144,8 +144,8 @@ export async function laundryCommand(value: unknown): Promise<{ok:boolean;error?
         const taxProfile = await cashierTaxProfile(business.id, tx);
         let buyer;
         if (data.buyer !== undefined) {
-          const parsedBuyer = zatcaBuyer.extend({ supplyDate: z.string().date() }).safeParse(data.buyer);
-          const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Riyadh" }).format(new Date());
+          const parsedBuyer = zatcaBuyerWithSupplyDate.safeParse(data.buyer);
+          const today = zatcaRiyadhDate.format(new Date());
           if (!parsedBuyer.success || !taxProfile?.enabled || parsedBuyer.data.vatNumber === taxProfile.vatNumber || parsedBuyer.data.supplyDate > today) {
             throw new LaundryInputError("تحقق من بيانات المشتري ورقمه الضريبي وتاريخ التوريد وتفعيل فوترة الشركات.");
           }

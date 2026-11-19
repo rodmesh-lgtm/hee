@@ -13,6 +13,10 @@ const validation = z.object({
   warningMessages: z.array(z.unknown()).optional(),
   errorMessages: z.array(z.object({ code: z.string().nullish() })).optional(),
 });
+const clearanceRejection = z.object({
+  clearanceStatus: z.literal("NOT_CLEARED"),
+  validationResults: validation.refine(result => result.status === "ERROR"),
+});
 export class ZatcaGatewayError extends Error {
   constructor(readonly code: string, readonly status: number = 0) { super(code); }
 }
@@ -21,6 +25,7 @@ async function gatewayRequest(input: {
   environment: ZatcaEnvironment;
   path: "/compliance" | "/compliance/invoices" | "/production/csids" | "/invoices/reporting/single" | "/invoices/clearance/single";
   body: object;
+  method?: "PATCH";
   auth?: Pick<ZatcaCredentials, "binarySecurityToken" | "secret">;
   otp?: string;
 }) {
@@ -34,14 +39,21 @@ async function gatewayRequest(input: {
   let response: Response;
   try {
     response = await fetch(`https://gw-fatoora.zatca.gov.sa/e-invoicing/${gatewayPaths[input.environment]}${input.path}`, {
-      method: "POST", headers, body: JSON.stringify(input.body), cache: "no-store", redirect: "error",
+      method: input.method ?? "POST", headers, body: JSON.stringify(input.body), cache: "no-store", redirect: "manual",
       signal: AbortSignal.timeout(10_000),
     });
   } catch {
     throw new ZatcaGatewayError("NETWORK");
   }
+  if (input.path === "/invoices/clearance/single" && response.status === 303) {
+    throw new ZatcaGatewayError("CLEARANCE_DISABLED", response.status);
+  }
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {
+    if (input.path === "/invoices/clearance/single" && [400, 422].includes(response.status)) {
+      const rejected = clearanceRejection.safeParse(payload);
+      if (rejected.success) throw new ZatcaGatewayError(`CLEARANCE_REJECTED${zatcaValidationCode(rejected.data.validationResults)}`, response.status);
+    }
     const parsed = z.object({ validationResults: validation }).safeParse(payload);
     const code = parsed.success ? zatcaValidationCode(parsed.data.validationResults) : "";
     throw new ZatcaGatewayError(`HTTP_${response.status}${code}`, response.status);
@@ -59,15 +71,16 @@ function requestBody(artifact: { xml: string; uuid: string; hash: string }) {
   return { invoice: Buffer.from(artifact.xml, "utf8").toString("base64"), uuid: artifact.uuid, invoiceHash: artifact.hash };
 }
 
-export async function onboardZatcaDevice(input: {
+type ZatcaDeviceIdentity = {
   environment: ZatcaEnvironment;
-  otp: string;
   deviceId: string;
   industry: string;
   scope?: ZatcaScope;
   address: ZatcaAddress;
   profile: Omit<CashierTaxProfile, "enabled">;
-}) {
+};
+
+async function generateDeviceCsr(input: ZatcaDeviceIdentity) {
   const { environment, address, profile, deviceId } = input;
   const { EGS } = await import("zatca-sdk");
   const device = new EGS({
@@ -78,7 +91,12 @@ export async function onboardZatcaDevice(input: {
   }, environment);
   const keys = device.generateKeysAndCSR("INFRO");
   if (!keys.success) throw new ZatcaGatewayError("CSR_INVALID");
-  const { csr, privateKey } = keys.data;
+  return keys.data;
+}
+
+export async function onboardZatcaDevice(input: ZatcaDeviceIdentity & { otp: string }) {
+  const { environment, address, profile } = input;
+  const { csr, privateKey } = await generateDeviceCsr(input);
   const compliance = certificate.parse(await gatewayRequest({
     environment, path: "/compliance", body: { csr }, otp: input.otp,
   }));
@@ -108,6 +126,18 @@ export async function onboardZatcaDevice(input: {
   return { credentials: result, expiresAt: (await zatcaSigningCertificate(result)).expiresAt };
 }
 
+export async function renewZatcaProductionDevice(input: Omit<ZatcaDeviceIdentity, "environment"> & {
+  otp: string; credentials: ZatcaCredentials;
+}) {
+  const environment = "production" as const;
+  const { csr, privateKey } = await generateDeviceCsr({ ...input, environment });
+  const renewed = certificate.parse(await gatewayRequest({
+    environment, path: "/production/csids", method: "PATCH", auth: input.credentials, otp: input.otp, body: { csr },
+  }));
+  const credentials = { privateKey, binarySecurityToken: renewed.binarySecurityToken, secret: renewed.secret };
+  return { credentials, expiresAt: (await zatcaSigningCertificate(credentials)).expiresAt };
+}
+
 export async function reportZatcaInvoice(
   artifact: { xml: string; uuid: string; hash: string },
   credentials: ZatcaCredentials,
@@ -135,11 +165,14 @@ export async function clearZatcaInvoice(
   credentials: ZatcaCredentials,
   environment: ZatcaEnvironment = "production",
 ) {
+  const payload = await gatewayRequest({ environment, path: "/invoices/clearance/single", body: requestBody(artifact), auth: credentials });
+  const rejected = clearanceRejection.safeParse(payload);
+  if (rejected.success) throw new ZatcaGatewayError(`CLEARANCE_REJECTED${zatcaValidationCode(rejected.data.validationResults)}`, 200);
   const parsed = z.object({
     clearanceStatus: z.literal("CLEARED"),
     clearedInvoice: z.string().min(16).max(4_000_000).regex(/^[A-Za-z0-9+/]+={0,2}$/),
     validationResults: validation,
-  }).safeParse(await gatewayRequest({ environment, path: "/invoices/clearance/single", body: requestBody(artifact), auth: credentials }));
+  }).safeParse(payload);
   if (!parsed.success || parsed.data.validationResults.status === "ERROR") throw new ZatcaGatewayError("CLEARANCE_NOT_CONFIRMED", 200);
   const xml = Buffer.from(parsed.data.clearedInvoice, "base64").toString("utf8");
   if (/<!DOCTYPE|<!ENTITY/i.test(xml)) throw new ZatcaGatewayError("CLEARANCE_DOCUMENT_INVALID", 200);

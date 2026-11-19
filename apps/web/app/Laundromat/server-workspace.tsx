@@ -31,7 +31,7 @@ export async function AccountingWorkspacePage({searchParams,expectedBusinessId,b
   const localPhone=normalizedPhone.startsWith("+9665")?`0${normalizedPhone.slice(4)}`:normalizedPhone;
   const filter=laundryFilter(params.filter);
   const pattern=`%${q.replace(/[\\%_]/g,"\\$&")}%`;
-  const [services,tickets,totals,expenses,taxProfile,devices,reports]=await Promise.all([
+  const [services,tickets,totals,expenses,taxProfile,devices,reports,books]=await Promise.all([
     db.$queryRaw<LaundryService[]>`SELECT s.*,u.price AS "urgentPrice" FROM "LaundryService" s LEFT JOIN "LaundryService" u ON u.id='urgent:'||s.id AND u."businessId"=s."businessId" AND u.active=TRUE WHERE s."businessId"=${business.id} AND s.active=TRUE AND s.id NOT LIKE 'urgent:%' ORDER BY s.category,s.name`,
     db.$queryRaw<LaundryTicket[]>`SELECT "id","number","customerName","phone","items","total","paid",returned,refunded,"status","dueAt","notes","createdAt",${cashierInvoiceTaxDocument},(SELECT COALESCE(jsonb_agg(jsonb_build_object('method',c.method,'amount',c.amount) ORDER BY c.method),'[]'::jsonb) FROM (SELECT p.method,SUM(p.amount)::int AS amount FROM "LaundryPayment" p WHERE p."businessId"=${business.id} AND p."ticketId"="LaundryTicket".id GROUP BY p.method) c) AS collections,
     (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',s.id,'name',s.name,'kind',s.kind,'originalAmount',s.amount,'usedAmount',COALESCE(used.amount,0),
@@ -42,13 +42,17 @@ export async function AccountingWorkspacePage({searchParams,expectedBusinessId,b
     db.$queryRaw<Array<{active:number;ready:number;outstanding:number;collected:number;expenses:number}>>`SELECT (SELECT COUNT(*)::int FROM "LaundryTicket" WHERE "businessId"=${business.id} AND returned<total AND "status"!='delivered') AS active,(SELECT COUNT(*)::int FROM "LaundryTicket" WHERE "businessId"=${business.id} AND returned<total AND "status"='ready') AS ready,(SELECT COALESCE(SUM(GREATEST(0,"total"-returned-"paid"+refunded)),0)::float8 FROM "LaundryTicket" WHERE "businessId"=${business.id}) AS outstanding,(SELECT COALESCE(SUM("amount"),0)::float8 FROM "LaundryPayment" WHERE "businessId"=${business.id} AND method<>'prepaid') -(SELECT COALESCE(SUM(amount),0)::float8 FROM "CashierRefund" WHERE "businessId"=${business.id} AND method<>'prepaid') AS collected,(SELECT COALESCE(SUM("amount"),0)::float8 FROM "LaundryExpense" WHERE "businessId"=${business.id}) AS expenses`,
     owner?db.$queryRaw<Array<{id:string;description:string;amount:number;createdAt:Date}>>`SELECT * FROM "LaundryExpense" WHERE "businessId"=${business.id} ORDER BY "createdAt" DESC LIMIT 50`:Promise.resolve([]),
     cashierTaxProfile(business.id),
-    db.$queryRaw<Array<{ scope: string; environment: string; active: boolean; expiresAt: Date | null; tested: boolean }>>`
-      SELECT scope,environment,active,"expiresAt","testedAt" IS NOT NULL AND credentials IS NOT NULL AS tested
+    db.$queryRaw<Array<{ scope: string; environment: string; active: boolean; expiresAt: Date | null; renewing: boolean; tested: boolean }>>`
+      SELECT scope,environment,active,"expiresAt","renewalToken" IS NOT NULL AS renewing,"testedAt" IS NOT NULL AND credentials IS NOT NULL AS tested
       FROM "CashierZatcaDevice" WHERE "businessId"=${business.id}`,
     owner ? db.$queryRaw<Array<CashierZatcaStatus["reports"][number] & { clearance: boolean }>>`
-      SELECT r.number,r.status,r."resultCode",r.buyer IS NOT NULL AS clearance,r.buyer IS NULL AND r.status<>'reported' AND d."issuedAt"<now()-interval '24 hours' AS overdue
+      SELECT r.number,r.status,r."resultCode",r.buyer IS NOT NULL AS clearance,
+        CASE WHEN r.status='review' AND r."resultCode" ~ '^CLEARANCE_REJECTED(:|$)' AND r.buyer IS NOT NULL
+          THEN jsonb_build_object('uuid',r.uuid,'buyer',r.buyer,'credit',d."returnId" IS NOT NULL) END AS correction,r.buyer IS NULL AND r.status<>'reported' AND d."issuedAt"<now()-interval '24 hours' AS overdue
       FROM "CashierZatcaReport" r JOIN "CashierTaxDocument" d ON (r."businessId",r.number)=(d."businessId",d.number)
-      WHERE r."businessId"=${business.id} ORDER BY (r.status='reported'),d."issuedAt" DESC LIMIT 25` : Promise.resolve([]),
+      WHERE r."businessId"=${business.id} ORDER BY (r.status='reported'),COALESCE(r."reissuedAt",d."issuedAt") DESC LIMIT 25` : Promise.resolve([]),
+    owner ? db.$queryRaw<Array<{ ready: boolean }>>`
+      SELECT "initializedAt" IS NOT NULL AS ready FROM "LaundryBook" WHERE "businessId"=${business.id}` : Promise.resolve([]),
   ]);
   const legacy=services.some(isClothingPresetService);
   const activity=accountingActivity(business,legacy);
@@ -57,9 +61,9 @@ export async function AccountingWorkspacePage({searchParams,expectedBusinessId,b
   const config = zatcaConfiguration();
   const setupStatus = (scope: string): CashierZatcaStatus => {
     const production = devices.find(device => device.environment === "production" && device.scope === scope);
-    return { configured: config.configured, productionAvailable: config.production, active: production?.active ?? false,
+    return { accountingReady: books[0]?.ready ?? false, configured: config.configured, productionAvailable: config.production, active: production?.active ?? false,
       simulationVerified: devices.some(device => device.environment === "simulation" && device.scope === scope && device.tested),
-      productionReady: Boolean(production?.tested), expiresAt: production?.expiresAt?.toISOString() ?? null,
+      productionReady: Boolean(production?.tested), renewing: Boolean(production?.renewing), certificateExpired: Boolean(production?.expiresAt && production.expiresAt <= new Date()), expiresAt: production?.expiresAt?.toISOString() ?? null,
       reports: reports.filter(report => report.clearance === (scope === "standard")) };
   };
   const standard = setupStatus("standard"), simplified = setupStatus("simplified");

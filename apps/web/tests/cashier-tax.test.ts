@@ -81,3 +81,41 @@ test("tax documents require their own sale or related credit source and preserve
     await pg.close();
   }
 });
+
+test("only definitively rejected B2B attempts can be archived and reissued", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      CREATE TABLE "Business"(id text PRIMARY KEY);
+      CREATE TABLE "LaundryTicket"(id text PRIMARY KEY,"businessId" text,items jsonb,total int,number int,
+        "createdAt" timestamptz DEFAULT now(), UNIQUE("businessId",id));
+      CREATE TABLE "CashierReturn"(id text PRIMARY KEY,"businessId" text,"ticketId" text,amount int,UNIQUE("businessId",id));
+      CREATE FUNCTION cashier_return_immutable() RETURNS TRIGGER LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'IMMUTABLE'; END $$;
+      INSERT INTO "Business" VALUES ('a');
+      INSERT INTO "LaundryTicket"(id,"businessId",items,total,number) VALUES ('sale','a','[]',11500,1);
+    `);
+    for (const migration of ["20261118110000_cashier_tax_documents", "20261118130000_cashier_zatca_phase_two",
+      "20261119130000_cashier_zatca_clearance", "20261119165000_cashier_zatca_clearance_reissues"]) {
+      await pg.exec(await readFile(new URL(`../prisma/migrations/${migration}/migration.sql`, import.meta.url), "utf8"));
+    }
+    await pg.exec(`
+      INSERT INTO "CashierTaxDocument" ("businessId","ticketId",number,"sellerName","sellerAddress","vatNumber",gross,vat)
+        VALUES ('a','sale',1,'البائع','عنوان البائع','300000000000003',11500,1500);
+      INSERT INTO "CashierZatcaDevice" ("businessId",environment,scope,id,seller) VALUES ('a','production','standard','device','{}');
+      INSERT INTO "CashierZatcaReport" ("businessId",number,"deviceId",uuid,icv,hash,xml,qr,buyer,status,"resultCode")
+        VALUES ('a',1,'device','rejected',1,'hash1','xml1','','{}','review','CLEARANCE_NOT_CONFIRMED');
+    `);
+    const reissue = `UPDATE "CashierZatcaReport" SET uuid='new',icv=2,hash='hash2',xml='xml2',status='pending',
+      "resultCode"=NULL,"reissuedAt"=now() WHERE "businessId"='a' AND number=1`;
+    await assert.rejects(pg.exec(reissue), /ARTIFACT_IMMUTABLE/);
+    await pg.exec(`UPDATE "CashierZatcaReport" SET "resultCode"='CLEARANCE_REJECTED:BR-10' WHERE number=1`);
+    await pg.exec(reissue);
+    const archived = await pg.query(`SELECT uuid,"attemptSnapshot"->>'xml' AS xml FROM "CashierZatcaRejectedAttempt"`);
+    assert.deepEqual(archived.rows, [{ uuid:"rejected",xml:"xml1" }]);
+    await assert.rejects(pg.exec(`DELETE FROM "CashierZatcaRejectedAttempt"`), /IMMUTABLE/);
+    await pg.exec(`UPDATE "CashierZatcaReport" SET status='reported',"clearedXml"='stamped',"clearedQr"='qr' WHERE number=1`);
+    await assert.rejects(pg.exec(reissue), /ARTIFACT_IMMUTABLE/);
+  } finally {
+    await pg.close();
+  }
+});
