@@ -89,7 +89,7 @@ export async function onboardZatcaDevice(input: {
   for (const number of [1, 2, 3]) {
     const document = buildZatcaInvoice({
       profile, address, number, counter: number, previousHash, issuedAt,
-      buyer: input.scope === "standard" ? standardZatcaSampleBuyer : undefined, supplyDate: issuedAt.toISOString().slice(0, 10),
+      buyer: input.scope === "standard" ? standardZatcaSampleBuyer : undefined, supplyDate: new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Riyadh" }).format(issuedAt),
       gross: 11500, vat: 1500, lines: [{ name: "خدمة اختبار الربط", quantity: 1, gross: 11500 }],
       correction: original ? { ...original, reason: "اختبار توافق جهاز الإصدار", debit: number === 3 } : undefined,
     });

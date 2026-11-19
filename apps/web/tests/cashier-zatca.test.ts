@@ -97,12 +97,14 @@ test("standard invoices use pre-clearance XML and reject unrelated or unstamped 
     "-keyout", key, "-out", certificate, "-days", "1", "-subj", "/CN=Clearance Fixture"], { stdio: "ignore" });
   const credentials = { privateKey: readFileSync(key, "utf8"), binarySecurityToken: readFileSync(certificate, "utf8"), secret: "fixture" };
   const invoice = buildZatcaInvoice({
-    profile, address, number: 12, counter: 1, previousHash: null, issuedAt: new Date(),
+    profile, address, number: 12, counter: 1, previousHash: null, issuedAt: new Date("2026-11-18T22:10:05Z"),
     buyer: standardZatcaSampleBuyer, supplyDate: "2026-11-18",
     gross: 11500, vat: 1500, lines: [{name:"خدمة",quantity:1,gross:11500}],
   });
   const artifact = await prepareStandardZatcaInvoice(invoice);
   assert.match(artifact.xml, /<cbc:InvoiceTypeCode name="0100000">388/);
+  assert.match(artifact.xml, /<cbc:IssueDate>2026-11-19/);
+  assert.match(artifact.xml, /<cbc:IssueTime>01:10:05/);
   assert.match(artifact.xml, /<cbc:ActualDeliveryDate>2026-11-18/);
   assert.match(artifact.xml, new RegExp(standardZatcaSampleBuyer.vatNumber));
   assert.doesNotMatch(artifact.xml, /<cbc:ID>QR<\/cbc:ID>|<cac:Signature>|<ext:UBLExtensions>/);

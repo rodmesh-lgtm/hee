@@ -21,6 +21,9 @@ export type ZatcaCredentials = { privateKey: string; binarySecurityToken: string
 export type ZatcaLine = { name: string; quantity: number; gross: number; unit?: string };
 
 const sar = (amount: number) => amount / 100;
+const riyadhIssueTime = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Asia/Riyadh", dateStyle: "short", timeStyle: "medium", hourCycle: "h23",
+});
 const units: Record<string, string> = { piece: "PCE", meter: "MTR", square_meter: "MTK" };
 
 export async function zatcaSigningCertificate(credentials: ZatcaCredentials, at = new Date()) {
@@ -52,7 +55,7 @@ export function buildZatcaInvoice(input: {
   correction?: { number: number; reason: string; debit?: boolean };
 }): Invoice {
   const { address: { crNumber, ...address }, profile, correction, buyer } = input;
-  const issuedAt = input.issuedAt.toISOString();
+  const issuedAt = buyer ? riyadhIssueTime.format(input.issuedAt) : input.issuedAt.toISOString();
   const net = input.gross - input.vat;
   const grossSum = input.lines.reduce((sum, line) => sum + line.gross, 0);
   if (grossSum !== input.gross || net < 0 || input.gross <= 0 || Math.abs(cashierVatFromGross(input.gross) - input.vat) > 1) {

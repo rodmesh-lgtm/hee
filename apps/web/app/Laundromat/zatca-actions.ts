@@ -65,7 +65,7 @@ export async function connectCashierZatca(value: unknown) {
     if (input.environment === "simulation") {
       const document = buildZatcaInvoice({
         profile, address: input.address, number: 1, counter: 1, previousHash: null, issuedAt: new Date(),
-        buyer: input.scope === "standard" ? standardZatcaSampleBuyer : undefined, supplyDate: new Date().toISOString().slice(0, 10),
+        buyer: input.scope === "standard" ? standardZatcaSampleBuyer : undefined, supplyDate: new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Riyadh" }).format(new Date()),
         gross: 11500, vat: 1500, lines: [{ name: "خدمة تجريبية في المحاكاة", quantity: 1, gross: 11500 }],
       });
       if (input.scope === "standard") {
