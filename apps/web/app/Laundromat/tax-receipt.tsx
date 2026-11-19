@@ -9,13 +9,18 @@ const issueTime = new Intl.DateTimeFormat("ar-SA-u-ca-gregory", {
 });
 
 export function CashierTaxHeading({ document }: { document: CashierTaxDocument }) {
+  const buyer = document.zatca?.buyer;
   return <>
     <h2>{document.sellerName}</h2>
     <p>{document.sellerAddress}</p>
-    <h3>{document.originalNumber ? "إشعار دائن لفاتورة ضريبية مبسطة" : "فاتورة ضريبية مبسطة"}</h3>
+    <h3>{buyer ? (document.originalNumber ? "إشعار دائن لفاتورة ضريبية لشركة" : "فاتورة ضريبية لشركة") : (document.originalNumber ? "إشعار دائن لفاتورة ضريبية مبسطة" : "فاتورة ضريبية مبسطة")}</h3>
     <p>رقم التسجيل الضريبي <bdi>{document.vatNumber}</bdi></p>
     <p>رقم المستند <bdi>{cashierTaxNumber(document.number)}</bdi></p>
     {document.originalNumber ? <p>مرجع الفاتورة الأصلية <bdi>{cashierTaxNumber(document.originalNumber)}</bdi></p> : null}
+    {buyer ? <section aria-label="بيانات المشتري"><p>{buyer.name}</p>
+      <p>الرقم الضريبي للمشتري <bdi>{buyer.vatNumber}</bdi></p>
+      <p>{buyer.street}، {buyer.building}، {buyer.district}، {buyer.city}، {buyer.postalCode}</p>
+    </section> : null}
     <p>تاريخ الإصدار {issueTime.format(new Date(document.issuedAt))}</p>
   </>;
 }

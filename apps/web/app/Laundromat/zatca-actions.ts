@@ -7,13 +7,16 @@ import { getActiveBusinessForUser } from "../lib/active-business";
 import { getCurrentUserForApiWrite } from "../lib/auth";
 import { db } from "../lib/db";
 import { cashierTaxProfile, ensureCashierOutputVatAccount } from "../lib/cashier-tax-server";
-import { buildZatcaInvoice, signZatcaInvoice, zatcaAddress } from "../lib/cashier-zatca-document";
-import { onboardZatcaDevice, reportZatcaInvoice, ZatcaGatewayError } from "../lib/cashier-zatca-gateway";
+import { buildZatcaInvoice, prepareStandardZatcaInvoice, signZatcaInvoice, zatcaAddress } from "../lib/cashier-zatca-document";
+import { clearZatcaInvoice, onboardZatcaDevice, reportZatcaInvoice, standardZatcaSampleBuyer, ZatcaGatewayError } from "../lib/cashier-zatca-gateway";
 import { sealZatcaCredentials, zatcaConfiguration } from "../lib/cashier-zatca-server";
+
+const scope = z.enum(["simplified", "standard"]).default("simplified");
 
 const connectInput = z.object({
   businessId: z.string().uuid(),
   environment: z.enum(["simulation", "production"]),
+  scope,
   otp: z.string().regex(/^\d{6}$/),
   address: zatcaAddress,
 });
@@ -42,13 +45,13 @@ export async function connectCashierZatca(value: unknown) {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${input.businessId}`}))`;
     if (input.environment === "production") {
       const [simulation] = await tx.$queryRaw<Array<{ testedAt: Date | null }>>`
-        SELECT "testedAt" FROM "CashierZatcaDevice" WHERE "businessId"=${input.businessId} AND environment='simulation' AND seller->>'vatNumber'=${profile.vatNumber}`;
+        SELECT "testedAt" FROM "CashierZatcaDevice" WHERE "businessId"=${input.businessId} AND environment='simulation' AND scope=${input.scope} AND seller->>'vatNumber'=${profile.vatNumber}`;
       if (!simulation?.testedAt) return [];
     }
     return tx.$queryRaw<Array<{ id: string }>>`
-      INSERT INTO "CashierZatcaDevice" ("businessId", environment, id, seller, "onboardingToken", "leaseUntil")
-      VALUES (${input.businessId},${input.environment},${deviceId},${JSON.stringify({ ...input.address, vatNumber: profile.vatNumber })}::jsonb,${token},now()+interval '3 minutes')
-      ON CONFLICT ("businessId",environment) DO UPDATE SET id=EXCLUDED.id,seller=EXCLUDED.seller,
+      INSERT INTO "CashierZatcaDevice" ("businessId", environment, scope, id, seller, "onboardingToken", "leaseUntil")
+      VALUES (${input.businessId},${input.environment},${input.scope},${deviceId},${JSON.stringify({ ...input.address, vatNumber: profile.vatNumber })}::jsonb,${token},now()+interval '3 minutes')
+      ON CONFLICT ("businessId",environment,scope) DO UPDATE SET id=EXCLUDED.id,seller=EXCLUDED.seller,
         "onboardingToken"=EXCLUDED."onboardingToken","leaseUntil"=EXCLUDED."leaseUntil",
         credentials=NULL,"expiresAt"=NULL,"testedAt"=NULL
       WHERE ("CashierZatcaDevice".credentials IS NULL OR EXCLUDED.environment='simulation')
@@ -60,11 +63,16 @@ export async function connectCashierZatca(value: unknown) {
   try {
     const result = await onboardZatcaDevice({ ...input, profile, deviceId, industry: owner.industry });
     if (input.environment === "simulation") {
-      const sample = await signZatcaInvoice(buildZatcaInvoice({
+      const document = buildZatcaInvoice({
         profile, address: input.address, number: 1, counter: 1, previousHash: null, issuedAt: new Date(),
+        buyer: input.scope === "standard" ? standardZatcaSampleBuyer : undefined, supplyDate: new Date().toISOString().slice(0, 10),
         gross: 11500, vat: 1500, lines: [{ name: "خدمة تجريبية في المحاكاة", quantity: 1, gross: 11500 }],
-      }), result.credentials);
-      await reportZatcaInvoice(sample, result.credentials, "simulation");
+      });
+      if (input.scope === "standard") {
+        await clearZatcaInvoice(await prepareStandardZatcaInvoice(document), result.credentials, "simulation");
+      } else {
+        await reportZatcaInvoice(await signZatcaInvoice(document, result.credentials), result.credentials, "simulation");
+      }
     }
     const finalized = await db.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`laundry:${input.businessId}`}))`;
@@ -90,7 +98,7 @@ export async function connectCashierZatca(value: unknown) {
 }
 
 export async function activateCashierZatca(value: unknown) {
-  const parsed = z.object({ businessId: z.string().uuid(), confirmed: z.literal(true) }).safeParse(value);
+  const parsed = z.object({ businessId: z.string().uuid(), confirmed: z.literal(true), scope }).safeParse(value);
   const owner = parsed.success ? await getOwner(parsed.data.businessId) : null;
   if (!parsed.success || !owner) return { ok: false, message: "يلزم تأكيد مالك المنشأة النشطة." };
   const { businessId } = parsed.data;
@@ -104,7 +112,7 @@ export async function activateCashierZatca(value: unknown) {
       if (!owned || !await cashierTaxProfile(businessId, tx)) return 0;
       await ensureCashierOutputVatAccount(tx, businessId);
       const updated = await tx.$executeRaw`UPDATE "CashierZatcaDevice" SET active=TRUE WHERE "businessId"=${businessId}
-        AND environment='production' AND "testedAt" IS NOT NULL AND credentials IS NOT NULL AND "expiresAt">now()`;
+        AND environment='production' AND scope=${parsed.data.scope} AND "testedAt" IS NOT NULL AND credentials IS NOT NULL AND "expiresAt">now()`;
       if (updated) await tx.$executeRaw`UPDATE "CashierTaxProfile" SET enabled=TRUE WHERE "businessId"=${businessId}`;
       return updated;
     });

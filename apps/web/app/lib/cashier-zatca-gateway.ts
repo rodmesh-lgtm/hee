@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { buildZatcaInvoice, signZatcaInvoice, zatcaSigningCertificate, type ZatcaAddress, type ZatcaCredentials } from "./cashier-zatca-document";
+import { buildZatcaInvoice, prepareStandardZatcaInvoice, signZatcaInvoice, zatcaSigningCertificate, type ZatcaAddress, type ZatcaCredentials, type ZatcaScope, type ZatcaBuyer } from "./cashier-zatca-document";
 import type { CashierTaxProfile } from "./cashier-tax";
 
 export type ZatcaEnvironment = "simulation" | "production";
@@ -19,7 +19,7 @@ export class ZatcaGatewayError extends Error {
 
 async function gatewayRequest(input: {
   environment: ZatcaEnvironment;
-  path: "/compliance" | "/compliance/invoices" | "/production/csids" | "/invoices/reporting/single";
+  path: "/compliance" | "/compliance/invoices" | "/production/csids" | "/invoices/reporting/single" | "/invoices/clearance/single";
   body: object;
   auth?: Pick<ZatcaCredentials, "binarySecurityToken" | "secret">;
   otp?: string;
@@ -29,6 +29,7 @@ async function gatewayRequest(input: {
   };
   if (input.auth) headers.Authorization = "Basic " + Buffer.from(`${input.auth.binarySecurityToken}:${input.auth.secret}`).toString("base64");
   if (input.otp) headers.OTP = input.otp;
+  if (input.path === "/invoices/clearance/single") headers["Clearance-Status"] = "1";
   if (input.path === "/invoices/reporting/single") headers["Clearance-Status"] = "0";
   let response: Response;
   try {
@@ -63,6 +64,7 @@ export async function onboardZatcaDevice(input: {
   otp: string;
   deviceId: string;
   industry: string;
+  scope?: ZatcaScope;
   address: ZatcaAddress;
   profile: Omit<CashierTaxProfile, "enabled">;
 }) {
@@ -72,7 +74,7 @@ export async function onboardZatcaDevice(input: {
     uuid: deviceId, branchName: address.city, branchIndustry: input.industry, model: "Cashier",
     location: `${address.building} ${address.street} ${address.city} ${address.postalCode}`,
     commonName: `INFRO-${profile.vatNumber}-${deviceId.slice(0, 8)}`,
-    organizationName: profile.sellerName, countryCode: "SA", vatNumber: profile.vatNumber, invoiceType: "0100",
+    organizationName: profile.sellerName, countryCode: "SA", vatNumber: profile.vatNumber, invoiceType: input.scope === "standard" ? "1000" : "0100",
   }, environment);
   const keys = device.generateKeysAndCSR("INFRO");
   if (!keys.success) throw new ZatcaGatewayError("CSR_INVALID");
@@ -87,10 +89,11 @@ export async function onboardZatcaDevice(input: {
   for (const number of [1, 2, 3]) {
     const document = buildZatcaInvoice({
       profile, address, number, counter: number, previousHash, issuedAt,
+      buyer: input.scope === "standard" ? standardZatcaSampleBuyer : undefined, supplyDate: issuedAt.toISOString().slice(0, 10),
       gross: 11500, vat: 1500, lines: [{ name: "خدمة اختبار الربط", quantity: 1, gross: 11500 }],
       correction: original ? { ...original, reason: "اختبار توافق جهاز الإصدار", debit: number === 3 } : undefined,
     });
-    const signed = await signZatcaInvoice(document, credentials);
+    const signed = input.scope === "standard" ? await prepareStandardZatcaInvoice(document) : await signZatcaInvoice(document, credentials);
     const result = z.object({ validationResults: validation }).parse(await gatewayRequest({
       environment, path: "/compliance/invoices", auth: compliance, body: requestBody(signed),
     }));
@@ -119,4 +122,42 @@ export async function reportZatcaInvoice(
   if (!response.success || response.data.validationResults.status === "ERROR") throw new ZatcaGatewayError("REPORT_NOT_CONFIRMED", 200);
   return response.data.validationResults.status === "WARNING" || response.data.validationResults.warningMessages?.length
     ? "REPORTED_WITH_WARNING" : "REPORTED";
+}
+
+
+export const standardZatcaSampleBuyer: ZatcaBuyer = {
+  name: "شركة اختبار الفوترة", vatNumber: "399999999900003", street: "شارع الاختبار",
+  district: "المرسلات", city: "الرياض", region: "الرياض", building: "1234", additionalNumber: "1234", postalCode: "12461",
+};
+
+export async function clearZatcaInvoice(
+  artifact: { xml: string; uuid: string; hash: string },
+  credentials: ZatcaCredentials,
+  environment: ZatcaEnvironment = "production",
+) {
+  const parsed = z.object({
+    clearanceStatus: z.literal("CLEARED"),
+    clearedInvoice: z.string().min(16).max(4_000_000).regex(/^[A-Za-z0-9+/]+={0,2}$/),
+    validationResults: validation,
+  }).safeParse(await gatewayRequest({ environment, path: "/invoices/clearance/single", body: requestBody(artifact), auth: credentials }));
+  if (!parsed.success || parsed.data.validationResults.status === "ERROR") throw new ZatcaGatewayError("CLEARANCE_NOT_CONFIRMED", 200);
+  const xml = Buffer.from(parsed.data.clearedInvoice, "base64").toString("utf8");
+  if (/<!DOCTYPE|<!ENTITY/i.test(xml)) throw new ZatcaGatewayError("CLEARANCE_DOCUMENT_INVALID", 200);
+  const { parseXML, decodeTLVString, computeInvoiceHashFromXml } = await import("zatca-sdk");
+  const document = parseXML(xml), digest = computeInvoiceHashFromXml(xml);
+  if (!document.success || !digest.success || digest.data !== artifact.hash) throw new ZatcaGatewayError("CLEARANCE_DOCUMENT_INVALID", 200);
+  const root = document.data.documentElement;
+  const cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
+  const cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
+  const uuid = Array.from(root.children).find(child => child.namespaceURI === cbc && child.localName === "UUID")?.textContent;
+  const qrRef = Array.from(root.getElementsByTagNameNS(cac, "AdditionalDocumentReference"))
+    .find(ref => ref.getElementsByTagNameNS(cbc, "ID")[0]?.textContent === "QR");
+  const qr = qrRef?.getElementsByTagNameNS(cbc, "EmbeddedDocumentBinaryObject")[0]?.textContent?.trim();
+  const decoded = qr && decodeTLVString(qr);
+  if (root.localName !== "Invoice" || uuid !== artifact.uuid ||
+      !root.getElementsByTagNameNS("http://www.w3.org/2000/09/xmldsig#", "SignatureValue")[0]?.textContent?.trim() ||
+      !qr || !decoded || !decoded.success || decoded.data.invoiceHash !== artifact.hash) {
+    throw new ZatcaGatewayError("CLEARANCE_DOCUMENT_INVALID", 200);
+  }
+  return { xml, qr, code: parsed.data.validationResults.status === "WARNING" ? "CLEARED_WITH_WARNING" : "CLEARED" };
 }

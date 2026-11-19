@@ -1,3 +1,5 @@
+import type { ZatcaBuyer } from "./cashier-zatca-document";
+
 export const CASHIER_VAT_RATE = 15;
 export const CASHIER_OUTPUT_VAT_ACCOUNT = "2215";
 
@@ -14,7 +16,7 @@ export type CashierTaxDocument = Omit<CashierTaxProfile, "enabled"> & {
   gross: number;
   vat: number;
   originalNumber: number | null;
-  zatca?: { qr: string; status: "pending" | "reported" | "review" } | null;
+  zatca?: { qr: string; status: "pending" | "reported" | "review"; buyer?: ZatcaBuyer | null } | null;
 };
 
 export function cashierVatFromGross(gross: number) {
@@ -47,4 +49,8 @@ export function cashierTaxQrPayload(document: CashierTaxDocument) {
     return [index + 1, utf8.length, ...utf8];
   });
   return btoa(String.fromCharCode(...bytes));
+}
+
+export function cashierTaxAwaitingClearance(document?: CashierTaxDocument | null) {
+  return Boolean(document?.zatca?.buyer && document.zatca.status !== "reported");
 }

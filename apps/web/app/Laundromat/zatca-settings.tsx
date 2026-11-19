@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import type { ZatcaScope } from "../lib/cashier-zatca-document";
 import { activateCashierZatca, connectCashierZatca } from "./zatca-actions";
 
 export type CashierZatcaStatus = {
@@ -14,12 +15,14 @@ export type CashierZatcaStatus = {
   reports: Array<{ number: number; status: "pending" | "reported" | "review"; resultCode: string | null; overdue: boolean }>;
 };
 
-export function CashierZatcaSettings({ businessId, status, taxNumberSaved }: {
+export function CashierZatcaSettings({ businessId, status, taxNumberSaved, scope = "simplified" }: {
   businessId: string;
   status: CashierZatcaStatus;
   taxNumberSaved: boolean;
+  scope?: ZatcaScope;
 }) {
   const router = useRouter();
+  const standard = scope === "standard";
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; message: string }>();
   async function submit(event: FormEvent<HTMLFormElement>, action: "connect" | "activate") {
@@ -31,8 +34,8 @@ export function CashierZatcaSettings({ businessId, status, taxNumberSaved }: {
     setMessage(undefined);
     try {
       const result = action === "activate"
-        ? await activateCashierZatca({ businessId, confirmed: fields.has("confirmed") })
-        : await connectCashierZatca({ businessId, environment: fields.get("environment"),
+        ? await activateCashierZatca({ businessId, scope, confirmed: fields.has("confirmed") })
+        : await connectCashierZatca({ businessId, scope, environment: fields.get("environment"),
           otp: fields.get("otp"), address: Object.fromEntries(fields) });
       setMessage(result);
       if (action === "connect") {
@@ -48,10 +51,10 @@ export function CashierZatcaSettings({ businessId, status, taxNumberSaved }: {
   }
 
   return <section className="ld-panel ld-branding">
-    <div className="ld-panel-title"><h2>الربط مع منصة فاتورة · المرحلة الثانية</h2>
-      <span>{status.active ? "الإصدار والإبلاغ مفعّلان" : status.productionReady ? "جهاز الإنتاج مسجّل" : "بانتظار تهيئة جهاز الإصدار"}</span>
+    <div className="ld-panel-title"><h2>{standard ? "الربط مع منصة فاتورة · فواتير الشركات" : "الربط مع منصة فاتورة · المرحلة الثانية"}</h2>
+      <span>{status.active ? standard ? "اعتماد فواتير الشركات مفعّل" : "الإصدار والإبلاغ مفعّلان" : status.productionReady ? "جهاز الإنتاج مسجّل" : "بانتظار تهيئة جهاز الإصدار"}</span>
     </div>
-    <p className="ld-fine">لإبلاغ المنصة بالفواتير المبسطة للأفراد وإشعاراتها الدائنة. ابدأ بالمحاكاة، ثم سجّل جهاز الإنتاج باستخدام رمز تهيئة جديد عند نجاح المحاكاة.</p>
+    <p className="ld-fine">{standard ? "جهاز مستقل لاعتماد فواتير الشركات وإشعاراتها الدائنة قبل مشاركتها." : "لإبلاغ المنصة بالفواتير المبسطة للأفراد وإشعاراتها الدائنة."} ابدأ بالمحاكاة، ثم سجّل جهاز الإنتاج باستخدام رمز تهيئة جديد عند نجاح المحاكاة.</p>
     {status.expiresAt ? <p>انتهاء شهادة الإنتاج {new Date(status.expiresAt).toLocaleDateString("ar-SA-u-ca-gregory", { timeZone: "Asia/Riyadh" })}</p> : null}
     {status.simulationVerified ? <p className="ld-success">قبلت منصة المحاكاة فاتورة اختبار.</p> : null}
     {!status.configured || !taxNumberSaved ? <p className="ld-fine">{status.configured ? "احفظ بيانات البائع والرقم الضريبي أولًا." : "تهيئة بيئة الربط قيد الإعداد."}</p> : !status.productionReady ? <form onSubmit={event => void submit(event, "connect")}>
@@ -69,13 +72,15 @@ export function CashierZatcaSettings({ businessId, status, taxNumberSaved }: {
       <label>رمز تهيئة الجهاز من فاتورة<input name="otp" type="password" autoComplete="off" inputMode="numeric" pattern="[0-9]{6}" dir="ltr" required/></label>
       <button className="ld-primary" disabled={busy}>{busy ? "جارٍ التحقق…" : "ربط جهاز الإصدار"}</button>
     </form> : status.productionAvailable && !status.active ? <form onSubmit={event => void submit(event, "activate")}>
-      <label><input type="checkbox" name="confirmed" required/> أؤكد أن المنشأة ستصدر فواتير مبسطة للأفراد بأسعار شاملة لضريبة ١٥٪.</label>
-      <button className="ld-primary" disabled={busy}>تفعيل إصدار المرحلة الثانية</button>
+      <label><input type="checkbox" name="confirmed" required/> {standard ? "أؤكد إصدار فواتير الشركات بأسعار شاملة لضريبة ١٥٪." : "أؤكد إصدار فواتير مبسطة للأفراد بأسعار شاملة لضريبة ١٥٪."}</label>
+      <button className="ld-primary" disabled={busy}>{standard ? "تفعيل اعتماد فواتير الشركات" : "تفعيل إصدار المرحلة الثانية"}</button>
     </form> : null}
     {message ? <p role={message.ok ? "status" : "alert"} className={message.ok ? "ld-success" : "ld-alert"}>{message.message}</p> : null}
     {status.reports.length ? <ul>{status.reports.map(report => <li key={report.number}>
-      <a href={`/api/accounting/zatca/xml/${report.number}`}>XML — VAT-{String(report.number).padStart(6, "0")}</a>
-      {" · "}{report.status === "reported" ? "تم الإبلاغ" : report.status === "review" ? "يلزم مراجعة الإبلاغ" : "قيد الإبلاغ"}
+      {!standard || report.status === "reported"
+        ? <a href={`/api/accounting/zatca/xml/${report.number}`}>XML — VAT-{String(report.number).padStart(6, "0")}</a>
+        : <span>VAT-{String(report.number).padStart(6, "0")}</span>}
+      {" · "}{report.status === "reported" ? standard ? "تم الاعتماد" : "تم الإبلاغ" : report.status === "review" ? "يلزم مراجعة المستند" : standard ? "قيد الاعتماد" : "قيد الإبلاغ"}
       {report.overdue ? " · تجاوز ٢٤ ساعة" : ""}{report.resultCode && report.resultCode !== "REPORTED" ? ` · ${report.resultCode}` : ""}
     </li>)}</ul> : null}
   </section>;

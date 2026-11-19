@@ -39,7 +39,7 @@ export async function saveCashierTaxProfile(value: unknown) {
       const owned = await tx.business.findFirst({ where: { id: business.id, ownerId: user.id, deletedAt: null }, select: { id: true } });
       if (!owned) throw new LaundryInputError("المنشأة غير متاحة.");
       const [device] = await tx.$queryRaw<Array<{ active: boolean }>>`SELECT active FROM "CashierZatcaDevice"
-        WHERE "businessId"=${business.id} AND environment='production' AND credentials IS NOT NULL`;
+        WHERE "businessId"=${business.id} AND environment='production' AND credentials IS NOT NULL ORDER BY active DESC LIMIT 1`;
       if (device) {
         const [current] = await tx.$queryRaw<Array<{ sellerName: string; sellerAddress: string; vatNumber: string; enabled: boolean }>>`
           SELECT * FROM "CashierTaxProfile" WHERE "businessId"=${business.id}`;

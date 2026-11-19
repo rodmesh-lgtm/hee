@@ -29,7 +29,7 @@ test("receipt query keeps balances at ticket redemption, includes exhausted unit
  const values:Record<string,string>={"business.id":"shop",pattern:"%",q:"",filter:"all",normalizedPhone:"",'normalizedPhone.replace(/^\\+/,"")':"",localPhone:""};
  const taxSource=await readFile(new URL("../app/lib/cashier-tax-server.ts",import.meta.url),"utf8");
  const taxSelect=taxSource.match(/cashierInvoiceTaxDocument = Prisma\.sql`([\s\S]*?)`/)![1];
- await db.exec('CREATE TABLE "CashierTaxDocument"("businessId" text,"ticketId" text,"returnId" text,number int); CREATE TABLE "CashierZatcaReport"("businessId" text,number int,qr text,status text)');
+ await db.exec('CREATE TABLE "CashierTaxDocument"("businessId" text,"ticketId" text,"returnId" text,number int); CREATE TABLE "CashierZatcaReport"("businessId" text,number int,qr text,status text,buyer jsonb,"clearedQr" text)');
  const parameters:string[]=[];
  const sql=template.replace(/\$\{([^}]+)\}/g,(_,key:string)=>{if(key==="cashierInvoiceTaxDocument")return taxSelect;assert.ok(key in values,key);parameters.push(values[key]);return `$${parameters.length}`;});
  const result=await db.query<{id:string;subscriptionBalances:Array<{id:string;originalAmount:number;usedAmount:number;remaining:number;unitsRemaining:number|null}>}>(sql,parameters);
