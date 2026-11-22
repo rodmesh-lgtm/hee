@@ -1023,7 +1023,7 @@ test.describe("public transactions workflow", () => {
         await page.clock.fastForward(61_000);
         await expect(resend).toBeEnabled();
         await resend.click();
-        await expect(page.getByRole("alert")).toContainText("تعذر إكمال التحقق الآن");
+        await expect(page.getByRole("alert").filter({hasText:"تعذر إكمال التحقق الآن"})).toBeVisible();
         await expect(page.getByLabel("رمز التحقق",{exact:true})).toHaveValue("111111");
         await resend.click();
         await expect(resend).toBeDisabled();
