@@ -121,8 +121,7 @@ export function PublicTransactionLauncher({ serviceRequestEnabled = true, bookin
       setTarget(null);
       return;
     }
-    document.querySelector<HTMLElement>("[data-public-transactions-slot]")?.append(mount);
-    setTarget(mount);
+    setTarget(document.querySelector<HTMLDivElement>("[data-public-transactions-slot]") ?? mount);
     setRibbonTarget(document.querySelector<HTMLElement>("[data-public-booking-ribbon-slot]"));
   }, []);
 
