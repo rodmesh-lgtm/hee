@@ -3,10 +3,11 @@ import "server-only";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { attachDatabasePool } from "@vercel/functions";
-import { Pool } from "pg";
+import type { Pool } from "pg";
 import { isProductionRuntime } from "../app/lib/runtime-environment";
 import { normalizePostgresRuntimeUrl } from "./database-url";
 import { operationalErrorCategory } from "../app/lib/operational-error";
+import { PostgresPool } from "./postgres-pool";
 
 type GlobalPrisma = {
   prisma?: PrismaClient;
@@ -39,7 +40,7 @@ function poolSize() {
 
 function getPool() {
   if (!globalForPrisma.pgPool) {
-    globalForPrisma.pgPool = new Pool({
+    globalForPrisma.pgPool = new PostgresPool({
       connectionString: validatedDatabaseUrl(),
       max: poolSize(),
       idleTimeoutMillis: 30_000,
