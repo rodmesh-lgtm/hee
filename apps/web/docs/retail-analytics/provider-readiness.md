@@ -92,3 +92,10 @@ Local verification: 46 retail runtime tests plus TypeScript and scoped ESLint pa
 The empty analytics hub now offers an interactive, explicitly synthetic demo, also available from the ICG page. It supports Arabic/English, period and branch selection, reconciled invoice totals, partial-refund drilldown, search and a labelled demo CSV. No provider API is called, no customer data is seeded, and demo rows never enter connected reports. Existing analytics authorization remains required.
 
 The ICG discovery checklist reflects the vendor reply supplied by the owner: report exports; Data Exchange FTP/SQL output; Data Exchange Services SOAP; or paid custom development. Availability for the customer's installation, schemas, authentication and refresh cadence remain unverified. This release does not implement an ICG connector or promise real-time access.
+
+
+## ICG Manager 2018 video review
+
+The recording shows the sales, POS, purchases, forecast, finance, accounting, items, documents, master files, time clock and loyalty surfaces, plus My Reports and My Cubes. Forecast includes pre-purchase by supplier/item, pre-sale by customer/item, and budget summaries/detail with margins. My Reports includes tenant-specific definitions, including VAT variants, recurring customers, Sage transfers and manufacturing cost. Those definitions and any user-level report grants require the vendor's confirmation for the customer's installation. The recorded settings and operation menus include actions that fall outside a read-only connection.
+
+The ICG page now provides a bilingual catalog of 63 reporting entries, including 30 linked synthetic previews. Entries list the data needed from ICG. Previews use generated data, including aggregate and detailed examples, and are independent of ERP account reporting. The next live acceptance step is a provider-approved read-only contract and an anonymized export plus control totals for each chosen report family. Currency, tax basis, period semantics, permissions, scope and data freshness must be confirmed before ICG values can enter comparisons across ERP accounts.

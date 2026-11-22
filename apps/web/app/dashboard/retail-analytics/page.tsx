@@ -38,7 +38,7 @@ export default async function RetailAnalyticsPage({ searchParams }: { searchPara
   const providers = [
     { id: 'shopify', name: 'Shopify', ready: retailOAuthReady('shopify'), description: t('المبيعات والمرتجعات والخصومات والمنتجات والمخزون.', 'Sales, refunds, discounts, products and inventory.') },
     { id: 'foodics', name: 'Foodics', ready: retailOAuthReady('foodics'), description: t('حسابات فودكس في لوحة مستقلة. التقارير تنتظر تفعيل الربط الرسمي.', 'A dedicated Foodics workspace. Reports await official integration activation.') },
-    { id: 'icg', name: 'ICG Manager 2018', ready: false, description: t('لوحة مستقلة لحسابات ICG بعد استلام وثائق الربط المعتمدة.', 'A dedicated ICG workspace pending approved integration documentation.') },
+    { id: 'icg', name: 'ICG Manager 2018', ready: false, description: t('دليل تقارير المبيعات والمحاسبة والمخزون، مع معاينات للتجربة.', 'Sales, accounting and inventory report catalog with sample previews.') },
   ];
   const status = (await searchParams).connection;
   const shopifyAccounts = accounts.filter(account => account.provider === 'shopify');
@@ -66,7 +66,7 @@ export default async function RetailAnalyticsPage({ searchParams }: { searchPara
         <h2 className="text-2xl font-bold">{provider.name}</h2><p className="min-h-20 leading-7">{provider.description}</p>
         <p>{t('الحسابات المرتبطة', 'Connected accounts')}: <strong>{own.filter(a => a.status === 'active').length}</strong></p>
         <p className="text-sm">{provider.ready ? t('الربط متاح', 'Connection available') : t('بانتظار استكمال متطلبات المزود', 'Awaiting provider requirements')}</p>
-        <span className="mt-auto rounded-xl bg-teal-600 px-4 py-3 text-center font-bold text-white">{provider.id === 'shopify' && provider.ready ? t('الحسابات والتقارير', 'Accounts and reports') : t('حالة الربط والمتطلبات', 'Connection status and requirements')} {provider.name}</span>
+        <span className="mt-auto rounded-xl bg-teal-600 px-4 py-3 text-center font-bold text-white">{provider.id === 'icg' ? t('استعراض تقارير', 'Explore reports for') : provider.id === 'shopify' && provider.ready ? t('الحسابات والتقارير', 'Accounts and reports') : t('حالة الربط والمتطلبات', 'Connection status and requirements')} {provider.name}</span>
       </Link>;
     })}</section>
     <section aria-labelledby="unified-reports-title" className="space-y-5">

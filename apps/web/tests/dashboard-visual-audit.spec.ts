@@ -604,6 +604,18 @@ test.describe.serial("authenticated INFRO visual audit",()=>{
         const providerRequests: string[] = [];
         page.on("request", request => { if (/\/api\/retail-analytics\/(shopify|foodics|icg)/.test(request.url())) providerRequests.push(request.url()); });
         await page.goto(`${baseUrl}/dashboard/retail-analytics/icg`);
+        const catalog = page.getByTestId("icg-report-center");
+        await expect(catalog.getByRole("heading", { name: "مركز تقارير ICG" })).toBeVisible();
+        await catalog.getByRole("searchbox", { name: "البحث في جميع التقارير" }).fill("دفتر الأستاذ");
+        await expect(catalog.getByRole("heading", { name: "دفتر الأستاذ والحسابات الفرعية" })).toBeVisible();
+        await expect(catalog.getByRole("table").getByRole("row")).toHaveCount(3);
+        await catalog.getByRole("button", { name: "الأصناف والمخزون", exact: true }).click();
+        await catalog.getByRole("combobox", { name: "الفرع التجريبي" }).selectOption("north");
+        await expect(catalog.getByRole("table").getByRole("row")).toHaveCount(4);
+        await catalog.getByRole("searchbox", { name: "البحث في جميع التقارير" }).fill("الميزانية");
+        await expect(catalog.getByText("بانتظار بيانات المصدر وتعريف الحقول لهذا التقرير من مزود الربط.")).toBeVisible();
+        await expect(catalog.getByRole("table")).toHaveCount(0);
+        await page.getByText("تفاصيل الفواتير التجريبية ومتطلبات الربط", { exact: true }).click();
         const demo = page.getByTestId("retail-demo");
         await demo.getByRole("button", {name:"English",exact:true}).click();
         await expect(demo).toHaveAttribute("dir", "ltr");
