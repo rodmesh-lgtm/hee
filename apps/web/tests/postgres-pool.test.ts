@@ -3,9 +3,11 @@ import { test } from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { PostgresPool } from "../lib/postgres-pool";
 
+type ConnectCallback = Parameters<Pool["connect"]>[0];
+
 test("retries a failed connection before returning the checked-out client", async (t) => {
   const client = {} as PoolClient;
-  const acquire = t.mock.method(Pool.prototype, "connect", (callback) => {
+  const acquire = t.mock.method(Pool.prototype, "connect", (callback: ConnectCallback) => {
     if (acquire.mock.callCount() === 0) {
       callback(new Error("Connection terminated due to connection timeout"), undefined, () => {});
     } else {
@@ -31,7 +33,7 @@ test("a pool query runs only once after a recovered checkout", async (t) => {
       callback(null, result);
     },
   } as unknown as PoolClient;
-  const acquire = t.mock.method(Pool.prototype, "connect", (callback) => {
+  const acquire = t.mock.method(Pool.prototype, "connect", (callback: ConnectCallback) => {
     if (acquire.mock.callCount() === 0) {
       callback(new Error("Connection terminated unexpectedly"), undefined, release);
     } else {
@@ -47,7 +49,7 @@ test("a pool query runs only once after a recovered checkout", async (t) => {
 
 test("a persistent connection failure is returned after two attempts", async (t) => {
   const failure = new Error("Connection terminated unexpectedly");
-  const acquire = t.mock.method(Pool.prototype, "connect", (callback) => {
+  const acquire = t.mock.method(Pool.prototype, "connect", (callback: ConnectCallback) => {
     callback(failure, undefined, () => {});
   });
 
@@ -59,7 +61,7 @@ test("does not retry a queue timeout while other requests are waiting", async (t
   const pool = new PostgresPool();
   Object.defineProperty(pool, "waitingCount", { value: 1 });
   const failure = new Error("timeout exceeded when trying to connect");
-  const acquire = t.mock.method(Pool.prototype, "connect", (callback) => {
+  const acquire = t.mock.method(Pool.prototype, "connect", (callback: ConnectCallback) => {
     callback(failure, undefined, () => {});
   });
 
