@@ -45,14 +45,13 @@ export function PublicIdentityHighlights(props: Props) {
   const [socialTarget, setSocialTarget] = useState<HTMLDivElement | null>(null);
   const [profileTarget, setProfileTarget] = useState<HTMLDivElement | null>(null);
   const attachSocialMount = useCallback((mount: HTMLDivElement | null) => {
-    if (!mount) { setSocialTarget(null); return; }
-    document.querySelector<HTMLElement>("[data-public-social-slot]")?.append(mount);
-    setSocialTarget(mount);
+    // Keep the mount in its React parent when leaving the page.
+    const slot = mount && document.querySelector<HTMLDivElement>("[data-public-social-slot]");
+    setSocialTarget(slot ?? mount);
   }, []);
   const attachProfileMount = useCallback((mount: HTMLDivElement | null) => {
-    if (!mount) { setProfileTarget(null); return; }
-    document.querySelector<HTMLElement>("[data-public-profile-slot]")?.append(mount);
-    setProfileTarget(mount);
+    const slot = mount && document.querySelector<HTMLDivElement>("[data-public-profile-slot]");
+    setProfileTarget(slot ?? mount);
   }, []);
 
   if (!props.companyProfileUrl && !props.socialLinks.length) return null;
