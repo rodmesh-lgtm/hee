@@ -2876,11 +2876,17 @@ export const UI_TRANSLATIONS: Record<string, Record<Exclude<AppLocale, "ar">, st
     "es": "Verificar código",
     "ur": "کوڈ کی تصدیق کریں"
   },
-  "تغيير الرقم أو طلب رمز جديد": {
-    "en": "Change number or request a new code",
-    "zh-CN": "更改号码或重新获取验证码",
-    "es": "Cambiar número o solicitar otro código",
-    "ur": "نمبر بدلیں یا نیا کوڈ طلب کریں"
+  "إعادة إرسال رمز التحقق": {
+    "en": "Resend verification code",
+    "zh-CN": "重新发送验证码",
+    "es": "Reenviar código de verificación",
+    "ur": "تصدیقی کوڈ دوبارہ بھیجیں"
+  },
+  "تغيير رقم واتساب": {
+    "en": "Change WhatsApp number",
+    "zh-CN": "更改 WhatsApp 号码",
+    "es": "Cambiar número de WhatsApp",
+    "ur": "واٹس ایپ نمبر بدلیں"
   },
   "خدمة الحجز": {
     "en": "Booked service",

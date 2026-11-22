@@ -17,6 +17,7 @@ import { asciiDigits, bookingAccessCredential, bookingCredentialDigest, bookingD
 export class BookingVerificationError extends Error {
   constructor(public readonly status: number, message: string) { super(message); }
 }
+const BOOKING_RESEND_SECONDS = 60;
 function secret() { const value=process.env.SESSION_SECRET??""; if(value.length<24) throw new BookingVerificationError(503,"التحقق غير جاهز الآن"); return value; }
 export function verificationPhone(value: unknown) { return typeof value === "string" ? normalizeE164(asciiDigits(value), "966") : null; }
 export async function verificationBusiness(slug: string) {
@@ -54,7 +55,7 @@ export async function requestBookingVerification(slug:string, rawPhone:unknown, 
     ORDER BY b."createdAt" DESC,b."id" DESC LIMIT 1`;
   const booking=rows[0];
   // Uniform success shape for absent bookings and suppression; no visitor information before proof.
-  const receipt={challengeId,expiresInSeconds:BOOKING_CODE_TTL_MS/1000};
+  const receipt={challengeId,expiresInSeconds:BOOKING_CODE_TTL_MS/1000,resendAfterSeconds:BOOKING_RESEND_SECONDS};
   if(!booking) return receipt;
   const contact=await db.whatsAppContact.findUnique({where:{businessId_phoneE164:{businessId:business.id,phoneE164:phone}},select:{deletedAt:true,optedOutAt:true}});
   const consentRow=await db.whatsAppConsent.findUnique({where:{businessId_phoneE164:{businessId:business.id,phoneE164:phone}},select:{revokedAt:true}});
@@ -63,7 +64,7 @@ export async function requestBookingVerification(slug:string, rawPhone:unknown, 
   const digest=bookingCredentialDigest("code",challengeId,code,digestSecret);
   const created=await db.$transaction(async tx=>{
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking-verification:${business.id}:${booking.id}`}))`;
-    const recent=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "BookingVisitorVerification" WHERE "businessId"=${business.id} AND "bookingId"=${booking.id} AND "createdAt">CURRENT_TIMESTAMP-INTERVAL '60 seconds' LIMIT 1`;
+    const recent=await tx.$queryRaw<Array<{id:string}>>`SELECT "id" FROM "BookingVisitorVerification" WHERE "businessId"=${business.id} AND "bookingId"=${booking.id} AND "createdAt">CURRENT_TIMESTAMP-make_interval(secs=>${BOOKING_RESEND_SECONDS}::double precision) LIMIT 1`;
     if(recent.length) return false;
     await tx.$executeRaw`UPDATE "BookingVisitorVerification" SET "status"='invalidated' WHERE "businessId"=${business.id} AND "bookingId"=${booking.id} AND "status" IN ('pending','accepted','verified')`;
     await tx.$executeRaw`INSERT INTO "BookingVisitorVerification" ("id","businessId","bookingId","bookingUpdatedAt","codeDigest","expiresAt","consentedAt") VALUES (${challengeId},${business.id},${booking.id},${booking.updatedAt},${digest},CURRENT_TIMESTAMP+INTERVAL '5 minutes',CURRENT_TIMESTAMP)`;
