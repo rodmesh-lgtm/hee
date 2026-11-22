@@ -992,13 +992,43 @@ test.describe("public transactions workflow", () => {
       // OTP verification must never revive a revoked booking-update consent.
       await db.whatsAppConsent.update({ where: { id: consent.id }, data: { revokedAt: new Date() } });
       // Full visitor UI uses real verify/availability/save endpoints. Only initial send is a synthetic CI fixture.
-      const uiChallenge=await acceptedChallenge();const page=await browser.newPage({viewport:{width:390,height:844}});
+      const uiChallenge=await acceptedChallenge();
+      const resentChallenge=await acceptedChallenge();
+      const page=await browser.newPage({viewport:{width:390,height:844}});
       try {
-        await page.route("**/api/public/bookings/verification",async route=>{const data=route.request().postDataJSON();if(data.operation==="verify")await route.continue();else await route.fulfill({status:202,contentType:"application/json",body:JSON.stringify({ok:true,challengeId:uiChallenge,expiresInSeconds:300})});});
+        let requests=0;
+        await page.clock.install();
+        await page.route("**/api/public/bookings/verification",async route=>{
+          const data=route.request().postDataJSON();
+          if(data.operation==="verify"){
+            expect(data.challengeId).toBe(resentChallenge);
+            await route.continue();
+            return;
+          }
+          expect(data).toMatchObject({slug:fixture.slug,phone:"0500009930",consent:true});
+          requests+=1;
+          if(requests===2){
+            await route.fulfill({status:503,json:{ok:false,error:"تعذر إكمال التحقق الآن؛ حاول لاحقًا"}});
+            return;
+          }
+          await route.fulfill({status:202,json:{ok:true,challengeId:requests===1?uiChallenge:resentChallenge,expiresInSeconds:300,resendAfterSeconds:60}});
+        });
         await page.goto(`${baseUrl}/${fixture.slug}/booking`);
         await page.screenshot({path:testInfo.outputPath("visitor-booking-mobile-verification.png"),fullPage:true});
         await page.getByLabel("رقم واتساب",{exact:true}).fill("0500009930");
         await page.getByRole("checkbox").check();await page.getByRole("button",{name:"طلب رمز التحقق",exact:true}).click();
+        const resend=page.getByRole("button",{name:/إعادة إرسال رمز التحقق/});
+        await expect(resend).toBeDisabled();
+        await page.getByLabel("رمز التحقق",{exact:true}).fill("111111");
+        await page.clock.fastForward(61_000);
+        await expect(resend).toBeEnabled();
+        await resend.click();
+        await expect(page.getByRole("alert")).toContainText("تعذر إكمال التحقق الآن");
+        await expect(page.getByLabel("رمز التحقق",{exact:true})).toHaveValue("111111");
+        await resend.click();
+        await expect(resend).toBeDisabled();
+        await expect(page.getByLabel("رمز التحقق",{exact:true})).toHaveValue("");
+        expect(requests).toBe(3);
         await page.getByLabel("رمز التحقق",{exact:true}).fill(code);await page.getByRole("button",{name:"تحقق من الرمز",exact:true}).click();
         await expect(page.getByText(customer.name,{exact:true})).toBeVisible();
         await page.screenshot({path:testInfo.outputPath("visitor-booking-mobile-edit.png"),fullPage:true});
